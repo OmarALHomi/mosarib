@@ -247,6 +247,15 @@ fun CustomerDetailScreen(
                                             fontWeight = FontWeight.Bold
                                         )
                                     )
+                                    if (customerWithBalance.balance != 0.0) {
+                                        Text(
+                                            text = Formatters.amountToArabicWords(Math.abs(customerWithBalance.balance), config.currencySymbol),
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = Color.White.copy(alpha = 0.85f),
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        )
+                                    }
                                 }
 
                                 Button(
@@ -537,7 +546,7 @@ fun AddReceiptBottomSheet(
 
             OutlinedTextField(
                 value = amountStr,
-                onValueChange = { amountStr = it },
+                onValueChange = { amountStr = Formatters.formatAmountInput(it) },
                 label = { Text("المبلغ المقبوض ($currencySymbol) *") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier
@@ -545,6 +554,19 @@ fun AddReceiptBottomSheet(
                     .testTag("receipt_amount_input"),
                 shape = RoundedCornerShape(12.dp)
             )
+
+            val parsedAmt = Formatters.parseAmountInput(amountStr)
+            if (parsedAmt > 0) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = Formatters.amountToArabicWords(parsedAmt, currencySymbol),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = AccentEmerald,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -570,13 +592,13 @@ fun AddReceiptBottomSheet(
 
             Button(
                 onClick = {
-                    val amt = amountStr.toDoubleOrNull() ?: 0.0
+                    val amt = Formatters.parseAmountInput(amountStr)
                     if (amt > 0) {
                         onConfirm(amt, paymentMethod, notes)
                         onDismiss()
                     }
                 },
-                enabled = (amountStr.toDoubleOrNull() ?: 0.0) > 0,
+                enabled = Formatters.parseAmountInput(amountStr) > 0,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)

@@ -351,7 +351,7 @@ fun AddEditSessionBottomSheet(
             // Hourly Rate (Snapshot)
             OutlinedTextField(
                 value = pricePerHourStr,
-                onValueChange = { pricePerHourStr = it },
+                onValueChange = { pricePerHourStr = Formatters.formatAmountInput(it) },
                 label = { Text("سعر ساعة الماء الحالية ($currencySymbol/ساعة)") },
                 leadingIcon = {
                     Icon(Icons.Default.AttachMoney, contentDescription = null, tint = AccentGold)
@@ -362,6 +362,15 @@ fun AddEditSessionBottomSheet(
                     .testTag("session_price_input"),
                 shape = RoundedCornerShape(12.dp)
             )
+
+            if (pricePerHour > 0) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = Formatters.amountToArabicWords(pricePerHour, currencySymbol),
+                    style = MaterialTheme.typography.bodySmall.copy(color = PrimaryTeal, fontWeight = FontWeight.SemiBold),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -382,6 +391,12 @@ fun AddEditSessionBottomSheet(
                                 fontWeight = FontWeight.Bold,
                                 color = PrimaryTeal
                             )
+                        )
+                    }
+                    if (calculatedCost > 0) {
+                        Text(
+                            text = Formatters.amountToArabicWords(calculatedCost, currencySymbol),
+                            style = MaterialTheme.typography.bodySmall.copy(color = PrimaryTeal, fontWeight = FontWeight.Medium)
                         )
                     }
 
@@ -416,6 +431,12 @@ fun AddEditSessionBottomSheet(
                             )
                         )
                     }
+                    if (remainingDebt > 0) {
+                        Text(
+                            text = Formatters.amountToArabicWords(remainingDebt, currencySymbol),
+                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFE53935), fontWeight = FontWeight.Medium)
+                        )
+                    }
                 }
             }
 
@@ -424,7 +445,7 @@ fun AddEditSessionBottomSheet(
             // Amount Paid upfront
             OutlinedTextField(
                 value = amountPaidStr,
-                onValueChange = { amountPaidStr = it },
+                onValueChange = { amountPaidStr = Formatters.formatAmountInput(it) },
                 label = { Text("المبلغ المدفوع فوراً (اختياري)") },
                 placeholder = { Text("0") },
                 leadingIcon = {
@@ -436,6 +457,15 @@ fun AddEditSessionBottomSheet(
                     .testTag("session_paid_input"),
                 shape = RoundedCornerShape(12.dp)
             )
+
+            if (amountPaid > 0) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = Formatters.amountToArabicWords(amountPaid, currencySymbol),
+                    style = MaterialTheme.typography.bodySmall.copy(color = AccentEmerald, fontWeight = FontWeight.SemiBold),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -625,18 +655,28 @@ fun StartLiveTimerBottomSheet(
 
             OutlinedTextField(
                 value = pricePerHourStr,
-                onValueChange = { pricePerHourStr = it },
+                onValueChange = { pricePerHourStr = Formatters.formatAmountInput(it) },
                 label = { Text("سعر الساعة المعتمد لهذه الجلسة ($currencySymbol)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             )
 
+            val parsedLivePrice = Formatters.parseAmountInput(pricePerHourStr)
+            if (parsedLivePrice > 0) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = Formatters.amountToArabicWords(parsedLivePrice, currencySymbol),
+                    style = MaterialTheme.typography.bodySmall.copy(color = PrimaryTeal, fontWeight = FontWeight.SemiBold),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
                 onClick = {
-                    val price = pricePerHourStr.toDoubleOrNull() ?: defaultPricePerHour
+                    val price = if (parsedLivePrice > 0) parsedLivePrice else defaultPricePerHour
                     if (selectedCustomerId > 0) {
                         onStart(
                             selectedCustomerId,
@@ -675,7 +715,7 @@ fun StopLiveTimerBottomSheet(
     var amountPaidStr by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
 
-    val amountPaid by remember { derivedStateOf { amountPaidStr.toDoubleOrNull() ?: 0.0 } }
+    val amountPaid by remember { derivedStateOf { Formatters.parseAmountInput(amountPaidStr) } }
     val remainingDebt by remember { derivedStateOf { Math.max(0.0, liveState.currentCost - amountPaid) } }
 
     ModalBottomSheet(
@@ -750,6 +790,12 @@ fun StopLiveTimerBottomSheet(
                             fontSize = 17.sp
                         )
                     }
+                    if (liveState.currentCost > 0) {
+                        Text(
+                            text = Formatters.amountToArabicWords(liveState.currentCost, currencySymbol),
+                            style = MaterialTheme.typography.bodySmall.copy(color = PrimaryTeal, fontWeight = FontWeight.Medium)
+                        )
+                    }
                 }
             }
 
@@ -757,13 +803,22 @@ fun StopLiveTimerBottomSheet(
 
             OutlinedTextField(
                 value = amountPaidStr,
-                onValueChange = { amountPaidStr = it },
+                onValueChange = { amountPaidStr = Formatters.formatAmountInput(it) },
                 label = { Text("المبلغ المسدد نقداً الآن") },
                 placeholder = { Text("0") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             )
+
+            if (amountPaid > 0) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = Formatters.amountToArabicWords(amountPaid, currencySymbol),
+                    style = MaterialTheme.typography.bodySmall.copy(color = AccentEmerald, fontWeight = FontWeight.SemiBold),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -776,6 +831,12 @@ fun StopLiveTimerBottomSheet(
                     Formatters.formatCurrency(remainingDebt, currencySymbol),
                     fontWeight = FontWeight.Bold,
                     color = if (remainingDebt > 0) Color(0xFFE53935) else AccentEmerald
+                )
+            }
+            if (remainingDebt > 0) {
+                Text(
+                    text = Formatters.amountToArabicWords(remainingDebt, currencySymbol),
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFE53935), fontWeight = FontWeight.Medium)
                 )
             }
 

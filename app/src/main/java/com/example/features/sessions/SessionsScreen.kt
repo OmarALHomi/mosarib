@@ -29,6 +29,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
@@ -99,6 +102,7 @@ fun SessionsScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val liveTimerState by viewModel.liveTimerState.collectAsStateWithLifecycle()
+    val homeStats by viewModel.homeStats.collectAsStateWithLifecycle()
 
     var showAddManualSheet by remember { mutableStateOf(false) }
     var showStartLiveSheet by remember { mutableStateOf(false) }
@@ -117,6 +121,107 @@ fun SessionsScreen(
                     toast = toast,
                     onDismiss = { viewModel.dismissToast() }
                 )
+            }
+
+            // Home Dashboard Statistics (Clean borderless cards with large icons & Tafqeet)
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        StatBoxCard(
+                            title = "ساعات السقي",
+                            value = Formatters.formatDurationArabic(homeStats.totalWaterMinutes),
+                            subtitle = "${homeStats.totalSessionsCount} دورة ري",
+                            icon = Icons.Default.WaterDrop,
+                            accentColor = SecondaryAqua,
+                            modifier = Modifier.weight(1f)
+                        )
+                        StatBoxCard(
+                            title = "المقبوض كاش",
+                            value = Formatters.formatCurrency(homeStats.totalCollectedCash, config.currencySymbol),
+                            subtitle = if (homeStats.totalCollectedCash > 0) Formatters.amountToArabicWords(homeStats.totalCollectedCash, config.currencySymbol) else null,
+                            icon = Icons.Default.ArrowDownward,
+                            accentColor = AccentEmerald,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        StatBoxCard(
+                            title = "ديون متبقية",
+                            value = Formatters.formatCurrency(homeStats.totalOutstandingDebt, config.currencySymbol),
+                            subtitle = if (homeStats.totalOutstandingDebt > 0) Formatters.amountToArabicWords(homeStats.totalOutstandingDebt, config.currencySymbol) else "خالص بالكامل",
+                            icon = Icons.Default.AttachMoney,
+                            accentColor = if (homeStats.totalOutstandingDebt > 0) Color(0xFFE53935) else AccentEmerald,
+                            modifier = Modifier.weight(1f)
+                        )
+                        StatBoxCard(
+                            title = "إجمالي المصاريف",
+                            value = Formatters.formatCurrency(homeStats.totalExpenses, config.currencySymbol),
+                            subtitle = if (homeStats.totalExpenses > 0) Formatters.amountToArabicWords(homeStats.totalExpenses, config.currencySymbol) else null,
+                            icon = Icons.Default.ArrowUpward,
+                            accentColor = Color(0xFFFF5252),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+
+            // Quick Action Buttons (Designed for high visual accessibility / illiterate-friendly)
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (!liveTimerState.isRunning) {
+                        Button(
+                            onClick = {
+                                if (customers.isEmpty()) {
+                                    viewModel.showToast("يرجى إضافة عميل أولاً لبدء العداد", com.example.core.ui.ToastType.WARNING)
+                                } else {
+                                    showStartLiveSheet = true
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald)
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("تشغيل العداد", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            if (customers.isEmpty()) {
+                                viewModel.showToast("يرجى إضافة عميل أولاً", com.example.core.ui.ToastType.WARNING)
+                            } else {
+                                showAddManualSheet = true
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
+                    ) {
+                        Icon(Icons.Default.WaterDrop, contentDescription = null)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("دورة ماء جديدة", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    }
+                }
             }
 
             // Live Timer Active Card
@@ -699,6 +804,10 @@ fun SessionCardItem(
                         text = Formatters.formatCurrency(session.totalAmount, currencySymbol),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal)
                     )
+                    Text(
+                        text = Formatters.amountToArabicWords(session.totalAmount, currencySymbol),
+                        style = MaterialTheme.typography.labelSmall.copy(color = PrimaryTeal, fontWeight = FontWeight.Medium)
+                    )
                 }
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -724,6 +833,12 @@ fun SessionCardItem(
                             color = if (session.remainingDebt > 0) Color(0xFFE53935) else AccentEmerald
                         )
                     )
+                    if (session.remainingDebt > 0) {
+                        Text(
+                            text = Formatters.amountToArabicWords(session.remainingDebt, currencySymbol),
+                            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFE53935), fontWeight = FontWeight.Medium)
+                        )
+                    }
                 }
             }
 

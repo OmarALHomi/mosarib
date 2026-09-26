@@ -147,7 +147,7 @@ fun SettingsScreen(
 
                     OutlinedTextField(
                         value = defaultPriceStr,
-                        onValueChange = { defaultPriceStr = it },
+                        onValueChange = { defaultPriceStr = Formatters.formatAmountInput(it) },
                         label = { Text("السعر الافتراضي لكل ساعة ري ($currencySymbol)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier
@@ -155,6 +155,16 @@ fun SettingsScreen(
                             .testTag("default_price_input"),
                         shape = RoundedCornerShape(12.dp)
                     )
+
+                    val parsedDefPrice = Formatters.parseAmountInput(defaultPriceStr)
+                    if (parsedDefPrice > 0) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = Formatters.amountToArabicWords(parsedDefPrice, currencySymbol),
+                            style = MaterialTheme.typography.bodySmall.copy(color = PrimaryTeal, fontWeight = FontWeight.SemiBold),
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -178,7 +188,7 @@ fun SettingsScreen(
 
                     Button(
                         onClick = {
-                            val p = defaultPriceStr.toDoubleOrNull() ?: 5000.0
+                            val p = if (parsedDefPrice > 0) parsedDefPrice else 5000.0
                             viewModel.updateDefaultPricePerHour(p)
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -555,12 +565,22 @@ fun AddEditPumpBottomSheet(
 
             OutlinedTextField(
                 value = priceStr,
-                onValueChange = { priceStr = it },
+                onValueChange = { priceStr = Formatters.formatAmountInput(it) },
                 label = { Text("سعر ساعة الماء الافتراضي لهذه المضخة ($currencySymbol)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             )
+
+            val parsedPumpPrice = Formatters.parseAmountInput(priceStr)
+            if (parsedPumpPrice > 0) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = Formatters.amountToArabicWords(parsedPumpPrice, currencySymbol),
+                    style = MaterialTheme.typography.bodySmall.copy(color = PrimaryTeal, fontWeight = FontWeight.SemiBold),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -586,7 +606,7 @@ fun AddEditPumpBottomSheet(
 
             Button(
                 onClick = {
-                    val price = priceStr.toDoubleOrNull() ?: 5000.0
+                    val price = if (parsedPumpPrice > 0) parsedPumpPrice else 5000.0
                     if (name.isNotBlank()) {
                         onSave(initialPump?.id ?: 0L, name, location, price, powerType, notes)
                         onDismiss()

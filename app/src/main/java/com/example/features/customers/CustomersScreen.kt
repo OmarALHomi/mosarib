@@ -373,19 +373,31 @@ fun CustomerCardItem(
                     )
                 }
 
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(balanceBg)
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = balanceText,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = balanceColor,
-                            fontWeight = FontWeight.Bold
+                Column(horizontalAlignment = Alignment.End) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(balanceBg)
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = balanceText,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = balanceColor,
+                                fontWeight = FontWeight.Bold
+                            )
                         )
-                    )
+                    }
+                    if (item.balance != 0.0) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = Formatters.amountToArabicWords(Math.abs(item.balance), currencySymbol),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = balanceColor,
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    }
                 }
             }
 

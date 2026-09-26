@@ -43,6 +43,14 @@ data class LiveTimerState(
     val currentCost: Double = 0.0
 )
 
+data class HomeDashboardStats(
+    val totalWaterMinutes: Int = 0,
+    val totalSessionsCount: Int = 0,
+    val totalCollectedCash: Double = 0.0,
+    val totalOutstandingDebt: Double = 0.0,
+    val totalExpenses: Double = 0.0
+)
+
 enum class SessionFilter {
     ALL, TODAY, THIS_WEEK, THIS_MONTH
 }
@@ -96,6 +104,30 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
             }
         }
     }
+
+    val homeStats: StateFlow<HomeDashboardStats> =
+        combine(
+            sessionRepo.allSessions,
+            voucherRepo.allVouchers
+        ) { sessions, vouchers ->
+            val totalMinutes = sessions.sumOf { it.durationMinutes }
+            val totalSessions = sessions.size
+            val sessionPaid = sessions.sumOf { it.amountPaid }
+            val receiptVouchers = vouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount }
+            val discountVouchers = vouchers.filter { it.type == VoucherType.DISCOUNT }.sumOf { it.amount }
+            val totalBilled = sessions.sumOf { it.totalAmount }
+            val totalCollected = sessionPaid + receiptVouchers
+            val totalDebts = Math.max(0.0, totalBilled - (totalCollected + discountVouchers))
+            val totalExpenses = vouchers.filter { it.type == VoucherType.EXPENSE }.sumOf { it.amount }
+
+            HomeDashboardStats(
+                totalWaterMinutes = totalMinutes,
+                totalSessionsCount = totalSessions,
+                totalCollectedCash = totalCollected,
+                totalOutstandingDebt = totalDebts,
+                totalExpenses = totalExpenses
+            )
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeDashboardStats())
 
     val filteredSessions: StateFlow<List<WaterSessionWithCustomer>> =
         combine(sessionRepo.sessionsWithCustomer, _filter, _searchQuery) { list, filterType, query ->
