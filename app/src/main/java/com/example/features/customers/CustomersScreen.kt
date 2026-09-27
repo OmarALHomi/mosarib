@@ -213,7 +213,7 @@ fun CustomersScreen(
         ExtendedFloatingActionButton(
             onClick = { showAddSheet = true },
             modifier = Modifier
-                .align(Alignment.BottomEnd)
+                .align(Alignment.BottomStart)
                 .padding(16.dp)
                 .testTag("fab_add_customer"),
             containerColor = PrimaryTeal,

@@ -284,6 +284,9 @@ fun SessionsScreen(
             icon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(26.dp)) },
             text = { Text("دورة جديدة", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
             modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(16.dp)
+                .testTag("fab_add_session")
         )
 
         LuxuryToastNotification(
