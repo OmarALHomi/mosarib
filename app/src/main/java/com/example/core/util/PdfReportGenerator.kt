@@ -391,6 +391,122 @@ object PdfReportGenerator {
         return file
     }
 
+    /**
+     * Generates a Cash Receipt / Payment Voucher PDF
+     */
+    fun generateReceiptVoucherPdf(
+        context: Context,
+        config: AppConfig,
+        customer: Customer,
+        voucher: Voucher
+    ): File {
+        val document = PdfDocument()
+        val pageWidth = 595
+        val pageHeight = 520
+        val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
+        val page = document.startPage(pageInfo)
+        val canvas: Canvas = page.canvas
+
+        val primaryColor = 0xFF007A87.toInt()
+        val darkTextColor = 0xFF132228.toInt()
+        val lightGray = 0xFFF5F9FA.toInt()
+        val dividerGray = 0xFFD2DFE5.toInt()
+        val paidGreen = 0xFF2E7D32.toInt()
+
+        val paint = Paint().apply { isAntiAlias = true }
+
+        // Header
+        paint.color = primaryColor
+        canvas.drawRect(0f, 0f, pageWidth.toFloat(), 85f, paint)
+
+        paint.color = Color.WHITE
+        paint.textSize = 22f
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.textAlign = Paint.Align.CENTER
+        canvas.drawText("سند قبض وتحصيل نقدي", pageWidth / 2f, 38f, paint)
+
+        paint.textSize = 12f
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        canvas.drawText("${config.distributorName} - جوال: ${config.distributorPhone}", pageWidth / 2f, 64f, paint)
+
+        // Voucher metadata
+        paint.color = darkTextColor
+        paint.textSize = 12f
+        paint.textAlign = Paint.Align.RIGHT
+        canvas.drawText("رقم السند: ${voucher.voucherNumber.ifEmpty { "#${voucher.id}" }}", pageWidth - 35f, 115f, paint)
+        canvas.drawText("تاريخ السند: ${Formatters.formatDateTime(voucher.date)}", pageWidth - 35f, 135f, paint)
+
+        paint.textAlign = Paint.Align.LEFT
+        canvas.drawText("طريقة الدفع: ${voucher.paymentMethod}", 35f, 115f, paint)
+        canvas.drawText("نوع المعاملة: سداد حساب ري", 35f, 135f, paint)
+
+        // Customer details block
+        val rectCustomer = RectF(30f, 155f, pageWidth - 30f, 215f)
+        paint.color = lightGray
+        canvas.drawRoundRect(rectCustomer, 8f, 8f, paint)
+
+        paint.color = darkTextColor
+        paint.textAlign = Paint.Align.RIGHT
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.textSize = 13f
+        canvas.drawText("وصلنا من العميل: ${customer.name}", pageWidth - 45f, 180f, paint)
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        paint.textSize = 11f
+        canvas.drawText("المزرعة: ${customer.farmName.ifEmpty { "غير محدد" }}  |  الهاتف: ${customer.phone}", pageWidth - 45f, 202f, paint)
+
+        // Amount Box
+        val amtRect = RectF(30f, 230f, pageWidth - 30f, 320f)
+        paint.color = 0xFFE8F5E9.toInt()
+        canvas.drawRoundRect(amtRect, 10f, 10f, paint)
+
+        paint.color = paidGreen
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.textSize = 13f
+        paint.textAlign = Paint.Align.RIGHT
+        canvas.drawText("مبلغ وقدره:", pageWidth - 45f, 260f, paint)
+
+        paint.textSize = 22f
+        canvas.drawText(Formatters.formatCurrency(voucher.amount, config.currencySymbol), pageWidth - 140f, 262f, paint)
+
+        paint.color = darkTextColor
+        paint.textSize = 12f
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        val words = Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)
+        canvas.drawText("فقط: $words", pageWidth - 45f, 298f, paint)
+
+        // Notes box
+        if (voucher.notes.isNotEmpty()) {
+            paint.color = darkTextColor
+            paint.textSize = 11f
+            paint.textAlign = Paint.Align.RIGHT
+            canvas.drawText("ملاحظات: ${voucher.notes}", pageWidth - 35f, 355f, paint)
+        }
+
+        // Footer & Signatures
+        paint.color = dividerGray
+        canvas.drawLine(30f, pageHeight - 65f, pageWidth - 30f, pageHeight - 65f, paint)
+
+        paint.color = darkTextColor
+        paint.textSize = 10.5f
+        paint.textAlign = Paint.Align.RIGHT
+        canvas.drawText("توقيع المستلم (المسرب): ....................", pageWidth - 50f, pageHeight - 35f, paint)
+
+        paint.textAlign = Paint.Align.LEFT
+        canvas.drawText("توقيع المسدد (العميل): ....................", 50f, pageHeight - 35f, paint)
+
+        document.finishPage(page)
+
+        val reportDir = File(context.cacheDir, "reports")
+        if (!reportDir.exists()) reportDir.mkdirs()
+        val file = File(reportDir, "voucher_${voucher.id}_${System.currentTimeMillis()}.pdf")
+        val fos = FileOutputStream(file)
+        document.writeTo(fos)
+        fos.close()
+        document.close()
+
+        return file
+    }
+
     private fun drawSummaryBox(
         canvas: Canvas,
         x: Float,

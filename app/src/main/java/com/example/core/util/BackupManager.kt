@@ -137,6 +137,43 @@ object BackupManager {
         backupFile
     }
 
+    data class BackupFileInfo(
+        val file: File,
+        val name: String,
+        val formattedDate: String,
+        val sizeText: String
+    )
+
+    fun getAvailableBackups(context: Context): List<BackupFileInfo> {
+        val backupDir = File(context.filesDir, "backups")
+        if (!backupDir.exists()) return emptyList()
+        val sdf = SimpleDateFormat("yyyy/MM/dd - hh:mm a", Locale.forLanguageTag("ar"))
+        return backupDir.listFiles { _, name -> name.endsWith(".json") }
+            ?.sortedByDescending { it.lastModified() }
+            ?.map { file ->
+                val sizeKb = (file.length() / 1024.0)
+                val sizeStr = if (sizeKb < 1.0) "${file.length()} بايت" else String.format(Locale.US, "%.1f ك.ب", sizeKb)
+                BackupFileInfo(
+                    file = file,
+                    name = file.name,
+                    formattedDate = sdf.format(Date(file.lastModified())),
+                    sizeText = sizeStr
+                )
+            } ?: emptyList()
+    }
+
+    fun deleteBackup(file: File): Boolean {
+        return runCatching { if (file.exists()) file.delete() else false }.getOrDefault(false)
+    }
+
+    suspend fun restoreFromFile(context: Context, database: AppDatabase, file: File): Result<Int> = withContext(Dispatchers.IO) {
+        runCatching {
+            val jsonString = file.readText(Charsets.UTF_8)
+            val root = JSONObject(jsonString)
+            restoreFromJsonObject(database, root)
+        }
+    }
+
     suspend fun restoreFromJson(context: Context, database: AppDatabase, uri: Uri): Result<Int> = withContext(Dispatchers.IO) {
         runCatching {
             val stringBuilder = java.lang.StringBuilder()
@@ -151,111 +188,115 @@ object BackupManager {
             }
 
             val root = JSONObject(stringBuilder.toString())
-            var count = 0
-
-            // Restore Customers
-            if (root.has("customers")) {
-                val array = root.getJSONArray("customers")
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    val customer = Customer(
-                        id = obj.optLong("id", 0),
-                        name = obj.getString("name"),
-                        phone = obj.optString("phone", ""),
-                        farmName = obj.optString("farmName", ""),
-                        location = obj.optString("location", ""),
-                        notes = obj.optString("notes", ""),
-                        customPricePerHour = if (obj.has("customPricePerHour")) obj.getDouble("customPricePerHour") else null,
-                        createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
-                        isArchived = obj.optBoolean("isArchived", false)
-                    )
-                    database.customerDao().insertCustomer(customer)
-                    count++
-                }
-            }
-
-            // Restore Pumps
-            if (root.has("pumps")) {
-                val array = root.getJSONArray("pumps")
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    val pump = PumpSource(
-                        id = obj.optLong("id", 0),
-                        name = obj.getString("name"),
-                        locationOrWellNumber = obj.optString("locationOrWellNumber", ""),
-                        defaultPricePerHour = obj.optDouble("defaultPricePerHour", 5000.0),
-                        powerType = obj.optString("powerType", "ديزل"),
-                        notes = obj.optString("notes", ""),
-                        isPrimary = obj.optBoolean("isPrimary", false),
-                        isActive = obj.optBoolean("isActive", true)
-                    )
-                    database.pumpSourceDao().insertPump(pump)
-                    count++
-                }
-            }
-
-            // Restore Water Sessions
-            if (root.has("sessions")) {
-                val array = root.getJSONArray("sessions")
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    val session = WaterSession(
-                        id = obj.optLong("id", 0),
-                        customerId = obj.getLong("customerId"),
-                        pumpName = obj.optString("pumpName", "المضخة الرئيسية"),
-                        startTime = obj.optLong("startTime", System.currentTimeMillis()),
-                        endTime = obj.optLong("endTime", System.currentTimeMillis()),
-                        durationMinutes = obj.optInt("durationMinutes", 0),
-                        pricePerHour = obj.optDouble("pricePerHour", 5000.0),
-                        totalAmount = obj.optDouble("totalAmount", 0.0),
-                        amountPaid = obj.optDouble("amountPaid", 0.0),
-                        remainingDebt = obj.optDouble("remainingDebt", 0.0),
-                        notes = obj.optString("notes", ""),
-                        isLive = obj.optBoolean("isLive", false),
-                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
-                    )
-                    database.waterSessionDao().insertSession(session)
-                    count++
-                }
-            }
-
-            // Restore Vouchers
-            if (root.has("vouchers")) {
-                val array = root.getJSONArray("vouchers")
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    val typeStr = obj.optString("type", "RECEIPT")
-                    val vType = runCatching { VoucherType.valueOf(typeStr) }.getOrDefault(VoucherType.RECEIPT)
-                    val voucher = Voucher(
-                        id = obj.optLong("id", 0),
-                        voucherNumber = obj.optString("voucherNumber", ""),
-                        type = vType,
-                        customerId = if (obj.has("customerId") && !obj.isNull("customerId")) obj.getLong("customerId") else null,
-                        amount = obj.optDouble("amount", 0.0),
-                        category = obj.optString("category", "عام"),
-                        paymentMethod = obj.optString("paymentMethod", "نقداً"),
-                        date = obj.optLong("date", System.currentTimeMillis()),
-                        notes = obj.optString("notes", ""),
-                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
-                    )
-                    database.voucherDao().insertVoucher(voucher)
-                    count++
-                }
-            }
-
-            // Restore Settings
-            if (root.has("settings")) {
-                val array = root.getJSONArray("settings")
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    val key = obj.getString("key")
-                    val value = obj.getString("value")
-                    database.appSettingDao().saveSetting(AppSetting(key, value))
-                }
-            }
-
-            count
+            restoreFromJsonObject(database, root)
         }
+    }
+
+    private suspend fun restoreFromJsonObject(database: AppDatabase, root: JSONObject): Int {
+        var count = 0
+
+        // Restore Customers
+        if (root.has("customers")) {
+            val array = root.getJSONArray("customers")
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val customer = Customer(
+                    id = obj.optLong("id", 0),
+                    name = obj.getString("name"),
+                    phone = obj.optString("phone", ""),
+                    farmName = obj.optString("farmName", ""),
+                    location = obj.optString("location", ""),
+                    notes = obj.optString("notes", ""),
+                    customPricePerHour = if (obj.has("customPricePerHour")) obj.getDouble("customPricePerHour") else null,
+                    createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                    isArchived = obj.optBoolean("isArchived", false)
+                )
+                database.customerDao().insertCustomer(customer)
+                count++
+            }
+        }
+
+        // Restore Pumps
+        if (root.has("pumps")) {
+            val array = root.getJSONArray("pumps")
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val pump = PumpSource(
+                    id = obj.optLong("id", 0),
+                    name = obj.getString("name"),
+                    locationOrWellNumber = obj.optString("locationOrWellNumber", ""),
+                    defaultPricePerHour = obj.optDouble("defaultPricePerHour", 5000.0),
+                    powerType = obj.optString("powerType", "ديزل"),
+                    notes = obj.optString("notes", ""),
+                    isPrimary = obj.optBoolean("isPrimary", false),
+                    isActive = obj.optBoolean("isActive", true)
+                )
+                database.pumpSourceDao().insertPump(pump)
+                count++
+            }
+        }
+
+        // Restore Water Sessions
+        if (root.has("sessions")) {
+            val array = root.getJSONArray("sessions")
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val session = WaterSession(
+                    id = obj.optLong("id", 0),
+                    customerId = obj.getLong("customerId"),
+                    pumpName = obj.optString("pumpName", "المضخة الرئيسية"),
+                    startTime = obj.optLong("startTime", System.currentTimeMillis()),
+                    endTime = obj.optLong("endTime", System.currentTimeMillis()),
+                    durationMinutes = obj.optInt("durationMinutes", 0),
+                    pricePerHour = obj.optDouble("pricePerHour", 5000.0),
+                    totalAmount = obj.optDouble("totalAmount", 0.0),
+                    amountPaid = obj.optDouble("amountPaid", 0.0),
+                    remainingDebt = obj.optDouble("remainingDebt", 0.0),
+                    notes = obj.optString("notes", ""),
+                    isLive = obj.optBoolean("isLive", false),
+                    createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                )
+                database.waterSessionDao().insertSession(session)
+                count++
+            }
+        }
+
+        // Restore Vouchers
+        if (root.has("vouchers")) {
+            val array = root.getJSONArray("vouchers")
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val typeStr = obj.optString("type", "RECEIPT")
+                val vType = runCatching { VoucherType.valueOf(typeStr) }.getOrDefault(VoucherType.RECEIPT)
+                val voucher = Voucher(
+                    id = obj.optLong("id", 0),
+                    voucherNumber = obj.optString("voucherNumber", ""),
+                    type = vType,
+                    customerId = if (obj.has("customerId") && !obj.isNull("customerId")) obj.getLong("customerId") else null,
+                    amount = obj.optDouble("amount", 0.0),
+                    category = obj.optString("category", "عام"),
+                    paymentMethod = obj.optString("paymentMethod", "نقداً"),
+                    date = obj.optLong("date", System.currentTimeMillis()),
+                    notes = obj.optString("notes", ""),
+                    createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                )
+                database.voucherDao().insertVoucher(voucher)
+                count++
+            }
+        }
+
+        // Restore Settings
+        if (root.has("settings")) {
+            val array = root.getJSONArray("settings")
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val key = obj.getString("key")
+                val value = obj.getString("value")
+                database.appSettingDao().saveSetting(AppSetting(key, value))
+            }
+        }
+
+        return count
     }
 
     fun shareBackupToDriveOrApps(context: Context, backupFile: File) {
@@ -268,7 +309,7 @@ object BackupManager {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "application/json"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - تطبيق مُسَرِب موزع الماء")
+            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - تطبيق مسارب")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
@@ -281,11 +322,26 @@ object BackupManager {
     suspend fun saveBackupToPhoneDownloads(context: Context, database: AppDatabase): Result<File> = withContext(Dispatchers.IO) {
         runCatching {
             val backupFile = createBackupJson(context, database)
-            val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
-            if (!downloadsDir.exists()) downloadsDir.mkdirs()
-            val targetFile = File(downloadsDir, backupFile.name)
-            backupFile.copyTo(targetFile, overwrite = true)
-            targetFile
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                val contentValues = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, backupFile.name)
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/json")
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/MusarribBackups")
+                }
+                val uri = context.contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                if (uri != null) {
+                    context.contentResolver.openOutputStream(uri)?.use { os ->
+                        backupFile.inputStream().use { it.copyTo(os) }
+                    }
+                }
+            } else {
+                val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                val subDir = File(downloadsDir, "MusarribBackups")
+                if (!subDir.exists()) subDir.mkdirs()
+                val targetFile = File(subDir, backupFile.name)
+                backupFile.copyTo(targetFile, overwrite = true)
+            }
+            backupFile
         }
     }
 }

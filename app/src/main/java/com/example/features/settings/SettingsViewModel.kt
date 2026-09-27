@@ -10,6 +10,7 @@ import com.example.core.ui.ToastType
 import com.example.core.util.BackupManager
 import com.example.features.pumps.PumpSource
 import com.example.features.pumps.PumpSourceRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -105,6 +106,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    private val _savedBackups = MutableStateFlow<List<BackupManager.BackupFileInfo>>(emptyList())
+    val savedBackups: StateFlow<List<BackupManager.BackupFileInfo>> = _savedBackups.asStateFlow()
+
+    init {
+        loadBackups()
+    }
+
+    fun loadBackups() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _savedBackups.value = BackupManager.getAvailableBackups(getApplication())
+        }
+    }
+
     /**
      * Backup to file and launch Drive sharing intent
      */
@@ -113,6 +127,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             try {
                 val backupFile: File = BackupManager.createBackupJson(getApplication(), db)
                 BackupManager.shareBackupToDriveOrApps(getApplication(), backupFile)
+                loadBackups()
                 showToast("تم إنشاء النسخة الاحتياطية بنجاح ومشاركتها", ToastType.SUCCESS)
             } catch (e: Exception) {
                 showToast("فشل في إنشاء النسخة الاحتياطية: ${e.localizedMessage}", ToastType.ERROR)
@@ -121,12 +136,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * Save backup directly to phone's Downloads directory
+     * Save backup directly to phone's Downloads directory and local backups
      */
     fun backupToPhoneStorage() {
         viewModelScope.launch {
             val result = BackupManager.saveBackupToPhoneDownloads(getApplication(), db)
             result.onSuccess { file ->
+                loadBackups()
                 showToast("تم حفظ النسخة بنجاح في مجلد التنزيلات بالهاتف", ToastType.SUCCESS)
             }.onFailure { e ->
                 showToast("فشل في حفظ النسخة بالهاتف: ${e.localizedMessage}", ToastType.ERROR)
@@ -135,16 +151,44 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * Restore from user-selected JSON file
+     * Restore from user-selected JSON file URI
      */
     fun restoreBackup(uri: Uri) {
         viewModelScope.launch {
             val result = BackupManager.restoreFromJson(getApplication(), db, uri)
             result.onSuccess { count ->
+                loadBackups()
                 showToast("تم استعادة $count سجلاً بنجاح من النسخة الاحتياطية", ToastType.SUCCESS)
             }.onFailure { e ->
                 showToast("فشل في استعادة البيانات: ${e.localizedMessage}", ToastType.ERROR)
             }
         }
+    }
+
+    /**
+     * Restore directly from an internal saved backup file
+     */
+    fun restoreBackupFromFile(file: File) {
+        viewModelScope.launch {
+            val result = BackupManager.restoreFromFile(getApplication(), db, file)
+            result.onSuccess { count ->
+                loadBackups()
+                showToast("تم استعادة $count سجلاً بنجاح من النسخة الاحتياطية", ToastType.SUCCESS)
+            }.onFailure { e ->
+                showToast("فشل في استعادة البيانات: ${e.localizedMessage}", ToastType.ERROR)
+            }
+        }
+    }
+
+    fun deleteBackupFile(file: File) {
+        viewModelScope.launch(Dispatchers.IO) {
+            BackupManager.deleteBackup(file)
+            loadBackups()
+        }
+        showToast("تم حذف النسخة الاحتياطية", ToastType.INFO)
+    }
+
+    fun shareExistingBackup(file: File) {
+        BackupManager.shareBackupToDriveOrApps(getApplication(), file)
     }
 }

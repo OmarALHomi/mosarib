@@ -22,16 +22,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Yard
 import androidx.compose.material3.Button
@@ -104,6 +107,7 @@ fun CustomerDetailScreen(
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var showAddReceiptSheet by remember { mutableStateOf(false) }
+    var showEditCustomerSheet by remember { mutableStateOf(false) }
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     var localSessionPdfReady by remember { mutableStateOf<Pair<java.io.File, String>?>(null) }
     val activePdf = pdfReady ?: localSessionPdfReady
@@ -175,6 +179,9 @@ fun CustomerDetailScreen(
                     IconButton(onClick = { viewModel.generateCustomerStatementPdf(customer) }) {
                         Icon(Icons.Default.PictureAsPdf, contentDescription = "كشف حساب PDF", tint = AccentGold)
                     }
+                    IconButton(onClick = { showEditCustomerSheet = true }) {
+                        Icon(Icons.Default.Edit, contentDescription = "تعديل بيانات العميل", tint = PrimaryTeal)
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
@@ -188,154 +195,334 @@ fun CustomerDetailScreen(
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
 
-            // Customer Summary Banner Card
+            // Customer Summary Banner Card (Modern Compact & Borderless)
             item {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
-                        .shadow(8.dp, RoundedCornerShape(22.dp)),
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .shadow(1.5.dp, RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
-                    Box(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(Color(0xFF003844), Color(0xFF001E26))
-                                )
-                            )
-                            .padding(20.dp)
+                            .padding(14.dp)
                     ) {
-                        Column {
+                        // 1. Header: Avatar + Customer Name + Farm & Action Squircles
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f, fill = false)
                             ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFE0F2F1)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = customer.name.take(1),
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color(0xFF00695C)
+                                        )
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
                                 Column {
                                     Text(
                                         text = customer.name,
-                                        style = MaterialTheme.typography.headlineSmall.copy(
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color(0xFF0F172A),
+                                            fontSize = 17.sp
                                         )
                                     )
                                     if (customer.farmName.isNotEmpty()) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Yard, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(16.dp))
-                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Icon(
+                                                Icons.Default.Yard,
+                                                contentDescription = null,
+                                                tint = Color(0xFF059669),
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(3.dp))
                                             Text(
                                                 text = customer.farmName,
-                                                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFB0C9D4))
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    color = Color(0xFF475569),
+                                                    fontWeight = FontWeight.Medium
+                                                )
                                             )
-                                        }
-                                    }
-                                }
-
-                                if (customer.phone.isNotEmpty()) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        IconButton(
-                                            onClick = { FileSharingHelper.makePhoneCall(context, customer.phone) },
-                                            modifier = Modifier
-                                                .size(40.dp)
-                                                .clip(CircleShape)
-                                                .background(PrimaryTeal)
-                                        ) {
-                                            Icon(Icons.Default.Call, contentDescription = "اتصال", tint = Color.White)
-                                        }
-
-                                        IconButton(
-                                            onClick = { viewModel.sendCustomerStatementWhatsApp(customer, customerWithBalance) },
-                                            modifier = Modifier
-                                                .size(40.dp)
-                                                .clip(CircleShape)
-                                                .background(AccentEmerald)
-                                        ) {
-                                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = Color.White)
                                         }
                                     }
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                            // Quick Action Buttons (Squircle 34dp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                if (customer.phone.isNotEmpty()) {
+                                    // الاتصال الهاتفي
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color(0xFFE8F5E9))
+                                            .clickable { FileSharingHelper.makePhoneCall(context, customer.phone) },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Call,
+                                            contentDescription = "اتصال",
+                                            tint = Color(0xFF2E7D32),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
 
-                            // Big Balance Indicator Box
-                            val isDebt = customerWithBalance.balance > 0
-                            val isCredit = customerWithBalance.balance < 0
+                                    // إرسال كشف واتساب
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color(0xFFCCFBF1))
+                                            .clickable { viewModel.sendCustomerStatementWhatsApp(customer, customerWithBalance) },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.Send,
+                                            contentDescription = "واتساب",
+                                            tint = Color(0xFF0F766E),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
 
+                                // تصدير كشف حساب PDF
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color(0xFFFEF3C7))
+                                        .clickable { viewModel.generateCustomerStatementPdf(customer) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.PictureAsPdf,
+                                        contentDescription = "كشف حساب PDF",
+                                        tint = Color(0xFFD97706),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                // تعديل بيانات العميل
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color(0xFFE0F2FE))
+                                        .clickable { showEditCustomerSheet = true },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = "تعديل",
+                                        tint = Color(0xFF0284C7),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // 2. تفاصيل ملف العميل (الهاتف، العنوان، السعر المخصص، الملاحظات)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFF8FAFC))
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(if (isDebt) Color(0xFF4A1010) else Color(0xFF0F3A2A))
-                                    .padding(14.dp),
+                                modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column {
-                                    Text(
-                                        text = if (isDebt) "دين متبقي" else if (isCredit) "رصيد له (مقدم)" else "خالص ومسدد",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFCFD8DC))
-                                    )
-                                    Text(
-                                        text = Formatters.formatCurrency(Math.abs(customerWithBalance.balance), config.currencySymbol),
-                                        style = MaterialTheme.typography.headlineSmall.copy(
-                                            color = if (isDebt) Color(0xFFFF8A80) else AccentEmerald,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                    if (customerWithBalance.balance != 0.0) {
+                                if (customer.phone.isNotEmpty()) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.clickable { FileSharingHelper.makePhoneCall(context, customer.phone) }
+                                    ) {
+                                        Icon(Icons.Default.Phone, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(13.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
                                         Text(
-                                            text = Formatters.amountToArabicWords(Math.abs(customerWithBalance.balance), config.currencySymbol),
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                color = Color.White.copy(alpha = 0.85f),
-                                                fontWeight = FontWeight.Medium
+                                            text = customer.phone,
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = Color(0xFF0F766E),
+                                                fontWeight = FontWeight.Bold
                                             )
                                         )
                                     }
+                                } else {
+                                    Text(
+                                        text = "لا يوجد رقم هاتف مسجل",
+                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF94A3B8))
+                                    )
                                 }
 
-                                Button(
-                                    onClick = { showAddReceiptSheet = true },
-                                    colors = ButtonDefaults.buttonColors(containerColor = if (isDebt) AccentEmerald else PrimaryTeal),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("قبض دفعة", fontWeight = FontWeight.Bold)
+                                if (customer.location.isNotEmpty()) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFF64748B), modifier = Modifier.size(13.dp))
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        Text(
+                                            text = customer.location,
+                                            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF475569))
+                                        )
+                                    }
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(14.dp))
+                            if ((customer.customPricePerHour ?: 0.0) > 0 || customer.notes.isNotEmpty()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if ((customer.customPricePerHour ?: 0.0) > 0) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.AttachMoney, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(2.dp))
+                                            Text(
+                                                text = "سعر خاص: ${Formatters.formatNumber(customer.customPricePerHour!!)} ${config.currencySymbol}/ساعة",
+                                                style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF15803D), fontWeight = FontWeight.Bold)
+                                            )
+                                        }
+                                    } else {
+                                        Spacer(modifier = Modifier.width(1.dp))
+                                    }
 
-                            // Sub-metrics
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                    if (customer.notes.isNotEmpty()) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f, fill = false)
+                                        ) {
+                                            Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null, tint = Color(0xFF64748B), modifier = Modifier.size(13.dp))
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Text(
+                                                text = customer.notes,
+                                                style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B)),
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // 3. كبسولة الرصيد المالي والتفقيط بالعربي وزر قبض دفعة
+                        val isDebt = customerWithBalance.balance > 0
+                        val isCredit = customerWithBalance.balance < 0
+
+                        val (balanceBg, balanceTextColor) = when {
+                            isDebt -> Color(0xFFFFEBEE) to Color(0xFFB71C1C)
+                            isCredit -> Color(0xFFE8F5E9) to Color(0xFF00695C)
+                            else -> Color(0xFFF1F5F9) to Color(0xFF334155)
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(balanceBg)
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = when {
+                                        isDebt -> "دين متبقي بذمة العميل"
+                                        isCredit -> "رصيد دائن للعميل (مقدم)"
+                                        else -> "الحساب خالص ومسدد بالكامل"
+                                    },
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = balanceTextColor.copy(alpha = 0.85f),
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                                Text(
+                                    text = if (customerWithBalance.balance == 0.0) "0 ${config.currencySymbol}" else Formatters.formatCurrency(Math.abs(customerWithBalance.balance), config.currencySymbol),
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        color = balanceTextColor,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 20.sp
+                                    )
+                                )
+                                if (customerWithBalance.balance != 0.0) {
+                                    Text(
+                                        text = Formatters.amountToArabicWords(Math.abs(customerWithBalance.balance), config.currencySymbol),
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = Color(0xFF5D4037),
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    )
+                                }
+                            }
+
+                            Button(
+                                onClick = { showAddReceiptSheet = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = if (isDebt) AccentEmerald else PrimaryTeal),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                             ) {
-                                Column {
-                                    Text("ساعات الري", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF90A4AE)))
-                                    Text(
-                                        Formatters.formatDurationArabic(customerWithBalance.totalMinutes),
-                                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White, fontWeight = FontWeight.Bold)
-                                    )
-                                }
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("إجمالي المسارب", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF90A4AE)))
-                                    Text(
-                                        Formatters.formatCurrency(customerWithBalance.totalBilledAmount, config.currencySymbol),
-                                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White, fontWeight = FontWeight.Bold)
-                                    )
-                                }
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text("إجمالي المسدد", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF90A4AE)))
-                                    Text(
-                                        Formatters.formatCurrency(customerWithBalance.totalPaidAmount, config.currencySymbol),
-                                        style = MaterialTheme.typography.bodyMedium.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
-                                    )
-                                }
+                                Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text("قبض دفعة", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // 4. الإحصائيات الفرعية في 3 أعمدة أنيقة
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFF8FAFC))
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("ساعات الري", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B), fontSize = 10.5.sp))
+                                Text(
+                                    Formatters.formatDurationArabic(customerWithBalance.totalMinutes),
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("إجمالي المسارب", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B), fontSize = 10.5.sp))
+                                Text(
+                                    Formatters.formatCurrency(customerWithBalance.totalBilledAmount, config.currencySymbol),
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("إجمالي المقبوض", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B), fontSize = 10.5.sp))
+                                Text(
+                                    Formatters.formatCurrency(customerWithBalance.totalPaidAmount, config.currencySymbol),
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF059669), fontWeight = FontWeight.Bold)
+                                )
                             }
                         }
                     }
@@ -346,7 +533,7 @@ fun CustomerDetailScreen(
             item {
                 PrimaryTabRow(
                     selectedTabIndex = selectedTab,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                    modifier = Modifier.padding(horizontal = 10.dp)
                 ) {
                     Tab(
                         selected = selectedTab == 0,
@@ -538,13 +725,63 @@ fun CustomerDetailScreen(
                                     }
                                 }
 
-                                Text(
-                                    text = Formatters.formatCurrency(v.amount, config.currencySymbol),
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        color = AccentEmerald,
-                                        fontWeight = FontWeight.ExtraBold
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = Formatters.formatCurrency(v.amount, config.currencySymbol),
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            color = AccentEmerald,
+                                            fontWeight = FontWeight.ExtraBold
+                                        )
                                     )
-                                )
+
+                                    if (customer.phone.isNotEmpty()) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color(0xFFE8F5E9))
+                                                .clickable {
+                                                    val msg = "سند قبض #${v.voucherNumber.ifEmpty { v.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(v.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(v.amount, config.currencySymbol)})\nطريقة الدفع: ${v.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(v.date)}"
+                                                    FileSharingHelper.sendWhatsAppMessage(context, customer.phone, msg)
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                Icons.AutoMirrored.Filled.Send,
+                                                contentDescription = "واتساب",
+                                                tint = Color(0xFF2E7D32),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color(0xFFE0F2F1))
+                                            .clickable {
+                                                val file = com.example.core.util.PdfReportGenerator.generateReceiptVoucherPdf(
+                                                    context = context,
+                                                    config = config,
+                                                    customer = customer,
+                                                    voucher = v
+                                                )
+                                                localSessionPdfReady = Pair(file, "سند قبض #${v.voucherNumber.ifEmpty { v.id.toString() }}")
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Default.PictureAsPdf,
+                                            contentDescription = "سند PDF",
+                                            tint = Color(0xFF00695C),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -571,6 +808,19 @@ fun CustomerDetailScreen(
             onDismiss = { showAddReceiptSheet = false },
             onConfirm = { amount, method, notes ->
                 viewModel.addReceiptVoucher(customer.id, amount, method, notes)
+            }
+        )
+    }
+
+    // Edit Customer Sheet
+    if (showEditCustomerSheet) {
+        AddEditCustomerBottomSheet(
+            initialCustomer = customer,
+            currencySymbol = config.currencySymbol,
+            onDismiss = { showEditCustomerSheet = false },
+            onSave = { id, name, phone, farm, loc, notes, customPrice ->
+                viewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice)
+                showEditCustomerSheet = false
             }
         )
     }

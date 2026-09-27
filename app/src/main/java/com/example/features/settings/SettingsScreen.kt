@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,7 +38,10 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.WaterDrop
+import com.example.core.util.BackupManager
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -52,6 +56,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -96,6 +101,10 @@ fun SettingsScreen(
     ) { uri: Uri? ->
         uri?.let { viewModel.restoreBackup(it) }
     }
+
+    val savedBackups by viewModel.savedBackups.collectAsStateWithLifecycle()
+    var backupToRestore by remember { mutableStateOf<BackupManager.BackupFileInfo?>(null) }
+    var backupToDelete by remember { mutableStateOf<BackupManager.BackupFileInfo?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -337,76 +346,274 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .shadow(2.dp, RoundedCornerShape(18.dp)),
-                shape = RoundedCornerShape(18.dp),
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                    .shadow(1.5.dp, RoundedCornerShape(16.dp)),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(AccentEmerald.copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.CloudUpload, contentDescription = null, tint = AccentEmerald)
+                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFE0F2F1)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.CloudUpload, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "النسخ الاحتياطي والأمان",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color(0xFF0F172A)
+                                )
+                            )
                         }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text("قاعدة البيانات والنسخ الاحتياطي", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+
+                        // زر إنشاء نسخة جديدة وحفظها
+                        Button(
+                            onClick = { viewModel.backupToPhoneStorage() },
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("نسخة جديدة", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "يتم حفظ نسخ البيانات محلياً وبإمكانك استعادتها أو مشاركتها عبر Google Drive وواتساب في أي وقت للحفاظ على حساباتك بأمان.",
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
+                    )
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    Text(
-                        text = "يستخدم التطبيق قاعدة بيانات حقيقية (SQLite/Room). يمكنك حفظ نسخة احتياطية إضافية في ذاكرة الهاتف (مجلد التنزيلات) أو رفعها إلى Google Drive أو استعادتها.",
-                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        // 1. Phone Downloads
-                        Button(
-                            onClick = { viewModel.backupToPhoneStorage() },
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
-                        ) {
-                            Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("حفظ نسخة احتياطية في ذاكرة الهاتف (التنزيلات)", fontWeight = FontWeight.Bold)
-                        }
-
-                        // 2. Google Drive / Share
-                        Button(
-                            onClick = { viewModel.createBackupAndShare() },
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald)
-                        ) {
-                            Icon(Icons.Default.Backup, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("حفظ في Google Drive أو مشاركة", fontWeight = FontWeight.Bold)
-                        }
-
-                        // 3. Restore
+                    // خيارات الاستيراد والمشاركة
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         OutlinedButton(
-                            onClick = {
-                                restoreFileLauncher.launch(arrayOf("application/json", "*/*"))
-                            },
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                            shape = RoundedCornerShape(12.dp)
+                            onClick = { viewModel.createBackupAndShare() },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(vertical = 8.dp)
                         ) {
-                            Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("استعادة البيانات من نسخة احتياطية", fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp), tint = PrimaryTeal)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("مشاركة للدرايف", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = { restoreFileLauncher.launch(arrayOf("application/json", "*/*")) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(16.dp), tint = AccentGold)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("استيراد ملف", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // استعراض النسخ الاحتياطية المحفوظة
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "استعراض النسخ المحفوظة (${savedBackups.size})",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF0F172A)
+                            )
+                        )
+                        IconButton(
+                            onClick = { viewModel.loadBackups() },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(Icons.Default.Restore, contentDescription = "تحديث", modifier = Modifier.size(16.dp), tint = PrimaryTeal)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    if (savedBackups.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                                .padding(14.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "لا توجد نسخ احتياطية محفوظة بعد. اضغط على 'نسخة جديدة' بالأعلى لإنشاء نسخة احتياطية فورية.",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B)),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            savedBackups.forEach { backup ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFFF8FAFC))
+                                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color(0xFFE0F2F1)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.Backup, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column {
+                                            Text(
+                                                text = backup.formattedDate,
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF0F172A)
+                                                )
+                                            )
+                                            Text(
+                                                text = "${backup.sizeText}  •  ${backup.name}",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    color = Color(0xFF64748B),
+                                                    fontSize = 10.sp
+                                                ),
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+
+                                    // الأزرار: استعادة، مشاركة، حذف
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        // استعادة
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(PrimaryTeal.copy(alpha = 0.12f))
+                                                .clickable { backupToRestore = backup }
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text("استعادة", style = MaterialTheme.typography.labelSmall.copy(color = PrimaryTeal, fontWeight = FontWeight.Bold))
+                                        }
+
+                                        // مشاركة
+                                        Box(
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(Color(0xFFE8F5E9))
+                                                .clickable { viewModel.shareExistingBackup(backup.file) },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.Share, contentDescription = "مشاركة", tint = Color(0xFF2E7D32), modifier = Modifier.size(14.dp))
+                                        }
+
+                                        // حذف
+                                        Box(
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(Color(0xFFFFEBEE))
+                                                .clickable { backupToDelete = backup },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.Delete, contentDescription = "حذف", tint = Color(0xFFE53935), modifier = Modifier.size(14.dp))
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    // Confirmation Dialogs for Restore and Delete
+    val toRestore = backupToRestore
+    if (toRestore != null) {
+        AlertDialog(
+            onDismissRequest = { backupToRestore = null },
+            title = { Text("تأكيد استعادة النسخة الاحتياطية", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("هل أنت متأكد من استعادة هذه النسخة بتاريخ ${toRestore.formattedDate}؟ سيتم تحديث وتثبيت البيانات الموجودة في النسخة.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.restoreBackupFromFile(toRestore.file)
+                        backupToRestore = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
+                ) {
+                    Text("استعادة الآن", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { backupToRestore = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    val toDelete = backupToDelete
+    if (toDelete != null) {
+        AlertDialog(
+            onDismissRequest = { backupToDelete = null },
+            title = { Text("تأكيد حذف النسخة", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("هل تريد حذف ملف النسخة الاحتياطية (${toDelete.name}) نهائياً؟")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteBackupFile(toDelete.file)
+                        backupToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
+                ) {
+                    Text("حذف", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { backupToDelete = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
     }
 
     // Floating Toast Notification
