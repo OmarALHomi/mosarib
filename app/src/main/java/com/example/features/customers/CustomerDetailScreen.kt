@@ -2,6 +2,7 @@ package com.example.features.customers
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -378,11 +379,16 @@ fun CustomerDetailScreen(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 6.dp),
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .shadow(1.5.dp, RoundedCornerShape(16.dp)),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                            ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -390,15 +396,18 @@ fun CustomerDetailScreen(
                                 ) {
                                     Text(
                                         text = "${Formatters.formatDurationArabic(s.durationMinutes)}  (@ ${Formatters.formatNumber(s.pricePerHour)})",
-                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                        style = MaterialTheme.typography.titleSmall.copy(
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color(0xFF0F172A)
+                                        )
                                     )
                                     Text(
                                         text = Formatters.formatCurrency(s.totalAmount, config.currencySymbol),
-                                        style = MaterialTheme.typography.titleMedium.copy(color = PrimaryTeal, fontWeight = FontWeight.Bold)
+                                        style = MaterialTheme.typography.titleMedium.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold)
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -406,10 +415,10 @@ fun CustomerDetailScreen(
                                 ) {
                                     Text(
                                         text = "المسدد فوراً: ${Formatters.formatCurrency(s.amountPaid, config.currencySymbol)}",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = AccentEmerald)
+                                        style = MaterialTheme.typography.bodySmall.copy(color = AccentEmerald, fontWeight = FontWeight.SemiBold)
                                     )
                                     Text(
-                                        text = "المتبقي: ${Formatters.formatCurrency(s.remainingDebt, config.currencySymbol)}",
+                                        text = if (s.remainingDebt > 0) "المتبقي: ${Formatters.formatCurrency(s.remainingDebt, config.currencySymbol)}" else "خالص بالكامل",
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = if (s.remainingDebt > 0) Color(0xFFE53935) else AccentEmerald,
                                             fontWeight = FontWeight.Bold
@@ -426,44 +435,46 @@ fun CustomerDetailScreen(
                                 ) {
                                     Text(
                                         text = Formatters.formatDateTime(s.startTime),
-                                        style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
+                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B))
                                     )
 
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         if (customer.phone.isNotEmpty()) {
-                                            IconButton(
-                                                onClick = {
-                                                    val msg = "دورة ري #${s.id}\nالتاريخ: ${Formatters.formatDateTime(s.startTime)}\nالمدة: ${Formatters.formatDurationArabic(s.durationMinutes)}\nالمبلغ: ${Formatters.formatCurrency(s.totalAmount, config.currencySymbol)}\nالمسدد: ${Formatters.formatCurrency(s.amountPaid, config.currencySymbol)}\nالمتبقي: ${Formatters.formatCurrency(s.remainingDebt, config.currencySymbol)}"
-                                                    FileSharingHelper.sendWhatsAppMessage(context, customer.phone, msg)
-                                                },
+                                            Box(
                                                 modifier = Modifier
-                                                    .size(34.dp)
-                                                    .clip(CircleShape)
-                                                    .background(AccentEmerald.copy(alpha = 0.12f))
+                                                    .size(32.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(Color(0xFFE8F5E9))
+                                                    .clickable {
+                                                        val msg = "دورة ري #${s.id}\nالتاريخ: ${Formatters.formatDateTime(s.startTime)}\nالمدة: ${Formatters.formatDurationArabic(s.durationMinutes)}\nالمبلغ: ${Formatters.formatCurrency(s.totalAmount, config.currencySymbol)}\nالمسدد: ${Formatters.formatCurrency(s.amountPaid, config.currencySymbol)}\nالمتبقي: ${Formatters.formatCurrency(s.remainingDebt, config.currencySymbol)}"
+                                                        FileSharingHelper.sendWhatsAppMessage(context, customer.phone, msg)
+                                                    },
+                                                contentAlignment = Alignment.Center
                                             ) {
-                                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = AccentEmerald, modifier = Modifier.size(16.dp))
+                                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
                                             }
                                         }
 
-                                        IconButton(
-                                            onClick = {
-                                                val file = com.example.core.util.PdfReportGenerator.generateSessionInvoicePdf(
-                                                    context = context,
-                                                    config = config,
-                                                    customer = customer,
-                                                    session = s
-                                                )
-                                                localSessionPdfReady = Pair(file, "فاتورة ري #${s.id}")
-                                            },
+                                        Box(
                                             modifier = Modifier
-                                                .size(34.dp)
-                                                .clip(CircleShape)
-                                                .background(PrimaryTeal.copy(alpha = 0.12f))
+                                                .size(32.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color(0xFFE0F2F1))
+                                                .clickable {
+                                                    val file = com.example.core.util.PdfReportGenerator.generateSessionInvoicePdf(
+                                                        context = context,
+                                                        config = config,
+                                                        customer = customer,
+                                                        session = s
+                                                    )
+                                                    localSessionPdfReady = Pair(file, "فاتورة ري #${s.id}")
+                                                },
+                                            contentAlignment = Alignment.Center
                                         ) {
-                                            Icon(Icons.Default.PictureAsPdf, contentDescription = "فاتورة PDF", tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                                            Icon(Icons.Default.PictureAsPdf, contentDescription = "فاتورة PDF", tint = Color(0xFF00695C), modifier = Modifier.size(16.dp))
                                         }
                                     }
                                 }
@@ -486,36 +497,37 @@ fun CustomerDetailScreen(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 6.dp),
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .shadow(1.5.dp, RoundedCornerShape(16.dp)),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(14.dp),
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(
                                         modifier = Modifier
-                                            .size(40.dp)
+                                            .size(36.dp)
                                             .clip(CircleShape)
-                                            .background(AccentEmerald.copy(alpha = 0.15f)),
+                                            .background(AccentEmerald.copy(alpha = 0.12f)),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(Icons.Default.Check, contentDescription = null, tint = AccentEmerald)
+                                        Icon(Icons.Default.Check, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(18.dp))
                                     }
-                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
                                     Column {
                                         Text(
                                             text = "سند قبض نقدي (${v.voucherNumber})",
-                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
                                         )
                                         Text(
                                             text = "${v.paymentMethod}  •  ${Formatters.formatDateTime(v.date)}",
-                                            style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
+                                            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B))
                                         )
                                         if (v.notes.isNotEmpty()) {
                                             Text(
@@ -530,7 +542,7 @@ fun CustomerDetailScreen(
                                     text = Formatters.formatCurrency(v.amount, config.currencySymbol),
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         color = AccentEmerald,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.ExtraBold
                                     )
                                 )
                             }

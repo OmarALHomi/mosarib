@@ -650,15 +650,15 @@ fun SessionCardItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .shadow(2.dp, RoundedCornerShape(18.dp)),
-        shape = RoundedCornerShape(18.dp),
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+            .shadow(1.5.dp, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             // 1. الصف العلوي: معلومات العميل على اليمين (في RTL) و 3 أزرار دائرية/مربعة ناعمة على اليسار
             Row(
@@ -675,7 +675,7 @@ fun SessionCardItem(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
                             .background(Color(0xFFE0F2F1)),
                         contentAlignment = Alignment.Center
@@ -684,21 +684,27 @@ fun SessionCardItem(
                             imageVector = Icons.Default.WaterDrop,
                             contentDescription = null,
                             tint = PrimaryTeal,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     Column {
                         Text(
                             text = customer?.name ?: "عميل غير محدد",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF0F172A)
+                            ),
                             maxLines = 1
                         )
                         Text(
                             text = if (!customer?.farmName.isNullOrBlank()) customer?.farmName!! else "جلسة ري",
-                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF64748B),
+                                fontWeight = FontWeight.Medium
+                            ),
                             maxLines = 1
                         )
                     }
@@ -712,51 +718,54 @@ fun SessionCardItem(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // زر المشاركة
-                    IconButton(
-                        onClick = onWhatsAppClick,
+                    Box(
                         modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(8.dp))
                             .background(Color(0xFFE0F2F1))
+                            .clickable { onWhatsAppClick() },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Share,
                             contentDescription = "مشاركة",
-                            tint = PrimaryTeal,
-                            modifier = Modifier.size(19.dp)
+                            tint = Color(0xFF00695C),
+                            modifier = Modifier.size(17.dp)
                         )
                     }
 
                     // زر فاتورة PDF
-                    IconButton(
-                        onClick = onPdfClick,
+                    Box(
                         modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(8.dp))
                             .background(Color(0xFFE0F2F1))
+                            .clickable { onPdfClick() },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.PictureAsPdf,
                             contentDescription = "فاتورة PDF",
-                            tint = PrimaryTeal,
-                            modifier = Modifier.size(19.dp)
+                            tint = Color(0xFF00695C),
+                            modifier = Modifier.size(17.dp)
                         )
                     }
 
                     // زر القائمة (المزيد)
                     Box {
-                        IconButton(
-                            onClick = { menuExpanded = true },
+                        Box(
                             modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(10.dp))
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(8.dp))
                                 .background(Color(0xFFE0F2F1))
+                                .clickable { menuExpanded = true },
+                            contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
                                 contentDescription = "خيارات",
-                                tint = PrimaryTeal,
-                                modifier = Modifier.size(19.dp)
+                                tint = Color(0xFF00695C),
+                                modifier = Modifier.size(18.dp)
                             )
                         }
 
@@ -795,30 +804,33 @@ fun SessionCardItem(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // 2. الصف الأوسط: كبسولة كاملة للمدة وسعر الساعة
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(10.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // المدة مع أيقونة الساعة (في RTL: على اليمين)
+                // المدة مع أيقونة الساعة (في RTL: أيقونة الساعة أولاً على اليمين ثم النص)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = Formatters.formatDurationArabic(session.durationMinutes),
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
                     Icon(
                         imageVector = Icons.Default.AccessTime,
                         contentDescription = null,
                         tint = PrimaryTeal,
-                        modifier = Modifier.size(17.dp)
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = Formatters.formatDurationArabic(session.durationMinutes),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
                     )
                 }
 
@@ -827,12 +839,12 @@ fun SessionCardItem(
                     text = "@ ${Formatters.formatNumber(session.pricePerHour)} $currencySymbol ساعة",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color(0xFF475569)
                     )
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // 3. الجزء السفلي: مقسم لعمودين مع فاصل رأسي
             Row(
@@ -844,15 +856,15 @@ fun SessionCardItem(
                 // العمود الأيمن (في RTL): الإجمالي والمسدد والمتبقي (3 كبسولات عربية)
                 Column(
                     modifier = Modifier.weight(1.05f),
-                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
                         text = "الإجمالي",
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color(0xFF334155)
                         ),
-                        modifier = Modifier.padding(bottom = 2.dp)
+                        modifier = Modifier.padding(bottom = 1.dp)
                     )
 
                     // كبسولة الإجمالي
@@ -892,7 +904,7 @@ fun SessionCardItem(
                 // فاصل رأسي رفيع
                 Box(
                     modifier = Modifier
-                        .padding(horizontal = 10.dp)
+                        .padding(horizontal = 8.dp)
                         .width(1.dp)
                         .fillMaxHeight()
                         .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -907,19 +919,19 @@ fun SessionCardItem(
                         text = "التاريخ والوقت",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color(0xFF475569)
                         )
                     )
                     Text(
                         text = Formatters.formatDateTime(session.startTime),
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                            color = Color(0xFF64748B),
                             fontSize = 11.sp
                         ),
                         maxLines = 1
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
 
                     val highlightAmount = if (session.remainingDebt > 0) session.remainingDebt else session.totalAmount
                     val highlightColor = if (session.remainingDebt > 0) Color(0xFFB71C1C) else Color(0xFF00695C)
@@ -947,11 +959,11 @@ fun SessionCardItem(
             }
 
             if (session.notes.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = "ملاحظة: ${session.notes}",
                     style = MaterialTheme.typography.labelSmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        color = Color(0xFF64748B)
                     ),
                     maxLines = 1
                 )
@@ -970,9 +982,9 @@ private fun SessionMetricPill(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(7.dp))
+            .clip(RoundedCornerShape(6.dp))
             .background(bgColor)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = 8.dp, vertical = 3.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
