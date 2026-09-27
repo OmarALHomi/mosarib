@@ -15,9 +15,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.WaterDrop
@@ -56,6 +58,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.features.customers.CustomerDetailScreen
 import com.example.features.customers.CustomersScreen
 import com.example.features.customers.CustomersViewModel
+import com.example.features.home.HomeScreen
 import com.example.features.reports.ReportsScreen
 import com.example.features.reports.ReportsViewModel
 import com.example.features.sessions.SessionsScreen
@@ -75,7 +78,8 @@ enum class AppTab(
     val unselectedIcon: ImageVector,
     val testTag: String
 ) {
-    SESSIONS("الرئيسية", Icons.Filled.WaterDrop, Icons.Outlined.WaterDrop, "tab_sessions"),
+    HOME("الرئيسية", Icons.Filled.Home, Icons.Outlined.Home, "tab_home"),
+    SESSIONS("سجلات السقي", Icons.Filled.WaterDrop, Icons.Outlined.WaterDrop, "tab_sessions"),
     CUSTOMERS("العملاء", Icons.Filled.People, Icons.Outlined.People, "tab_customers"),
     VOUCHERS("المالية", Icons.AutoMirrored.Filled.ReceiptLong, Icons.AutoMirrored.Outlined.ReceiptLong, "tab_vouchers"),
     SETTINGS("الإعدادات", Icons.Filled.Settings, Icons.Outlined.Settings, "tab_settings")
@@ -101,7 +105,7 @@ fun MainApp(
     WaterDistributorTheme(darkTheme = darkTheme) {
         // Arabic RTL layout provider
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-            var selectedTab by remember { mutableStateOf(AppTab.SESSIONS) }
+            var selectedTab by remember { mutableStateOf(AppTab.HOME) }
             var selectedCustomerId by remember { mutableLongStateOf(0L) }
             var showReportsScreen by remember { mutableStateOf(false) }
 
@@ -145,57 +149,42 @@ fun MainApp(
             } else {
                 Scaffold(
                     topBar = {
-                        CenterAlignedTopAppBar(
-                            title = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(32.dp)
-                                            .clip(CircleShape)
-                                            .background(PrimaryTeal),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.WaterDrop,
-                                            contentDescription = null,
-                                            tint = Color.White,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
+                        if (selectedTab != AppTab.HOME) {
+                            TopAppBar(
+                                title = {
                                     Text(
-                                        text = "مُسَرِب",
+                                        text = when (selectedTab) {
+                                            AppTab.SESSIONS -> "سجلات السقي"
+                                            AppTab.CUSTOMERS -> "إدارة العملاء والمزارع"
+                                            AppTab.VOUCHERS -> "المالية والمصروفات"
+                                            AppTab.SETTINGS -> "الإعدادات العامة"
+                                            else -> ""
+                                        },
                                         style = MaterialTheme.typography.titleLarge.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            letterSpacing = 1.sp
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color(0xFF0F172A)
                                         )
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "• موزع الماء",
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            color = AccentGold,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    )
+                                },
+                                colors = TopAppBarDefaults.topAppBarColors(
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                ),
+                                actions = {
+                                    if (selectedTab == AppTab.SESSIONS || selectedTab == AppTab.VOUCHERS) {
+                                        IconButton(
+                                            onClick = { showReportsScreen = true },
+                                            modifier = Modifier.testTag("action_open_reports")
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Assessment,
+                                                contentDescription = "التقارير",
+                                                tint = PrimaryTeal
+                                            )
+                                        }
+                                    }
                                 }
-                            },
-                            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            ),
-                            actions = {
-                                IconButton(
-                                    onClick = { showReportsScreen = true },
-                                    modifier = Modifier.testTag("action_open_reports")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Assessment,
-                                        contentDescription = "التقارير",
-                                        tint = PrimaryTeal
-                                    )
-                                }
-                            }
-                        )
+                            )
+                        }
                     },
                     bottomBar = {
                         NavigationBar(
@@ -240,6 +229,19 @@ fun MainApp(
                             .padding(innerPadding)
                     ) {
                         when (selectedTab) {
+                            AppTab.HOME -> {
+                                HomeScreen(
+                                    sessionsViewModel = sessionsViewModel,
+                                    customersViewModel = customersViewModel,
+                                    vouchersViewModel = vouchersViewModel,
+                                    settingsViewModel = settingsViewModel,
+                                    onNavigateToTab = { tab -> selectedTab = tab },
+                                    onNavigateToCustomer = { custId ->
+                                        selectedCustomerId = custId
+                                    },
+                                    onOpenReports = { showReportsScreen = true }
+                                )
+                            }
                             AppTab.SESSIONS -> {
                                 SessionsScreen(
                                     viewModel = sessionsViewModel,
