@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
@@ -75,6 +76,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -106,6 +108,8 @@ fun SessionsScreen(
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val liveTimerState by viewModel.liveTimerState.collectAsStateWithLifecycle()
     val homeStats by viewModel.homeStats.collectAsStateWithLifecycle()
+    val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     var showActionChoiceSheet by remember { mutableStateOf(false) }
     var showAddManualSheet by remember { mutableStateOf(false) }
@@ -262,6 +266,11 @@ fun SessionsScreen(
                             item.customer?.let { c ->
                                 viewModel.sendWhatsAppBill(item.session, c)
                             }
+                        },
+                        onSmsClick = {
+                            item.customer?.let { c ->
+                                viewModel.sendSmsBill(item.session, c)
+                            }
                         }
                     )
                 }
@@ -285,6 +294,33 @@ fun SessionsScreen(
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
                 .testTag("fab_add_session")
+        )
+    }
+
+    // PDF Open / Share Dialog
+    pdfReady?.let { (file, title) ->
+        AlertDialog(
+            onDismissRequest = { viewModel.clearPdfReady() },
+            title = { Text("الفاتورة جاهزة", fontWeight = FontWeight.Bold) },
+            text = { Text("ماذا تريد أن تفعل بهذه الفاتورة؟") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        com.example.core.util.FileSharingHelper.openPdf(context, file)
+                        viewModel.clearPdfReady()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
+                ) { Text("فتح / عرض") }
+            },
+            dismissButton = {
+                Button(
+                    onClick = {
+                        com.example.core.util.FileSharingHelper.sharePdf(context, file, title)
+                        viewModel.clearPdfReady()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald)
+                ) { Text("مشاركة") }
+            }
         )
     }
 
@@ -600,7 +636,8 @@ fun SessionCardItem(
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onPdfClick: () -> Unit,
-    onWhatsAppClick: () -> Unit
+    onWhatsAppClick: () -> Unit,
+    onSmsClick: () -> Unit
 ) {
     val session = sessionWithCustomer.session
     val customer = sessionWithCustomer.customer
@@ -663,6 +700,7 @@ fun SessionCardItem(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     if (!customer?.phone.isNullOrEmpty()) {
+                        // واتساب
                         IconButton(
                             onClick = onWhatsAppClick,
                             modifier = Modifier
@@ -674,6 +712,21 @@ fun SessionCardItem(
                                 Icons.AutoMirrored.Filled.Send,
                                 contentDescription = "واتساب",
                                 tint = AccentEmerald,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        // SMS
+                        IconButton(
+                            onClick = onSmsClick,
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(AccentGold.copy(alpha = 0.12f))
+                        ) {
+                            Icon(
+                                Icons.Default.Sms,
+                                contentDescription = "رسالة نصية",
+                                tint = AccentGold,
                                 modifier = Modifier.size(20.dp)
                             )
                         }

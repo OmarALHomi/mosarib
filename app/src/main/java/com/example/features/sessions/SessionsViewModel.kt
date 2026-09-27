@@ -85,6 +85,12 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
     private val _liveTimerState = MutableStateFlow(LiveTimerState())
     val liveTimerState: StateFlow<LiveTimerState> = _liveTimerState.asStateFlow()
 
+    /** ملف PDF جاهز — يُعرض dialog للمستخدم يختار فيه فتح أو مشاركة */
+    private val _pdfReadyFile = MutableStateFlow<Pair<File, String>?>(null)
+    val pdfReadyFile: StateFlow<Pair<File, String>?> = _pdfReadyFile.asStateFlow()
+
+    fun clearPdfReady() { _pdfReadyFile.value = null }
+
     private var timerJob: Job? = null
 
     init {
@@ -345,7 +351,7 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * PDF Invoice Generation & Share
+     * إنشاء PDF الفاتورة ثم إظهار dialog (فتح / مشاركة)
      */
     fun generateAndShareInvoice(session: WaterSession, customer: Customer) {
         viewModelScope.launch {
@@ -357,31 +363,38 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                     customer = customer,
                     session = session
                 )
-                FileSharingHelper.sharePdf(getApplication(), pdfFile, "فاتورة ري مياه للعميل ${customer.name}")
+                _pdfReadyFile.value = Pair(pdfFile, "فاتورة ري مياه - ${customer.name}")
             } catch (e: Exception) {
                 showToast("فشل في إنشاء ملف الفاتورة: ${e.localizedMessage}", ToastType.ERROR)
             }
         }
     }
 
-    /**
-     * Send Bill details via WhatsApp
-     */
+    /** إرسال الفاتورة عبر واتساب (مع تصحيح كود اليمن +967 تلقائياً) */
     fun sendWhatsAppBill(session: WaterSession, customer: Customer) {
         val config = appConfig.value
-        val msg = """
-            *فاتورة توزيع مياه - ${config.distributorName}*
-            👤 العميل: ${customer.name}
-            📍 المزرعة: ${customer.farmName.ifEmpty { "عام" }}
-            ⏱️ المدة: ${Formatters.formatDurationArabic(session.durationMinutes)} (${Formatters.formatDurationShort(session.durationMinutes)})
-            💰 سعر الساعة: ${Formatters.formatCurrency(session.pricePerHour, config.currencySymbol)}
-            💵 الإجمالي: ${Formatters.formatCurrency(session.totalAmount, config.currencySymbol)}
-            ✅ المدفوع: ${Formatters.formatCurrency(session.amountPaid, config.currencySymbol)}
-            ⚠️ المتبقي: ${Formatters.formatCurrency(session.remainingDebt, config.currencySymbol)}
-            📅 التاريخ: ${Formatters.formatDateTime(session.startTime)}
-            ------------------------
-            شكراً لتعاملكم معنا.
-        """.trimIndent()
+        val msg = buildBillMessage(session, customer, config)
         FileSharingHelper.sendWhatsAppMessage(getApplication(), customer.phone, msg)
     }
+
+    /** إرسال الفاتورة عبر SMS */
+    fun sendSmsBill(session: WaterSession, customer: Customer) {
+        val config = appConfig.value
+        val msg = buildBillMessage(session, customer, config)
+        FileSharingHelper.sendSms(getApplication(), customer.phone, msg)
+    }
+
+    private fun buildBillMessage(session: WaterSession, customer: Customer, config: com.example.features.settings.AppConfig): String =
+        """
+*فاتورة توزيع مياه - ${config.distributorName}*
+👤 العميل: ${customer.name}
+📍 المزرعة: ${customer.farmName.ifEmpty { "عام" }}
+⏱️ المدة: ${Formatters.formatDurationArabic(session.durationMinutes)}
+💰 سعر الساعة: ${Formatters.formatCurrency(session.pricePerHour, config.currencySymbol)}
+💵 الإجمالي: ${Formatters.formatCurrency(session.totalAmount, config.currencySymbol)}
+✅ المدفوع: ${Formatters.formatCurrency(session.amountPaid, config.currencySymbol)}
+⚠️ المتبقي: ${Formatters.formatCurrency(session.remainingDebt, config.currencySymbol)}
+📅 التاريخ: ${Formatters.formatDateTime(session.startTime)}
+شكراً لتعاملكم معنا.
+        """.trimIndent()
 }

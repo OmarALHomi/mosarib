@@ -16,7 +16,6 @@ object FileSharingHelper {
                 "${context.packageName}.fileprovider",
                 file
             )
-
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "application/pdf"
                 putExtra(Intent.EXTRA_STREAM, uri)
@@ -24,10 +23,9 @@ object FileSharingHelper {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            val chooser = Intent.createChooser(shareIntent, title).apply {
+            context.startActivity(Intent.createChooser(shareIntent, title).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(chooser)
+            })
         } catch (e: Exception) {
             Toast.makeText(context, "فشل في مشاركة الملف: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
         }
@@ -40,16 +38,14 @@ object FileSharingHelper {
                 "${context.packageName}.fileprovider",
                 file
             )
-
             val viewIntent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, "application/pdf")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            val chooser = Intent.createChooser(viewIntent, "فتح ملف PDF").apply {
+            context.startActivity(Intent.createChooser(viewIntent, "فتح ملف PDF").apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(chooser)
+            })
         } catch (e: Exception) {
             Toast.makeText(context, "لا يوجد تطبيق لعرض ملفات PDF، يرجى مشاركته", Toast.LENGTH_LONG).show()
         }
@@ -57,7 +53,7 @@ object FileSharingHelper {
 
     fun sendWhatsAppMessage(context: Context, phone: String, message: String) {
         try {
-            val cleanPhone = phone.replace("+", "").replace(" ", "").replace("-", "")
+            val cleanPhone = normalizePhone(phone)
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 data = Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone&text=${Uri.encode(message)}")
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -65,6 +61,19 @@ object FileSharingHelper {
             context.startActivity(intent)
         } catch (e: Exception) {
             Toast.makeText(context, "تعذر فتح تطبيق واتساب: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun sendSms(context: Context, phone: String, message: String) {
+        try {
+            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                data = Uri.parse("smsto:$phone")
+                putExtra("sms_body", message)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "تعذر فتح تطبيق الرسائل: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -77,6 +86,22 @@ object FileSharingHelper {
             context.startActivity(intent)
         } catch (e: Exception) {
             Toast.makeText(context, "تعذر فتح لوحة الاتصال: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * يضيف +967 (اليمن) تلقائياً إذا لم يكن الرقم يبدأ بمفتاح دولي.
+     * يُرجع الرقم بدون + (صالح لـ WhatsApp API).
+     */
+    fun normalizePhone(phone: String): String {
+        val digits = phone.replace(Regex("[^0-9+]"), "")
+        return when {
+            digits.startsWith("+")   -> digits.removePrefix("+")
+            digits.startsWith("00")  -> digits.removePrefix("00")
+            digits.startsWith("967") -> digits
+            digits.startsWith("0")   -> "967${digits.removePrefix("0")}"
+            digits.isNotEmpty()      -> "967$digits"
+            else                     -> digits
         }
     }
 }

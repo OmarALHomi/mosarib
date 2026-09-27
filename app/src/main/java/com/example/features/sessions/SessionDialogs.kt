@@ -107,9 +107,10 @@ fun AddEditSessionBottomSheet(
         ?: pumps.find { it.name == selectedPumpName }?.defaultPricePerHour
         ?: defaultPricePerHour
 
-    var pricePerHourStr by remember { mutableStateOf(initialPrice.toString()) }
+    // remember(initialPrice) يضمن تحديث السعر تلقائياً عند تغييره في الإعدادات
+    var pricePerHourStr by remember(initialPrice) { mutableStateOf(Formatters.formatAmountInput(initialPrice.toString())) }
     val pricePerHour by remember {
-        derivedStateOf { pricePerHourStr.toDoubleOrNull() ?: defaultPricePerHour }
+        derivedStateOf { Formatters.parseAmountInput(pricePerHourStr).takeIf { it > 0 } ?: defaultPricePerHour }
     }
 
     var hours by remember { mutableIntStateOf(initialSession?.let { it.durationMinutes / 60 } ?: 1) }
@@ -537,7 +538,7 @@ fun StartLiveTimerBottomSheet(
         ?: pumps.find { it.name == selectedPumpName }?.defaultPricePerHour
         ?: defaultPricePerHour
 
-    var pricePerHourStr by remember { mutableStateOf(initialPrice.toString()) }
+    var pricePerHourStr by remember(initialPrice) { mutableStateOf(Formatters.formatAmountInput(initialPrice.toString())) }
     var customerDropdownExpanded by remember { mutableStateOf(false) }
     var pumpDropdownExpanded by remember { mutableStateOf(false) }
 
