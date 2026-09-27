@@ -68,7 +68,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.core.ui.EmptyStateView
-import com.example.core.ui.LuxuryBannerCard
 import com.example.core.ui.LuxuryToastNotification
 import com.example.core.ui.StatBoxCard
 import com.example.core.util.Formatters
@@ -101,38 +100,32 @@ fun VouchersScreen(
                 LuxuryToastNotification(toast = toast, onDismiss = { viewModel.dismissToast() })
             }
 
-            // Financial Balance Metric Card
+            // Financial Balance Metric Cards
             item {
                 val totalReceipts = vouchers.filter { it.voucher.type == VoucherType.RECEIPT }.sumOf { it.voucher.amount }
                 val totalExpenses = vouchers.filter { it.voucher.type == VoucherType.EXPENSE }.sumOf { it.voucher.amount }
-                val netCash = totalReceipts - totalExpenses
 
-                LuxuryBannerCard(
-                    title = "الصندوق والسندات والمصاريف",
-                    subtitle = "سندات القبض من العملاء ومصروفات التشغيل",
-                    modifier = Modifier.padding(16.dp),
-                    extraContent = {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            StatBoxCard(
-                                title = "إجمالي المقبوضات",
-                                value = Formatters.formatCurrency(totalReceipts, config.currencySymbol),
-                                icon = Icons.Default.ArrowDownward,
-                                accentColor = AccentEmerald,
-                                modifier = Modifier.weight(1f)
-                            )
-                            StatBoxCard(
-                                title = "إجمالي المصاريف",
-                                value = Formatters.formatCurrency(totalExpenses, config.currencySymbol),
-                                icon = Icons.Default.ArrowUpward,
-                                accentColor = Color(0xFFFF5252),
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    StatBoxCard(
+                        title = "المقبوضات",
+                        value = Formatters.formatCurrency(totalReceipts, config.currencySymbol),
+                        icon = Icons.Default.ArrowDownward,
+                        accentColor = AccentEmerald,
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatBoxCard(
+                        title = "المصاريف",
+                        value = Formatters.formatCurrency(totalExpenses, config.currencySymbol),
+                        icon = Icons.Default.ArrowUpward,
+                        accentColor = Color(0xFFFF5252),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
             // Search & Filters
@@ -141,7 +134,7 @@ fun VouchersScreen(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { viewModel.setSearchQuery(it) },
-                        placeholder = { Text("بحث في المقبوضات والمصاريف والبيان...") },
+                        placeholder = { Text("بحث...") },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -294,9 +287,9 @@ fun VouchersScreen(
 
                                 IconButton(
                                     onClick = { voucherToDelete = voucher },
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(40.dp)
                                 ) {
-                                    Icon(Icons.Default.Delete, contentDescription = "حذف", tint = Color.Gray.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+                                    Icon(Icons.Default.Delete, contentDescription = "حذف", tint = Color.Gray.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
                                 }
                             }
                         }
@@ -315,7 +308,7 @@ fun VouchersScreen(
             containerColor = PrimaryTeal,
             contentColor = Color.White,
             icon = { Icon(Icons.Default.Add, contentDescription = null) },
-            text = { Text("إضافة سند مالي", fontWeight = FontWeight.Bold) }
+            text = { Text("سند جديد", fontWeight = FontWeight.Bold) }
         )
     }
 
@@ -397,7 +390,7 @@ fun AddVoucherBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (type == VoucherType.RECEIPT) "قبض دفعة من عميل" else "تسجيل مصروف",
+                    text = if (type == VoucherType.RECEIPT) "سند قبض" else "تسجيل مصروف",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
                 IconButton(onClick = onDismiss) {
@@ -407,7 +400,7 @@ fun AddVoucherBottomSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Type Toggle: قبض فلوس | تسجيل مصروف
+            // Type Toggle: قبض من عميل | مصروف
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -421,7 +414,7 @@ fun AddVoucherBottomSheet(
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("قبض فلوس (من عميل)", fontWeight = FontWeight.Bold)
+                    Text("قبض من عميل", fontWeight = FontWeight.Bold)
                 }
 
                 Button(
@@ -433,7 +426,7 @@ fun AddVoucherBottomSheet(
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("تسجيل مصروف", fontWeight = FontWeight.Bold)
+                    Text("مصروف", fontWeight = FontWeight.Bold)
                 }
             }
 

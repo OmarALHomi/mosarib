@@ -237,7 +237,7 @@ fun CustomerDetailScreen(
                             ) {
                                 Column {
                                     Text(
-                                        text = if (isDebt) "المبلغ المتبقي بذمة العميل (دين)" else if (isCredit) "رصيد دائن للعميل (مقدم)" else "الحساب مسدد بالكامل",
+                                        text = if (isDebt) "دين متبقي" else if (isCredit) "رصيد له (مقدم)" else "خالص ومسدد",
                                         style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFCFD8DC))
                                     )
                                     Text(
@@ -265,7 +265,7 @@ fun CustomerDetailScreen(
                                 ) {
                                     Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("سند قبض / سداد", fontWeight = FontWeight.Bold)
+                                    Text("قبض دفعة", fontWeight = FontWeight.Bold)
                                 }
                             }
 
@@ -303,7 +303,7 @@ fun CustomerDetailScreen(
                 }
             }
 
-            // Tabs: دورات الماء (الري) | سندات القبض والدفعات
+            // Tabs: السقي | القبض
             item {
                 PrimaryTabRow(
                     selectedTabIndex = selectedTab,
@@ -312,13 +312,13 @@ fun CustomerDetailScreen(
                     Tab(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        text = { Text("دورات الماء (${sessions.size})", fontWeight = FontWeight.Bold) },
+                        text = { Text("السقي (${sessions.size})", fontWeight = FontWeight.Bold) },
                         icon = { Icon(Icons.Default.WaterDrop, contentDescription = null) }
                     )
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        text = { Text("سندات القبض (${vouchers.size})", fontWeight = FontWeight.Bold) },
+                        text = { Text("القبض (${vouchers.size})", fontWeight = FontWeight.Bold) },
                         icon = { Icon(Icons.Default.Receipt, contentDescription = null) }
                     )
                 }

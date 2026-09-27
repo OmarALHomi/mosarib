@@ -11,25 +11,27 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material.icons.outlined.Assessment
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -73,10 +75,9 @@ enum class AppTab(
     val unselectedIcon: ImageVector,
     val testTag: String
 ) {
-    SESSIONS("دورات الماء", Icons.Filled.WaterDrop, Icons.Outlined.WaterDrop, "tab_sessions"),
+    SESSIONS("الرئيسية", Icons.Filled.WaterDrop, Icons.Outlined.WaterDrop, "tab_sessions"),
     CUSTOMERS("العملاء", Icons.Filled.People, Icons.Outlined.People, "tab_customers"),
-    VOUCHERS("السندات والمصاريف", Icons.AutoMirrored.Filled.ReceiptLong, Icons.AutoMirrored.Outlined.ReceiptLong, "tab_vouchers"),
-    REPORTS("الإحصائيات", Icons.Filled.Assessment, Icons.Outlined.Assessment, "tab_reports"),
+    VOUCHERS("المالية", Icons.AutoMirrored.Filled.ReceiptLong, Icons.AutoMirrored.Outlined.ReceiptLong, "tab_vouchers"),
     SETTINGS("الإعدادات", Icons.Filled.Settings, Icons.Outlined.Settings, "tab_settings")
 }
 
@@ -102,6 +103,7 @@ fun MainApp(
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
             var selectedTab by remember { mutableStateOf(AppTab.SESSIONS) }
             var selectedCustomerId by remember { mutableLongStateOf(0L) }
+            var showReportsScreen by remember { mutableStateOf(false) }
 
             if (selectedCustomerId > 0) {
                 CustomerDetailScreen(
@@ -113,6 +115,33 @@ fun MainApp(
                         selectedTab = AppTab.SESSIONS
                     }
                 )
+            } else if (showReportsScreen) {
+                Scaffold(
+                    topBar = {
+                        TopAppBar(
+                            title = { Text("التقارير والإحصائيات", fontWeight = FontWeight.Bold) },
+                            navigationIcon = {
+                                IconButton(onClick = { showReportsScreen = false }) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "رجوع"
+                                    )
+                                }
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            )
+                        )
+                    }
+                ) { innerPadding ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    ) {
+                        ReportsScreen(viewModel = reportsViewModel)
+                    }
+                }
             } else {
                 Scaffold(
                     topBar = {
@@ -153,7 +182,19 @@ fun MainApp(
                             },
                             colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                                 containerColor = MaterialTheme.colorScheme.surface
-                            )
+                            ),
+                            actions = {
+                                IconButton(
+                                    onClick = { showReportsScreen = true },
+                                    modifier = Modifier.testTag("action_open_reports")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Assessment,
+                                        contentDescription = "التقارير",
+                                        tint = PrimaryTeal
+                                    )
+                                }
+                            }
                         )
                     },
                     bottomBar = {
@@ -217,9 +258,6 @@ fun MainApp(
                             }
                             AppTab.VOUCHERS -> {
                                 VouchersScreen(viewModel = vouchersViewModel)
-                            }
-                            AppTab.REPORTS -> {
-                                ReportsScreen(viewModel = reportsViewModel)
                             }
                             AppTab.SETTINGS -> {
                                 SettingsScreen(viewModel = settingsViewModel)

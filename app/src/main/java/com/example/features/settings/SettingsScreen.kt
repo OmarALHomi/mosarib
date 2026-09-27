@@ -68,7 +68,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.core.ui.LuxuryBannerCard
 import com.example.core.ui.LuxuryToastNotification
 import com.example.core.util.Formatters
 import com.example.features.pumps.PumpSource
@@ -109,14 +108,7 @@ fun SettingsScreen(
             LuxuryToastNotification(toast = toast, onDismiss = { viewModel.dismissToast() })
         }
 
-        // Header Banner
-        item {
-            LuxuryBannerCard(
-                title = "إعدادات التطبيق والمضخات",
-                subtitle = "تسعير ساعة الماء، بيانات الفواتير، المظهر، والنسخ الاحتياطي السحابي",
-                modifier = Modifier.padding(16.dp)
-            )
-        }
+
 
         // Section 1: Water Price Setting & Historical Guarantee
         item {
@@ -140,7 +132,7 @@ fun SettingsScreen(
                             Icon(Icons.Default.AttachMoney, contentDescription = null, tint = AccentGold)
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("تسعير ساعة الماء العام", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("سعر ساعة الماء", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -148,7 +140,7 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = defaultPriceStr,
                         onValueChange = { defaultPriceStr = Formatters.formatAmountInput(it) },
-                        label = { Text("السعر الافتراضي لكل ساعة ري ($currencySymbol)") },
+                        label = { Text("سعر الساعة ($currencySymbol)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -179,7 +171,7 @@ fun SettingsScreen(
                         Icon(Icons.Default.Info, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "ملاحظة أمان: أي تعديل في السعر هنا يطبق فقط على الجلسات الجديدة القادمة، ولا يؤثر إطلاقاً على الجلسات والمبيعات السابقة.",
+                            text = "يطبق على الجلسات الجديدة فقط.",
                             style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurface)
                         )
                     }
@@ -223,7 +215,7 @@ fun SettingsScreen(
                             Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal)
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("بيانات الموزع / المسرب (للفواتير وPDF)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("بيانات الموزع", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -231,7 +223,7 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = distributorName,
                         onValueChange = { distributorName = it },
-                        label = { Text("اسم الموزع أو البئر (يظهر في رأس الفواتير)") },
+                        label = { Text("اسم الموزع أو البئر") },
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -242,7 +234,7 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = distributorPhone,
                         onValueChange = { distributorPhone = it },
-                        label = { Text("رقم هاتف الموزع للتواصل") },
+                        label = { Text("رقم الهاتف") },
                         leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth(),
@@ -257,7 +249,7 @@ fun SettingsScreen(
                             currencySymbol = it
                             viewModel.updateCurrencySymbol(it)
                         },
-                        label = { Text("رمز العملة (مثل: ر.ي، ر.س، ج.م، $)") },
+                        label = { Text("رمز العملة") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     )
@@ -300,7 +292,7 @@ fun SettingsScreen(
                             Icon(Icons.Default.Palette, contentDescription = null, tint = SecondaryAqua)
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("مظهر التطبيق (الثيم النهاري والليلي)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("مظهر التطبيق", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -318,7 +310,7 @@ fun SettingsScreen(
                             )
                             Icon(Icons.Default.LightMode, contentDescription = null, tint = AccentGold, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("نهاري (فاتح)")
+                            Text("نهاري")
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -329,7 +321,7 @@ fun SettingsScreen(
                             )
                             Icon(Icons.Default.DarkMode, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("ليلي فخم")
+                            Text("ليلي")
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -372,7 +364,7 @@ fun SettingsScreen(
                                 Icon(Icons.Default.WaterDrop, contentDescription = null, tint = PrimaryTeal)
                             }
                             Spacer(modifier = Modifier.width(10.dp))
-                            Text("مضخات وآبار المياه (${pumps.size})", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                            Text("المضخات والآبار (${pumps.size})", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                         }
 
                         OutlinedButton(
@@ -449,13 +441,13 @@ fun SettingsScreen(
                             Icon(Icons.Default.CloudUpload, contentDescription = null, tint = AccentEmerald)
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("النسخ الاحتياطي ومزامنة Google Drive", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("النسخ الاحتياطي", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = "يمكنك تصدير نسخة احتياطية كاملة من قاعدة البيانات وحفظها على Google Drive أو إرسالها إلى واتساب أو وحدة التخزين، واستعادتها في أي وقت بنقرة واحدة.",
+                        text = "حفظ نسخة من البيانات أو استعادتها.",
                         style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     )
 
@@ -473,7 +465,7 @@ fun SettingsScreen(
                         ) {
                             Icon(Icons.Default.Backup, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("نسخ احتياطي / Drive", fontWeight = FontWeight.Bold)
+                            Text("نسخ احتياطي", fontWeight = FontWeight.Bold)
                         }
 
                         OutlinedButton(
@@ -485,7 +477,7 @@ fun SettingsScreen(
                         ) {
                             Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("استعادة بيانات", fontWeight = FontWeight.Bold)
+                            Text("استعادة", fontWeight = FontWeight.Bold)
                         }
                     }
                 }

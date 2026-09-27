@@ -50,6 +50,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -57,6 +58,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -88,6 +90,7 @@ import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.SecondaryAqua
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionsScreen(
     viewModel: SessionsViewModel,
@@ -104,6 +107,7 @@ fun SessionsScreen(
     val liveTimerState by viewModel.liveTimerState.collectAsStateWithLifecycle()
     val homeStats by viewModel.homeStats.collectAsStateWithLifecycle()
 
+    var showActionChoiceSheet by remember { mutableStateOf(false) }
     var showAddManualSheet by remember { mutableStateOf(false) }
     var showStartLiveSheet by remember { mutableStateOf(false) }
     var showStopLiveSheet by remember { mutableStateOf(false) }
@@ -123,58 +127,7 @@ fun SessionsScreen(
                 )
             }
 
-            // Home Dashboard Statistics (Clean borderless cards with large icons & Tafqeet)
-            item {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        StatBoxCard(
-                            title = "ساعات السقي",
-                            value = Formatters.formatDurationArabic(homeStats.totalWaterMinutes),
-                            subtitle = "${homeStats.totalSessionsCount} دورة ري",
-                            icon = Icons.Default.WaterDrop,
-                            accentColor = SecondaryAqua,
-                            modifier = Modifier.weight(1f)
-                        )
-                        StatBoxCard(
-                            title = "المقبوض كاش",
-                            value = Formatters.formatCurrency(homeStats.totalCollectedCash, config.currencySymbol),
-                            subtitle = if (homeStats.totalCollectedCash > 0) Formatters.amountToArabicWords(homeStats.totalCollectedCash, config.currencySymbol) else null,
-                            icon = Icons.Default.ArrowDownward,
-                            accentColor = AccentEmerald,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        StatBoxCard(
-                            title = "ديون متبقية",
-                            value = Formatters.formatCurrency(homeStats.totalOutstandingDebt, config.currencySymbol),
-                            subtitle = if (homeStats.totalOutstandingDebt > 0) Formatters.amountToArabicWords(homeStats.totalOutstandingDebt, config.currencySymbol) else "خالص بالكامل",
-                            icon = Icons.Default.AttachMoney,
-                            accentColor = if (homeStats.totalOutstandingDebt > 0) Color(0xFFE53935) else AccentEmerald,
-                            modifier = Modifier.weight(1f)
-                        )
-                        StatBoxCard(
-                            title = "إجمالي المصاريف",
-                            value = Formatters.formatCurrency(homeStats.totalExpenses, config.currencySymbol),
-                            subtitle = if (homeStats.totalExpenses > 0) Formatters.amountToArabicWords(homeStats.totalExpenses, config.currencySymbol) else null,
-                            icon = Icons.Default.ArrowUpward,
-                            accentColor = Color(0xFFFF5252),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-
-            // Quick Action Buttons (Designed for high visual accessibility / illiterate-friendly)
+            // Home Dashboard Statistics (2 High-impact cards: Cash collected vs Outstanding debt)
             item {
                 Row(
                     modifier = Modifier
@@ -182,45 +135,22 @@ fun SessionsScreen(
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    if (!liveTimerState.isRunning) {
-                        Button(
-                            onClick = {
-                                if (customers.isEmpty()) {
-                                    viewModel.showToast("يرجى إضافة عميل أولاً لبدء العداد", com.example.core.ui.ToastType.WARNING)
-                                } else {
-                                    showStartLiveSheet = true
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(50.dp),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald)
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("تشغيل العداد", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        }
-                    }
-
-                    Button(
-                        onClick = {
-                            if (customers.isEmpty()) {
-                                viewModel.showToast("يرجى إضافة عميل أولاً", com.example.core.ui.ToastType.WARNING)
-                            } else {
-                                showAddManualSheet = true
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
-                    ) {
-                        Icon(Icons.Default.WaterDrop, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("دورة ماء جديدة", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    }
+                    StatBoxCard(
+                        title = "المقبوض كاش",
+                        value = Formatters.formatCurrency(homeStats.totalCollectedCash, config.currencySymbol),
+                        subtitle = if (homeStats.totalCollectedCash > 0) Formatters.amountToArabicWords(homeStats.totalCollectedCash, config.currencySymbol) else null,
+                        icon = Icons.Default.ArrowDownward,
+                        accentColor = AccentEmerald,
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatBoxCard(
+                        title = "ديون متبقية",
+                        value = Formatters.formatCurrency(homeStats.totalOutstandingDebt, config.currencySymbol),
+                        subtitle = if (homeStats.totalOutstandingDebt > 0) Formatters.amountToArabicWords(homeStats.totalOutstandingDebt, config.currencySymbol) else "خالص بالكامل",
+                        icon = Icons.Default.AttachMoney,
+                        accentColor = if (homeStats.totalOutstandingDebt > 0) Color(0xFFE53935) else AccentEmerald,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
 
@@ -242,7 +172,7 @@ fun SessionsScreen(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { viewModel.setSearchQuery(it) },
-                        placeholder = { Text("بحث باسم العميل، المزرعة، أو الملاحظات...") },
+                        placeholder = { Text("بحث...") },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -304,52 +234,7 @@ fun SessionsScreen(
                 }
             }
 
-            // Summary Quick Metrics
-            item {
-                val totalMinutes = sessions.sumOf { it.session.durationMinutes }
-                val totalAmount = sessions.sumOf { it.session.totalAmount }
-                val totalRemaining = sessions.sumOf { it.session.remainingDebt }
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    StatBoxCard(
-                        title = "إجمالي الساعات",
-                        value = Formatters.formatDurationShort(totalMinutes),
-                        subtitle = "${sessions.size} دورة ري",
-                        icon = Icons.Default.AccessTime,
-                        accentColor = SecondaryAqua,
-                        modifier = Modifier.weight(1f)
-                    )
-                    StatBoxCard(
-                        title = "إجمالي المبيعات",
-                        value = Formatters.formatCurrency(totalAmount, config.currencySymbol),
-                        subtitle = "متبقي: ${Formatters.formatNumber(totalRemaining)}",
-                        icon = Icons.Default.WaterDrop,
-                        accentColor = PrimaryTeal,
-                        modifier = Modifier.weight(1.2f)
-                    )
-                }
-            }
-
-            // Sessions List Header
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "سجل دورات وتوزيع الماء (${sessions.size})",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                }
-            }
 
             // Empty State or Session Items
             if (sessions.isEmpty()) {
@@ -383,54 +268,113 @@ fun SessionsScreen(
             }
         }
 
-        // Floating Action Buttons (Dual FABs)
-        Column(
+        // Floating Action Button (Consolidated Single Action)
+        ExtendedFloatingActionButton(
+            onClick = {
+                if (customers.isEmpty()) {
+                    viewModel.showToast("يرجى إضافة عميل أولاً", com.example.core.ui.ToastType.WARNING)
+                } else {
+                    showActionChoiceSheet = true
+                }
+            },
+            containerColor = PrimaryTeal,
+            contentColor = Color.White,
+            icon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(26.dp)) },
+            text = { Text("دورة جديدة", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(16.dp)
+                .testTag("fab_add_session")
+        )
+    }
+
+    // Action Choice Bottom Sheet (Visual & Illiterate-Friendly)
+    if (showActionChoiceSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showActionChoiceSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
-            // Live Timer Button
-            if (!liveTimerState.isRunning) {
-                FloatingActionButton(
-                    onClick = {
-                        if (customers.isEmpty()) {
-                            viewModel.showToast("يرجى إضافة عميل أولاً لبدء العداد", com.example.core.ui.ToastType.WARNING)
-                        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
+                Text(
+                    text = "تسجيل دورة ماء جديدة",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                if (!liveTimerState.isRunning) {
+                    Card(
+                        onClick = {
+                            showActionChoiceSheet = false
                             showStartLiveSheet = true
+                        },
+                        colors = CardDefaults.cardColors(containerColor = AccentEmerald.copy(alpha = 0.12f)),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(AccentEmerald),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text("عداد مباشر (تشغيل فوري)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = AccentEmerald))
+                                Text("بدء العداد وحساب الوقت تلقائياً", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                            }
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                Card(
+                    onClick = {
+                        showActionChoiceSheet = false
+                        showAddManualSheet = true
                     },
-                    containerColor = AccentEmerald,
-                    contentColor = Color.White,
-                    modifier = Modifier.testTag("fab_start_live_timer")
+                    colors = CardDefaults.cardColors(containerColor = PrimaryTeal.copy(alpha = 0.12f)),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("عداد مباشر", fontWeight = FontWeight.Bold)
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(PrimaryTeal),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.WaterDrop, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text("تسجيل يدوي (ساعات سابقة)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal))
+                            Text("تسجيل سقي سابق وتحديد الساعات والمبلغ", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                        }
                     }
                 }
-            }
 
-            // Add Manual Session FAB
-            ExtendedFloatingActionButton(
-                onClick = {
-                    if (customers.isEmpty()) {
-                        viewModel.showToast("يرجى إضافة عميل أولاً", com.example.core.ui.ToastType.WARNING)
-                    } else {
-                        showAddManualSheet = true
-                    }
-                },
-                containerColor = PrimaryTeal,
-                contentColor = Color.White,
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("تسجيل دورة ماء", fontWeight = FontWeight.Bold) },
-                modifier = Modifier.testTag("fab_add_session")
-            )
+                Spacer(modifier = Modifier.height(30.dp))
+            }
         }
     }
 
@@ -714,49 +658,71 @@ fun SessionCardItem(
                     }
                 }
 
-                Box {
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "خيارات")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (!customer?.phone.isNullOrEmpty()) {
+                        IconButton(
+                            onClick = onWhatsAppClick,
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(AccentEmerald.copy(alpha = 0.12f))
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "واتساب",
+                                tint = AccentEmerald,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
 
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false }
+                    IconButton(
+                        onClick = onPdfClick,
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(PrimaryTeal.copy(alpha = 0.12f))
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("فاتورة PDF ومشاركة") },
-                            leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = PrimaryTeal) },
-                            onClick = {
-                                menuExpanded = false
-                                onPdfClick()
-                            }
+                        Icon(
+                            Icons.Default.PictureAsPdf,
+                            contentDescription = "فاتورة",
+                            tint = PrimaryTeal,
+                            modifier = Modifier.size(20.dp)
                         )
-                        if (!customer?.phone.isNullOrEmpty()) {
+                    }
+
+                    Box {
+                        IconButton(
+                            onClick = { menuExpanded = true },
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "خيارات", modifier = Modifier.size(20.dp))
+                        }
+
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false }
+                        ) {
                             DropdownMenuItem(
-                                text = { Text("إرسال عبر واتساب") },
-                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = AccentEmerald) },
+                                text = { Text("تعديل") },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
                                 onClick = {
                                     menuExpanded = false
-                                    onWhatsAppClick()
+                                    onEditClick()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("حذف", color = Color(0xFFE53935)) },
+                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onDeleteClick()
                                 }
                             )
                         }
-                        DropdownMenuItem(
-                            text = { Text("تعديل") },
-                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                            onClick = {
-                                menuExpanded = false
-                                onEditClick()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("حذف", color = Color(0xFFE53935)) },
-                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
-                            onClick = {
-                                menuExpanded = false
-                                onDeleteClick()
-                            }
-                        )
                     }
                 }
             }
@@ -797,12 +763,12 @@ fun SessionCardItem(
             ) {
                 Column {
                     Text(
-                        text = "القيمة الإجمالية",
+                        text = "الإجمالي",
                         style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     )
                     Text(
                         text = Formatters.formatCurrency(session.totalAmount, currencySymbol),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal)
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = PrimaryTeal)
                     )
                     Text(
                         text = Formatters.amountToArabicWords(session.totalAmount, currencySymbol),
@@ -812,31 +778,39 @@ fun SessionCardItem(
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "المسدد فوراً",
+                        text = "المسدد",
                         style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     )
                     Text(
                         text = Formatters.formatCurrency(session.amountPaid, currencySymbol),
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = AccentEmerald)
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = AccentEmerald)
                     )
                 }
 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "المتبقي كدين",
+                        text = if (session.remainingDebt > 0) "المتبقي (دين)" else "الحالة",
                         style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    )
-                    Text(
-                        text = Formatters.formatCurrency(session.remainingDebt, currencySymbol),
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = if (session.remainingDebt > 0) Color(0xFFE53935) else AccentEmerald
-                        )
                     )
                     if (session.remainingDebt > 0) {
                         Text(
+                            text = Formatters.formatCurrency(session.remainingDebt, currencySymbol),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFFE53935)
+                            )
+                        )
+                        Text(
                             text = Formatters.amountToArabicWords(session.remainingDebt, currencySymbol),
                             style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFE53935), fontWeight = FontWeight.Medium)
+                        )
+                    } else {
+                        Text(
+                            text = "خالص",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = AccentEmerald
+                            )
                         )
                     }
                 }

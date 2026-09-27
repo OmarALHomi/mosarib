@@ -66,7 +66,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.core.ui.EmptyStateView
-import com.example.core.ui.LuxuryBannerCard
 import com.example.core.ui.LuxuryToastNotification
 import com.example.core.ui.StatBoxCard
 import com.example.core.util.FileSharingHelper
@@ -106,39 +105,34 @@ fun CustomersScreen(
                 )
             }
 
-            // Summary Banner: Total Outstanding Debts Across All Customers
+            // Summary Quick Stat Cards
             item {
                 val totalDebts = customersWithBalance.filter { it.balance > 0 }.sumOf { it.balance }
                 val totalWaterDistributedMinutes = customersWithBalance.sumOf { it.totalMinutes }
 
-                LuxuryBannerCard(
-                    title = "إدارة حسابات المستفيدين والمزارعين",
-                    subtitle = "سجل العملاء، ساعات الري، الأرصدة والديون والتحصيلات",
-                    modifier = Modifier.padding(16.dp),
-                    extraContent = {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            StatBoxCard(
-                                title = "إجمالي ديون العملاء",
-                                value = Formatters.formatCurrency(totalDebts, config.currencySymbol),
-                                subtitle = "${customersWithBalance.count { it.balance > 0 }} عميل مدين",
-                                icon = Icons.Default.WaterDrop,
-                                accentColor = Color(0xFFFF5252),
-                                modifier = Modifier.weight(1f)
-                            )
-                            StatBoxCard(
-                                title = "إجمالي ساعات التوزيع",
-                                value = Formatters.formatDurationShort(totalWaterDistributedMinutes),
-                                subtitle = "${customersWithBalance.size} عميل مسجل",
-                                icon = Icons.Default.AccessTime,
-                                accentColor = AccentGold,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    StatBoxCard(
+                        title = "ديون العملاء",
+                        value = Formatters.formatCurrency(totalDebts, config.currencySymbol),
+                        subtitle = "${customersWithBalance.count { it.balance > 0 }} عميل مدين",
+                        icon = Icons.Default.WaterDrop,
+                        accentColor = Color(0xFFFF5252),
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatBoxCard(
+                        title = "ساعات التوزيع",
+                        value = Formatters.formatDurationShort(totalWaterDistributedMinutes),
+                        subtitle = "${customersWithBalance.size} عميل مسجل",
+                        icon = Icons.Default.AccessTime,
+                        accentColor = AccentGold,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
             // Search Bar & Sort Chips
@@ -147,7 +141,7 @@ fun CustomersScreen(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { viewModel.setSearchQuery(it) },
-                        placeholder = { Text("بحث بالاسم، رقم الهاتف، أو اسم المزرعة...") },
+                        placeholder = { Text("بحث...") },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -378,11 +372,11 @@ fun CustomerCardItem(
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
                             .background(balanceBg)
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Text(
                             text = balanceText,
-                            style = MaterialTheme.typography.labelSmall.copy(
+                            style = MaterialTheme.typography.bodyMedium.copy(
                                 color = balanceColor,
                                 fontWeight = FontWeight.Bold
                             )
@@ -463,48 +457,57 @@ fun CustomerCardItem(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Action Buttons (Call, WhatsApp, PDF Statement, Menu)
+            // Action Buttons (Call, WhatsApp, PDF Statement, Menu) - 44dp touch friendly
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (customer.phone.isNotEmpty()) {
                         IconButton(
                             onClick = onCallClick,
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(PrimaryTeal.copy(alpha = 0.12f))
                         ) {
                             Icon(
                                 Icons.Default.Call,
                                 contentDescription = "اتصال",
                                 tint = PrimaryTeal,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
 
                         IconButton(
                             onClick = onWhatsAppClick,
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(AccentEmerald.copy(alpha = 0.12f))
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.Send,
                                 contentDescription = "واتساب",
                                 tint = AccentEmerald,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }
 
                     IconButton(
                         onClick = onPdfStatementClick,
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(AccentGold.copy(alpha = 0.15f))
                     ) {
                         Icon(
                             Icons.Default.PictureAsPdf,
-                            contentDescription = "كشف حساب PDF",
-                            tint = AccentGold,
-                            modifier = Modifier.size(18.dp)
+                            contentDescription = "كشف حساب",
+                            tint = Color(0xFFC67C00),
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
@@ -512,9 +515,9 @@ fun CustomerCardItem(
                 Box {
                     IconButton(
                         onClick = { menuExpanded = true },
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "خيارات", modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.MoreVert, contentDescription = "خيارات", modifier = Modifier.size(22.dp))
                     }
 
                     DropdownMenu(
@@ -522,14 +525,14 @@ fun CustomerCardItem(
                         onDismissRequest = { menuExpanded = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("عرض التفاصيل وكشف الحساب") },
+                            text = { Text("عرض التفاصيل") },
                             onClick = {
                                 menuExpanded = false
                                 onClick()
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("تعديل بيانات العميل") },
+                            text = { Text("تعديل") },
                             leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
                             onClick = {
                                 menuExpanded = false
@@ -537,7 +540,7 @@ fun CustomerCardItem(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("حذف العميل", color = Color(0xFFE53935)) },
+                            text = { Text("حذف", color = Color(0xFFE53935)) },
                             leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
                             onClick = {
                                 menuExpanded = false

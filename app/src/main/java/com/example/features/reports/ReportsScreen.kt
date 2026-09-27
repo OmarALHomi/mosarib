@@ -49,7 +49,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.core.ui.LuxuryBannerCard
 import com.example.core.ui.LuxuryToastNotification
 import com.example.core.ui.StatBoxCard
 import com.example.core.util.Formatters
@@ -76,25 +75,31 @@ fun ReportsScreen(
             LuxuryToastNotification(toast = toast, onDismiss = { viewModel.dismissToast() })
         }
 
-        // Luxury Header Banner
+        // Clean Action Bar
         item {
-            LuxuryBannerCard(
-                title = "التقارير المالية والتشغيلية الشاملة",
-                subtitle = "متابعة أداء ضخ وتوزيع المياه، الإيرادات، الأرباح الصافية، والديون",
-                modifier = Modifier.padding(16.dp),
-                trailingBadge = {
-                    Button(
-                        onClick = { viewModel.exportComprehensiveReportPdf() },
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentGold),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("تصدير PDF", color = Color.Black, fontWeight = FontWeight.Bold)
-                    }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "التقارير والإحصائيات",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+
+                Button(
+                    onClick = { viewModel.exportComprehensiveReportPdf() },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentGold),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("تصدير PDF", color = Color.Black, fontWeight = FontWeight.Bold)
                 }
-            )
+            }
         }
 
         // Period Filters
@@ -213,7 +218,7 @@ fun ReportsScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 StatBoxCard(
-                    title = "ساعات الضخ والري",
+                    title = "ساعات الري",
                     value = Formatters.formatDurationArabic(stats.totalWaterMinutes),
                     subtitle = Formatters.formatDurationShort(stats.totalWaterMinutes),
                     icon = Icons.Default.AccessTime,
@@ -221,9 +226,9 @@ fun ReportsScreen(
                     modifier = Modifier.weight(1f)
                 )
                 StatBoxCard(
-                    title = "الديون المتبقية عند العملاء",
+                    title = "ديون العملاء",
                     value = Formatters.formatCurrency(stats.totalOutstandingDebt, config.currencySymbol),
-                    subtitle = "مبالغ آجلة قيد التحصيل",
+                    subtitle = "ديون متبقية",
                     icon = Icons.Default.WaterDrop,
                     accentColor = Color(0xFFFF8A80),
                     modifier = Modifier.weight(1f)
@@ -252,7 +257,7 @@ fun ReportsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "نسبة تحصيل المبيعات النقدية",
+                            text = "نسبة التحصيل",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
@@ -295,7 +300,7 @@ fun ReportsScreen(
         // Top Consuming Customers Section
         item {
             Text(
-                text = "أكثر المزارعين استهلاكاً للماء (الترتيب)",
+                text = "أكثر العملاء استهلاكاً",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
             )
