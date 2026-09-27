@@ -121,6 +121,20 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
+     * Save backup directly to phone's Downloads directory
+     */
+    fun backupToPhoneStorage() {
+        viewModelScope.launch {
+            val result = BackupManager.saveBackupToPhoneDownloads(getApplication(), db)
+            result.onSuccess { file ->
+                showToast("تم حفظ النسخة بنجاح في مجلد التنزيلات بالهاتف", ToastType.SUCCESS)
+            }.onFailure { e ->
+                showToast("فشل في حفظ النسخة بالهاتف: ${e.localizedMessage}", ToastType.ERROR)
+            }
+        }
+    }
+
+    /**
      * Restore from user-selected JSON file
      */
     fun restoreBackup(uri: Uri) {

@@ -49,6 +49,11 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
     private val _toast = MutableStateFlow<ToastMessage?>(null)
     val toast: StateFlow<ToastMessage?> = _toast.asStateFlow()
 
+    /** ملف PDF جاهز — يُعرض dialog للمستخدم يختار فيه فتح أو مشاركة */
+    private val _pdfReadyFile = MutableStateFlow<Pair<File, String>?>(null)
+    val pdfReadyFile: StateFlow<Pair<File, String>?> = _pdfReadyFile.asStateFlow()
+    fun clearPdfReady() { _pdfReadyFile.value = null }
+
     val customersWithBalance: StateFlow<List<CustomerWithBalance>> =
         combine(customerRepo.customersWithBalance, _searchQuery, _sortType) { list, query, sort ->
             val filtered = if (query.isBlank()) list else {
@@ -151,7 +156,6 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 val sessions = sessionRepo.getSessionsForCustomer(customer.id).first()
                 val vouchers = voucherRepo.getVouchersForCustomer(customer.id).first()
                 val config = appConfig.value
-
                 val file: File = PdfReportGenerator.generateCustomerStatementPdf(
                     context = getApplication(),
                     config = config,
@@ -159,7 +163,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                     sessions = sessions,
                     vouchers = vouchers
                 )
-                FileSharingHelper.sharePdf(getApplication(), file, "كشف حساب العميل ${customer.name}")
+                _pdfReadyFile.value = Pair(file, "كشف حساب ${customer.name}")
             } catch (e: Exception) {
                 showToast("فشل في إنشاء كشف الحساب: ${e.localizedMessage}", ToastType.ERROR)
             }

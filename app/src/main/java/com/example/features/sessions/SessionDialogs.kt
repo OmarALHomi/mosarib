@@ -213,50 +213,6 @@ fun AddEditSessionBottomSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Pump Selector
-            Text(
-                text = "مضخة / بئر الماء",
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Box {
-                OutlinedTextField(
-                    value = selectedPumpName,
-                    onValueChange = {},
-                    readOnly = true,
-                    trailingIcon = {
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Default.WaterDrop, contentDescription = null, tint = SecondaryAqua)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .clickable { pumpDropdownExpanded = true }
-                )
-                DropdownMenu(
-                    expanded = pumpDropdownExpanded,
-                    onDismissRequest = { pumpDropdownExpanded = false }
-                ) {
-                    pumps.forEach { p ->
-                        DropdownMenuItem(
-                            text = { Text("${p.name} (${p.powerType})") },
-                            onClick = {
-                                selectedPumpName = p.name
-                                pricePerHourStr = p.defaultPricePerHour.toString()
-                                pumpDropdownExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             // Duration: Hours and Minutes
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -617,40 +573,7 @@ fun StartLiveTimerBottomSheet(
                 }
             }
 
-            if (pumps.size > 1) {
-                Spacer(modifier = Modifier.height(14.dp))
-                Text("المضخة / البئر:", style = MaterialTheme.typography.labelMedium)
-                Spacer(modifier = Modifier.height(6.dp))
-                Box {
-                    OutlinedTextField(
-                        value = selectedPumpName,
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable { pumpDropdownExpanded = true }
-                    )
-                    DropdownMenu(
-                        expanded = pumpDropdownExpanded,
-                        onDismissRequest = { pumpDropdownExpanded = false }
-                    ) {
-                        pumps.forEach { p ->
-                            DropdownMenuItem(
-                                text = { Text(p.name, fontWeight = FontWeight.Bold) },
-                                onClick = {
-                                    selectedPumpName = p.name
-                                    pumpDropdownExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
+
 
             Spacer(modifier = Modifier.height(14.dp))
 

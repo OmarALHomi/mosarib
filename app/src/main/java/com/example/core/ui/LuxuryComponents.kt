@@ -66,6 +66,14 @@ fun LuxuryToastNotification(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Auto-dismiss after 3 seconds when a new toast appears
+    androidx.compose.runtime.LaunchedEffect(toast?.id) {
+        if (toast != null) {
+            kotlinx.coroutines.delay(3000)
+            onDismiss()
+        }
+    }
+
     AnimatedVisibility(
         visible = toast != null,
         enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
@@ -75,23 +83,22 @@ fun LuxuryToastNotification(
         toast?.let {
             val (bgColor, iconVector, iconColor) = when (it.type) {
                 ToastType.SUCCESS -> Triple(Color(0xFF1B4D3E), Icons.Default.CheckCircle, Color(0xFF00E676))
-                ToastType.ERROR -> Triple(Color(0xFF5A1A1A), Icons.Default.ErrorOutline, Color(0xFFFF5252))
+                ToastType.ERROR   -> Triple(Color(0xFF5A1A1A), Icons.Default.ErrorOutline, Color(0xFFFF5252))
                 ToastType.WARNING -> Triple(Color(0xFF5C3D00), Icons.Default.Info, Color(0xFFFFD54F))
-                ToastType.INFO -> Triple(Color(0xFF103A52), Icons.Default.WaterDrop, Color(0xFF40C4FF))
+                ToastType.INFO    -> Triple(Color(0xFF103A52), Icons.Default.WaterDrop, Color(0xFF40C4FF))
             }
 
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .shadow(8.dp, RoundedCornerShape(16.dp))
+                    .shadow(12.dp, RoundedCornerShape(16.dp))
                     .testTag("app_toast_surface"),
                 shape = RoundedCornerShape(16.dp),
                 color = bgColor
             ) {
                 Row(
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
@@ -108,9 +115,7 @@ fun LuxuryToastNotification(
                             modifier = Modifier.size(22.dp)
                         )
                     }
-
                     Spacer(modifier = Modifier.width(12.dp))
-
                     Text(
                         text = it.message,
                         style = MaterialTheme.typography.bodyMedium.copy(
@@ -119,23 +124,12 @@ fun LuxuryToastNotification(
                         ),
                         modifier = Modifier.weight(1f)
                     )
-
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "إغلاق",
-                            tint = Color.White.copy(alpha = 0.7f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
                 }
             }
         }
     }
 }
+
 
 @Composable
 fun LuxuryBannerCard(

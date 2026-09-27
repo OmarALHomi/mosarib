@@ -103,6 +103,48 @@ fun CustomerDetailScreen(
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var showAddReceiptSheet by remember { mutableStateOf(false) }
+    val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
+    var localSessionPdfReady by remember { mutableStateOf<Pair<java.io.File, String>?>(null) }
+    val activePdf = pdfReady ?: localSessionPdfReady
+
+    // PDF Open / Share Dialog
+    activePdf?.let { (file, title) ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {
+                viewModel.clearPdfReady()
+                localSessionPdfReady = null
+            },
+            title = { Text("المستند جاهز", fontWeight = FontWeight.Bold) },
+            text = { Text("هل ترغب في فتح وعرض الملف مباشرة أم مشاركته؟") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        FileSharingHelper.openPdf(context, file)
+                        viewModel.clearPdfReady()
+                        localSessionPdfReady = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
+                ) {
+                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("فتح / عرض")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        FileSharingHelper.sharePdf(context, file, title)
+                        viewModel.clearPdfReady()
+                        localSessionPdfReady = null
+                    }
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("مشاركة")
+                }
+            }
+        )
+    }
 
     if (customerWithBalance == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -139,15 +181,11 @@ fun CustomerDetailScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(bottom = 80.dp)
-        ) {
-            item {
-                LuxuryToastNotification(toast = toast, onDismiss = { viewModel.dismissToast() })
-            }
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 80.dp)
+            ) {
 
             // Customer Summary Banner Card
             item {
@@ -391,19 +429,42 @@ fun CustomerDetailScreen(
                                         style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
                                     )
 
-                                    IconButton(
-                                        onClick = {
-                                            val file = com.example.core.util.PdfReportGenerator.generateSessionInvoicePdf(
-                                                context = context,
-                                                config = config,
-                                                customer = customer,
-                                                session = s
-                                            )
-                                            FileSharingHelper.sharePdf(context, file, "فاتورة ري #${s.id}")
-                                        },
-                                        modifier = Modifier.size(30.dp)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Icon(Icons.Default.PictureAsPdf, contentDescription = "فاتورة PDF", tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                                        if (customer.phone.isNotEmpty()) {
+                                            IconButton(
+                                                onClick = {
+                                                    val msg = "دورة ري #${s.id}\nالتاريخ: ${Formatters.formatDateTime(s.startTime)}\nالمدة: ${Formatters.formatDurationArabic(s.durationMinutes)}\nالمبلغ: ${Formatters.formatCurrency(s.totalAmount, config.currencySymbol)}\nالمسدد: ${Formatters.formatCurrency(s.amountPaid, config.currencySymbol)}\nالمتبقي: ${Formatters.formatCurrency(s.remainingDebt, config.currencySymbol)}"
+                                                    FileSharingHelper.sendWhatsAppMessage(context, customer.phone, msg)
+                                                },
+                                                modifier = Modifier
+                                                    .size(34.dp)
+                                                    .clip(CircleShape)
+                                                    .background(AccentEmerald.copy(alpha = 0.12f))
+                                            ) {
+                                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = AccentEmerald, modifier = Modifier.size(16.dp))
+                                            }
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                val file = com.example.core.util.PdfReportGenerator.generateSessionInvoicePdf(
+                                                    context = context,
+                                                    config = config,
+                                                    customer = customer,
+                                                    session = s
+                                                )
+                                                localSessionPdfReady = Pair(file, "فاتورة ري #${s.id}")
+                                            },
+                                            modifier = Modifier
+                                                .size(34.dp)
+                                                .clip(CircleShape)
+                                                .background(PrimaryTeal.copy(alpha = 0.12f))
+                                        ) {
+                                            Icon(Icons.Default.PictureAsPdf, contentDescription = "فاتورة PDF", tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                                        }
                                     }
                                 }
                             }
@@ -478,7 +539,16 @@ fun CustomerDetailScreen(
                 }
             }
         }
+
+        LuxuryToastNotification(
+            toast = toast,
+            onDismiss = { viewModel.dismissToast() },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 10.dp)
+        )
     }
+}
 
     // Add Receipt Sheet
     if (showAddReceiptSheet) {

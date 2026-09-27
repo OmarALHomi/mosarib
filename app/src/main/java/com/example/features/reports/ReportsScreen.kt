@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WorkspacePremium
@@ -66,41 +67,74 @@ fun ReportsScreen(
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val selectedPeriod by viewModel.period.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
+    val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 90.dp)
-    ) {
-        item {
-            LuxuryToastNotification(toast = toast, onDismiss = { viewModel.dismissToast() })
-        }
-
-        // Clean Action Bar
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "التقارير والإحصائيات",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
-
+    // PDF Open / Share Dialog
+    pdfReady?.let { (file, title) ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { viewModel.clearPdfReady() },
+            title = { Text("تم إنشاء التقرير بنجاح", fontWeight = FontWeight.Bold) },
+            text = { Text("هل ترغب في فتح وعرض التقرير مباشرة أم مشاركته؟") },
+            confirmButton = {
                 Button(
-                    onClick = { viewModel.exportComprehensiveReportPdf() },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentGold),
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                    onClick = {
+                        com.example.core.util.FileSharingHelper.openPdf(context, file)
+                        viewModel.clearPdfReady()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
                 ) {
-                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("تصدير PDF", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text("فتح / عرض")
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.OutlinedButton(
+                    onClick = {
+                        com.example.core.util.FileSharingHelper.sharePdf(context, file, title)
+                        viewModel.clearPdfReady()
+                    }
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("مشاركة")
                 }
             }
-        }
+        )
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 90.dp)
+        ) {
+            // Clean Action Bar
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "التقارير والإحصائيات",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+
+                    Button(
+                        onClick = { viewModel.exportComprehensiveReportPdf() },
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentGold),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("تصدير PDF", color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
 
         // Period Filters
         item {
@@ -174,7 +208,7 @@ fun ReportsScreen(
                 StatBoxCard(
                     title = "صافي الأرباح التشغيلية",
                     value = Formatters.formatCurrency(stats.netOperatingProfit, config.currencySymbol),
-                    subtitle = "بعد خصم مصاريف المضخة",
+                    subtitle = "بعد خصم المصاريف",
                     icon = Icons.AutoMirrored.Filled.TrendingUp,
                     accentColor = if (stats.netOperatingProfit >= 0) AccentEmerald else Color(0xFFE53935),
                     modifier = Modifier.weight(1f)
@@ -364,4 +398,13 @@ fun ReportsScreen(
             }
         }
     }
+
+    LuxuryToastNotification(
+        toast = toast,
+        onDismiss = { viewModel.dismissToast() },
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .padding(top = 10.dp)
+    )
+}
 }

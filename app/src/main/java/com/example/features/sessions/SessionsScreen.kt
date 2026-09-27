@@ -123,13 +123,6 @@ fun SessionsScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 100.dp)
         ) {
-            // Toast Notification
-            item {
-                LuxuryToastNotification(
-                    toast = toast,
-                    onDismiss = { viewModel.dismissToast() }
-                )
-            }
 
             // Home Dashboard Statistics (2 High-impact cards: Cash collected vs Outstanding debt)
             item {
@@ -291,9 +284,14 @@ fun SessionsScreen(
             icon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(26.dp)) },
             text = { Text("دورة جديدة", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
             modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-                .testTag("fab_add_session")
+        )
+
+        LuxuryToastNotification(
+            toast = toast,
+            onDismiss = { viewModel.dismissToast() },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 10.dp)
         )
     }
 
@@ -704,7 +702,7 @@ fun SessionCardItem(
                         IconButton(
                             onClick = onWhatsAppClick,
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(40.dp)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(AccentEmerald.copy(alpha = 0.12f))
                         ) {
@@ -712,30 +710,16 @@ fun SessionCardItem(
                                 Icons.AutoMirrored.Filled.Send,
                                 contentDescription = "واتساب",
                                 tint = AccentEmerald,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        // SMS
-                        IconButton(
-                            onClick = onSmsClick,
-                            modifier = Modifier
-                                .size(42.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(AccentGold.copy(alpha = 0.12f))
-                        ) {
-                            Icon(
-                                Icons.Default.Sms,
-                                contentDescription = "رسالة نصية",
-                                tint = AccentGold,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
 
+                    // فاتورة PDF (فتح أو مشاركة)
                     IconButton(
                         onClick = onPdfClick,
                         modifier = Modifier
-                            .size(42.dp)
+                            .size(40.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(PrimaryTeal.copy(alpha = 0.12f))
                     ) {
@@ -743,7 +727,7 @@ fun SessionCardItem(
                             Icons.Default.PictureAsPdf,
                             contentDescription = "فاتورة",
                             tint = PrimaryTeal,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
@@ -759,6 +743,16 @@ fun SessionCardItem(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false }
                         ) {
+                            if (!customer?.phone.isNullOrEmpty()) {
+                                DropdownMenuItem(
+                                    text = { Text("إرسال رسالة SMS") },
+                                    leadingIcon = { Icon(Icons.Default.Sms, contentDescription = null, tint = AccentGold) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onSmsClick()
+                                    }
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text("تعديل") },
                                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },

@@ -272,9 +272,20 @@ object BackupManager {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        val chooser = Intent.createChooser(intent, "حفظ أو مشاركة النسخة الاحتياطية (Google Drive / سحابي)").apply {
+        val chooser = Intent.createChooser(intent, "حفظ في Google Drive أو مشاركة النسخة الاحتياطية").apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(chooser)
+    }
+
+    suspend fun saveBackupToPhoneDownloads(context: Context, database: AppDatabase): Result<File> = withContext(Dispatchers.IO) {
+        runCatching {
+            val backupFile = createBackupJson(context, database)
+            val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            if (!downloadsDir.exists()) downloadsDir.mkdirs()
+            val targetFile = File(downloadsDir, backupFile.name)
+            backupFile.copyTo(targetFile, overwrite = true)
+            targetFile
+        }
     }
 }

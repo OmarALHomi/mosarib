@@ -86,6 +86,7 @@ fun CustomersScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val sortType by viewModel.sortType.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
+    val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var showAddSheet by remember { mutableStateOf(false) }
@@ -97,13 +98,6 @@ fun CustomersScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 90.dp)
         ) {
-            // Toast Notification
-            item {
-                LuxuryToastNotification(
-                    toast = toast,
-                    onDismiss = { viewModel.dismissToast() }
-                )
-            }
 
             // Summary Quick Stat Cards
             item {
@@ -223,9 +217,43 @@ fun CustomersScreen(
                 .padding(16.dp)
                 .testTag("fab_add_customer"),
             containerColor = PrimaryTeal,
-            contentColor = Color.White,
             icon = { Icon(Icons.Default.Add, contentDescription = null) },
             text = { Text("إضافة عميل جديد", fontWeight = FontWeight.Bold) }
+        )
+
+        LuxuryToastNotification(
+            toast = toast,
+            onDismiss = { viewModel.dismissToast() },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 10.dp)
+        )
+    }
+
+    // PDF Open / Share Dialog
+    pdfReady?.let { (file, title) ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { viewModel.clearPdfReady() },
+            title = { Text("كشف الحساب جاهز", fontWeight = FontWeight.Bold) },
+            text = { Text("هل ترغب في فتح وعرض كشف الحساب مباشرة أم مشاركته؟") },
+            confirmButton = {
+                androidx.compose.material3.Button(
+                    onClick = {
+                        com.example.core.util.FileSharingHelper.openPdf(context, file)
+                        viewModel.clearPdfReady()
+                    },
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
+                ) { Text("فتح / عرض") }
+            },
+            dismissButton = {
+                androidx.compose.material3.Button(
+                    onClick = {
+                        com.example.core.util.FileSharingHelper.sharePdf(context, file, title)
+                        viewModel.clearPdfReady()
+                    },
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = AccentEmerald)
+                ) { Text("مشاركة") }
+            }
         )
     }
 
@@ -457,7 +485,7 @@ fun CustomerCardItem(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Action Buttons (Call, WhatsApp, PDF Statement, Menu) - 44dp touch friendly
+            // Action Buttons: Call + PDF only (2 icons max)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -465,6 +493,7 @@ fun CustomerCardItem(
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (customer.phone.isNotEmpty()) {
+                        // اتصال مباشر
                         IconButton(
                             onClick = onCallClick,
                             modifier = Modifier
@@ -472,14 +501,9 @@ fun CustomerCardItem(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(PrimaryTeal.copy(alpha = 0.12f))
                         ) {
-                            Icon(
-                                Icons.Default.Call,
-                                contentDescription = "اتصال",
-                                tint = PrimaryTeal,
-                                modifier = Modifier.size(22.dp)
-                            )
+                            Icon(Icons.Default.Call, contentDescription = "اتصال", tint = PrimaryTeal, modifier = Modifier.size(22.dp))
                         }
-
+                        // واتساب
                         IconButton(
                             onClick = onWhatsAppClick,
                             modifier = Modifier
@@ -487,15 +511,10 @@ fun CustomerCardItem(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(AccentEmerald.copy(alpha = 0.12f))
                         ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "واتساب",
-                                tint = AccentEmerald,
-                                modifier = Modifier.size(22.dp)
-                            )
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = AccentEmerald, modifier = Modifier.size(22.dp))
                         }
                     }
-
+                    // كشف حساب PDF
                     IconButton(
                         onClick = onPdfStatementClick,
                         modifier = Modifier
@@ -503,53 +522,30 @@ fun CustomerCardItem(
                             .clip(RoundedCornerShape(12.dp))
                             .background(AccentGold.copy(alpha = 0.15f))
                     ) {
-                        Icon(
-                            Icons.Default.PictureAsPdf,
-                            contentDescription = "كشف حساب",
-                            tint = Color(0xFFC67C00),
-                            modifier = Modifier.size(22.dp)
-                        )
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = "كشف حساب", tint = Color(0xFFC67C00), modifier = Modifier.size(22.dp))
                     }
                 }
 
                 Box {
-                    IconButton(
-                        onClick = { menuExpanded = true },
-                        modifier = Modifier.size(40.dp)
-                    ) {
+                    IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(40.dp)) {
                         Icon(Icons.Default.MoreVert, contentDescription = "خيارات", modifier = Modifier.size(22.dp))
                     }
-
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("عرض التفاصيل") },
-                            onClick = {
-                                menuExpanded = false
-                                onClick()
-                            }
-                        )
+                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                        DropdownMenuItem(text = { Text("عرض التفاصيل") }, onClick = { menuExpanded = false; onClick() })
                         DropdownMenuItem(
                             text = { Text("تعديل") },
                             leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                            onClick = {
-                                menuExpanded = false
-                                onEditClick()
-                            }
+                            onClick = { menuExpanded = false; onEditClick() }
                         )
                         DropdownMenuItem(
                             text = { Text("حذف", color = Color(0xFFE53935)) },
                             leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
-                            onClick = {
-                                menuExpanded = false
-                                onDeleteClick()
-                            }
+                            onClick = { menuExpanded = false; onDeleteClick() }
                         )
                     }
                 }
             }
+
         }
     }
 }

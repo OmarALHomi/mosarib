@@ -168,6 +168,10 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         _period.value = p
     }
 
+    private val _pdfReadyFile = MutableStateFlow<Pair<java.io.File, String>?>(null)
+    val pdfReadyFile: StateFlow<Pair<java.io.File, String>?> = _pdfReadyFile.asStateFlow()
+    fun clearPdfReady() { _pdfReadyFile.value = null }
+
     fun showToast(msg: String, type: ToastType = ToastType.SUCCESS) {
         _toast.value = ToastMessage(message = msg, type = type)
     }
@@ -195,7 +199,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                         sessions = sList,
                         vouchers = vList
                     )
-                    FileSharingHelper.sharePdf(getApplication(), file, "تقرير الحسابات وتوزيع المياه الشامل")
+                    _pdfReadyFile.value = Pair(file, "تقرير الحسابات وتوزيع المياه الشامل")
                 } else {
                     showToast("لا توجد بيانات كافية للتصدير", ToastType.WARNING)
                 }

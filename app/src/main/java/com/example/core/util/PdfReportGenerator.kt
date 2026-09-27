@@ -287,8 +287,7 @@ object PdfReportGenerator {
         canvas.drawText("تاريخ الري: ${Formatters.formatDateTime(session.startTime)}", pageWidth - 35f, 140f, paint)
 
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("المضخة / البئر: ${session.pumpName}", 35f, 120f, paint)
-        canvas.drawText("حالة السداد: ${if (session.remainingDebt <= 0) "مسدد بالكامل" else "متبقي آجل"}", 35f, 140f, paint)
+        canvas.drawText("حالة السداد: ${if (session.remainingDebt <= 0) "مسدد بالكامل" else "متبقي آجل"}", 35f, 130f, paint)
 
         // Customer details block
         val rectCustomer = RectF(30f, 160f, pageWidth - 30f, 225f)

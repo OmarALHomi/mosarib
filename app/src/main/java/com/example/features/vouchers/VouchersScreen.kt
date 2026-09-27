@@ -96,9 +96,6 @@ fun VouchersScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 90.dp)
         ) {
-            item {
-                LuxuryToastNotification(toast = toast, onDismiss = { viewModel.dismissToast() })
-            }
 
             // Financial Balance Metric Cards
             item {
@@ -309,6 +306,14 @@ fun VouchersScreen(
             contentColor = Color.White,
             icon = { Icon(Icons.Default.Add, contentDescription = null) },
             text = { Text("سند جديد", fontWeight = FontWeight.Bold) }
+        )
+
+        LuxuryToastNotification(
+            toast = toast,
+            onDismiss = { viewModel.dismissToast() },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 10.dp)
         )
     }
 

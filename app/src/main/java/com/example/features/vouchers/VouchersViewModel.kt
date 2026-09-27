@@ -95,7 +95,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                 notes = notes
             )
             voucherRepo.insertVoucher(voucher)
-            val title = if (type == VoucherType.RECEIPT) "سند القبض" else "سند الصرف ومصروف المضخة"
+            val title = if (type == VoucherType.RECEIPT) "سند القبض" else "سند الصرف والمصاريف"
             showToast("تم حفظ $title بنجاح", ToastType.SUCCESS)
         }
     }

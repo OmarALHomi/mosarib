@@ -233,7 +233,7 @@ fun AddEditCustomerBottomSheet(
                 value = customPriceStr,
                 onValueChange = { customPriceStr = Formatters.formatAmountInput(it) },
                 label = { Text("سعر خاص ومخصص لهذا العميل ($currencySymbol/ساعة) - اختياري") },
-                placeholder = { Text("اتركه فارغاً لاستخدام السعر العام للمضخة") },
+                placeholder = { Text("اتركه فارغاً لاستخدام سعر الساعة الافتراضي") },
                 leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = AccentGold) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
