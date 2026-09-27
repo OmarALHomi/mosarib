@@ -384,17 +384,16 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
         FileSharingHelper.sendSms(getApplication(), customer.phone, msg)
     }
 
-    private fun buildBillMessage(session: WaterSession, customer: Customer, config: com.example.features.settings.AppConfig): String =
-        """
-*فاتورة توزيع مياه - ${config.distributorName}*
-👤 العميل: ${customer.name}
-📍 المزرعة: ${customer.farmName.ifEmpty { "عام" }}
-⏱️ المدة: ${Formatters.formatDurationArabic(session.durationMinutes)}
-💰 سعر الساعة: ${Formatters.formatCurrency(session.pricePerHour, config.currencySymbol)}
-💵 الإجمالي: ${Formatters.formatCurrency(session.totalAmount, config.currencySymbol)}
-✅ المدفوع: ${Formatters.formatCurrency(session.amountPaid, config.currencySymbol)}
-⚠️ المتبقي: ${Formatters.formatCurrency(session.remainingDebt, config.currencySymbol)}
-📅 التاريخ: ${Formatters.formatDateTime(session.startTime)}
-شكراً لتعاملكم معنا.
+    fun buildBillMessage(session: WaterSession, customer: Customer, config: com.example.features.settings.AppConfig = appConfig.value): String {
+        val timeRange = "من ${Formatters.formatTime(session.startTime)} إلى ${Formatters.formatTime(session.endTime)}"
+        val debtStatus = if (session.remainingDebt > 0) "المتبقي: ${Formatters.formatCurrency(session.remainingDebt, config.currencySymbol)}" else "خالص ومسدد"
+        return """
+*فاتورة ري - ${config.distributorName.ifEmpty { "المُسَرِّب" }}*
+👤 العميل: ${customer.name}${if (customer.farmName.isNotEmpty()) " (${customer.farmName})" else ""}
+⏱️ الوقت: $timeRange (${Formatters.formatDurationArabic(session.durationMinutes)})
+💵 المبلغ: ${Formatters.formatCurrency(session.totalAmount, config.currencySymbol)} | مسدد: ${Formatters.formatCurrency(session.amountPaid, config.currencySymbol)}
+📊 الحالة: $debtStatus
+📅 التاريخ: ${Formatters.formatDate(session.startTime)}
         """.trimIndent()
+    }
 }

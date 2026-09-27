@@ -1,12 +1,18 @@
 package com.example.core.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -66,61 +72,85 @@ fun LuxuryToastNotification(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Auto-dismiss after 3 seconds when a new toast appears
+    // Auto-dismiss after 2.8 seconds when a new toast appears
     androidx.compose.runtime.LaunchedEffect(toast?.id) {
         if (toast != null) {
-            kotlinx.coroutines.delay(3000)
+            kotlinx.coroutines.delay(2800)
             onDismiss()
         }
     }
 
+    val isDark = isSystemInDarkTheme()
+
     AnimatedVisibility(
         visible = toast != null,
-        enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
-        exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+        enter = slideInVertically(
+            initialOffsetY = { it },
+            animationSpec = tween(350, easing = FastOutSlowInEasing)
+        ) + fadeIn(tween(300)) + scaleIn(initialScale = 0.9f, animationSpec = tween(300)),
+        exit = slideOutVertically(
+            targetOffsetY = { it },
+            animationSpec = tween(280, easing = FastOutSlowInEasing)
+        ) + fadeOut(tween(250)) + scaleOut(targetScale = 0.9f, animationSpec = tween(250)),
         modifier = modifier
     ) {
         toast?.let {
-            val (bgColor, iconVector, iconColor) = when (it.type) {
-                ToastType.SUCCESS -> Triple(Color(0xFF1B4D3E), Icons.Default.CheckCircle, Color(0xFF00E676))
-                ToastType.ERROR   -> Triple(Color(0xFF5A1A1A), Icons.Default.ErrorOutline, Color(0xFFFF5252))
-                ToastType.WARNING -> Triple(Color(0xFF5C3D00), Icons.Default.Info, Color(0xFFFFD54F))
-                ToastType.INFO    -> Triple(Color(0xFF103A52), Icons.Default.WaterDrop, Color(0xFF40C4FF))
+            val (accentColor, iconVector) = when (it.type) {
+                ToastType.SUCCESS -> Color(0xFF00E676) to Icons.Default.CheckCircle
+                ToastType.ERROR   -> Color(0xFFFF5252) to Icons.Default.ErrorOutline
+                ToastType.WARNING -> Color(0xFFFFD54F) to Icons.Default.Info
+                ToastType.INFO    -> Color(0xFF40C4FF) to Icons.Default.WaterDrop
             }
 
-            Surface(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .shadow(12.dp, RoundedCornerShape(16.dp))
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+                    .shadow(16.dp, RoundedCornerShape(20.dp), spotColor = accentColor.copy(alpha = 0.4f))
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(
+                        if (isDark) Color(0xFF0B171D).copy(alpha = 0.90f)
+                        else Color(0xFF132228).copy(alpha = 0.92f)
+                    )
+                    .border(
+                        1.dp,
+                        Brush.horizontalGradient(
+                            listOf(
+                                accentColor.copy(alpha = 0.65f),
+                                Color.White.copy(alpha = 0.18f)
+                            )
+                        ),
+                        RoundedCornerShape(20.dp)
+                    )
+                    .clickable { onDismiss() }
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
                     .testTag("app_toast_surface"),
-                shape = RoundedCornerShape(16.dp),
-                color = bgColor
+                contentAlignment = Alignment.CenterStart
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(32.dp)
                             .clip(CircleShape)
-                            .background(iconColor.copy(alpha = 0.2f)),
+                            .background(accentColor.copy(alpha = 0.18f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = iconVector,
                             contentDescription = null,
-                            tint = iconColor,
-                            modifier = Modifier.size(22.dp)
+                            tint = accentColor,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = it.message,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = Color.White,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.5.sp
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -265,7 +295,7 @@ fun StatBoxCard(
                 text = value,
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF0F172A),
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 17.sp
                 ),
                 maxLines = 1,

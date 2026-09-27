@@ -241,7 +241,7 @@ fun VouchersScreen(
                                                 text = if (isReceipt) "سند قبض" else "سند صرف",
                                                 style = MaterialTheme.typography.titleMedium.copy(
                                                     fontWeight = FontWeight.ExtraBold,
-                                                    color = Color(0xFF0F172A)
+                                                    color = MaterialTheme.colorScheme.onSurface
                                                 )
                                             )
                                             Spacer(modifier = Modifier.width(4.dp))
@@ -304,7 +304,7 @@ fun VouchersScreen(
                                         text = voucher.paymentMethod,
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF0F172A)
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                     )
                                 }
@@ -385,8 +385,8 @@ fun VouchersScreen(
             toast = toast,
             onDismiss = { viewModel.dismissToast() },
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 10.dp)
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 85.dp)
         )
     }
 

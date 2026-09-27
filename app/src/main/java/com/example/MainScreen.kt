@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
@@ -60,6 +61,7 @@ import com.example.features.customers.CustomersScreen
 import com.example.features.customers.CustomersViewModel
 import com.example.features.home.HomeScreen
 import com.example.features.reports.ReportsScreen
+import com.example.features.splash.SplashScreen
 import com.example.features.reports.ReportsViewModel
 import com.example.features.sessions.SessionsScreen
 import com.example.features.sessions.SessionsViewModel
@@ -78,9 +80,9 @@ enum class AppTab(
     val unselectedIcon: ImageVector,
     val testTag: String
 ) {
-    HOME("الرئيسية", Icons.Filled.Home, Icons.Outlined.Home, "tab_home"),
     SESSIONS("سجلات السقي", Icons.Filled.WaterDrop, Icons.Outlined.WaterDrop, "tab_sessions"),
     CUSTOMERS("العملاء", Icons.Filled.People, Icons.Outlined.People, "tab_customers"),
+    HOME("الرئيسية", Icons.Filled.Home, Icons.Outlined.Home, "tab_home"),
     VOUCHERS("المالية", Icons.AutoMirrored.Filled.ReceiptLong, Icons.AutoMirrored.Outlined.ReceiptLong, "tab_vouchers"),
     SETTINGS("الإعدادات", Icons.Filled.Settings, Icons.Outlined.Settings, "tab_settings")
 }
@@ -105,11 +107,14 @@ fun MainApp(
     WaterDistributorTheme(darkTheme = darkTheme) {
         // Arabic RTL layout provider
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            var showSplashScreen by remember { mutableStateOf(true) }
             var selectedTab by remember { mutableStateOf(AppTab.HOME) }
             var selectedCustomerId by remember { mutableLongStateOf(0L) }
             var showReportsScreen by remember { mutableStateOf(false) }
 
-            if (selectedCustomerId > 0) {
+            if (showSplashScreen) {
+                SplashScreen(onTimeout = { showSplashScreen = false })
+            } else if (selectedCustomerId > 0) {
                 CustomerDetailScreen(
                     customerId = selectedCustomerId,
                     viewModel = customersViewModel,
@@ -162,7 +167,7 @@ fun MainApp(
                                         },
                                         style = MaterialTheme.typography.titleLarge.copy(
                                             fontWeight = FontWeight.ExtraBold,
-                                            color = Color(0xFF0F172A)
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                     )
                                 },
@@ -197,16 +202,34 @@ fun MainApp(
                                     selected = isSelected,
                                     onClick = { selectedTab = tab },
                                     icon = {
-                                        Icon(
-                                            imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
-                                            contentDescription = tab.title
-                                        )
+                                        if (tab == AppTab.HOME) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .background(if (isSelected) PrimaryTeal else PrimaryTeal.copy(alpha = 0.15f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
+                                                    contentDescription = tab.title,
+                                                    tint = if (isSelected) Color.White else PrimaryTeal,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        } else {
+                                            Icon(
+                                                imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
+                                                contentDescription = tab.title
+                                            )
+                                        }
                                     },
                                     label = {
                                         Text(
                                             text = tab.title,
                                             style = MaterialTheme.typography.labelSmall.copy(
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                fontWeight = if (isSelected || tab == AppTab.HOME) FontWeight.Bold else FontWeight.Normal,
+                                                fontSize = 11.sp
                                             )
                                         )
                                     },

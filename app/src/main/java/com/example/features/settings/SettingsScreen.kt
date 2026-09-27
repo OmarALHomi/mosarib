@@ -372,7 +372,7 @@ fun SettingsScreen(
                                 "النسخ الاحتياطي والأمان",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFF0F172A)
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             )
                         }
@@ -439,7 +439,7 @@ fun SettingsScreen(
                             text = "استعراض النسخ المحفوظة (${savedBackups.size})",
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         )
                         IconButton(
@@ -463,7 +463,7 @@ fun SettingsScreen(
                         ) {
                             Text(
                                 text = "لا توجد نسخ احتياطية محفوظة بعد. اضغط على 'نسخة جديدة' بالأعلى لإنشاء نسخة احتياطية فورية.",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B)),
+                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
                         }
@@ -474,7 +474,7 @@ fun SettingsScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(10.dp))
-                                        .background(Color(0xFFF8FAFC))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                         .padding(horizontal = 10.dp, vertical = 8.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
@@ -487,7 +487,7 @@ fun SettingsScreen(
                                             modifier = Modifier
                                                 .size(32.dp)
                                                 .clip(RoundedCornerShape(8.dp))
-                                                .background(Color(0xFFE0F2F1)),
+                                                .background(PrimaryTeal.copy(alpha = 0.15f)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(Icons.Default.Backup, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(16.dp))
@@ -498,13 +498,13 @@ fun SettingsScreen(
                                                 text = backup.formattedDate,
                                                 style = MaterialTheme.typography.bodySmall.copy(
                                                     fontWeight = FontWeight.Bold,
-                                                    color = Color(0xFF0F172A)
+                                                    color = MaterialTheme.colorScheme.onSurface
                                                 )
                                             )
                                             Text(
                                                 text = "${backup.sizeText}  •  ${backup.name}",
                                                 style = MaterialTheme.typography.labelSmall.copy(
-                                                    color = Color(0xFF64748B),
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     fontSize = 10.sp
                                                 ),
                                                 maxLines = 1
@@ -621,8 +621,8 @@ fun SettingsScreen(
         toast = toast,
         onDismiss = { viewModel.dismissToast() },
         modifier = Modifier
-            .align(Alignment.TopCenter)
-            .padding(top = 10.dp)
+            .align(Alignment.BottomCenter)
+            .padding(bottom = 85.dp)
     )
 }
 }

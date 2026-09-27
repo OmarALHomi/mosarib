@@ -154,8 +154,8 @@ fun HomeScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(42.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
                                 .background(
                                     Brush.linearGradient(
                                         listOf(PrimaryTeal, AccentEmerald)
@@ -167,7 +167,7 @@ fun HomeScreen(
                                 imageVector = Icons.Default.WaterDrop,
                                 contentDescription = null,
                                 tint = Color.White,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(19.dp)
                             )
                         }
 
@@ -176,16 +176,16 @@ fun HomeScreen(
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "مَسَارِبْ",
-                                    style = MaterialTheme.typography.titleLarge.copy(
+                                    text = "المُسَرِّبْ",
+                                    style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.ExtraBold,
-                                        color = Color(0xFF0F172A),
+                                        color = MaterialTheme.colorScheme.onSurface,
                                         letterSpacing = 0.5.sp
                                     )
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "• موزع الماء",
+                                    text = "• Almosarib",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = AccentGold,
                                         fontWeight = FontWeight.Bold
@@ -193,9 +193,9 @@ fun HomeScreen(
                                 )
                             }
                             Text(
-                                text = "لوحة التحكم وإدارة مياه الآبار",
+                                text = "لوحة التحكم وإدارة مياه الآبار والسقي",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color(0xFF64748B),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 11.sp
                                 )
                             )
@@ -240,13 +240,13 @@ fun HomeScreen(
                         text = "العمليات السريعة",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF0F172A),
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 16.sp
                         )
                     )
                     Text(
                         text = "اختر عملية للتنفيذ الفوري",
-                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF94A3B8))
+                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     )
                 }
             }
@@ -362,13 +362,13 @@ fun HomeScreen(
                         text = "التقارير الرسومية والتحليلية",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF0F172A),
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 16.sp
                         )
                     )
                     Text(
                         text = "مؤشرات حية للأداء",
-                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF94A3B8))
+                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     )
                 }
             }
@@ -399,7 +399,7 @@ fun HomeScreen(
                         text = "آخر دورات السقي المسجلة",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF0F172A),
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 15.sp
                         )
                     )
@@ -454,8 +454,8 @@ fun HomeScreen(
             toast = toast,
             onDismiss = { sessionsViewModel.dismissToast() },
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 10.dp)
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 85.dp)
         )
     }
 
@@ -732,13 +732,13 @@ fun QuickActionCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .padding(horizontal = 10.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(iconBgColor),
                 contentAlignment = Alignment.Center
             ) {
@@ -746,25 +746,25 @@ fun QuickActionCard(
                     imageVector = icon,
                     contentDescription = null,
                     tint = iconTint,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(16.dp)
                 )
             }
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF0F172A),
-                        fontSize = 13.5.sp
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 13.sp
                     ),
                     maxLines = 1
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(1.dp))
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.labelSmall.copy(
-                        color = Color(0xFF64748B),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 10.sp
                     ),
                     maxLines = 1
@@ -847,7 +847,7 @@ fun WeeklyIrrigationBarChartCard(
                         text = "مخطط سقي الأسبوع (بالساعات)",
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF0F172A),
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 14.sp
                         )
                     )
@@ -863,13 +863,13 @@ fun WeeklyIrrigationBarChartCard(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFE0F2F1))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
                         text = "آخر 7 أيام",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0xFF00695C),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
                             fontWeight = FontWeight.Bold,
                             fontSize = 10.sp
                         )
@@ -900,7 +900,7 @@ fun WeeklyIrrigationBarChartCard(
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 9.sp,
                                 fontWeight = if (stat.isToday) FontWeight.ExtraBold else FontWeight.SemiBold,
-                                color = if (stat.isToday) AccentEmerald else Color(0xFF64748B)
+                                color = if (stat.isToday) AccentEmerald else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         )
                         Spacer(modifier = Modifier.height(4.dp))
@@ -925,7 +925,7 @@ fun WeeklyIrrigationBarChartCard(
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 10.sp,
                                 fontWeight = if (stat.isToday) FontWeight.ExtraBold else FontWeight.Medium,
-                                color = if (stat.isToday) PrimaryTeal else Color(0xFF475569)
+                                color = if (stat.isToday) PrimaryTeal else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         )
                     }
@@ -971,13 +971,13 @@ fun FinancialRecoveryGaugeCard(
                         text = "مؤشر التحصيل والسيولة المالية",
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF0F172A),
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 14.sp
                         )
                     )
                     Text(
                         text = "نسبة الدفعات المستلمة مقارنة بالديون",
-                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B))
+                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     )
                 }
 
@@ -1006,7 +1006,7 @@ fun FinancialRecoveryGaugeCard(
                     .fillMaxWidth()
                     .height(14.dp)
                     .clip(RoundedCornerShape(7.dp))
-                    .background(Color(0xFFFFEBEE))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
                 Box(
                     modifier = Modifier
@@ -1039,7 +1039,7 @@ fun FinancialRecoveryGaugeCard(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "المقبوض كاش",
-                            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B))
+                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                         )
                     }
                     Text(
@@ -1063,7 +1063,7 @@ fun FinancialRecoveryGaugeCard(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "ديون متبقية بالذمة",
-                            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B))
+                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                         )
                     }
                     Text(
@@ -1105,39 +1105,42 @@ fun RecentSessionMiniCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 9.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(34.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFE0F2F1)),
+                        .background(PrimaryTeal.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.WaterDrop,
                         contentDescription = null,
                         tint = PrimaryTeal,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(15.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Column {
                     Text(
                         text = c?.name ?: "عميل غير محدد",
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF0F172A),
-                            fontSize = 13.5.sp
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 13.sp
                         )
                     )
+                    val startTimeStr = Formatters.formatTime(s.startTime)
+                    val endTimeStr = Formatters.formatTime(s.endTime)
+                    val dateStr = Formatters.formatDate(s.startTime)
                     Text(
-                        text = "${Formatters.formatDurationArabic(s.durationMinutes)}  •  ${Formatters.formatDateTime(s.startTime)}",
+                        text = "من $startTimeStr إلى $endTimeStr  •  $dateStr (${Formatters.formatDurationArabic(s.durationMinutes)})",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0xFF64748B),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 10.sp
                         )
                     )
@@ -1150,7 +1153,7 @@ fun RecentSessionMiniCard(
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = PrimaryTeal,
-                        fontSize = 13.5.sp
+                        fontSize = 13.sp
                     )
                 )
                 Text(

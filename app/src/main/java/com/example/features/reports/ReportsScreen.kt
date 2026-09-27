@@ -403,8 +403,8 @@ fun ReportsScreen(
         toast = toast,
         onDismiss = { viewModel.dismissToast() },
         modifier = Modifier
-            .align(Alignment.TopCenter)
-            .padding(top = 10.dp)
+            .align(Alignment.BottomCenter)
+            .padding(bottom = 85.dp)
     )
 }
 }

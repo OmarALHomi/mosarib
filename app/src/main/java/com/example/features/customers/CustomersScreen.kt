@@ -227,8 +227,8 @@ fun CustomersScreen(
             toast = toast,
             onDismiss = { viewModel.dismissToast() },
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 10.dp)
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 85.dp)
         )
     }
 
@@ -363,7 +363,7 @@ fun CustomerCardItem(
                             text = customer.name,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFF0F172A)
+                                color = MaterialTheme.colorScheme.onSurface
                             ),
                             maxLines = 1
                         )
@@ -525,7 +525,7 @@ fun CustomerCardItem(
                         text = "${Formatters.formatDurationShort(item.totalMinutes)} سقي مسجل",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     )
                 }
@@ -558,7 +558,7 @@ fun CustomerCardItem(
                         text = "الحسابات",
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF334155)
+                            color = MaterialTheme.colorScheme.onSurface
                         ),
                         modifier = Modifier.padding(bottom = 1.dp)
                     )
@@ -567,23 +567,23 @@ fun CustomerCardItem(
                     CustomerMetricPill(
                         label = "المسارب",
                         value = "${Formatters.formatNumber(item.totalBilledAmount)} $currencySymbol",
-                        bgColor = Color(0xFFE8F5E9),
-                        textColor = Color(0xFF00695C)
+                        bgColor = AccentEmerald.copy(alpha = 0.15f),
+                        textColor = AccentEmerald
                     )
 
                     // كبسولة المسدد
                     CustomerMetricPill(
                         label = "المسدد",
                         value = "${Formatters.formatNumber(item.totalPaidAmount)} $currencySymbol",
-                        bgColor = Color(0xFFE8F5E9),
-                        textColor = Color(0xFF00695C)
+                        bgColor = AccentEmerald.copy(alpha = 0.15f),
+                        textColor = AccentEmerald
                     )
 
                     // كبسولة الرصيد
                     val (pillBg, pillText) = when {
-                        item.balance > 0 -> Color(0xFFFFEBEE) to Color(0xFFC62828)
-                        item.balance < 0 -> Color(0xFFE8F5E9) to Color(0xFF2E7D32)
-                        else -> Color(0xFFF1F5F9) to Color(0xFF475569)
+                        item.balance > 0 -> Color(0xFFE53935).copy(alpha = 0.15f) to Color(0xFFC62828)
+                        item.balance < 0 -> AccentEmerald.copy(alpha = 0.15f) to AccentEmerald
+                        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) to MaterialTheme.colorScheme.onSurfaceVariant
                     }
                     CustomerMetricPill(
                         label = "الرصيد",

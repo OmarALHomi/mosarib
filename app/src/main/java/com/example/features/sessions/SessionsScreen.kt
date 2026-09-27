@@ -87,6 +87,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.core.ui.EmptyStateView
 import com.example.core.ui.LuxuryToastNotification
+import com.example.core.ui.SendMessageChoiceDialog
 import com.example.core.ui.StatBoxCard
 import com.example.core.util.Formatters
 import com.example.features.customers.Customer
@@ -120,6 +121,7 @@ fun SessionsScreen(
     var showStopLiveSheet by remember { mutableStateOf(false) }
     var sessionToEdit by remember { mutableStateOf<WaterSession?>(null) }
     var sessionToDelete by remember { mutableStateOf<WaterSession?>(null) }
+    var messageTargetSession by remember { mutableStateOf<Pair<WaterSession, Customer>?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -258,14 +260,9 @@ fun SessionsScreen(
                                 viewModel.generateAndShareInvoice(item.session, c)
                             }
                         },
-                        onWhatsAppClick = {
+                        onMessageClick = {
                             item.customer?.let { c ->
-                                viewModel.sendWhatsAppBill(item.session, c)
-                            }
-                        },
-                        onSmsClick = {
-                            item.customer?.let { c ->
-                                viewModel.sendSmsBill(item.session, c)
+                                messageTargetSession = Pair(item.session, c)
                             }
                         }
                     )
@@ -296,8 +293,27 @@ fun SessionsScreen(
             toast = toast,
             onDismiss = { viewModel.dismissToast() },
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 10.dp)
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 85.dp)
+        )
+    }
+
+    // Message Choice Dialog (WhatsApp or SMS)
+    messageTargetSession?.let { (session, customer) ->
+        val msg = viewModel.buildBillMessage(session, customer, config)
+        SendMessageChoiceDialog(
+            recipientName = customer.name,
+            recipientPhone = customer.phone,
+            messageText = msg,
+            onDismiss = { messageTargetSession = null },
+            onSendWhatsApp = {
+                messageTargetSession = null
+                viewModel.sendWhatsAppBill(session, customer)
+            },
+            onSendSms = {
+                messageTargetSession = null
+                viewModel.sendSmsBill(session, customer)
+            }
         )
     }
 
@@ -640,8 +656,7 @@ fun SessionCardItem(
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onPdfClick: () -> Unit,
-    onWhatsAppClick: () -> Unit,
-    onSmsClick: () -> Unit
+    onMessageClick: () -> Unit
 ) {
     val session = sessionWithCustomer.session
     val customer = sessionWithCustomer.customer
@@ -677,14 +692,14 @@ fun SessionCardItem(
                         modifier = Modifier
                             .size(38.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFE0F2F1)),
+                            .background(PrimaryTeal.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.WaterDrop,
                             contentDescription = null,
                             tint = PrimaryTeal,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
@@ -695,14 +710,14 @@ fun SessionCardItem(
                             text = customer?.name ?: "عميل غير محدد",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFF0F172A)
+                                color = MaterialTheme.colorScheme.onSurface
                             ),
                             maxLines = 1
                         )
                         Text(
                             text = if (!customer?.farmName.isNullOrBlank()) customer?.farmName!! else "جلسة ري",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF64748B),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Medium
                             ),
                             maxLines = 1
@@ -712,24 +727,24 @@ fun SessionCardItem(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // الأزرار الثلاثة على اليسار (في RTL: المشاركة، ثم PDF، ثم خيارات إضافية)
+                // الأزرار الثلاثة على اليسار (في RTL: إرسال الرسالة، ثم PDF، ثم خيارات إضافية)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // زر المشاركة
+                    // زر إرسال الفاتورة (واتساب / SMS)
                     Box(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFE0F2F1))
-                            .clickable { onWhatsAppClick() },
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .clickable { onMessageClick() },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "مشاركة",
-                            tint = Color(0xFF00695C),
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "إرسال الفاتورة",
+                            tint = PrimaryTeal,
                             modifier = Modifier.size(17.dp)
                         )
                     }
@@ -739,14 +754,14 @@ fun SessionCardItem(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFE0F2F1))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                             .clickable { onPdfClick() },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.PictureAsPdf,
                             contentDescription = "فاتورة PDF",
-                            tint = Color(0xFF00695C),
+                            tint = PrimaryTeal,
                             modifier = Modifier.size(17.dp)
                         )
                     }
@@ -757,14 +772,14 @@ fun SessionCardItem(
                             modifier = Modifier
                                 .size(34.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFE0F2F1))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                 .clickable { menuExpanded = true },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
                                 contentDescription = "خيارات",
-                                tint = Color(0xFF00695C),
+                                tint = PrimaryTeal,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -773,16 +788,14 @@ fun SessionCardItem(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false }
                         ) {
-                            if (!customer?.phone.isNullOrEmpty()) {
-                                DropdownMenuItem(
-                                    text = { Text("إرسال رسالة SMS") },
-                                    leadingIcon = { Icon(Icons.Default.Sms, contentDescription = null, tint = AccentGold) },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onSmsClick()
-                                    }
-                                )
-                            }
+                            DropdownMenuItem(
+                                text = { Text("إرسال الفاتورة (واتساب / SMS)") },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = PrimaryTeal) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onMessageClick()
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("تعديل") },
                                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
@@ -829,7 +842,7 @@ fun SessionCardItem(
                         text = Formatters.formatDurationArabic(session.durationMinutes),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     )
                 }
@@ -839,7 +852,7 @@ fun SessionCardItem(
                     text = "@ ${Formatters.formatNumber(session.pricePerHour)} $currencySymbol ساعة",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF475569)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 )
             }
@@ -862,7 +875,7 @@ fun SessionCardItem(
                         text = "الإجمالي",
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF334155)
+                            color = MaterialTheme.colorScheme.onSurface
                         ),
                         modifier = Modifier.padding(bottom = 1.dp)
                     )
@@ -871,16 +884,16 @@ fun SessionCardItem(
                     SessionMetricPill(
                         label = "الإجمالي",
                         value = "${Formatters.formatNumber(session.totalAmount)} $currencySymbol",
-                        bgColor = Color(0xFFE8F5E9),
-                        textColor = Color(0xFF00695C)
+                        bgColor = AccentEmerald.copy(alpha = 0.15f),
+                        textColor = AccentEmerald
                     )
 
                     // كبسولة المدفوع
                     SessionMetricPill(
                         label = "المدفوع",
                         value = "${Formatters.formatNumber(session.amountPaid)} $currencySymbol",
-                        bgColor = Color(0xFFE8F5E9),
-                        textColor = Color(0xFF00695C)
+                        bgColor = AccentEmerald.copy(alpha = 0.15f),
+                        textColor = AccentEmerald
                     )
 
                     // كبسولة المتبقي
@@ -888,15 +901,15 @@ fun SessionCardItem(
                         SessionMetricPill(
                             label = "المتبقي",
                             value = "${Formatters.formatNumber(session.remainingDebt)} $currencySymbol",
-                            bgColor = Color(0xFFFFEBEE),
+                            bgColor = Color(0xFFE53935).copy(alpha = 0.15f),
                             textColor = Color(0xFFC62828)
                         )
                     } else {
                         SessionMetricPill(
                             label = "المتبقي",
                             value = "0 $currencySymbol (خالص)",
-                            bgColor = Color(0xFFE8F5E9),
-                            textColor = Color(0xFF2E7D32)
+                            bgColor = AccentEmerald.copy(alpha = 0.15f),
+                            textColor = AccentEmerald
                         )
                     }
                 }
@@ -910,23 +923,36 @@ fun SessionCardItem(
                         .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 )
 
-                // العمود الأيسر (في RTL): التاريخ والوقت + المبلغ المتبقي/الإجمالي بالعريض والمحمر + كتابة المبلغ بالعربي
+                // العمود الأيسر (في RTL): وقت السقي من-إلى والتاريخ + المبلغ المتبقي/الإجمالي بالعريض والمحمر + كتابة المبلغ بالعربي
                 Column(
                     modifier = Modifier.weight(0.95f),
                     verticalArrangement = Arrangement.Center
                 ) {
+                    val startTimeStr = Formatters.formatTime(session.startTime)
+                    val endTimeStr = Formatters.formatTime(session.endTime)
+                    val dateStr = Formatters.formatDate(session.startTime)
+
                     Text(
-                        text = "التاريخ والوقت",
+                        text = "فترة السقي والتاريخ",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF475569)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     )
                     Text(
-                        text = Formatters.formatDateTime(session.startTime),
+                        text = "من $startTimeStr إلى $endTimeStr",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0xFF64748B),
-                            fontSize = 11.sp
+                            color = PrimaryTeal,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.5.sp
+                        ),
+                        maxLines = 1
+                    )
+                    Text(
+                        text = dateStr,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 10.5.sp
                         ),
                         maxLines = 1
                     )
@@ -934,7 +960,7 @@ fun SessionCardItem(
                     Spacer(modifier = Modifier.height(2.dp))
 
                     val highlightAmount = if (session.remainingDebt > 0) session.remainingDebt else session.totalAmount
-                    val highlightColor = if (session.remainingDebt > 0) Color(0xFFB71C1C) else Color(0xFF00695C)
+                    val highlightColor = if (session.remainingDebt > 0) Color(0xFFB71C1C) else PrimaryTeal
 
                     Text(
                         text = "${Formatters.formatNumber(highlightAmount)} $currencySymbol",
@@ -948,7 +974,7 @@ fun SessionCardItem(
                     Text(
                         text = Formatters.amountToArabicWords(highlightAmount, currencySymbol),
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0xFF8D6E63),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 10.sp,
                             lineHeight = 13.sp,
                             fontWeight = FontWeight.Medium
@@ -963,7 +989,7 @@ fun SessionCardItem(
                 Text(
                     text = "ملاحظة: ${session.notes}",
                     style = MaterialTheme.typography.labelSmall.copy(
-                        color = Color(0xFF64748B)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
                     maxLines = 1
                 )

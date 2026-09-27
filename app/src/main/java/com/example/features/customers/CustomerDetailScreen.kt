@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.core.ui.EmptyStateView
 import com.example.core.ui.LuxuryToastNotification
+import com.example.core.ui.SendMessageChoiceDialog
 import com.example.core.util.FileSharingHelper
 import com.example.core.util.Formatters
 import com.example.features.sessions.WaterSession
@@ -110,6 +111,7 @@ fun CustomerDetailScreen(
     var showEditCustomerSheet by remember { mutableStateOf(false) }
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     var localSessionPdfReady by remember { mutableStateOf<Pair<java.io.File, String>?>(null) }
+    var messageSessionTarget by remember { mutableStateOf<WaterSession?>(null) }
     val activePdf = pdfReady ?: localSessionPdfReady
 
     // PDF Open / Share Dialog
@@ -159,6 +161,35 @@ fun CustomerDetailScreen(
     }
 
     val customer = customerWithBalance.customer
+
+    // Message Choice Dialog (WhatsApp or SMS)
+    messageSessionTarget?.let { s ->
+        val timeRange = "من ${Formatters.formatTime(s.startTime)} إلى ${Formatters.formatTime(s.endTime)}"
+        val debtStatus = if (s.remainingDebt > 0) "المتبقي: ${Formatters.formatCurrency(s.remainingDebt, config.currencySymbol)}" else "خالص ومسدد"
+        val msg = """
+*فاتورة ري - ${config.distributorName.ifEmpty { "المُسَرِّب" }}*
+👤 العميل: ${customer.name}${if (customer.farmName.isNotEmpty()) " (${customer.farmName})" else ""}
+⏱️ الوقت: $timeRange (${Formatters.formatDurationArabic(s.durationMinutes)})
+💵 المبلغ: ${Formatters.formatCurrency(s.totalAmount, config.currencySymbol)} | مسدد: ${Formatters.formatCurrency(s.amountPaid, config.currencySymbol)}
+📊 الحالة: $debtStatus
+📅 التاريخ: ${Formatters.formatDate(s.startTime)}
+        """.trimIndent()
+
+        SendMessageChoiceDialog(
+            recipientName = customer.name,
+            recipientPhone = customer.phone,
+            messageText = msg,
+            onDismiss = { messageSessionTarget = null },
+            onSendWhatsApp = {
+                messageSessionTarget = null
+                FileSharingHelper.sendWhatsAppMessage(context, customer.phone, msg)
+            },
+            onSendSms = {
+                messageSessionTarget = null
+                FileSharingHelper.sendSms(context, customer.phone, msg)
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -241,7 +272,7 @@ fun CustomerDetailScreen(
                                         text = customer.name,
                                         style = MaterialTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.ExtraBold,
-                                            color = Color(0xFF0F172A),
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             fontSize = 17.sp
                                         )
                                     )
@@ -434,9 +465,9 @@ fun CustomerDetailScreen(
                         val isCredit = customerWithBalance.balance < 0
 
                         val (balanceBg, balanceTextColor) = when {
-                            isDebt -> Color(0xFFFFEBEE) to Color(0xFFB71C1C)
-                            isCredit -> Color(0xFFE8F5E9) to Color(0xFF00695C)
-                            else -> Color(0xFFF1F5F9) to Color(0xFF334155)
+                            isDebt -> Color(0xFFE53935).copy(alpha = 0.15f) to Color(0xFFE53935)
+                            isCredit -> AccentEmerald.copy(alpha = 0.15f) to AccentEmerald
+                            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) to MaterialTheme.colorScheme.onSurface
                         }
 
                         Row(
@@ -499,29 +530,29 @@ fun CustomerDetailScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFFF8FAFC))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                 .padding(horizontal = 10.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column {
-                                Text("ساعات الري", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B), fontSize = 10.5.sp))
+                                Text("ساعات الري", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp))
                                 Text(
                                     Formatters.formatDurationArabic(customerWithBalance.totalMinutes),
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                                 )
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("إجمالي المسارب", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B), fontSize = 10.5.sp))
+                                Text("إجمالي المسارب", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp))
                                 Text(
                                     Formatters.formatCurrency(customerWithBalance.totalBilledAmount, config.currencySymbol),
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                                 )
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text("إجمالي المقبوض", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B), fontSize = 10.5.sp))
+                                Text("إجمالي المقبوض", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp))
                                 Text(
                                     Formatters.formatCurrency(customerWithBalance.totalPaidAmount, config.currencySymbol),
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF059669), fontWeight = FontWeight.Bold)
+                                    style = MaterialTheme.typography.bodySmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
                                 )
                             }
                         }
@@ -585,7 +616,7 @@ fun CustomerDetailScreen(
                                         text = "${Formatters.formatDurationArabic(s.durationMinutes)}  (@ ${Formatters.formatNumber(s.pricePerHour)})",
                                         style = MaterialTheme.typography.titleSmall.copy(
                                             fontWeight = FontWeight.ExtraBold,
-                                            color = Color(0xFF0F172A)
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                     )
                                     Text(
@@ -620,9 +651,15 @@ fun CustomerDetailScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    val startTimeStr = Formatters.formatTime(s.startTime)
+                                    val endTimeStr = Formatters.formatTime(s.endTime)
+                                    val dateStr = Formatters.formatDate(s.startTime)
                                     Text(
-                                        text = Formatters.formatDateTime(s.startTime),
-                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B))
+                                        text = "من $startTimeStr إلى $endTimeStr  •  $dateStr",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
                                     )
 
                                     Row(
@@ -634,14 +671,13 @@ fun CustomerDetailScreen(
                                                 modifier = Modifier
                                                     .size(32.dp)
                                                     .clip(RoundedCornerShape(8.dp))
-                                                    .background(Color(0xFFE8F5E9))
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                                     .clickable {
-                                                        val msg = "دورة ري #${s.id}\nالتاريخ: ${Formatters.formatDateTime(s.startTime)}\nالمدة: ${Formatters.formatDurationArabic(s.durationMinutes)}\nالمبلغ: ${Formatters.formatCurrency(s.totalAmount, config.currencySymbol)}\nالمسدد: ${Formatters.formatCurrency(s.amountPaid, config.currencySymbol)}\nالمتبقي: ${Formatters.formatCurrency(s.remainingDebt, config.currencySymbol)}"
-                                                        FileSharingHelper.sendWhatsAppMessage(context, customer.phone, msg)
+                                                        messageSessionTarget = s
                                                     },
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
+                                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "إرسال الفاتورة", tint = PrimaryTeal, modifier = Modifier.size(16.dp))
                                             }
                                         }
 
@@ -649,7 +685,7 @@ fun CustomerDetailScreen(
                                             modifier = Modifier
                                                 .size(32.dp)
                                                 .clip(RoundedCornerShape(8.dp))
-                                                .background(Color(0xFFE0F2F1))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                                 .clickable {
                                                     val file = com.example.core.util.PdfReportGenerator.generateSessionInvoicePdf(
                                                         context = context,
@@ -661,7 +697,7 @@ fun CustomerDetailScreen(
                                                 },
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Icon(Icons.Default.PictureAsPdf, contentDescription = "فاتورة PDF", tint = Color(0xFF00695C), modifier = Modifier.size(16.dp))
+                                            Icon(Icons.Default.PictureAsPdf, contentDescription = "فاتورة PDF", tint = PrimaryTeal, modifier = Modifier.size(16.dp))
                                         }
                                     }
                                 }
@@ -710,11 +746,11 @@ fun CustomerDetailScreen(
                                     Column {
                                         Text(
                                             text = "سند قبض نقدي (${v.voucherNumber})",
-                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
+                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
                                         )
                                         Text(
                                             text = "${v.paymentMethod}  •  ${Formatters.formatDateTime(v.date)}",
-                                            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B))
+                                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         )
                                         if (v.notes.isNotEmpty()) {
                                             Text(
@@ -742,7 +778,7 @@ fun CustomerDetailScreen(
                                             modifier = Modifier
                                                 .size(32.dp)
                                                 .clip(RoundedCornerShape(8.dp))
-                                                .background(Color(0xFFE8F5E9))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                                 .clickable {
                                                     val msg = "سند قبض #${v.voucherNumber.ifEmpty { v.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(v.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(v.amount, config.currencySymbol)})\nطريقة الدفع: ${v.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(v.date)}"
                                                     FileSharingHelper.sendWhatsAppMessage(context, customer.phone, msg)
@@ -752,7 +788,7 @@ fun CustomerDetailScreen(
                                             Icon(
                                                 Icons.AutoMirrored.Filled.Send,
                                                 contentDescription = "واتساب",
-                                                tint = Color(0xFF2E7D32),
+                                                tint = PrimaryTeal,
                                                 modifier = Modifier.size(16.dp)
                                             )
                                         }
@@ -762,7 +798,7 @@ fun CustomerDetailScreen(
                                         modifier = Modifier
                                             .size(32.dp)
                                             .clip(RoundedCornerShape(8.dp))
-                                            .background(Color(0xFFE0F2F1))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                             .clickable {
                                                 val file = com.example.core.util.PdfReportGenerator.generateReceiptVoucherPdf(
                                                     context = context,
@@ -777,7 +813,7 @@ fun CustomerDetailScreen(
                                         Icon(
                                             Icons.Default.PictureAsPdf,
                                             contentDescription = "سند PDF",
-                                            tint = Color(0xFF00695C),
+                                            tint = PrimaryTeal,
                                             modifier = Modifier.size(16.dp)
                                         )
                                     }
@@ -793,8 +829,8 @@ fun CustomerDetailScreen(
             toast = toast,
             onDismiss = { viewModel.dismissToast() },
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 10.dp)
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 85.dp)
         )
     }
 }
