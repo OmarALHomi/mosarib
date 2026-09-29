@@ -139,9 +139,8 @@ fun CustomerDetailScreen(
     val allCustomersWithBalance by viewModel.customersWithBalance.collectAsStateWithLifecycle()
     val customerWithBalance = allCustomersWithBalance.find { it.customer.id == customerId }
     val allCustomers: List<Customer> by viewModel.allCustomers.collectAsStateWithLifecycle(initialValue = emptyList())
-    val allVouchers: List<Voucher> by viewModel.allVouchers.collectAsStateWithLifecycle(initialValue = emptyList())
-    val sessions by viewModel.getCustomerSessions(customerId).collectAsStateWithLifecycle()
-    val vouchers by viewModel.getCustomerVouchers(customerId).collectAsStateWithLifecycle()
+    val sessions by remember(customerId) { viewModel.getCustomerSessions(customerId) }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val vouchers by remember(customerId) { viewModel.getCustomerVouchers(customerId) }.collectAsStateWithLifecycle(initialValue = emptyList())
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -156,6 +155,7 @@ fun CustomerDetailScreen(
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     var localPdfReady by remember { mutableStateOf<Pair<File, String>?>(null) }
     var messageSessionTarget by remember { mutableStateOf<WaterSession?>(null) }
+    var messageCustomTarget by remember { mutableStateOf<String?>(null) }
     val activePdf = pdfReady ?: localPdfReady
 
     // PDF Viewer / Share Dialog
@@ -235,11 +235,30 @@ fun CustomerDetailScreen(
         )
     }
 
+    messageCustomTarget?.let { msg ->
+        customerWithBalance?.let { cwb ->
+            SendMessageChoiceDialog(
+                recipientName = cwb.customer.name,
+                recipientPhone = cwb.customer.phone,
+                messageText = msg,
+                onDismiss = { messageCustomTarget = null },
+                onSendWhatsApp = {
+                    messageCustomTarget = null
+                    FileSharingHelper.sendWhatsAppMessage(context, cwb.customer.phone, msg)
+                },
+                onSendSms = {
+                    messageCustomTarget = null
+                    FileSharingHelper.sendSms(context, cwb.customer.phone, msg)
+                }
+            )
+        }
+    }
+
     // Build unified ledger list
-    val sessionItems = remember(sessions, allCustomers, allVouchers) {
+    val sessionItems = remember(sessions, allCustomers, vouchers) {
         sessions.map { s ->
             val origCust = if (s.customerId != customerId) allCustomers.find { it.id == s.customerId } else null
-            val linked = allVouchers.filter { it.sessionId == s.id }
+            val linked = vouchers.filter { it.sessionId == s.id }
             CustomerLedgerItem.SessionItem(s, origCust, linked)
         }
     }
@@ -687,8 +706,7 @@ fun CustomerDetailScreen(
                                         sessionToDelete = ledgerItem.session
                                     },
                                     onShareVoucher = { v ->
-                                        val vMsg = "سند قبض سداد #${v.voucherNumber.ifEmpty { v.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(v.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(v.amount, config.currencySymbol)})\nطريقة الدفع: ${v.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(v.date)}"
-                                        FileSharingHelper.sendWhatsAppMessage(context, customer.phone, vMsg)
+                                        messageCustomTarget = "سند قبض سداد #${v.voucherNumber.ifEmpty { v.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(v.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(v.amount, config.currencySymbol)})\nطريقة الدفع: ${v.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(v.date)}"
                                     }
                                 )
                             }
@@ -706,8 +724,7 @@ fun CustomerDetailScreen(
                                         localPdfReady = Pair(file, "سند قبض #${ledgerItem.voucher.voucherNumber}")
                                     },
                                     onShareWhatsApp = {
-                                        val msg = "سند قبض #${ledgerItem.voucher.voucherNumber.ifEmpty { ledgerItem.voucher.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(ledgerItem.voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(ledgerItem.voucher.amount, config.currencySymbol)})\nطريقة الدفع: ${ledgerItem.voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(ledgerItem.voucher.date)}"
-                                        FileSharingHelper.sendWhatsAppMessage(context, customer.phone, msg)
+                                        messageCustomTarget = "سند قبض #${ledgerItem.voucher.voucherNumber.ifEmpty { ledgerItem.voucher.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(ledgerItem.voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(ledgerItem.voucher.amount, config.currencySymbol)})\nطريقة الدفع: ${ledgerItem.voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(ledgerItem.voucher.date)}"
                                     },
                                     onDeleteClick = {
                                         voucherToDelete = ledgerItem.voucher
@@ -728,8 +745,7 @@ fun CustomerDetailScreen(
                                         localPdfReady = Pair(file, "سند صرف #${ledgerItem.voucher.voucherNumber}")
                                     },
                                     onShareWhatsApp = {
-                                        val msg = "سند صرف #${ledgerItem.voucher.voucherNumber.ifEmpty { ledgerItem.voucher.id.toString() }}\nالمستفيد: ${customer.name}\nالمبلغ المصروف: ${Formatters.formatCurrency(ledgerItem.voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(ledgerItem.voucher.amount, config.currencySymbol)})\nالبيان: ${ledgerItem.voucher.notes.ifBlank { ledgerItem.voucher.category }}\nطريقة الصرف: ${ledgerItem.voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(ledgerItem.voucher.date)}"
-                                        FileSharingHelper.sendWhatsAppMessage(context, customer.phone, msg)
+                                        messageCustomTarget = "سند صرف #${ledgerItem.voucher.voucherNumber.ifEmpty { ledgerItem.voucher.id.toString() }}\nالمستفيد: ${customer.name}\nالمبلغ المصروف: ${Formatters.formatCurrency(ledgerItem.voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(ledgerItem.voucher.amount, config.currencySymbol)})\nالبيان: ${ledgerItem.voucher.notes.ifBlank { ledgerItem.voucher.category }}\nطريقة الصرف: ${ledgerItem.voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(ledgerItem.voucher.date)}"
                                     },
                                     onDeleteClick = {
                                         voucherToDelete = ledgerItem.voucher

@@ -767,7 +767,7 @@ object PdfReportGenerator {
         drawSummaryBox(canvas, 25f + boxWidth + 10f, 170f, boxWidth, boxHeight, "إجمالي ما تم تحصيله", Formatters.formatCurrency(totals.totalCollected, config.currencySymbol), paidGreen)
         drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 170f, boxWidth, boxHeight, "إجمالي الديون المتبقية", Formatters.formatCurrency(totals.totalOutstandingDebt, config.currencySymbol), debtRed)
 
-        drawSummaryBox(canvas, 25f, 232f, boxWidth, boxHeight, "مصروفات المضخات", Formatters.formatCurrency(totals.totalExpenses, config.currencySymbol), 0xFFE65100.toInt())
+        drawSummaryBox(canvas, 25f, 232f, boxWidth, boxHeight, "إجمالي المصروفات", Formatters.formatCurrency(totals.totalExpenses, config.currencySymbol), 0xFFE65100.toInt())
         drawSummaryBox(canvas, 25f + boxWidth + 10f, 232f, boxWidth, boxHeight, "صافي الربح التشغيلي", Formatters.formatCurrency(totals.netProfit, config.currencySymbol), if (totals.netProfit >= 0) paidGreen else debtRed)
         drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 232f, boxWidth, boxHeight, "إجمالي الري", "${Formatters.formatDurationArabic(totals.waterMinutes)} (${totals.sessionsCount} ساقية)", darkTextColor)
 

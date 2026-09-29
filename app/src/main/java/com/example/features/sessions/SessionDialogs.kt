@@ -357,6 +357,19 @@ fun AddEditSessionBottomSheet(
                 shape = RoundedCornerShape(12.dp)
             )
 
+            val parsedPrice = Formatters.parseAmountInput(pricePerHourStr)
+            if (parsedPrice > 0) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = Formatters.amountToArabicWords(parsedPrice, currencySymbol),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = AccentGold,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(14.dp))
 
             Card(
@@ -429,6 +442,18 @@ fun AddEditSessionBottomSheet(
                     .testTag("session_paid_input"),
                 shape = RoundedCornerShape(12.dp)
             )
+
+            if (amountPaid > 0) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = Formatters.amountToArabicWords(amountPaid, currencySymbol),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = AccentEmerald,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
 
             TextButton(onClick = { showNotes = !showNotes }) {
                 Text(if (showNotes) "إخفاء الملاحظات" else "إضافة ملاحظة (اختياري)")

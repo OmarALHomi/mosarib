@@ -89,12 +89,25 @@ object FileSharingHelper {
         }
     }
 
+    fun convertArabicDigitsToAscii(str: String): String {
+        val builder = StringBuilder(str.length)
+        for (ch in str) {
+            when (ch) {
+                in '٠'..'٩' -> builder.append('0' + (ch - '٠'))
+                in '۰'..'۹' -> builder.append('0' + (ch - '۰'))
+                else -> builder.append(ch)
+            }
+        }
+        return builder.toString()
+    }
+
     /**
      * يضيف +967 (اليمن) تلقائياً إذا لم يكن الرقم يبدأ بمفتاح دولي.
      * يُرجع الرقم بدون + (صالح لـ WhatsApp API).
      */
     fun normalizePhone(phone: String): String {
-        val digits = phone.replace(Regex("[^0-9+]"), "")
+        val ascii = convertArabicDigitsToAscii(phone)
+        val digits = ascii.replace(Regex("[^0-9+]"), "")
         return when {
             digits.startsWith("+")   -> digits.removePrefix("+")
             digits.startsWith("00")  -> digits.removePrefix("00")

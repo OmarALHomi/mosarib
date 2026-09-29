@@ -50,8 +50,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import com.example.core.ui.SendMessageChoiceDialog
+import com.example.core.util.PdfReportGenerator
+import java.io.File
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -103,6 +108,8 @@ fun VouchersScreen(
     var showAddSheet by remember { mutableStateOf(false) }
     var voucherToDelete by remember { mutableStateOf<Voucher?>(null) }
     var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
+    var voucherMessageTarget by remember { mutableStateOf<Pair<Customer, String>?>(null) }
+    var voucherPdfReady by remember { mutableStateOf<Pair<File, String>?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -345,11 +352,11 @@ fun VouchersScreen(
                                                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                                         .clickable {
                                                             val msg = if (isReceipt) {
-                                                                "سند قبض #${voucher.voucherNumber}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)}\nطريقة الدفع: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
+                                                                "سند قبض #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nطريقة الدفع: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
                                                             } else {
-                                                                "سند صرف #${voucher.voucherNumber}\nالمستفيد: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)}\nالبيان: ${voucher.notes.ifEmpty { voucher.category }}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
+                                                                "سند صرف #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nالمستفيد: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nالبيان: ${voucher.notes.ifEmpty { voucher.category }}\nطريقة الصرف: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
                                                             }
-                                                            FileSharingHelper.sendWhatsAppMessage(context, customer.phone, msg)
+                                                            voucherMessageTarget = Pair(customer, msg)
                                                         },
                                                     contentAlignment = Alignment.Center
                                                 ) {
@@ -360,6 +367,40 @@ fun VouchersScreen(
                                                         modifier = Modifier.size(17.dp)
                                                     )
                                                 }
+                                            }
+
+                                            // زر معاينة وطباعة PDF
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(34.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                                    .clickable {
+                                                        val file = if (isReceipt) {
+                                                            PdfReportGenerator.generateReceiptVoucherPdf(
+                                                                context = context,
+                                                                config = config,
+                                                                customer = customer ?: Customer(name = "عميل نقدي"),
+                                                                voucher = voucher
+                                                            )
+                                                        } else {
+                                                            PdfReportGenerator.generateExpenseVoucherPdf(
+                                                                context = context,
+                                                                config = config,
+                                                                customer = customer,
+                                                                voucher = voucher
+                                                            )
+                                                        }
+                                                        voucherPdfReady = Pair(file, if (isReceipt) "سند قبض #${voucher.voucherNumber}" else "سند صرف #${voucher.voucherNumber}")
+                                                    },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.PictureAsPdf,
+                                                    contentDescription = "طباعة PDF",
+                                                    tint = PrimaryTeal,
+                                                    modifier = Modifier.size(17.dp)
+                                                )
                                             }
 
                                             Box(
@@ -525,6 +566,58 @@ fun VouchersScreen(
             onDismiss = { showAddSheet = false },
             onSave = { type, custId, amt, cat, method, notes, sessionId ->
                 viewModel.addVoucher(type, custId, amt, cat, method, notes, sessionId)
+            }
+        )
+    }
+
+    // حوار اختيار قناة الإرسال (واتساب أو SMS)
+    voucherMessageTarget?.let { (cust, msg) ->
+        SendMessageChoiceDialog(
+            recipientName = cust.name,
+            recipientPhone = cust.phone,
+            messageText = msg,
+            onDismiss = { voucherMessageTarget = null },
+            onSendWhatsApp = {
+                voucherMessageTarget = null
+                FileSharingHelper.sendWhatsAppMessage(context, cust.phone, msg)
+            },
+            onSendSms = {
+                voucherMessageTarget = null
+                FileSharingHelper.sendSms(context, cust.phone, msg)
+            }
+        )
+    }
+
+    // حوار فتح ومشاركة ملف PDF
+    voucherPdfReady?.let { (file, title) ->
+        AlertDialog(
+            onDismissRequest = { voucherPdfReady = null },
+            title = { Text("المستند جاهز", fontWeight = FontWeight.Bold) },
+            text = { Text("هل ترغب في فتح وعرض السند مباشرة أم مشاركته كملف PDF؟") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        FileSharingHelper.openPdf(context, file)
+                        voucherPdfReady = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
+                ) {
+                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("فتح / عرض", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        FileSharingHelper.sharePdf(context, file, title)
+                        voucherPdfReady = null
+                    }
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("مشاركة", fontWeight = FontWeight.Bold)
+                }
             }
         )
     }

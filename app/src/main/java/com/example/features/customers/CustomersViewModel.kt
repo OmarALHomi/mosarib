@@ -130,13 +130,11 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun getCustomerSessions(customerId: Long): StateFlow<List<WaterSession>> =
+    fun getCustomerSessions(customerId: Long): Flow<List<WaterSession>> =
         sessionRepo.getSessionsForCustomer(customerId)
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun getCustomerVouchers(customerId: Long): StateFlow<List<Voucher>> =
+    fun getCustomerVouchers(customerId: Long): Flow<List<Voucher>> =
         voucherRepo.getVouchersForCustomer(customerId)
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun addReceiptVoucher(customerId: Long, amount: Double, paymentMethod: String, notes: String) {
         viewModelScope.launch {

@@ -99,30 +99,71 @@ fun AddEditCustomerBottomSheet(
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             result.data?.data?.let { phoneUri ->
                 try {
-                    val projection = arrayOf(
-                        ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                        ContactsContract.CommonDataKinds.Phone.NUMBER
-                    )
-                    context.contentResolver.query(phoneUri, projection, null, null, null)?.use { cursor ->
+                    var contactName: String? = null
+                    var contactNumber: String? = null
+                    var contactId: String? = null
+
+                    // 1. First attempt: Direct query on the returned URI
+                    context.contentResolver.query(phoneUri, null, null, null, null)?.use { cursor ->
                         if (cursor.moveToFirst()) {
                             val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                            val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                                .takeIf { it >= 0 } ?: cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)
                             if (nameIndex >= 0) {
-                                val contactName = cursor.getString(nameIndex)
-                                if (!contactName.isNullOrBlank() && (name.isBlank() || name == initialCustomer?.name)) {
-                                    name = contactName
+                                contactName = cursor.getString(nameIndex)
+                            }
+
+                            val numIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                            if (numIndex >= 0) {
+                                contactNumber = cursor.getString(numIndex)
+                            }
+
+                            val idIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
+                                .takeIf { it >= 0 } ?: cursor.getColumnIndex(ContactsContract.Contacts._ID)
+                            if (idIndex >= 0) {
+                                contactId = cursor.getString(idIndex)
+                            }
+                        }
+                    }
+
+                    // 2. Fallback: If phone number is still null, query Phone.CONTENT_URI using contact ID
+                    if (contactNumber.isNullOrBlank()) {
+                        val cid = contactId ?: phoneUri.lastPathSegment
+                        if (!cid.isNullOrBlank()) {
+                            context.contentResolver.query(
+                                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                                arrayOf(
+                                    ContactsContract.CommonDataKinds.Phone.NUMBER,
+                                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
+                                ),
+                                "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ? OR ${ContactsContract.CommonDataKinds.Phone._ID} = ?",
+                                arrayOf(cid, cid),
+                                null
+                            )?.use { phoneCursor ->
+                                if (phoneCursor.moveToFirst()) {
+                                    val numIdx = phoneCursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                                    if (numIdx >= 0) {
+                                        contactNumber = phoneCursor.getString(numIdx)
+                                    }
+                                    if (contactName.isNullOrBlank()) {
+                                        val nameIdx = phoneCursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                                        if (nameIdx >= 0) {
+                                            contactName = phoneCursor.getString(nameIdx)
+                                        }
+                                    }
                                 }
                             }
-                            if (numberIndex >= 0) {
-                                val contactNumber = cursor.getString(numberIndex)
-                                if (!contactNumber.isNullOrBlank()) {
-                                    phone = contactNumber
-                                        .replace(" ", "")
-                                        .replace("-", "")
-                                        .replace("(", "")
-                                        .replace(")", "")
-                                }
-                            }
+                        }
+                    }
+
+                    if (!contactName.isNullOrBlank() && (name.isBlank() || name == initialCustomer?.name)) {
+                        name = contactName.orEmpty().trim()
+                    }
+
+                    if (!contactNumber.isNullOrBlank()) {
+                        val converted = com.example.core.util.FileSharingHelper.convertArabicDigitsToAscii(contactNumber.orEmpty())
+                        val clean = converted.replace(Regex("[^0-9+]"), "").trim()
+                        if (clean.isNotEmpty()) {
+                            phone = clean
                         }
                     }
                 } catch (_: Exception) {

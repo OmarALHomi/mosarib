@@ -89,6 +89,7 @@ import com.example.core.ui.EmptyStateView
 import com.example.core.ui.LuxuryToastNotification
 import com.example.core.ui.SendMessageChoiceDialog
 import com.example.core.ui.StatBoxCard
+import com.example.core.util.FileSharingHelper
 import com.example.core.util.Formatters
 import com.example.features.customers.Customer
 import com.example.ui.theme.AccentEmerald
@@ -120,6 +121,7 @@ fun SessionsScreen(
     var sessionToDelete by remember { mutableStateOf<WaterSession?>(null) }
     var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
     var messageTargetSession by remember { mutableStateOf<Pair<WaterSession, Customer>?>(null) }
+    var messageTargetCustom by remember { mutableStateOf<Pair<Customer, String>?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -231,8 +233,8 @@ fun SessionsScreen(
                         },
                         onShareVoucher = { voucher ->
                             item.customer?.let { c ->
-                                val msg = "سند قبض #${voucher.voucherNumber}\nسداد دورة سقي #${item.session.id}\nالعميل: ${c.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)}\nطريقة الدفع: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
-                                com.example.core.util.FileSharingHelper.sendWhatsAppMessage(context, c.phone, msg)
+                                val msg = "سند قبض #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nسداد دورة سقي #${item.session.id}\nالعميل: ${c.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nطريقة الدفع: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
+                                messageTargetCustom = Pair(c, msg)
                             }
                         }
                     )
@@ -277,6 +279,24 @@ fun SessionsScreen(
             onSendSms = {
                 messageTargetSession = null
                 viewModel.sendSmsBill(session, customer)
+            }
+        )
+    }
+
+    // Choice Dialog for Voucher Receipt
+    messageTargetCustom?.let { (cust, msg) ->
+        SendMessageChoiceDialog(
+            recipientName = cust.name,
+            recipientPhone = cust.phone,
+            messageText = msg,
+            onDismiss = { messageTargetCustom = null },
+            onSendWhatsApp = {
+                messageTargetCustom = null
+                FileSharingHelper.sendWhatsAppMessage(context, cust.phone, msg)
+            },
+            onSendSms = {
+                messageTargetCustom = null
+                FileSharingHelper.sendSms(context, cust.phone, msg)
             }
         )
     }

@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.History
@@ -338,8 +339,8 @@ fun HomeScreen(
 
                         QuickActionCard(
                             title = "مصروف تشغيلي",
-                            subtitle = "ديزل، زيت، صيانة",
-                            icon = Icons.Default.LocalGasStation,
+                            subtitle = "صيانة، عام، مصروفات",
+                            icon = Icons.AutoMirrored.Filled.ReceiptLong,
                             iconBgColor = Color(0xFFFFEBEE),
                             iconTint = Color(0xFFE53935),
                             onClick = {

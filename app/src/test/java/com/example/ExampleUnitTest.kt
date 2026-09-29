@@ -93,4 +93,15 @@ class ExampleUnitTest {
         assertEquals("100,000.5", Formatters.formatAmountInput("100000.5"))
         assertEquals(100000.5, Formatters.parseAmountInput("100,000.5"), 0.001)
     }
+
+    @Test
+    fun `test phone normalization handles Eastern Arabic digits`() {
+        val rawArabic = "٠٥٠١٢٣٤٥٦٧"
+        val normalized = com.example.core.util.FileSharingHelper.normalizePhone(rawArabic)
+        assertEquals("967501234567", normalized)
+
+        val withCode = "+967 ٧٧١ ٢٣٤ ٥٦٧"
+        val normalizedCode = com.example.core.util.FileSharingHelper.normalizePhone(withCode)
+        assertEquals("967771234567", normalizedCode)
+    }
 }
