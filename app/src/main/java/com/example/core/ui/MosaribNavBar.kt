@@ -38,20 +38,61 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.theme.DarkBackground
+import com.example.ui.theme.DarkSurface
+import com.example.ui.theme.DarkSurfaceVariant
+import com.example.ui.theme.LightBackground
+import com.example.ui.theme.LightSurface
+import com.example.ui.theme.LightSurfaceVariant
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.PrimaryTealDark
-import com.example.ui.theme.SecondaryAquaDark
+import com.example.ui.theme.PrimaryTealLight
+import com.example.ui.theme.SecondaryAqua
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Data model for each nav item
+// Water-drop / teardrop shape (point at top, rounded at bottom)
+// ──────────────────────────────────────────────────────────────────────────────
+object WaterDropShape : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val w = size.width
+        val h = size.height
+        val path = Path().apply {
+            // Start at top center peak
+            moveTo(w * 0.5f, 0f)
+            // Curve right-side down to bottom center
+            cubicTo(
+                w * 0.92f, h * 0.28f,
+                w * 1.0f,  h * 0.58f,
+                w * 0.5f,  h
+            )
+            // Curve left-side back up to peak
+            cubicTo(
+                w * 0.0f,  h * 0.58f,
+                w * 0.08f, h * 0.28f,
+                w * 0.5f,  0f
+            )
+            close()
+        }
+        return Outline.Generic(path)
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Nav item model
 // ──────────────────────────────────────────────────────────────────────────────
 data class NavItem(
     val icon: ImageVector,
@@ -59,17 +100,17 @@ data class NavItem(
     val testTag: String
 )
 
-// Ordered RTL: right → left  (index 0 = rightmost)
+// RTL order: index 0 = rightmost
 val mosaribNavItems = listOf(
-    NavItem(Icons.Default.WaterDrop,                   "السقي",        "tab_sessions"),
-    NavItem(Icons.Default.People,                      "العملاء",      "tab_customers"),
-    NavItem(Icons.Default.Home,                        "الرئيسية",    "tab_home"),
-    NavItem(Icons.AutoMirrored.Filled.ReceiptLong,     "العمليات",    "tab_vouchers"),
-    NavItem(Icons.Default.Settings,                    "الإعدادات",   "tab_settings"),
+    NavItem(Icons.Default.WaterDrop,              "سجلات السقي",  "tab_sessions"),
+    NavItem(Icons.Default.People,                 "العملاء",      "tab_customers"),
+    NavItem(Icons.Default.Home,                   "الرئيسية",    "tab_home"),
+    NavItem(Icons.AutoMirrored.Filled.ReceiptLong,"سجل العمليات","tab_vouchers"),
+    NavItem(Icons.Default.Settings,               "الإعدادات",   "tab_settings"),
 )
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Main composable
+// Main MosaribNavBar
 // ──────────────────────────────────────────────────────────────────────────────
 @Composable
 fun MosaribNavBar(
@@ -79,48 +120,50 @@ fun MosaribNavBar(
 ) {
     val isDark = isSystemInDarkTheme()
 
-    // Bar surface color
-    val barColor = if (isDark) Color(0xFF122B2F) else Color(0xFFFFFFFF)
-    val barShadowColor = if (isDark) Color(0xFF000000) else Color(0xFF007A87)
+    // Surface colors from our palette
+    val barBg = if (isDark) DarkSurface else LightSurface
+    val barShadowColor = PrimaryTeal
 
-    // Home bubble gradient
-    val homeBrush = Brush.radialGradient(
-        colors = listOf(Color(0xFF0097A7), PrimaryTealDark),
-        radius = 120f
+    // Home drop gradient: PrimaryTealLight → PrimaryTealDark (our brand)
+    val homeGradient = Brush.verticalGradient(
+        colors = listOf(PrimaryTealLight, PrimaryTealDark)
     )
 
     Box(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.navigationBars),
         contentAlignment = Alignment.BottomCenter
     ) {
-        // ── The floating bar ──
+        // ── Bar body ──────────────────────────────────────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 10.dp)
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 8.dp)
                 .shadow(
-                    elevation = 20.dp,
-                    shape = RoundedCornerShape(28.dp),
-                    ambientColor = barShadowColor.copy(alpha = 0.25f),
-                    spotColor = barShadowColor.copy(alpha = 0.3f)
+                    elevation = 16.dp,
+                    shape = RoundedCornerShape(24.dp),
+                    ambientColor = barShadowColor.copy(alpha = 0.18f),
+                    spotColor = barShadowColor.copy(alpha = 0.22f)
                 )
-                .clip(RoundedCornerShape(28.dp))
-                .background(barColor)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(horizontal = 8.dp, vertical = 10.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(barBg)
+                .padding(top = 10.dp, bottom = 10.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 mosaribNavItems.forEachIndexed { index, item ->
                     if (index == 2) {
-                        // Spacer placeholder for center home bubble
-                        Spacer(modifier = Modifier.size(64.dp))
+                        // placeholder so center stays empty (home floats above)
+                        Spacer(modifier = Modifier.size(width = 68.dp, height = 60.dp))
                     } else {
-                        RegularNavItem(
+                        NavIconItem(
                             item = item,
                             isSelected = selectedIndex == index,
                             isDark = isDark,
@@ -131,71 +174,106 @@ fun MosaribNavBar(
             }
         }
 
-        // ── Center elevated home bubble (overlaps bar top) ──
+        // ── Home water-drop button (elevated above bar) ───────────────────────
         val homeSelected = selectedIndex == 2
         val homeScale by animateFloatAsState(
-            targetValue = if (homeSelected) 1.0f else 0.92f,
+            targetValue = if (homeSelected) 1.0f else 0.9f,
             animationSpec = tween(300, easing = FastOutSlowInEasing),
             label = "home_scale"
         )
 
-        Box(
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .size(64.dp)
-                .offset(y = (-22).dp)     // float above the bar top edge
+                .offset(y = (-8).dp)           // float up above bar top edge
                 .graphicsLayer { scaleX = homeScale; scaleY = homeScale }
-                .shadow(
-                    elevation = if (homeSelected) 18.dp else 10.dp,
-                    shape = CircleShape,
-                    spotColor = Color(0xFF0097A7).copy(alpha = 0.55f)
-                )
-                .clip(CircleShape)
-                .background(homeBrush)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) { onItemSelected(2) }
-                .testTag("tab_home"),
-            contentAlignment = Alignment.Center
+                .testTag("tab_home")
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = "الرئيسية",
-                    tint = Color.White,
-                    modifier = Modifier.size(if (homeSelected) 26.dp else 22.dp)
-                )
-                if (homeSelected) {
-                    Spacer(modifier = Modifier.height(1.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(4.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.9f))
+            // Water-drop container
+            Box(
+                modifier = Modifier
+                    .size(width = 56.dp, height = 68.dp)
+                    .shadow(
+                        elevation = if (homeSelected) 14.dp else 6.dp,
+                        shape = WaterDropShape,
+                        spotColor = PrimaryTeal.copy(alpha = 0.5f),
+                        ambientColor = PrimaryTeal.copy(alpha = 0.3f)
                     )
+                    .clip(WaterDropShape)
+                    .background(homeGradient),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Home,
+                        contentDescription = "الرئيسية",
+                        tint = Color.White,
+                        modifier = Modifier
+                            .size(if (homeSelected) 26.dp else 22.dp)
+                            .offset(y = 4.dp)   // push slightly toward wide base
+                    )
+
+                    if (homeSelected) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(5.dp)
+                                .offset(y = 4.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.85f))
+                        )
+                    }
                 }
             }
+
+            Spacer(modifier = Modifier.height(3.dp))
+
+            // Label below the drop
+            Text(
+                text = "الرئيسية",
+                fontSize = 10.sp,
+                fontWeight = if (homeSelected) FontWeight.ExtraBold else FontWeight.Normal,
+                color = if (homeSelected) PrimaryTeal
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
         }
     }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Regular (non-home) nav item
+// Individual non-home nav item: icon inside themed circle + label
 // ──────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun RegularNavItem(
+private fun NavIconItem(
     item: NavItem,
     isSelected: Boolean,
     isDark: Boolean,
     onClick: () -> Unit
 ) {
-    val activeColor = if (isDark) Color(0xFF26C6DA) else PrimaryTeal
-    val inactiveColor = if (isDark) Color(0xFF607D8B) else Color(0xFF90A4AE)
+    // Active/inactive icon container colors from our palette
+    val activeBg   = if (isDark) PrimaryTealDark.copy(alpha = 0.85f)
+                     else PrimaryTeal
+    val inactiveBg = if (isDark) DarkSurfaceVariant
+                     else LightSurfaceVariant
+
+    val activeIconTint   = Color.White
+    val inactiveIconTint = if (isDark) PrimaryTealLight.copy(alpha = 0.55f)
+                           else PrimaryTeal.copy(alpha = 0.45f)
+
+    val activeLabel   = if (isDark) PrimaryTealLight else PrimaryTeal
+    val inactiveLabel = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
 
     val iconScale by animateFloatAsState(
-        targetValue = if (isSelected) 1.12f else 1.0f,
-        animationSpec = tween(280, easing = FastOutSlowInEasing),
-        label = "icon_scale"
+        targetValue = if (isSelected) 1.1f else 1.0f,
+        animationSpec = tween(260, easing = FastOutSlowInEasing),
+        label = "icon_scale_${item.testTag}"
     )
 
     Column(
@@ -206,40 +284,38 @@ private fun RegularNavItem(
                 indication = null,
                 onClick = onClick
             )
-            .padding(horizontal = 4.dp, vertical = 2.dp)
+            .padding(horizontal = 2.dp)
             .testTag(item.testTag)
     ) {
-        // Active pill indicator above icon
+        // Circular icon badge
         Box(
             modifier = Modifier
-                .height(3.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(
-                    if (isSelected) activeColor else Color.Transparent
+                .size(42.dp)
+                .shadow(
+                    elevation = if (isSelected) 8.dp else 0.dp,
+                    shape = CircleShape,
+                    spotColor = PrimaryTeal.copy(alpha = 0.35f)
                 )
-                .then(if (isSelected) Modifier.size(width = 24.dp, height = 3.dp) else Modifier.size(0.dp))
-        )
+                .clip(CircleShape)
+                .background(if (isSelected) activeBg else inactiveBg)
+                .graphicsLayer { scaleX = iconScale; scaleY = iconScale },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = item.icon,
+                contentDescription = item.label,
+                tint = if (isSelected) activeIconTint else inactiveIconTint,
+                modifier = Modifier.size(20.dp)
+            )
+        }
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Icon with scale animation
-        Icon(
-            imageVector = item.icon,
-            contentDescription = item.label,
-            tint = if (isSelected) activeColor else inactiveColor,
-            modifier = Modifier
-                .size(22.dp)
-                .graphicsLayer { scaleX = iconScale; scaleY = iconScale }
-        )
-
-        Spacer(modifier = Modifier.height(3.dp))
-
-        // Label
         Text(
             text = item.label,
             fontSize = 10.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = if (isSelected) activeColor else inactiveColor.copy(alpha = 0.8f),
+            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Normal,
+            color = if (isSelected) activeLabel else inactiveLabel,
             maxLines = 1
         )
     }
