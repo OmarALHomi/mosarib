@@ -87,7 +87,6 @@ fun AddEditCustomerBottomSheet(
     var farmName by remember { mutableStateOf(initialCustomer?.farmName ?: "") }
     var location by remember { mutableStateOf(initialCustomer?.location ?: "") }
     var notes by remember { mutableStateOf(initialCustomer?.notes ?: "") }
-    var isBeneficiary by remember { mutableStateOf(initialCustomer?.isBeneficiary ?: false) }
     var customPriceStr by remember {
         mutableStateOf(initialCustomer?.customPricePerHour?.let { it.toString() } ?: "")
     }
@@ -307,54 +306,7 @@ fun AddEditCustomerBottomSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Account Type Selector (Regular Customer vs Beneficiary Account)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = "تصنيف ونوع الحساب *",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(
-                            selected = !isBeneficiary,
-                            onClick = { isBeneficiary = false },
-                            label = { Text("عميل عادي (مزارع)", fontWeight = FontWeight.Bold) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        FilterChip(
-                            selected = isBeneficiary,
-                            onClick = { isBeneficiary = true },
-                            label = { Text("حساب مستفيد / شريك", fontWeight = FontWeight.Bold) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = if (isBeneficiary) {
-                            "حساب مستفيد: يقبل تسجيل سندات صرف وقبض، وتسجيل سقي له أو لأحد العملاء على حسابه وتحميل المبالغ عليه."
-                        } else {
-                            "عميل عادي: تجري له دورات سقي وتسدد فواتيره، ويمكن إسناد سند صرف له لتغيير رصيده."
-                        },
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 11.sp
-                        )
-                    )
-                }
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
 
             // Notes
             OutlinedTextField(
@@ -380,7 +332,7 @@ fun AddEditCustomerBottomSheet(
                             location,
                             notes,
                             customRate,
-                            isBeneficiary
+                            false
                         )
                         onDismiss()
                     }

@@ -331,7 +331,7 @@ fun VouchersScreen(
                                                 Text(
                                                     text = when {
                                                         isReceipt -> "العميل: ${customer?.name ?: "غير محدد"}"
-                                                        customer != null -> "المستفيد: ${customer.name}"
+                                                        customer != null -> "العميل: ${customer.name}"
                                                         else -> "مصروف عام"
                                                     },
                                                     style = MaterialTheme.typography.bodySmall.copy(
@@ -354,7 +354,7 @@ fun VouchersScreen(
                                                             val msg = if (isReceipt) {
                                                                 "سند قبض #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nطريقة الدفع: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
                                                             } else {
-                                                                "سند صرف #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nالمستفيد: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nالبيان: ${voucher.notes.ifEmpty { voucher.category }}\nطريقة الصرف: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
+                                                                "سند صرف #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nالبيان: ${voucher.notes.ifEmpty { voucher.category }}\nطريقة الصرف: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
                                                             }
                                                             voucherMessageTarget = Pair(customer, msg)
                                                         },
@@ -832,12 +832,12 @@ fun AddVoucherBottomSheet(
                     }
                 }
             } else {
-                // سند صرف: تحديد المستفيد اختياري (مصروف عام أو لشخص محدد)
-                Text("المستفيد من المصروف (اختياري):", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                // سند صرف: تحديد العميل اختياري (مصروف عام أو مقيد على عميل)
+                Text("العميل / المستلم (اختياري):", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                 Spacer(modifier = Modifier.height(6.dp))
                 Box {
                     OutlinedTextField(
-                        value = selectedBeneficiary?.name ?: "مصروف عام (بدون مستفيد)",
+                        value = selectedBeneficiary?.name ?: "مصروف عام (غير مقيد على عميل)",
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
@@ -854,7 +854,7 @@ fun AddVoucherBottomSheet(
                         onDismissRequest = { beneficiaryDropdownExpanded = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("مصروف عام (بدون مستفيد)") },
+                            text = { Text("مصروف عام (غير مقيد على عميل)") },
                             onClick = {
                                 selectedBeneficiaryId = null
                                 beneficiaryDropdownExpanded = false
@@ -863,13 +863,7 @@ fun AddVoucherBottomSheet(
                         customers.forEach { c ->
                             DropdownMenuItem(
                                 text = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(c.name, fontWeight = FontWeight.Bold)
-                                        if (c.isBeneficiary) {
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text("(حساب مستفيد)", style = MaterialTheme.typography.labelSmall, color = AccentEmerald)
-                                        }
-                                    }
+                                    Text(c.name, fontWeight = FontWeight.Bold)
                                 },
                                 onClick = {
                                     selectedBeneficiaryId = c.id

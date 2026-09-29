@@ -291,24 +291,6 @@ fun CustomerDetailScreen(
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleLarge
                         )
-                        if (customer.isBeneficiary) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(AccentGold.copy(alpha = 0.18f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = "مستفيد",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = Color(0xFFB45309),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 10.sp
-                                    )
-                                )
-                            }
-                        }
                     }
                 },
                 navigationIcon = {
@@ -364,47 +346,27 @@ fun CustomerDetailScreen(
                                         modifier = Modifier
                                             .size(44.dp)
                                             .clip(CircleShape)
-                                            .background(if (customer.isBeneficiary) AccentGold.copy(alpha = 0.2f) else Color(0xFFE0F2F1)),
+                                            .background(Color(0xFFE0F2F1)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
                                             text = customer.name.take(1),
                                             style = MaterialTheme.typography.titleLarge.copy(
                                                 fontWeight = FontWeight.ExtraBold,
-                                                color = if (customer.isBeneficiary) Color(0xFFB45309) else Color(0xFF00695C)
+                                                color = Color(0xFF00695C)
                                             )
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Column {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(
-                                                text = customer.farmName.ifEmpty { "ملف العميل" },
-                                                style = MaterialTheme.typography.titleSmall.copy(
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onSurface,
-                                                    fontSize = 14.sp
-                                                )
+                                        Text(
+                                            text = customer.farmName.ifEmpty { "ملف العميل" },
+                                            style = MaterialTheme.typography.titleSmall.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontSize = 14.sp
                                             )
-                                            if (customer.isBeneficiary) {
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Icon(
-                                                    Icons.Default.Verified,
-                                                    contentDescription = null,
-                                                    tint = AccentGold,
-                                                    modifier = Modifier.size(14.dp)
-                                                )
-                                            }
-                                        }
-                                        if (customer.isBeneficiary) {
-                                            Text(
-                                                text = "حساب مستفيد وشريك في العمليات",
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    color = Color(0xFFB45309),
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            )
-                                        }
+                                        )
                                     }
                                 }
 
@@ -531,8 +493,8 @@ fun CustomerDetailScreen(
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = when {
-                                                isDebt -> if (customer.isBeneficiary) "صافي المطلوب بذمة المستفيد (مدين)" else "دين متبقي بذمة العميل"
-                                                isCredit -> if (customer.isBeneficiary) "رصيد دائن مستحق للمستفيد" else "رصيد دائن للعميل (مقدم)"
+                                                isDebt -> "دين متبقي بذمة العميل"
+                                                isCredit -> "رصيد دائن للعميل (مقدم)"
                                                 else -> "الحساب خالص ومسدد بالكامل"
                                             },
                                             style = MaterialTheme.typography.labelSmall.copy(
@@ -684,7 +646,7 @@ fun CustomerDetailScreen(
                                 CustomerSessionCardItem(
                                     session = ledgerItem.session,
                                     originalCustomer = ledgerItem.originalCustomer,
-                                    isBeneficiaryView = customer.isBeneficiary && ledgerItem.session.billedToCustomerId == customer.id,
+                                    isBeneficiaryView = false,
                                     currencySymbol = config.currencySymbol,
                                     linkedVouchers = ledgerItem.linkedVouchers,
                                     onPdfClick = {
@@ -745,7 +707,7 @@ fun CustomerDetailScreen(
                                         localPdfReady = Pair(file, "سند صرف #${ledgerItem.voucher.voucherNumber}")
                                     },
                                     onShareWhatsApp = {
-                                        messageCustomTarget = "سند صرف #${ledgerItem.voucher.voucherNumber.ifEmpty { ledgerItem.voucher.id.toString() }}\nالمستفيد: ${customer.name}\nالمبلغ المصروف: ${Formatters.formatCurrency(ledgerItem.voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(ledgerItem.voucher.amount, config.currencySymbol)})\nالبيان: ${ledgerItem.voucher.notes.ifBlank { ledgerItem.voucher.category }}\nطريقة الصرف: ${ledgerItem.voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(ledgerItem.voucher.date)}"
+                                        messageCustomTarget = "سند صرف #${ledgerItem.voucher.voucherNumber.ifEmpty { ledgerItem.voucher.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ المصروف: ${Formatters.formatCurrency(ledgerItem.voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(ledgerItem.voucher.amount, config.currencySymbol)})\nالبيان: ${ledgerItem.voucher.notes.ifBlank { ledgerItem.voucher.category }}\nطريقة الصرف: ${ledgerItem.voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(ledgerItem.voucher.date)}"
                                     },
                                     onDeleteClick = {
                                         voucherToDelete = ledgerItem.voucher

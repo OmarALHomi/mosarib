@@ -50,16 +50,16 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun `beneficiary customer balance includes sessions billed on his account`() {
-        val beneficiary = Customer(id = 5, name = "مستفيد / شريك", isBeneficiary = true)
+    fun `customer balance supports both receipt and disbursement vouchers`() {
+        val customer = Customer(id = 5, name = "عميل")
         val sessions = listOf(
-            WaterSession(id = 1, customerId = 10, billedToCustomerId = beneficiary.id, totalAmount = 8000.0, amountPaid = 3000.0)
+            WaterSession(id = 1, customerId = customer.id, totalAmount = 8000.0, amountPaid = 3000.0)
         )
         val vouchers = listOf(
-            Voucher(customerId = beneficiary.id, type = VoucherType.EXPENSE, amount = 1500.0)
+            Voucher(customerId = customer.id, type = VoucherType.EXPENSE, amount = 1500.0)
         )
 
-        val result = calculateCustomerBalance(beneficiary, sessions, vouchers)
+        val result = calculateCustomerBalance(customer, sessions, vouchers)
 
         assertEquals(8000.0, result.totalBilledAmount, 0.001)
         assertEquals(3000.0, result.totalPaidAmount, 0.001)

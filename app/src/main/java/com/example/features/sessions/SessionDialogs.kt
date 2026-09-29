@@ -178,7 +178,7 @@ fun AddEditSessionBottomSheet(
 
             // Customer Selector
             Text(
-                text = "العميل المستفيد *",
+                text = "العميل *",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
             )
             Spacer(modifier = Modifier.height(6.dp))

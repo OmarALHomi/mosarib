@@ -234,7 +234,7 @@ fun AddDisbursementBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "تسجيل سند صرف للمستفيد",
+                    text = "تسجيل سند صرف مالي",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
                 IconButton(onClick = onDismiss) {
@@ -244,7 +244,7 @@ fun AddDisbursementBottomSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Text("يُصرف للسيد / المستفيد: ${customer.name}", fontWeight = FontWeight.SemiBold)
+            Text("يُصرف للعميل: ${customer.name}", fontWeight = FontWeight.SemiBold)
             Text(
                 text = "سيتم قيد هذا المبلغ في كشف الحساب ويحدث تغييراً في رصيد العميل",
                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
