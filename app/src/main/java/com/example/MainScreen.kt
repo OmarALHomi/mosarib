@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
@@ -24,14 +22,10 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.WaterDrop
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -69,7 +63,7 @@ import com.example.features.settings.SettingsScreen
 import com.example.features.settings.SettingsViewModel
 import com.example.features.vouchers.VouchersScreen
 import com.example.features.vouchers.VouchersViewModel
-import com.example.ui.theme.AccentEmerald
+import com.example.core.ui.MosaribNavBar
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.MosaribTheme
@@ -192,58 +186,25 @@ fun MainApp(
                         }
                     },
                     bottomBar = {
-                        NavigationBar(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            tonalElevation = 8.dp
-                        ) {
-                            AppTab.entries.forEach { tab ->
-                                val isSelected = selectedTab == tab
-                                NavigationBarItem(
-                                    selected = isSelected,
-                                    onClick = { selectedTab = tab },
-                                    icon = {
-                                        if (tab == AppTab.HOME) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(36.dp)
-                                                    .clip(RoundedCornerShape(10.dp))
-                                                    .background(if (isSelected) PrimaryTeal else PrimaryTeal.copy(alpha = 0.15f)),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
-                                                    contentDescription = tab.title,
-                                                    tint = if (isSelected) Color.White else PrimaryTeal,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                            }
-                                        } else {
-                                            Icon(
-                                                imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
-                                                contentDescription = tab.title
-                                            )
-                                        }
-                                    },
-                                    label = {
-                                        Text(
-                                            text = tab.title,
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                fontWeight = if (isSelected || tab == AppTab.HOME) FontWeight.Bold else FontWeight.Normal,
-                                                fontSize = 11.sp
-                                            )
-                                        )
-                                    },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = Color.White,
-                                        indicatorColor = PrimaryTeal,
-                                        selectedTextColor = PrimaryTeal,
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                    ),
-                                    modifier = Modifier.testTag(tab.testTag)
-                                )
-                            }
+                        val tabIndex = when (selectedTab) {
+                            AppTab.SESSIONS  -> 0
+                            AppTab.CUSTOMERS -> 1
+                            AppTab.HOME      -> 2
+                            AppTab.VOUCHERS  -> 3
+                            AppTab.SETTINGS  -> 4
                         }
+                        MosaribNavBar(
+                            selectedIndex = tabIndex,
+                            onItemSelected = { idx ->
+                                selectedTab = when (idx) {
+                                    0 -> AppTab.SESSIONS
+                                    1 -> AppTab.CUSTOMERS
+                                    3 -> AppTab.VOUCHERS
+                                    4 -> AppTab.SETTINGS
+                                    else -> AppTab.HOME
+                                }
+                            }
+                        )
                     }
                 ) { innerPadding ->
                     Box(
