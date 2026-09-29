@@ -19,6 +19,9 @@ interface VoucherDao {
     @Query("SELECT * FROM vouchers WHERE type = :type ORDER BY date DESC, id DESC")
     fun getVouchersByType(type: VoucherType): Flow<List<Voucher>>
 
+    @Query("SELECT * FROM vouchers WHERE sessionId = :sessionId ORDER BY date ASC")
+    fun getVouchersForSession(sessionId: Long): Flow<List<Voucher>>
+
     @Query("SELECT * FROM vouchers WHERE date >= :fromTime AND date <= :toTime ORDER BY date DESC, id DESC")
     fun getVouchersBetween(fromTime: Long, toTime: Long): Flow<List<Voucher>>
 

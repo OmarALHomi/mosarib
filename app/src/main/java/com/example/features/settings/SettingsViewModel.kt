@@ -91,10 +91,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             )
             if (id == 0L) {
                 pumpRepo.insertPump(pump)
-                showToast("تمت إضافة المضخة بنجاح", ToastType.SUCCESS)
+                showToast("تمت إضافة مصدر الماء بنجاح", ToastType.SUCCESS)
             } else {
                 pumpRepo.updatePump(pump)
-                showToast("تم تعديل بيانات المضخة", ToastType.SUCCESS)
+                showToast("تم تعديل بيانات مصدر الماء", ToastType.SUCCESS)
             }
         }
     }
@@ -102,7 +102,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun deletePump(pump: PumpSource) {
         viewModelScope.launch {
             pumpRepo.deletePump(pump)
-            showToast("تم حذف المضخة", ToastType.INFO)
+            showToast("تم حذف مصدر الماء", ToastType.INFO)
         }
     }
 

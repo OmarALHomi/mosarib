@@ -55,7 +55,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun WaterDistributorTheme(
+fun MosaribTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false, // Preserve brand luxury styling by default
     content: @Composable () -> Unit

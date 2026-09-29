@@ -162,9 +162,9 @@ fun SplashScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // English Title: Almosarib
+            // English Title: Mosarib
             Text(
-                text = "Almosarib",
+                text = "Mosarib",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = AccentGold,

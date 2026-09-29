@@ -1,21 +1,44 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ---------------------------------------------------------------------------
+# مُسَرِب (Mosarib) - R8 / ProGuard rules for release builds
+# ---------------------------------------------------------------------------
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Annotations, generic signatures and inner-class metadata are required at
+# runtime by Room, Compose and the Kotlin standard library.
+-keepattributes *Annotation*, Signature, InnerClasses, EnclosingMethod
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Keep line numbers so release crash reports stay readable, but hide the
+# original file names.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# ---------------------------------------------------------------------------
+# Room (the whole persistence layer of the app)
+# ---------------------------------------------------------------------------
+# Room resolves the generated `AppDatabase_Impl` by name, therefore the
+# generated database implementation has to survive shrinking untouched.
+-keep class * extends androidx.room.RoomDatabase { *; }
+-keep @androidx.room.Entity class * { *; }
+-keep @androidx.room.Dao interface * { *; }
+-keepclassmembers class * {
+    @androidx.room.* <methods>;
+    @androidx.room.* <fields>;
+}
+
+# ---------------------------------------------------------------------------
+# Enumerations
+# ---------------------------------------------------------------------------
+# VoucherType / ToastType are persisted by name in the JSON backups and are
+# restored through valueOf(), so their constants may not be renamed.
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+# ---------------------------------------------------------------------------
+# AndroidX
+# ---------------------------------------------------------------------------
+# FileProvider is declared in the manifest and used to share the generated PDF
+# reports and JSON backups with other applications.
+-keep class androidx.core.content.FileProvider { *; }
+-dontwarn androidx.compose.**
+

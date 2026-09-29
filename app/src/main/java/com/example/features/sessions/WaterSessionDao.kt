@@ -13,17 +13,11 @@ interface WaterSessionDao {
     @Query("SELECT * FROM water_sessions ORDER BY startTime DESC")
     fun getAllSessions(): Flow<List<WaterSession>>
 
-    @Query("SELECT * FROM water_sessions WHERE customerId = :customerId ORDER BY startTime DESC")
+    @Query("SELECT * FROM water_sessions WHERE customerId = :customerId OR billedToCustomerId = :customerId ORDER BY startTime DESC")
     fun getSessionsForCustomer(customerId: Long): Flow<List<WaterSession>>
 
     @Query("SELECT * FROM water_sessions WHERE startTime >= :fromTime AND startTime <= :toTime ORDER BY startTime DESC")
     fun getSessionsBetween(fromTime: Long, toTime: Long): Flow<List<WaterSession>>
-
-    @Query("SELECT * FROM water_sessions WHERE isLive = 1 LIMIT 1")
-    fun getActiveLiveSession(): Flow<WaterSession?>
-
-    @Query("SELECT * FROM water_sessions WHERE isLive = 1 LIMIT 1")
-    suspend fun getActiveLiveSessionDirect(): WaterSession?
 
     @Query("SELECT * FROM water_sessions WHERE id = :id")
     suspend fun getSessionById(id: Long): WaterSession?

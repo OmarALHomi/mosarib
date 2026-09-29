@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
+import androidx.room.withTransaction
 import com.example.core.database.AppDatabase
 import com.example.features.customers.Customer
 import com.example.features.pumps.PumpSource
@@ -28,7 +29,7 @@ object BackupManager {
 
     suspend fun createBackupJson(context: Context, database: AppDatabase): File = withContext(Dispatchers.IO) {
         val root = JSONObject()
-        root.put("app", "WaterDistributor_Musarrib")
+        root.put("app", "Mosarib")
         root.put("version", 1)
         root.put("createdAt", System.currentTimeMillis())
         root.put("formattedDate", SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date()))
@@ -129,7 +130,7 @@ object BackupManager {
         if (!backupDir.exists()) backupDir.mkdirs()
 
         val dateStr = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val backupFile = File(backupDir, "musarrib_backup_$dateStr.json")
+        val backupFile = File(backupDir, "mosarib_backup_$dateStr.json")
         FileOutputStream(backupFile).use { fos ->
             fos.write(root.toString(2).toByteArray(Charsets.UTF_8))
         }
@@ -192,7 +193,7 @@ object BackupManager {
         }
     }
 
-    private suspend fun restoreFromJsonObject(database: AppDatabase, root: JSONObject): Int {
+    private suspend fun restoreFromJsonObject(database: AppDatabase, root: JSONObject): Int = database.withTransaction {
         var count = 0
 
         // Restore Customers
@@ -244,7 +245,7 @@ object BackupManager {
                 val session = WaterSession(
                     id = obj.optLong("id", 0),
                     customerId = obj.getLong("customerId"),
-                    pumpName = obj.optString("pumpName", "المضخة الرئيسية"),
+                    pumpName = obj.optString("pumpName", "البئر"),
                     startTime = obj.optLong("startTime", System.currentTimeMillis()),
                     endTime = obj.optLong("endTime", System.currentTimeMillis()),
                     durationMinutes = obj.optInt("durationMinutes", 0),
@@ -296,7 +297,7 @@ object BackupManager {
             }
         }
 
-        return count
+        count
     }
 
     fun shareBackupToDriveOrApps(context: Context, backupFile: File) {
@@ -309,7 +310,7 @@ object BackupManager {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "application/json"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - تطبيق مسارب")
+            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - تطبيق مُسَرِب")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
@@ -326,7 +327,7 @@ object BackupManager {
                 val contentValues = android.content.ContentValues().apply {
                     put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, backupFile.name)
                     put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/json")
-                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/MusarribBackups")
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/MosaribBackups")
                 }
                 val uri = context.contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
                 if (uri != null) {
@@ -336,7 +337,7 @@ object BackupManager {
                 }
             } else {
                 val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
-                val subDir = File(downloadsDir, "MusarribBackups")
+                val subDir = File(downloadsDir, "MosaribBackups")
                 if (!subDir.exists()) subDir.mkdirs()
                 val targetFile = File(subDir, backupFile.name)
                 backupFile.copyTo(targetFile, overwrite = true)

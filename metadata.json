@@ -2,5 +2,5 @@
   "name": "مُسَرِب",
   "description": "تطبيق محاسبي فاخر لموزعي ومسربي مياه الآبار والمضخات وحساب ساعات الري والمبيعات والديون والتقارير وفواتير PDF",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

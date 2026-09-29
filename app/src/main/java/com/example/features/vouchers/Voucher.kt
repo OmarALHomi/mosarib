@@ -8,7 +8,7 @@ import com.example.features.customers.Customer
 
 enum class VoucherType {
     RECEIPT,  // سند قبض (تحصيل من عميل)
-    EXPENSE,  // سند صرف / مصروفات تشغيلية للمضخة (ديزل، زيت، صيانة، كهرباء...)
+    EXPENSE,  // سند صرف / مصروفات عامة أو للمستفيد
     DISCOUNT  // خصم / تسوية
 }
 
@@ -32,8 +32,9 @@ data class Voucher(
     val voucherNumber: String = "",
     val type: VoucherType = VoucherType.RECEIPT,
     val customerId: Long? = null,
+    val sessionId: Long? = null, // ربط السند مباشرة بجلسة سقي محددة
     val amount: Double = 0.0,
-    val category: String = "عام", // سداد حساب, ديزل, زيوت وفلاتر, صيانة وإصلاح, كهرباء, عمالة, أخرى
+    val category: String = "عام", // سداد حساب, أو بيان المصروف
     val paymentMethod: String = "نقداً", // نقداً, حوالة مالية, شبكة / بنكي
     val date: Long = System.currentTimeMillis(),
     val notes: String = "",

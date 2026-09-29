@@ -27,10 +27,6 @@ class WaterSessionRepository(
             }
         }
 
-    val activeLiveSession: Flow<WaterSession?> = sessionDao.getActiveLiveSession()
-
-    suspend fun getActiveLiveSessionDirect(): WaterSession? = sessionDao.getActiveLiveSessionDirect()
-
     fun getSessionsForCustomer(customerId: Long): Flow<List<WaterSession>> =
         sessionDao.getSessionsForCustomer(customerId)
 

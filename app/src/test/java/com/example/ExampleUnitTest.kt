@@ -1,51 +1,70 @@
 package com.example
 
 import com.example.core.util.Formatters
+import com.example.features.customers.Customer
+import com.example.features.customers.calculateCustomerBalance
+import com.example.features.sessions.WaterSession
+import com.example.features.vouchers.Voucher
+import com.example.features.vouchers.VoucherType
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ExampleUnitTest {
 
     @Test
-    fun `test accurate accounting balance without payment double counting`() {
-        // Customer takes a 2-hour session at 5000/hr = 10,000 total.
-        // Pays 4000 upfront. Remaining session debt = 6000.
-        val sessionBilled = 10000.0
-        val sessionPaidUpfront = 4000.0
-        val sessionDebt = sessionBilled - sessionPaidUpfront
-        assertEquals(6000.0, sessionDebt, 0.001)
+    fun `customer balance combines session payment and receipt voucher`() {
+        val customer = Customer(id = 1, name = "عميل")
+        val sessions = listOf(
+            WaterSession(customerId = customer.id, durationMinutes = 120, totalAmount = 10000.0, amountPaid = 4000.0)
+        )
+        val vouchers = listOf(
+            Voucher(customerId = customer.id, type = VoucherType.RECEIPT, amount = 3000.0)
+        )
 
-        // Later, customer pays 3000 via a standalone receipt voucher.
-        val voucherPayment = 3000.0
+        val result = calculateCustomerBalance(customer, sessions, vouchers)
 
-        // Total paid by customer must be upfront (4000) + voucher (3000) = 7000.
-        // It must NOT double-count the 4000 upfront.
-        val totalPaid = sessionPaidUpfront + voucherPayment
-        assertEquals(7000.0, totalPaid, 0.001)
-
-        // Net balance owed by customer must be 10000 - 7000 = 3000.
-        val currentBalance = sessionBilled - totalPaid
-        assertEquals(3000.0, currentBalance, 0.001)
+        assertEquals(10000.0, result.totalBilledAmount, 0.001)
+        assertEquals(7000.0, result.totalPaidAmount, 0.001)
+        assertEquals(3000.0, result.balance, 0.001)
+        assertEquals(120, result.totalMinutes)
     }
 
     @Test
-    fun `test live timer minute rounding`() {
-        val start = 1_000_000L
+    fun `customer balance applies discounts and disbursements and ignores general expenses and other customers`() {
+        val customer = Customer(id = 1, name = "عميل")
+        val sessions = listOf(
+            WaterSession(customerId = customer.id, totalAmount = 10000.0, amountPaid = 4000.0)
+        )
+        val vouchers = listOf(
+            Voucher(customerId = customer.id, type = VoucherType.DISCOUNT, amount = 1000.0),
+            Voucher(customerId = customer.id, type = VoucherType.EXPENSE, amount = 2000.0),
+            Voucher(customerId = null, type = VoucherType.EXPENSE, amount = 5000.0),
+            Voucher(customerId = 2, type = VoucherType.RECEIPT, amount = 6000.0)
+        )
 
-        // 45 seconds elapsed -> rounds to 1 minute
-        val end45s = start + 45_000L
-        val min45s = Math.max(1, Math.round((end45s - start) / 60000.0).toInt())
-        assertEquals(1, min45s)
+        val result = calculateCustomerBalance(customer, sessions, vouchers)
 
-        // 1 minute 40 seconds -> rounds to 2 minutes
-        val end100s = start + 100_000L
-        val min100s = Math.max(1, Math.round((end100s - start) / 60000.0).toInt())
-        assertEquals(2, min100s)
+        assertEquals(5000.0, result.totalPaidAmount, 0.001)
+        assertEquals(2000.0, result.totalDisbursedAmount, 0.001)
+        assertEquals(7000.0, result.balance, 0.001)
+    }
 
-        // 3 hours exactly = 180 minutes
-        val end3hrs = start + (3 * 3600_000L)
-        val min3hrs = Math.max(1, Math.round((end3hrs - start) / 60000.0).toInt())
-        assertEquals(180, min3hrs)
+    @Test
+    fun `beneficiary customer balance includes sessions billed on his account`() {
+        val beneficiary = Customer(id = 5, name = "مستفيد / شريك", isBeneficiary = true)
+        val sessions = listOf(
+            WaterSession(id = 1, customerId = 10, billedToCustomerId = beneficiary.id, totalAmount = 8000.0, amountPaid = 3000.0)
+        )
+        val vouchers = listOf(
+            Voucher(customerId = beneficiary.id, type = VoucherType.EXPENSE, amount = 1500.0)
+        )
+
+        val result = calculateCustomerBalance(beneficiary, sessions, vouchers)
+
+        assertEquals(8000.0, result.totalBilledAmount, 0.001)
+        assertEquals(3000.0, result.totalPaidAmount, 0.001)
+        assertEquals(1500.0, result.totalDisbursedAmount, 0.001)
+        assertEquals(6500.0, result.balance, 0.001)
     }
 
     @Test

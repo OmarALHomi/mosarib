@@ -15,6 +15,7 @@ import com.example.features.settings.SettingsRepository
 import com.example.features.vouchers.Voucher
 import com.example.features.vouchers.VoucherRepository
 import com.example.features.vouchers.VoucherType
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -88,6 +89,9 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         _toast.value = null
     }
 
+    val allCustomers: Flow<List<Customer>> = customerRepo.allCustomers
+    val allVouchers: Flow<List<Voucher>> = voucherRepo.allVouchers
+
     fun saveCustomer(
         id: Long = 0,
         name: String,
@@ -95,7 +99,8 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         farmName: String,
         location: String,
         notes: String,
-        customPricePerHour: Double?
+        customPricePerHour: Double?,
+        isBeneficiary: Boolean = false
     ) {
         viewModelScope.launch {
             val customer = Customer(
@@ -105,7 +110,8 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 farmName = farmName.trim(),
                 location = location.trim(),
                 notes = notes.trim(),
-                customPricePerHour = customPricePerHour
+                customPricePerHour = customPricePerHour,
+                isBeneficiary = isBeneficiary
             )
             if (id == 0L) {
                 customerRepo.insertCustomer(customer)
@@ -147,6 +153,70 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             )
             voucherRepo.insertVoucher(voucher)
             showToast("تم تسجيل سند القبض وتحديث رصيد العميل", ToastType.SUCCESS)
+        }
+    }
+
+    fun addExpenseVoucher(customerId: Long, amount: Double, paymentMethod: String, description: String) {
+        viewModelScope.launch {
+            val vNumber = "EXP-${System.currentTimeMillis().toString().takeLast(4)}"
+            val voucher = Voucher(
+                voucherNumber = vNumber,
+                type = VoucherType.EXPENSE,
+                customerId = customerId,
+                amount = amount,
+                category = description.ifBlank { "صرف للعميل / المستفيد" },
+                paymentMethod = paymentMethod,
+                date = System.currentTimeMillis(),
+                notes = description
+            )
+            voucherRepo.insertVoucher(voucher)
+            showToast("تم قيد سند الصرف وتحديث رصيد العميل", ToastType.SUCCESS)
+        }
+    }
+
+    fun settleSessionDebt(
+        session: WaterSession,
+        amount: Double,
+        paymentMethod: String,
+        notes: String
+    ) {
+        viewModelScope.launch {
+            val newAmountPaid = (session.amountPaid + amount).coerceAtMost(session.totalAmount)
+            val newDebt = (session.totalAmount - newAmountPaid).coerceAtLeast(0.0)
+            val updatedSession = session.copy(
+                amountPaid = newAmountPaid,
+                remainingDebt = newDebt
+            )
+            sessionRepo.updateSession(updatedSession)
+
+            val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(4)}"
+            val voucher = Voucher(
+                voucherNumber = vNumber,
+                type = VoucherType.RECEIPT,
+                customerId = session.billedToCustomerId ?: session.customerId,
+                sessionId = session.id,
+                amount = amount,
+                category = "سداد دورة سقي #${session.id}",
+                paymentMethod = paymentMethod,
+                date = System.currentTimeMillis(),
+                notes = notes.ifBlank { "سداد دورة ماء #${session.id}" }
+            )
+            voucherRepo.insertVoucher(voucher)
+            showToast("تم سداد المبلغ وقيد سند القبض وتحديث الرصيد", ToastType.SUCCESS)
+        }
+    }
+
+    fun deleteVoucher(voucher: Voucher) {
+        viewModelScope.launch {
+            voucherRepo.deleteVoucher(voucher)
+            showToast("تم حذف السند وتحديث الرصيد", ToastType.INFO)
+        }
+    }
+
+    fun deleteSession(session: WaterSession) {
+        viewModelScope.launch {
+            sessionRepo.deleteSession(session)
+            showToast("تم حذف دورة الماء بنجاح", ToastType.INFO)
         }
     }
 

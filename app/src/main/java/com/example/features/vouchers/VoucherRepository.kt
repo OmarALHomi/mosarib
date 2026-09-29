@@ -30,6 +30,9 @@ class VoucherRepository(
     fun getVouchersForCustomer(customerId: Long): Flow<List<Voucher>> =
         voucherDao.getVouchersForCustomer(customerId)
 
+    fun getVouchersForSession(sessionId: Long): Flow<List<Voucher>> =
+        voucherDao.getVouchersForSession(sessionId)
+
     fun getVouchersByType(type: VoucherType): Flow<List<Voucher>> =
         voucherDao.getVouchersByType(type)
 

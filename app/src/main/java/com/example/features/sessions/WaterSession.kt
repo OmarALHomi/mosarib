@@ -24,7 +24,7 @@ import com.example.features.customers.Customer
 data class WaterSession(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val customerId: Long,
-    val pumpName: String = "المضخة الرئيسية",
+    val pumpName: String = "",
     val startTime: Long = System.currentTimeMillis(),
     val endTime: Long = System.currentTimeMillis(),
     val durationMinutes: Int = 0,
@@ -34,5 +34,6 @@ data class WaterSession(
     val remainingDebt: Double = 0.0,
     val notes: String = "",
     val isLive: Boolean = false,
+    val billedToCustomerId: Long? = null, // إذا كان السقي مسجلاً ومحسوباً على حساب مستفيد آخر
     val createdAt: Long = System.currentTimeMillis()
 )

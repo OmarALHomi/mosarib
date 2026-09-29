@@ -110,17 +110,15 @@ fun SessionsScreen(
     val filter by viewModel.filter.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
-    val liveTimerState by viewModel.liveTimerState.collectAsStateWithLifecycle()
     val homeStats by viewModel.homeStats.collectAsStateWithLifecycle()
+    val allVouchers by viewModel.allVouchers.collectAsStateWithLifecycle()
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    var showActionChoiceSheet by remember { mutableStateOf(false) }
     var showAddManualSheet by remember { mutableStateOf(false) }
-    var showStartLiveSheet by remember { mutableStateOf(false) }
-    var showStopLiveSheet by remember { mutableStateOf(false) }
     var sessionToEdit by remember { mutableStateOf<WaterSession?>(null) }
     var sessionToDelete by remember { mutableStateOf<WaterSession?>(null) }
+    var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
     var messageTargetSession by remember { mutableStateOf<Pair<WaterSession, Customer>?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -129,52 +127,13 @@ fun SessionsScreen(
             contentPadding = PaddingValues(bottom = 100.dp)
         ) {
 
-            // Home Dashboard Statistics (2 High-impact cards: Cash collected vs Outstanding debt)
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    StatBoxCard(
-                        title = "المقبوض كاش",
-                        value = Formatters.formatCurrency(homeStats.totalCollectedCash, config.currencySymbol),
-                        subtitle = if (homeStats.totalCollectedCash > 0) Formatters.amountToArabicWords(homeStats.totalCollectedCash, config.currencySymbol) else null,
-                        icon = Icons.Default.ArrowDownward,
-                        accentColor = AccentEmerald,
-                        modifier = Modifier.weight(1f)
-                    )
-                    StatBoxCard(
-                        title = "ديون متبقية",
-                        value = Formatters.formatCurrency(homeStats.totalOutstandingDebt, config.currencySymbol),
-                        subtitle = if (homeStats.totalOutstandingDebt > 0) Formatters.amountToArabicWords(homeStats.totalOutstandingDebt, config.currencySymbol) else "خالص بالكامل",
-                        icon = Icons.Default.AttachMoney,
-                        accentColor = if (homeStats.totalOutstandingDebt > 0) Color(0xFFE53935) else AccentEmerald,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
-            // Live Timer Active Card
-            item {
-                AnimatedVisibility(visible = liveTimerState.isRunning) {
-                    LiveTimerRunningBanner(
-                        state = liveTimerState,
-                        currencySymbol = config.currencySymbol,
-                        onStopClick = { showStopLiveSheet = true },
-                        onCancelClick = { viewModel.cancelLiveSession() }
-                    )
-                }
-            }
-
             // Search Bar & Filter Chips
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { viewModel.setSearchQuery(it) },
-                        placeholder = { Text("بحث...") },
+                        placeholder = { Text("بحث باسم العميل أو الملاحظات...") },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -244,14 +203,16 @@ fun SessionsScreen(
                     EmptyStateView(
                         icon = Icons.Default.WaterDrop,
                         title = "لا توجد دورات ماء مسجلة",
-                        description = "اضغط على زر الإضافة لتسجيل دورة ري يدوية أو بدء عداد ري مباشر"
+                        description = "اضغط على زر الإضافة لتسجيل مدة السقي والمبلغ المدفوع"
                     )
                 }
             } else {
                 items(sessions, key = { it.session.id }) { item ->
+                    val linked = allVouchers.filter { it.sessionId == item.session.id }
                     SessionCardItem(
                         sessionWithCustomer = item,
                         currencySymbol = config.currencySymbol,
+                        linkedVouchers = linked,
                         onCustomerClick = { onNavigateToCustomer(item.session.customerId) },
                         onEditClick = { sessionToEdit = item.session },
                         onDeleteClick = { sessionToDelete = item.session },
@@ -264,6 +225,15 @@ fun SessionsScreen(
                             item.customer?.let { c ->
                                 messageTargetSession = Pair(item.session, c)
                             }
+                        },
+                        onSettleClick = {
+                            sessionToSettle = item.session
+                        },
+                        onShareVoucher = { voucher ->
+                            item.customer?.let { c ->
+                                val msg = "سند قبض #${voucher.voucherNumber}\nسداد دورة سقي #${item.session.id}\nالعميل: ${c.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)}\nطريقة الدفع: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
+                                com.example.core.util.FileSharingHelper.sendWhatsAppMessage(context, c.phone, msg)
+                            }
                         }
                     )
                 }
@@ -272,13 +242,7 @@ fun SessionsScreen(
 
         // Floating Action Button (Consolidated Single Action)
         ExtendedFloatingActionButton(
-            onClick = {
-                if (customers.isEmpty()) {
-                    viewModel.showToast("يرجى إضافة عميل أولاً", com.example.core.ui.ToastType.WARNING)
-                } else {
-                    showActionChoiceSheet = true
-                }
-            },
+            onClick = { showAddManualSheet = true },
             containerColor = PrimaryTeal,
             contentColor = Color.White,
             icon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(26.dp)) },
@@ -344,94 +308,18 @@ fun SessionsScreen(
         )
     }
 
-    // Action Choice Bottom Sheet (Visual & Illiterate-Friendly)
-    if (showActionChoiceSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showActionChoiceSheet = false },
-            containerColor = MaterialTheme.colorScheme.surface
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
-            ) {
-                Text(
-                    text = "تسجيل دورة ماء جديدة",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                if (!liveTimerState.isRunning) {
-                    Card(
-                        onClick = {
-                            showActionChoiceSheet = false
-                            showStartLiveSheet = true
-                        },
-                        colors = CardDefaults.cardColors(containerColor = AccentEmerald.copy(alpha = 0.12f)),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(AccentEmerald),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text("عداد مباشر (تشغيل فوري)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = AccentEmerald))
-                                Text("بدء العداد وحساب الوقت تلقائياً", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-
-                Card(
-                    onClick = {
-                        showActionChoiceSheet = false
-                        showAddManualSheet = true
-                    },
-                    colors = CardDefaults.cardColors(containerColor = PrimaryTeal.copy(alpha = 0.12f)),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(PrimaryTeal),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.WaterDrop, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column {
-                            Text("تسجيل يدوي (ساعات سابقة)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal))
-                            Text("تسجيل سقي سابق وتحديد الساعات والمبلغ", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(30.dp))
+    // Settle Session Debt Dialog
+    sessionToSettle?.let { session ->
+        val cust = customers.find { it.id == session.customerId }
+        SettleSessionDialog(
+            session = session,
+            customerName = cust?.name ?: "عميل غير محدد",
+            currencySymbol = config.currencySymbol,
+            onDismiss = { sessionToSettle = null },
+            onConfirmSettle = { amt, method, notes ->
+                viewModel.settleSessionDebt(session, amt, method, notes)
             }
-        }
+        )
     }
 
     // Add / Edit Manual Session Sheet
@@ -442,38 +330,13 @@ fun SessionsScreen(
             pumps = pumps,
             defaultPricePerHour = config.defaultPricePerHour,
             currencySymbol = config.currencySymbol,
+            onCreateCustomer = { customer -> viewModel.createCustomer(customer) },
             onDismiss = {
                 showAddManualSheet = false
                 sessionToEdit = null
             },
             onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes ->
                 viewModel.saveManualSession(id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes)
-            }
-        )
-    }
-
-    // Start Live Timer Sheet
-    if (showStartLiveSheet) {
-        StartLiveTimerBottomSheet(
-            customers = customers,
-            pumps = pumps,
-            defaultPricePerHour = config.defaultPricePerHour,
-            currencySymbol = config.currencySymbol,
-            onDismiss = { showStartLiveSheet = false },
-            onStart = { custId, custName, pumpName, rate ->
-                viewModel.startLiveSession(custId, custName, pumpName, rate)
-            }
-        )
-    }
-
-    // Stop Live Timer Sheet
-    if (showStopLiveSheet) {
-        StopLiveTimerBottomSheet(
-            liveState = liveTimerState,
-            currencySymbol = config.currencySymbol,
-            onDismiss = { showStopLiveSheet = false },
-            onConfirmStop = { paid, notes ->
-                viewModel.stopAndSaveLiveSession(paid, notes)
             }
         )
     }
@@ -504,531 +367,3 @@ fun SessionsScreen(
     }
 }
 
-@Composable
-fun LiveTimerRunningBanner(
-    state: LiveTimerState,
-    currencySymbol: String,
-    onStopClick: () -> Unit,
-    onCancelClick: () -> Unit
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.15f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scale"
-    )
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-            .shadow(12.dp, RoundedCornerShape(22.dp)),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color(0xFF004D56), Color(0xFF0D253A))
-                    )
-                )
-                .padding(18.dp)
-        ) {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(14.dp)
-                                .scale(scale)
-                                .clip(CircleShape)
-                                .background(AccentEmerald)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "عداد ري مباشر قيد التشغيل",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                    }
-
-                    Text(
-                        text = state.pumpName,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = SecondaryAqua
-                        )
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    Column {
-                        Text(
-                            text = "العميل: ${state.customerName}",
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                color = Color.White,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "سعر الساعة: ${Formatters.formatCurrency(state.pricePerHour, currencySymbol)}",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFFB0C9D4)
-                            )
-                        )
-                    }
-
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = Formatters.formatDurationClock(state.elapsedSeconds),
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                color = AccentGold,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 2.sp
-                            )
-                        )
-                        Text(
-                            text = Formatters.formatCurrency(state.currentCost, currencySymbol),
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = AccentEmerald,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Button(
-                        onClick = onStopClick,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(46.dp)
-                            .testTag("stop_live_timer_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald)
-                    ) {
-                        Icon(Icons.Default.Stop, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("إيقاف وحفظ الفاتورة", fontWeight = FontWeight.Bold)
-                    }
-
-                    OutlinedButton(
-                        onClick = onCancelClick,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF8A80))
-                    ) {
-                        Text("إلغاء")
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SessionCardItem(
-    sessionWithCustomer: WaterSessionWithCustomer,
-    currencySymbol: String,
-    onCustomerClick: () -> Unit,
-    onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    onPdfClick: () -> Unit,
-    onMessageClick: () -> Unit
-) {
-    val session = sessionWithCustomer.session
-    val customer = sessionWithCustomer.customer
-    var menuExpanded by remember { mutableStateOf(false) }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 4.dp)
-            .shadow(1.5.dp, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp)
-        ) {
-            // 1. الصف العلوي: معلومات العميل على اليمين (في RTL) و 3 أزرار دائرية/مربعة ناعمة على اليسار
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // العميل والمزرعة
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clickable { onCustomerClick() }
-                        .weight(1f, fill = false)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(PrimaryTeal.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.WaterDrop,
-                            contentDescription = null,
-                            tint = PrimaryTeal,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Column {
-                        Text(
-                            text = customer?.name ?: "عميل غير محدد",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            ),
-                            maxLines = 1
-                        )
-                        Text(
-                            text = if (!customer?.farmName.isNullOrBlank()) customer?.farmName!! else "جلسة ري",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Medium
-                            ),
-                            maxLines = 1
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // الأزرار الثلاثة على اليسار (في RTL: إرسال الرسالة، ثم PDF، ثم خيارات إضافية)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    // زر إرسال الفاتورة (واتساب / SMS)
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .clickable { onMessageClick() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "إرسال الفاتورة",
-                            tint = PrimaryTeal,
-                            modifier = Modifier.size(17.dp)
-                        )
-                    }
-
-                    // زر فاتورة PDF
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .clickable { onPdfClick() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PictureAsPdf,
-                            contentDescription = "فاتورة PDF",
-                            tint = PrimaryTeal,
-                            modifier = Modifier.size(17.dp)
-                        )
-                    }
-
-                    // زر القائمة (المزيد)
-                    Box {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                .clickable { menuExpanded = true },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = "خيارات",
-                                tint = PrimaryTeal,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        DropdownMenu(
-                            expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("إرسال الفاتورة (واتساب / SMS)") },
-                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = PrimaryTeal) },
-                                onClick = {
-                                    menuExpanded = false
-                                    onMessageClick()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("تعديل") },
-                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                onClick = {
-                                    menuExpanded = false
-                                    onEditClick()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("حذف", color = Color(0xFFE53935)) },
-                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
-                                onClick = {
-                                    menuExpanded = false
-                                    onDeleteClick()
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 2. الصف الأوسط: كبسولة كاملة للمدة وسعر الساعة
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                    .padding(horizontal = 12.dp, vertical = 7.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // المدة مع أيقونة الساعة (في RTL: أيقونة الساعة أولاً على اليمين ثم النص)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.AccessTime,
-                        contentDescription = null,
-                        tint = PrimaryTeal,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = Formatters.formatDurationArabic(session.durationMinutes),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
-                }
-
-                // سعر الساعة بالعربي (في RTL: على اليسار)
-                Text(
-                    text = "@ ${Formatters.formatNumber(session.pricePerHour)} $currencySymbol ساعة",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 3. الجزء السفلي: مقسم لعمودين مع فاصل رأسي
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // العمود الأيمن (في RTL): الإجمالي والمسدد والمتبقي (3 كبسولات عربية)
-                Column(
-                    modifier = Modifier.weight(1.05f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "الإجمالي",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier.padding(bottom = 1.dp)
-                    )
-
-                    // كبسولة الإجمالي
-                    SessionMetricPill(
-                        label = "الإجمالي",
-                        value = "${Formatters.formatNumber(session.totalAmount)} $currencySymbol",
-                        bgColor = AccentEmerald.copy(alpha = 0.15f),
-                        textColor = AccentEmerald
-                    )
-
-                    // كبسولة المدفوع
-                    SessionMetricPill(
-                        label = "المدفوع",
-                        value = "${Formatters.formatNumber(session.amountPaid)} $currencySymbol",
-                        bgColor = AccentEmerald.copy(alpha = 0.15f),
-                        textColor = AccentEmerald
-                    )
-
-                    // كبسولة المتبقي
-                    if (session.remainingDebt > 0) {
-                        SessionMetricPill(
-                            label = "المتبقي",
-                            value = "${Formatters.formatNumber(session.remainingDebt)} $currencySymbol",
-                            bgColor = Color(0xFFE53935).copy(alpha = 0.15f),
-                            textColor = Color(0xFFC62828)
-                        )
-                    } else {
-                        SessionMetricPill(
-                            label = "المتبقي",
-                            value = "0 $currencySymbol (خالص)",
-                            bgColor = AccentEmerald.copy(alpha = 0.15f),
-                            textColor = AccentEmerald
-                        )
-                    }
-                }
-
-                // فاصل رأسي رفيع
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 8.dp)
-                        .width(1.dp)
-                        .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                )
-
-                // العمود الأيسر (في RTL): وقت السقي من-إلى والتاريخ + المبلغ المتبقي/الإجمالي بالعريض والمحمر + كتابة المبلغ بالعربي
-                Column(
-                    modifier = Modifier.weight(0.95f),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    val startTimeStr = Formatters.formatTime(session.startTime)
-                    val endTimeStr = Formatters.formatTime(session.endTime)
-                    val dateStr = Formatters.formatDate(session.startTime)
-
-                    Text(
-                        text = "فترة السقي والتاريخ",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                    Text(
-                        text = "من $startTimeStr إلى $endTimeStr",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = PrimaryTeal,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.5.sp
-                        ),
-                        maxLines = 1
-                    )
-                    Text(
-                        text = dateStr,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 10.5.sp
-                        ),
-                        maxLines = 1
-                    )
-
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    val highlightAmount = if (session.remainingDebt > 0) session.remainingDebt else session.totalAmount
-                    val highlightColor = if (session.remainingDebt > 0) Color(0xFFB71C1C) else PrimaryTeal
-
-                    Text(
-                        text = "${Formatters.formatNumber(highlightAmount)} $currencySymbol",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = highlightColor,
-                            fontSize = 18.sp
-                        )
-                    )
-
-                    Text(
-                        text = Formatters.amountToArabicWords(highlightAmount, currencySymbol),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 10.sp,
-                            lineHeight = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        ),
-                        maxLines = 2
-                    )
-                }
-            }
-
-            if (session.notes.isNotBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "ملاحظة: ${session.notes}",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    maxLines = 1
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SessionMetricPill(
-    label: String,
-    value: String,
-    bgColor: Color,
-    textColor: Color
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(6.dp))
-            .background(bgColor)
-            .padding(horizontal = 8.dp, vertical = 3.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.Bold,
-                color = textColor,
-                fontSize = 11.sp
-            )
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.Bold,
-                color = textColor,
-                fontSize = 11.sp
-            )
-        )
-    }
-}

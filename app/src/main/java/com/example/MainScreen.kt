@@ -72,7 +72,7 @@ import com.example.features.vouchers.VouchersViewModel
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
-import com.example.ui.theme.WaterDistributorTheme
+import com.example.ui.theme.MosaribTheme
 
 enum class AppTab(
     val title: String,
@@ -83,7 +83,7 @@ enum class AppTab(
     SESSIONS("سجلات السقي", Icons.Filled.WaterDrop, Icons.Outlined.WaterDrop, "tab_sessions"),
     CUSTOMERS("العملاء", Icons.Filled.People, Icons.Outlined.People, "tab_customers"),
     HOME("الرئيسية", Icons.Filled.Home, Icons.Outlined.Home, "tab_home"),
-    VOUCHERS("المالية", Icons.AutoMirrored.Filled.ReceiptLong, Icons.AutoMirrored.Outlined.ReceiptLong, "tab_vouchers"),
+    VOUCHERS("سجل العمليات", Icons.AutoMirrored.Filled.ReceiptLong, Icons.AutoMirrored.Outlined.ReceiptLong, "tab_vouchers"),
     SETTINGS("الإعدادات", Icons.Filled.Settings, Icons.Outlined.Settings, "tab_settings")
 }
 
@@ -104,7 +104,7 @@ fun MainApp(
         else -> isSystemDark
     }
 
-    WaterDistributorTheme(darkTheme = darkTheme) {
+    MosaribTheme(darkTheme = darkTheme) {
         // Arabic RTL layout provider
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
             var showSplashScreen by remember { mutableStateOf(true) }
@@ -161,7 +161,7 @@ fun MainApp(
                                         text = when (selectedTab) {
                                             AppTab.SESSIONS -> "سجلات السقي"
                                             AppTab.CUSTOMERS -> "إدارة العملاء والمزارع"
-                                            AppTab.VOUCHERS -> "المالية والمصروفات"
+                                            AppTab.VOUCHERS -> "سجل العمليات"
                                             AppTab.SETTINGS -> "الإعدادات العامة"
                                             else -> ""
                                         },
@@ -282,7 +282,12 @@ fun MainApp(
                                 )
                             }
                             AppTab.VOUCHERS -> {
-                                VouchersScreen(viewModel = vouchersViewModel)
+                                VouchersScreen(
+                                    viewModel = vouchersViewModel,
+                                    onNavigateToCustomer = { custId ->
+                                        selectedCustomerId = custId
+                                    }
+                                )
                             }
                             AppTab.SETTINGS -> {
                                 SettingsScreen(viewModel = settingsViewModel)

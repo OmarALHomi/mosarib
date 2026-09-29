@@ -1,22 +1,81 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# مُسَرِب | Mosarib
 
-# Run and deploy your AI Studio app
+تطبيق أندرويد محاسبي لموزّعي ومسرّبي مياه الآبار: حساب ساعات الري، المبيعات، الديون،
+السندات والتقارير مع تصدير فواتير PDF.
 
-This contains everything you need to run your app locally.
+> التطبيق **محلي بالكامل (Offline-first)**: كل البيانات محفوظة في قاعدة بيانات Room على
+> الجهاز نفسه، ولا يحتاج أي اتصال بالإنترنت ولا أي مفتاح API أو ملف `google-services.json`.
 
-View your app in AI Studio: https://ai.studio/apps/9e6b6eb2-ace4-42d4-9e0e-c0d2a1702734
+## المتطلبات
 
-## Run Locally
+- [Android Studio](https://developer.android.com/studio) (أو Gradle CLI)
+- JDK 17+ (يُستخدم عبر Gradle Toolchain)
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+## التشغيل محليًا
 
+1. افتح Android Studio ثم اختر **Open** وحدّد مجلد المشروع.
+2. اترك Android Studio يزامن Gradle (Sync Project with Gradle Files).
+3. شغّل التطبيق على محاكي أو جهاز حقيقي.
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
-7. If you have already published your app in AI Studio, please [request upload key reset](https://support.google.com/googleplay/android-developer/answer/9842756#zippy=%2Crequest-an-upload-key-reset) in Google Play Console.
+لا حاجة لإنشاء أي ملف إعدادات إضافي — البناء يعمل مباشرة بعد الاستنساخ.
+عند أول تشغيل تُهيَّأ قاعدة البيانات بالإعدادات الافتراضية ومضخة رئيسية واحدة فقط،
+ولا تُدرَج أي بيانات تجريبية (عملاء/جلسات/سندات وهمية).
+
+## بناء نسخة الإصدار (Release)
+
+يُقرأ توقيع الإصدار من متغيّرات البيئة التالية:
+
+| المتغيّر | الوصف |
+| --- | --- |
+| `KEYSTORE_PATH` | مسار ملف الـ keystore (الافتراضي: `my-upload-key.jks` في جذر المشروع) |
+| `STORE_PASSWORD` | كلمة مرور الـ keystore |
+| `KEY_PASSWORD` | كلمة مرور المفتاح |
+| `KEY_ALIAS` | اسم المفتاح (الافتراضي: `upload`) |
+
+```bash
+./gradlew :app:assembleRelease
+```
+
+إذا لم تتوفّر هذه المتغيّرات أو لم يوجد ملف الـ keystore يُبنى الإصدار بمفتاح التصحيح
+(debug) بدل أن يفشل البناء، وهو مناسب للاختبار المحلي فقط.
+
+يُفعَّل التصغير (R8/minify) وتقليص الموارد في نسخة الإصدار، وقواعده في
+`app/proguard-rules.pro`.
+
+## البنية
+
+```
+app/src/main/java/com/example/
+├── MainActivity.kt              نقطة الدخول + Splash
+├── MainScreen.kt                التنقّل بين التبويبات (بدون Navigation-Compose)
+├── core/
+│   ├── database/                AppDatabase + Converters (Room)
+│   ├── ui/                      مكوّنات مشتركة (بطاقات، تنبيهات، حوارات)
+│   └── util/                    Formatters, PdfReportGenerator, BackupManager, FileSharingHelper
+├── features/
+│   ├── home/       لوحة المعلومات الرئيسية + مكوّناتها
+│   ├── sessions/   جلسات الري + المؤقّت المباشر
+│   ├── customers/  العملاء + كشف حساب التفاصيل
+│   ├── vouchers/   سندات القبض والصرف والتسويات
+│   ├── pumps/      مصادر المضخات وأسعار الساعة
+│   ├── reports/    التقارير المحاسبية وتصدير PDF
+│   ├── settings/   الإعدادات والنسخ الاحتياطي
+│   └── splash/     شاشة البداية
+└── ui/theme/                    الألوان، الخطوط (Cairo) والثيم
+```
+
+- **التقنية:** Kotlin 2.2 · Jetpack Compose (Material 3) · Room 2.7 (KSP) · Coroutines/Flow
+- **المعمارية:** MVVM، Activity واحدة، تنقّل يدوي عبر حالة Compose
+- **الواجهة:** عربية بالكامل مع اتجاه RTL وخط Cairo
+- **معرّف التطبيق:** `omarAlhomi.mosarib.com`
+- **قاعدة البيانات:** `water_distributor_db` (الإصدار 1)
+
+## الميزات
+
+- مؤقّت ري مباشر يحسب الوقت والتكلفة لحظيًا بسعر الساعة الخاص بكل مضخة.
+- كشف حساب لكل عميل (جلسات + سندات قبض/خصم/صرف) مع سجل الرصيد الجاري.
+- تقارير شاملة حسب الفترة (اليوم / الأسبوع / الشهر / الكل) مع صافي الربح التشغيلي.
+- تصدير PDF: كشف حساب عميل، فاتورة جلسة، سند قبض، وتقرير محاسبي شامل لكل العملاء.
+- نسخ احتياطي واستعادة بصيغة JSON ومشاركته عبر Google Drive أو أي تطبيق آخر.
+- الوضع الفاتح/الداكن مع الثيم الفاخر المخصّص.
+

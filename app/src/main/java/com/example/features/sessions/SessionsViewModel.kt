@@ -18,8 +18,6 @@ import com.example.features.settings.SettingsRepository
 import com.example.features.vouchers.Voucher
 import com.example.features.vouchers.VoucherRepository
 import com.example.features.vouchers.VoucherType
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -27,21 +25,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
-
-data class LiveTimerState(
-    val isRunning: Boolean = false,
-    val sessionId: Long = 0,
-    val customerId: Long = 0,
-    val customerName: String = "",
-    val pumpName: String = "",
-    val pricePerHour: Double = 5000.0,
-    val startTimestamp: Long = 0L,
-    val elapsedSeconds: Long = 0L,
-    val currentCost: Double = 0.0
-)
 
 data class HomeDashboardStats(
     val totalWaterMinutes: Int = 0,
@@ -82,34 +67,14 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
     private val _toast = MutableStateFlow<ToastMessage?>(null)
     val toast: StateFlow<ToastMessage?> = _toast.asStateFlow()
 
-    private val _liveTimerState = MutableStateFlow(LiveTimerState())
-    val liveTimerState: StateFlow<LiveTimerState> = _liveTimerState.asStateFlow()
-
     /** ملف PDF جاهز — يُعرض dialog للمستخدم يختار فيه فتح أو مشاركة */
     private val _pdfReadyFile = MutableStateFlow<Pair<File, String>?>(null)
     val pdfReadyFile: StateFlow<Pair<File, String>?> = _pdfReadyFile.asStateFlow()
 
     fun clearPdfReady() { _pdfReadyFile.value = null }
 
-    private var timerJob: Job? = null
-
-    init {
-        // Check for active live session in database
-        viewModelScope.launch {
-            val active = sessionRepo.getActiveLiveSessionDirect()
-            if (active != null) {
-                val customer = customerRepo.getCustomerByIdDirect(active.customerId)
-                startTimerTicker(
-                    sessionId = active.id,
-                    customerId = active.customerId,
-                    customerName = customer?.name ?: "عميل",
-                    pumpName = active.pumpName,
-                    pricePerHour = active.pricePerHour,
-                    startTime = active.startTime
-                )
-            }
-        }
-    }
+    val allVouchers: StateFlow<List<Voucher>> = voucherRepo.allVouchers
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val homeStats: StateFlow<HomeDashboardStats> =
         combine(
@@ -119,8 +84,8 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
             val totalMinutes = sessions.sumOf { it.durationMinutes }
             val totalSessions = sessions.size
             val sessionPaid = sessions.sumOf { it.amountPaid }
-            val receiptVouchers = vouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount }
-            val discountVouchers = vouchers.filter { it.type == VoucherType.DISCOUNT }.sumOf { it.amount }
+            val receiptVouchers = vouchers.filter { it.type == VoucherType.RECEIPT && it.sessionId == null }.sumOf { it.amount }
+            val discountVouchers = vouchers.filter { it.type == VoucherType.DISCOUNT && it.sessionId == null }.sumOf { it.amount }
             val totalBilled = sessions.sumOf { it.totalAmount }
             val totalCollected = sessionPaid + receiptVouchers
             val totalDebts = Math.max(0.0, totalBilled - (totalCollected + discountVouchers))
@@ -193,109 +158,10 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
         _toast.value = null
     }
 
-    /**
-     * Start Live Irrigation Timer
-     */
-    fun startLiveSession(customerId: Long, customerName: String, pumpName: String, pricePerHour: Double) {
-        viewModelScope.launch {
-            val startTime = System.currentTimeMillis()
-            val session = WaterSession(
-                customerId = customerId,
-                pumpName = pumpName,
-                startTime = startTime,
-                endTime = startTime,
-                durationMinutes = 0,
-                pricePerHour = pricePerHour,
-                totalAmount = 0.0,
-                amountPaid = 0.0,
-                remainingDebt = 0.0,
-                notes = "ساقية ماء جارية (مباشر)",
-                isLive = true
-            )
-            val sessionId = sessionRepo.insertSession(session)
-            startTimerTicker(sessionId, customerId, customerName, pumpName, pricePerHour, startTime)
-            showToast("تم بدء عداد تشغيل وسقي الماء بنجاح", ToastType.INFO)
-        }
-    }
-
-    private fun startTimerTicker(
-        sessionId: Long,
-        customerId: Long,
-        customerName: String,
-        pumpName: String,
-        pricePerHour: Double,
-        startTime: Long
-    ) {
-        timerJob?.cancel()
-        timerJob = viewModelScope.launch {
-            while (isActive) {
-                val now = System.currentTimeMillis()
-                val elapsedSec = (now - startTime) / 1000
-                val elapsedMinutes = (elapsedSec / 60).toInt()
-                val cost = (elapsedMinutes.toDouble() / 60.0) * pricePerHour
-
-                _liveTimerState.value = LiveTimerState(
-                    isRunning = true,
-                    sessionId = sessionId,
-                    customerId = customerId,
-                    customerName = customerName,
-                    pumpName = pumpName,
-                    pricePerHour = pricePerHour,
-                    startTimestamp = startTime,
-                    elapsedSeconds = elapsedSec,
-                    currentCost = cost
-                )
-                delay(1000)
-            }
-        }
-    }
-
-    /**
-     * Stop Live Session and finalize calculation & debt
-     */
-    fun stopAndSaveLiveSession(amountPaid: Double, notes: String) {
-        val currentState = _liveTimerState.value
-        if (!currentState.isRunning) return
-
-        viewModelScope.launch {
-            timerJob?.cancel()
-            val endTime = System.currentTimeMillis()
-            val totalMinutes = Math.max(1, Math.round((endTime - currentState.startTimestamp) / 60000.0).toInt())
-            val totalCost = (totalMinutes.toDouble() / 60.0) * currentState.pricePerHour
-            val debt = Math.max(0.0, totalCost - amountPaid)
-
-            val updatedSession = WaterSession(
-                id = currentState.sessionId,
-                customerId = currentState.customerId,
-                pumpName = currentState.pumpName,
-                startTime = currentState.startTimestamp,
-                endTime = endTime,
-                durationMinutes = totalMinutes,
-                pricePerHour = currentState.pricePerHour,
-                totalAmount = totalCost,
-                amountPaid = amountPaid,
-                remainingDebt = debt,
-                notes = notes.ifBlank { "ساقية ماء مكتملة" },
-                isLive = false
-            )
-
-            sessionRepo.updateSession(updatedSession)
-
-            _liveTimerState.value = LiveTimerState(isRunning = false)
-            showToast("تم إيقاف العداد وحفظ جلسة الري وترحيل الحساب بنجاح", ToastType.SUCCESS)
-        }
-    }
-
-    fun cancelLiveSession() {
-        val currentState = _liveTimerState.value
-        viewModelScope.launch {
-            timerJob?.cancel()
-            if (currentState.sessionId > 0) {
-                sessionRepo.deleteSessionById(currentState.sessionId)
-            }
-            _liveTimerState.value = LiveTimerState(isRunning = false)
-            showToast("تم إلغاء جلسة الري الحالية", ToastType.WARNING)
-        }
+    suspend fun createCustomer(customer: Customer): Long {
+        val id = customerRepo.insertCustomer(customer)
+        showToast("تمت إضافة العميل بنجاح", ToastType.SUCCESS)
+        return id
     }
 
     /**
@@ -304,14 +170,15 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
     fun saveManualSession(
         id: Long = 0,
         customerId: Long,
-        pumpName: String,
+        pumpName: String = "",
         startTime: Long,
         endTime: Long,
         hours: Int,
         minutes: Int,
         pricePerHour: Double,
         amountPaid: Double,
-        notes: String
+        notes: String,
+        billedToCustomerId: Long? = null
     ) {
         viewModelScope.launch {
             val totalMinutes = (hours * 60) + minutes
@@ -330,7 +197,8 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                 amountPaid = amountPaid,
                 remainingDebt = debt,
                 notes = notes,
-                isLive = false
+                isLive = false,
+                billedToCustomerId = billedToCustomerId
             )
 
             if (id == 0L) {
@@ -340,6 +208,42 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                 sessionRepo.updateSession(session)
                 showToast("تم تحديث بيانات دورة الماء بنجاح", ToastType.SUCCESS)
             }
+        }
+    }
+
+    /**
+     * سداد المبلغ المؤخر لجلسة سقي وإصدار سند قبض مرتبط
+     */
+    fun settleSessionDebt(
+        session: WaterSession,
+        amountToPay: Double,
+        paymentMethod: String = "نقداً",
+        notes: String = ""
+    ) {
+        viewModelScope.launch {
+            val newAmountPaid = session.amountPaid + amountToPay
+            val newRemainingDebt = Math.max(0.0, session.totalAmount - newAmountPaid)
+            val updated = session.copy(
+                amountPaid = newAmountPaid,
+                remainingDebt = newRemainingDebt
+            )
+            sessionRepo.updateSession(updated)
+
+            // توليد سند قبض رسمي مرتبط برقم الجلسة
+            val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(4)}"
+            val voucher = Voucher(
+                voucherNumber = vNumber,
+                type = VoucherType.RECEIPT,
+                customerId = session.billedToCustomerId ?: session.customerId,
+                sessionId = session.id,
+                amount = amountToPay,
+                category = "سداد سقي",
+                paymentMethod = paymentMethod,
+                date = System.currentTimeMillis(),
+                notes = notes.ifBlank { "سداد دورة سقي #${session.id}" }
+            )
+            voucherRepo.insertVoucher(voucher)
+            showToast("تم سداد المبلغ بنجاح وإصدار سند القبض المرتبط", ToastType.SUCCESS)
         }
     }
 

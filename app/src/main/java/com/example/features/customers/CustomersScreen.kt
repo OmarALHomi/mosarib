@@ -268,8 +268,8 @@ fun CustomersScreen(
                 showAddSheet = false
                 customerToEdit = null
             },
-            onSave = { id, name, phone, farm, loc, notes, customPrice ->
-                viewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice)
+            onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary ->
+                viewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary)
             }
         )
     }

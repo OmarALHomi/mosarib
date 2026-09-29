@@ -12,6 +12,7 @@ data class Customer(
     val location: String = "",
     val notes: String = "",
     val customPricePerHour: Double? = null, // Optional special hourly price override for this customer
+    val isBeneficiary: Boolean = false, // حساب مستفيد (يقبل الصرف، أو تسجيل سقي له أو لعملاء على حسابه)
     val createdAt: Long = System.currentTimeMillis(),
     val isArchived: Boolean = false
 )

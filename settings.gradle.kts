@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "WaterDistributor"
+rootProject.name = "Mosarib"
 
 include(":app")
