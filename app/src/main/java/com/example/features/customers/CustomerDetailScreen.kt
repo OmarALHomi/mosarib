@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Call
@@ -52,6 +53,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -76,6 +78,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -284,11 +288,36 @@ fun CustomerDetailScreen(
 
     val unsettledCount = remember(sessions) { sessions.count { it.remainingDebt > 0 } }
 
-    Scaffold { padding ->
+    Scaffold(
+        floatingActionButton = {
+            customerWithBalance?.let { cwb ->
+                ExtendedFloatingActionButton(
+                    onClick = { onAddSessionForCustomer(cwb.customer) },
+                    icon = {
+                        Icon(
+                            Icons.Default.WaterDrop,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = "تسجيل دورة سقي",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.5.sp
+                        )
+                    },
+                    containerColor = PrimaryTeal,
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(16.dp)
+                )
+            }
+        }
+    ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 85.dp)
+                contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + 90.dp)
             ) {
                 // ============================================================
                 // 1. GRADIENT HERO HEADER
@@ -297,12 +326,13 @@ fun CustomerDetailScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp))
                             .background(
                                 Brush.verticalGradient(
                                     colors = listOf(
                                         PrimaryTealDark,
                                         SecondaryAquaDark,
-                                        PrimaryTeal.copy(alpha = 0.85f)
+                                        PrimaryTeal.copy(alpha = 0.90f)
                                     )
                                 )
                             )
@@ -311,46 +341,63 @@ fun CustomerDetailScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = padding.calculateTopPadding() + 4.dp, start = 4.dp, end = 4.dp),
+                                .padding(top = padding.calculateTopPadding() + 4.dp, start = 8.dp, end = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            IconButton(onClick = onBack) {
+                            IconButton(
+                                onClick = onBack,
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.16f))
+                            ) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "رجوع",
                                     tint = Color.White
                                 )
                             }
-                            Row {
-                                IconButton(onClick = { viewModel.generateCustomerStatementPdf(customer) }) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                IconButton(
+                                    onClick = { viewModel.generateCustomerStatementPdf(customer) },
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.16f))
+                                ) {
                                     Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold)
                                 }
-                                IconButton(onClick = { showEditCustomerSheet = true }) {
-                                    Icon(Icons.Default.Edit, contentDescription = "تعديل", tint = Color.White.copy(alpha = 0.85f))
+                                IconButton(
+                                    onClick = { showEditCustomerSheet = true },
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.16f))
+                                ) {
+                                    Icon(Icons.Default.Edit, contentDescription = "تعديل", tint = Color.White)
                                 }
                             }
                         }
 
-                        // Avatar + Name + sub-info
+                        // Avatar + Name + sub-info + Quick Actions
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 8.dp, bottom = 24.dp),
+                                .padding(top = 10.dp, bottom = 22.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             // Large Avatar
                             Box(
                                 modifier = Modifier
-                                    .size(80.dp)
+                                    .size(76.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.2f))
-                                    .shadow(0.dp, CircleShape),
+                                    .background(Color.White.copy(alpha = 0.22f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(72.dp)
+                                        .size(66.dp)
                                         .clip(CircleShape)
                                         .background(Color.White.copy(alpha = 0.15f)),
                                     contentAlignment = Alignment.Center
@@ -365,25 +412,39 @@ fun CustomerDetailScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
                             Text(
                                 text = customer.name,
                                 style = MaterialTheme.typography.headlineSmall.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Color.White
-                                )
+                                ),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 24.dp)
                             )
 
                             if (customer.farmName.isNotBlank()) {
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = customer.farmName,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = Color.White.copy(alpha = 0.8f),
-                                        fontWeight = FontWeight.Medium
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.LocationOn,
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = 0.85f),
+                                        modifier = Modifier.size(15.dp)
                                     )
-                                )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = customer.farmName,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            color = Color.White.copy(alpha = 0.9f),
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    )
+                                }
                             }
 
                             val metaChips = buildList {
@@ -396,8 +457,8 @@ fun CustomerDetailScreen(
                                 Text(
                                     text = metaChips.joinToString("  •  "),
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        color = Color.White.copy(alpha = 0.65f),
-                                        fontWeight = FontWeight.SemiBold
+                                        color = Color.White.copy(alpha = 0.75f),
+                                        fontWeight = FontWeight.Medium
                                     )
                                 )
                             }
@@ -407,9 +468,11 @@ fun CustomerDetailScreen(
                                 Text(
                                     text = customer.notes,
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        color = Color.White.copy(alpha = 0.55f)
+                                        color = Color.White.copy(alpha = 0.65f)
                                     ),
-                                    maxLines = 2
+                                    maxLines = 2,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 30.dp)
                                 )
                             }
 
@@ -417,8 +480,8 @@ fun CustomerDetailScreen(
 
                             // ── Quick Action Buttons ──
                             Row(
-                                modifier = Modifier.padding(horizontal = 24.dp),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                modifier = Modifier.padding(horizontal = 20.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 if (customer.phone.isNotEmpty()) {
                                     QuickActionButton(
@@ -429,19 +492,20 @@ fun CustomerDetailScreen(
                                     QuickActionButton(
                                         icon = Icons.AutoMirrored.Filled.Send,
                                         label = "كشف واتساب",
+                                        accentColor = Color(0xFF69F0AE),
                                         onClick = { viewModel.sendCustomerStatementWhatsApp(customer, customerWithBalance) }
                                     )
                                 }
                                 QuickActionButton(
                                     icon = Icons.Default.Payments,
-                                    label = "قبض",
+                                    label = "سند قبض",
                                     accentColor = AccentEmerald,
                                     onClick = { showAddReceiptSheet = true }
                                 )
                                 QuickActionButton(
                                     icon = Icons.Default.ArrowDownward,
-                                    label = "صرف",
-                                    accentColor = Color(0xFFEF5350),
+                                    label = "سند صرف",
+                                    accentColor = Color(0xFFFF8A80),
                                     onClick = { showAddDisbursementSheet = true }
                                 )
                             }
@@ -456,11 +520,13 @@ fun CustomerDetailScreen(
                     val isDebt = customerWithBalance.balance > 0
                     val isCredit = customerWithBalance.balance < 0
 
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp)
-                            .shadow(6.dp, RoundedCornerShape(20.dp)),
+                            .shadow(3.dp, RoundedCornerShape(20.dp)),
                         shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
@@ -473,9 +539,9 @@ fun CustomerDetailScreen(
                             // Balance label
                             Text(
                                 text = when {
-                                    isDebt -> "دين متبقي بذمة العميل"
-                                    isCredit -> "رصيد دائن للعميل"
-                                    else -> "الحساب خالص ومسدد"
+                                    isDebt -> "صافي الدين المتبقي بذمة العميل"
+                                    isCredit -> "رصيد دائن لصالح العميل"
+                                    else -> "الحساب مسدد بالكامل (لا توجد مطالبات)"
                                 },
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -488,7 +554,7 @@ fun CustomerDetailScreen(
                             val balanceColor = when {
                                 isDebt -> Color(0xFFE53935)
                                 isCredit -> AccentEmerald
-                                else -> MaterialTheme.colorScheme.onSurface
+                                else -> PrimaryTeal
                             }
                             Text(
                                 text = if (customerWithBalance.balance == 0.0)
@@ -498,7 +564,7 @@ fun CustomerDetailScreen(
                                 style = MaterialTheme.typography.displaySmall.copy(
                                     color = balanceColor,
                                     fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 32.sp
+                                    fontSize = 30.sp
                                 )
                             )
 
@@ -513,39 +579,65 @@ fun CustomerDetailScreen(
                                 ) {
                                     Icon(Icons.Default.Check, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("لا توجد أي مبالغ مستحقة", style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold))
+                                    Text("خالص ومسدد بالكامل", style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold))
                                 }
                             }
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // 4-cell stats row
-                            Row(
+                            // 2x2 Grid of Financial Indicators
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceAround
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                StatCell(
-                                    label = "إجمالي السقي",
-                                    value = Formatters.formatCurrency(customerWithBalance.totalBilledAmount, config.currencySymbol),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                StatCell(
-                                    label = "المقبوض",
-                                    value = Formatters.formatCurrency(customerWithBalance.totalPaidAmount, config.currencySymbol),
-                                    color = AccentEmerald
-                                )
-                                if (customerWithBalance.totalDisbursedAmount > 0) {
-                                    StatCell(
-                                        label = "المنصرف",
-                                        value = Formatters.formatCurrency(customerWithBalance.totalDisbursedAmount, config.currencySymbol),
-                                        color = Color(0xFFEF5350)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    StatCellBox(
+                                        modifier = Modifier.weight(1f),
+                                        label = "إجمالي السقي",
+                                        value = Formatters.formatCurrency(customerWithBalance.totalBilledAmount, config.currencySymbol),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        icon = Icons.Default.WaterDrop
+                                    )
+                                    StatCellBox(
+                                        modifier = Modifier.weight(1f),
+                                        label = "مدة الري الكلية",
+                                        value = Formatters.formatDurationArabic(customerWithBalance.totalMinutes),
+                                        color = PrimaryTeal,
+                                        icon = Icons.Default.AccessTime
                                     )
                                 }
-                                StatCell(
-                                    label = "مدة الري",
-                                    value = Formatters.formatDurationArabic(customerWithBalance.totalMinutes),
-                                    color = PrimaryTeal
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    StatCellBox(
+                                        modifier = Modifier.weight(1f),
+                                        label = "إجمالي المقبوض",
+                                        value = Formatters.formatCurrency(customerWithBalance.totalPaidAmount, config.currencySymbol),
+                                        color = AccentEmerald,
+                                        icon = Icons.Default.Payments
+                                    )
+                                    if (customerWithBalance.totalDisbursedAmount > 0) {
+                                        StatCellBox(
+                                            modifier = Modifier.weight(1f),
+                                            label = "إجمالي المنصرف",
+                                            value = Formatters.formatCurrency(customerWithBalance.totalDisbursedAmount, config.currencySymbol),
+                                            color = Color(0xFFEF5350),
+                                            icon = Icons.Default.ArrowDownward
+                                        )
+                                    } else {
+                                        StatCellBox(
+                                            modifier = Modifier.weight(1f),
+                                            label = "عدد دورات السقي",
+                                            value = "${sessions.size} دورة",
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            icon = Icons.Default.Receipt
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -837,7 +929,7 @@ private fun CustomerSessionCardItem(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f, fill = false)
+                    modifier = Modifier.weight(1f)
                 ) {
                     Box(
                         modifier = Modifier
@@ -849,15 +941,19 @@ private fun CustomerSessionCardItem(
                         Icon(Icons.Default.WaterDrop, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "دورة سقي (${Formatters.formatDurationArabic(session.durationMinutes)})",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         val timeStr = "من ${Formatters.formatTime(session.startTime)} إلى ${Formatters.formatTime(session.endTime)}  •  ${Formatters.formatDate(session.startTime)}"
                         Text(
                             text = timeStr,
-                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -867,14 +963,14 @@ private fun CustomerSessionCardItem(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     IconButton(onClick = onMessageClick, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
                     }
                     IconButton(onClick = onPdfClick, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold, modifier = Modifier.size(16.dp))
                     }
                     Box {
                         IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "خيارات", tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.MoreVert, contentDescription = "خيارات", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                         }
                         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                             DropdownMenuItem(
@@ -1086,48 +1182,73 @@ private fun CustomerReceiptCardItem(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(12.dp)
         ) {
+            // Row 1: Title + Tag (Left) <---> Amount (Right)
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f, fill = false)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(AccentEmerald.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.Check, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(18.dp))
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(AccentEmerald.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(17.dp))
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
                         Text(
                             text = "سند قبض نقدي (${voucher.voucherNumber})",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         if (voucher.sessionId != null) {
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(4.dp))
                                     .background(PrimaryTeal.copy(alpha = 0.12f))
-                                    .padding(horizontal = 4.dp, vertical = 1.dp)
+                                    .padding(horizontal = 5.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = "سداد دورة #${voucher.sessionId}",
-                                    style = MaterialTheme.typography.labelSmall.copy(color = PrimaryTeal, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    text = "دورة #${voucher.sessionId}",
+                                    style = MaterialTheme.typography.labelSmall.copy(color = PrimaryTeal, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
                                 )
                             }
                         }
                     }
+                }
+
+                Text(
+                    text = "+ ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
+                    style = MaterialTheme.typography.titleMedium.copy(color = AccentEmerald, fontWeight = FontWeight.ExtraBold)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Row 2: Method + Date + Notes <---> Actions (WhatsApp, PDF, More)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "${voucher.paymentMethod}  •  ${Formatters.formatDateTime(voucher.date)}",
                         style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1135,42 +1256,39 @@ private fun CustomerReceiptCardItem(
                     if (voucher.notes.isNotEmpty()) {
                         Text(
                             text = voucher.notes,
-                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
-            }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = "+ ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
-                    style = MaterialTheme.typography.titleMedium.copy(color = AccentEmerald, fontWeight = FontWeight.ExtraBold)
-                )
-
-                IconButton(onClick = onShareWhatsApp, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = PrimaryTeal, modifier = Modifier.size(16.dp))
-                }
-
-                IconButton(onClick = onPdfClick, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = PrimaryTeal, modifier = Modifier.size(16.dp))
-                }
-
-                Box {
-                    IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "خيارات", tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    IconButton(onClick = onShareWhatsApp, modifier = Modifier.size(30.dp)) {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = Color(0xFF2E7D32), modifier = Modifier.size(15.dp))
                     }
-                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                        DropdownMenuItem(
-                            text = { Text("حذف السند", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
-                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
-                            onClick = {
-                                menuExpanded = false
-                                onDeleteClick()
-                            }
-                        )
+
+                    IconButton(onClick = onPdfClick, modifier = Modifier.size(30.dp)) {
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold, modifier = Modifier.size(15.dp))
+                    }
+
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(30.dp)) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "خيارات", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
+                        }
+                        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text("حذف السند", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onDeleteClick()
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -1199,32 +1317,54 @@ private fun CustomerDisbursementCardItem(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(12.dp)
         ) {
+            // Row 1: Title (Left) <---> Amount (Right)
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f, fill = false)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFC62828).copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = Color(0xFFC62828), modifier = Modifier.size(18.dp))
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFC62828).copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = Color(0xFFC62828), modifier = Modifier.size(17.dp))
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "سند صرف مالي (${voucher.voucherNumber})",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                }
+
+                Text(
+                    text = "- ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
+                    style = MaterialTheme.typography.titleMedium.copy(color = Color(0xFFC62828), fontWeight = FontWeight.ExtraBold)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Row 2: Method + Date + Notes <---> Actions (WhatsApp, PDF, More)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "${voucher.paymentMethod}  •  ${Formatters.formatDateTime(voucher.date)}",
                         style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1233,42 +1373,39 @@ private fun CustomerDisbursementCardItem(
                     if (desc.isNotEmpty()) {
                         Text(
                             text = desc,
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFC62828), fontWeight = FontWeight.SemiBold)
+                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFC62828), fontWeight = FontWeight.SemiBold),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
-            }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = "- ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
-                    style = MaterialTheme.typography.titleMedium.copy(color = Color(0xFFC62828), fontWeight = FontWeight.ExtraBold)
-                )
-
-                IconButton(onClick = onShareWhatsApp, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = PrimaryTeal, modifier = Modifier.size(16.dp))
-                }
-
-                IconButton(onClick = onPdfClick, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = PrimaryTeal, modifier = Modifier.size(16.dp))
-                }
-
-                Box {
-                    IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "خيارات", tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    IconButton(onClick = onShareWhatsApp, modifier = Modifier.size(30.dp)) {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = Color(0xFF2E7D32), modifier = Modifier.size(15.dp))
                     }
-                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                        DropdownMenuItem(
-                            text = { Text("حذف السند", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
-                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
-                            onClick = {
-                                menuExpanded = false
-                                onDeleteClick()
-                            }
-                        )
+
+                    IconButton(onClick = onPdfClick, modifier = Modifier.size(30.dp)) {
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold, modifier = Modifier.size(15.dp))
+                    }
+
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(30.dp)) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "خيارات", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
+                        }
+                        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text("حذف السند", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onDeleteClick()
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -1310,6 +1447,60 @@ private fun QuickActionButton(
                 fontSize = 10.sp
             )
         )
+    }
+}
+
+@Composable
+private fun StatCellBox(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    color: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(color.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = color
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 10.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
     }
 }
 

@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -332,37 +333,40 @@ fun CustomerCardItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // العميل والمزرعة
+                // العميل والمزرعة (نمنحه كامل المساحة لمنع اقتصاص الاسم)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f, fill = false)
+                    modifier = Modifier.weight(1f)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(40.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFE0F2F1)),
+                            .background(PrimaryTeal.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = customer.name.take(1),
                             style = MaterialTheme.typography.titleMedium.copy(
                                 color = PrimaryTeal,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.ExtraBold
                             )
                         )
                     }
 
                     Spacer(modifier = Modifier.width(10.dp))
 
-                    Column {
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Text(
                             text = customer.name,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             ),
-                            maxLines = 1
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
                         val subInfo = buildList {
                             if (customer.farmName.isNotBlank()) add(customer.farmName)
@@ -370,14 +374,16 @@ fun CustomerCardItem(
                         }.joinToString(" • ")
 
                         if (subInfo.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = subInfo,
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF64748B),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Medium,
                                     fontSize = 11.5.sp
                                 ),
-                                maxLines = 1
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -394,26 +400,26 @@ fun CustomerCardItem(
                         // اتصال هاتف
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(30.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFE0F2F1))
+                                .background(PrimaryTeal.copy(alpha = 0.12f))
                                 .clickable { onCallClick() },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Call,
                                 contentDescription = "اتصال",
-                                tint = Color(0xFF00695C),
-                                modifier = Modifier.size(16.dp)
+                                tint = PrimaryTeal,
+                                modifier = Modifier.size(15.dp)
                             )
                         }
 
                         // واتساب
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(30.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFE8F5E9))
+                                .background(Color(0xFF2E7D32).copy(alpha = 0.12f))
                                 .clickable { onWhatsAppClick() },
                             contentAlignment = Alignment.Center
                         ) {
@@ -421,7 +427,7 @@ fun CustomerCardItem(
                                 imageVector = Icons.AutoMirrored.Filled.Send,
                                 contentDescription = "واتساب",
                                 tint = Color(0xFF2E7D32),
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
                             )
                         }
                     }
@@ -429,17 +435,17 @@ fun CustomerCardItem(
                     // كشف حساب PDF
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
+                            .size(30.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFFFF8E1))
+                            .background(AccentGold.copy(alpha = 0.14f))
                             .clickable { onPdfStatementClick() },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.PictureAsPdf,
                             contentDescription = "كشف حساب PDF",
-                            tint = Color(0xFFC67C00),
-                            modifier = Modifier.size(16.dp)
+                            tint = AccentGold,
+                            modifier = Modifier.size(15.dp)
                         )
                     }
 
@@ -447,17 +453,17 @@ fun CustomerCardItem(
                     Box {
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(30.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFF1F5F9))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                                 .clickable { menuExpanded = true },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
                                 contentDescription = "خيارات",
-                                tint = Color(0xFF475569),
-                                modifier = Modifier.size(16.dp)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(15.dp)
                             )
                         }
 
@@ -471,6 +477,14 @@ fun CustomerCardItem(
                                 onClick = {
                                     menuExpanded = false
                                     onClick()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("تصدير كشف حساب PDF") },
+                                leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onPdfStatementClick()
                                 }
                             )
                             DropdownMenuItem(
@@ -531,7 +545,7 @@ fun CustomerCardItem(
                         Row(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFFFFEBEE))
+                                .background(Color(0xFFE53935).copy(alpha = 0.12f))
                                 .padding(horizontal = 8.dp, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -539,7 +553,7 @@ fun CustomerCardItem(
                                 text = "المتبقي: ${Formatters.formatNumber(item.balance)} $currencySymbol",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFFC62828),
+                                    color = Color(0xFFD32F2F),
                                     fontSize = 12.sp
                                 )
                             )
@@ -549,7 +563,7 @@ fun CustomerCardItem(
                         Row(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFFE0F2F1))
+                                .background(AccentEmerald.copy(alpha = 0.12f))
                                 .padding(horizontal = 8.dp, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -557,7 +571,7 @@ fun CustomerCardItem(
                                 text = "له: ${Formatters.formatNumber(Math.abs(item.balance))} $currencySymbol",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFF00695C),
+                                    color = AccentEmerald,
                                     fontSize = 12.sp
                                 )
                             )
@@ -567,22 +581,22 @@ fun CustomerCardItem(
                         Row(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFFE8F5E9))
+                                .background(AccentEmerald.copy(alpha = 0.12f))
                                 .padding(horizontal = 8.dp, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Check,
                                 contentDescription = null,
-                                tint = Color(0xFF2E7D32),
+                                tint = AccentEmerald,
                                 modifier = Modifier.size(13.dp)
                             )
                             Spacer(modifier = Modifier.width(3.dp))
                             Text(
-                                text = "مسدد",
+                                text = "مسدد بالكامل",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF2E7D32),
+                                    color = AccentEmerald,
                                     fontSize = 12.sp
                                 )
                             )
