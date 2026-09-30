@@ -15,21 +15,41 @@ object BiometricHelper {
 
     /** Returns true when the device has enrolled biometrics the app can use. */
     fun isAvailable(context: Context): Boolean {
-        return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val bm = context.getSystemService(android.hardware.biometrics.BiometricManager::class.java)
-                bm?.canAuthenticate(android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_WEAK) ==
-                        android.hardware.biometrics.BiometricManager.BIOMETRIC_SUCCESS
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        // 1. Direct FingerprintManager check (most reliable across Samsung One UI & Android)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 @Suppress("DEPRECATION")
                 val fm = context.getSystemService(android.hardware.fingerprint.FingerprintManager::class.java)
-                fm != null && fm.isHardwareDetected && fm.hasEnrolledFingerprints()
-            } else {
-                false
+                if (fm != null && fm.isHardwareDetected && fm.hasEnrolledFingerprints()) {
+                    return true
+                }
             }
-        } catch (_: Exception) {
-            false
+        } catch (_: Throwable) {
+            // Ignore and fall through to BiometricManager
         }
+
+        // 2. BiometricManager check (API 29+)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val bm = context.getSystemService(android.hardware.biometrics.BiometricManager::class.java)
+                val authenticators = android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                        android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_WEAK
+                val result = bm?.canAuthenticate(authenticators)
+                if (result == android.hardware.biometrics.BiometricManager.BIOMETRIC_SUCCESS) {
+                    return true
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                @Suppress("DEPRECATION")
+                val bm = context.getSystemService(android.hardware.biometrics.BiometricManager::class.java)
+                if (bm?.canAuthenticate() == android.hardware.biometrics.BiometricManager.BIOMETRIC_SUCCESS) {
+                    return true
+                }
+            }
+        } catch (_: Throwable) {
+            // Ignore
+        }
+
+        return false
     }
 
     /**

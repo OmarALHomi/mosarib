@@ -393,9 +393,9 @@ fun SettingsScreen(
                                 )
                                 Text(
                                     text = if (isBiometricAvailable) "طلب بصمة الإصبع عند فتح التطبيق لحماية الحسابات"
-                                    else "الجهاز لا يدعم مستشعر البصمة أو لم تُسجل بصمة",
+                                    else "تأكد من تسجيل بصمة في إعدادات الهاتف واستخدامها لحماية حساباتك",
                                     style = MaterialTheme.typography.bodySmall.copy(
-                                        color = if (isBiometricAvailable) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFFE53935),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = 11.5.sp
                                     )
                                 )
@@ -405,7 +405,6 @@ fun SettingsScreen(
                         Switch(
                             checked = config.biometricEnabled,
                             onCheckedChange = { viewModel.updateBiometricEnabled(it) },
-                            enabled = isBiometricAvailable,
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
                                 checkedTrackColor = PrimaryTeal

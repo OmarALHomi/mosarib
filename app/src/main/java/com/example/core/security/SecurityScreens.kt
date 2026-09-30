@@ -58,12 +58,21 @@ fun BiometricLockScreen(
 
     fun triggerAuth() {
         errorMessage = null
-        (context as? Activity)?.let { activity ->
+        var ctx = context
+        while (ctx is android.content.ContextWrapper) {
+            if (ctx is Activity) break
+            ctx = ctx.baseContext
+        }
+        val activity = ctx as? Activity
+        if (activity != null) {
             BiometricHelper.authenticate(
                 activity = activity,
                 onSuccess = onUnlock,
                 onError = { err -> errorMessage = err }
             )
+        } else {
+            // Fallback: unlock if no activity context can be found
+            onUnlock()
         }
     }
 
