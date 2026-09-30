@@ -1,9 +1,16 @@
 package com.example.core.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,6 +18,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -44,8 +52,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -58,17 +66,18 @@ import com.example.ui.theme.SecondaryAqua
 import com.example.ui.theme.SecondaryAquaLight
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Custom Crested Shape for full-width bar with smooth bell-curve center hump
+// Dynamic Crested Shape that smoothly animates its peak along with active tab
 // ──────────────────────────────────────────────────────────────────────────────
-class CrestedBarShape(
+class DynamicCrestedBarShape(
+    private val centerFraction: Float,
     private val flatTopDp: Float = 26f,
     private val crestPeakDp: Float = 5f,
-    private val crestHalfWDp: Float = 52f
+    private val crestHalfWDp: Float = 50f
 ) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
         val w = size.width
         val h = size.height
-        val cx = w * 0.5f
+        val cx = w * centerFraction
 
         val flatTop = flatTopDp * density.density
         val peak = crestPeakDp * density.density
@@ -76,7 +85,10 @@ class CrestedBarShape(
 
         val path = Path().apply {
             moveTo(0f, flatTop)
-            lineTo(cx - halfW, flatTop)
+            val leftBound = (cx - halfW).coerceAtLeast(0f)
+            val rightBound = (cx + halfW).coerceAtMost(w)
+
+            lineTo(leftBound, flatTop)
             cubicTo(
                 cx - halfW * 0.55f, flatTop,
                 cx - halfW * 0.45f, peak,
@@ -85,7 +97,7 @@ class CrestedBarShape(
             cubicTo(
                 cx + halfW * 0.45f, peak,
                 cx + halfW * 0.55f, flatTop,
-                cx + halfW, flatTop
+                rightBound, flatTop
             )
             lineTo(w, flatTop)
             lineTo(w, h)
@@ -564,7 +576,7 @@ val mosaribNavItems = listOf(
 )
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Main MosaribNavBar Component
+// Main MosaribNavBar Component with Fluid Animated Sliding Notch & Drop
 // ──────────────────────────────────────────────────────────────────────────────
 @Composable
 fun MosaribNavBar(
@@ -576,8 +588,6 @@ fun MosaribNavBar(
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
     // ── Harmonious Theme Colors ────────────────────────────────────────────────
-    // Light Theme: Soft fresh mint/cyan background (#CDE5E7) matching reference image
-    // Dark Theme: Deep midnight ocean surface (#12242B)
     val barBg = if (isDark) Color(0xFF12242B) else Color(0xFFCDE5E7)
     val barBorderColor = if (isDark) Color(0xFF1E3C47) else Color(0xFFB8DCDF)
     val shadowColor = if (isDark) Color(0xFF00E5FF) else PrimaryTeal
@@ -594,16 +604,46 @@ fun MosaribNavBar(
     }
     val homeDropSilhouette = if (isDark) Color(0xFF071920) else Color(0xFF1B3D42)
 
-    val crestedShape = remember { CrestedBarShape(flatTopDp = 26f, crestPeakDp = 5f, crestHalfWDp = 54f) }
+    // Calculate animated horizontal fraction for the sliding notch & floating circle
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val targetFraction = if (isRtl) {
+        (4 - selectedIndex + 0.5f) / 5f
+    } else {
+        (selectedIndex + 0.5f) / 5f
+    }
 
-    Box(
+    val animatedFraction by animateFloatAsState(
+        targetValue = targetFraction,
+        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+        label = "crest_sliding_x"
+    )
+
+    val crestedShape = remember(animatedFraction) {
+        DynamicCrestedBarShape(
+            centerFraction = animatedFraction,
+            flatTopDp = 26f,
+            crestPeakDp = 5f,
+            crestHalfWDp = 50f
+        )
+    }
+
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .height(90.dp)
             .navigationBarsPadding(),
         contentAlignment = Alignment.BottomCenter
     ) {
-        // ── 1. Full-Width Crested Bar Background ────────────────────────────────
+        val totalWidth = maxWidth
+        val circleSize = 60.dp
+        // In RTL, Alignment.TopStart is anchored at the right edge, so distance from start is (1f - fraction)
+        val circleX = if (isRtl) {
+            (totalWidth * (1f - animatedFraction)) - (circleSize / 2)
+        } else {
+            (totalWidth * animatedFraction) - (circleSize / 2)
+        }
+
+        // ── 1. Full-Width Animated Crested Bar Background ───────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -629,133 +669,98 @@ fun MosaribNavBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             mosaribNavItems.forEachIndexed { index, item ->
-                if (index == 2) {
-                    // Center item slot: Label "الرئيسية" situated with ample breathing room under circle
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple(bounded = true, radius = 32.dp),
-                                onClick = { onItemSelected(2) }
-                            )
-                            .padding(bottom = 4.dp),
-                        contentAlignment = Alignment.BottomCenter
-                    ) {
-                        Text(
-                            text = item.labelLine1,
-                            fontSize = 11.sp,
-                            fontWeight = if (selectedIndex == 2) FontWeight.ExtraBold else FontWeight.Bold,
-                            color = if (selectedIndex == 2) (if (isDark) SecondaryAqua else Color(0xFF005662)) else inactiveTint,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                } else {
-                    // Side Tab Item
-                    val isSelected = selectedIndex == index
-                    val animatedScale by animateFloatAsState(
-                        targetValue = if (isSelected) 1.08f else 1.0f,
-                        animationSpec = tween(220, easing = FastOutSlowInEasing),
-                        label = "scale_$index"
-                    )
-                    val currentTint by animateColorAsState(
-                        targetValue = if (isSelected) activeTint else inactiveTint,
-                        animationSpec = tween(200),
-                        label = "tint_$index"
-                    )
+                val isSelected = selectedIndex == index
+                val currentTint by animateColorAsState(
+                    targetValue = if (isSelected) activeTint else inactiveTint,
+                    animationSpec = tween(200),
+                    label = "tint_$index"
+                )
 
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple(bounded = true, radius = 32.dp),
-                                onClick = { onItemSelected(index) }
-                            )
-                            .padding(bottom = 2.dp)
-                            .testTag(item.testTag),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = true, radius = 32.dp),
+                            onClick = { onItemSelected(index) }
+                        )
+                        .padding(bottom = 2.dp)
+                        .testTag(item.testTag),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    // When selected, the icon is elevated into the floating circle,
+                    // so on the bar we smoothly hide the flat icon and leave room for the label!
+                    AnimatedVisibility(
+                        visible = !isSelected,
+                        enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.8f),
+                        exit = fadeOut(tween(140)) + scaleOut(targetScale = 0.8f)
                     ) {
-                        // Icon sitting directly on the bar with rich details
                         Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .graphicsLayer {
-                                    scaleX = animatedScale
-                                    scaleY = animatedScale
-                                },
+                            modifier = Modifier.size(28.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             when (index) {
                                 0 -> IrrigationGaugeIcon(tint = currentTint, modifier = Modifier.size(28.dp))
                                 1 -> CustomersBadgeIcon(tint = currentTint, modifier = Modifier.size(28.dp))
+                                2 -> HomeDropHouseIcon(dropTint = currentTint, houseTint = barBg, modifier = Modifier.size(28.dp))
                                 3 -> OperationsClipboardIcon(tint = currentTint, modifier = Modifier.size(28.dp))
                                 4 -> SettingsMaintenanceIcon(tint = currentTint, modifier = Modifier.size(28.dp))
                             }
                         }
+                    }
 
+                    if (isSelected) {
+                        Spacer(modifier = Modifier.height(18.dp))
+                    } else {
                         Spacer(modifier = Modifier.height(2.dp))
+                    }
 
-                        // Text label (supports 2 lines with proper line height to avoid clipping)
-                        if (item.labelLine2 != null) {
-                            Text(
-                                text = "${item.labelLine1}\n${item.labelLine2}",
-                                fontSize = 9.sp,
-                                lineHeight = 10.5.sp,
-                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
-                                color = currentTint,
-                                textAlign = TextAlign.Center,
-                                maxLines = 2
-                            )
-                        } else {
-                            Text(
-                                text = item.labelLine1,
-                                fontSize = 9.5.sp,
-                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
-                                color = currentTint,
-                                textAlign = TextAlign.Center,
-                                maxLines = 1
-                            )
-                        }
+                    // Text label (supports 2 lines with proper line height to avoid clipping)
+                    if (item.labelLine2 != null) {
+                        Text(
+                            text = "${item.labelLine1}\n${item.labelLine2}",
+                            fontSize = if (isSelected) 9.5.sp else 9.sp,
+                            lineHeight = 10.5.sp,
+                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
+                            color = currentTint,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2
+                        )
+                    } else {
+                        Text(
+                            text = item.labelLine1,
+                            fontSize = if (isSelected) 10.5.sp else 9.5.sp,
+                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
+                            color = currentTint,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1
+                        )
                     }
                 }
             }
         }
 
-        // ── 3. Floating Center Circle Button ────────────────────────────────────
-        // Offset y = (-12).dp elevates the button so its bottom edge clears the text "الرئيسية" completely
-        val isHomeSelected = selectedIndex == 2
-        val homeScale by animateFloatAsState(
-            targetValue = if (isHomeSelected) 1.05f else 0.98f,
-            animationSpec = tween(240, easing = FastOutSlowInEasing),
-            label = "home_scale"
-        )
-
+        // ── 3. Fluid Sliding Floating Drop Button ───────────────────────────────
+        // The circle floats along the X axis and carries the active tab's icon!
         Box(
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .offset(y = (-12).dp)
-                .graphicsLayer {
-                    scaleX = homeScale
-                    scaleY = homeScale
-                }
+                .align(Alignment.TopStart)
+                .offset(x = circleX, y = (-12).dp)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = ripple(bounded = false, radius = 36.dp),
-                    onClick = { onItemSelected(2) }
+                    onClick = { onItemSelected(selectedIndex) }
                 )
-                .testTag("tab_home"),
+                .testTag("floating_tab_indicator"),
             contentAlignment = Alignment.Center
         ) {
-            // Floating circle button with drop shadow and halo ring
             Box(
                 modifier = Modifier
-                    .size(60.dp)
+                    .size(circleSize)
                     .shadow(
-                        elevation = if (isHomeSelected) 12.dp else 6.dp,
+                        elevation = 12.dp,
                         shape = CircleShape,
                         spotColor = shadowColor.copy(alpha = if (isDark) 0.45f else 0.35f),
                         ambientColor = shadowColor.copy(alpha = 0.20f)
@@ -764,17 +769,32 @@ fun MosaribNavBar(
                     .background(homeCircleBg)
                     .border(
                         width = 2.dp,
-                        color = if (isHomeSelected) (if (isDark) SecondaryAqua else Color.White) else Color.White.copy(alpha = 0.6f),
+                        color = if (isDark) SecondaryAqua else Color.White,
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                // Water drop silhouette with white house inside
-                HomeDropHouseIcon(
-                    dropTint = homeDropSilhouette,
-                    houseTint = Color.White,
-                    modifier = Modifier.size(36.dp)
-                )
+                // Smoothly crossfade between icons as the floating circle travels to the new tab
+                AnimatedContent(
+                    targetState = selectedIndex,
+                    transitionSpec = {
+                        (fadeIn(animationSpec = tween(220)) + scaleIn(initialScale = 0.75f))
+                            .togetherWith(fadeOut(animationSpec = tween(160)) + scaleOut(targetScale = 0.75f))
+                    },
+                    label = "floating_circle_icon"
+                ) { targetIndex ->
+                    when (targetIndex) {
+                        0 -> IrrigationGaugeIcon(tint = Color.White, modifier = Modifier.size(32.dp))
+                        1 -> CustomersBadgeIcon(tint = Color.White, modifier = Modifier.size(32.dp))
+                        2 -> HomeDropHouseIcon(
+                            dropTint = homeDropSilhouette,
+                            houseTint = Color.White,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        3 -> OperationsClipboardIcon(tint = Color.White, modifier = Modifier.size(32.dp))
+                        4 -> SettingsMaintenanceIcon(tint = Color.White, modifier = Modifier.size(32.dp))
+                    }
+                }
             }
         }
     }
