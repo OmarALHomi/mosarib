@@ -10,8 +10,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -323,6 +326,7 @@ fun CustomerDetailScreen(
                 // 1. GRADIENT HERO HEADER
                 // ============================================================
                 item {
+                    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -337,177 +341,183 @@ fun CustomerDetailScreen(
                                 )
                             )
                     ) {
-                        // Back + Edit + PDF buttons on top
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = padding.calculateTopPadding() + 4.dp, start = 8.dp, end = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconButton(
-                                onClick = onBack,
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.16f))
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "رجوع",
-                                    tint = Color.White
-                                )
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                IconButton(
-                                    onClick = { viewModel.generateCustomerStatementPdf(customer) },
-                                    modifier = Modifier
-                                        .size(38.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.16f))
-                                ) {
-                                    Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold)
-                                }
-                                IconButton(
-                                    onClick = { showEditCustomerSheet = true },
-                                    modifier = Modifier
-                                        .size(38.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.16f))
-                                ) {
-                                    Icon(Icons.Default.Edit, contentDescription = "تعديل", tint = Color.White)
-                                }
-                            }
-                        }
-
-                        // Avatar + Name + sub-info + Quick Actions
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 10.dp, bottom = 22.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .padding(top = statusBarPadding)
                         ) {
-                            // Large Avatar
-                            Box(
+                            // Back + Edit + PDF buttons on top
+                            Row(
                                 modifier = Modifier
-                                    .size(76.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.22f)),
-                                contentAlignment = Alignment.Center
+                                    .fillMaxWidth()
+                                    .padding(top = 6.dp, start = 8.dp, end = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(
+                                IconButton(
+                                    onClick = onBack,
                                     modifier = Modifier
-                                        .size(66.dp)
+                                        .size(36.dp)
                                         .clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = customer.name.take(1),
-                                        style = MaterialTheme.typography.displaySmall.copy(
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = Color.White
-                                        )
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            Text(
-                                text = customer.name,
-                                style = MaterialTheme.typography.headlineSmall.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White
-                                ),
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 24.dp)
-                            )
-
-                            if (customer.farmName.isNotBlank()) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                        .background(Color.White.copy(alpha = 0.16f))
                                 ) {
                                     Icon(
-                                        Icons.Default.LocationOn,
-                                        contentDescription = null,
-                                        tint = Color.White.copy(alpha = 0.85f),
-                                        modifier = Modifier.size(15.dp)
+                                        Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "رجوع",
+                                        tint = Color.White
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    IconButton(
+                                        onClick = { viewModel.generateCustomerStatementPdf(customer) },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(alpha = 0.16f))
+                                    ) {
+                                        Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold)
+                                    }
+                                    IconButton(
+                                        onClick = { showEditCustomerSheet = true },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(alpha = 0.16f))
+                                    ) {
+                                        Icon(Icons.Default.Edit, contentDescription = "تعديل", tint = Color.White)
+                                    }
+                                }
+                            }
+
+                            // Avatar + Name + sub-info + Quick Actions
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 6.dp, bottom = 16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                // Compact Avatar
+                                Box(
+                                    modifier = Modifier
+                                        .size(60.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.22f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(50.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(alpha = 0.15f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = customer.name.take(1),
+                                            style = MaterialTheme.typography.headlineMedium.copy(
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = Color.White
+                                            )
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = customer.name,
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color.White
+                                    ),
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 24.dp)
+                                )
+
+                                if (customer.farmName.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 16.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.LocationOn,
+                                            contentDescription = null,
+                                            tint = Color.White.copy(alpha = 0.85f),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        Text(
+                                            text = customer.farmName,
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = Color.White.copy(alpha = 0.9f),
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        )
+                                    }
+                                }
+
+                                val metaChips = buildList {
+                                    if (customer.phone.isNotBlank()) add(customer.phone)
+                                    if (customer.location.isNotBlank()) add(customer.location)
+                                    if ((customer.customPricePerHour ?: 0.0) > 0) add("سعر خاص: ${Formatters.formatNumber(customer.customPricePerHour!!)} ${config.currencySymbol}/س")
+                                }
+                                if (metaChips.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = customer.farmName,
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            color = Color.White.copy(alpha = 0.9f),
-                                            fontWeight = FontWeight.SemiBold
+                                        text = metaChips.joinToString("  •  "),
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = Color.White.copy(alpha = 0.75f),
+                                            fontWeight = FontWeight.Medium
                                         )
                                     )
                                 }
-                            }
 
-                            val metaChips = buildList {
-                                if (customer.phone.isNotBlank()) add(customer.phone)
-                                if (customer.location.isNotBlank()) add(customer.location)
-                                if ((customer.customPricePerHour ?: 0.0) > 0) add("سعر خاص: ${Formatters.formatNumber(customer.customPricePerHour!!)} ${config.currencySymbol}/س")
-                            }
-                            if (metaChips.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = metaChips.joinToString("  •  "),
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = Color.White.copy(alpha = 0.75f),
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                )
-                            }
-
-                            if (customer.notes.isNotBlank()) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = customer.notes,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = Color.White.copy(alpha = 0.65f)
-                                    ),
-                                    maxLines = 2,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 30.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // ── Quick Action Buttons ──
-                            Row(
-                                modifier = Modifier.padding(horizontal = 20.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                if (customer.phone.isNotEmpty()) {
-                                    QuickActionButton(
-                                        icon = Icons.Default.Call,
-                                        label = "اتصال",
-                                        onClick = { FileSharingHelper.makePhoneCall(context, customer.phone) }
-                                    )
-                                    QuickActionButton(
-                                        icon = Icons.AutoMirrored.Filled.Send,
-                                        label = "كشف واتساب",
-                                        accentColor = Color(0xFF69F0AE),
-                                        onClick = { viewModel.sendCustomerStatementWhatsApp(customer, customerWithBalance) }
+                                if (customer.notes.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Text(
+                                        text = customer.notes,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = Color.White.copy(alpha = 0.65f)
+                                        ),
+                                        maxLines = 2,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(horizontal = 30.dp)
                                     )
                                 }
-                                QuickActionButton(
-                                    icon = Icons.Default.Payments,
-                                    label = "سند قبض",
-                                    accentColor = AccentEmerald,
-                                    onClick = { showAddReceiptSheet = true }
-                                )
-                                QuickActionButton(
-                                    icon = Icons.Default.ArrowDownward,
-                                    label = "سند صرف",
-                                    accentColor = Color(0xFFFF8A80),
-                                    onClick = { showAddDisbursementSheet = true }
-                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // ── Quick Action Buttons ──
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    if (customer.phone.isNotEmpty()) {
+                                        QuickActionButton(
+                                            icon = Icons.Default.Call,
+                                            label = "اتصال",
+                                            onClick = { FileSharingHelper.makePhoneCall(context, customer.phone) }
+                                        )
+                                        QuickActionButton(
+                                            icon = Icons.AutoMirrored.Filled.Send,
+                                            label = "كشف واتساب",
+                                            accentColor = Color(0xFF69F0AE),
+                                            onClick = { viewModel.sendCustomerStatementWhatsApp(customer, customerWithBalance) }
+                                        )
+                                    }
+                                    QuickActionButton(
+                                        icon = Icons.Default.Payments,
+                                        label = "سند قبض",
+                                        accentColor = AccentEmerald,
+                                        onClick = { showAddReceiptSheet = true }
+                                    )
+                                    QuickActionButton(
+                                        icon = Icons.Default.ArrowDownward,
+                                        label = "سند صرف",
+                                        accentColor = Color(0xFFFF8A80),
+                                        onClick = { showAddDisbursementSheet = true }
+                                    )
+                                }
                             }
                         }
                     }
@@ -533,7 +543,7 @@ fun CustomerDetailScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             // Balance label

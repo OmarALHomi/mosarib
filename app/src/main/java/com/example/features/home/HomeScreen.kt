@@ -208,16 +208,16 @@ fun HomeScreen(
                     onClick = { showAddManualSheet = true },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                        .height(112.dp),
-                    shape = RoundedCornerShape(18.dp),
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .height(64.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(Brush.horizontalGradient(listOf(PrimaryTealDark, PrimaryTeal)))
-                            .padding(horizontal = 18.dp, vertical = 14.dp)
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxSize(),
@@ -226,7 +226,7 @@ fun HomeScreen(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(54.dp)
+                                    .size(40.dp)
                                     .clip(CircleShape)
                                     .background(Color.White.copy(alpha = 0.16f)),
                                 contentAlignment = Alignment.Center
@@ -235,25 +235,24 @@ fun HomeScreen(
                                     imageVector = Icons.Default.WaterDrop,
                                     contentDescription = null,
                                     tint = Color.White,
-                                    modifier = Modifier.size(29.dp)
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .padding(horizontal = 14.dp)
+                                    .padding(horizontal = 12.dp)
                             ) {
                                 Text(
-                                    text = "ابدأ سقيًا جديدًا",
-                                    style = MaterialTheme.typography.titleLarge.copy(
+                                    text = "سجّل سقيًا جديدًا",
+                                    style = MaterialTheme.typography.titleMedium.copy(
                                         color = Color.White,
                                         fontWeight = FontWeight.ExtraBold
                                     )
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "أدخل مدة السقي والمبلغ",
-                                    style = MaterialTheme.typography.bodySmall.copy(
+                                    style = MaterialTheme.typography.labelSmall.copy(
                                         color = Color.White.copy(alpha = 0.82f)
                                     )
                                 )
@@ -262,12 +261,13 @@ fun HomeScreen(
                                 imageVector = Icons.Default.PlayArrow,
                                 contentDescription = "بدء تسجيل السقي",
                                 tint = AccentGold,
-                                modifier = Modifier.size(30.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
                 }
             }
+
 
             item {
                 Row(
