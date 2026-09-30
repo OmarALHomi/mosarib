@@ -9,24 +9,21 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -42,27 +39,69 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.DarkBackground
-import com.example.ui.theme.DarkSurface
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.SecondaryAqua
 import com.example.ui.theme.SecondaryAquaLight
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Custom domain-specific vector icons matching the reference image exactly
+// Custom Crested Shape for full-width bar with smooth bell-curve center hump
+// ──────────────────────────────────────────────────────────────────────────────
+class CrestedBarShape(
+    private val flatTopDp: Float = 26f,
+    private val crestPeakDp: Float = 5f,
+    private val crestHalfWDp: Float = 52f
+) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val w = size.width
+        val h = size.height
+        val cx = w * 0.5f
+
+        val flatTop = flatTopDp * density.density
+        val peak = crestPeakDp * density.density
+        val halfW = crestHalfWDp * density.density
+
+        val path = Path().apply {
+            moveTo(0f, flatTop)
+            lineTo(cx - halfW, flatTop)
+            cubicTo(
+                cx - halfW * 0.55f, flatTop,
+                cx - halfW * 0.45f, peak,
+                cx, peak
+            )
+            cubicTo(
+                cx + halfW * 0.45f, peak,
+                cx + halfW * 0.55f, flatTop,
+                cx + halfW, flatTop
+            )
+            lineTo(w, flatTop)
+            lineTo(w, h)
+            lineTo(0f, h)
+            close()
+        }
+        return Outline.Generic(path)
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Exact Vector Icons from Reference Image (Canvas-drawn)
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * Tab 0 (سجلات السقي): Circular water meter / flow gauge with radial ticks,
- * needle pointing up-right, digital odometer window, and a perched water drop at top.
+ * Tab 0 (سجلات السقي): Water meter gauge with needle, dial ticks, odometer, and top droplet.
  */
 @Composable
 fun IrrigationGaugeIcon(
@@ -81,20 +120,20 @@ fun IrrigationGaugeIcon(
             color = tint,
             radius = r,
             center = Offset(cx, cy),
-            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+            style = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
         )
 
         // 2. Radial scale tick marks around dial
         val angles = listOf(-150f, -125f, -100f, -75f, -50f, -25f, 0f, 25f, 50f)
         for (angleDeg in angles) {
             val rad = Math.toRadians(angleDeg.toDouble())
-            val rOuter = r - 1.5.dp.toPx()
-            val rInner = r - 4.5.dp.toPx()
+            val rOuter = r - 1.2.dp.toPx()
+            val rInner = r - 4.dp.toPx()
             drawLine(
                 color = tint,
                 start = Offset(cx + (rOuter * Math.cos(rad)).toFloat(), cy + (rOuter * Math.sin(rad)).toFloat()),
                 end = Offset(cx + (rInner * Math.cos(rad)).toFloat(), cy + (rInner * Math.sin(rad)).toFloat()),
-                strokeWidth = 1.2.dp.toPx(),
+                strokeWidth = 1.1.dp.toPx(),
                 cap = StrokeCap.Round
             )
         }
@@ -106,11 +145,10 @@ fun IrrigationGaugeIcon(
             color = tint,
             start = Offset(cx, cy),
             end = Offset(cx + (needleLen * Math.cos(needleRad)).toFloat(), cy + (needleLen * Math.sin(needleRad)).toFloat()),
-            strokeWidth = 2.dp.toPx(),
+            strokeWidth = 1.8.dp.toPx(),
             cap = StrokeCap.Round
         )
-        // Pivot pin
-        drawCircle(color = tint, radius = 2.5.dp.toPx(), center = Offset(cx, cy))
+        drawCircle(color = tint, radius = 2.dp.toPx(), center = Offset(cx, cy))
 
         // 4. Odometer readout box at bottom
         drawRoundRect(
@@ -118,7 +156,7 @@ fun IrrigationGaugeIcon(
             topLeft = Offset(cx - r * 0.45f, cy + r * 0.40f),
             size = Size(r * 0.9f, r * 0.35f),
             cornerRadius = CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx()),
-            style = Stroke(width = 1.2.dp.toPx())
+            style = Stroke(width = 1.1.dp.toPx())
         )
 
         // 5. Water droplet perched on top of gauge
@@ -149,14 +187,13 @@ fun IrrigationGaugeIcon(
         drawPath(
             path = arcPath,
             color = Color.White.copy(alpha = 0.85f),
-            style = Stroke(width = 1.2.dp.toPx(), cap = StrokeCap.Round)
+            style = Stroke(width = 1.1.dp.toPx(), cap = StrokeCap.Round)
         )
     }
 }
 
 /**
- * Tab 1 (العملاء): Customer ID badge with top lanyard clip,
- * avatar photo frame with head & shoulders, 3 info lines, and ribbon medal seal.
+ * Tab 1 (العملاء): Customer ID badge with lanyard clip, photo frame, 3 lines, ribbon seal.
  */
 @Composable
 fun CustomersBadgeIcon(
@@ -193,7 +230,7 @@ fun CustomersBadgeIcon(
             topLeft = Offset(cardLeft, cardTop),
             size = Size(cardW, cardH),
             cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-            style = Stroke(width = 2.dp.toPx())
+            style = Stroke(width = 1.8.dp.toPx())
         )
 
         // 3. Photo frame on the left
@@ -206,7 +243,7 @@ fun CustomersBadgeIcon(
             topLeft = Offset(photoLeft, photoTop),
             size = Size(photoW, photoH),
             cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx()),
-            style = Stroke(width = 1.2.dp.toPx())
+            style = Stroke(width = 1.1.dp.toPx())
         )
 
         // Avatar head
@@ -217,7 +254,7 @@ fun CustomersBadgeIcon(
             radius = photoW * 0.22f,
             center = Offset(headCx, headCy)
         )
-        // Avatar shoulders arc
+        // Avatar shoulders
         val shoulderPath = Path().apply {
             moveTo(photoLeft + photoW * 0.12f, photoTop + photoH * 0.90f)
             cubicTo(
@@ -236,15 +273,14 @@ fun CustomersBadgeIcon(
         val l2Y = cardTop + cardH * 0.48f
         val l3Y = cardTop + cardH * 0.68f
 
-        drawLine(color = tint, start = Offset(lineLeft, l1Y), end = Offset(lineRight, l1Y), strokeWidth = 1.8.dp.toPx(), cap = StrokeCap.Round)
-        drawLine(color = tint, start = Offset(lineLeft, l2Y), end = Offset(lineRight, l2Y), strokeWidth = 1.8.dp.toPx(), cap = StrokeCap.Round)
-        drawLine(color = tint, start = Offset(lineLeft, l3Y), end = Offset(lineLeft + (lineRight - lineLeft) * 0.55f, l3Y), strokeWidth = 1.8.dp.toPx(), cap = StrokeCap.Round)
+        drawLine(color = tint, start = Offset(lineLeft, l1Y), end = Offset(lineRight, l1Y), strokeWidth = 1.6.dp.toPx(), cap = StrokeCap.Round)
+        drawLine(color = tint, start = Offset(lineLeft, l2Y), end = Offset(lineRight, l2Y), strokeWidth = 1.6.dp.toPx(), cap = StrokeCap.Round)
+        drawLine(color = tint, start = Offset(lineLeft, l3Y), end = Offset(lineLeft + (lineRight - lineLeft) * 0.55f, l3Y), strokeWidth = 1.6.dp.toPx(), cap = StrokeCap.Round)
 
         // 5. Medal ribbon seal on bottom-right
         val sealCx = cardLeft + cardW * 0.82f
         val sealCy = cardTop + cardH * 0.82f
         val sealR = cardW * 0.18f
-        // Ribbon tails
         val ribbonPath = Path().apply {
             moveTo(sealCx - sealR * 0.6f, sealCy + sealR * 0.5f)
             lineTo(sealCx - sealR * 0.8f, sealCy + sealR * 1.6f)
@@ -256,7 +292,6 @@ fun CustomersBadgeIcon(
             close()
         }
         drawPath(ribbonPath, color = tint)
-        // Medal circle
         drawCircle(color = tint, radius = sealR, center = Offset(sealCx, sealCy))
     }
 }
@@ -301,7 +336,6 @@ fun HomeDropHouseIcon(
         val roofBaseY = h * 0.55f
         val roofHalfW = w * 0.24f
 
-        // Gabled roof
         val roofPath = Path().apply {
             moveTo(cx, roofTopY)
             lineTo(cx + roofHalfW, roofBaseY)
@@ -330,7 +364,7 @@ fun HomeDropHouseIcon(
             size = Size(houseBodyW, houseBodyH)
         )
 
-        // Doorway (cut out with dropTint)
+        // Doorway
         val doorW = houseBodyW * 0.32f
         val doorH = houseBodyH * 0.68f
         val doorLeft = cx - doorW * 0.5f
@@ -345,7 +379,7 @@ fun HomeDropHouseIcon(
 }
 
 /**
- * Tab 3 (سجل العمليات): Clipboard with flowchart hierarchy and attached pressure gauge.
+ * Tab 3 (سجل العمليات): Clipboard with flowchart tree and pressure gauge.
  */
 @Composable
 fun OperationsClipboardIcon(
@@ -376,7 +410,7 @@ fun OperationsClipboardIcon(
             topLeft = Offset(boardLeft, boardTop),
             size = Size(boardW, boardH),
             cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx()),
-            style = Stroke(width = 2.dp.toPx())
+            style = Stroke(width = 1.8.dp.toPx())
         )
 
         // 3. Flowchart diagram
@@ -388,20 +422,19 @@ fun OperationsClipboardIcon(
             color = tint,
             topLeft = Offset(topNodeX, topNodeY),
             size = Size(topNodeW, topNodeH),
-            style = Stroke(width = 1.5.dp.toPx())
+            style = Stroke(width = 1.4.dp.toPx())
         )
 
-        // Tree branches
         val stemY = topNodeY + topNodeH
         val forkY = stemY + boardH * 0.10f
         val branchY = forkY + boardH * 0.10f
         val leftNodeX = boardLeft + boardW * 0.18f
         val rightNodeX = boardLeft + boardW * 0.62f
 
-        drawLine(color = tint, start = Offset(topNodeX + topNodeW * 0.5f, stemY), end = Offset(topNodeX + topNodeW * 0.5f, forkY), strokeWidth = 1.5.dp.toPx())
-        drawLine(color = tint, start = Offset(leftNodeX, forkY), end = Offset(rightNodeX, forkY), strokeWidth = 1.5.dp.toPx())
-        drawLine(color = tint, start = Offset(leftNodeX, forkY), end = Offset(leftNodeX, branchY), strokeWidth = 1.5.dp.toPx())
-        drawLine(color = tint, start = Offset(rightNodeX, forkY), end = Offset(rightNodeX, branchY), strokeWidth = 1.5.dp.toPx())
+        drawLine(color = tint, start = Offset(topNodeX + topNodeW * 0.5f, stemY), end = Offset(topNodeX + topNodeW * 0.5f, forkY), strokeWidth = 1.4.dp.toPx())
+        drawLine(color = tint, start = Offset(leftNodeX, forkY), end = Offset(rightNodeX, forkY), strokeWidth = 1.4.dp.toPx())
+        drawLine(color = tint, start = Offset(leftNodeX, forkY), end = Offset(leftNodeX, branchY), strokeWidth = 1.4.dp.toPx())
+        drawLine(color = tint, start = Offset(rightNodeX, forkY), end = Offset(rightNodeX, branchY), strokeWidth = 1.4.dp.toPx())
 
         val subNodeW = boardW * 0.28f
         val subNodeH = boardH * 0.14f
@@ -409,13 +442,13 @@ fun OperationsClipboardIcon(
             color = tint,
             topLeft = Offset(leftNodeX - subNodeW * 0.5f, branchY),
             size = Size(subNodeW, subNodeH),
-            style = Stroke(width = 1.5.dp.toPx())
+            style = Stroke(width = 1.4.dp.toPx())
         )
         drawRect(
             color = tint,
             topLeft = Offset(rightNodeX - subNodeW * 0.5f, branchY),
             size = Size(subNodeW, subNodeH),
-            style = Stroke(width = 1.5.dp.toPx())
+            style = Stroke(width = 1.4.dp.toPx())
         )
 
         // 4. Circular meter on upper-right
@@ -424,27 +457,27 @@ fun OperationsClipboardIcon(
         val meterCy = boardTop + boardH * 0.32f
 
         val elbowY = branchY + subNodeH * 0.5f
-        drawLine(color = tint, start = Offset(rightNodeX + subNodeW * 0.5f, elbowY), end = Offset(meterCx, elbowY), strokeWidth = 1.5.dp.toPx())
-        drawLine(color = tint, start = Offset(meterCx, elbowY), end = Offset(meterCx, meterCy + meterR), strokeWidth = 1.5.dp.toPx())
+        drawLine(color = tint, start = Offset(rightNodeX + subNodeW * 0.5f, elbowY), end = Offset(meterCx, elbowY), strokeWidth = 1.4.dp.toPx())
+        drawLine(color = tint, start = Offset(meterCx, elbowY), end = Offset(meterCx, meterCy + meterR), strokeWidth = 1.4.dp.toPx())
 
         drawCircle(
             color = tint,
             radius = meterR,
             center = Offset(meterCx, meterCy),
-            style = Stroke(width = 1.8.dp.toPx())
+            style = Stroke(width = 1.6.dp.toPx())
         )
         drawLine(
             color = tint,
             start = Offset(meterCx, meterCy),
             end = Offset(meterCx + meterR * 0.65f, meterCy - meterR * 0.5f),
-            strokeWidth = 1.5.dp.toPx(),
+            strokeWidth = 1.4.dp.toPx(),
             cap = StrokeCap.Round
         )
     }
 }
 
 /**
- * Tab 4 (الإعدادات): Open-ended diagonal spanner wrench with two gears.
+ * Tab 4 (الإعدادات): Open-ended diagonal spanner wrench with two spoked gears.
  */
 @Composable
 fun SettingsMaintenanceIcon(
@@ -461,22 +494,22 @@ fun SettingsMaintenanceIcon(
         val g1Cx = cx - w * 0.24f
         val g1Cy = cy - h * 0.24f
         val g1R = w * 0.18f
-        drawCircle(color = tint, radius = g1R, center = Offset(g1Cx, g1Cy), style = Stroke(width = 1.8.dp.toPx()))
-        drawLine(color = tint, start = Offset(g1Cx - g1R, g1Cy), end = Offset(g1Cx + g1R, g1Cy), strokeWidth = 1.2.dp.toPx())
-        drawLine(color = tint, start = Offset(g1Cx, g1Cy - g1R), end = Offset(g1Cx, g1Cy + g1R), strokeWidth = 1.2.dp.toPx())
-        drawLine(color = tint, start = Offset(g1Cx - g1R * 0.7f, g1Cy - g1R * 0.7f), end = Offset(g1Cx + g1R * 0.7f, g1Cy + g1R * 0.7f), strokeWidth = 1.2.dp.toPx())
-        drawLine(color = tint, start = Offset(g1Cx - g1R * 0.7f, g1Cy + g1R * 0.7f), end = Offset(g1Cx + g1R * 0.7f, g1Cy - g1R * 0.7f), strokeWidth = 1.2.dp.toPx())
+        drawCircle(color = tint, radius = g1R, center = Offset(g1Cx, g1Cy), style = Stroke(width = 1.6.dp.toPx()))
+        drawLine(color = tint, start = Offset(g1Cx - g1R, g1Cy), end = Offset(g1Cx + g1R, g1Cy), strokeWidth = 1.1.dp.toPx())
+        drawLine(color = tint, start = Offset(g1Cx, g1Cy - g1R), end = Offset(g1Cx, g1Cy + g1R), strokeWidth = 1.1.dp.toPx())
+        drawLine(color = tint, start = Offset(g1Cx - g1R * 0.7f, g1Cy - g1R * 0.7f), end = Offset(g1Cx + g1R * 0.7f, g1Cy + g1R * 0.7f), strokeWidth = 1.1.dp.toPx())
+        drawLine(color = tint, start = Offset(g1Cx - g1R * 0.7f, g1Cy + g1R * 0.7f), end = Offset(g1Cx + g1R * 0.7f, g1Cy - g1R * 0.7f), strokeWidth = 1.1.dp.toPx())
         drawCircle(color = tint, radius = 2.dp.toPx(), center = Offset(g1Cx, g1Cy))
 
         // 2. Lower-right gear
         val g2Cx = cx + w * 0.24f
         val g2Cy = cy + h * 0.24f
         val g2R = w * 0.17f
-        drawCircle(color = tint, radius = g2R, center = Offset(g2Cx, g2Cy), style = Stroke(width = 1.8.dp.toPx()))
-        drawLine(color = tint, start = Offset(g2Cx - g2R, g2Cy), end = Offset(g2Cx + g2R, g2Cy), strokeWidth = 1.2.dp.toPx())
-        drawLine(color = tint, start = Offset(g2Cx, g2Cy - g2R), end = Offset(g2Cx, g2Cy + g2R), strokeWidth = 1.2.dp.toPx())
-        drawLine(color = tint, start = Offset(g2Cx - g2R * 0.7f, g2Cy - g2R * 0.7f), end = Offset(g2Cx + g2R * 0.7f, g2Cy + g2R * 0.7f), strokeWidth = 1.2.dp.toPx())
-        drawLine(color = tint, start = Offset(g2Cx - g2R * 0.7f, g2Cy + g2R * 0.7f), end = Offset(g2Cx + g2R * 0.7f, g2Cy - g2R * 0.7f), strokeWidth = 1.2.dp.toPx())
+        drawCircle(color = tint, radius = g2R, center = Offset(g2Cx, g2Cy), style = Stroke(width = 1.6.dp.toPx()))
+        drawLine(color = tint, start = Offset(g2Cx - g2R, g2Cy), end = Offset(g2Cx + g2R, g2Cy), strokeWidth = 1.1.dp.toPx())
+        drawLine(color = tint, start = Offset(g2Cx, g2Cy - g2R), end = Offset(g2Cx, g2Cy + g2R), strokeWidth = 1.1.dp.toPx())
+        drawLine(color = tint, start = Offset(g2Cx - g2R * 0.7f, g2Cy - g2R * 0.7f), end = Offset(g2Cx + g2R * 0.7f, g2Cy + g2R * 0.7f), strokeWidth = 1.1.dp.toPx())
+        drawLine(color = tint, start = Offset(g2Cx - g2R * 0.7f, g2Cy + g2R * 0.7f), end = Offset(g2Cx + g2R * 0.7f, g2Cy - g2R * 0.7f), strokeWidth = 1.1.dp.toPx())
         drawCircle(color = tint, radius = 2.dp.toPx(), center = Offset(g2Cx, g2Cy))
 
         // 3. Diagonal wrench handle from bottom-left to top-right
@@ -488,12 +521,12 @@ fun SettingsMaintenanceIcon(
             color = tint,
             start = Offset(startX, startY),
             end = Offset(endX, endY),
-            strokeWidth = 4.5.dp.toPx(),
+            strokeWidth = 4.2.dp.toPx(),
             cap = StrokeCap.Round
         )
 
         // Bottom ring of wrench
-        drawCircle(color = tint, radius = w * 0.12f, center = Offset(startX, startY), style = Stroke(width = 2.2.dp.toPx()))
+        drawCircle(color = tint, radius = w * 0.12f, center = Offset(startX, startY), style = Stroke(width = 2.dp.toPx()))
 
         // Open-end wrench head at top-right
         val headCx = endX + w * 0.08f
@@ -517,16 +550,17 @@ fun SettingsMaintenanceIcon(
 // ──────────────────────────────────────────────────────────────────────────────
 data class MosaribNavItemData(
     val id: Int,
-    val label: String,
+    val labelLine1: String,
+    val labelLine2: String?,
     val testTag: String
 )
 
 val mosaribNavItems = listOf(
-    MosaribNavItemData(0, "سجلات السقي",  "tab_sessions"),
-    MosaribNavItemData(1, "العملاء",      "tab_customers"),
-    MosaribNavItemData(2, "الرئيسية",    "tab_home"),
-    MosaribNavItemData(3, "سجل العمليات","tab_vouchers"),
-    MosaribNavItemData(4, "الإعدادات",   "tab_settings")
+    MosaribNavItemData(0, "سجلات", "السقي", "tab_sessions"),
+    MosaribNavItemData(1, "العملاء", null, "tab_customers"),
+    MosaribNavItemData(2, "الرئيسية", null, "tab_home"),
+    MosaribNavItemData(3, "سجل", "العمليات", "tab_vouchers"),
+    MosaribNavItemData(4, "الإعدادات", null, "tab_settings")
 )
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -538,136 +572,151 @@ fun MosaribNavBar(
     onItemSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = isSystemInDarkTheme()
+    // Determine actual theme mode from theme surface luminance (independent of OS setting)
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
     // ── Harmonious Theme Colors ────────────────────────────────────────────────
-    // Light Theme: Soft fresh mint/cyan background matching user screenshot
-    // Dark Theme: Deep midnight ocean surface
-    val barBg = if (isDark) Color(0xFF112228) else Color(0xFFEBF6F7)
-    val barBorderColor = if (isDark) Color(0xFF1D3C47) else Color(0xFFD2EBED)
+    // Light Theme: Soft fresh mint/cyan background (#CDE5E7) matching reference image
+    // Dark Theme: Deep midnight ocean surface (#12242B)
+    val barBg = if (isDark) Color(0xFF12242B) else Color(0xFFCDE5E7)
+    val barBorderColor = if (isDark) Color(0xFF1E3C47) else Color(0xFFB8DCDF)
     val shadowColor = if (isDark) Color(0xFF00E5FF) else PrimaryTeal
 
     // Inactive & Active item colors
-    val inactiveTint = if (isDark) Color(0xFF7E9FA8) else Color(0xFF4C757E)
-    val activeTint = if (isDark) SecondaryAquaLight else PrimaryTeal
-    val activePillBg = if (isDark) Color(0xFF183944) else Color(0xFFCCEBF0)
+    val inactiveTint = if (isDark) Color(0xFF7E9FA8) else Color(0xFF1B3D42)
+    val activeTint = if (isDark) SecondaryAquaLight else Color(0xFF005662)
 
-    // Floating Home Button colors
-    val homeGradient = if (isDark) {
+    // Center Floating Circle Button colors
+    val homeCircleBg = if (isDark) {
         Brush.verticalGradient(listOf(Color(0xFF00E5FF), Color(0xFF00897B)))
     } else {
-        Brush.verticalGradient(listOf(Color(0xFF26C6DA), Color(0xFF0097A7)))
+        Brush.verticalGradient(listOf(Color(0xFF5AB6BA), Color(0xFF388E94)))
     }
-    val homeOuterRingBg = if (isDark) DarkBackground else Color(0xFFF4F8FA)
-    val homeDropSilhouette = if (isDark) Color(0xFF071920) else Color(0xFF103A43)
+    val homeDropSilhouette = if (isDark) Color(0xFF071920) else Color(0xFF1B3D42)
 
-    // Intrinsic height: 86dp ensures floating drop top is within measured bounds
+    val crestedShape = remember { CrestedBarShape(flatTopDp = 26f, crestPeakDp = 5f, crestHalfWDp = 54f) }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(86.dp)
-            .windowInsetsPadding(WindowInsets.navigationBars),
+            .height(90.dp)
+            .navigationBarsPadding(),
         contentAlignment = Alignment.BottomCenter
     ) {
-        // ── 1. The Dock Navigation Bar Body ─────────────────────────────────────
+        // ── 1. Full-Width Crested Bar Background ────────────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(62.dp)
-                .padding(horizontal = 10.dp)
-                .padding(bottom = 6.dp)
+                .fillMaxHeight()
                 .shadow(
-                    elevation = if (isDark) 10.dp else 8.dp,
-                    shape = RoundedCornerShape(26.dp),
-                    ambientColor = shadowColor.copy(alpha = if (isDark) 0.25f else 0.12f),
-                    spotColor = shadowColor.copy(alpha = if (isDark) 0.35f else 0.18f)
+                    elevation = if (isDark) 10.dp else 6.dp,
+                    shape = crestedShape,
+                    ambientColor = shadowColor.copy(alpha = if (isDark) 0.25f else 0.15f),
+                    spotColor = shadowColor.copy(alpha = if (isDark) 0.35f else 0.20f)
                 )
-                .clip(RoundedCornerShape(26.dp))
+                .clip(crestedShape)
                 .background(barBg)
-                .border(width = 1.dp, color = barBorderColor, shape = RoundedCornerShape(26.dp))
+                .border(width = 1.dp, color = barBorderColor, shape = crestedShape)
+        )
+
+        // ── 2. Navigation Items Row ─────────────────────────────────────────────
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 5 items, each gets weight(1f) to eliminate any dead touch zones
-                mosaribNavItems.forEachIndexed { index, item ->
-                    if (index == 2) {
-                        // Center placeholder for Home: fully clickable to switch to Home
+            mosaribNavItems.forEachIndexed { index, item ->
+                if (index == 2) {
+                    // Center item slot: Label "الرئيسية" situated with ample breathing room under circle
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(bounded = true, radius = 32.dp),
+                                onClick = { onItemSelected(2) }
+                            )
+                            .padding(bottom = 4.dp),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        Text(
+                            text = item.labelLine1,
+                            fontSize = 11.sp,
+                            fontWeight = if (selectedIndex == 2) FontWeight.ExtraBold else FontWeight.Bold,
+                            color = if (selectedIndex == 2) (if (isDark) SecondaryAqua else Color(0xFF005662)) else inactiveTint,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    // Side Tab Item
+                    val isSelected = selectedIndex == index
+                    val animatedScale by animateFloatAsState(
+                        targetValue = if (isSelected) 1.08f else 1.0f,
+                        animationSpec = tween(220, easing = FastOutSlowInEasing),
+                        label = "scale_$index"
+                    )
+                    val currentTint by animateColorAsState(
+                        targetValue = if (isSelected) activeTint else inactiveTint,
+                        animationSpec = tween(200),
+                        label = "tint_$index"
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(bounded = true, radius = 32.dp),
+                                onClick = { onItemSelected(index) }
+                            )
+                            .padding(bottom = 2.dp)
+                            .testTag(item.testTag),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        // Icon sitting directly on the bar with rich details
                         Box(
                             modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = ripple(bounded = true, radius = 32.dp),
-                                    onClick = { onItemSelected(2) }
-                                ),
-                            contentAlignment = Alignment.BottomCenter
+                                .size(30.dp)
+                                .graphicsLayer {
+                                    scaleX = animatedScale
+                                    scaleY = animatedScale
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "الرئيسية",
-                                fontSize = 10.sp,
-                                fontWeight = if (selectedIndex == 2) FontWeight.ExtraBold else FontWeight.Medium,
-                                color = if (selectedIndex == 2) activeTint else inactiveTint,
-                                modifier = Modifier.padding(bottom = 6.dp)
-                            )
-                        }
-                    } else {
-                        // Regular Nav Item
-                        val isSelected = selectedIndex == index
-                        val animatedScale by animateFloatAsState(
-                            targetValue = if (isSelected) 1.08f else 1.0f,
-                            animationSpec = tween(220, easing = FastOutSlowInEasing),
-                            label = "scale_$index"
-                        )
-                        val currentTint by animateColorAsState(
-                            targetValue = if (isSelected) activeTint else inactiveTint,
-                            animationSpec = tween(200),
-                            label = "tint_$index"
-                        )
-
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = ripple(bounded = true, radius = 32.dp),
-                                    onClick = { onItemSelected(index) }
-                                )
-                                .padding(vertical = 4.dp)
-                                .testTag(item.testTag),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            // Icon container with soft circular highlight when active
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .graphicsLayer {
-                                        scaleX = animatedScale
-                                        scaleY = animatedScale
-                                    }
-                                    .clip(CircleShape)
-                                    .background(if (isSelected) activePillBg else Color.Transparent),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                when (index) {
-                                    0 -> IrrigationGaugeIcon(tint = currentTint, modifier = Modifier.size(26.dp))
-                                    1 -> CustomersBadgeIcon(tint = currentTint, modifier = Modifier.size(26.dp))
-                                    3 -> OperationsClipboardIcon(tint = currentTint, modifier = Modifier.size(26.dp))
-                                    4 -> SettingsMaintenanceIcon(tint = currentTint, modifier = Modifier.size(26.dp))
-                                }
+                            when (index) {
+                                0 -> IrrigationGaugeIcon(tint = currentTint, modifier = Modifier.size(28.dp))
+                                1 -> CustomersBadgeIcon(tint = currentTint, modifier = Modifier.size(28.dp))
+                                3 -> OperationsClipboardIcon(tint = currentTint, modifier = Modifier.size(28.dp))
+                                4 -> SettingsMaintenanceIcon(tint = currentTint, modifier = Modifier.size(28.dp))
                             }
+                        }
 
-                            Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
 
+                        // Text label (supports 2 lines with proper line height to avoid clipping)
+                        if (item.labelLine2 != null) {
                             Text(
-                                text = item.label,
-                                fontSize = 9.5.sp,
-                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                text = "${item.labelLine1}\n${item.labelLine2}",
+                                fontSize = 9.sp,
+                                lineHeight = 10.5.sp,
+                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
                                 color = currentTint,
+                                textAlign = TextAlign.Center,
+                                maxLines = 2
+                            )
+                        } else {
+                            Text(
+                                text = item.labelLine1,
+                                fontSize = 9.5.sp,
+                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
+                                color = currentTint,
+                                textAlign = TextAlign.Center,
                                 maxLines = 1
                             )
                         }
@@ -676,7 +725,8 @@ fun MosaribNavBar(
             }
         }
 
-        // ── 2. Floating Home Drop Button (Elevated above bar) ───────────────────
+        // ── 3. Floating Center Circle Button ────────────────────────────────────
+        // Offset y = (-12).dp elevates the button so its bottom edge clears the text "الرئيسية" completely
         val isHomeSelected = selectedIndex == 2
         val homeScale by animateFloatAsState(
             targetValue = if (isHomeSelected) 1.05f else 0.98f,
@@ -687,7 +737,7 @@ fun MosaribNavBar(
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = 2.dp)
+                .offset(y = (-12).dp)
                 .graphicsLayer {
                     scaleX = homeScale
                     scaleY = homeScale
@@ -700,40 +750,31 @@ fun MosaribNavBar(
                 .testTag("tab_home"),
             contentAlignment = Alignment.Center
         ) {
-            // Outer ring providing clean contour separation above the bar
+            // Floating circle button with drop shadow and halo ring
             Box(
                 modifier = Modifier
-                    .size(62.dp)
+                    .size(60.dp)
                     .shadow(
-                        elevation = if (isHomeSelected) 14.dp else 8.dp,
+                        elevation = if (isHomeSelected) 12.dp else 6.dp,
                         shape = CircleShape,
                         spotColor = shadowColor.copy(alpha = if (isDark) 0.45f else 0.35f),
                         ambientColor = shadowColor.copy(alpha = 0.20f)
                     )
                     .clip(CircleShape)
-                    .background(homeOuterRingBg)
+                    .background(homeCircleBg)
                     .border(
-                        width = 2.5.dp,
-                        color = if (isHomeSelected) (if (isDark) SecondaryAqua else PrimaryTeal) else barBorderColor,
+                        width = 2.dp,
+                        color = if (isHomeSelected) (if (isDark) SecondaryAqua else Color.White) else Color.White.copy(alpha = 0.6f),
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                // Inner vibrant gradient circle
-                Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(CircleShape)
-                        .background(homeGradient),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Silhouette water drop with house motif inside
-                    HomeDropHouseIcon(
-                        dropTint = homeDropSilhouette,
-                        houseTint = Color.White,
-                        modifier = Modifier.size(34.dp)
-                    )
-                }
+                // Water drop silhouette with white house inside
+                HomeDropHouseIcon(
+                    dropTint = homeDropSilhouette,
+                    houseTint = Color.White,
+                    modifier = Modifier.size(36.dp)
+                )
             }
         }
     }
