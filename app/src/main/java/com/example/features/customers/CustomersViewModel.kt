@@ -238,7 +238,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun sendCustomerStatementWhatsApp(customer: Customer, item: CustomerWithBalance) {
+    fun buildCustomerStatementMessage(customer: Customer, item: CustomerWithBalance): String {
         val config = appConfig.value
         val debtStatus = if (item.balance > 0) {
             "⚠️ المطلوب بذمتكم: ${com.example.core.util.Formatters.formatCurrency(item.balance, config.currencySymbol)}"
@@ -248,7 +248,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             "✅ الحساب خالص ومسدد بالكامل"
         }
 
-        val msg = """
+        return """
             *كشف حساب مياه - ${config.distributorName}*
             👤 العميل: ${customer.name}
             📍 المزرعة: ${customer.farmName.ifEmpty { "عام" }}
@@ -260,7 +260,10 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             ------------------------
             تحياتنا لكم.
         """.trimIndent()
+    }
 
+    fun sendCustomerStatementWhatsApp(customer: Customer, item: CustomerWithBalance) {
+        val msg = buildCustomerStatementMessage(customer, item)
         FileSharingHelper.sendWhatsAppMessage(getApplication(), customer.phone, msg)
     }
 }

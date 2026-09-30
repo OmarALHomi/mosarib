@@ -63,6 +63,7 @@ import com.example.features.settings.SettingsScreen
 import com.example.features.settings.SettingsViewModel
 import com.example.features.vouchers.VouchersScreen
 import com.example.features.vouchers.VouchersViewModel
+import com.example.core.security.BiometricLockScreen
 import com.example.core.ui.MosaribNavBar
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
@@ -102,12 +103,15 @@ fun MainApp(
         // Arabic RTL layout provider
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
             var showSplashScreen by remember { mutableStateOf(true) }
+            var isBiometricUnlocked by remember { mutableStateOf(false) }
             var selectedTab by remember { mutableStateOf(AppTab.HOME) }
             var selectedCustomerId by remember { mutableLongStateOf(0L) }
             var showReportsScreen by remember { mutableStateOf(false) }
 
             if (showSplashScreen) {
                 SplashScreen(onTimeout = { showSplashScreen = false })
+            } else if (appConfig.biometricEnabled && !isBiometricUnlocked) {
+                BiometricLockScreen(onUnlock = { isBiometricUnlocked = true })
             } else if (selectedCustomerId > 0) {
                 CustomerDetailScreen(
                     customerId = selectedCustomerId,

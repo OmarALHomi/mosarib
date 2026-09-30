@@ -500,9 +500,11 @@ fun CustomerDetailScreen(
                                         )
                                         QuickActionButton(
                                             icon = Icons.AutoMirrored.Filled.Send,
-                                            label = "كشف واتساب",
+                                            label = "إرسال كشف",
                                             accentColor = Color(0xFF69F0AE),
-                                            onClick = { viewModel.sendCustomerStatementWhatsApp(customer, customerWithBalance) }
+                                            onClick = {
+                                                messageCustomTarget = viewModel.buildCustomerStatementMessage(customer, customerWithBalance)
+                                            }
                                         )
                                     }
                                     QuickActionButton(

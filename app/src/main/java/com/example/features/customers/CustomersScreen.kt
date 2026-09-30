@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.core.ui.EmptyStateView
 import com.example.core.ui.LuxuryToastNotification
+import com.example.core.ui.SendMessageChoiceDialog
 import com.example.core.ui.StatBoxCard
 import com.example.core.util.FileSharingHelper
 import com.example.core.util.Formatters
@@ -92,6 +93,7 @@ fun CustomersScreen(
     var showAddSheet by remember { mutableStateOf(false) }
     var customerToEdit by remember { mutableStateOf<Customer?>(null) }
     var customerToDelete by remember { mutableStateOf<Customer?>(null) }
+    var messageChoiceCustomer by remember { mutableStateOf<CustomerWithBalance?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -200,7 +202,7 @@ fun CustomersScreen(
                         currencySymbol = config.currencySymbol,
                         onClick = { onNavigateToDetail(item.customer.id) },
                         onCallClick = { FileSharingHelper.makePhoneCall(context, item.customer.phone) },
-                        onWhatsAppClick = { viewModel.sendCustomerStatementWhatsApp(item.customer, item) },
+                        onWhatsAppClick = { messageChoiceCustomer = item },
                         onPdfStatementClick = { viewModel.generateCustomerStatementPdf(item.customer) },
                         onEditClick = { customerToEdit = item.customer },
                         onDeleteClick = { customerToDelete = item.customer }
@@ -253,6 +255,25 @@ fun CustomersScreen(
                     },
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = AccentEmerald)
                 ) { Text("مشاركة") }
+            }
+        )
+    }
+
+    // SMS / WhatsApp Choice Dialog
+    messageChoiceCustomer?.let { item ->
+        val msg = viewModel.buildCustomerStatementMessage(item.customer, item)
+        SendMessageChoiceDialog(
+            recipientName = item.customer.name,
+            recipientPhone = item.customer.phone,
+            messageText = msg,
+            onDismiss = { messageChoiceCustomer = null },
+            onSendWhatsApp = {
+                messageChoiceCustomer = null
+                FileSharingHelper.sendWhatsAppMessage(context, item.customer.phone, msg)
+            },
+            onSendSms = {
+                messageChoiceCustomer = null
+                FileSharingHelper.sendSms(context, item.customer.phone, msg)
             }
         )
     }
@@ -414,7 +435,7 @@ fun CustomerCardItem(
                             )
                         }
 
-                        // واتساب
+                        // إرسال كشف الحساب (واتساب أو رسالة نصية)
                         Box(
                             modifier = Modifier
                                 .size(30.dp)
@@ -425,7 +446,7 @@ fun CustomerCardItem(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "واتساب",
+                                contentDescription = "إرسال كشف (واتساب أو رسالة)",
                                 tint = Color(0xFF2E7D32),
                                 modifier = Modifier.size(15.dp)
                             )

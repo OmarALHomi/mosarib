@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
@@ -40,6 +41,7 @@ import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.WaterDrop
+import com.example.core.security.BiometricHelper
 import com.example.core.util.BackupManager
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -55,6 +57,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -101,6 +105,9 @@ fun SettingsScreen(
     ) { uri: Uri? ->
         uri?.let { viewModel.restoreBackup(it) }
     }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val isBiometricAvailable = remember { BiometricHelper.isAvailable(context) }
 
     val savedBackups by viewModel.savedBackups.collectAsStateWithLifecycle()
     var backupToRestore by remember { mutableStateOf<BackupManager.BackupFileInfo?>(null) }
@@ -341,6 +348,74 @@ fun SettingsScreen(
             }
         }
 
+        // Section 3.5: Security & Biometric Lock (البصمة والحماية)
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .shadow(2.dp, RoundedCornerShape(18.dp)),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(PrimaryTeal.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Fingerprint,
+                                    contentDescription = null,
+                                    tint = PrimaryTeal,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "قفل التطبيق بالبصمة",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                                Text(
+                                    text = if (isBiometricAvailable) "طلب بصمة الإصبع عند فتح التطبيق لحماية الحسابات"
+                                    else "الجهاز لا يدعم مستشعر البصمة أو لم تُسجل بصمة",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = if (isBiometricAvailable) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFFE53935),
+                                        fontSize = 11.5.sp
+                                    )
+                                )
+                            }
+                        }
+
+                        Switch(
+                            checked = config.biometricEnabled,
+                            onCheckedChange = { viewModel.updateBiometricEnabled(it) },
+                            enabled = isBiometricAvailable,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = PrimaryTeal
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
         // Section 4: Real Database Backup & Storage (Phone + Google Drive)
         item {
             Card(
@@ -393,37 +468,49 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "يتم حفظ نسخ البيانات محلياً وبإمكانك استعادتها أو مشاركتها عبر Google Drive وواتساب في أي وقت للحفاظ على حساباتك بأمان.",
+                        text = "يتم حفظ نسخ البيانات محلياً وبإمكانك رفعها مباشرة إلى Google Drive أو استعادتها للحفاظ على سجلاتك بأمان.",
                         style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // خيارات الاستيراد والمشاركة
+                    // خيارات الاستيراد والمزامنة المباشرة مع Google Drive
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        Button(
+                            onClick = { viewModel.createBackupAndSendDirectToDrive() },
+                            modifier = Modifier.weight(1.1f),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("مباشر إلى Drive", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        }
+
                         OutlinedButton(
                             onClick = { viewModel.createBackupAndShare() },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(0.95f),
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(vertical = 8.dp)
                         ) {
-                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp), tint = PrimaryTeal)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("مشاركة للدرايف", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(15.dp), tint = PrimaryTeal)
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("مشاركة", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                         }
 
                         OutlinedButton(
                             onClick = { restoreFileLauncher.launch(arrayOf("application/json", "*/*")) },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(0.95f),
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(vertical = 8.dp)
                         ) {
-                            Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(16.dp), tint = AccentGold)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("استيراد ملف", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(15.dp), tint = AccentGold)
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("استيراد", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 

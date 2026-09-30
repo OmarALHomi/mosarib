@@ -310,7 +310,7 @@ object BackupManager {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "application/json"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - تطبيق مُسَرِب")
+            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - تطبيق المُسَرِّب")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
@@ -318,6 +318,35 @@ object BackupManager {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(chooser)
+    }
+
+    /**
+     * Attempts to send the backup file directly to Google Drive app.
+     * Falls back to general chooser if Google Drive is not installed.
+     */
+    fun shareBackupDirectToDrive(context: Context, backupFile: File) {
+        val uri: Uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            backupFile
+        )
+
+        val driveIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/json"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - تطبيق المُسَرِّب")
+            `package` = "com.google.android.apps.docs"
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        val pm = context.packageManager
+        if (driveIntent.resolveActivity(pm) != null) {
+            context.startActivity(driveIntent)
+        } else {
+            // Google Drive not installed or cannot resolve — fallback to system chooser
+            shareBackupToDriveOrApps(context, backupFile)
+        }
     }
 
     suspend fun saveBackupToPhoneDownloads(context: Context, database: AppDatabase): Result<File> = withContext(Dispatchers.IO) {

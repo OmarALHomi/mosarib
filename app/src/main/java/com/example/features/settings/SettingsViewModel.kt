@@ -71,6 +71,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun updateBiometricEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepo.updateBiometricEnabled(enabled)
+            showToast(if (enabled) "تم تفعيل القفل بالبصمة بنجاح" else "تم إلغاء قفل البصمة", ToastType.INFO)
+        }
+    }
+
     fun savePump(
         id: Long = 0,
         name: String,
@@ -131,6 +138,22 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 showToast("تم إنشاء النسخة الاحتياطية بنجاح ومشاركتها", ToastType.SUCCESS)
             } catch (e: Exception) {
                 showToast("فشل في إنشاء النسخة الاحتياطية: ${e.localizedMessage}", ToastType.ERROR)
+            }
+        }
+    }
+
+    /**
+     * Backup and send directly to Google Drive app
+     */
+    fun createBackupAndSendDirectToDrive() {
+        viewModelScope.launch {
+            try {
+                val backupFile: File = BackupManager.createBackupJson(getApplication(), db)
+                BackupManager.shareBackupDirectToDrive(getApplication(), backupFile)
+                loadBackups()
+                showToast("تم إنشاء النسخة وتوجيهها مباشرة إلى Google Drive", ToastType.SUCCESS)
+            } catch (e: Exception) {
+                showToast("فشل في إرسال النسخة للدرايف: ${e.localizedMessage}", ToastType.ERROR)
             }
         }
     }
