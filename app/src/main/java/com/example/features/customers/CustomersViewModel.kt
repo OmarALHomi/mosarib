@@ -276,8 +276,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             💵 إجمالي المسدد: ${com.example.core.util.Formatters.formatCurrency(item.totalPaidAmount, config.currencySymbol)}
             ------------------------
             $debtStatus
-            ------------------------
-            تحياتنا لكم.
+            ------------------------${com.example.core.util.FileSharingHelper.MESSAGE_FOOTER}
         """.trimIndent()
     }
 

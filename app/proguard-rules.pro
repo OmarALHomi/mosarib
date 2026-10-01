@@ -42,3 +42,14 @@
 -keep class androidx.core.content.FileProvider { *; }
 -dontwarn androidx.compose.**
 
+# ---------------------------------------------------------------------------
+# Anti-Reverse Engineering & Code Obfuscation Hardening
+# ---------------------------------------------------------------------------
+# Flatten all classes into the root package to destroy original package hierarchy
+-repackageclasses ''
+-allowaccessmodification
+
+# Hide source and debug information in release builds
+-renamesourcefileattribute SourceFile
+-keepattributes SourceFile,LineNumberTable
+

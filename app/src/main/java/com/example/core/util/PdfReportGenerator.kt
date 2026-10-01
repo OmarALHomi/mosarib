@@ -248,10 +248,7 @@ object PdfReportGenerator {
         paint.textAlign = Paint.Align.LEFT
         canvas.drawText("توقيع وختم المسرب / الموزع: ....................", 40f, pageHeight - 45f, paint)
 
-        paint.textAlign = Paint.Align.CENTER
-        paint.textSize = 8.5f
-        paint.color = 0xFF78909C.toInt()
-        canvas.drawText("تم إنشاء هذا التقرير آلياً عبر تطبيق (مُسَرِب - موزع الماء)", pageWidth / 2f, pageHeight - 20f, paint)
+        drawDocumentFooter(canvas, pageWidth, pageHeight)
 
         document.finishPage(page)
 
@@ -402,10 +399,12 @@ object PdfReportGenerator {
         paint.color = darkTextColor
         paint.textSize = 10f
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("توقيع المستلم: ....................", pageWidth - 50f, pageHeight - 40f, paint)
+        canvas.drawText("توقيع المستلم: ....................", pageWidth - 50f, pageHeight - 45f, paint)
 
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("توقيع المسرب: ....................", 50f, pageHeight - 40f, paint)
+        canvas.drawText("توقيع المسرب: ....................", 50f, pageHeight - 45f, paint)
+
+        drawDocumentFooter(canvas, pageWidth, pageHeight)
 
         document.finishPage(page)
 
@@ -431,7 +430,7 @@ object PdfReportGenerator {
     ): File {
         val document = PdfDocument()
         val pageWidth = 595
-        val pageHeight = 520
+        val pageHeight = 540
         val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
         val page = document.startPage(pageInfo)
         val canvas: Canvas = page.canvas
@@ -513,15 +512,17 @@ object PdfReportGenerator {
 
         // Footer & Signatures
         paint.color = dividerGray
-        canvas.drawLine(30f, pageHeight - 65f, pageWidth - 30f, pageHeight - 65f, paint)
+        canvas.drawLine(30f, pageHeight - 70f, pageWidth - 30f, pageHeight - 70f, paint)
 
         paint.color = darkTextColor
         paint.textSize = 10.5f
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("توقيع المستلم (المسرب): ....................", pageWidth - 50f, pageHeight - 35f, paint)
+        canvas.drawText("توقيع المستلم (المسرب): ....................", pageWidth - 50f, pageHeight - 45f, paint)
 
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("توقيع المسدد (العميل): ....................", 50f, pageHeight - 35f, paint)
+        canvas.drawText("توقيع المسدد (العميل): ....................", 50f, pageHeight - 45f, paint)
+
+        drawDocumentFooter(canvas, pageWidth, pageHeight)
 
         document.finishPage(page)
 
@@ -547,7 +548,7 @@ object PdfReportGenerator {
     ): File {
         val document = PdfDocument()
         val pageWidth = 595
-        val pageHeight = 520
+        val pageHeight = 540
         val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
         val page = document.startPage(pageInfo)
         val canvas: Canvas = page.canvas
@@ -632,15 +633,17 @@ object PdfReportGenerator {
 
         // Footer & Signatures
         paint.color = dividerGray
-        canvas.drawLine(30f, pageHeight - 65f, pageWidth - 30f, pageHeight - 65f, paint)
+        canvas.drawLine(30f, pageHeight - 70f, pageWidth - 30f, pageHeight - 70f, paint)
 
         paint.color = darkTextColor
         paint.textSize = 10.5f
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("توقيع المحاسب / المسرب: ....................", pageWidth - 50f, pageHeight - 35f, paint)
+        canvas.drawText("توقيع المحاسب / المسرب: ....................", pageWidth - 50f, pageHeight - 45f, paint)
 
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("توقيع المستلم: ....................", 50f, pageHeight - 35f, paint)
+        canvas.drawText("توقيع المستلم: ....................", 50f, pageHeight - 45f, paint)
+
+        drawDocumentFooter(canvas, pageWidth, pageHeight)
 
         document.finishPage(page)
 
@@ -725,16 +728,7 @@ object PdfReportGenerator {
         }
 
         fun finishCurrentPage() {
-            paint.color = 0xFF78909C.toInt()
-            paint.textSize = 8.5f
-            paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText(
-                "تم إنشاء هذا التقرير آلياً عبر تطبيق (مُسَرِب - موزع الماء)  |  صفحة $pageNumber",
-                pageWidth / 2f,
-                pageHeight - 25f,
-                paint
-            )
+            drawDocumentFooter(canvas, pageWidth, pageHeight, pageNumber)
             document.finishPage(page)
         }
 
@@ -898,5 +892,26 @@ object PdfReportGenerator {
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textSize = 11.5f
         canvas.drawText(value, x + (width / 2f), y + 42f, paint)
+    }
+
+    /**
+     * رسم الفوتر الرسمي الموحد لجميع التقارير والمستندات والطباعات
+     */
+    private fun drawDocumentFooter(
+        canvas: Canvas,
+        pageWidth: Int,
+        pageHeight: Int,
+        pageNumber: Int? = null
+    ) {
+        val paint = Paint().apply {
+            isAntiAlias = true
+            textSize = 8.5f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            textAlign = Paint.Align.CENTER
+            color = 0xFF64748B.toInt()
+        }
+        val pageSuffix = if (pageNumber != null) "  |  صفحة $pageNumber" else ""
+        val text = "تطبيق المُسَرِّبْ  •  تطوير: م. عمر الحومي  •  واتساب: wa.me/967773712030$pageSuffix"
+        canvas.drawText(text, pageWidth / 2f, pageHeight - 18f, paint)
     }
 }

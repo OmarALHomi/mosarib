@@ -409,12 +409,12 @@ fun VouchersScreen(
                                                         .clip(RoundedCornerShape(8.dp))
                                                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                                         .clickable {
-                                                            val msg = if (isReceipt) {
+                                                            val rawMsg = if (isReceipt) {
                                                                 "سند قبض #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nطريقة الدفع: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
                                                             } else {
                                                                 "سند صرف #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nالبيان: ${voucher.notes.ifEmpty { voucher.category }}\nطريقة الصرف: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
                                                             }
-                                                            voucherMessageTarget = Pair(customer, msg)
+                                                            voucherMessageTarget = Pair(customer, FileSharingHelper.attachMessageFooter(rawMsg))
                                                         },
                                                     contentAlignment = Alignment.Center
                                                 ) {

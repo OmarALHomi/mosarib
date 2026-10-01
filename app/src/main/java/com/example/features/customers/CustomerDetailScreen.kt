@@ -226,7 +226,7 @@ fun CustomerDetailScreen(
 ⏱️ الوقت: $timeRange (${Formatters.formatDurationArabic(s.durationMinutes)})
 💵 المبلغ: ${Formatters.formatCurrency(s.totalAmount, config.currencySymbol)} | مسدد: ${Formatters.formatCurrency(s.amountPaid, config.currencySymbol)}
 📊 الحالة: $debtStatus
-📅 التاريخ: ${Formatters.formatDate(s.startTime)}
+📅 التاريخ: ${Formatters.formatDate(s.startTime)}${FileSharingHelper.MESSAGE_FOOTER}
         """.trimIndent()
 
         SendMessageChoiceDialog(

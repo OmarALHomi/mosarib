@@ -237,8 +237,8 @@ fun SessionsScreen(
                         },
                         onShareVoucher = { voucher ->
                             item.customer?.let { c ->
-                                val msg = "سند قبض #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nسداد دورة سقي #${item.session.id}\nالعميل: ${c.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nطريقة الدفع: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
-                                messageTargetCustom = Pair(c, msg)
+                                val rawMsg = "سند قبض #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nسداد دورة سقي #${item.session.id}\nالعميل: ${c.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nطريقة الدفع: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
+                                messageTargetCustom = Pair(c, FileSharingHelper.attachMessageFooter(rawMsg))
                             }
                         }
                     )

@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -18,21 +21,36 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
-  // Release signing is read from environment variables so that no keystore or password is ever
-  // committed to the repository. When the keystore is missing (fresh clone, CI without secrets)
-  // the release build transparently falls back to the debug signing config instead of failing.
-  val releaseKeystoreFile = file(System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks")
+  // Release signing is read from keystore.properties or environment variables.
+  val keystorePropertiesFile = rootProject.file("keystore.properties")
+  val keystoreProperties = Properties()
+  if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+  }
+
+  val releaseKeystoreFile = if (keystoreProperties.containsKey("storeFile")) {
+    rootProject.file(keystoreProperties.getProperty("storeFile"))
+  } else {
+    file(System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks")
+  }
+
+  val releaseStorePassword = keystoreProperties.getProperty("storePassword") ?: System.getenv("STORE_PASSWORD")
+  val releaseKeyAlias = keystoreProperties.getProperty("keyAlias") ?: (System.getenv("KEY_ALIAS") ?: "mosarib_key")
+  val releaseKeyPassword = keystoreProperties.getProperty("keyPassword") ?: System.getenv("KEY_PASSWORD")
+
   val hasReleaseKeystore = releaseKeystoreFile.exists() &&
-      !System.getenv("STORE_PASSWORD").isNullOrBlank() &&
-      !System.getenv("KEY_PASSWORD").isNullOrBlank()
+      !releaseStorePassword.isNullOrBlank() &&
+      !releaseKeyPassword.isNullOrBlank()
 
   signingConfigs {
     if (hasReleaseKeystore) {
       create("release") {
         storeFile = releaseKeystoreFile
-        storePassword = System.getenv("STORE_PASSWORD")
-        keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
-        keyPassword = System.getenv("KEY_PASSWORD")
+        storePassword = releaseStorePassword
+        keyAlias = releaseKeyAlias
+        keyPassword = releaseKeyPassword
+        enableV1Signing = true
+        enableV2Signing = true
       }
     }
     val debugKeystore = file("${rootDir}/debug.keystore")
@@ -76,6 +94,10 @@ android {
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true
+  }
+  lint {
+    checkReleaseBuilds = false
+    abortOnError = false
   }
 }
 

@@ -314,7 +314,7 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
 ⏱️ الوقت: $timeRange (${Formatters.formatDurationArabic(session.durationMinutes)})
 💵 المبلغ: ${Formatters.formatCurrency(session.totalAmount, config.currencySymbol)} | مسدد: ${Formatters.formatCurrency(session.amountPaid, config.currencySymbol)}
 📊 الحالة: $debtStatus
-📅 التاريخ: ${Formatters.formatDate(session.startTime)}
+📅 التاريخ: ${Formatters.formatDate(session.startTime)}${FileSharingHelper.MESSAGE_FOOTER}
         """.trimIndent()
     }
 }

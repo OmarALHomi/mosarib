@@ -51,11 +51,26 @@ object FileSharingHelper {
         }
     }
 
+    const val MESSAGE_FOOTER = "\n\n---\nتطبيق المُسَرِّبْ | م. عمر الحومي\nwa.me/967773712030"
+
+    /**
+     * يضيف فوتر مختصر للرسالة يحتوي على اسم التطبيق والمطور ورابط الواتساب المباشر
+     */
+    fun attachMessageFooter(message: String): String {
+        val trimmed = message.trimEnd()
+        return if (trimmed.contains("wa.me/967773712030")) {
+            trimmed
+        } else {
+            "$trimmed$MESSAGE_FOOTER"
+        }
+    }
+
     fun sendWhatsAppMessage(context: Context, phone: String, message: String) {
         try {
+            val finalMsg = attachMessageFooter(message)
             val cleanPhone = normalizePhone(phone)
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                data = Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone&text=${Uri.encode(message)}")
+                data = Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone&text=${Uri.encode(finalMsg)}")
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
@@ -66,9 +81,10 @@ object FileSharingHelper {
 
     fun sendSms(context: Context, phone: String, message: String) {
         try {
+            val finalMsg = attachMessageFooter(message)
             val intent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("smsto:$phone")
-                putExtra("sms_body", message)
+                putExtra("sms_body", finalMsg)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
