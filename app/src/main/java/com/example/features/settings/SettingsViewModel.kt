@@ -7,12 +7,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.core.database.AppDatabase
 import com.example.core.ui.ToastMessage
 import com.example.core.ui.ToastType
+import com.example.core.license.LicenseManager
 import com.example.core.util.BackupManager
+import com.example.core.util.GoogleDriveBackupHelper
 import com.example.features.pumps.PumpSource
 import com.example.features.pumps.PumpSourceRepository
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import com.example.core.license.LicenseManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -132,8 +134,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _savedBackups = MutableStateFlow<List<BackupManager.BackupFileInfo>>(emptyList())
     val savedBackups: StateFlow<List<BackupManager.BackupFileInfo>> = _savedBackups.asStateFlow()
 
+    private val _googleAccount = MutableStateFlow<GoogleSignInAccount?>(null)
+    val googleAccount: StateFlow<GoogleSignInAccount?> = _googleAccount.asStateFlow()
+
+    private val _driveBackups = MutableStateFlow<List<GoogleDriveBackupHelper.DriveBackupFile>>(emptyList())
+    val driveBackups: StateFlow<List<GoogleDriveBackupHelper.DriveBackupFile>> = _driveBackups.asStateFlow()
+
+    private val _isDriveLoading = MutableStateFlow(false)
+    val isDriveLoading: StateFlow<Boolean> = _isDriveLoading.asStateFlow()
+
     init {
         loadBackups()
+        checkGoogleAccount()
     }
 
     fun loadBackups() {
@@ -229,5 +241,114 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun shareExistingBackup(file: File) {
         BackupManager.shareBackupToDriveOrApps(getApplication(), file)
+    }
+
+    fun checkGoogleAccount() {
+        val account = GoogleDriveBackupHelper.getSignedInAccount(getApplication())
+        _googleAccount.value = account
+        if (account != null) {
+            loadDriveBackups()
+        }
+    }
+
+    fun onGoogleSignInSuccess(account: GoogleSignInAccount) {
+        _googleAccount.value = account
+        showToast("تم الاتصال بحساب Google: ${account.email}", ToastType.SUCCESS)
+        loadDriveBackups()
+    }
+
+    fun onGoogleSignOut() {
+        val client = GoogleDriveBackupHelper.getGoogleSignInClient(getApplication())
+        client.signOut().addOnCompleteListener {
+            _googleAccount.value = null
+            _driveBackups.value = emptyList<GoogleDriveBackupHelper.DriveBackupFile>()
+            showToast("تم قطع الاتصال بحساب Google", ToastType.INFO)
+        }
+    }
+
+    fun loadDriveBackups() {
+        val account = _googleAccount.value ?: return
+        viewModelScope.launch {
+            _isDriveLoading.value = true
+            val result = GoogleDriveBackupHelper.listAppDataBackups(getApplication(), account)
+            result.onSuccess { list ->
+                _driveBackups.value = list
+            }.onFailure { e ->
+                showToast("تعذر جلب النسخ من Google Drive: ${e.localizedMessage}", ToastType.ERROR)
+            }
+            _isDriveLoading.value = false
+        }
+    }
+
+    fun backupToGoogleDriveAppData() {
+        val account = _googleAccount.value
+        if (account == null) {
+            showToast("يرجى تسجيل الدخول بحساب Google أولاً", ToastType.WARNING)
+            return
+        }
+        viewModelScope.launch {
+            _isDriveLoading.value = true
+            try {
+                val backupFile = BackupManager.createBackupJson(getApplication(), db)
+                val result = GoogleDriveBackupHelper.uploadBackupToAppData(getApplication(), account, backupFile)
+                result.onSuccess {
+                    loadBackups()
+                    loadDriveBackups()
+                    showToast("تم رفع النسخة (.back) بنجاح إلى مجلد Google Drive السحابي المحمي", ToastType.SUCCESS)
+                }.onFailure { e ->
+                    showToast("فشل رفع النسخة إلى Drive: ${e.localizedMessage}", ToastType.ERROR)
+                }
+            } catch (e: Exception) {
+                showToast("حدث خطأ أثناء إعداد النسخة: ${e.localizedMessage}", ToastType.ERROR)
+            } finally {
+                _isDriveLoading.value = false
+            }
+        }
+    }
+
+    fun restoreFromGoogleDriveAppData(driveFile: GoogleDriveBackupHelper.DriveBackupFile) {
+        val account = _googleAccount.value
+        if (account == null) {
+            showToast("يرجى تسجيل الدخول بحساب Google أولاً", ToastType.WARNING)
+            return
+        }
+        viewModelScope.launch {
+            _isDriveLoading.value = true
+            try {
+                val tempFile = File(getApplication<Application>().cacheDir, driveFile.name)
+                val dlResult = GoogleDriveBackupHelper.downloadAppDataBackup(getApplication(), account, driveFile.id, tempFile)
+                dlResult.onSuccess { file ->
+                    val restoreResult = BackupManager.restoreFromFile(getApplication(), db, file)
+                    restoreResult.onSuccess { count ->
+                        loadBackups()
+                        showToast("تم استعادة $count سجلاً بنجاح من نسخة Google Drive السحابية", ToastType.SUCCESS)
+                    }.onFailure { e ->
+                        showToast("فشل في تطبيق النسخة المستعادة: ${e.localizedMessage}", ToastType.ERROR)
+                    }
+                    file.delete()
+                }.onFailure { e ->
+                    showToast("فشل تنزيل النسخة من Google Drive: ${e.localizedMessage}", ToastType.ERROR)
+                }
+            } catch (e: Exception) {
+                showToast("حدث خطأ أثناء الاستعادة من Drive: ${e.localizedMessage}", ToastType.ERROR)
+            } finally {
+                _isDriveLoading.value = false
+            }
+        }
+    }
+
+    fun deleteDriveBackup(driveFile: GoogleDriveBackupHelper.DriveBackupFile) {
+        val account = _googleAccount.value ?: return
+        viewModelScope.launch {
+            _isDriveLoading.value = true
+            val result = GoogleDriveBackupHelper.deleteAppDataBackup(getApplication(), account, driveFile.id)
+            result.onSuccess {
+                loadDriveBackups()
+                showToast("تم حذف النسخة السحابية من Google Drive", ToastType.INFO)
+            }.onFailure { e ->
+                showToast("فشل حذف النسخة السحابية: ${e.localizedMessage}", ToastType.ERROR)
+            }
+            _isDriveLoading.value = false
+        }
     }
 }

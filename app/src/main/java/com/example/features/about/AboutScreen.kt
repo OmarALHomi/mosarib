@@ -272,30 +272,30 @@ fun AboutScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = if (isActivated) "التطبيق مفعّل بنجاح" else "ترخيص وتفعيل التطبيق",
+                                    text = if (isActivated) "الاشتراك مفعّل بنجاح" else "ترخيص واشتراك التطبيق",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                 )
+                                val plan = LicenseManager.getActivePlan(context)
+                                val remDays = LicenseManager.getRemainingDays(context)
                                 Text(
-                                    text = if (isActivated) "لديك رخصة غير محدودة مدى الحياة على هذا الجهاز"
+                                    text = if (isActivated) "${plan?.titleArabic ?: "اشتراك سارٍ"} • متبقي $remDays يوماً"
                                     else "كود الجهاز: ${LicenseManager.getDeviceCode(context)}",
                                     style = MaterialTheme.typography.bodySmall.copy(
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (isActivated && remDays <= 5) Color(0xFFE53935) else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 )
                             }
                         }
 
-                        if (!isActivated) {
-                            Button(
-                                onClick = { showActivationDialog = true },
-                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Text("تفعيل", fontWeight = FontWeight.Bold)
-                            }
+                        Button(
+                            onClick = { showActivationDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(if (isActivated) "تجديد" else "تفعيل", fontWeight = FontWeight.Bold)
                         }
                     }
                 }

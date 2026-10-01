@@ -106,14 +106,18 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun `test LicenseManager key generation format and reproducibility`() {
+    fun `test LicenseManager monthly and yearly key generation format and reproducibility`() {
         val deviceCode = "MSRB-8F42-9D1B"
-        val key1 = com.example.core.license.LicenseManager.generateActivationKey(deviceCode)
-        val key2 = com.example.core.license.LicenseManager.generateActivationKey(deviceCode)
+        val monthlyKey1 = com.example.core.license.LicenseManager.generateActivationKey(deviceCode, com.example.core.license.LicenseManager.SubscriptionPlan.MONTHLY)
+        val monthlyKey2 = com.example.core.license.LicenseManager.generateActivationKey(deviceCode, com.example.core.license.LicenseManager.SubscriptionPlan.MONTHLY)
+        val yearlyKey = com.example.core.license.LicenseManager.generateActivationKey(deviceCode, com.example.core.license.LicenseManager.SubscriptionPlan.YEARLY)
 
-        assertEquals(key1, key2)
-        org.junit.Assert.assertTrue(key1.startsWith("ACTV-"))
-        assertEquals(14, key1.length) // ACTV-XXXX-XXXX
+        assertEquals(monthlyKey1, monthlyKey2)
+        org.junit.Assert.assertNotEquals(monthlyKey1, yearlyKey)
+        org.junit.Assert.assertTrue(monthlyKey1.startsWith("ACTV-M-"))
+        org.junit.Assert.assertTrue(yearlyKey.startsWith("ACTV-Y-"))
+        assertEquals(16, monthlyKey1.length) // ACTV-M-XXXX-XXXX
+        assertEquals(16, yearlyKey.length) // ACTV-Y-XXXX-XXXX
     }
 
     @Test

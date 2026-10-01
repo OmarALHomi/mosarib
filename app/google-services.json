@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "365688587385",
+    "project_id": "mosarib",
+    "storage_bucket": "mosarib.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:365688587385:android:9d503870452a1eef79c0a8",
+        "android_client_info": {
+          "package_name": "omarAlhomi.mosarib.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAwMKIqNLhQ7V08HVcZz-ywZDzomaPoQnA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

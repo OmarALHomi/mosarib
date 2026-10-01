@@ -130,7 +130,7 @@ object BackupManager {
         if (!backupDir.exists()) backupDir.mkdirs()
 
         val dateStr = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val backupFile = File(backupDir, "mosarib_backup_$dateStr.json")
+        val backupFile = File(backupDir, "mosarib_backup_$dateStr.back")
         FileOutputStream(backupFile).use { fos ->
             fos.write(root.toString(2).toByteArray(Charsets.UTF_8))
         }
@@ -149,7 +149,7 @@ object BackupManager {
         val backupDir = File(context.filesDir, "backups")
         if (!backupDir.exists()) return emptyList()
         val sdf = SimpleDateFormat("yyyy/MM/dd - hh:mm a", Locale.forLanguageTag("ar"))
-        return backupDir.listFiles { _, name -> name.endsWith(".json") }
+        return backupDir.listFiles { _, name -> name.endsWith(".back") || name.endsWith(".json") }
             ?.sortedByDescending { it.lastModified() }
             ?.map { file ->
                 val sizeKb = (file.length() / 1024.0)
@@ -332,7 +332,7 @@ object BackupManager {
         )
 
         val driveIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "application/json"
+            type = "application/octet-stream"
             putExtra(Intent.EXTRA_STREAM, uri)
             putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - تطبيق المُسَرِّب")
             `package` = "com.google.android.apps.docs"
@@ -355,7 +355,7 @@ object BackupManager {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 val contentValues = android.content.ContentValues().apply {
                     put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, backupFile.name)
-                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/json")
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream")
                     put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/MosaribBackups")
                 }
                 val uri = context.contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)

@@ -49,10 +49,17 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.AccountCircle
 import com.example.core.license.LicenseDialog
 import com.example.core.license.LicenseManager
 import com.example.core.security.BiometricHelper
+import com.example.core.ui.ToastType
 import com.example.core.util.BackupManager
+import com.example.core.util.GoogleDriveBackupHelper
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.common.api.ApiException
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -128,6 +135,27 @@ fun SettingsScreen(
     val savedBackups by viewModel.savedBackups.collectAsStateWithLifecycle()
     var backupToRestore by remember { mutableStateOf<BackupManager.BackupFileInfo?>(null) }
     var backupToDelete by remember { mutableStateOf<BackupManager.BackupFileInfo?>(null) }
+
+    val googleAccount by viewModel.googleAccount.collectAsStateWithLifecycle()
+    val driveBackups by viewModel.driveBackups.collectAsStateWithLifecycle()
+    val isDriveLoading by viewModel.isDriveLoading.collectAsStateWithLifecycle()
+
+    var driveBackupToRestore by remember { mutableStateOf<GoogleDriveBackupHelper.DriveBackupFile?>(null) }
+    var driveBackupToDelete by remember { mutableStateOf<GoogleDriveBackupHelper.DriveBackupFile?>(null) }
+
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            if (account != null) {
+                viewModel.onGoogleSignInSuccess(account)
+            }
+        } catch (e: Exception) {
+            viewModel.showToast("فشل تسجيل الدخول بحساب Google: ${e.localizedMessage}", ToastType.ERROR)
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -441,7 +469,8 @@ fun SettingsScreen(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)) {
+                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp)) {
+                    // Header
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -450,24 +479,30 @@ fun SettingsScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(38.dp)
                                     .clip(CircleShape)
                                     .background(Color(0xFFE0F2F1)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.CloudUpload, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.CloudUpload, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(22.dp))
                             }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "النسخ الاحتياطي والأمان",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    "النسخ الاحتياطي والسحابي",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
                                 )
-                            )
+                                Text(
+                                    "حفظ محلي وسحابي محمي عبر Google Drive",
+                                    style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B))
+                                )
+                            }
                         }
 
-                        // زر إنشاء نسخة جديدة وحفظها
+                        // زر إنشاء نسخة محلية جديدة
                         Button(
                             onClick = { viewModel.backupToPhoneStorage() },
                             colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
@@ -480,65 +515,239 @@ fun SettingsScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    Text(
-                        text = "يتم حفظ نسخ البيانات محلياً وبإمكانك رفعها مباشرة إلى Google Drive أو استعادتها للحفاظ على سجلاتك بأمان.",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // خيارات الاستيراد والمزامنة المباشرة مع Google Drive
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    // Google Drive AppData Cloud Integration Box
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFF0FDF4))
+                            .padding(12.dp)
                     ) {
-                        Button(
-                            onClick = { viewModel.createBackupAndSendDirectToDrive() },
-                            modifier = Modifier.weight(1.1f),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
-                            contentPadding = PaddingValues(vertical = 8.dp)
-                        ) {
-                            Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("مباشر إلى Drive", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                        }
+                        Column {
+                            val acc = googleAccount
+                            if (acc == null) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "سحابة Google Drive (AppData)",
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF166534)
+                                            )
+                                        )
+                                        Text(
+                                            text = "احفظ نسخ بياناتك تلقائياً في سحابة خاصة لا يمكن حذفها أو العبث بها بالخطأ.",
+                                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF475569), fontSize = 11.sp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Button(
+                                        onClick = {
+                                            val signInIntent = GoogleDriveBackupHelper.getGoogleSignInClient(context).signInIntent
+                                            googleSignInLauncher.launch(signInIntent)
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                    ) {
+                                        Icon(Icons.Default.CloudDone, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("ربط بحساب Google", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            } else {
+                                // Signed in state
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFFDCFCE7)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.AccountCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(20.dp))
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column {
+                                            Text(
+                                                text = acc.email ?: "حساب Google",
+                                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF14532D)),
+                                                maxLines = 1
+                                            )
+                                            Text(
+                                                text = "المجلد السحابي المحمي (drive.appdata) متصل",
+                                                style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF16A34A), fontSize = 10.sp)
+                                            )
+                                        }
+                                    }
 
-                        OutlinedButton(
-                            onClick = { viewModel.createBackupAndShare() },
-                            modifier = Modifier.weight(0.95f),
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(vertical = 8.dp)
-                        ) {
-                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(15.dp), tint = PrimaryTeal)
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text("مشاركة", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                        }
+                                    TextButton(
+                                        onClick = { viewModel.onGoogleSignOut() },
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("قطع الاتصال", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFDC2626), fontWeight = FontWeight.Bold))
+                                    }
+                                }
 
-                        OutlinedButton(
-                            onClick = { restoreFileLauncher.launch(arrayOf("application/json", "*/*")) },
-                            modifier = Modifier.weight(0.95f),
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(vertical = 8.dp)
-                        ) {
-                            Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(15.dp), tint = AccentGold)
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text("استيراد", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Cloud Action Buttons
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = { viewModel.backupToGoogleDriveAppData() },
+                                        enabled = !isDriveLoading,
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(vertical = 8.dp)
+                                    ) {
+                                        Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("رفع نسخة إلى سحابة Drive", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = { viewModel.loadDriveBackups() },
+                                        enabled = !isDriveLoading,
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+                                    ) {
+                                        Icon(Icons.Default.Sync, contentDescription = "تحديث السحابة", modifier = Modifier.size(16.dp), tint = Color(0xFF16A34A))
+                                    }
+                                }
+
+                                if (isDriveLoading) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = Color(0xFF16A34A))
+                                }
+
+                                // Drive AppData Backups List
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "النسخ في سحابة Google Drive (${driveBackups.size}):",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF14532D))
+                                )
+
+                                if (driveBackups.isEmpty() && !isDriveLoading) {
+                                    Text(
+                                        text = "لا توجد نسخ مرفوعة بعد. اضغط على 'رفع نسخة إلى سحابة Drive' لحفظ بياناتك سحابياً.",
+                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B), fontSize = 11.sp),
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    )
+                                } else {
+                                    Column(
+                                        modifier = Modifier.padding(top = 4.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        driveBackups.forEach { cloudBackup ->
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(Color.White)
+                                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = cloudBackup.formattedDate,
+                                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                                                    )
+                                                    Text(
+                                                        text = "${cloudBackup.sizeText}  •  ${cloudBackup.name}",
+                                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B), fontSize = 10.sp),
+                                                        maxLines = 1
+                                                    )
+                                                }
+
+                                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(Color(0xFFE8F5E9))
+                                                            .clickable { driveBackupToRestore = cloudBackup }
+                                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                    ) {
+                                                        Text("استعادة", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold))
+                                                    }
+
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(26.dp)
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(Color(0xFFFFEBEE))
+                                                            .clickable { driveBackupToDelete = cloudBackup },
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(Icons.Default.Delete, contentDescription = "حذف", tint = Color(0xFFE53935), modifier = Modifier.size(13.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // استعراض النسخ الاحتياطية المحفوظة
+                    // Local sharing and import buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { viewModel.createBackupAndShare() },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(15.dp), tint = PrimaryTeal)
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("مشاركة ملف (.back)", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = { restoreFileLauncher.launch(arrayOf("*/*", "application/octet-stream", "application/json")) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(15.dp), tint = AccentGold)
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("استيراد من الهاتف", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // استعراض النسخ الاحتياطية المحفوظة محلياً على الهاتف
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "استعراض النسخ المحفوظة (${savedBackups.size})",
+                            text = "النسخ المحفوظة على هذا الهاتف (${savedBackups.size})",
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -564,7 +773,7 @@ fun SettingsScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "لا توجد نسخ احتياطية محفوظة بعد. اضغط على 'نسخة جديدة' بالأعلى لإنشاء نسخة احتياطية فورية.",
+                                text = "لا توجد نسخ احتياطية محفوظة على الهاتف بعد. اضغط على 'نسخة جديدة' بالأعلى لإنشاء نسخة احتياطية فورية.",
                                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
@@ -825,10 +1034,32 @@ fun SettingsScreen(
                             Text("تفعيل النسخة الكاملة الآن", fontWeight = FontWeight.Bold)
                         }
                     } else {
-                        Text(
-                            text = "هذا الجهاز مسجل ومرخص بصفة دائمة باسمك، استمتع بجميع المزايا بدون أي قيود.",
-                            style = MaterialTheme.typography.bodySmall.copy(color = AccentEmerald, fontWeight = FontWeight.Medium)
-                        )
+                        val plan = LicenseManager.getActivePlan(context)
+                        val remDays = LicenseManager.getRemainingDays(context)
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = "حالة الاشتراك: ${plan?.titleArabic ?: "اشتراك سارٍ"}",
+                                style = MaterialTheme.typography.bodyMedium.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "متبقي في اشتراكك الحالي: $remDays يوماً.",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = if (remDays <= 5) Color(0xFFE53935) else PrimaryTeal,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            OutlinedButton(
+                                onClick = { showLicenseDialog = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("تجديد أو ترقية الاشتراك", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
                     }
                 }
             }
@@ -936,6 +1167,62 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { backupToDelete = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    // Google Drive AppData Cloud Restore Dialog
+    val driveToRestore = driveBackupToRestore
+    if (driveToRestore != null) {
+        AlertDialog(
+            onDismissRequest = { driveBackupToRestore = null },
+            title = { Text("استعادة من سحابة Google Drive", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("هل أنت متأكد من استعادة النسخة السحابية بتاريخ ${driveToRestore.formattedDate} بحجم ${driveToRestore.sizeText}؟ سيتم تنزيل النسخة وتطبيق بياناتها بأمان.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.restoreFromGoogleDriveAppData(driveToRestore)
+                        driveBackupToRestore = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                ) {
+                    Text("استعادة السحابة", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { driveBackupToRestore = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    // Google Drive AppData Cloud Delete Dialog
+    val driveToDelete = driveBackupToDelete
+    if (driveToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { driveBackupToDelete = null },
+            title = { Text("حذف نسخة من Google Drive", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("هل تريد حذف هذه النسخة السحابية (${driveToDelete.name}) نهائياً من سحابة Google Drive؟")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteDriveBackup(driveToDelete)
+                        driveBackupToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
+                ) {
+                    Text("حذف من السحابة", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { driveBackupToDelete = null }) {
                     Text("إلغاء")
                 }
             }

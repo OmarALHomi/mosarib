@@ -69,6 +69,8 @@ fun LicenseDialog(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    var selectedPlan by remember { mutableStateOf(LicenseManager.SubscriptionPlan.MONTHLY) }
+
     fun copyDeviceCode() {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText("كود جهاز المسرب", deviceCode)
@@ -77,7 +79,7 @@ fun LicenseDialog(
     }
 
     fun openWhatsApp() {
-        val url = LicenseManager.getWhatsAppActivationUrl(deviceCode)
+        val url = LicenseManager.getWhatsAppActivationUrl(deviceCode, selectedPlan)
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
@@ -91,9 +93,9 @@ fun LicenseDialog(
             return
         }
 
-        val success = LicenseManager.verifyAndActivate(context, enteredKey)
-        if (success) {
-            Toast.makeText(context, "تهانينا! تم تفعيل تطبيق المُسَرِّب بنجاح مدى الحياة", Toast.LENGTH_LONG).show()
+        val plan = LicenseManager.verifyAndActivate(context, enteredKey)
+        if (plan != null) {
+            Toast.makeText(context, "تهانينا! تم تفعيل ${plan.titleArabic} بنجاح", Toast.LENGTH_LONG).show()
             onActivated()
         } else {
             errorMessage = "رمز التفعيل غير صالح لهذا الجهاز، يرجى التأكد والتواصل مع المطور"
@@ -135,7 +137,7 @@ fun LicenseDialog(
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "تفعيل النسخة الكاملة",
+                        text = "الاشتراكات والتفعيل",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -154,9 +156,9 @@ fun LicenseDialog(
 
             Text(
                 text = if (isMandatory)
-                    "لقد استنفدت 200 عملية مجانية في النسخة التجريبية. يرجى تفعيل النسخة الكاملة للاستمرار في تسجيل جلسات السقي والسندات بلا حدود."
+                    "لقد استنفدت 200 عملية مجانية في النسخة التجريبية. يرجى تفعيل اشتراكك (شهري أو سنوي) للاستمرار في تسجيل جلسات السقي والسندات بلا حدود."
                 else
-                    "سجّل رمز التفعيل الخاص بجهازك مرة واحدة فقط لاستخدام جميع ميزات النظام بلا حدود مدى الحياة.",
+                    "اختر باقة الاشتراك المناسبة لجهازك (شهري 30 يوماً أو سنوي 365 يوماً) لتفعيل النظام بكفاءة تامة.",
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 19.sp
@@ -164,6 +166,38 @@ fun LicenseDialog(
             )
 
             Spacer(modifier = Modifier.height(14.dp))
+
+            // Plan Toggle Chips
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = { selectedPlan = LicenseManager.SubscriptionPlan.MONTHLY },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (selectedPlan == LicenseManager.SubscriptionPlan.MONTHLY) PrimaryTeal else MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (selectedPlan == LicenseManager.SubscriptionPlan.MONTHLY) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("اشتراك شهري", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+
+                Button(
+                    onClick = { selectedPlan = LicenseManager.SubscriptionPlan.YEARLY },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (selectedPlan == LicenseManager.SubscriptionPlan.YEARLY) AccentGold else MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (selectedPlan == LicenseManager.SubscriptionPlan.YEARLY) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("اشتراك سنوي ⭐", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Device Code Card
             Card(
@@ -222,7 +256,7 @@ fun LicenseDialog(
                         ) {
                             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("طلب الرمز عبر واتساب", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("طلب رمز ${if (selectedPlan == LicenseManager.SubscriptionPlan.MONTHLY) "شهري" else "سنوي"}", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
