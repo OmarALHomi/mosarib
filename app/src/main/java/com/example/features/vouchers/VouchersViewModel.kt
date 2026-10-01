@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 import com.example.core.license.LicenseManager
+import com.example.core.util.Formatters
 import com.example.features.sessions.WaterSession
 import com.example.features.sessions.WaterSessionWithCustomer
 
@@ -215,6 +216,8 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                 return@launch
             }
 
+            val roundedAmount = Formatters.roundMoney(amount)
+
             val targetIds = when {
                 selectedSessionIds.isNotEmpty() -> selectedSessionIds
                 sessionId != null && sessionId > 0 -> listOf(sessionId)
@@ -223,7 +226,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
 
             if (type == VoucherType.RECEIPT && targetIds.isNotEmpty()) {
                 val sessionsToSettle = targetIds.mapNotNull { sessionRepo.getSessionById(it) }
-                val fifoResult = calculateFifoAllocation(sessionsToSettle, amount)
+                val fifoResult = calculateFifoAllocation(sessionsToSettle, roundedAmount)
 
                 val baseTime = System.currentTimeMillis()
                 var voucherIdx = 0
@@ -296,11 +299,12 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                 _settlementResult.value = SettlementResult(
                     customerName = cust?.name ?: "عميل غير محدد",
                     customerPhone = cust?.phone ?: "",
-                    totalAmount = amount,
+                    totalAmount = roundedAmount,
                     items = summaries,
                     surplusAmount = fifoResult.surplus,
                     currencySymbol = appConfig.value.currencySymbol
                 )
+
                 showToast("تم سداد السند وتوزيع المبلغ بنجاح", ToastType.SUCCESS)
             } else {
                 val prefix = if (type == VoucherType.RECEIPT) "REC" else "EXP"
@@ -310,7 +314,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                     type = type,
                     customerId = customerId,
                     sessionId = sessionId,
-                    amount = amount,
+                    amount = roundedAmount,
                     category = category,
                     paymentMethod = paymentMethod,
                     date = System.currentTimeMillis(),
@@ -367,7 +371,7 @@ fun calculateFifoAllocation(
     sessions: List<WaterSession>,
     totalAmount: Double
 ): FifoAllocationResult {
-    var pool = totalAmount
+    var pool = Formatters.roundMoney(totalAmount)
     val sorted = sessions.sortedBy { it.startTime }
     val steps = mutableListOf<AllocationStep>()
     for (s in sorted) {
@@ -376,16 +380,17 @@ fun calculateFifoAllocation(
                 AllocationStep(
                     session = s,
                     allocatedAmount = 0.0,
-                    newPaid = s.amountPaid,
-                    newDebt = s.remainingDebt,
+                    newPaid = Formatters.roundMoney(s.amountPaid),
+                    newDebt = Formatters.roundMoney(s.remainingDebt),
                     isFullyPaid = false
                 )
             )
         } else {
-            val allocated = minOf(s.remainingDebt, pool)
-            val newPaid = (s.amountPaid + allocated).coerceAtMost(s.totalAmount)
-            val newDebt = (s.totalAmount - newPaid).coerceAtLeast(0.0)
-            pool -= allocated
+            val sDebt = Formatters.roundMoney(s.remainingDebt)
+            val allocated = Formatters.roundMoney(minOf(sDebt, pool))
+            val newPaid = Formatters.roundMoney((s.amountPaid + allocated).coerceAtMost(s.totalAmount))
+            val newDebt = Formatters.roundMoney((s.totalAmount - newPaid).coerceAtLeast(0.0))
+            pool = Formatters.roundMoney(pool - allocated)
             steps.add(
                 AllocationStep(
                     session = s,
@@ -399,3 +404,4 @@ fun calculateFifoAllocation(
     }
     return FifoAllocationResult(steps = steps, surplus = maxOf(0.0, pool))
 }
+

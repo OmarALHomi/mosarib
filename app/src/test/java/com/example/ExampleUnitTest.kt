@@ -90,8 +90,11 @@ class ExampleUnitTest {
     fun `test comma input formatting`() {
         assertEquals("1,000", Formatters.formatAmountInput("1000"))
         assertEquals("10,000", Formatters.formatAmountInput("10000"))
-        assertEquals("100,000.5", Formatters.formatAmountInput("100000.5"))
-        assertEquals(100000.5, Formatters.parseAmountInput("100,000.5"), 0.001)
+        assertEquals("100,000", Formatters.formatAmountInput("100000"))
+        assertEquals(100000.0, Formatters.parseAmountInput("100,000"), 0.001)
+        // Test rounding of decimals to nearest integer
+        assertEquals(100001.0, Formatters.parseAmountInput("100,000.6"), 0.001)
+        assertEquals(6417.0, Formatters.calculateWaterCost(35, 11000.0), 0.001)
     }
 
     @Test

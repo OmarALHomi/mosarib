@@ -188,8 +188,9 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
     ) {
         viewModelScope.launch {
             val totalMinutes = (hours * 60) + minutes
-            val totalCost = (totalMinutes.toDouble() / 60.0) * pricePerHour
-            val debt = Math.max(0.0, totalCost - amountPaid)
+            val totalCost = Formatters.calculateWaterCost(totalMinutes, pricePerHour)
+            val roundedPaid = Formatters.roundMoney(amountPaid)
+            val debt = Formatters.roundMoney(Math.max(0.0, totalCost - roundedPaid))
 
             val session = WaterSession(
                 id = id,
@@ -198,9 +199,9 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                 startTime = startTime,
                 endTime = if (endTime > startTime) endTime else (startTime + totalMinutes * 60000L),
                 durationMinutes = totalMinutes,
-                pricePerHour = pricePerHour,
+                pricePerHour = Formatters.roundMoney(pricePerHour),
                 totalAmount = totalCost,
-                amountPaid = amountPaid,
+                amountPaid = roundedPaid,
                 remainingDebt = debt,
                 notes = notes,
                 isLive = false,
@@ -238,8 +239,9 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                 return@launch
             }
 
-            val newAmountPaid = session.amountPaid + amountToPay
-            val newRemainingDebt = Math.max(0.0, session.totalAmount - newAmountPaid)
+            val roundedPayment = Formatters.roundMoney(amountToPay)
+            val newAmountPaid = Formatters.roundMoney(session.amountPaid + roundedPayment)
+            val newRemainingDebt = Formatters.roundMoney(Math.max(0.0, session.totalAmount - newAmountPaid))
             val updated = session.copy(
                 amountPaid = newAmountPaid,
                 remainingDebt = newRemainingDebt
@@ -253,7 +255,7 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                 type = VoucherType.RECEIPT,
                 customerId = session.billedToCustomerId ?: session.customerId,
                 sessionId = session.id,
-                amount = amountToPay,
+                amount = roundedPayment,
                 category = "سداد سقي",
                 paymentMethod = paymentMethod,
                 date = System.currentTimeMillis(),

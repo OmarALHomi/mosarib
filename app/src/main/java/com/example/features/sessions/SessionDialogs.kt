@@ -195,11 +195,11 @@ fun AddEditSessionBottomSheet(
         derivedStateOf { Formatters.calculateWaterCost(totalMinutes, pricePerHour) }
     }
 
-    var amountPaidStr by remember { mutableStateOf(initialSession?.amountPaid?.let { if (it > 0) it.toString() else "" } ?: "") }
+    var amountPaidStr by remember { mutableStateOf(initialSession?.amountPaid?.let { if (it > 0) Formatters.formatNumber(it) else "" } ?: "") }
     var notes by remember { mutableStateOf(initialSession?.notes ?: "") }
     val amountPaid by remember { derivedStateOf { Formatters.parseAmountInput(amountPaidStr) } }
     val remainingDebt by remember(calculatedCost, amountPaid) {
-        derivedStateOf { Math.max(0.0, calculatedCost - amountPaid) }
+        derivedStateOf { Formatters.roundMoney(Math.max(0.0, calculatedCost - amountPaid)) }
     }
 
     val startCal = remember(sessionDateMillis, startHour, startMinute) {

@@ -11,12 +11,20 @@ object Formatters {
     private val numberFormat = DecimalFormat("#,##0.##", symbols)
     private val integerFormat = DecimalFormat("#,##0", symbols)
 
+    /**
+     * تقريب المبالغ المالية إلى أقرب رقم صحيح لمنع الكسور العشرية المشوهة
+     * (مثلاً: 6416.6666667 -> 6417.0)
+     */
+    fun roundMoney(amount: Double): Double {
+        return kotlin.math.round(amount)
+    }
+
+    fun roundMoneyLong(amount: Double): Long {
+        return kotlin.math.round(amount).toLong()
+    }
+
     fun formatNumber(amount: Double): String {
-        return if (amount % 1.0 == 0.0) {
-            integerFormat.format(amount)
-        } else {
-            numberFormat.format(amount)
-        }
+        return integerFormat.format(roundMoney(amount))
     }
 
     fun formatCurrency(amount: Double, currency: String = "ر.ي"): String {
@@ -25,28 +33,23 @@ object Formatters {
 
     /**
      * Formats user input with thousands separators (commas) as they type
-     * e.g. "12000" -> "12,000", "12000.5" -> "12,000.5"
+     * e.g. "12000" -> "12,000"
      */
     fun formatAmountInput(raw: String): String {
         val clean = raw.replace(",", "").replace("،", "").trim()
         if (clean.isEmpty()) return ""
-        if (clean == ".") return "0."
         val parts = clean.split(".")
         val integerPart = parts[0].toLongOrNull() ?: return clean
-        val formattedInt = integerFormat.format(integerPart)
-        return if (parts.size > 1) {
-            "$formattedInt.${parts[1]}"
-        } else {
-            formattedInt
-        }
+        return integerFormat.format(integerPart)
     }
 
     /**
-     * Cleans formatted input with commas back to Double
+     * Cleans formatted input with commas back to Double, rounded to nearest integer
      */
     fun parseAmountInput(text: String): Double {
         val clean = text.replace(",", "").replace("،", "").trim()
-        return clean.toDoubleOrNull() ?: 0.0
+        val d = clean.toDoubleOrNull() ?: 0.0
+        return roundMoney(d)
     }
 
     private val ONES = arrayOf(
@@ -229,8 +232,10 @@ object Formatters {
 
     /**
      * Calculates cost from duration in minutes and price per hour
+     * Rounds to the nearest integer currency unit (e.g. 6417 instead of 6416.6666667)
      */
     fun calculateWaterCost(durationMinutes: Int, pricePerHour: Double): Double {
-        return (durationMinutes.toDouble() / 60.0) * pricePerHour
+        val raw = (durationMinutes.toDouble() / 60.0) * pricePerHour
+        return roundMoney(raw)
     }
 }

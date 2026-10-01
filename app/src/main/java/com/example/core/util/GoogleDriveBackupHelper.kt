@@ -133,7 +133,7 @@ object GoogleDriveBackupHelper {
                 respJson.getString("id")
             } else {
                 val errorStr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
-                throw Exception("فشل رفع النسخة إلى Drive ($responseCode): $errorStr")
+                throw Exception(extractErrorMessage(responseCode, errorStr))
             }
         }
     }
@@ -202,7 +202,7 @@ object GoogleDriveBackupHelper {
                 resultList
             } else {
                 val errorStr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
-                throw Exception("فشل جلب النسخ من Google Drive ($responseCode): $errorStr")
+                throw Exception(extractErrorMessage(responseCode, errorStr))
             }
         }
     }
@@ -239,7 +239,7 @@ object GoogleDriveBackupHelper {
                 destFile
             } else {
                 val errorStr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
-                throw Exception("فشل تنزيل النسخة من Google Drive ($responseCode): $errorStr")
+                throw Exception(extractErrorMessage(responseCode, errorStr))
             }
         }
     }
@@ -265,7 +265,37 @@ object GoogleDriveBackupHelper {
             }
 
             val responseCode = conn.responseCode
-            responseCode in 200..299 || responseCode == 204
+            if (responseCode in 200..299 || responseCode == 204) {
+                true
+            } else {
+                val errorStr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
+                throw Exception(extractErrorMessage(responseCode, errorStr))
+            }
         }
+    }
+
+    fun extractErrorMessage(responseCode: Int, rawError: String): String {
+        try {
+            val root = JSONObject(rawError)
+            val errorObj = root.optJSONObject("error")
+            if (errorObj != null) {
+                val message = errorObj.optString("message", "")
+                val errorsArr = errorObj.optJSONArray("errors")
+                val reason = errorsArr?.optJSONObject(0)?.optString("reason", "") ?: ""
+
+                if (responseCode == 403) {
+                    if (reason == "accessNotConfigured" || message.contains("Google Drive API has not been used") || message.contains("disabled")) {
+                        return "خطأ 403: خدمة (Google Drive API) غير مفعلة في Google Cloud Console للمشروع mosarib. يرجى تفعيلها أولاً."
+                    }
+                    if (reason == "insufficientPermissions" || message.contains("Insufficient Permission")) {
+                        return "خطأ 403: الصلاحيات غير كافية، يرجى إعادة تسجيل الدخول بحساب Google ومنح إذن الوصول إلى Drive."
+                    }
+                }
+                if (message.isNotBlank()) {
+                    return "خطأ $responseCode: " + (message.lines().firstOrNull() ?: message).take(120)
+                }
+            }
+        } catch (_: Exception) {}
+        return "فشل الاتصال بالسحابة (رمز الخطأ $responseCode)"
     }
 }
