@@ -1,7 +1,9 @@
 package com.example.features.vouchers
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -77,6 +79,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.core.ui.EmptyStateView
 import com.example.core.ui.LuxuryToastNotification
+import com.example.core.license.LicenseDialog
+import com.example.core.license.LicenseManager
 import com.example.core.ui.StatBoxCard
 import com.example.core.util.FileSharingHelper
 import com.example.core.util.Formatters
@@ -103,8 +107,10 @@ fun VouchersScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val frequentDescriptions by viewModel.frequentExpenseDescriptions.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
+    val operationsCount by viewModel.operationsCount.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    var showActivationDialog by remember { mutableStateOf(false) }
     var showAddSheet by remember { mutableStateOf(false) }
     var voucherToDelete by remember { mutableStateOf<Voucher?>(null) }
     var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
@@ -148,17 +154,69 @@ fun VouchersScreen(
             // Search & Filters
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { viewModel.setSearchQuery(it) },
-                        placeholder = { Text("بحث في سجل العمليات (عميل، رقم سند، بيان)...") },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("operations_search_input"),
-                        shape = RoundedCornerShape(16.dp),
-                        singleLine = true
-                    )
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        text = "بحث بالعميل أو رقم السند...",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            fontSize = 13.sp
+                                        ),
+                                        maxLines = 1
+                                    )
+                                }
+                                BasicTextField(
+                                    value = searchQuery,
+                                    onValueChange = { viewModel.setSearchQuery(it) },
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontSize = 13.sp
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("operations_search_input")
+                                )
+                            }
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { viewModel.setSearchQuery("") },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "مسح",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(10.dp))
 
@@ -523,7 +581,13 @@ fun VouchersScreen(
 
         // FAB to Add Operation / Voucher
         ExtendedFloatingActionButton(
-            onClick = { showAddSheet = true },
+            onClick = {
+                if (LicenseManager.canPerformOperation(context, operationsCount)) {
+                    showAddSheet = true
+                } else {
+                    showActivationDialog = true
+                }
+            },
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(16.dp)
@@ -643,6 +707,15 @@ fun VouchersScreen(
                     Text("إلغاء", fontWeight = FontWeight.Bold)
                 }
             }
+        )
+    }
+
+    // License Activation Dialog
+    if (showActivationDialog) {
+        LicenseDialog(
+            onDismiss = { showActivationDialog = false },
+            onActivated = { showActivationDialog = false },
+            isMandatory = operationsCount >= LicenseManager.FREE_OPERATIONS_LIMIT
         )
     }
 }

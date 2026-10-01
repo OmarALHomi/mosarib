@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مولّد مفاتيح التفعيل — تطبيق المُسَرِّب | م. عمر الحومي</title>
+  <style>
+    :root {
+      --primary: #00838F;
+      --primary-dark: #004D40;
+      --accent: #FFB300;
+      --bg: #0B171D;
+      --card-bg: #12232B;
+      --text: #E0F2F1;
+      --text-muted: #80CBC4;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body {
+      background: radial-gradient(circle at top, #16323B, var(--bg));
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid rgba(0, 150, 166, 0.3);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 480px;
+      padding: 30px;
+      text-align: center;
+    }
+    .logo {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, var(--primary), #00BFA5);
+      border-radius: 50%;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+      box-shadow: 0 8px 20px rgba(0, 191, 165, 0.4);
+    }
+    h1 { font-size: 22px; font-weight: 800; color: #FFF; margin-bottom: 6px; }
+    p.subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+    .input-group { text-align: right; margin-bottom: 20px; }
+    label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #B2DFDB; }
+    input {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 2px solid rgba(0, 150, 166, 0.4);
+      background: #081318;
+      color: #FFF;
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      outline: none;
+      transition: all 0.3s;
+    }
+    input:focus { border-color: #00E676; box-shadow: 0 0 12px rgba(0, 230, 118, 0.3); }
+    button.btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--primary), #00BFA5);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(0, 131, 143, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button.btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 191, 165, 0.6); }
+    button.btn:active { transform: translateY(0); }
+    .result-box {
+      margin-top: 24px;
+      background: #081318;
+      border: 1px dashed rgba(255, 179, 0, 0.6);
+      border-radius: 14px;
+      padding: 18px;
+      display: none;
+    }
+    .result-title { font-size: 12px; color: var(--accent); font-weight: bold; margin-bottom: 8px; }
+    .key-display {
+      font-size: 22px;
+      font-weight: 900;
+      color: #00E676;
+      letter-spacing: 3px;
+      user-select: all;
+      margin-bottom: 14px;
+    }
+    .copy-btn {
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #FFF;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .copy-btn:hover { background: rgba(255, 255, 255, 0.2); }
+    footer { margin-top: 24px; font-size: 11px; color: #546E7A; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">💧</div>
+  <h1>أداة توليد مفاتيح التفعيل</h1>
+  <p class="subtitle">نظام تفعيل تطبيق المُسَرِّب — م. عمر الحومي</p>
+
+  <div class="input-group">
+    <label for="deviceCode">كود جهاز العميل (Device Code):</label>
+    <input type="text" id="deviceCode" placeholder="MSRB-XXXX-XXXX" autocomplete="off" autofocus>
+  </div>
+
+  <button class="btn" onclick="generateKey()">توليد رمز التفعيل 🔑</button>
+
+  <div class="result-box" id="resultBox">
+    <div class="result-title">رمز التفعيل المخصص لهذا العميل:</div>
+    <div class="key-display" id="keyDisplay">ACTV-XXXX-XXXX</div>
+    <button class="copy-btn" onclick="copyKey()">📋 نسخ الرمز</button>
+  </div>
+
+  <footer>
+    تطوير المهندس عمر الحومي — تبع سوفت &copy; 2026
+  </footer>
+</div>
+
+<script>
+  const SECRET_SALT = "mosarib_secure_license_secret_key_alhomi_2026_water_app";
+
+  async function sha256(message) {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+
+  async function generateKey() {
+    const input = document.getElementById("deviceCode").value.trim().toUpperCase();
+    if (!input) {
+      alert("يرجى إدخال كود جهاز العميل أولاً");
+      return;
+    }
+
+    const cleanCode = input.replace(/-/g, "").trim();
+    const hash = await sha256(cleanCode + SECRET_SALT);
+    const part1 = hash.substring(0, 4);
+    const part2 = hash.substring(4, 8);
+    const generatedKey = `ACTV-${part1}-${part2}`;
+
+    document.getElementById("keyDisplay").innerText = generatedKey;
+    document.getElementById("resultBox").style.display = "block";
+  }
+
+  function copyKey() {
+    const text = document.getElementById("keyDisplay").innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      alert("تم نسخ رمز التفعيل بنجاح: " + text);
+    });
+  }
+
+  // Handle enter key
+  document.getElementById("deviceCode").addEventListener("keyup", function(e) {
+    if (e.key === "Enter") generateKey();
+  });
+</script>
+
+</body>
+</html>

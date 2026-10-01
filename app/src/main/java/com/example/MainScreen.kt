@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.features.about.AboutScreen
 import com.example.features.customers.CustomerDetailScreen
 import com.example.features.customers.CustomersScreen
 import com.example.features.customers.CustomersViewModel
@@ -107,11 +108,14 @@ fun MainApp(
             var selectedTab by remember { mutableStateOf(AppTab.HOME) }
             var selectedCustomerId by remember { mutableLongStateOf(0L) }
             var showReportsScreen by remember { mutableStateOf(false) }
+            var showAboutScreen by remember { mutableStateOf(false) }
 
             if (showSplashScreen) {
                 SplashScreen(onTimeout = { showSplashScreen = false })
             } else if (appConfig.biometricEnabled && !isBiometricUnlocked) {
                 BiometricLockScreen(onUnlock = { isBiometricUnlocked = true })
+            } else if (showAboutScreen) {
+                AboutScreen(onBack = { showAboutScreen = false })
             } else if (selectedCustomerId > 0) {
                 CustomerDetailScreen(
                     customerId = selectedCustomerId,
@@ -255,7 +259,10 @@ fun MainApp(
                                 )
                             }
                             AppTab.SETTINGS -> {
-                                SettingsScreen(viewModel = settingsViewModel)
+                                SettingsScreen(
+                                    viewModel = settingsViewModel,
+                                    onNavigateToAbout = { showAboutScreen = true }
+                                )
                             }
                         }
                     }

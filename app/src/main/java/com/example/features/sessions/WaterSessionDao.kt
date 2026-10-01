@@ -10,6 +10,12 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface WaterSessionDao {
+    @Query("SELECT COUNT(*) FROM water_sessions")
+    fun getSessionsCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM water_sessions")
+    suspend fun getSessionsCountDirect(): Int
+
     @Query("SELECT * FROM water_sessions ORDER BY startTime DESC")
     fun getAllSessions(): Flow<List<WaterSession>>
 

@@ -12,9 +12,11 @@ import com.example.features.pumps.PumpSource
 import com.example.features.pumps.PumpSourceRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import com.example.core.license.LicenseManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -30,6 +32,20 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     val pumps: StateFlow<List<PumpSource>> = pumpRepo.allPumps
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val operationsCount: StateFlow<Int> = combine(
+        db.waterSessionDao().getSessionsCount(),
+        db.voucherDao().getVouchersCount()
+    ) { sessions, vouchers ->
+        sessions + vouchers
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    private val _isActivated = MutableStateFlow(LicenseManager.isActivated(application))
+    val isActivated: StateFlow<Boolean> = _isActivated.asStateFlow()
+
+    fun refreshActivationStatus() {
+        _isActivated.value = LicenseManager.isActivated(getApplication())
+    }
 
     private val _toast = MutableStateFlow<ToastMessage?>(null)
     val toast: StateFlow<ToastMessage?> = _toast.asStateFlow()

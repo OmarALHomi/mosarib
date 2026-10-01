@@ -10,6 +10,12 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface VoucherDao {
+    @Query("SELECT COUNT(*) FROM vouchers")
+    fun getVouchersCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM vouchers")
+    suspend fun getVouchersCountDirect(): Int
+
     @Query("SELECT * FROM vouchers ORDER BY date DESC, id DESC")
     fun getAllVouchers(): Flow<List<Voucher>>
 

@@ -18,6 +18,7 @@ import com.example.features.settings.SettingsRepository
 import com.example.features.vouchers.Voucher
 import com.example.features.vouchers.VoucherRepository
 import com.example.features.vouchers.VoucherType
+import com.example.core.license.LicenseManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -48,6 +49,11 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
     private val pumpRepo = PumpSourceRepository(db.pumpSourceDao())
     private val settingsRepo = SettingsRepository(db.appSettingDao())
     private val voucherRepo = VoucherRepository(db.voucherDao(), db.customerDao())
+
+    val operationsCount: StateFlow<Int> = combine(
+        db.waterSessionDao().getSessionsCount(),
+        db.voucherDao().getVouchersCount()
+    ) { s, v -> s + v }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val appConfig: StateFlow<AppConfig> = settingsRepo.appConfig
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppConfig())
@@ -202,6 +208,11 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
             )
 
             if (id == 0L) {
+                val totalOps = db.waterSessionDao().getSessionsCountDirect() + db.voucherDao().getVouchersCountDirect()
+                if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
+                    showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
+                    return@launch
+                }
                 sessionRepo.insertSession(session)
                 showToast("تم تسجيل دورة الماء وحساب التكلفة بنجاح", ToastType.SUCCESS)
             } else {
@@ -221,6 +232,12 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
         notes: String = ""
     ) {
         viewModelScope.launch {
+            val totalOps = db.waterSessionDao().getSessionsCountDirect() + db.voucherDao().getVouchersCountDirect()
+            if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
+                showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
+                return@launch
+            }
+
             val newAmountPaid = session.amountPaid + amountToPay
             val newRemainingDebt = Math.max(0.0, session.totalAmount - newAmountPaid)
             val updated = session.copy(

@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+import com.example.core.license.LicenseManager
 import com.example.features.sessions.WaterSession
 import com.example.features.sessions.WaterSessionWithCustomer
 
@@ -57,6 +58,11 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
     private val voucherRepo = VoucherRepository(db.voucherDao(), db.customerDao())
     private val customerRepo = CustomerRepository(db.customerDao(), sessionRepo.allSessions, voucherRepo.allVouchers)
     private val settingsRepo = SettingsRepository(db.appSettingDao())
+
+    val operationsCount: StateFlow<Int> = combine(
+        db.waterSessionDao().getSessionsCount(),
+        db.voucherDao().getVouchersCount()
+    ) { s, v -> s + v }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val appConfig: StateFlow<AppConfig> = settingsRepo.appConfig
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppConfig())
@@ -175,6 +181,12 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         notes: String = ""
     ) {
         viewModelScope.launch {
+            val totalOps = db.waterSessionDao().getSessionsCountDirect() + db.voucherDao().getVouchersCountDirect()
+            if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
+                showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
+                return@launch
+            }
+
             val newAmountPaid = session.amountPaid + amountToPay
             val newRemainingDebt = Math.max(0.0, session.totalAmount - newAmountPaid)
             val updated = session.copy(
@@ -210,6 +222,12 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         sessionId: Long? = null
     ) {
         viewModelScope.launch {
+            val totalOps = db.waterSessionDao().getSessionsCountDirect() + db.voucherDao().getVouchersCountDirect()
+            if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
+                showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
+                return@launch
+            }
+
             val prefix = if (type == VoucherType.RECEIPT) "REC" else "EXP"
             val num = "$prefix-${System.currentTimeMillis().toString().takeLast(4)}"
             val voucher = Voucher(

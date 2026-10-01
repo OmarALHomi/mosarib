@@ -104,4 +104,20 @@ class ExampleUnitTest {
         val normalizedCode = com.example.core.util.FileSharingHelper.normalizePhone(withCode)
         assertEquals("967771234567", normalizedCode)
     }
+
+    @Test
+    fun `test LicenseManager key generation format and reproducibility`() {
+        val deviceCode = "MSRB-8F42-9D1B"
+        val key1 = com.example.core.license.LicenseManager.generateActivationKey(deviceCode)
+        val key2 = com.example.core.license.LicenseManager.generateActivationKey(deviceCode)
+
+        assertEquals(key1, key2)
+        org.junit.Assert.assertTrue(key1.startsWith("ACTV-"))
+        assertEquals(14, key1.length) // ACTV-XXXX-XXXX
+    }
+
+    @Test
+    fun `test LicenseManager free operations limit constant`() {
+        assertEquals(200, com.example.core.license.LicenseManager.FREE_OPERATIONS_LIMIT)
+    }
 }

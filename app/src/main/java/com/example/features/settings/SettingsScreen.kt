@@ -1,6 +1,10 @@
 package com.example.features.settings
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -23,16 +27,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
@@ -40,7 +47,10 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.WaterDrop
+import com.example.core.license.LicenseDialog
+import com.example.core.license.LicenseManager
 import com.example.core.security.BiometricHelper
 import com.example.core.util.BackupManager
 import androidx.compose.material3.AlertDialog
@@ -51,6 +61,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -89,10 +100,13 @@ import com.example.ui.theme.SecondaryAqua
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
+    onNavigateToAbout: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val config by viewModel.appConfig.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
+    val operationsCount by viewModel.operationsCount.collectAsStateWithLifecycle()
+    val isActivated by viewModel.isActivated.collectAsStateWithLifecycle()
 
     var distributorName by remember(config.distributorName) { mutableStateOf(config.distributorName) }
     var distributorPhone by remember(config.distributorPhone) { mutableStateOf(config.distributorPhone) }
@@ -108,6 +122,8 @@ fun SettingsScreen(
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val isBiometricAvailable = remember { BiometricHelper.isAvailable(context) }
+    val deviceCode = remember { LicenseManager.getDeviceCode(context) }
+    var showLicenseDialog by remember { mutableStateOf(false) }
 
     val savedBackups by viewModel.savedBackups.collectAsStateWithLifecycle()
     var backupToRestore by remember { mutableStateOf<BackupManager.BackupFileInfo?>(null) }
@@ -645,6 +661,230 @@ fun SettingsScreen(
                 }
             }
         }
+
+        // Section: الترخيص والتفعيل (200 عملية مجانية / تفعيل دائم)
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .shadow(2.dp, RoundedCornerShape(18.dp)),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isActivated) AccentEmerald.copy(alpha = 0.15f) else AccentGold.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (isActivated) Icons.Default.Verified else Icons.Default.Key,
+                                    contentDescription = null,
+                                    tint = if (isActivated) AccentEmerald else AccentGold
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "الترخيص والتفعيل",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = if (isActivated) "نسخة مفعلة بصفة دائمة" else "النسخة التجريبية (200 عملية)",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = if (isActivated) AccentEmerald else AccentGold,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                )
+                            }
+                        }
+
+                        // Badge
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isActivated) AccentEmerald.copy(alpha = 0.15f) else Color(0xFFFF9800).copy(alpha = 0.15f))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (isActivated) "مفعّل" else "تجريبي",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = if (isActivated) AccentEmerald else Color(0xFFFF9800),
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Device Code row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "رمز الجهاز الفريد (Device Token):",
+                                style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B))
+                            )
+                            Text(
+                                text = deviceCode,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 1.sp
+                                )
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("كود جهاز المسرب", deviceCode)
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(context, "تم نسخ كود الجهاز إلى الحافظة", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "نسخ", modifier = Modifier.size(16.dp))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (!isActivated) {
+                        val freeLimit = LicenseManager.FREE_OPERATIONS_LIMIT
+                        val progress = (operationsCount.toFloat() / freeLimit).coerceIn(0f, 1f)
+                        val remaining = (freeLimit - operationsCount).coerceAtLeast(0)
+
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "العمليات المجانية المستخدمة:",
+                                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                )
+                                Text(
+                                    text = "$operationsCount / $freeLimit",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp)),
+                                color = if (operationsCount >= freeLimit) Color(0xFFE53935) else PrimaryTeal,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Text(
+                                text = if (remaining > 0)
+                                    "متبقي لديك $remaining عملية مجانية قبل الحاجة للتفعيل."
+                                else
+                                    "لقد استنفدت العمليات المجانية بالكامل (200/200). يرجى التفعيل للمتابعة.",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = if (remaining == 0) Color(0xFFE53935) else Color(0xFF64748B),
+                                    fontWeight = if (remaining == 0) FontWeight.Bold else FontWeight.Normal
+                                )
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Button(
+                            onClick = { showLicenseDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("تفعيل النسخة الكاملة الآن", fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        Text(
+                            text = "هذا الجهاز مسجل ومرخص بصفة دائمة باسمك، استمتع بجميع المزايا بدون أي قيود.",
+                            style = MaterialTheme.typography.bodySmall.copy(color = AccentEmerald, fontWeight = FontWeight.Medium)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Section: عن التطبيق والمطور
+        item {
+            Card(
+                onClick = onNavigateToAbout,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .shadow(2.dp, RoundedCornerShape(18.dp)),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(PrimaryTeal.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Info, contentDescription = null, tint = PrimaryTeal)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "عن التطبيق والمطور",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "م. عمر عبد الله علي الحومي • v1.0.0",
+                                style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B))
+                            )
+                        }
+                    }
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "عرض",
+                        tint = Color(0xFF64748B),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
     }
 
     // Confirmation Dialogs for Restore and Delete
@@ -710,5 +950,17 @@ fun SettingsScreen(
             .align(Alignment.BottomCenter)
             .padding(bottom = 85.dp)
     )
+
+    // License Dialog
+    if (showLicenseDialog) {
+        LicenseDialog(
+            onDismiss = { showLicenseDialog = false },
+            onActivated = {
+                viewModel.refreshActivationStatus()
+                showLicenseDialog = false
+            },
+            isMandatory = false
+        )
+    }
 }
 }

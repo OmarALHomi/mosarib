@@ -83,6 +83,10 @@ import com.example.features.settings.SettingsViewModel
 import com.example.features.vouchers.AddVoucherBottomSheet
 import com.example.features.vouchers.VoucherType
 import com.example.features.vouchers.VouchersViewModel
+import com.example.core.license.LicenseDialog
+import com.example.core.license.LicenseManager
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Warning
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
@@ -114,6 +118,8 @@ fun HomeScreen(
     val customers by sessionsViewModel.customers.collectAsStateWithLifecycle()
     val pumps by sessionsViewModel.pumps.collectAsStateWithLifecycle()
     val toast by sessionsViewModel.toast.collectAsStateWithLifecycle()
+    val operationsCount by settingsViewModel.operationsCount.collectAsStateWithLifecycle()
+    val isActivated by settingsViewModel.isActivated.collectAsStateWithLifecycle()
 
     val isSystemDark = isSystemInDarkTheme()
     val isDarkTheme = when (config.themeMode) {
@@ -122,10 +128,20 @@ fun HomeScreen(
         else -> isSystemDark
     }
 
+    val context = LocalContext.current
+    var showActivationDialog by remember { mutableStateOf(false) }
     var showAddManualSheet by remember { mutableStateOf(false) }
     var showAddVoucherSheet by remember { mutableStateOf(false) }
     var voucherInitialType by remember { mutableStateOf(VoucherType.RECEIPT) }
     var showAddCustomerSheet by remember { mutableStateOf(false) }
+
+    fun checkOperationAllowed(action: () -> Unit) {
+        if (LicenseManager.canPerformOperation(context, operationsCount)) {
+            action()
+        } else {
+            showActivationDialog = true
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -203,9 +219,74 @@ fun HomeScreen(
                 }
             }
 
+            // License Status Banner if not activated
+            if (!isActivated) {
+                item {
+                    val remaining = (LicenseManager.FREE_OPERATIONS_LIMIT - operationsCount).coerceAtLeast(0)
+                    val isExhausted = remaining == 0
+                    Card(
+                        onClick = { showActivationDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isExhausted) Color(0xFFFFEBEE) else Color(0xFFFFF8E1)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = if (isExhausted) Icons.Default.Warning else Icons.Default.Key,
+                                    contentDescription = null,
+                                    tint = if (isExhausted) Color(0xFFD32F2F) else Color(0xFFF57C00),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isExhausted)
+                                        "انتهت العمليات المجانية (200/200) • انقر لتفعيل نسختك"
+                                    else
+                                        "النسخة التجريبية: متبقي $remaining عملية مجانية • تفعيل",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = if (isExhausted) Color(0xFFC62828) else Color(0xFFE65100),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (isExhausted) Color(0xFFD32F2F) else Color(0xFFF57C00))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "تفعيل",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             item {
                 Card(
-                    onClick = { showAddManualSheet = true },
+                    onClick = { checkOperationAllowed { showAddManualSheet = true } },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 6.dp)
@@ -306,8 +387,10 @@ fun HomeScreen(
                             iconBgColor = Color(0xFFE8F5E9),
                             iconTint = AccentEmerald,
                             onClick = {
-                                voucherInitialType = VoucherType.RECEIPT
-                                showAddVoucherSheet = true
+                                checkOperationAllowed {
+                                    voucherInitialType = VoucherType.RECEIPT
+                                    showAddVoucherSheet = true
+                                }
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -344,8 +427,10 @@ fun HomeScreen(
                             iconBgColor = Color(0xFFFFEBEE),
                             iconTint = Color(0xFFE53935),
                             onClick = {
-                                voucherInitialType = VoucherType.EXPENSE
-                                showAddVoucherSheet = true
+                                checkOperationAllowed {
+                                    voucherInitialType = VoucherType.EXPENSE
+                                    showAddVoucherSheet = true
+                                }
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -518,6 +603,18 @@ fun HomeScreen(
             onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary ->
                 customersViewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary)
             }
+        )
+    }
+
+    // License Activation Dialog
+    if (showActivationDialog) {
+        LicenseDialog(
+            onDismiss = { showActivationDialog = false },
+            onActivated = {
+                settingsViewModel.refreshActivationStatus()
+                showActivationDialog = false
+            },
+            isMandatory = operationsCount >= LicenseManager.FREE_OPERATIONS_LIMIT
         )
     }
 }

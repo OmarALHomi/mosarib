@@ -91,6 +91,8 @@ import com.example.core.ui.SendMessageChoiceDialog
 import com.example.core.ui.StatBoxCard
 import com.example.core.util.FileSharingHelper
 import com.example.core.util.Formatters
+import com.example.core.license.LicenseDialog
+import com.example.core.license.LicenseManager
 import com.example.features.customers.Customer
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
@@ -114,8 +116,10 @@ fun SessionsScreen(
     val homeStats by viewModel.homeStats.collectAsStateWithLifecycle()
     val allVouchers by viewModel.allVouchers.collectAsStateWithLifecycle()
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
+    val operationsCount by viewModel.operationsCount.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    var showActivationDialog by remember { mutableStateOf(false) }
     var showAddManualSheet by remember { mutableStateOf(false) }
     var sessionToEdit by remember { mutableStateOf<WaterSession?>(null) }
     var sessionToDelete by remember { mutableStateOf<WaterSession?>(null) }
@@ -244,7 +248,13 @@ fun SessionsScreen(
 
         // Floating Action Button (Consolidated Single Action)
         ExtendedFloatingActionButton(
-            onClick = { showAddManualSheet = true },
+            onClick = {
+                if (LicenseManager.canPerformOperation(context, operationsCount)) {
+                    showAddManualSheet = true
+                } else {
+                    showActivationDialog = true
+                }
+            },
             containerColor = PrimaryTeal,
             contentColor = Color.White,
             icon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(26.dp)) },
@@ -383,6 +393,15 @@ fun SessionsScreen(
                     Text("إلغاء")
                 }
             }
+        )
+    }
+
+    // License Activation Dialog
+    if (showActivationDialog) {
+        LicenseDialog(
+            onDismiss = { showActivationDialog = false },
+            onActivated = { showActivationDialog = false },
+            isMandatory = operationsCount >= LicenseManager.FREE_OPERATIONS_LIMIT
         )
     }
 }
