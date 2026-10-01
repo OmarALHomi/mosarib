@@ -21,7 +21,11 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Checkbox
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
@@ -108,6 +112,7 @@ fun VouchersScreen(
     val frequentDescriptions by viewModel.frequentExpenseDescriptions.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val operationsCount by viewModel.operationsCount.collectAsStateWithLifecycle()
+    val settlementResult by viewModel.settlementResult.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var showActivationDialog by remember { mutableStateOf(false) }
@@ -628,9 +633,16 @@ fun VouchersScreen(
             frequentDescriptions = frequentDescriptions,
             currencySymbol = config.currencySymbol,
             onDismiss = { showAddSheet = false },
-            onSave = { type, custId, amt, cat, method, notes, sessionId ->
-                viewModel.addVoucher(type, custId, amt, cat, method, notes, sessionId)
+            onSave = { type, custId, amt, cat, method, notes, sessionId, selectedSessionIds ->
+                viewModel.addVoucher(type, custId, amt, cat, method, notes, sessionId, selectedSessionIds)
             }
+        )
+    }
+
+    settlementResult?.let { res ->
+        SettlementResultDialog(
+            result = res,
+            onDismiss = { viewModel.clearSettlementResult() }
         )
     }
 
@@ -735,7 +747,8 @@ fun AddVoucherBottomSheet(
         category: String,
         paymentMethod: String,
         notes: String,
-        sessionId: Long?
+        sessionId: Long?,
+        selectedSessionIds: List<Long>
     ) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -743,20 +756,22 @@ fun AddVoucherBottomSheet(
     var type by remember { mutableStateOf(VoucherType.RECEIPT) }
     var selectedCustomerId by remember { mutableLongStateOf(customers.firstOrNull()?.id ?: 0L) }
     var selectedBeneficiaryId by remember { mutableStateOf<Long?>(null) }
-    var selectedSessionId by remember { mutableStateOf<Long?>(null) }
+    var selectedSessionIds by remember { mutableStateOf(setOf<Long>()) }
     var amountStr by remember { mutableStateOf("") }
     var paymentMethod by remember { mutableStateOf("نقداً") }
     var notes by remember { mutableStateOf("") }
 
     var custDropdownExpanded by remember { mutableStateOf(false) }
     var beneficiaryDropdownExpanded by remember { mutableStateOf(false) }
-    var sessionDropdownExpanded by remember { mutableStateOf(false) }
 
     val selectedCustomer = customers.find { it.id == selectedCustomerId }
     val selectedBeneficiary = customers.find { it.id == selectedBeneficiaryId }
 
-    // الجلسات غير المسددة لهذا العميل لإمكانية ربط السند بها
-    val unsettledSessions = allSessions.filter { it.customerId == selectedCustomerId && it.remainingDebt > 0 }
+    // الجلسات غير المسددة لهذا العميل مرتبة بالأقدم أولاً (الأول فالأول)
+    val unsettledSessions = remember(allSessions, selectedCustomerId) {
+        allSessions.filter { it.customerId == selectedCustomerId && it.remainingDebt > 0 }
+            .sortedBy { it.startTime }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -766,6 +781,7 @@ fun AddVoucherBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 20.dp)
         ) {
             Row(
@@ -842,7 +858,8 @@ fun AddVoucherBottomSheet(
                                 text = { Text(c.name, fontWeight = FontWeight.Bold) },
                                 onClick = {
                                     selectedCustomerId = c.id
-                                    selectedSessionId = null
+                                    selectedSessionIds = emptySet()
+                                    amountStr = ""
                                     custDropdownExpanded = false
                                 }
                             )
@@ -850,58 +867,228 @@ fun AddVoucherBottomSheet(
                     }
                 }
 
-                // خيار ربط السند بدورة سقي غير مسددة
+                // قسم الجلسات غير المسددة المتوفرة على العميل
                 if (unsettledSessions.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text("ربط بدورة سقي مؤخرة (اختياري):", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal))
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Box {
-                        val sessionTitle = if (selectedSessionId != null) {
-                            val target = unsettledSessions.find { it.id == selectedSessionId }
-                            "دورة سقي #${target?.id} (متبقي: ${Formatters.formatCurrency(target?.remainingDebt ?: 0.0, currencySymbol)})"
-                        } else {
-                            "سداد عام لحساب العميل (بدون ربط)"
-                        }
-                        OutlinedTextField(
-                            value = sessionTitle,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp)
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
                         )
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .clickable { sessionDropdownExpanded = true }
-                        )
-                        DropdownMenu(
-                            expanded = sessionDropdownExpanded,
-                            onDismissRequest = { sessionDropdownExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("سداد عام لحساب العميل (بدون ربط)") },
-                                onClick = {
-                                    selectedSessionId = null
-                                    sessionDropdownExpanded = false
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "جلسات سقي غير مسددة (${unsettledSessions.size})",
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal)
+                                    )
+                                    val totalUnsettledDebt = unsettledSessions.sumOf { it.remainingDebt }
+                                    Text(
+                                        text = "إجمالي المتأخرات: ${Formatters.formatCurrency(totalUnsettledDebt, currencySymbol)}",
+                                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFC62828), fontWeight = FontWeight.Bold)
+                                    )
                                 }
-                            )
-                            unsettledSessions.forEach { s ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            "دورة #${s.id} - ${Formatters.formatDate(s.startTime)} (متبقي: ${Formatters.formatCurrency(s.remainingDebt, currencySymbol)})",
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    },
-                                    onClick = {
-                                        selectedSessionId = s.id
-                                        amountStr = Formatters.formatAmountInput(s.remainingDebt.toString())
-                                        sessionDropdownExpanded = false
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    TextButton(
+                                        onClick = {
+                                            val allIds = unsettledSessions.map { it.id }.toSet()
+                                            selectedSessionIds = allIds
+                                            val totalSelected = unsettledSessions.sumOf { it.remainingDebt }
+                                            amountStr = Formatters.formatAmountInput(totalSelected.toString())
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("تحديد الكل", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PrimaryTeal)
                                     }
-                                )
+                                    if (selectedSessionIds.isNotEmpty()) {
+                                        TextButton(
+                                            onClick = {
+                                                selectedSessionIds = emptySet()
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Text("إلغاء", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "اختر ما تريد سداده (يوزع المبلغ بالأقدمية أولاً):",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            val parsedAmt = Formatters.parseAmountInput(amountStr)
+                            val sortedSelected = unsettledSessions.filter { selectedSessionIds.contains(it.id) }.sortedBy { it.startTime }
+
+                            var allocPool = parsedAmt
+                            val allocations = mutableMapOf<Long, Pair<Double, Double>>()
+                            for (s in sortedSelected) {
+                                val allocated = minOf(s.remainingDebt, maxOf(0.0, allocPool))
+                                val rem = maxOf(0.0, s.remainingDebt - allocated)
+                                allocations[s.id] = Pair(allocated, rem)
+                                allocPool = maxOf(0.0, allocPool - allocated)
+                            }
+
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                unsettledSessions.forEach { session ->
+                                    val isSelected = selectedSessionIds.contains(session.id)
+                                    val allocInfo = allocations[session.id]
+
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                val newSet = if (isSelected) {
+                                                    selectedSessionIds - session.id
+                                                } else {
+                                                    selectedSessionIds + session.id
+                                                }
+                                                selectedSessionIds = newSet
+                                                if (newSet.isNotEmpty() && amountStr.isBlank()) {
+                                                    val sumSel = unsettledSessions.filter { newSet.contains(it.id) }.sumOf { it.remainingDebt }
+                                                    amountStr = Formatters.formatAmountInput(sumSel.toString())
+                                                }
+                                            },
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isSelected) {
+                                                PrimaryTeal.copy(alpha = 0.08f)
+                                            } else {
+                                                MaterialTheme.colorScheme.surface
+                                            }
+                                        ),
+                                        border = if (isSelected) {
+                                            BorderStroke(1.5.dp, PrimaryTeal)
+                                        } else {
+                                            BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.4f))
+                                        }
+                                    ) {
+                                        Column(modifier = Modifier.padding(10.dp)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    Checkbox(
+                                                        checked = isSelected,
+                                                        onCheckedChange = { checked ->
+                                                            val newSet = if (checked) {
+                                                                selectedSessionIds + session.id
+                                                            } else {
+                                                                selectedSessionIds - session.id
+                                                            }
+                                                            selectedSessionIds = newSet
+                                                            if (newSet.isNotEmpty() && amountStr.isBlank()) {
+                                                                val sumSel = unsettledSessions.filter { newSet.contains(it.id) }.sumOf { it.remainingDebt }
+                                                                amountStr = Formatters.formatAmountInput(sumSel.toString())
+                                                            }
+                                                        },
+                                                        modifier = Modifier.size(24.dp)
+                                                    )
+                                                    Column {
+                                                        Text(
+                                                            text = "دورة سقي #${session.id}",
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 13.sp
+                                                        )
+                                                        Text(
+                                                            text = Formatters.formatDate(session.startTime),
+                                                            fontSize = 11.sp,
+                                                            color = Color.Gray
+                                                        )
+                                                    }
+                                                }
+                                                Column(horizontalAlignment = Alignment.End) {
+                                                    Text(
+                                                        text = Formatters.formatCurrency(session.remainingDebt, currencySymbol),
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 13.sp,
+                                                        color = Color(0xFFC62828)
+                                                    )
+                                                    Text(
+                                                        text = "المتبقي",
+                                                        fontSize = 10.sp,
+                                                        color = Color.Gray
+                                                    )
+                                                }
+                                            }
+
+                                            // شارة المعاينة الحية للسداد في حال اختيار الجلسة
+                                            if (isSelected && allocInfo != null) {
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                val (allocated, remAfter) = allocInfo
+                                                val (badgeBg, badgeTextColor, badgeText) = when {
+                                                    parsedAmt <= 0.0 -> Triple(
+                                                        Color(0xFFEEEEEE),
+                                                        Color.DarkGray,
+                                                        "⚠️ أدخل المبلغ لمعاينة التوزيع"
+                                                    )
+                                                    remAfter == 0.0 -> Triple(
+                                                        Color(0xFFE8F5E9),
+                                                        Color(0xFF2E7D32),
+                                                        "✅ ستُسدد بالكامل (${Formatters.formatCurrency(allocated, currencySymbol)})"
+                                                    )
+                                                    allocated > 0.0 -> Triple(
+                                                        Color(0xFFFFF8E1),
+                                                        Color(0xFFF57F17),
+                                                        "⏳ سداد جزئي: ${Formatters.formatCurrency(allocated, currencySymbol)} (متبقي: ${Formatters.formatCurrency(remAfter, currencySymbol)})"
+                                                    )
+                                                    else -> Triple(
+                                                        Color(0xFFFFEBEE),
+                                                        Color(0xFFC62828),
+                                                        "❌ لم يشملها المبلغ (المبلغ غير كافٍ)"
+                                                    )
+                                                }
+
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(badgeBg)
+                                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = badgeText,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = badgeTextColor
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
+                    }
+                } else {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFFE8F5E9))
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "هذا العميل ليس عليه جلسات مؤخرة (سداد عام لحسابه)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2E7D32)
+                        )
                     }
                 }
             } else {
@@ -948,7 +1135,7 @@ fun AddVoucherBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             OutlinedTextField(
                 value = amountStr,
@@ -1021,7 +1208,8 @@ fun AddVoucherBottomSheet(
                     if (amt > 0) {
                         val custId = if (type == VoucherType.RECEIPT) selectedCustomerId else selectedBeneficiaryId
                         val cat = if (type == VoucherType.RECEIPT) "سداد حساب" else notes.ifBlank { "مصروف" }
-                        onSave(type, custId, amt, cat, paymentMethod, notes, selectedSessionId)
+                        val selList = if (type == VoucherType.RECEIPT) selectedSessionIds.toList() else emptyList()
+                        onSave(type, custId, amt, cat, paymentMethod, notes, null, selList)
                         onDismiss()
                     }
                 },
@@ -1039,4 +1227,212 @@ fun AddVoucherBottomSheet(
             }
         }
     }
+}
+
+@Composable
+fun SettlementResultDialog(
+    result: SettlementResult,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(AccentEmerald.copy(alpha = 0.15f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Receipt,
+                        contentDescription = null,
+                        tint = AccentEmerald,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column {
+                    Text(
+                        text = "تفاصيل تسديد السند",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = "تم التوزيع حسب الأقدمية (الأول فالأول)",
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Customer & Total Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("العميل:", style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray))
+                            Text(result.customerName, fontWeight = FontWeight.Bold)
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("المبلغ المقبوض:", style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray))
+                            Text(
+                                Formatters.formatCurrency(result.totalAmount, result.currencySymbol),
+                                fontWeight = FontWeight.Bold,
+                                color = AccentEmerald
+                            )
+                        }
+                    }
+                }
+
+                Text(
+                    text = "توزيع السداد على الجلسات:",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                )
+
+                result.items.forEach { item ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = when {
+                                item.isFullyPaid -> Color(0xFFE8F5E9)
+                                item.allocatedAmount > 0 -> Color(0xFFFFF8E1)
+                                else -> Color(0xFFFFEBEE)
+                            }
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "دورة سقي #${item.sessionId}",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    text = Formatters.formatDate(item.date),
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "المسدد: ${Formatters.formatCurrency(item.allocatedAmount, result.currencySymbol)}",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = if (item.allocatedAmount > 0) PrimaryTeal else Color(0xFFC62828)
+                                )
+                                Text(
+                                    text = when {
+                                        item.isFullyPaid -> "خالصة بالكامل ✅"
+                                        item.allocatedAmount > 0 -> "متبقي: ${Formatters.formatCurrency(item.remainingDebtAfter, result.currencySymbol)} ⏳"
+                                        else -> "لم يشملها المبلغ ❌"
+                                    },
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = when {
+                                        item.isFullyPaid -> Color(0xFF2E7D32)
+                                        item.allocatedAmount > 0 -> Color(0xFFF57F17)
+                                        else -> Color(0xFFC62828)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (result.surplusAmount > 0.0) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE0F2F1)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("💰", fontSize = 18.sp)
+                            Column {
+                                Text(
+                                    "فائض رصيد للعميل",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = PrimaryTeal
+                                )
+                                Text(
+                                    "تم قيد ${Formatters.formatCurrency(result.surplusAmount, result.currencySymbol)} كرصيد دائن لصالح العميل",
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val sb = StringBuilder()
+                    sb.append("السلام عليكم ورحمة الله وبركاته\n")
+                    sb.append("الأخ/ ${result.customerName} المحترم\n")
+                    sb.append("تم استلام وتسجيل سند قبض بمبلغ: ${Formatters.formatCurrency(result.totalAmount, result.currencySymbol)}\n\n")
+                    sb.append("📋 تفاصيل تسديد الجلسات:\n")
+                    result.items.forEach { item ->
+                        val dateStr = Formatters.formatDate(item.date)
+                        val status = if (item.isFullyPaid) "خالص بالكامل ✅" else "متبقي: ${Formatters.formatCurrency(item.remainingDebtAfter, result.currencySymbol)} ⏳"
+                        sb.append("• دورة #${item.sessionId} ($dateStr):\n")
+                        sb.append("   - المسدد: ${Formatters.formatCurrency(item.allocatedAmount, result.currencySymbol)}\n")
+                        sb.append("   - الحالة: $status\n")
+                    }
+                    if (result.surplusAmount > 0.0) {
+                        sb.append("• رصيد فائض لحسابكم: ${Formatters.formatCurrency(result.surplusAmount, result.currencySymbol)} 💰\n")
+                    }
+                    val msg = FileSharingHelper.attachMessageFooter(sb.toString())
+                    FileSharingHelper.sendWhatsAppMessage(context, result.customerPhone, msg)
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Send,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("إشعار واتساب", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("إغلاق", fontWeight = FontWeight.Bold)
+            }
+        }
+    )
 }

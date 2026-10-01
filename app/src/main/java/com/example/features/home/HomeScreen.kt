@@ -81,6 +81,7 @@ import com.example.features.sessions.SessionsViewModel
 import com.example.features.sessions.WaterSessionWithCustomer
 import com.example.features.settings.SettingsViewModel
 import com.example.features.vouchers.AddVoucherBottomSheet
+import com.example.features.vouchers.SettlementResultDialog
 import com.example.features.vouchers.VoucherType
 import com.example.features.vouchers.VouchersViewModel
 import com.example.core.license.LicenseDialog
@@ -120,6 +121,8 @@ fun HomeScreen(
     val toast by sessionsViewModel.toast.collectAsStateWithLifecycle()
     val operationsCount by settingsViewModel.operationsCount.collectAsStateWithLifecycle()
     val isActivated by settingsViewModel.isActivated.collectAsStateWithLifecycle()
+    val allSessions by vouchersViewModel.allSessions.collectAsStateWithLifecycle()
+    val settlementResult by vouchersViewModel.settlementResult.collectAsStateWithLifecycle()
 
     val isSystemDark = isSystemInDarkTheme()
     val isDarkTheme = when (config.themeMode) {
@@ -578,9 +581,10 @@ fun HomeScreen(
     if (showAddVoucherSheet) {
         AddVoucherBottomSheet(
             customers = customers,
+            allSessions = allSessions,
             currencySymbol = config.currencySymbol,
             onDismiss = { showAddVoucherSheet = false },
-            onSave = { type, customerId, amount, category, method, notes, sessionId ->
+            onSave = { type, customerId, amount, category, method, notes, sessionId, selectedSessionIds ->
                 vouchersViewModel.addVoucher(
                     type = type,
                     customerId = customerId,
@@ -588,9 +592,17 @@ fun HomeScreen(
                     category = category,
                     paymentMethod = method,
                     notes = notes,
-                    sessionId = sessionId
+                    sessionId = sessionId,
+                    selectedSessionIds = selectedSessionIds
                 )
             }
+        )
+    }
+
+    settlementResult?.let { res ->
+        SettlementResultDialog(
+            result = res,
+            onDismiss = { vouchersViewModel.clearSettlementResult() }
         )
     }
 

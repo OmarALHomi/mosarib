@@ -120,4 +120,50 @@ class ExampleUnitTest {
     fun `test LicenseManager free operations limit constant`() {
         assertEquals(200, com.example.core.license.LicenseManager.FREE_OPERATIONS_LIMIT)
     }
+
+    @Test
+    fun `test FIFO allocation covers oldest sessions first with partial remainder`() {
+        val s1 = WaterSession(id = 1, customerId = 1L, startTime = 1000L, totalAmount = 10000.0, amountPaid = 2000.0, remainingDebt = 8000.0)
+        val s2 = WaterSession(id = 2, customerId = 1L, startTime = 2000L, totalAmount = 15000.0, amountPaid = 0.0, remainingDebt = 15000.0)
+        val s3 = WaterSession(id = 3, customerId = 1L, startTime = 3000L, totalAmount = 5000.0, amountPaid = 0.0, remainingDebt = 5000.0)
+
+        // Customer pays 12,000
+        val result = com.example.features.vouchers.calculateFifoAllocation(listOf(s3, s1, s2), 12000.0)
+
+        assertEquals(0.0, result.surplus, 0.001)
+        assertEquals(3, result.steps.size)
+
+        // Session 1 (oldest: 1000L) gets full remainingDebt of 8000
+        val step1 = result.steps.find { it.session.id == 1L }!!
+        assertEquals(8000.0, step1.allocatedAmount, 0.001)
+        assertEquals(10000.0, step1.newPaid, 0.001)
+        assertEquals(0.0, step1.newDebt, 0.001)
+        org.junit.Assert.assertTrue(step1.isFullyPaid)
+
+        // Session 2 (middle: 2000L) gets remaining 4000
+        val step2 = result.steps.find { it.session.id == 2L }!!
+        assertEquals(4000.0, step2.allocatedAmount, 0.001)
+        assertEquals(4000.0, step2.newPaid, 0.001)
+        assertEquals(11000.0, step2.newDebt, 0.001)
+        org.junit.Assert.assertFalse(step2.isFullyPaid)
+
+        // Session 3 (newest: 3000L) gets 0
+        val step3 = result.steps.find { it.session.id == 3L }!!
+        assertEquals(0.0, step3.allocatedAmount, 0.001)
+        assertEquals(0.0, step3.newPaid, 0.001)
+        assertEquals(5000.0, step3.newDebt, 0.001)
+        org.junit.Assert.assertFalse(step3.isFullyPaid)
+    }
+
+    @Test
+    fun `test FIFO allocation with surplus overpayment`() {
+        val s1 = WaterSession(id = 1, customerId = 1L, startTime = 1000L, totalAmount = 5000.0, amountPaid = 0.0, remainingDebt = 5000.0)
+        val s2 = WaterSession(id = 2, customerId = 1L, startTime = 2000L, totalAmount = 3000.0, amountPaid = 0.0, remainingDebt = 3000.0)
+
+        // Customer pays 10,000 (total debt is 8,000)
+        val result = com.example.features.vouchers.calculateFifoAllocation(listOf(s1, s2), 10000.0)
+
+        assertEquals(2000.0, result.surplus, 0.001)
+        org.junit.Assert.assertTrue(result.steps.all { it.isFullyPaid })
+    }
 }

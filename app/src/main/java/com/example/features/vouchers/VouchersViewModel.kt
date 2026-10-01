@@ -174,42 +174,28 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         _toast.value = null
     }
 
+    private val _settlementResult = MutableStateFlow<SettlementResult?>(null)
+    val settlementResult: StateFlow<SettlementResult?> = _settlementResult.asStateFlow()
+
+    fun clearSettlementResult() {
+        _settlementResult.value = null
+    }
+
     fun settleSessionDebt(
         session: WaterSession,
         amountToPay: Double,
         paymentMethod: String = "نقداً",
         notes: String = ""
     ) {
-        viewModelScope.launch {
-            val totalOps = db.waterSessionDao().getSessionsCountDirect() + db.voucherDao().getVouchersCountDirect()
-            if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
-                showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
-                return@launch
-            }
-
-            val newAmountPaid = session.amountPaid + amountToPay
-            val newRemainingDebt = Math.max(0.0, session.totalAmount - newAmountPaid)
-            val updated = session.copy(
-                amountPaid = newAmountPaid,
-                remainingDebt = newRemainingDebt
-            )
-            sessionRepo.updateSession(updated)
-
-            val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(4)}"
-            val voucher = Voucher(
-                voucherNumber = vNumber,
-                type = VoucherType.RECEIPT,
-                customerId = session.billedToCustomerId ?: session.customerId,
-                sessionId = session.id,
-                amount = amountToPay,
-                category = "سداد سقي",
-                paymentMethod = paymentMethod,
-                date = System.currentTimeMillis(),
-                notes = notes.ifBlank { "سداد دورة سقي #${session.id}" }
-            )
-            voucherRepo.insertVoucher(voucher)
-            showToast("تم سداد المبلغ بنجاح وإصدار سند القبض المرتبط", ToastType.SUCCESS)
-        }
+        addVoucher(
+            type = VoucherType.RECEIPT,
+            customerId = session.billedToCustomerId ?: session.customerId,
+            amount = amountToPay,
+            category = "سداد سقي",
+            paymentMethod = paymentMethod,
+            notes = notes,
+            sessionId = session.id
+        )
     }
 
     fun addVoucher(
@@ -219,7 +205,8 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         category: String,
         paymentMethod: String,
         notes: String,
-        sessionId: Long? = null
+        sessionId: Long? = null,
+        selectedSessionIds: List<Long> = emptyList()
     ) {
         viewModelScope.launch {
             val totalOps = db.waterSessionDao().getSessionsCountDirect() + db.voucherDao().getVouchersCountDirect()
@@ -228,32 +215,112 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                 return@launch
             }
 
-            val prefix = if (type == VoucherType.RECEIPT) "REC" else "EXP"
-            val num = "$prefix-${System.currentTimeMillis().toString().takeLast(4)}"
-            val voucher = Voucher(
-                voucherNumber = num,
-                type = type,
-                customerId = customerId,
-                sessionId = sessionId,
-                amount = amount,
-                category = category,
-                paymentMethod = paymentMethod,
-                date = System.currentTimeMillis(),
-                notes = notes
-            )
-            voucherRepo.insertVoucher(voucher)
-
-            if (type == VoucherType.RECEIPT && sessionId != null && sessionId > 0) {
-                val targetSession = sessionRepo.getSessionById(sessionId)
-                if (targetSession != null) {
-                    val newPaid = targetSession.amountPaid + amount
-                    val newDebt = Math.max(0.0, targetSession.totalAmount - newPaid)
-                    sessionRepo.updateSession(targetSession.copy(amountPaid = newPaid, remainingDebt = newDebt))
-                }
+            val targetIds = when {
+                selectedSessionIds.isNotEmpty() -> selectedSessionIds
+                sessionId != null && sessionId > 0 -> listOf(sessionId)
+                else -> emptyList()
             }
 
-            val title = if (type == VoucherType.RECEIPT) "سند القبض" else "سند الصرف"
-            showToast("تم حفظ $title بنجاح", ToastType.SUCCESS)
+            if (type == VoucherType.RECEIPT && targetIds.isNotEmpty()) {
+                val sessionsToSettle = targetIds.mapNotNull { sessionRepo.getSessionById(it) }
+                val fifoResult = calculateFifoAllocation(sessionsToSettle, amount)
+
+                val baseTime = System.currentTimeMillis()
+                var voucherIdx = 0
+                val summaries = mutableListOf<SettlementItemSummary>()
+
+                for (step in fifoResult.steps) {
+                    val s = step.session
+                    if (step.allocatedAmount > 0.0) {
+                        sessionRepo.updateSession(
+                            s.copy(amountPaid = step.newPaid, remainingDebt = step.newDebt)
+                        )
+
+                        voucherIdx++
+                        val vNum = if (fifoResult.steps.size == 1 && fifoResult.surplus <= 0.0) {
+                            "REC-${baseTime.toString().takeLast(4)}"
+                        } else {
+                            "REC-${baseTime.toString().takeLast(4)}-$voucherIdx"
+                        }
+
+                        val sessionNote = if (notes.isNotBlank()) {
+                            "$notes (سداد دورة #${s.id})"
+                        } else {
+                            "سداد دورة سقي #${s.id}"
+                        }
+
+                        val voucher = Voucher(
+                            voucherNumber = vNum,
+                            type = VoucherType.RECEIPT,
+                            customerId = customerId,
+                            sessionId = s.id,
+                            amount = step.allocatedAmount,
+                            category = "سداد سقي",
+                            paymentMethod = paymentMethod,
+                            date = baseTime + voucherIdx,
+                            notes = sessionNote
+                        )
+                        voucherRepo.insertVoucher(voucher)
+                    }
+
+                    summaries.add(
+                        SettlementItemSummary(
+                            sessionId = s.id,
+                            date = s.startTime,
+                            originalDebt = s.remainingDebt,
+                            allocatedAmount = step.allocatedAmount,
+                            remainingDebtAfter = step.newDebt,
+                            isFullyPaid = step.isFullyPaid
+                        )
+                    )
+                }
+
+                // إذا دفع العميل مبلغاً فائضاً عن كامل ديون الجلسات المختارة
+                if (fifoResult.surplus > 0.0) {
+                    voucherIdx++
+                    val surplusVoucher = Voucher(
+                        voucherNumber = "REC-${baseTime.toString().takeLast(4)}-$voucherIdx",
+                        type = VoucherType.RECEIPT,
+                        customerId = customerId,
+                        sessionId = null,
+                        amount = fifoResult.surplus,
+                        category = "دفعة على الحساب",
+                        paymentMethod = paymentMethod,
+                        date = baseTime + voucherIdx,
+                        notes = if (notes.isNotBlank()) "$notes (فائض رصيد)" else "دفعة فائضة مقيدة كرصيد دائن للعميل"
+                    )
+                    voucherRepo.insertVoucher(surplusVoucher)
+                }
+
+                val cust = customers.value.find { it.id == customerId }
+                _settlementResult.value = SettlementResult(
+                    customerName = cust?.name ?: "عميل غير محدد",
+                    customerPhone = cust?.phone ?: "",
+                    totalAmount = amount,
+                    items = summaries,
+                    surplusAmount = fifoResult.surplus,
+                    currencySymbol = appConfig.value.currencySymbol
+                )
+                showToast("تم سداد السند وتوزيع المبلغ بنجاح", ToastType.SUCCESS)
+            } else {
+                val prefix = if (type == VoucherType.RECEIPT) "REC" else "EXP"
+                val num = "$prefix-${System.currentTimeMillis().toString().takeLast(4)}"
+                val voucher = Voucher(
+                    voucherNumber = num,
+                    type = type,
+                    customerId = customerId,
+                    sessionId = sessionId,
+                    amount = amount,
+                    category = category,
+                    paymentMethod = paymentMethod,
+                    date = System.currentTimeMillis(),
+                    notes = notes
+                )
+                voucherRepo.insertVoucher(voucher)
+
+                val title = if (type == VoucherType.RECEIPT) "سند القبض" else "سند الصرف"
+                showToast("تم حفظ $title بنجاح", ToastType.SUCCESS)
+            }
         }
     }
 
@@ -263,4 +330,72 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
             showToast("تم حذف السند بنجاح", ToastType.INFO)
         }
     }
+}
+
+data class SettlementItemSummary(
+    val sessionId: Long,
+    val date: Long,
+    val originalDebt: Double,
+    val allocatedAmount: Double,
+    val remainingDebtAfter: Double,
+    val isFullyPaid: Boolean
+)
+
+data class SettlementResult(
+    val customerName: String,
+    val customerPhone: String,
+    val totalAmount: Double,
+    val items: List<SettlementItemSummary>,
+    val surplusAmount: Double = 0.0,
+    val currencySymbol: String = "ر.ي"
+)
+
+data class AllocationStep(
+    val session: WaterSession,
+    val allocatedAmount: Double,
+    val newPaid: Double,
+    val newDebt: Double,
+    val isFullyPaid: Boolean
+)
+
+data class FifoAllocationResult(
+    val steps: List<AllocationStep>,
+    val surplus: Double
+)
+
+fun calculateFifoAllocation(
+    sessions: List<WaterSession>,
+    totalAmount: Double
+): FifoAllocationResult {
+    var pool = totalAmount
+    val sorted = sessions.sortedBy { it.startTime }
+    val steps = mutableListOf<AllocationStep>()
+    for (s in sorted) {
+        if (pool <= 0.0) {
+            steps.add(
+                AllocationStep(
+                    session = s,
+                    allocatedAmount = 0.0,
+                    newPaid = s.amountPaid,
+                    newDebt = s.remainingDebt,
+                    isFullyPaid = false
+                )
+            )
+        } else {
+            val allocated = minOf(s.remainingDebt, pool)
+            val newPaid = (s.amountPaid + allocated).coerceAtMost(s.totalAmount)
+            val newDebt = (s.totalAmount - newPaid).coerceAtLeast(0.0)
+            pool -= allocated
+            steps.add(
+                AllocationStep(
+                    session = s,
+                    allocatedAmount = allocated,
+                    newPaid = newPaid,
+                    newDebt = newDebt,
+                    isFullyPaid = newDebt <= 0.0
+                )
+            )
+        }
+    }
+    return FifoAllocationResult(steps = steps, surplus = maxOf(0.0, pool))
 }

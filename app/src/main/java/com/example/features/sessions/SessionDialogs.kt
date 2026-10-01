@@ -1,5 +1,7 @@
 package com.example.features.sessions
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,21 +15,26 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.AlertDialog
@@ -39,6 +46,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -65,6 +73,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -79,6 +88,8 @@ import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.SecondaryAqua
 import kotlinx.coroutines.launch
+import java.util.Calendar
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,6 +119,7 @@ fun AddEditSessionBottomSheet(
         confirmValueChange = { it != SheetValue.Hidden }
     )
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var selectedCustomerId by remember {
         mutableLongStateOf(initialSession?.customerId ?: customers.firstOrNull()?.id ?: 0L)
@@ -127,15 +139,92 @@ fun AddEditSessionBottomSheet(
         derivedStateOf { Formatters.parseAmountInput(pricePerHourStr).takeIf { it > 0 } ?: defaultPricePerHour }
     }
 
-    var hours by remember { mutableIntStateOf(initialSession?.let { it.durationMinutes / 60 } ?: 1) }
-    var minutes by remember { mutableIntStateOf(initialSession?.let { it.durationMinutes % 60 } ?: 0) }
+    // حالة تاريخ السقي ووقت البدء والانتهاء
+    var sessionDateMillis by remember { mutableLongStateOf(initialSession?.startTime ?: System.currentTimeMillis()) }
+
+    val defaultStartCal = remember(initialSession) {
+        Calendar.getInstance().apply {
+            if (initialSession != null) {
+                timeInMillis = initialSession.startTime
+            } else {
+                add(Calendar.HOUR_OF_DAY, -1)
+                set(Calendar.MINUTE, (get(Calendar.MINUTE) / 5) * 5)
+            }
+        }
+    }
+    val defaultEndCal = remember(initialSession) {
+        Calendar.getInstance().apply {
+            if (initialSession != null) {
+                timeInMillis = initialSession.endTime
+            } else {
+                set(Calendar.MINUTE, (get(Calendar.MINUTE) / 5) * 5)
+            }
+        }
+    }
+
+    var startHour by remember { mutableIntStateOf(defaultStartCal.get(Calendar.HOUR_OF_DAY)) }
+    var startMinute by remember { mutableIntStateOf(defaultStartCal.get(Calendar.MINUTE)) }
+    var endHour by remember { mutableIntStateOf(defaultEndCal.get(Calendar.HOUR_OF_DAY)) }
+    var endMinute by remember { mutableIntStateOf(defaultEndCal.get(Calendar.MINUTE)) }
+
+    // حساب فارق الوقت تلقائياً (بما في ذلك السقي الليلي الممتد بعد منتصف الليل)
+    val rawDiffMinutes = remember(startHour, startMinute, endHour, endMinute) {
+        derivedStateOf {
+            val startTotal = startHour * 60 + startMinute
+            val endTotal = endHour * 60 + endMinute
+            val diff = endTotal - startTotal
+            if (diff > 0) {
+                diff
+            } else if (diff < 0) {
+                diff + 1440 // سقي ليلي يعبر منتصف الليل
+            } else {
+                0
+            }
+        }
+    }
+
+    val totalMinutes by remember(rawDiffMinutes) {
+        derivedStateOf {
+            if (rawDiffMinutes.value > 0) rawDiffMinutes.value else 60
+        }
+    }
+
+    val hours by remember(totalMinutes) { derivedStateOf { totalMinutes / 60 } }
+    val minutes by remember(totalMinutes) { derivedStateOf { totalMinutes % 60 } }
+    val calculatedCost by remember(totalMinutes, pricePerHour) {
+        derivedStateOf { Formatters.calculateWaterCost(totalMinutes, pricePerHour) }
+    }
+
     var amountPaidStr by remember { mutableStateOf(initialSession?.amountPaid?.let { if (it > 0) it.toString() else "" } ?: "") }
     var notes by remember { mutableStateOf(initialSession?.notes ?: "") }
-
-    val totalMinutes by remember { derivedStateOf { (hours * 60) + minutes } }
-    val calculatedCost by remember { derivedStateOf { Formatters.calculateWaterCost(totalMinutes, pricePerHour) } }
     val amountPaid by remember { derivedStateOf { Formatters.parseAmountInput(amountPaidStr) } }
-    val remainingDebt by remember { derivedStateOf { Math.max(0.0, calculatedCost - amountPaid) } }
+    val remainingDebt by remember(calculatedCost, amountPaid) {
+        derivedStateOf { Math.max(0.0, calculatedCost - amountPaid) }
+    }
+
+    val startCal = remember(sessionDateMillis, startHour, startMinute) {
+        Calendar.getInstance().apply {
+            timeInMillis = sessionDateMillis
+            set(Calendar.HOUR_OF_DAY, startHour)
+            set(Calendar.MINUTE, startMinute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+    }
+    val endCal = remember(sessionDateMillis, startHour, startMinute, endHour, endMinute) {
+        Calendar.getInstance().apply {
+            timeInMillis = sessionDateMillis
+            set(Calendar.HOUR_OF_DAY, endHour)
+            set(Calendar.MINUTE, endMinute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            val startTotal = startHour * 60 + startMinute
+            val endTotal = endHour * 60 + endMinute
+            if (endTotal < startTotal) {
+                add(Calendar.DAY_OF_YEAR, 1) // سقي ليلي
+            }
+        }
+    }
 
     var customerDropdownExpanded by remember { mutableStateOf(false) }
     var pumpDropdownExpanded by remember { mutableStateOf(false) }
@@ -174,7 +263,58 @@ fun AddEditSessionBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // شريط تاريخ السقي السريع
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable {
+                        val cal = Calendar.getInstance().apply { timeInMillis = sessionDateMillis }
+                        DatePickerDialog(
+                            context,
+                            { _, y, m, d ->
+                                val newCal = Calendar.getInstance().apply { set(y, m, d) }
+                                sessionDateMillis = newCal.timeInMillis
+                            },
+                            cal.get(Calendar.YEAR),
+                            cal.get(Calendar.MONTH),
+                            cal.get(Calendar.DAY_OF_MONTH)
+                        ).show()
+                    },
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.CalendarToday,
+                            contentDescription = null,
+                            tint = PrimaryTeal,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "تاريخ السقي: ${Formatters.formatDate(sessionDateMillis)}",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                    Text(
+                        text = "تغيير التاريخ 📅",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            color = PrimaryTeal,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Customer Selector
             Text(
@@ -250,90 +390,289 @@ fun AddEditSessionBottomSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Duration: Hours and Minutes
+            // بطاقة تحديد الساعات التفاعلية للمسربين
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                )
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(14.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.AccessTime, contentDescription = null, tint = PrimaryTeal)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("مدة الضخ والري:", fontWeight = FontWeight.Bold)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(PrimaryTeal.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccessTime,
+                                contentDescription = null,
+                                tint = PrimaryTeal,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
-                        Text(
-                            text = Formatters.formatDurationArabic(totalMinutes),
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryTeal
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "تحديد وقت وساعات السقي",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                            Text(
+                                text = "حدد وقت البداية والنهاية أو اختر عدد الساعات بنقرة واحدة",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // بطاقتا الوقت (من الساعة ──▶ إلى الساعة)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // وقت البدء
+                        TimePickerBox(
+                            modifier = Modifier.weight(1f),
+                            title = "وقت البدء (من)",
+                            timeText = formatClockTimeArabic(startHour, startMinute),
+                            accentColor = PrimaryTeal,
+                            icon = Icons.Default.PlayArrow,
+                            onClick = {
+                                TimePickerDialog(
+                                    context,
+                                    { _, h, m ->
+                                        startHour = h
+                                        startMinute = m
+                                    },
+                                    startHour,
+                                    startMinute,
+                                    false
+                                ).show()
+                            }
+                        )
+
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = PrimaryTeal.copy(alpha = 0.6f),
+                            modifier = Modifier.size(20.dp)
+                        )
+
+                        // وقت الانتهاء
+                        TimePickerBox(
+                            modifier = Modifier.weight(1f),
+                            title = "وقت الانتهاء (إلى)",
+                            timeText = formatClockTimeArabic(endHour, endMinute),
+                            accentColor = AccentEmerald,
+                            icon = Icons.Default.Stop,
+                            onClick = {
+                                TimePickerDialog(
+                                    context,
+                                    { _, h, m ->
+                                        endHour = h
+                                        endMinute = m
+                                    },
+                                    endHour,
+                                    endMinute,
+                                    false
+                                ).show()
+                            }
                         )
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Hours Stepper
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    // أزرار الساعات السريعة للمسربين
+                    Text(
+                        text = "أو اختر عدد الساعات مباشرة بنقرة واحدة:",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("الساعات: $hours س", style = MaterialTheme.typography.bodyMedium)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedButton(
-                                onClick = { if (hours > 0) hours-- },
-                                shape = CircleShape,
-                                modifier = Modifier.size(36.dp),
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
-                            ) {
-                                Text("-", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text("$hours", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            OutlinedButton(
-                                onClick = { if (hours < 72) hours++ },
-                                shape = CircleShape,
-                                modifier = Modifier.size(36.dp),
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
-                            ) {
-                                Text("+", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            }
+                        val quickHours = listOf(
+                            Pair("نصف ساعة", 30),
+                            Pair("1 ساعة", 60),
+                            Pair("ساعتان", 120),
+                            Pair("3 ساعات", 180),
+                            Pair("4 ساعات", 240),
+                            Pair("5 ساعات", 300),
+                            Pair("6 ساعات", 360)
+                        )
+                        items(quickHours) { (label, mins) ->
+                            val isSelected = totalMinutes == mins
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    val totalM = (startHour * 60 + startMinute) + mins
+                                    endHour = (totalM / 60) % 24
+                                    endMinute = totalM % 60
+                                },
+                                label = {
+                                    Text(
+                                        text = label,
+                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
+                                        fontSize = 12.sp
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = PrimaryTeal,
+                                    selectedLabelColor = Color.White
+                                )
+                            )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Minutes Stepper (0, 15, 30, 45, etc.)
+                    // أزرار الضبط الدقيق السريعة
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text("الدقائق: $minutes د", style = MaterialTheme.typography.bodyMedium)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedButton(
-                                onClick = { if (minutes >= 5) minutes -= 5 else if (hours > 0) { hours--; minutes = 55 } },
-                                shape = CircleShape,
-                                modifier = Modifier.size(36.dp),
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+                        Button(
+                            onClick = { endHour = (endHour + 1) % 24 },
+                            modifier = Modifier.weight(1f).height(38.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Text("+ 1 ساعة", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Button(
+                            onClick = { if (totalMinutes > 60) endHour = (endHour - 1 + 24) % 24 },
+                            modifier = Modifier.weight(1f).height(38.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Text("- 1 ساعة", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Button(
+                            onClick = {
+                                val newM = endMinute + 15
+                                if (newM >= 60) {
+                                    endHour = (endHour + 1) % 24
+                                    endMinute = newM - 60
+                                } else {
+                                    endMinute = newM
+                                }
+                            },
+                            modifier = Modifier.weight(1f).height(38.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Text("+ 15 د", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Button(
+                            onClick = {
+                                val newM = endMinute - 15
+                                if (newM < 0) {
+                                    if (totalMinutes > 15) {
+                                        endHour = (endHour - 1 + 24) % 24
+                                        endMinute = newM + 60
+                                    }
+                                } else {
+                                    if (totalMinutes > 15) {
+                                        endMinute = newM
+                                    }
+                                }
+                            },
+                            modifier = Modifier.weight(1f).height(38.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Text("- 15 د", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // بطاقة النتيجة المحسوبة تلقائياً
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = AccentEmerald.copy(alpha = 0.12f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("-5", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Schedule,
+                                        contentDescription = null,
+                                        tint = AccentEmerald,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "المدة المحسوبة:",
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                }
+                                Text(
+                                    text = Formatters.formatDurationArabic(totalMinutes),
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = AccentEmerald
+                                    )
+                                )
                             }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("$minutes", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            OutlinedButton(
-                                onClick = { if (minutes <= 50) minutes += 5 else { hours++; minutes = 0 } },
-                                shape = CircleShape,
-                                modifier = Modifier.size(36.dp),
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("+5", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = "إجمالي قيمة الماء:",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = Formatters.formatCurrency(calculatedCost, currencySymbol),
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = PrimaryTeal
+                                    )
+                                )
+                            }
+
+                            if (calculatedCost > 0) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = Formatters.amountToArabicWords(calculatedCost, currencySymbol),
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color(0xFF64748B),
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    modifier = Modifier.align(Alignment.End)
+                                )
                             }
                         }
                     }
@@ -370,58 +709,34 @@ fun AddEditSessionBottomSheet(
                 )
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
+            // بطاقة حالة السداد والمتبقي كدين
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = PrimaryTeal.copy(alpha = 0.08f))
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (remainingDebt > 0) Color(0xFFFFEBEE) else Color(0xFFE8F5E9)
+                )
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("إجمالي قيمة الماء:", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            text = Formatters.formatCurrency(calculatedCost, currencySymbol),
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = PrimaryTeal
-                            )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (remainingDebt > 0) "المتبقي بذمة العميل (دين):" else "حالة الحساب:",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = if (remainingDebt > 0) Formatters.formatCurrency(remainingDebt, currencySymbol) else "مسدد بالكامل ✅",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (remainingDebt > 0) Color(0xFFD32F2F) else Color(0xFF2E7D32)
                         )
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("المدفوع نقداً مقدماً:", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            text = Formatters.formatCurrency(amountPaid, currencySymbol),
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = AccentEmerald
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("المتبقي كدين بذمة العميل:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                        Text(
-                            text = Formatters.formatCurrency(remainingDebt, currencySymbol),
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = if (remainingDebt > 0) Color(0xFFE53935) else AccentEmerald
-                            )
-                        )
-                    }
+                    )
                 }
             }
 
@@ -478,8 +793,8 @@ fun AddEditSessionBottomSheet(
                             initialSession?.id ?: 0L,
                             selectedCustomerId,
                             selectedPumpName,
-                            initialSession?.startTime ?: System.currentTimeMillis(),
-                            initialSession?.endTime ?: System.currentTimeMillis(),
+                            startCal.timeInMillis,
+                            endCal.timeInMillis,
                             hours,
                             minutes,
                             pricePerHour,
@@ -492,12 +807,16 @@ fun AddEditSessionBottomSheet(
                 enabled = selectedCustomerId > 0 && totalMinutes > 0,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
+                    .height(54.dp)
                     .testTag("save_session_button"),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
             ) {
-                Text("حفظ وترحيل دورة الماء", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(
+                    text = if (initialSession == null) "حفظ وترحيل دورة السقي 💾" else "حفظ التعديلات 💾",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 16.sp
+                )
             }
         }
     }
@@ -637,5 +956,84 @@ fun SettleSessionDialog(
             }
         }
     )
+}
+
+@Composable
+private fun TimePickerBox(
+    modifier: Modifier = Modifier,
+    title: String,
+    timeText: String,
+    accentColor: androidx.compose.ui.graphics.Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable { onClick() },
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = timeText,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    color = accentColor,
+                    fontSize = 19.sp
+                )
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Text(
+                text = "انقر للتعديل 🕒",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    color = androidx.compose.ui.graphics.Color.Gray
+                )
+            )
+        }
+    }
+}
+
+private fun formatClockTimeArabic(hour: Int, minute: Int): String {
+    val isPm = hour >= 12
+    val hour12 = when (hour % 12) {
+        0 -> 12
+        else -> hour % 12
+    }
+    val amPmStr = if (isPm) "م" else "ص"
+    return String.format(Locale.US, "%02d:%02d %s", hour12, minute, amPmStr)
 }
 
