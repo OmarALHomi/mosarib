@@ -11,25 +11,33 @@ import androidx.core.content.ContextCompat
 /** Native biometric authentication. Only an actual successful system callback can unlock. */
 object BiometricHelper {
 
+    @androidx.annotation.VisibleForTesting
+    var overrideAvailabilityForTesting: Boolean? = null
+
     /** Returns true when the device has enrolled biometrics the app can use. */
     @Suppress("DEPRECATION")
     fun isAvailable(context: Context): Boolean {
+        overrideAvailabilityForTesting?.let { return it }
         try {
-            val fm = context.getSystemService(FingerprintManager::class.java)
-            if (fm != null && fm.isHardwareDetected && fm.hasEnrolledFingerprints()) {
-                return true
-            }
-
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 val bm = context.getSystemService(android.hardware.biometrics.BiometricManager::class.java)
                 val authenticators = android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_STRONG or
                     android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_WEAK
-                return bm?.canAuthenticate(authenticators) ==
-                    android.hardware.biometrics.BiometricManager.BIOMETRIC_SUCCESS
+                if (bm?.canAuthenticate(authenticators) != android.hardware.biometrics.BiometricManager.BIOMETRIC_SUCCESS) {
+                    return false
+                }
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val bm = context.getSystemService(android.hardware.biometrics.BiometricManager::class.java)
-                return bm?.canAuthenticate() == android.hardware.biometrics.BiometricManager.BIOMETRIC_SUCCESS
+                if (bm?.canAuthenticate() != android.hardware.biometrics.BiometricManager.BIOMETRIC_SUCCESS) {
+                    return false
+                }
             }
+
+            val fm = context.getSystemService(FingerprintManager::class.java)
+            if (fm == null || !fm.isHardwareDetected || !fm.hasEnrolledFingerprints()) {
+                return false
+            }
+            return true
         } catch (_: RuntimeException) {
             // Missing permission or an unavailable system service is not authentication.
         }

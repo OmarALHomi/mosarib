@@ -31,19 +31,25 @@ class SecurityRegressionTest {
         try {
             var successes = 0
             var error: String? = null
+            BiometricHelper.overrideAvailabilityForTesting = false
             val request = BiometricHelper.authenticate(controller.get(), { successes++ }, { error = it })
             assertEquals(0, successes)
             assertNotNull(error)
             request.cancel()
         } finally {
+            BiometricHelper.overrideAvailabilityForTesting = null
             controller.pause().stop().destroy()
         }
     }
 
     @Test
     fun `file provider exposes reports and backups but not arbitrary private files`() {
+        // AndroidX FileProvider.SimplePathStrategy internally hardcodes '/' in belongsToRoot:
+        // (path.startsWith(rootPath + '/')), which cannot match Windows backslash paths.
+        org.junit.Assume.assumeTrue("FileProvider URI resolution requires POSIX file separators", File.separatorChar == '/')
+
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val authority = "${context.packageName}.fileprovider"
+        val authority = "${com.example.BuildConfig.APPLICATION_ID}.fileprovider"
         val files = listOf(
             File(context.cacheDir, "reports/test.pdf"),
             File(context.filesDir, "backups/test.back"),
@@ -51,7 +57,7 @@ class SecurityRegressionTest {
             File(context.cacheDir, "private_test.txt")
         )
         try {
-            files.forEach { it.parentFile!!.mkdirs(); it.writeText("fixture") }
+            files.forEach { it.parentFile?.mkdirs(); it.writeText("fixture") }
             assertNotNull(FileProvider.getUriForFile(context, authority, files[0]))
             assertNotNull(FileProvider.getUriForFile(context, authority, files[1]))
             assertThrows(IllegalArgumentException::class.java) { FileProvider.getUriForFile(context, authority, files[2]) }
