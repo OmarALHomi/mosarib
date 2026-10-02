@@ -45,7 +45,8 @@ import kotlinx.coroutines.launch
         FarmExpense::class
     ],
     version = 6,
-    exportSchema = false
+    // تصدير المخطط إلزامي: بدونه لا يمكن اختبار الترحيلات ولا مقارنة الإصدارات قبل النشر.
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -61,6 +62,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun farmExpenseDao(): FarmExpenseDao
 
     companion object {
+        /**
+         * اسم قاعدة البيانات. لا يُغيَّر مطلقًا: تغييره يقطع الوصول إلى دفاتر المستخدمين القائمة.
+         * الاختبار [com.example.core.database.MigrationCoverageTest] يحرس هذه القيمة.
+         */
+        const val DATABASE_NAME = "water_distributor_db"
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -175,15 +182,27 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * كل الترحيلات بترتيب تصاعدي، متاحة للاختبار. أي إصدار جديد يجب أن يضيف ترحيلًا هنا،
+         * ولا يُسمح بأي حال باستخدام الترحيل المدمّر fallbackToDestructiveMigration.
+         */
+        internal val ALL_MIGRATIONS = listOf(
+            MIGRATION_1_2,
+            MIGRATION_2_3,
+            MIGRATION_3_4,
+            MIGRATION_4_5,
+            MIGRATION_5_6
+        )
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "water_distributor_db"
+                    DATABASE_NAME
                 )
-                    // Accounting data must survive an unknown migration; never silently erase it.
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    // بيانات المحاسبة يجب أن تنجو من أي ترحيل غير معروف؛ لا مسح صامت أبدًا.
+                    .addMigrations(*ALL_MIGRATIONS.toTypedArray())
                     .build()
                 INSTANCE = instance
 

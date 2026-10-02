@@ -73,11 +73,10 @@ android {
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = if (hasReleaseKeystore) {
-        signingConfigs.getByName("release")
-      } else {
-        signingConfigs.findByName("debugConfig") ?: signingConfigs.getByName("debug")
-      }
+      // RELEASE-SIGNING-GUARD: ممنوع التوقيع بمفتاح التصحيح في نسخة الجمهور.
+      // عند غياب مفتاح الإصدار تُبنى الحزمة غير موقّعة (لا يمكن نشرها ولا تثبيتها كتحديث)،
+      // ولا يوجد أي مسار احتياطي إلى debug كما كان سابقًا.
+      signingConfig = if (hasReleaseKeystore) signingConfigs.getByName("release") else null
     }
     debug {
       signingConfig = signingConfigs.findByName("debugConfig") ?: signingConfigs.getByName("debug")
@@ -92,14 +91,24 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+  // مخططات Room تُصدَّر إلى app/schemas لتُقرأ في اختبارات الترحيل ومقارنة الإصدارات.
+  sourceSets {
+    getByName("androidTest").assets.srcDir("$projectDir/schemas")
+  }
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true
   }
   lint {
-    checkReleaseBuilds = false
-    abortOnError = false
+    // بوابة v4 §14: فشل lint يمنع الإصدار، ولا يُتجاهل.
+    checkReleaseBuilds = true
+    abortOnError = true
   }
+}
+
+ksp {
+  arg("room.schemaLocation", "$projectDir/schemas")
+  arg("room.incremental", "true")
 }
 
 // Every dependency below is actually referenced by the source code. The previous template
