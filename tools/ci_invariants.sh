@@ -70,4 +70,16 @@ if git ls-files | grep -E "(^|/)(keystore\.properties|debug\.keystore|.*\.jks|.*
 fi
 pass "لا ملفات مفاتيح متتبعة"
 
+# 6) حدود المعمارية: طبقة domain نقية بلا Android وبلا شبكة (الخطة v6 §3.1).
+#    أي استيراد لـandroid/androidx/firebase/room داخل domain يفشل البناء هنا.
+if [ -d app/src/main/java/com/baynana/domain ]; then
+  impure=$(grep -rnE "^import (android|androidx|com\.google\.firebase|com\.google\.android|okhttp|retrofit)" \
+    app/src/main/java/com/baynana/domain 2>/dev/null || true)
+  if [ -n "$impure" ]; then
+    echo "$impure" >&2
+    fail "طبقة domain تستورد Android أو شبكة — القاعدة: ui → domain → data.contract، وdomain نقي."
+  fi
+  pass "طبقة domain نقية (بلا Android وبلا شبكة)"
+fi
+
 echo "كل الحواجز سليمة."
