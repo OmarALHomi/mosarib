@@ -287,7 +287,7 @@ fun FarmAccountingScreen(
                 coroutineScope.launch(Dispatchers.IO) {
                     expensesDao.insertExpense(
                         FarmExpense(
-                            id = UUID.randomUUID().toString().take(10),
+                            id = UUID.randomUUID().toString(),
                             farmName = "مزرعتي",
                             expenseCategory = cat,
                             amount = amt,

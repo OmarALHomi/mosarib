@@ -3,6 +3,7 @@ package com.example
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,6 +34,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +51,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.features.about.AboutScreen
@@ -96,6 +102,7 @@ fun MainApp(
     dealsViewModel: com.example.features.deals.DealsViewModel = viewModel()
 ) {
     val appConfig by settingsViewModel.appConfig.collectAsStateWithLifecycle()
+    val biometricLockEnabled by settingsViewModel.biometricLockEnabled.collectAsStateWithLifecycle()
     val isSystemDark = isSystemInDarkTheme()
     val darkTheme = when (appConfig.themeMode) {
         "LIGHT" -> false
@@ -118,9 +125,25 @@ fun MainApp(
             var showAccountingScreen by remember { mutableStateOf(false) }
             var selectedMusribForFarmer by remember { mutableStateOf<com.example.features.farmer.LinkedMusrib?>(null) }
 
+            val lifecycleOwner = LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_STOP) isBiometricUnlocked = false
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
+
             if (showSplashScreen) {
                 SplashScreen(onTimeout = { showSplashScreen = false })
-            } else if (appConfig.biometricEnabled && !isBiometricUnlocked) {
+            } else if (biometricLockEnabled == null) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        Text("جاري تحميل إعدادات الحماية", modifier = Modifier.padding(top = 16.dp))
+                    }
+                }
+            } else if (biometricLockEnabled == true && !isBiometricUnlocked) {
                 BiometricLockScreen(onUnlock = { isBiometricUnlocked = true })
             } else if (!appConfig.isOnboardingCompleted) {
                 com.example.features.onboarding.RoleSelectionScreen(

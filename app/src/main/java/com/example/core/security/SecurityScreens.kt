@@ -1,6 +1,10 @@
 package com.example.core.security
 
 import android.app.Activity
+import android.app.KeyguardManager
+import android.os.CancellationSignal
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,7 +27,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +46,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
@@ -55,8 +64,30 @@ fun BiometricLockScreen(
 ) {
     val context = LocalContext.current
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var authenticationSignal by remember { mutableStateOf<CancellationSignal?>(null) }
+    val keyguard = context.getSystemService(KeyguardManager::class.java)
+    val credentialLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            onUnlock()
+        } else {
+            errorMessage = "لم يتم تأكيد قفل الهاتف"
+        }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) authenticationSignal?.cancel()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            authenticationSignal?.cancel()
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     fun triggerAuth() {
+        authenticationSignal?.cancel()
         errorMessage = null
         var ctx = context
         while (ctx is android.content.ContextWrapper) {
@@ -65,14 +96,14 @@ fun BiometricLockScreen(
         }
         val activity = ctx as? Activity
         if (activity != null) {
-            BiometricHelper.authenticate(
+            authenticationSignal = BiometricHelper.authenticate(
                 activity = activity,
                 onSuccess = onUnlock,
                 onError = { err -> errorMessage = err }
             )
         } else {
-            // Fallback: unlock if no activity context can be found
-            onUnlock()
+            // Fail closed: missing Activity is not evidence of identity.
+            errorMessage = "تعذر فتح نافذة التحقق. أغلق التطبيق وأعد فتحه"
         }
     }
 
@@ -123,7 +154,7 @@ fun BiometricLockScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "المُسَرِّب",
+                text = "جِربة",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White,
@@ -177,6 +208,23 @@ fun BiometricLockScreen(
                         color = Color.White
                     )
                 )
+            }
+
+            if (keyguard?.isDeviceSecure == true) {
+                TextButton(onClick = {
+                    authenticationSignal?.cancel()
+                    @Suppress("DEPRECATION")
+                    val intent = keyguard.createConfirmDeviceCredentialIntent(
+                        "جِربة", "أكد قفل الهاتف للوصول إلى حساباتك"
+                    )
+                    if (intent != null) {
+                        credentialLauncher.launch(intent)
+                    } else {
+                        errorMessage = "قفل الهاتف غير متاح؛ لم يتم فتح التطبيق"
+                    }
+                }) {
+                    Text("استخدام قفل الهاتف", color = Color.White)
+                }
             }
         }
     }

@@ -80,12 +80,14 @@ class CustomerRepository(
     }
 
     suspend fun updateCustomer(customer: Customer) {
-        val finalCustomer = if (customer.linkCode.isBlank()) {
-            customer.copy(linkCode = com.example.core.util.LinkCodeGenerator.generate())
-        } else {
-            customer
+        val existing = customerDao.getCustomerByIdDirect(customer.id)
+        val linkCode = customer.linkCode.ifBlank {
+            existing?.linkCode?.takeIf { it.isNotBlank() }
+                ?: com.example.core.util.LinkCodeGenerator.generate()
         }
-        customerDao.updateCustomer(finalCustomer)
+        customerDao.updateCustomer(
+            customer.copy(linkCode = linkCode, createdAt = existing?.createdAt ?: customer.createdAt)
+        )
     }
 
     suspend fun deleteCustomer(customer: Customer) = customerDao.deleteCustomer(customer)
