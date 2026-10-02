@@ -116,11 +116,15 @@ jobs:
           done < <(grep -nE "^e: |error:|What went wrong|Execution failed|> Task .*FAILED" /tmp/gradle_assemble.log | head -20 || true)
           tail -30 /tmp/gradle_assemble.log
 
-      # عند التشغيل اليدوي فقط: يُعلن محتوى مخططات Room المولّدة كتعليقات مشفّرة base64،
-      # لأن تنزيل artifacts قد لا يكون متاحًا. تُستخدم مرة واحدة لحفظ المخطط في المستودع.
-      - name: Dump Room schemas (manual runs only)
-        if: github.event_name == 'workflow_dispatch'
+      # عند وجود الملف .ci/dump-schemas: يُعلن محتوى مخططات Room المولّدة كتعليقات مشفّرة
+      # base64، لأن تنزيل artifacts قد لا يكون متاحًا. يُستخدم مرة واحدة لحفظ المخطط في
+      # المستودع ثم يُحذف الملف. الخطوة تُنهي نفسها فورًا عند غياب الملف.
+      - name: Dump Room schemas (only when .ci/dump-schemas exists)
         run: |
+          if [ ! -f .ci/dump-schemas ]; then
+            echo "تخطي استخراج المخططات: لا يوجد .ci/dump-schemas"
+            exit 0
+          fi
           python3 - <<'PY'
           import base64, glob, os
 
