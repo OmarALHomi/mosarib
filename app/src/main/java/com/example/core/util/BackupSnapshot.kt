@@ -538,17 +538,42 @@ object BackupSnapshot {
     )
 
     private fun validateAmounts(tables: Map<String, JSONArray>, errors: MutableList<String>) {
-        AMOUNT_FIELDS.forEach { (tableKey, fields) ->
-            val array = tables[tableKey] ?: return@forEach
+        for ((tableKey, fields) in AMOUNT_FIELDS) {
+            val array = tables[tableKey] ?: continue
             for (i in 0 until array.length()) {
                 val row = array.optJSONObject(i) ?: continue
-                fields.forEach { field ->
-                    if (!row.has(field) || row.isNull(field)) return@forEach
+                for (field in fields) {
+                    if (!row.has(field) || row.isNull(field)) continue
                     val value = row.optDouble(field, Double.NaN)
                     when {
                         value.isNaN() -> errors += "قيمة غير رقمية في ${labelOf(tableKey)} ($field)."
                         !value.isFinite() -> errors += "قيمة غير منتهية في ${labelOf(tableKey)} ($field)."
                         value < 0 -> errors += "قيمة سالبة في ${labelOf(tableKey)} ($field): $value"
+                    }
+                }
+            }
+        }
+    }
+
+    /** الحقول النصية الأساسية التي لا يجوز أن تكون فارغة، وإلا فسد السجل بعد الكتابة. */
+    private val REQUIRED_TEXT_FIELDS = mapOf(
+        KEY_CUSTOMERS to listOf("name"),
+        KEY_SESSIONS to listOf("customerId"),
+        KEY_PUMPS to listOf("name"),
+        KEY_CROP_LISTINGS to listOf("title"),
+        KEY_SETTLEMENT_DEALS to listOf("dealNumber"),
+        KEY_DEAL_PAYMENTS to listOf("dealId"),
+        KEY_FARM_EXPENSES to listOf("farmName")
+    )
+
+    private fun validateRequiredText(tables: Map<String, JSONArray>, errors: MutableList<String>) {
+        for ((tableKey, fields) in REQUIRED_TEXT_FIELDS) {
+            val array = tables[tableKey] ?: continue
+            for (i in 0 until array.length()) {
+                val row = array.optJSONObject(i) ?: continue
+                for (field in fields) {
+                    if (row.optString(field, "").isBlank()) {
+                        errors += "حقل ناقص في ${labelOf(tableKey)}: $field"
                     }
                 }
             }
