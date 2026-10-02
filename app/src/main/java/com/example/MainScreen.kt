@@ -92,7 +92,8 @@ fun MainApp(
     reportsViewModel: ReportsViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel(),
     farmerViewModel: com.example.features.farmer.FarmerViewModel = viewModel(),
-    marketViewModel: com.example.features.market.MarketViewModel = viewModel()
+    marketViewModel: com.example.features.market.MarketViewModel = viewModel(),
+    dealsViewModel: com.example.features.deals.DealsViewModel = viewModel()
 ) {
     val appConfig by settingsViewModel.appConfig.collectAsStateWithLifecycle()
     val isSystemDark = isSystemInDarkTheme()
@@ -113,6 +114,7 @@ fun MainApp(
             var showAboutScreen by remember { mutableStateOf(false) }
             var showFarmerScreen by remember { mutableStateOf(false) }
             var showMarketScreen by remember { mutableStateOf(false) }
+            var showDealsScreen by remember { mutableStateOf(false) }
             var selectedMusribForFarmer by remember { mutableStateOf<com.example.features.farmer.LinkedMusrib?>(null) }
 
             if (showSplashScreen) {
@@ -139,6 +141,11 @@ fun MainApp(
                 com.example.features.market.MarketScreen(
                     viewModel = marketViewModel,
                     onBack = { showMarketScreen = false }
+                )
+            } else if (showDealsScreen) {
+                com.example.features.deals.DealsScreen(
+                    viewModel = dealsViewModel,
+                    onBack = { showDealsScreen = false }
                 )
             } else if (selectedCustomerId > 0) {
                 CustomerDetailScreen(
@@ -257,7 +264,8 @@ fun MainApp(
                                     },
                                     onOpenReports = { showReportsScreen = true },
                                     onOpenFarmer = { showFarmerScreen = true },
-                                    onOpenMarket = { showMarketScreen = true }
+                                    onOpenMarket = { showMarketScreen = true },
+                                    onOpenDeals = { showDealsScreen = true }
                                 )
                             }
                             AppTab.SESSIONS -> {

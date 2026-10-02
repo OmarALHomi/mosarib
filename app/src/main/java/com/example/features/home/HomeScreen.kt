@@ -114,6 +114,7 @@ fun HomeScreen(
     onOpenReports: () -> Unit,
     onOpenFarmer: () -> Unit = {},
     onOpenMarket: () -> Unit = {},
+    onOpenDeals: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val config by settingsViewModel.appConfig.collectAsStateWithLifecycle()
@@ -478,6 +479,53 @@ fun HomeScreen(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = null,
                             tint = AccentGold
+                        )
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    onClick = onOpenDeals,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(PrimaryTeal.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("📜", fontSize = 18.sp)
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "عقود الصلح والأقساط الزراعية",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = "توثيق البيع والشراء، تتبع الأقساط، وسعايات الدلالين",
+                                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                )
+                            }
+                        }
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null,
+                            tint = PrimaryTeal
                         )
                     }
                 }

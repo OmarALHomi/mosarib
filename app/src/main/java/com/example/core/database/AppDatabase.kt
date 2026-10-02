@@ -24,6 +24,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import com.example.features.market.CropListing
 import com.example.features.market.CropListingDao
+import com.example.features.deals.SettlementDeal
+import com.example.features.deals.DealPayment
+import com.example.features.deals.SettlementDealDao
 import kotlinx.coroutines.launch
 
 @Database(
@@ -34,9 +37,11 @@ import kotlinx.coroutines.launch
         Voucher::class,
         AppSetting::class,
         LinkedMusrib::class,
-        CropListing::class
+        CropListing::class,
+        SettlementDeal::class,
+        DealPayment::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -49,6 +54,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun appSettingDao(): AppSettingDao
     abstract fun linkedMusribDao(): LinkedMusribDao
     abstract fun cropListingDao(): CropListingDao
+    abstract fun settlementDealDao(): SettlementDealDao
 
     companion object {
         @Volatile
@@ -108,6 +114,48 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS settlement_deals (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        dealNumber TEXT NOT NULL,
+                        cropTitle TEXT NOT NULL,
+                        cropType TEXT NOT NULL,
+                        location TEXT NOT NULL DEFAULT '',
+                        sellerName TEXT NOT NULL,
+                        sellerPhone TEXT NOT NULL DEFAULT '',
+                        buyerName TEXT NOT NULL,
+                        buyerPhone TEXT NOT NULL DEFAULT '',
+                        dallalName TEXT NOT NULL DEFAULT '',
+                        dallalPhone TEXT NOT NULL DEFAULT '',
+                        totalAmount REAL NOT NULL DEFAULT 0.0,
+                        advancePayment REAL NOT NULL DEFAULT 0.0,
+                        dallalCommission REAL NOT NULL DEFAULT 0.0,
+                        commissionPaid REAL NOT NULL DEFAULT 0.0,
+                        remainingAmount REAL NOT NULL DEFAULT 0.0,
+                        status TEXT NOT NULL DEFAULT 'ACTIVE',
+                        dealDate INTEGER NOT NULL DEFAULT 0,
+                        dueDate INTEGER DEFAULT NULL,
+                        termsNotes TEXT NOT NULL DEFAULT '',
+                        syncStatus TEXT NOT NULL DEFAULT 'SYNCED'
+                    )
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS deal_payments (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        dealId TEXT NOT NULL,
+                        amount REAL NOT NULL DEFAULT 0.0,
+                        paidBy TEXT NOT NULL DEFAULT 'BUYER',
+                        paymentType TEXT NOT NULL DEFAULT 'INSTALLMENT',
+                        notes TEXT NOT NULL DEFAULT '',
+                        paymentDate INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -115,7 +163,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "water_distributor_db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
