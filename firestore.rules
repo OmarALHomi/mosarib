@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == "mralhwmy@gmail.com"
+      );
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // 1. Subscriptions: Only Admin can write or alter subscriptions
+    // Anyone authenticated can read their own device subscription
+    match /subscriptions/{deviceCode} {
+      allow read: if true; // Devices check their license status
+      allow write: if isAdmin();
+    }
+
+    // 2. System Config & Dynamic Limits: Only Admin can write
+    match /system_config/{configId} {
+      allow read: if true; // App reads launch limits and general configuration
+      allow write: if isAdmin();
+    }
+
+    // 3. User Profiles & Verification
+    match /users/{userId} {
+      allow read: if true;
+      // Users can update their personal profile info, but CANNOT self-verify or change accountStatus
+      allow create: if isOwner(userId);
+      allow update: if isAdmin() || (
+        isOwner(userId) && 
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isVerified', 'accountStatus', 'suspendedReason'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 4. Musrib-Farmer Irrigation Links
+    match /musrib_links/{linkCode} {
+      // Readable by anyone with the linkCode (Musrib & Farmer)
+      allow read: if true;
+      // Created and updated by the Musrib who owns it
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // 5. Musrib Entries (Water Sessions + Vouchers FIFO)
+    match /musrib_entries/{linkCode}/entries/{entryId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // 6. Crop Listings (Harvest Market)
+    match /listings/{listingId} {
+      allow read: if true; // Public market
+      allow create: if isAuthenticated();
+      // Only publisher or Admin can update/delete
+      allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.dallal_uid == request.auth.uid);
+    }
+
+    // 7. Settlement Deals & Installments
+    match /deals/{dealId} {
+      // Readable by parties of the deal (Dallal, Farmer, Buyer) or Admin
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+
+      match /payments/{paymentId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
+    // 8. Marketing Requests (Farmer -> Dallal)
+    match /marketing_requests/{requestId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // 9. Abuse Reports
+    match /reports/{reportId} {
+      allow create: if true;
+      allow read, write: if isAdmin();
+    }
+  }
+}

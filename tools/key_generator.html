@@ -1,182 +1,1626 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" data-theme="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>مولّد مفاتيح التفعيل — تطبيق المُسَرِّب | م. عمر الحومي</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>جِربة | مركز التحكم الإداري والتراخيص</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Firebase v10 SDK via Compat -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
   <style>
     :root {
-      --primary: #00838F;
-      --primary-dark: #004D40;
-      --accent: #FFB300;
-      --bg: #0B171D;
-      --card-bg: #12232B;
-      --text: #E0F2F1;
-      --text-muted: #80CBC4;
+      --font-main: 'Cairo', -apple-system, BlinkMacSystemFont, sans-serif;
+      --transition-smooth: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      
+      /* Dark Theme (Default) */
+      --bg: #090e11;
+      --bg-gradient: radial-gradient(circle at 50% -20%, #122822 0%, #090e11 75%);
+      --surface: rgba(18, 28, 34, 0.85);
+      --card-bg: rgba(22, 35, 42, 0.7);
+      --card-border: rgba(0, 191, 165, 0.18);
+      --card-hover-border: rgba(0, 230, 118, 0.4);
+      --text: #f0f7f5;
+      --text-muted: #8fa39e;
+      --input-bg: rgba(11, 19, 23, 0.85);
+      --input-border: rgba(0, 191, 165, 0.25);
+      
+      --primary: #00BFA5;
+      --primary-glow: rgba(0, 191, 165, 0.35);
+      --accent: #00E676;
+      --gold: #FFB300;
+      --danger: #FF5252;
+      --danger-bg: rgba(255, 82, 82, 0.15);
+      
+      --glass-blur: blur(16px);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-pill: 999px;
+      
+      --shadow-sm: 0 4px 12px rgba(0,0,0,0.2);
+      --shadow-md: 0 10px 30px rgba(0,0,0,0.35);
+      --shadow-glass: 0 20px 40px rgba(0,0,0,0.45);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+    [data-theme="light"] {
+      --bg: #F4F8F6;
+      --bg-gradient: radial-gradient(circle at 50% -20%, #E0F2E9 0%, #F4F8F6 75%);
+      --surface: rgba(255, 255, 255, 0.88);
+      --card-bg: rgba(255, 255, 255, 0.75);
+      --card-border: rgba(0, 137, 123, 0.16);
+      --card-hover-border: rgba(0, 191, 165, 0.45);
+      --text: #132420;
+      --text-muted: #526b64;
+      --input-bg: #FFFFFF;
+      --input-border: rgba(0, 137, 123, 0.25);
+      
+      --primary: #00897B;
+      --primary-glow: rgba(0, 137, 123, 0.25);
+      --accent: #00C853;
+      --gold: #F57F17;
+      --danger: #D32F2F;
+      --danger-bg: rgba(211, 47, 47, 0.1);
+      
+      --shadow-sm: 0 4px 12px rgba(0,0,0,0.06);
+      --shadow-md: 0 10px 25px rgba(0,0,0,0.08);
+      --shadow-glass: 0 15px 35px rgba(0, 137, 123, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-main);
+      -webkit-tap-highlight-color: transparent;
+    }
+
     body {
-      background: radial-gradient(circle at top, #16323B, var(--bg));
+      background: var(--bg-gradient);
+      background-attachment: fixed;
       color: var(--text);
       min-height: 100vh;
       display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    /* Glass Effect Utility */
+    .glass-panel {
+      background: var(--surface);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-md);
+      transition: var(--transition-smooth);
+    }
+
+    /* Header Navigation */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--surface);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border-bottom: 1px solid var(--card-border);
+      padding: 10px 16px;
+    }
+
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
       align-items: center;
-      justify-content: center;
-      padding: 20px;
+      justify-content: space-between;
+      gap: 12px;
     }
-    .card {
-      background: var(--card-bg);
-      border: 1px solid rgba(0, 150, 166, 0.3);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
-      border-radius: 20px;
-      width: 100%;
-      max-width: 480px;
-      padding: 30px;
-      text-align: center;
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
     }
-    .logo {
-      width: 64px;
-      height: 64px;
-      background: linear-gradient(135deg, var(--primary), #00BFA5);
-      border-radius: 50%;
-      margin: 0 auto 16px;
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 30px;
-      box-shadow: 0 8px 20px rgba(0, 191, 165, 0.4);
+      font-size: 20px;
+      box-shadow: 0 4px 12px var(--primary-glow);
     }
-    h1 { font-size: 22px; font-weight: 800; color: #FFF; margin-bottom: 6px; }
-    p.subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
-    .input-group { text-align: right; margin-bottom: 20px; }
-    label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #B2DFDB; }
-    input {
-      width: 100%;
-      padding: 14px 16px;
-      border-radius: 12px;
-      border: 2px solid rgba(0, 150, 166, 0.4);
-      background: #081318;
-      color: #FFF;
-      font-size: 16px;
-      font-weight: bold;
-      text-align: center;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      outline: none;
-      transition: all 0.3s;
+
+    .brand-text h1 {
+      font-size: 17px;
+      font-weight: 900;
+      color: var(--text);
+      line-height: 1.1;
     }
-    input:focus { border-color: #00E676; box-shadow: 0 0 12px rgba(0, 230, 118, 0.3); }
-    button.btn {
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, var(--primary), #00BFA5);
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: bold;
+
+    .brand-text span {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .theme-toggle-btn, .icon-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--card-border);
+      background: var(--card-bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
-      box-shadow: 0 6px 16px rgba(0, 131, 143, 0.4);
-      transition: transform 0.2s, box-shadow 0.2s;
+      font-size: 16px;
+      transition: var(--transition-smooth);
     }
-    button.btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 191, 165, 0.6); }
-    button.btn:active { transform: translateY(0); }
-    .result-box {
-      margin-top: 24px;
-      background: #081318;
-      border: 1px dashed rgba(255, 179, 0, 0.6);
-      border-radius: 14px;
-      padding: 18px;
+
+    .theme-toggle-btn:hover, .icon-btn:hover {
+      border-color: var(--primary);
+      transform: scale(1.05);
+    }
+
+    .auth-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      padding: 6px 12px;
+      border-radius: var(--radius-pill);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+
+    .auth-pill:hover {
+      border-color: var(--primary);
+    }
+
+    .auth-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #78909c;
+    }
+
+    .auth-dot.online {
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    /* Main Container */
+    .main-wrap {
+      max-width: 1200px;
+      width: 100%;
+      margin: 16px auto 30px;
+      padding: 0 16px;
+      flex: 1;
+    }
+
+    /* Segmented Navigation Bar (Horizontal Scroll on Mobile) */
+    .tabs-wrapper {
+      margin-bottom: 20px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      padding-bottom: 4px;
+    }
+
+    .tabs-wrapper::-webkit-scrollbar {
       display: none;
     }
-    .result-title { font-size: 12px; color: var(--accent); font-weight: bold; margin-bottom: 8px; }
-    .key-display {
-      font-size: 22px;
-      font-weight: 900;
-      color: #00E676;
-      letter-spacing: 3px;
-      user-select: all;
-      margin-bottom: 14px;
+
+    .tabs-nav {
+      display: inline-flex;
+      gap: 6px;
+      background: var(--surface);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      padding: 6px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--card-border);
+      min-width: 100%;
     }
-    .copy-btn {
+
+    .tab-btn {
+      flex: 1;
+      white-space: nowrap;
       padding: 8px 16px;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #FFF;
-      border-radius: 8px;
+      border-radius: var(--radius-pill);
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-weight: 700;
       font-size: 13px;
-      font-weight: bold;
       cursor: pointer;
-      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: var(--transition-smooth);
     }
-    .copy-btn:hover { background: rgba(255, 255, 255, 0.2); }
-    footer { margin-top: 24px; font-size: 11px; color: #546E7A; }
+
+    .tab-btn:hover {
+      color: var(--text);
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #FFFFFF;
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+
+    /* Tab Panels */
+    .tab-content {
+      display: none;
+      animation: tabFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes tabFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Card Layouts */
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 18px;
+      transition: var(--transition-smooth);
+    }
+
+    .card:hover {
+      border-color: var(--card-hover-border);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 10px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Compact Selector Chips */
+    .chip-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .chip-item {
+      background: var(--input-bg);
+      border: 1.5px solid var(--input-border);
+      border-radius: var(--radius-md);
+      padding: 10px 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      user-select: none;
+    }
+
+    .chip-item:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+    }
+
+    .chip-item.active {
+      border-color: var(--primary);
+      background: rgba(0, 191, 165, 0.14);
+      box-shadow: 0 0 14px var(--primary-glow);
+    }
+
+    .chip-icon {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+
+    .chip-label {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .chip-sub {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Inputs & Forms */
+    .field-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .input-wrap {
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .styled-input {
+      width: 100%;
+      padding: 12px 14px;
+      background: var(--input-bg);
+      border: 1.5px solid var(--input-border);
+      border-radius: var(--radius-md);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 700;
+      outline: none;
+      transition: var(--transition-smooth);
+    }
+
+    .styled-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 12px var(--primary-glow);
+    }
+
+    .styled-input::placeholder {
+      color: var(--text-muted);
+      opacity: 0.6;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 11px 18px;
+      border-radius: var(--radius-md);
+      border: none;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: var(--transition-smooth);
+      text-decoration: none;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #FFFFFF;
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 6px 20px var(--primary-glow);
+      transform: translateY(-2px);
+    }
+
+    .btn-gold {
+      background: linear-gradient(135deg, var(--gold), #FFA000);
+      color: #000000;
+      box-shadow: 0 4px 12px rgba(255, 179, 0, 0.3);
+    }
+
+    .btn-gold:hover {
+      transform: translateY(-2px);
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1.5px solid var(--card-border);
+      color: var(--text);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--primary);
+      background: rgba(0, 191, 165, 0.08);
+    }
+
+    .btn-danger {
+      background: var(--danger-bg);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+    }
+
+    .btn-danger:hover {
+      background: var(--danger);
+      color: #FFF;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 11px;
+      border-radius: var(--radius-sm);
+    }
+
+    .btn-block {
+      width: 100%;
+    }
+
+    /* Key Output Glass Box */
+    .key-glass-card {
+      background: var(--surface);
+      border: 2px dashed var(--primary);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      text-align: center;
+      margin-top: 16px;
+      display: none;
+      animation: tabFadeIn 0.35s ease;
+    }
+
+    .key-badge-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    .key-val-display {
+      font-size: 26px;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 2px;
+      margin-bottom: 14px;
+      font-family: monospace, var(--font-main);
+      user-select: all;
+    }
+
+    .key-actions-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Responsive Data Tables / Cards */
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--card-border);
+      background: var(--card-bg);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: right;
+      font-size: 13px;
+      min-width: 600px;
+    }
+
+    th {
+      background: var(--surface);
+      padding: 12px 14px;
+      color: var(--text-muted);
+      font-weight: 800;
+      font-size: 11px;
+      border-bottom: 1px solid var(--card-border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--card-border);
+      color: var(--text);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(0, 191, 165, 0.05);
+    }
+
+    /* Status Badges */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .badge-active { background: rgba(0, 230, 118, 0.15); color: var(--accent); border: 1px solid rgba(0, 230, 118, 0.3); }
+    .badge-warning { background: rgba(255, 179, 0, 0.15); color: var(--gold); border: 1px solid rgba(255, 179, 0, 0.3); }
+    .badge-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); }
+
+    /* Floating Glassmorphic Toasts Container */
+    #glassToastContainer {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+      width: calc(100% - 32px);
+      max-width: 440px;
+    }
+
+    .glass-toast {
+      pointer-events: auto;
+      background: var(--surface);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: var(--shadow-glass);
+      animation: toastDrop 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      transition: all 0.3s ease;
+    }
+
+    .glass-toast.removing {
+      opacity: 0;
+      transform: translateY(-20px) scale(0.95);
+    }
+
+    @keyframes toastDrop {
+      from {
+        opacity: 0;
+        transform: translateY(-30px) scale(0.92);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .toast-icon-wrap {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .toast-success .toast-icon-wrap { background: rgba(0, 230, 118, 0.2); color: var(--accent); }
+    .toast-error .toast-icon-wrap { background: var(--danger-bg); color: var(--danger); }
+    .toast-info .toast-icon-wrap { background: rgba(0, 191, 165, 0.2); color: var(--primary); }
+
+    .toast-body {
+      flex: 1;
+    }
+
+    .toast-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .toast-msg {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Glass Modals */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 16px;
+      animation: modalFade 0.25s ease;
+    }
+
+    @keyframes modalFade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-card {
+      background: var(--surface);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: var(--shadow-glass);
+      animation: modalZoom 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalZoom {
+      from { transform: scale(0.92); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    /* Grid helpers */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+    @media (max-width: 680px) {
+      .grid-2, .grid-3 {
+        grid-template-columns: 1fr;
+      }
+      .brand-text span {
+        display: none;
+      }
+      .auth-pill span {
+        display: none;
+      }
+      .card {
+        padding: 16px;
+      }
+      .key-val-display {
+        font-size: 20px;
+      }
+    }
   </style>
 </head>
 <body>
 
-<div class="card">
-  <div class="logo">💧</div>
-  <h1>أداة توليد مفاتيح التفعيل</h1>
-  <p class="subtitle">نظام تفعيل تطبيق المُسَرِّب — م. عمر الحومي</p>
+  <!-- Top Glass Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-logo">🌱</div>
+        <div class="brand-text">
+          <h1>جِربة الإدارية</h1>
+          <span>المركز السحابي والتراخيص</span>
+        </div>
+      </div>
 
-  <div class="input-group">
-    <label for="deviceCode">كود جهاز العميل (Device Code):</label>
-    <input type="text" id="deviceCode" placeholder="MSRB-XXXX-XXXX" autocomplete="off" autofocus>
+      <div class="header-actions">
+        <!-- Theme Toggle -->
+        <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="تبديل المظهر (داكن / فاتح)">
+          🌙
+        </button>
+
+        <!-- Auth Status Pill -->
+        <div class="auth-pill" id="authPill" onclick="toggleAuthModal()">
+          <div class="auth-dot" id="authDot"></div>
+          <span id="authStatusText">دخول الأدمن</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Responsive Container -->
+  <main class="main-wrap">
+
+    <!-- Segmented Navigation (Mobile & Desktop Responsive) -->
+    <div class="tabs-wrapper">
+      <nav class="tabs-nav">
+        <button class="tab-btn active" onclick="switchTab('key-gen-tab', this)">
+          <span>🔑</span> مولد المفاتيح
+        </button>
+        <button class="tab-btn" onclick="switchTab('batch-cards-tab', this)">
+          <span>📦</span> كروت العزلة
+        </button>
+        <button class="tab-btn" onclick="switchTab('subs-cloud-tab', this)">
+          <span>👥</span> المشتركون
+        </button>
+        <button class="tab-btn" onclick="switchTab('users-moderation-tab', this)">
+          <span>🛡️</span> التوثيق والحظر
+        </button>
+        <button class="tab-btn" onclick="switchTab('system-limits-tab', this)">
+          <span>⚙️</span> حدود الإطلاق
+        </button>
+        <button class="tab-btn" onclick="switchTab('market-moderation-tab', this)">
+          <span>📢</span> رقابة السوق
+        </button>
+      </nav>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- TAB 1: Quick Key Generator (Mobile Ergonomic)  -->
+    <!-- ============================================== -->
+    <section id="key-gen-tab" class="tab-content active">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🔑 توليد مفتاح التفعيل الرياضي</div>
+          <span class="status-badge badge-active">⚡ فوري بدون نت</span>
+        </div>
+
+        <!-- Role Chips -->
+        <span class="field-label">1. الدور المستهدف:</span>
+        <div class="chip-grid" id="roleGrid">
+          <div class="chip-item active" data-role="ACTV" onclick="setRole('ACTV', this)">
+            <div class="chip-icon">💧</div>
+            <div class="chip-label">المُسَرِّب</div>
+            <div class="chip-sub">خدمة الري</div>
+          </div>
+          <div class="chip-item" data-role="DLLV" onclick="setRole('DLLV', this)">
+            <div class="chip-icon">🤝</div>
+            <div class="chip-label">الدلال</div>
+            <div class="chip-sub">وساطة وصلح</div>
+          </div>
+          <div class="chip-item" data-role="BJRV" onclick="setRole('BJRV', this)">
+            <div class="chip-icon">📦</div>
+            <div class="chip-label">المشتري</div>
+            <div class="chip-sub">مجبري محاصيل</div>
+          </div>
+          <div class="chip-item" data-role="FRMV" onclick="setRole('FRMV', this)">
+            <div class="chip-icon">🌾</div>
+            <div class="chip-label">المزارع</div>
+            <div class="chip-sub">توثيق الحساب</div>
+          </div>
+        </div>
+
+        <!-- Plan Chips -->
+        <span class="field-label">2. مدة الترخيص:</span>
+        <div class="chip-grid" id="planGrid">
+          <div class="chip-item active" data-plan="M" onclick="setPlan('M', this)">
+            <div class="chip-icon">🗓️</div>
+            <div class="chip-label">شهري</div>
+            <div class="chip-sub">30 يوماً</div>
+          </div>
+          <div class="chip-item" data-plan="Y" onclick="setPlan('Y', this)">
+            <div class="chip-icon">📅</div>
+            <div class="chip-label">سنوي</div>
+            <div class="chip-sub">365 يوماً</div>
+          </div>
+          <div class="chip-item" data-plan="L" onclick="setPlan('L', this)">
+            <div class="chip-icon">♾️</div>
+            <div class="chip-label">دائم</div>
+            <div class="chip-sub">مدى الحياة</div>
+          </div>
+        </div>
+
+        <!-- Device Code Input -->
+        <span class="field-label">3. كود الجهاز الظاهر لدى العميل:</span>
+        <div class="input-wrap">
+          <input type="text" id="deviceCodeInput" class="styled-input" placeholder="MSRB-XXXX-XXXX" autocomplete="off" autocorrect="off" autocapitalize="characters" style="text-transform: uppercase; font-family: monospace; letter-spacing: 2px;">
+        </div>
+
+        <button class="btn btn-primary btn-block" onclick="generateKey()">
+          <span>⚡</span> توليد رمز التفعيل الآن
+        </button>
+
+        <!-- Result Glass Box -->
+        <div class="key-glass-card" id="keyResultBox">
+          <div class="key-badge-label">مفتاح التفعيل المعتمد</div>
+          <div class="key-val-display" id="keyDisplay">ACTV-M-XXXX-XXXX</div>
+          <div class="key-actions-row">
+            <button class="btn btn-gold btn-sm" onclick="copyKey()">📋 نسخ الرمز</button>
+            <button class="btn btn-primary btn-sm" onclick="sendWhatsApp()">💬 إرسال واتساب</button>
+            <button class="btn btn-outline btn-sm" onclick="saveKeyToCloud()">☁️ قيد بالسحابة</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- TAB 2: Batch Cards for Isolation               -->
+    <!-- ============================================== -->
+    <section id="batch-cards-tab" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📦 توليد وطباعة كروت العزلة</div>
+        </div>
+
+        <div class="grid-3">
+          <div>
+            <span class="field-label">الدور:</span>
+            <select id="batchRoleSelect" class="styled-input">
+              <option value="ACTV">💧 مسرب (خدمة الري)</option>
+              <option value="DLLV">🤝 دلال (وساطة وسوق)</option>
+              <option value="BJRV">📦 مجبري (مشتري محاصيل)</option>
+              <option value="FRMV">🌾 مزارع (توثيق الحساب)</option>
+            </select>
+          </div>
+          <div>
+            <span class="field-label">المدة:</span>
+            <select id="batchPlanSelect" class="styled-input">
+              <option value="M">شهري (30 يوماً)</option>
+              <option value="Y">سنوي (365 يوماً)</option>
+              <option value="L">مدى الحياة</option>
+            </select>
+          </div>
+          <div>
+            <span class="field-label">عدد الكروت:</span>
+            <input type="number" id="batchCountInput" class="styled-input" value="10" min="1" max="50">
+          </div>
+        </div>
+
+        <div style="margin-top: 14px;">
+          <button class="btn btn-primary" onclick="generateBatchCards()">🖨️ توليد الكروت</button>
+        </div>
+
+        <div id="batchTableWrap" style="margin-top: 18px; display: none;">
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>الدور</th>
+                  <th>المدة</th>
+                  <th>كود الكرت</th>
+                  <th>المفتاح</th>
+                  <th>إجراء</th>
+                </tr>
+              </thead>
+              <tbody id="batchTableBody"></tbody>
+            </table>
+          </div>
+          <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
+            <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ طباعة</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- TAB 3: Cloud Subscriptions                     -->
+    <!-- ============================================== -->
+    <section id="subs-cloud-tab" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">👥 المشتركون في السحابة</div>
+          <button class="btn btn-primary btn-sm" onclick="openTransferModal()">🔄 نقل اشتراك</button>
+        </div>
+
+        <div class="input-wrap">
+          <input type="text" id="subSearchInput" class="styled-input" placeholder="🔍 ابحث بكود الجهاز أو اسم العميل..." oninput="filterSubsTable()">
+        </div>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>الجهاز</th>
+                <th>الاسم</th>
+                <th>الهاتف</th>
+                <th>الدور</th>
+                <th>الخطة</th>
+                <th>الانتهاء</th>
+                <th>الحالة</th>
+                <th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="subsTableBody">
+              <tr>
+                <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                  يرجى تسجيل دخول الأدمن أولاً لتحميل الاشتراكات.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- TAB 4: Users Moderation & Verification        -->
+    <!-- ============================================== -->
+    <section id="users-moderation-tab" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🛡️ إدارة وتوثيق المستخدمين</div>
+        </div>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>المستخدم</th>
+                <th>الهاتف</th>
+                <th>الأدوار</th>
+                <th>التوثيق</th>
+                <th>الحالة</th>
+                <th>الإجراء</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                  يرجى تسجيل دخول الأدمن لتحميل سجل المستخدمين.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- TAB 5: System Limits & Free Launch             -->
+    <!-- ============================================== -->
+    <section id="system-limits-tab" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">⚙️ التحكم في حدود الإطلاق</div>
+        </div>
+
+        <!-- Launch Mode Glass Switch -->
+        <div style="background: var(--input-bg); border: 1px solid var(--card-border); padding: 14px 16px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <div>
+            <div style="font-weight: 800; font-size: 14px;">فترة الإطلاق المجاني</div>
+            <div style="font-size: 11px; color: var(--text-muted);">رفع الحدود لجميع أهل العزلة تلقائياً</div>
+          </div>
+          <input type="checkbox" id="launchToggle" style="width: 22px; height: 22px; accent-color: var(--primary); cursor: pointer;">
+        </div>
+
+        <div class="grid-3">
+          <div>
+            <span class="field-label">حد سقيات المسرب:</span>
+            <input type="number" id="limitMusribInput" class="styled-input" value="200">
+          </div>
+          <div>
+            <span class="field-label">حد عروض السوق:</span>
+            <input type="number" id="limitMarketInput" class="styled-input" value="10">
+          </div>
+          <div>
+            <span class="field-label">حد صلوح الدلال:</span>
+            <input type="number" id="limitDealsInput" class="styled-input" value="5">
+          </div>
+        </div>
+
+        <div style="margin-top: 16px;">
+          <button class="btn btn-gold" onclick="saveLimits()">💾 حفظ الإعدادات بالسحابة</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- TAB 6: Market Moderation                       -->
+    <!-- ============================================== -->
+    <section id="market-moderation-tab" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📢 رقابة عروض السوق والبلاغات</div>
+        </div>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>المحصول</th>
+                <th>النوع</th>
+                <th>الدلال</th>
+                <th>المزارع</th>
+                <th>التاريخ</th>
+                <th>الإجراء</th>
+              </tr>
+            </thead>
+            <tbody id="marketTableBody">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                  يرجى تسجيل دخول الأدمن لمراقبة العروض.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================== -->
+  <!-- MODAL: Admin Login                             -->
+  <!-- ============================================== -->
+  <div class="modal-overlay" id="authModal">
+    <div class="modal-card">
+      <div class="card-title" style="margin-bottom: 12px;">🔐 تسجيل دخول المشرف</div>
+      
+      <span class="field-label">البريد الإلكتروني:</span>
+      <div class="input-wrap">
+        <input type="email" id="adminEmailInput" class="styled-input" value="mralhwmy@gmail.com" readonly>
+      </div>
+
+      <span class="field-label">كلمة المرور:</span>
+      <div class="input-wrap">
+        <input type="password" id="adminPasswordInput" class="styled-input" placeholder="كلمة مرور Firebase">
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 16px;">
+        <button class="btn btn-primary" style="flex: 1;" onclick="handleLogin()">دخول</button>
+        <button class="btn btn-outline" onclick="toggleAuthModal()">إلغاء</button>
+      </div>
+    </div>
   </div>
 
-  <button class="btn" onclick="generateKey()">توليد رمز التفعيل 🔑</button>
+  <!-- ============================================== -->
+  <!-- MODAL: Device Transfer                         -->
+  <!-- ============================================== -->
+  <div class="modal-overlay" id="transferModal">
+    <div class="modal-card">
+      <div class="card-title" style="margin-bottom: 12px;">🔄 نقل الاشتراك لجهاز جديد</div>
 
-  <div class="result-box" id="resultBox">
-    <div class="result-title">رمز التفعيل المخصص لهذا العميل:</div>
-    <div class="key-display" id="keyDisplay">ACTV-XXXX-XXXX</div>
-    <button class="copy-btn" onclick="copyKey()">📋 نسخ الرمز</button>
+      <span class="field-label">كود الجهاز القديم:</span>
+      <div class="input-wrap">
+        <input type="text" id="transferOldInput" class="styled-input" placeholder="MSRB-XXXX-XXXX" style="text-transform: uppercase;">
+      </div>
+
+      <span class="field-label">كود الجهاز الجديد:</span>
+      <div class="input-wrap">
+        <input type="text" id="transferNewInput" class="styled-input" placeholder="MSRB-YYYY-YYYY" style="text-transform: uppercase;">
+      </div>
+
+      <span class="field-label">سبب النقل / ملاحظة:</span>
+      <div class="input-wrap">
+        <input type="text" id="transferNoteInput" class="styled-input" placeholder="تغيير الجوال">
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 16px;">
+        <button class="btn btn-gold" style="flex: 1;" onclick="executeTransfer()">تأكيد النقل</button>
+        <button class="btn btn-outline" onclick="closeTransferModal()">إلغاء</button>
+      </div>
+    </div>
   </div>
 
-  <footer>
-    تطوير المهندس عمر الحومي — تبع سوفت &copy; 2026
-  </footer>
-</div>
+  <!-- Floating Glass Toasts Container -->
+  <div id="glassToastContainer"></div>
 
-<script>
-  const SECRET_SALT = "mosarib_secure_license_secret_key_alhomi_2026_water_app";
+  <!-- Scripts -->
+  <script>
+    // 1. Cryptographic Constants & State
+    const SECRET_SALT = "mosarib_secure_license_secret_key_alhomi_2026_water_app";
+    let currentRole = "ACTV";
+    let currentPlan = "M";
 
-  async function sha256(message) {
-    const msgBuffer = new TextEncoder().encode(message);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-  }
-
-  async function generateKey() {
-    const input = document.getElementById("deviceCode").value.trim().toUpperCase();
-    if (!input) {
-      alert("يرجى إدخال كود جهاز العميل أولاً");
-      return;
+    // 2. Theme Management (Dark / Light)
+    function initTheme() {
+      const savedTheme = localStorage.getItem("jerba_theme") || "dark";
+      setTheme(savedTheme);
     }
 
-    const cleanCode = input.replace(/-/g, "").trim();
-    const hash = await sha256(cleanCode + SECRET_SALT);
-    const part1 = hash.substring(0, 4);
-    const part2 = hash.substring(4, 8);
-    const generatedKey = `ACTV-${part1}-${part2}`;
+    function setTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      localStorage.setItem("jerba_theme", theme);
+      const btn = document.getElementById("themeToggleBtn");
+      if (btn) btn.innerHTML = theme === "dark" ? "☀️" : "🌙";
+    }
 
-    document.getElementById("keyDisplay").innerText = generatedKey;
-    document.getElementById("resultBox").style.display = "block";
-  }
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute("data-theme") || "dark";
+      const next = current === "dark" ? "light" : "dark";
+      setTheme(next);
+      showGlassToast("المظهر", next === "dark" ? "تم تفعيل الوضع الليلي 🌙" : "تم تفعيل الوضع الفاتح ☀️", "info");
+    }
 
-  function copyKey() {
-    const text = document.getElementById("keyDisplay").innerText;
-    navigator.clipboard.writeText(text).then(() => {
-      alert("تم نسخ رمز التفعيل بنجاح: " + text);
-    });
-  }
+    initTheme();
 
-  // Handle enter key
-  document.getElementById("deviceCode").addEventListener("keyup", function(e) {
-    if (e.key === "Enter") generateKey();
-  });
-</script>
+    // 3. Floating Glassmorphic Toast System
+    function showGlassToast(title, message, type = "success") {
+      const container = document.getElementById("glassToastContainer");
+      if (!container) return;
 
+      const toast = document.createElement("div");
+      toast.className = `glass-toast toast-${type}`;
+      
+      const icon = type === "success" ? "✓" : (type === "error" ? "✕" : "ℹ");
+
+      toast.innerHTML = `
+        <div class="toast-icon-wrap">${icon}</div>
+        <div class="toast-body">
+          <div class="toast-title">${title}</div>
+          <div class="toast-msg">${message}</div>
+        </div>
+      `;
+
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add("removing");
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // 4. Tab Navigation
+    function switchTab(tabId, btn) {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+
+      btn.classList.add("active");
+      const target = document.getElementById(tabId);
+      if (target) target.classList.add("active");
+    }
+
+    // 5. Role and Plan Selectors
+    function setRole(role, elem) {
+      currentRole = role;
+      document.querySelectorAll("#roleGrid .chip-item").forEach(c => c.classList.remove("active"));
+      elem.classList.add("active");
+    }
+
+    function setPlan(plan, elem) {
+      currentPlan = plan;
+      document.querySelectorAll("#planGrid .chip-item").forEach(c => c.classList.remove("active"));
+      elem.classList.add("active");
+    }
+
+    // 6. Cryptographic SHA-256 Key Generator
+    async function sha256(message) {
+      const msgBuffer = new TextEncoder().encode(message);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+    }
+
+    async function generateKey() {
+      const raw = document.getElementById("deviceCodeInput").value.trim().toUpperCase();
+      if (!raw) {
+        showGlassToast("تنبيه", "يرجى كتابة كود جهاز العميل", "error");
+        return;
+      }
+
+      const clean = raw.replace(/-/g, "").trim();
+      const hash = await sha256(clean + SECRET_SALT + currentRole + currentPlan);
+      const p1 = hash.substring(0, 4);
+      const p2 = hash.substring(4, 8);
+      const fullKey = `${currentRole}-${currentPlan}-${p1}-${p2}`;
+
+      document.getElementById("keyDisplay").innerText = fullKey;
+      document.getElementById("keyResultBox").style.display = "block";
+      showGlassToast("تم التوليد بنجاح", fullKey, "success");
+    }
+
+    function copyKey() {
+      const text = document.getElementById("keyDisplay").innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        showGlassToast("نسخ الرمز", "تم نسخ المفتاح إلى الحافظة بنجاح", "success");
+      });
+    }
+
+    function sendWhatsApp() {
+      const key = document.getElementById("keyDisplay").innerText;
+      const dev = document.getElementById("deviceCodeInput").value.trim().toUpperCase();
+      const msg = `مرحباً بك عزيزي المشترك،\nتم إصدار رمز تفعيل تطبيق منظومة «جِربة» الزراعية لجهازك (${dev}):\n\n🔑 ${key}\n\nنتمنى لك موسماً مباركاً!`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+    }
+
+    // 7. Batch Card Generation
+    async function generateBatchCards() {
+      const role = document.getElementById("batchRoleSelect").value;
+      const plan = document.getElementById("batchPlanSelect").value;
+      const count = parseInt(document.getElementById("batchCountInput").value, 10) || 10;
+
+      const tbody = document.getElementById("batchTableBody");
+      tbody.innerHTML = "";
+
+      for (let i = 1; i <= count; i++) {
+        const randId = "CRD" + Math.random().toString(36).substring(2, 7).toUpperCase();
+        const randHash = await sha256(randId);
+        const dev = `MSRB-${randHash.substring(0, 4)}-${randHash.substring(4, 8)}`;
+        const clean = dev.replace(/-/g, "");
+        const keyHash = await sha256(clean + SECRET_SALT + role + plan);
+        const key = `${role}-${plan}-${keyHash.substring(0, 4)}-${keyHash.substring(4, 8)}`;
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${i}</td>
+          <td><span class="status-badge badge-warning">${role}</span></td>
+          <td>${plan === 'M' ? 'شهري' : (plan === 'Y' ? 'سنوي' : 'دائم')}</td>
+          <td><code>${dev}</code></td>
+          <td style="font-weight:900; color:var(--accent);"><code>${key}</code></td>
+          <td>
+            <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('${key}'); showGlassToast('نسخ', '${key}', 'success');">نسخ</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      document.getElementById("batchTableWrap").style.display = "block";
+      showGlassToast("كروت العزلة", `تم توليد ${count} كرت بنجاح`, "success");
+    }
+
+    // 8. Firebase Integration
+    const firebaseConfig = {
+      projectId: "mosarib",
+      storageBucket: "mosarib.firebasestorage.app",
+      apiKey: "AIzaSyAwMKIqNLhQ7V08HVcZz-ywZDzomaPoQnA",
+      appId: "1:365688587385:android:9d503870452a1eef79c0a8"
+    };
+
+    let auth = null;
+    let db = null;
+    let currentUser = null;
+
+    try {
+      if (typeof firebase !== "undefined") {
+        firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        db = firebase.firestore();
+
+        auth.onAuthStateChanged(user => {
+          currentUser = user;
+          updateAuthUI(user);
+          if (user) {
+            loadCloudData();
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("Firebase Init offline:", e);
+    }
+
+    function toggleAuthModal() {
+      const modal = document.getElementById("authModal");
+      modal.style.display = modal.style.display === "flex" ? "none" : "flex";
+    }
+
+    async function handleLogin() {
+      if (!auth) {
+        showGlassToast("خطأ", "خدمة Firebase غير متصلة", "error");
+        return;
+      }
+      const email = document.getElementById("adminEmailInput").value.trim();
+      const pass = document.getElementById("adminPasswordInput").value.trim();
+      if (!pass) {
+        showGlassToast("تنبيه", "يرجى كتابة كلمة المرور", "error");
+        return;
+      }
+
+      try {
+        await auth.signInWithEmailAndPassword(email, pass);
+        toggleAuthModal();
+        showGlassToast("مرحباً بك", "تم تسجيل دخول المشرف بنجاح", "success");
+      } catch (err) {
+        showGlassToast("خطأ بالدخول", err.message, "error");
+      }
+    }
+
+    function updateAuthUI(user) {
+      const dot = document.getElementById("authDot");
+      const text = document.getElementById("authStatusText");
+      const pill = document.getElementById("authPill");
+
+      if (user) {
+        dot.classList.add("online");
+        text.innerText = "متصل (أدمن)";
+        pill.onclick = () => {
+          if (confirm("هل تريد تسجيل الخروج؟")) {
+            auth.signOut();
+            showGlassToast("خروج", "تم تسجيل الخروج بنجاح", "info");
+          }
+        };
+      } else {
+        dot.classList.remove("online");
+        text.innerText = "دخول الأدمن";
+        pill.onclick = toggleAuthModal;
+      }
+    }
+
+    // 9. Cloud Data Operations
+    let cachedSubscriptions = [];
+
+    async function loadCloudData() {
+      if (!db || !currentUser) return;
+
+      // Limits
+      try {
+        const doc = await db.collection("system_config").doc("limits").get();
+        if (doc.exists) {
+          const d = doc.data();
+          document.getElementById("launchToggle").checked = !!d.isFreeLaunchPeriod;
+          if (d.musribLimit) document.getElementById("limitMusribInput").value = d.musribLimit;
+          if (d.dallalListingsLimit) document.getElementById("limitMarketInput").value = d.dallalListingsLimit;
+          if (d.dallalDealsLimit) document.getElementById("limitDealsInput").value = d.dallalDealsLimit;
+        }
+      } catch (e) {
+        console.error("Limits error:", e);
+      }
+
+      // Subscriptions
+      try {
+        const snap = await db.collection("subscriptions").limit(50).get();
+        cachedSubscriptions = [];
+        snap.forEach(d => cachedSubscriptions.push({ id: d.id, ...d.data() }));
+        renderSubsTable(cachedSubscriptions);
+      } catch (e) {
+        console.error("Subs error:", e);
+      }
+
+      // Users Moderation
+      try {
+        const snap = await db.collection("users").limit(50).get();
+        const tbody = document.getElementById("usersTableBody");
+        tbody.innerHTML = "";
+        if (snap.empty) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:16px;">لا يوجد مستخدمون حالياً</td></tr>`;
+        } else {
+          snap.forEach(d => {
+            const u = d.data();
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td><b>${u.fullName || d.id}</b></td>
+              <td>${u.phoneNumber || '-'}</td>
+              <td>${u.activeRoles || 'MUSRIB'}</td>
+              <td><span class="status-badge ${u.verified ? 'badge-active' : 'badge-warning'}">${u.verified ? 'موثّق ✓' : 'غير موثق'}</span></td>
+              <td><span class="status-badge ${u.status === 'SUSPENDED' ? 'badge-danger' : 'badge-active'}">${u.status || 'ACTIVE'}</span></td>
+              <td>
+                <button class="btn btn-outline btn-sm" onclick="toggleUserVerify('${d.id}', ${!u.verified})">${u.verified ? 'إلغاء التوثيق' : 'توثيق ✓'}</button>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+      } catch (e) {
+        console.error("Users error:", e);
+      }
+
+      // Market Listings
+      try {
+        const snap = await db.collection("crop_listings").limit(30).get();
+        const tbody = document.getElementById("marketTableBody");
+        tbody.innerHTML = "";
+        if (snap.empty) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:16px;">لا توجد عروض في السوق</td></tr>`;
+        } else {
+          snap.forEach(d => {
+            const item = d.data();
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td><b>${item.title || item.cropType}</b></td>
+              <td>${item.cropType || '-'}</td>
+              <td>${item.dallalName || '-'}</td>
+              <td>${item.farmerPhone ? (item.hideFarmerPhone ? '🔒 محجوب' : item.farmerPhone) : '-'}</td>
+              <td>${item.createdAt ? new Date(item.createdAt.toDate ? item.createdAt.toDate() : item.createdAt).toLocaleDateString('ar-YE') : '-'}</td>
+              <td><button class="btn btn-danger btn-sm" onclick="deleteMarketListing('${d.id}')">حذف</button></td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+      } catch (e) {
+        console.error("Market error:", e);
+      }
+    }
+
+    function renderSubsTable(subs) {
+      const tbody = document.getElementById("subsTableBody");
+      tbody.innerHTML = "";
+      if (subs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:16px;">لا توجد اشتراكات مطابقة</td></tr>`;
+        return;
+      }
+      subs.forEach(s => {
+        const tr = document.createElement("tr");
+        const expStr = s.expires_at ? new Date(s.expires_at).toLocaleDateString('ar-YE') : '-';
+        tr.innerHTML = `
+          <td><code>${s.id}</code></td>
+          <td><b>${s.owner_name || 'بدون اسم'}</b></td>
+          <td>${s.phone || '-'}</td>
+          <td><span class="status-badge badge-warning">${s.role_type || 'MUSRIB'}</span></td>
+          <td>${s.plan || 'MONTHLY'}</td>
+          <td>${expStr}</td>
+          <td><span class="status-badge ${s.status === 'ACTIVE' ? 'badge-active' : 'badge-danger'}">${s.status || 'ACTIVE'}</span></td>
+          <td>
+            <button class="btn btn-outline btn-sm" onclick="extendSubscription('${s.id}')">+30 يوم</button>
+            <button class="btn btn-danger btn-sm" onclick="suspendSubscription('${s.id}')">إيقاف</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterSubsTable() {
+      const q = document.getElementById("subSearchInput").value.trim().toLowerCase();
+      const filtered = cachedSubscriptions.filter(s => 
+        s.id.toLowerCase().includes(q) || 
+        (s.owner_name && s.owner_name.toLowerCase().includes(q)) ||
+        (s.phone && s.phone.includes(q))
+      );
+      renderSubsTable(filtered);
+    }
+
+    async function extendSubscription(id) {
+      if (!db || !currentUser) return;
+      try {
+        const ref = db.collection("subscriptions").doc(id);
+        const doc = await ref.get();
+        if (doc.exists) {
+          const currentExp = doc.data().expires_at || Date.now();
+          const newExp = Math.max(currentExp, Date.now()) + (30 * 24 * 3600 * 1000);
+          await ref.update({ expires_at: newExp, status: "ACTIVE" });
+          showGlassToast("تمديد الاشتراك", `تم تمديد 30 يوماً للجهاز ${id}`, "success");
+          loadCloudData();
+        }
+      } catch (e) {
+        showGlassToast("خطأ", e.message, "error");
+      }
+    }
+
+    async function suspendSubscription(id) {
+      if (!confirm(`هل تريد إيقاف اشتراك الجهاز ${id}؟`)) return;
+      try {
+        await db.collection("subscriptions").doc(id).update({ status: "SUSPENDED" });
+        showGlassToast("إيقاف الاشتراك", `تم إيقاف الجهاز ${id}`, "info");
+        loadCloudData();
+      } catch (e) {
+        showGlassToast("خطأ", e.message, "error");
+      }
+    }
+
+    async function toggleUserVerify(userId, newStatus) {
+      if (!db || !currentUser) return;
+      try {
+        await db.collection("users").doc(userId).set({ verified: newStatus }, { merge: true });
+        showGlassToast("التوثيق", `تم تحديث توثيق المستخدم ${userId}`, "success");
+        loadCloudData();
+      } catch (e) {
+        showGlassToast("خطأ", e.message, "error");
+      }
+    }
+
+    async function deleteMarketListing(id) {
+      if (!confirm("هل تريد حذف هذا العرض من السوق؟")) return;
+      try {
+        await db.collection("crop_listings").doc(id).delete();
+        showGlassToast("حذف", "تم حذف الإعلان من السوق", "info");
+        loadCloudData();
+      } catch (e) {
+        showGlassToast("خطأ", e.message, "error");
+      }
+    }
+
+    async function saveLimits() {
+      if (!db || !currentUser) {
+        showGlassToast("تنبيه", "يرجى تسجيل الدخول أولاً", "error");
+        return;
+      }
+      const data = {
+        isFreeLaunchPeriod: document.getElementById("launchToggle").checked,
+        musribLimit: parseInt(document.getElementById("limitMusribInput").value, 10) || 200,
+        dallalListingsLimit: parseInt(document.getElementById("limitMarketInput").value, 10) || 10,
+        dallalDealsLimit: parseInt(document.getElementById("limitDealsInput").value, 10) || 5,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: currentUser.email
+      };
+
+      try {
+        await db.collection("system_config").doc("limits").set(data, { merge: true });
+        showGlassToast("حفظ الإعدادات", "تم حفظ الحدود السحابية بنجاح", "success");
+      } catch (e) {
+        showGlassToast("خطأ", e.message, "error");
+      }
+    }
+
+    // 10. Transfer Subscription
+    function openTransferModal() {
+      document.getElementById("transferModal").style.display = "flex";
+    }
+
+    function closeTransferModal() {
+      document.getElementById("transferModal").style.display = "none";
+    }
+
+    async function executeTransfer() {
+      if (!db || !currentUser) {
+        showGlassToast("تنبيه", "يرجى تسجيل الدخول أولاً", "error");
+        return;
+      }
+      const oldCode = document.getElementById("transferOldInput").value.trim().toUpperCase();
+      const newCode = document.getElementById("transferNewInput").value.trim().toUpperCase();
+      const reason = document.getElementById("transferNoteInput").value.trim();
+
+      if (!oldCode || !newCode) {
+        showGlassToast("تنبيه", "أدخل كود الجهازين", "error");
+        return;
+      }
+
+      try {
+        const oldRef = db.collection("subscriptions").doc(oldCode);
+        const oldDoc = await oldRef.get();
+        if (!oldDoc.exists) {
+          showGlassToast("خطأ", "الجهاز القديم غير موجود", "error");
+          return;
+        }
+
+        const data = oldDoc.data();
+        await db.collection("subscriptions").doc(newCode).set({
+          ...data,
+          transferredFrom: oldCode,
+          transferReason: reason,
+          transferredAt: firebase.firestore.FieldValue.serverTimestamp(),
+          status: "ACTIVE"
+        });
+
+        await oldRef.update({
+          status: `TRANSFERRED_TO_${newCode}`,
+          transferredAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        closeTransferModal();
+        showGlassToast("نقل الاشتراك", `تم النقل بنجاح إلى ${newCode}`, "success");
+        loadCloudData();
+      } catch (e) {
+        showGlassToast("خطأ", e.message, "error");
+      }
+    }
+
+    async function saveKeyToCloud() {
+      if (!db || !currentUser) {
+        showGlassToast("تنبيه", "يرجى تسجيل دخول الأدمن لقيد الاشتراك بالسحابة", "error");
+        return;
+      }
+      const dev = document.getElementById("deviceCodeInput").value.trim().toUpperCase();
+      const key = document.getElementById("keyDisplay").innerText;
+      if (!dev || !key) return;
+
+      const duration = currentPlan === 'M' ? 30 : (currentPlan === 'Y' ? 365 : 3650);
+      const expiresAt = Date.now() + (duration * 24 * 3600 * 1000);
+
+      try {
+        await db.collection("subscriptions").doc(dev).set({
+          device_code: dev,
+          generated_key: key,
+          role_type: currentRole,
+          plan: currentPlan === 'M' ? 'MONTHLY' : (currentPlan === 'Y' ? 'YEARLY' : 'LIFETIME'),
+          status: "ACTIVE",
+          expires_at: expiresAt,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdBy: currentUser.email
+        }, { merge: true });
+
+        showGlassToast("قيد السحابة", "تم حفظ اشتراك الجهاز بالسحابة بنجاح", "success");
+        loadCloudData();
+      } catch (e) {
+        showGlassToast("خطأ", e.message, "error");
+      }
+    }
+  </script>
 </body>
 </html>

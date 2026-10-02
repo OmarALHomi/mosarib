@@ -216,6 +216,21 @@ fun CustomerDetailScreen(
 
     val customer = customerWithBalance.customer
 
+    androidx.compose.runtime.LaunchedEffect(customerWithBalance) {
+        if (customer.linkCode.isBlank()) {
+            val generated = com.example.core.util.LinkCodeGenerator.generate()
+            viewModel.updateCustomer(customer.copy(linkCode = generated))
+        } else {
+            com.example.core.sync.MusribSyncManager.syncCustomerSummary(
+                customer = customer,
+                distributorName = config.distributorName.ifBlank { "المسرب" },
+                distributorPhone = config.distributorPhone,
+                totalBilled = customerWithBalance.totalBilledAmount,
+                totalPaid = customerWithBalance.totalPaidAmount,
+                currentBalance = customerWithBalance.balance
+            )
+        }
+    }
     // Message Choice Dialog (WhatsApp / SMS)
     messageSessionTarget?.let { s ->
         val timeRange = "من ${Formatters.formatTime(s.startTime)} إلى ${Formatters.formatTime(s.endTime)}"
@@ -483,6 +498,38 @@ fun CustomerDetailScreen(
                                         textAlign = TextAlign.Center,
                                         modifier = Modifier.padding(horizontal = 30.dp)
                                     )
+                                }
+
+                                if (customer.linkCode.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(Color.Black.copy(alpha = 0.28f))
+                                            .clickable {
+                                                val msg = "مرحباً يا ${customer.name}، كود ربط حسابك في تطبيق جِربة الزراعي مع المسرب (${config.distributorName.ifBlank { "المسرب" }}):\n#${customer.linkCode}\nأدخل هذا الكود في التطبيق لمتابعة دورات السقي ورصيدك مباشرة."
+                                                FileSharingHelper.copyToClipboard(context, customer.linkCode)
+                                                FileSharingHelper.shareText(context, msg, "مشاركة كود الربط")
+                                            }
+                                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(
+                                            text = "كود ربط المزارع: #${customer.linkCode}",
+                                            style = MaterialTheme.typography.labelMedium.copy(
+                                                color = AccentGold,
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 1.sp
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Icon(
+                                            Icons.Default.Share,
+                                            contentDescription = "مشاركة",
+                                            tint = AccentGold,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
                                 }
 
                                 Spacer(modifier = Modifier.height(12.dp))

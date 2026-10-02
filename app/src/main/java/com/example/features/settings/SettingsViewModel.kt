@@ -96,6 +96,28 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun updateRoles(primaryRole: String, activeRoles: String) {
+        viewModelScope.launch {
+            settingsRepo.updateRoles(primaryRole, activeRoles)
+            showToast("تم تحديث أدواري في المنظومة بنجاح 🌾", ToastType.SUCCESS)
+        }
+    }
+
+    fun completeOnboarding(
+        name: String,
+        phone: String,
+        village: String,
+        primaryRole: String,
+        activeRoles: String,
+        onDone: () -> Unit
+    ) {
+        viewModelScope.launch {
+            settingsRepo.completeOnboarding(name, phone, village, primaryRole, activeRoles)
+            showToast("مرحباً بك في منظومة جِربة! 🌾", ToastType.SUCCESS)
+            onDone()
+        }
+    }
+
     fun savePump(
         id: Long = 0,
         name: String,

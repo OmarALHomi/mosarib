@@ -51,7 +51,29 @@ object FileSharingHelper {
         }
     }
 
-    const val MESSAGE_FOOTER = "\n\n---\nتطبيق المُسَرِّبْ | م. عمر الحومي\nwa.me/967773712030"
+    fun copyToClipboard(context: Context, text: String, label: String = "كود الربط") {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val clip = android.content.ClipData.newPlainText(label, text)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(context, "تم النسخ بنجاح: $text", Toast.LENGTH_SHORT).show()
+    }
+
+    fun shareText(context: Context, text: String, title: String = "مشاركة") {
+        try {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(Intent.createChooser(intent, title).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+        } catch (e: Exception) {
+            Toast.makeText(context, "فشل في المشاركة: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    const val MESSAGE_FOOTER = "\n\n---\nتطبيق جِربة | م. عمر الحومي\nwa.me/967773712030"
 
     /**
      * يضيف فوتر مختصر للرسالة يحتوي على اسم التطبيق والمطور ورابط الواتساب المباشر

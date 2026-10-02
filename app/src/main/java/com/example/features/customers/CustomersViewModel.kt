@@ -124,6 +124,12 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun updateCustomer(customer: Customer) {
+        viewModelScope.launch {
+            customerRepo.updateCustomer(customer)
+        }
+    }
+
     fun deleteCustomer(customer: Customer) {
         viewModelScope.launch {
             customerRepo.deleteCustomer(customer)

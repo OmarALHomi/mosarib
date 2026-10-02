@@ -70,9 +70,23 @@ class CustomerRepository(
             customers.map { customer -> calculateCustomerBalance(customer, sessions, vouchers) }
         }
 
-    suspend fun insertCustomer(customer: Customer): Long = customerDao.insertCustomer(customer)
+    suspend fun insertCustomer(customer: Customer): Long {
+        val finalCustomer = if (customer.linkCode.isBlank()) {
+            customer.copy(linkCode = com.example.core.util.LinkCodeGenerator.generate())
+        } else {
+            customer
+        }
+        return customerDao.insertCustomer(finalCustomer)
+    }
 
-    suspend fun updateCustomer(customer: Customer) = customerDao.updateCustomer(customer)
+    suspend fun updateCustomer(customer: Customer) {
+        val finalCustomer = if (customer.linkCode.isBlank()) {
+            customer.copy(linkCode = com.example.core.util.LinkCodeGenerator.generate())
+        } else {
+            customer
+        }
+        customerDao.updateCustomer(finalCustomer)
+    }
 
     suspend fun deleteCustomer(customer: Customer) = customerDao.deleteCustomer(customer)
 

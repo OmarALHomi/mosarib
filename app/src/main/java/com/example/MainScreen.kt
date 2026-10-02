@@ -90,7 +90,10 @@ fun MainApp(
     customersViewModel: CustomersViewModel = viewModel(),
     vouchersViewModel: VouchersViewModel = viewModel(),
     reportsViewModel: ReportsViewModel = viewModel(),
-    settingsViewModel: SettingsViewModel = viewModel()
+    settingsViewModel: SettingsViewModel = viewModel(),
+    farmerViewModel: com.example.features.farmer.FarmerViewModel = viewModel(),
+    marketViewModel: com.example.features.market.MarketViewModel = viewModel(),
+    dealsViewModel: com.example.features.deals.DealsViewModel = viewModel()
 ) {
     val appConfig by settingsViewModel.appConfig.collectAsStateWithLifecycle()
     val isSystemDark = isSystemInDarkTheme()
@@ -109,13 +112,57 @@ fun MainApp(
             var selectedCustomerId by remember { mutableLongStateOf(0L) }
             var showReportsScreen by remember { mutableStateOf(false) }
             var showAboutScreen by remember { mutableStateOf(false) }
+            var showFarmerScreen by remember { mutableStateOf(false) }
+            var showMarketScreen by remember { mutableStateOf(false) }
+            var showDealsScreen by remember { mutableStateOf(false) }
+            var showAccountingScreen by remember { mutableStateOf(false) }
+            var selectedMusribForFarmer by remember { mutableStateOf<com.example.features.farmer.LinkedMusrib?>(null) }
 
             if (showSplashScreen) {
                 SplashScreen(onTimeout = { showSplashScreen = false })
             } else if (appConfig.biometricEnabled && !isBiometricUnlocked) {
                 BiometricLockScreen(onUnlock = { isBiometricUnlocked = true })
+            } else if (!appConfig.isOnboardingCompleted) {
+                com.example.features.onboarding.RoleSelectionScreen(
+                    initialName = appConfig.distributorName.takeIf { it != "مستخدم جِربة" } ?: "",
+                    initialPhone = appConfig.distributorPhone.takeIf { it != "777000000" } ?: "",
+                    initialVillage = appConfig.userVillage,
+                    onComplete = { name, phone, village, pRole, aRoles ->
+                        settingsViewModel.completeOnboarding(name, phone, village, pRole, aRoles) {}
+                    }
+                )
+            } else if (showAccountingScreen) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                com.example.features.farmer.FarmAccountingScreen(
+                    expensesDao = com.example.core.database.AppDatabase.getDatabase(context).farmExpenseDao(),
+                    onBack = { showAccountingScreen = false }
+                )
             } else if (showAboutScreen) {
                 AboutScreen(onBack = { showAboutScreen = false })
+            } else if (showFarmerScreen) {
+                if (selectedMusribForFarmer != null) {
+                    com.example.features.farmer.FarmerLedgerScreen(
+                        viewModel = farmerViewModel,
+                        musrib = selectedMusribForFarmer!!,
+                        onBack = { selectedMusribForFarmer = null }
+                    )
+                } else {
+                    androidx.activity.compose.BackHandler { showFarmerScreen = false }
+                    com.example.features.farmer.FarmerScreen(
+                        viewModel = farmerViewModel,
+                        onOpenLedger = { selectedMusribForFarmer = it }
+                    )
+                }
+            } else if (showMarketScreen) {
+                com.example.features.market.MarketScreen(
+                    viewModel = marketViewModel,
+                    onBack = { showMarketScreen = false }
+                )
+            } else if (showDealsScreen) {
+                com.example.features.deals.DealsScreen(
+                    viewModel = dealsViewModel,
+                    onBack = { showDealsScreen = false }
+                )
             } else if (selectedCustomerId > 0) {
                 CustomerDetailScreen(
                     customerId = selectedCustomerId,
@@ -231,7 +278,11 @@ fun MainApp(
                                     onNavigateToCustomer = { custId ->
                                         selectedCustomerId = custId
                                     },
-                                    onOpenReports = { showReportsScreen = true }
+                                    onOpenReports = { showReportsScreen = true },
+                                    onOpenFarmer = { showFarmerScreen = true },
+                                    onOpenMarket = { showMarketScreen = true },
+                                    onOpenDeals = { showDealsScreen = true },
+                                    onOpenAccounting = { showAccountingScreen = true }
                                 )
                             }
                             AppTab.SESSIONS -> {

@@ -208,16 +208,23 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                 billedToCustomerId = billedToCustomerId
             )
 
+            val cust = db.customerDao().getCustomerByIdDirect(session.customerId)
             if (id == 0L) {
                 val totalOps = db.waterSessionDao().getSessionsCountDirect() + db.voucherDao().getVouchersCountDirect()
                 if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
                     showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
                     return@launch
                 }
-                sessionRepo.insertSession(session)
+                val newId = sessionRepo.insertSession(session)
+                if (cust != null && cust.linkCode.isNotBlank()) {
+                    com.example.core.sync.MusribSyncManager.syncSession(cust.linkCode, session.copy(id = newId))
+                }
                 showToast("تم تسجيل دورة الماء وحساب التكلفة بنجاح", ToastType.SUCCESS)
             } else {
                 sessionRepo.updateSession(session)
+                if (cust != null && cust.linkCode.isNotBlank()) {
+                    com.example.core.sync.MusribSyncManager.syncSession(cust.linkCode, session)
+                }
                 showToast("تم تحديث بيانات دورة الماء بنجاح", ToastType.SUCCESS)
             }
         }
@@ -268,7 +275,11 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
 
     fun deleteSession(session: WaterSession) {
         viewModelScope.launch {
+            val cust = db.customerDao().getCustomerByIdDirect(session.customerId)
             sessionRepo.deleteSession(session)
+            if (cust != null && cust.linkCode.isNotBlank()) {
+                com.example.core.sync.MusribSyncManager.deleteEntry(cust.linkCode, "session_${session.id}")
+            }
             showToast("تم حذف الجلسة بنجاح", ToastType.INFO)
         }
     }
