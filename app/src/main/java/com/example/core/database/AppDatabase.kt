@@ -22,6 +22,8 @@ import com.example.features.vouchers.Voucher
 import com.example.features.vouchers.VoucherDao
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import com.example.features.market.CropListing
+import com.example.features.market.CropListingDao
 import kotlinx.coroutines.launch
 
 @Database(
@@ -31,9 +33,10 @@ import kotlinx.coroutines.launch
         PumpSource::class,
         Voucher::class,
         AppSetting::class,
-        LinkedMusrib::class
+        LinkedMusrib::class,
+        CropListing::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -45,6 +48,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun voucherDao(): VoucherDao
     abstract fun appSettingDao(): AppSettingDao
     abstract fun linkedMusribDao(): LinkedMusribDao
+    abstract fun cropListingDao(): CropListingDao
 
     companion object {
         @Volatile
@@ -77,6 +81,33 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS crop_listings (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        cropType TEXT NOT NULL,
+                        description TEXT NOT NULL DEFAULT '',
+                        district TEXT NOT NULL DEFAULT '',
+                        village TEXT NOT NULL DEFAULT '',
+                        priceEstimate REAL NOT NULL DEFAULT 0.0,
+                        priceUnit TEXT NOT NULL DEFAULT '',
+                        dallalName TEXT NOT NULL DEFAULT '',
+                        dallalPhone TEXT NOT NULL DEFAULT '',
+                        dallalId TEXT NOT NULL DEFAULT '',
+                        farmerName TEXT NOT NULL DEFAULT '',
+                        farmerPhone TEXT NOT NULL DEFAULT '',
+                        hideFarmerPhone INTEGER NOT NULL DEFAULT 1,
+                        status TEXT NOT NULL DEFAULT 'AVAILABLE',
+                        createdAt INTEGER NOT NULL DEFAULT 0,
+                        isFeatured INTEGER NOT NULL DEFAULT 0,
+                        syncStatus TEXT NOT NULL DEFAULT 'SYNCED'
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -84,7 +115,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "water_distributor_db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance

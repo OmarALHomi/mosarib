@@ -91,7 +91,8 @@ fun MainApp(
     vouchersViewModel: VouchersViewModel = viewModel(),
     reportsViewModel: ReportsViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel(),
-    farmerViewModel: com.example.features.farmer.FarmerViewModel = viewModel()
+    farmerViewModel: com.example.features.farmer.FarmerViewModel = viewModel(),
+    marketViewModel: com.example.features.market.MarketViewModel = viewModel()
 ) {
     val appConfig by settingsViewModel.appConfig.collectAsStateWithLifecycle()
     val isSystemDark = isSystemInDarkTheme()
@@ -111,6 +112,7 @@ fun MainApp(
             var showReportsScreen by remember { mutableStateOf(false) }
             var showAboutScreen by remember { mutableStateOf(false) }
             var showFarmerScreen by remember { mutableStateOf(false) }
+            var showMarketScreen by remember { mutableStateOf(false) }
             var selectedMusribForFarmer by remember { mutableStateOf<com.example.features.farmer.LinkedMusrib?>(null) }
 
             if (showSplashScreen) {
@@ -133,6 +135,11 @@ fun MainApp(
                         onOpenLedger = { selectedMusribForFarmer = it }
                     )
                 }
+            } else if (showMarketScreen) {
+                com.example.features.market.MarketScreen(
+                    viewModel = marketViewModel,
+                    onBack = { showMarketScreen = false }
+                )
             } else if (selectedCustomerId > 0) {
                 CustomerDetailScreen(
                     customerId = selectedCustomerId,
@@ -249,7 +256,8 @@ fun MainApp(
                                         selectedCustomerId = custId
                                     },
                                     onOpenReports = { showReportsScreen = true },
-                                    onOpenFarmer = { showFarmerScreen = true }
+                                    onOpenFarmer = { showFarmerScreen = true },
+                                    onOpenMarket = { showMarketScreen = true }
                                 )
                             }
                             AppTab.SESSIONS -> {

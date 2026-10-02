@@ -113,6 +113,7 @@ fun HomeScreen(
     onNavigateToCustomer: (Long) -> Unit,
     onOpenReports: () -> Unit,
     onOpenFarmer: () -> Unit = {},
+    onOpenMarket: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val config by settingsViewModel.appConfig.collectAsStateWithLifecycle()
@@ -416,6 +417,67 @@ fun HomeScreen(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = null,
                             tint = PrimaryTeal
+                        )
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    onClick = onOpenMarket,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(AccentGold.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("🤝", fontSize = 18.sp)
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "سوق وبورصة المحاصيل الزراعية",
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(AccentEmerald)
+                                            .padding(horizontal = 6.dp, vertical = 1.dp)
+                                    ) {
+                                        Text(
+                                            text = "جديد",
+                                            style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.Bold, fontSize = 9.sp)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = "عروض الثمار، وساطة الدلالين، وحفظ السعايات",
+                                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                )
+                            }
+                        }
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null,
+                            tint = AccentGold
                         )
                     }
                 }
