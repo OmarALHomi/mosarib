@@ -46,6 +46,17 @@ grep -q 'DATABASE_NAME = "water_distributor_db"' app/src/main/java/com/example/c
   || fail "اسم قاعدة البيانات تغيّر — يفقد المستخدمون دفاترهم."
 pass "معرّف الحزمة واسم قاعدة البيانات ثابتان"
 
+# 4أ) إعدادات Firebase تطابق معرّف الحزمة، وإلا يفشل البناء أو يعمل SDK على تطبيق غير مسجّل.
+if [ -f app/google-services.json ]; then
+  config_package=$(grep -o '"package_name"[[:space:]]*:[[:space:]]*"[^"]*"' app/google-services.json \
+    | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
+  gradle_package=$(grep -o 'applicationId = "[^"]*"' app/build.gradle.kts | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
+  if [ "$config_package" != "$gradle_package" ]; then
+    fail "google-services.json يشير إلى الحزمة '$config_package' بينما applicationId هو '$gradle_package'. راجع docs/FIREBASE_SETUP_AR.md."
+  fi
+  pass "google-services.json يطابق معرّف الحزمة"
+fi
+
 # 4ب) الاسم الظاهر ثابت: «بيننا» وتحته «مستودع حساباتك ومعاملاتك».
 grep -q '<string name="app_name">بيننا</string>' app/src/main/res/values/strings.xml \
   || fail "الاسم الظاهر ليس «بيننا» في strings.xml."
