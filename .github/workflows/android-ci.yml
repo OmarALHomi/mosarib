@@ -135,7 +135,8 @@ jobs:
               text = open(path, encoding="utf-8").read()
               name = path.replace("app/schemas/", "")
               encoded = base64.b64encode(text.encode("utf-8")).decode("ascii")
-              chunk_size = 2500
+              # GitHub يسمح بعشرة تعليقات لكل خطوة؛ نوزّع الملف على 8 أجزاء كحد أقصى.
+              chunk_size = max(2000, (len(encoded) + 7) // 8)
               parts = [encoded[i:i + chunk_size] for i in range(0, len(encoded), chunk_size)] or [""]
               for index, part in enumerate(parts, start=1):
                   print(f"::warning title=SCHEMA|{name}|{index}/{len(parts)}::{part}")
