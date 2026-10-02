@@ -115,6 +115,7 @@ fun HomeScreen(
     onOpenFarmer: () -> Unit = {},
     onOpenMarket: () -> Unit = {},
     onOpenDeals: () -> Unit = {},
+    onOpenAccounting: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val config by settingsViewModel.appConfig.collectAsStateWithLifecycle()
@@ -526,6 +527,53 @@ fun HomeScreen(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = null,
                             tint = PrimaryTeal
+                        )
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    onClick = onOpenAccounting,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(AccentEmerald.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("📊", fontSize = 18.sp)
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "محاسبة المزرعة والمصروفات والأرباح",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = "سجل مصروفات الرش، السماد، العمال، وحساب الأرباح",
+                                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                )
+                            }
+                        }
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null,
+                            tint = AccentEmerald
                         )
                     }
                 }

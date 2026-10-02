@@ -115,12 +115,28 @@ fun MainApp(
             var showFarmerScreen by remember { mutableStateOf(false) }
             var showMarketScreen by remember { mutableStateOf(false) }
             var showDealsScreen by remember { mutableStateOf(false) }
+            var showAccountingScreen by remember { mutableStateOf(false) }
             var selectedMusribForFarmer by remember { mutableStateOf<com.example.features.farmer.LinkedMusrib?>(null) }
 
             if (showSplashScreen) {
                 SplashScreen(onTimeout = { showSplashScreen = false })
             } else if (appConfig.biometricEnabled && !isBiometricUnlocked) {
                 BiometricLockScreen(onUnlock = { isBiometricUnlocked = true })
+            } else if (!appConfig.isOnboardingCompleted) {
+                com.example.features.onboarding.RoleSelectionScreen(
+                    initialName = appConfig.distributorName.takeIf { it != "مستخدم جِربة" } ?: "",
+                    initialPhone = appConfig.distributorPhone.takeIf { it != "777000000" } ?: "",
+                    initialVillage = appConfig.userVillage,
+                    onComplete = { name, phone, village, pRole, aRoles ->
+                        settingsViewModel.completeOnboarding(name, phone, village, pRole, aRoles) {}
+                    }
+                )
+            } else if (showAccountingScreen) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                com.example.features.farmer.FarmAccountingScreen(
+                    expensesDao = com.example.core.database.AppDatabase.getDatabase(context).farmExpenseDao(),
+                    onBack = { showAccountingScreen = false }
+                )
             } else if (showAboutScreen) {
                 AboutScreen(onBack = { showAboutScreen = false })
             } else if (showFarmerScreen) {
@@ -265,7 +281,8 @@ fun MainApp(
                                     onOpenReports = { showReportsScreen = true },
                                     onOpenFarmer = { showFarmerScreen = true },
                                     onOpenMarket = { showMarketScreen = true },
-                                    onOpenDeals = { showDealsScreen = true }
+                                    onOpenDeals = { showDealsScreen = true },
+                                    onOpenAccounting = { showAccountingScreen = true }
                                 )
                             }
                             AppTab.SESSIONS -> {

@@ -27,6 +27,8 @@ import com.example.features.market.CropListingDao
 import com.example.features.deals.SettlementDeal
 import com.example.features.deals.DealPayment
 import com.example.features.deals.SettlementDealDao
+import com.example.features.farmer.FarmExpense
+import com.example.features.farmer.FarmExpenseDao
 import kotlinx.coroutines.launch
 
 @Database(
@@ -39,9 +41,10 @@ import kotlinx.coroutines.launch
         LinkedMusrib::class,
         CropListing::class,
         SettlementDeal::class,
-        DealPayment::class
+        DealPayment::class,
+        FarmExpense::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -55,6 +58,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun linkedMusribDao(): LinkedMusribDao
     abstract fun cropListingDao(): CropListingDao
     abstract fun settlementDealDao(): SettlementDealDao
+    abstract fun farmExpenseDao(): FarmExpenseDao
 
     companion object {
         @Volatile
@@ -156,6 +160,21 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : androidx.room.migration.Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS farm_expenses (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        farmName TEXT NOT NULL,
+                        expenseCategory TEXT NOT NULL,
+                        amount REAL NOT NULL DEFAULT 0.0,
+                        notes TEXT NOT NULL DEFAULT '',
+                        date INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -163,7 +182,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "water_distributor_db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
