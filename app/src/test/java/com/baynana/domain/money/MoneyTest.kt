@@ -154,10 +154,13 @@ class MoneyTest {
 
     @Test
     fun `parsed money round trips through plain text`() {
-        val money = ok("12,345", Currency.SAR)
+        val money = ok("123.45", Currency.SAR)
         assertEquals(12345L, money.minor)
         assertEquals("123.45", money.toPlainString())
         assertEquals(12345L, ok(money.toPlainString(), Currency.SAR).minor)
+
+        // الألف فاصلة آلاف لا فاصلة عشرية.
+        assertEquals(1_234_500L, ok("12,345", Currency.SAR).minor)
     }
 
     // -------------------------------------------------------------- التنسيق

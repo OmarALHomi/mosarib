@@ -29,7 +29,9 @@ class ExampleRobolectricTest {
     @Test
     fun `application identity is the approved one`() {
         assertEquals("com.baynana.app", BuildConfig.APPLICATION_ID)
-        assertEquals(false, BuildConfig.APPLICATION_ID.contains("com.baynana"))
+        // كلمة example تُكتب مجزّأة حتى لا يقلبها أي استبدال نصي لاحق فيصير التأكيد معكوسًا.
+        val placeholder = "exam" + "ple"
+        assertEquals(false, BuildConfig.APPLICATION_ID.contains(placeholder))
         assertEquals(false, BuildConfig.APPLICATION_ID.contains("omarAlhomi"))
     }
 
