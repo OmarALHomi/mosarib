@@ -37,6 +37,10 @@ interface FarmExpenseDao {
     @Query("SELECT SUM(amount) FROM farm_expenses")
     fun getTotalExpenses(): Flow<Double?>
 
+    /** كل مصروفات المزرعة، للنسخ الاحتياطي. */
+    @Query("SELECT * FROM farm_expenses ORDER BY date ASC")
+    suspend fun getAllExpensesForBackup(): List<FarmExpense>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExpense(expense: FarmExpense)
 

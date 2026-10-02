@@ -35,6 +35,10 @@ interface LinkedMusribDao {
     @Query("SELECT * FROM linked_musribs WHERE linkCode = :linkCode")
     suspend fun getByLinkCode(linkCode: String): LinkedMusrib?
 
+    /** كل الروابط، للنسخ الاحتياطي. */
+    @Query("SELECT * FROM linked_musribs ORDER BY addedAt ASC")
+    suspend fun getAllLinkedMusribsForBackup(): List<LinkedMusrib>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(linkedMusrib: LinkedMusrib)
 

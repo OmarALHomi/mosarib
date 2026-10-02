@@ -104,6 +104,14 @@ interface SettlementDealDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPayment(payment: DealPayment)
 
+    /** كل الصلوح، للنسخ الاحتياطي. */
+    @Query("SELECT * FROM settlement_deals ORDER BY dealDate ASC")
+    suspend fun getAllDealsForBackup(): List<SettlementDeal>
+
+    /** كل الدفعات، للنسخ الاحتياطي. لا تُبنى الأرصدة بلا دفعاتها. */
+    @Query("SELECT * FROM deal_payments ORDER BY paymentDate ASC")
+    suspend fun getAllPaymentsForBackup(): List<DealPayment>
+
     @Query("DELETE FROM settlement_deals WHERE id = :id")
     suspend fun deleteDeal(id: String)
 }

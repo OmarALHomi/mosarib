@@ -42,7 +42,7 @@ class MigrationCoverageTest {
 
         assertEquals(
             "إصدار قاعدة البيانات يجب أن يساوي نهاية آخر ترحيل",
-            AppDatabase::class.java.getAnnotation(androidx.room.Database::class.java).version,
+            DATABASE_VERSION,
             cursor
         )
     }

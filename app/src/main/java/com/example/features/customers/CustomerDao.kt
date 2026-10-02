@@ -12,6 +12,13 @@ interface CustomerDao {
     @Query("SELECT * FROM customers WHERE isArchived = 0 ORDER BY name ASC")
     fun getAllCustomers(): Flow<List<Customer>>
 
+    /**
+     * كل الصفوف بلا استثناء، للنسخ الاحتياطي فقط.
+     * [getAllCustomers] يُسقط المؤرشف، والنسخة الاحتياطية يجب ألا تُسقط شيئًا.
+     */
+    @Query("SELECT * FROM customers ORDER BY id ASC")
+    suspend fun getAllCustomersForBackup(): List<Customer>
+
     @Query("SELECT * FROM customers WHERE id = :id")
     fun getCustomerById(id: Long): Flow<Customer?>
 

@@ -10,7 +10,10 @@ lifecycleRuntimeCompose = "2.8.7"
 activityCompose = "1.10.1"
 kotlin = "2.2.10"
 composeBom = "2024.09.00"
-googleDevtoolsKsp = "2.3.5"
+# 2.3.5 crashes headless in CI with "ApplicationManager.getApplication() is null"
+# (google/ksp#2763); the crash was fixed in 2.3.6 and the service-registration
+# NullPointerException in 2.3.12 (#3140).
+googleDevtoolsKsp = "2.3.12"
 googleServices = "4.5.0"
 playServicesAuth = "21.6.0"
 credentials = "1.6.0"

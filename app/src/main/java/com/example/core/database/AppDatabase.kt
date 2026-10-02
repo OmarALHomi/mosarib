@@ -31,6 +31,12 @@ import com.example.features.farmer.FarmExpense
 import com.example.features.farmer.FarmExpenseDao
 import kotlinx.coroutines.launch
 
+/**
+ * إصدار قاعدة البيانات. ثابت على مستوى الملف لأن تعليق [Database] يحتاج قيمة وقت الترجمة،
+ * ويقرأه اختبار الترحيلات ومحرّك النسخ الاحتياطي. لا يُنقص أبدًا، وأي زيادة تحتاج ترحيلًا.
+ */
+const val DATABASE_VERSION = 6
+
 @Database(
     entities = [
         Customer::class,
@@ -44,7 +50,7 @@ import kotlinx.coroutines.launch
         DealPayment::class,
         FarmExpense::class
     ],
-    version = 6,
+    version = DATABASE_VERSION,
     // تصدير المخطط إلزامي: بدونه لا يمكن اختبار الترحيلات ولا مقارنة الإصدارات قبل النشر.
     exportSchema = true
 )

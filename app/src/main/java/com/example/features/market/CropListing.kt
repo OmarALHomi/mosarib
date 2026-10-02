@@ -55,6 +55,10 @@ interface CropListingDao {
     @Query("SELECT * FROM crop_listings ORDER BY isFeatured DESC, createdAt DESC")
     fun getAllListings(): Flow<List<CropListing>>
 
+    /** كل العروض، للنسخ الاحتياطي (بما فيها المباع والمحذوف محليًا). */
+    @Query("SELECT * FROM crop_listings ORDER BY createdAt ASC")
+    suspend fun getAllListingsForBackup(): List<CropListing>
+
     @Query("SELECT * FROM crop_listings WHERE cropType = :type ORDER BY isFeatured DESC, createdAt DESC")
     fun getListingsByType(type: String): Flow<List<CropListing>>
 

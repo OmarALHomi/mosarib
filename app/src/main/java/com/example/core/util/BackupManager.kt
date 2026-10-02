@@ -6,16 +6,8 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.room.withTransaction
 import com.example.core.database.AppDatabase
-import com.example.features.customers.Customer
-import com.example.features.pumps.PumpSource
-import com.example.features.sessions.WaterSession
-import com.example.features.settings.AppSetting
-import com.example.features.vouchers.Voucher
-import com.example.features.vouchers.VoucherType
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.File
@@ -25,116 +17,39 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * النسخ الاحتياطي والاسترجاع.
+ *
+ * ما تغيّر بعد مراجعة v4 (DATA-01..03):
+ * - النسخة صارت تشمل الجداول العشرة، لا خمسة. الروابط والصلوح ودفعاتها وعروض السوق
+ *   ومصروفات المزرعة لم تكن تُنسخ قبل الآن، فكانت تُفقد عند الاستعادة.
+ * - الصفوف المؤرشفة والمصادر المعطّلة تُنسخ أيضًا؛ كانت [com.example.features.customers.CustomerDao.getAllCustomers]
+ *   و[com.example.features.pumps.PumpSourceDao.getAllPumps] تُسقطها.
+ * - الاسترجاع يمر بثلاث مراحل: معاينة ([previewRestoreFromFile] / [previewRestoreFromUri])،
+ *   ثم نسخة أمان تلقائية للوضع الحالي، ثم كتابة داخل معاملة واحدة تُلغى كاملة عند أي خطأ.
+ * - لا يُحذف شيء لا يذكره الملف، ولا يُقبل ملف من صيغة أحدث، ولا تُمزج نسخة ناقصة بصمت.
+ */
 object BackupManager {
 
+    const val BACKUP_FILE_PREFIX = "jerba_backup_"
+    const val SAFETY_COPY_PREFIX = "jerba_before_restore_"
+
+    /** عدد نسخ الأمان التلقائية المحفوظة قبل حذف الأقدم. */
+    private const val MAX_SAFETY_COPIES = 5
+
+    private fun backupsDir(context: Context): File = File(context.filesDir, "backups").apply {
+        if (!exists()) mkdirs()
+    }
+
     suspend fun createBackupJson(context: Context, database: AppDatabase): File = withContext(Dispatchers.IO) {
-        val root = JSONObject()
-        root.put("app", "Mosarib")
-        root.put("version", 1)
-        root.put("createdAt", System.currentTimeMillis())
-        root.put("formattedDate", SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date()))
-
-        // Customers
-        val customers = database.customerDao().getAllCustomers().first()
-        val customersArray = JSONArray()
-        customers.forEach { c ->
-            val obj = JSONObject().apply {
-                put("id", c.id)
-                put("name", c.name)
-                put("phone", c.phone)
-                put("farmName", c.farmName)
-                put("location", c.location)
-                put("notes", c.notes)
-                c.customPricePerHour?.let { put("customPricePerHour", it) }
-                put("createdAt", c.createdAt)
-                put("isArchived", c.isArchived)
-            }
-            customersArray.put(obj)
-        }
-        root.put("customers", customersArray)
-
-        // Water Sessions
-        val sessions = database.waterSessionDao().getAllSessions().first()
-        val sessionsArray = JSONArray()
-        sessions.forEach { s ->
-            val obj = JSONObject().apply {
-                put("id", s.id)
-                put("customerId", s.customerId)
-                put("pumpName", s.pumpName)
-                put("startTime", s.startTime)
-                put("endTime", s.endTime)
-                put("durationMinutes", s.durationMinutes)
-                put("pricePerHour", s.pricePerHour)
-                put("totalAmount", s.totalAmount)
-                put("amountPaid", s.amountPaid)
-                put("remainingDebt", s.remainingDebt)
-                put("notes", s.notes)
-                put("isLive", s.isLive)
-                put("createdAt", s.createdAt)
-            }
-            sessionsArray.put(obj)
-        }
-        root.put("sessions", sessionsArray)
-
-        // Vouchers
-        val vouchers = database.voucherDao().getAllVouchers().first()
-        val vouchersArray = JSONArray()
-        vouchers.forEach { v ->
-            val obj = JSONObject().apply {
-                put("id", v.id)
-                put("voucherNumber", v.voucherNumber)
-                put("type", v.type.name)
-                v.customerId?.let { put("customerId", it) }
-                put("amount", v.amount)
-                put("category", v.category)
-                put("paymentMethod", v.paymentMethod)
-                put("date", v.date)
-                put("notes", v.notes)
-                put("createdAt", v.createdAt)
-            }
-            vouchersArray.put(obj)
-        }
-        root.put("vouchers", vouchersArray)
-
-        // Pumps
-        val pumps = database.pumpSourceDao().getAllPumps().first()
-        val pumpsArray = JSONArray()
-        pumps.forEach { p ->
-            val obj = JSONObject().apply {
-                put("id", p.id)
-                put("name", p.name)
-                put("locationOrWellNumber", p.locationOrWellNumber)
-                put("defaultPricePerHour", p.defaultPricePerHour)
-                put("powerType", p.powerType)
-                put("notes", p.notes)
-                put("isPrimary", p.isPrimary)
-                put("isActive", p.isActive)
-            }
-            pumpsArray.put(obj)
-        }
-        root.put("pumps", pumpsArray)
-
-        // Settings
-        val settings = database.appSettingDao().getAllSettings().first()
-        val settingsArray = JSONArray()
-        settings.forEach { st ->
-            val obj = JSONObject().apply {
-                put("key", st.key)
-                put("value", st.value)
-            }
-            settingsArray.put(obj)
-        }
-        root.put("settings", settingsArray)
-
-        val backupDir = File(context.filesDir, "backups")
-        if (!backupDir.exists()) backupDir.mkdirs()
+        val source = BackupSnapshot.readAll(database)
+        val root = BackupSnapshot.toJson(source)
 
         val dateStr = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val backupFile = File(backupDir, "mosarib_backup_$dateStr.back")
+        val backupFile = File(backupsDir(context), "$BACKUP_FILE_PREFIX$dateStr.back")
         FileOutputStream(backupFile).use { fos ->
             fos.write(root.toString(2).toByteArray(Charsets.UTF_8))
         }
-
         backupFile
     }
 
@@ -167,138 +82,105 @@ object BackupManager {
         return runCatching { if (file.exists()) file.delete() else false }.getOrDefault(false)
     }
 
-    suspend fun restoreFromFile(context: Context, database: AppDatabase, file: File): Result<Int> = withContext(Dispatchers.IO) {
-        runCatching {
-            val jsonString = file.readText(Charsets.UTF_8)
-            val root = JSONObject(jsonString)
-            restoreFromJsonObject(database, root)
+    // ------------------------------------------------------------- المعاينة
+
+    /**
+     * معاينة ملف النسخة قبل أي كتابة: عدد الجداول، وما سيُستبدل، والأخطاء المانعة.
+     * لا تُكتب أي بيانات هنا.
+     */
+    suspend fun previewRestoreFromFile(database: AppDatabase, file: File): Result<BackupSnapshot.RestorePlan> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val root = JSONObject(file.readText(Charsets.UTF_8))
+                BackupSnapshot.plan(root, BackupSnapshot.readAll(database))
+            }
         }
+
+    suspend fun previewRestoreFromUri(context: Context, database: AppDatabase, uri: Uri): Result<BackupSnapshot.RestorePlan> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val root = JSONObject(readText(context, uri))
+                BackupSnapshot.plan(root, BackupSnapshot.readAll(database))
+            }
+        }
+
+    // ------------------------------------------------------------ الاسترجاع
+
+    suspend fun restoreFromFile(context: Context, database: AppDatabase, file: File): Result<Int> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val root = JSONObject(file.readText(Charsets.UTF_8))
+                val plan = BackupSnapshot.plan(root, BackupSnapshot.readAll(database))
+                applyPlan(context, database, plan)
+            }
+        }
+
+    suspend fun restoreFromJson(context: Context, database: AppDatabase, uri: Uri): Result<Int> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val root = JSONObject(readText(context, uri))
+                val plan = BackupSnapshot.plan(root, BackupSnapshot.readAll(database))
+                applyPlan(context, database, plan)
+            }
+        }
+
+    /** يُستخدم من اختبارات القاعدة ومن الاسترجاع المباشر بعد معاينة مقبولة. */
+    suspend fun restoreFromPlan(context: Context, database: AppDatabase, plan: BackupSnapshot.RestorePlan): Result<Int> =
+        withContext(Dispatchers.IO) {
+            runCatching { applyPlan(context, database, plan) }
+        }
+
+    private suspend fun applyPlan(
+        context: Context,
+        database: AppDatabase,
+        plan: BackupSnapshot.RestorePlan
+    ): Int {
+        if (!plan.canRestore) {
+            throw IllegalArgumentException(plan.errors.joinToString(" "))
+        }
+        // نسخة أمان للوضع الحالي قبل أي كتابة، حتى يمكن الرجوع إن فشل شيء لاحقًا.
+        createSafetyCopy(context, database)
+        return database.withTransaction { BackupSnapshot.apply(database, plan) }
     }
 
-    suspend fun restoreFromJson(context: Context, database: AppDatabase, uri: Uri): Result<Int> = withContext(Dispatchers.IO) {
-        runCatching {
-            val stringBuilder = java.lang.StringBuilder()
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8)).use { reader ->
-                    var line: String? = reader.readLine()
-                    while (line != null) {
-                        stringBuilder.append(line)
-                        line = reader.readLine()
-                    }
+    /**
+     * نسخة أمان تلقائية للبيانات الحالية قبل الاسترجاع. تُحفظ في مجلد النسخ نفسه،
+     * ولا تُحذف إلا إذا تجاوز عدد النسخ التلقائية [MAX_SAFETY_COPIES].
+     */
+    suspend fun createSafetyCopy(context: Context, database: AppDatabase): File = withContext(Dispatchers.IO) {
+        val source = BackupSnapshot.readAll(database)
+        val dateStr = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        val file = File(backupsDir(context), "$SAFETY_COPY_PREFIX$dateStr.back")
+        FileOutputStream(file).use { fos ->
+            fos.write(BackupSnapshot.toJson(source).toString(2).toByteArray(Charsets.UTF_8))
+        }
+        pruneSafetyCopies(context)
+        file
+    }
+
+    private fun pruneSafetyCopies(context: Context) {
+        val copies = backupsDir(context)
+            .listFiles { _, name -> name.startsWith(SAFETY_COPY_PREFIX) }
+            ?.sortedByDescending { it.lastModified() }
+            ?: return
+        copies.drop(MAX_SAFETY_COPIES).forEach { it.delete() }
+    }
+
+    private fun readText(context: Context, uri: Uri): String {
+        val builder = StringBuilder()
+        context.contentResolver.openInputStream(uri)?.use { inputStream ->
+            BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8)).use { reader ->
+                var line: String? = reader.readLine()
+                while (line != null) {
+                    builder.append(line)
+                    line = reader.readLine()
                 }
             }
-
-            val root = JSONObject(stringBuilder.toString())
-            restoreFromJsonObject(database, root)
         }
+        return builder.toString()
     }
 
-    private suspend fun restoreFromJsonObject(database: AppDatabase, root: JSONObject): Int = database.withTransaction {
-        var count = 0
-
-        // Restore Customers
-        if (root.has("customers")) {
-            val array = root.getJSONArray("customers")
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                val customer = Customer(
-                    id = obj.optLong("id", 0),
-                    name = obj.getString("name"),
-                    phone = obj.optString("phone", ""),
-                    farmName = obj.optString("farmName", ""),
-                    location = obj.optString("location", ""),
-                    notes = obj.optString("notes", ""),
-                    customPricePerHour = if (obj.has("customPricePerHour")) obj.getDouble("customPricePerHour") else null,
-                    createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
-                    isArchived = obj.optBoolean("isArchived", false)
-                )
-                database.customerDao().insertCustomer(customer)
-                count++
-            }
-        }
-
-        // Restore Pumps
-        if (root.has("pumps")) {
-            val array = root.getJSONArray("pumps")
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                val pump = PumpSource(
-                    id = obj.optLong("id", 0),
-                    name = obj.getString("name"),
-                    locationOrWellNumber = obj.optString("locationOrWellNumber", ""),
-                    defaultPricePerHour = obj.optDouble("defaultPricePerHour", 5000.0),
-                    powerType = obj.optString("powerType", "ديزل"),
-                    notes = obj.optString("notes", ""),
-                    isPrimary = obj.optBoolean("isPrimary", false),
-                    isActive = obj.optBoolean("isActive", true)
-                )
-                database.pumpSourceDao().insertPump(pump)
-                count++
-            }
-        }
-
-        // Restore Water Sessions
-        if (root.has("sessions")) {
-            val array = root.getJSONArray("sessions")
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                val session = WaterSession(
-                    id = obj.optLong("id", 0),
-                    customerId = obj.getLong("customerId"),
-                    pumpName = obj.optString("pumpName", "البئر"),
-                    startTime = obj.optLong("startTime", System.currentTimeMillis()),
-                    endTime = obj.optLong("endTime", System.currentTimeMillis()),
-                    durationMinutes = obj.optInt("durationMinutes", 0),
-                    pricePerHour = obj.optDouble("pricePerHour", 5000.0),
-                    totalAmount = obj.optDouble("totalAmount", 0.0),
-                    amountPaid = obj.optDouble("amountPaid", 0.0),
-                    remainingDebt = obj.optDouble("remainingDebt", 0.0),
-                    notes = obj.optString("notes", ""),
-                    isLive = obj.optBoolean("isLive", false),
-                    createdAt = obj.optLong("createdAt", System.currentTimeMillis())
-                )
-                database.waterSessionDao().insertSession(session)
-                count++
-            }
-        }
-
-        // Restore Vouchers
-        if (root.has("vouchers")) {
-            val array = root.getJSONArray("vouchers")
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                val typeStr = obj.optString("type", "RECEIPT")
-                val vType = runCatching { VoucherType.valueOf(typeStr) }.getOrDefault(VoucherType.RECEIPT)
-                val voucher = Voucher(
-                    id = obj.optLong("id", 0),
-                    voucherNumber = obj.optString("voucherNumber", ""),
-                    type = vType,
-                    customerId = if (obj.has("customerId") && !obj.isNull("customerId")) obj.getLong("customerId") else null,
-                    amount = obj.optDouble("amount", 0.0),
-                    category = obj.optString("category", "عام"),
-                    paymentMethod = obj.optString("paymentMethod", "نقداً"),
-                    date = obj.optLong("date", System.currentTimeMillis()),
-                    notes = obj.optString("notes", ""),
-                    createdAt = obj.optLong("createdAt", System.currentTimeMillis())
-                )
-                database.voucherDao().insertVoucher(voucher)
-                count++
-            }
-        }
-
-        // Restore Settings
-        if (root.has("settings")) {
-            val array = root.getJSONArray("settings")
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                val key = obj.getString("key")
-                val value = obj.getString("value")
-                database.appSettingDao().saveSetting(AppSetting(key, value))
-            }
-        }
-
-        count
-    }
+    // -------------------------------------------------------------- المشاركة
 
     fun shareBackupToDriveOrApps(context: Context, backupFile: File) {
         val uri: Uri = FileProvider.getUriForFile(
@@ -310,7 +192,7 @@ object BackupManager {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "application/json"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - تطبيق المُسَرِّب")
+            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - جِربة | Jerba")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
@@ -334,7 +216,7 @@ object BackupManager {
         val driveIntent = Intent(Intent.ACTION_SEND).apply {
             type = "application/octet-stream"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - تطبيق المُسَرِّب")
+            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - جِربة | Jerba")
             `package` = "com.google.android.apps.docs"
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -356,7 +238,7 @@ object BackupManager {
                 val contentValues = android.content.ContentValues().apply {
                     put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, backupFile.name)
                     put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream")
-                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/MosaribBackups")
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/JerbaBackups")
                 }
                 val uri = context.contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
                 if (uri != null) {
@@ -366,7 +248,7 @@ object BackupManager {
                 }
             } else {
                 val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
-                val subDir = File(downloadsDir, "MosaribBackups")
+                val subDir = File(downloadsDir, "JerbaBackups")
                 if (!subDir.exists()) subDir.mkdirs()
                 val targetFile = File(subDir, backupFile.name)
                 backupFile.copyTo(targetFile, overwrite = true)

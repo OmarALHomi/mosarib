@@ -13,6 +13,13 @@ interface PumpSourceDao {
     @Query("SELECT * FROM pump_sources WHERE isActive = 1 ORDER BY isPrimary DESC, name ASC")
     fun getAllPumps(): Flow<List<PumpSource>>
 
+    /**
+     * كل المصادر بما فيها المعطّلة، للنسخ الاحتياطي فقط.
+     * [getAllPumps] يُسقط غير النشط، والنسخة الاحتياطية يجب ألا تُسقط شيئًا.
+     */
+    @Query("SELECT * FROM pump_sources ORDER BY id ASC")
+    suspend fun getAllPumpsForBackup(): List<PumpSource>
+
     @Query("SELECT * FROM pump_sources WHERE id = :id")
     suspend fun getPumpById(id: Long): PumpSource?
 
