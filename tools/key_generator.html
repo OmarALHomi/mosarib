@@ -3,180 +3,1096 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>مولّد مفاتيح التفعيل — تطبيق المُسَرِّب | م. عمر الحومي</title>
+  <title>مركز إدارة منظومة «جِربة» الزراعية | م. عمر الحومي</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Firebase v10 SDK via Compat for seamless file:/// offline/online operation -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
   <style>
     :root {
-      --primary: #00838F;
-      --primary-dark: #004D40;
-      --accent: #FFB300;
-      --bg: #0B171D;
-      --card-bg: #12232B;
+      --bg: #070e12;
+      --surface: #0e1c24;
+      --card: #142733;
+      --card-border: rgba(0, 191, 165, 0.2);
+      --primary: #00BFA5;
+      --primary-dark: #00897B;
+      --accent-gold: #FFB300;
+      --danger: #EF5350;
+      --success: #00E676;
       --text: #E0F2F1;
       --text-muted: #80CBC4;
+      --radius: 14px;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
     body {
-      background: radial-gradient(circle at top, #16323B, var(--bg));
+      background: radial-gradient(circle at 50% 0%, #132a36, var(--bg) 70%);
       color: var(--text);
       min-height: 100vh;
+      padding-bottom: 60px;
+    }
+
+    /* Top Navbar */
+    .navbar {
+      background: rgba(14, 28, 36, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, var(--primary), #00E676);
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
-    }
-    .card {
-      background: var(--card-bg);
-      border: 1px solid rgba(0, 150, 166, 0.3);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
-      border-radius: 20px;
-      width: 100%;
-      max-width: 480px;
-      padding: 30px;
-      text-align: center;
-    }
-    .logo {
-      width: 64px;
-      height: 64px;
-      background: linear-gradient(135deg, var(--primary), #00BFA5);
-      border-radius: 50%;
-      margin: 0 auto 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 30px;
-      box-shadow: 0 8px 20px rgba(0, 191, 165, 0.4);
-    }
-    h1 { font-size: 22px; font-weight: 800; color: #FFF; margin-bottom: 6px; }
-    p.subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
-    .input-group { text-align: right; margin-bottom: 20px; }
-    label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #B2DFDB; }
-    input {
-      width: 100%;
-      padding: 14px 16px;
-      border-radius: 12px;
-      border: 2px solid rgba(0, 150, 166, 0.4);
-      background: #081318;
-      color: #FFF;
-      font-size: 16px;
-      font-weight: bold;
-      text-align: center;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      outline: none;
-      transition: all 0.3s;
-    }
-    input:focus { border-color: #00E676; box-shadow: 0 0 12px rgba(0, 230, 118, 0.3); }
-    button.btn {
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, var(--primary), #00BFA5);
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      box-shadow: 0 6px 16px rgba(0, 131, 143, 0.4);
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    button.btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 191, 165, 0.6); }
-    button.btn:active { transform: translateY(0); }
-    .result-box {
-      margin-top: 24px;
-      background: #081318;
-      border: 1px dashed rgba(255, 179, 0, 0.6);
-      border-radius: 14px;
-      padding: 18px;
-      display: none;
-    }
-    .result-title { font-size: 12px; color: var(--accent); font-weight: bold; margin-bottom: 8px; }
-    .key-display {
       font-size: 22px;
-      font-weight: 900;
-      color: #00E676;
-      letter-spacing: 3px;
-      user-select: all;
-      margin-bottom: 14px;
+      box-shadow: 0 4px 14px rgba(0, 230, 118, 0.3);
     }
-    .copy-btn {
-      padding: 8px 16px;
-      background: rgba(255, 255, 255, 0.1);
+    .brand-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #FFF;
+      line-height: 1.2;
+    }
+    .brand-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .auth-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 13px;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #757575;
+    }
+    .status-dot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+    /* Container & Tabs */
+    .container {
+      max-width: 1100px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+      background: var(--surface);
+      padding: 6px;
+      border-radius: 16px;
+      border: 1px solid var(--card-border);
+      margin-bottom: 24px;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      flex: 1;
+      min-width: 140px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.25s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .tab-btn:hover { background: rgba(0, 191, 165, 0.1); color: #FFF; }
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: #FFF;
+      box-shadow: 0 4px 12px rgba(0, 191, 165, 0.35);
+    }
+
+    /* Cards & Panels */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+    .card-title {
+      font-size: 17px;
+      font-weight: 800;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #FFF;
+    }
+
+    /* Forms */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    @media (max-width: 768px) {
+      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      background: #081318;
+      border: 1px solid rgba(0, 191, 165, 0.3);
+      border-radius: 10px;
+      color: #FFF;
+      font-size: 14px;
+      font-weight: 600;
+      outline: none;
+      transition: all 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 10px rgba(0, 191, 165, 0.3);
+    }
+
+    /* Custom Selection Tiles */
+    .tile-selector {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .tile-option {
+      background: #081318;
+      border: 2px solid rgba(0, 191, 165, 0.25);
+      border-radius: 12px;
+      padding: 12px 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .tile-option:hover { border-color: var(--primary); transform: translateY(-2px); }
+    .tile-option.selected {
+      border-color: var(--primary);
+      background: rgba(0, 191, 165, 0.15);
+      box-shadow: 0 0 12px rgba(0, 191, 165, 0.3);
+    }
+    .tile-icon { font-size: 22px; margin-bottom: 4px; }
+    .tile-title { font-size: 13px; font-weight: 700; color: #FFF; }
+    .tile-sub { font-size: 11px; color: var(--text-muted); }
+
+    /* Buttons */
+    .btn {
+      padding: 12px 20px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: #FFF;
+      box-shadow: 0 4px 14px rgba(0, 191, 165, 0.35);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0, 191, 165, 0.5); }
+    .btn-gold {
+      background: linear-gradient(135deg, var(--accent-gold), #FFA000);
+      color: #000;
+      box-shadow: 0 4px 14px rgba(255, 179, 0, 0.3);
+    }
+    .btn-gold:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(255, 179, 0, 0.5); }
+    .btn-danger {
+      background: rgba(239, 83, 80, 0.2);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+    }
+    .btn-danger:hover { background: var(--danger); color: #FFF; }
+    .btn-outline {
+      background: transparent;
       border: 1px solid rgba(255, 255, 255, 0.2);
       color: #FFF;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: 0.2s;
     }
-    .copy-btn:hover { background: rgba(255, 255, 255, 0.2); }
-    footer { margin-top: 24px; font-size: 11px; color: #546E7A; }
+    .btn-outline:hover { background: rgba(255, 255, 255, 0.1); }
+    .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+
+    /* Result Box */
+    .result-container {
+      background: #081318;
+      border: 2px dashed var(--accent-gold);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+      margin-top: 18px;
+      display: none;
+    }
+    .result-label { font-size: 12px; font-weight: 700; color: var(--accent-gold); margin-bottom: 6px; }
+    .key-display {
+      font-size: 26px;
+      font-weight: 900;
+      color: var(--success);
+      letter-spacing: 3px;
+      margin-bottom: 12px;
+      user-select: all;
+    }
+    .action-group {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* Tables */
+    .table-responsive {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid var(--card-border);
+      background: #081318;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: right;
+      font-size: 13px;
+    }
+    th {
+      background: var(--surface);
+      padding: 12px 14px;
+      color: var(--text-muted);
+      font-weight: 700;
+      border-bottom: 1px solid var(--card-border);
+    }
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: #FFF;
+    }
+    tr:hover td { background: rgba(0, 191, 165, 0.04); }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge-success { background: rgba(0, 230, 118, 0.15); color: var(--success); }
+    .badge-danger { background: rgba(239, 83, 80, 0.15); color: var(--danger); }
+    .badge-gold { background: rgba(255, 179, 0, 0.15); color: var(--accent-gold); }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 16px;
+    }
+    .modal-box {
+      background: var(--surface);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 480px;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      animation: modalPop 0.25s ease;
+    }
+    @keyframes modalPop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #1B5E20;
+      color: #FFF;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-weight: 700;
+      font-size: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      transition: all 0.3s;
+      z-index: 300;
+      opacity: 0;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
   </style>
 </head>
 <body>
 
-<div class="card">
-  <div class="logo">💧</div>
-  <h1>أداة توليد مفاتيح التفعيل</h1>
-  <p class="subtitle">نظام تفعيل تطبيق المُسَرِّب — م. عمر الحومي</p>
+  <!-- Top Navbar -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-icon">🌱</div>
+      <div>
+        <div class="brand-title">منظومة «جِربة» — مركز التحكم الإداري والتراخيص</div>
+        <div class="brand-sub">تطوير وإشراف: م. عمر الحومي | تبع سوفت 2026</div>
+      </div>
+    </div>
+    <div class="auth-badge">
+      <div class="status-dot" id="authDot"></div>
+      <span id="authStatusText">السحابة: غير مسجل الدخول</span>
+      <button class="btn btn-outline btn-sm" id="authBtn" onclick="toggleAuthModal()">دخول الأدمن 🔐</button>
+    </div>
+  </header>
 
-  <div class="input-group">
-    <label for="deviceCode">كود جهاز العميل (Device Code):</label>
-    <input type="text" id="deviceCode" placeholder="MSRB-XXXX-XXXX" autocomplete="off" autofocus>
+  <main class="container">
+    
+    <!-- Tab Navigation -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('offline-tab')">🔑 مولد المفاتيح (محلي)</button>
+      <button class="tab-btn" onclick="switchTab('batch-tab')">📦 طباعة كروت العزلة</button>
+      <button class="tab-btn" onclick="switchTab('subs-tab')">👥 إدارة المشتركين (Cloud)</button>
+      <button class="tab-btn" onclick="switchTab('users-tab')">🛡️ توثيق وحظر المستخدمين</button>
+      <button class="tab-btn" onclick="switchTab('limits-tab')">⚙️ الإطلاق المجاني والحدود</button>
+      <button class="tab-btn" onclick="switchTab('market-tab')">📢 رقابة السوق والبلاغات</button>
+    </nav>
+
+    <!-- ========================================== -->
+    <!-- TAB 1: Offline Mathematical Key Generator  -->
+    <!-- ========================================== -->
+    <section id="offline-tab" class="tab-panel active">
+      <div class="card">
+        <div class="card-title">🔑 مولّد مفاتيح التفعيل الرياضي الفوري (يعمل بدون إنترنت 100%)</div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+          يستخدم خوارزمية SHA-256 المتطابقة كلياً مع كود التطبيق في أندرويد لربط التفعيل بعتاد جوال العميل بصفة دائمة أو مؤقتة.
+        </p>
+
+        <!-- Role Selector -->
+        <label>1. اختر دور العميل في المنظومة:</label>
+        <div class="tile-selector" id="roleSelector">
+          <div class="tile-option selected" data-role="ACTV" data-name="مسرب" onclick="selectRole('ACTV', this)">
+            <div class="tile-icon">💧</div>
+            <div class="tile-title">المُسَرِّب</div>
+            <div class="tile-sub">خدمة الري والآبار</div>
+          </div>
+          <div class="tile-option" data-role="DLLV" data-name="دلال" onclick="selectRole('DLLV', this)">
+            <div class="tile-icon">🤝</div>
+            <div class="tile-title">الدلال</div>
+            <div class="tile-sub">الوساطة وعقود الصلح</div>
+          </div>
+          <div class="tile-option" data-role="BJRV" data-name="مجبري" onclick="selectRole('BJRV', this)">
+            <div class="tile-icon">📦</div>
+            <div class="tile-title">المشتري / المجبري</div>
+            <div class="tile-sub">شراء الثمار بالجملة</div>
+          </div>
+          <div class="tile-option" data-role="FRMV" data-name="مزارع" onclick="selectRole('FRMV', this)">
+            <div class="tile-icon">🌾</div>
+            <div class="tile-title">المزارع الموثّق</div>
+            <div class="tile-sub">حسابات وأرباح متقدمة</div>
+          </div>
+        </div>
+
+        <!-- Plan Selector -->
+        <label>2. اختر خطة الاشتراك:</label>
+        <div class="tile-selector" id="planSelector">
+          <div class="tile-option selected" data-plan="M" data-name="شهري (30 يوماً)" onclick="selectPlan('M', this)">
+            <div class="tile-icon">🗓️</div>
+            <div class="tile-title">اشتراك شهري</div>
+            <div class="tile-sub">30 يوماً</div>
+          </div>
+          <div class="tile-option" data-plan="Y" data-name="سنوي (365 يوماً)" onclick="selectPlan('Y', this)">
+            <div class="tile-icon">📅</div>
+            <div class="tile-title">اشتراك سنوي</div>
+            <div class="tile-sub">365 يوماً</div>
+          </div>
+          <div class="tile-option" data-plan="L" data-name="مدى الحياة (توثيق دائم)" onclick="selectPlan('L', this)">
+            <div class="tile-icon">♾️</div>
+            <div class="tile-title">توثيق دائم</div>
+            <div class="tile-sub">مدى الحياة (للمزارع)</div>
+          </div>
+        </div>
+
+        <!-- Device Code Input -->
+        <div class="form-group">
+          <label for="deviceCode">3. كود جهاز العميل الظاهر في شاشة التفعيل بجواله:</label>
+          <input type="text" id="deviceCode" placeholder="MSRB-XXXX-XXXX" style="font-size: 18px; text-transform: uppercase; letter-spacing: 2px;" autocomplete="off">
+        </div>
+
+        <button class="btn btn-primary" style="width: 100%; font-size: 16px; padding: 14px;" onclick="generateKey()">
+          ⚡ توليد رمز التفعيل الآن
+        </button>
+
+        <!-- Result Box -->
+        <div class="result-container" id="resultBox">
+          <div class="result-label" id="resultLabel">رمز التفعيل المخصص لهذا العميل:</div>
+          <div class="key-display" id="keyDisplay">ACTV-M-XXXX-XXXX</div>
+          <div class="action-group">
+            <button class="btn btn-gold" onclick="copyKey()">📋 نسخ الرمز</button>
+            <button class="btn btn-primary" onclick="sendWhatsApp()">💬 إرسال للعميل عبر واتساب</button>
+            <button class="btn btn-outline" id="cloudSaveBtn" onclick="saveKeyToCloud()">☁️ قيد في سجل السحابة</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 2: Batch Scratch Cards for Isolation   -->
+    <!-- ========================================== -->
+    <section id="batch-tab" class="tab-panel">
+      <div class="card">
+        <div class="card-title">📦 توليد وطباعة كروت التفعيل الورقية للعزلة</div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+          توليد أرقام متسلسلة عشوائية وطباعتها كبطاقات ورقية أو كروت شحن لتوزيعها على الدلالين والمسربين في أسواق القات والعزلة.
+        </p>
+
+        <div class="grid-3">
+          <div class="form-group">
+            <label>الدور المستهدف:</label>
+            <select id="batchRole">
+              <option value="ACTV">مسرب (خدمة الري)</option>
+              <option value="DLLV">دلال (وساطة وسوق)</option>
+              <option value="BJRV">مجبري (مشتري محاصيل)</option>
+              <option value="FRMV">مزارع (توثيق الحساب)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>المدة / الخطة:</label>
+            <select id="batchPlan">
+              <option value="M">شهري (30 يوماً)</option>
+              <option value="Y">سنوي (365 يوماً)</option>
+              <option value="L">مدى الحياة</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>عدد الكروت المطلوبة:</label>
+            <input type="number" id="batchCount" value="10" min="1" max="50">
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="generateBatchCards()">🖨️ توليد قائمة الكروت</button>
+
+        <div id="batchResults" style="margin-top: 20px; display: none;">
+          <div class="table-responsive">
+            <table id="batchTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>الدور</th>
+                  <th>المدة</th>
+                  <th>كود الكرت الافتراضي</th>
+                  <th>مفتاح التفعيل</th>
+                  <th>إجراء</th>
+                </tr>
+              </thead>
+              <tbody id="batchTableBody"></tbody>
+            </table>
+          </div>
+          <div style="margin-top: 14px; text-align: left;">
+            <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ طباعة الكروت</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 3: Cloud Subscriptions Management      -->
+    <!-- ========================================== -->
+    <section id="subs-tab" class="tab-panel">
+      <div class="card">
+        <div class="card-title" style="justify-content: space-between;">
+          <span>👥 سجل الاشتراكات والتراخيص في السحابة (Firestore)</span>
+          <button class="btn btn-primary btn-sm" onclick="openTransferModal()">🔄 نقل اشتراك لجهاز جديد</button>
+        </div>
+
+        <div class="form-group">
+          <input type="text" id="searchSub" placeholder="🔍 ابحث بكود الجهاز أو اسم العميل أو رقم الهاتف..." oninput="filterSubscriptions()">
+        </div>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>كود الجهاز</th>
+                <th>اسم العميل</th>
+                <th>الهاتف</th>
+                <th>الدور</th>
+                <th>الخطة</th>
+                <th>تاريخ الانتهاء</th>
+                <th>الحالة</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="subsTableBody">
+              <tr>
+                <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                  يرجى تسجيل دخول الأدمن أولاً لتحميل بيانات الاشتراكات من السحابة.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 4: Users Verification & Moderation     -->
+    <!-- ========================================== -->
+    <section id="users-tab" class="tab-panel">
+      <div class="card">
+        <div class="card-title">🛡️ إدارة المستخدمين والتوثيق وشارات الثقة والحظر</div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+          إعطاء علامة **(موثّق ✓)** للمستخدمين الموثوقين في العزلة لرفع مصداقيتهم، أو تقييد/تجميد أي حساب متلاعب.
+        </p>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>المستخدم</th>
+                <th>رقم الهاتف</th>
+                <th>الأدوار المفعلة</th>
+                <th>شارة التوثيق</th>
+                <th>حالة الحساب</th>
+                <th>إجراءات الرقابة</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                  يرجى تسجيل دخول الأدمن لعرض المستخدمين والتحكم بهم.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 5: Free Launch Period & Limits         -->
+    <!-- ========================================== -->
+    <section id="limits-tab" class="tab-panel">
+      <div class="card">
+        <div class="card-title">⚙️ التحكم في فترة الإطلاق المجاني والحدود (System Limits)</div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+          يمكنك تمديد الحدود المجانية لكل العزلة في أول شهور التشغيل دون الحاجة لتحديث التطبيق في متجر جوجل أو إرسال APK جديد.
+        </p>
+
+        <div class="form-group" style="background: #081318; padding: 16px; border-radius: 12px; border: 1px solid var(--card-border); display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <div style="font-weight: 800; font-size: 15px; color: #FFF;">تفعيل فترة الإطلاق المجاني للعزلة</div>
+            <div style="font-size: 12px; color: var(--text-muted);">عند التفعيل: ترفع الحدود المجانية لجميع المستخدمين تلقائياً (2000 عملية).</div>
+          </div>
+          <input type="checkbox" id="launchPeriodToggle" style="width: 24px; height: 24px; accent-color: var(--primary);">
+        </div>
+
+        <div class="grid-3" style="margin-top: 20px;">
+          <div class="form-group">
+            <label>حد عمليات المسرب الافتراضي (سقيات وسندات):</label>
+            <input type="number" id="limitMusrib" value="200">
+          </div>
+          <div class="form-group">
+            <label>حد عروض الدلال الافتراضي (في سوق القات):</label>
+            <input type="number" id="limitDallalListings" value="10">
+          </div>
+          <div class="form-group">
+            <label>حد صلوح الدلال الافتراضي (عقود الصلح):</label>
+            <input type="number" id="limitDallalDeals" value="5">
+          </div>
+        </div>
+
+        <button class="btn btn-gold" style="margin-top: 14px;" onclick="saveSystemLimits()">
+          💾 حفظ الإعدادات في السحابة فوراً
+        </button>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 6: Market & Reports Moderation         -->
+    <!-- ========================================== -->
+    <section id="market-tab" class="tab-panel">
+      <div class="card">
+        <div class="card-title">📢 مراقبة عروض السوق والبلاغات الواردة</div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+          حذف أي إعلان ثمرة وهمي أو كاذب، ومتابعة بلاغات المستخدمين ضد أي متلاعب في العزلة.
+        </p>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>العنوان</th>
+                <th>نوع المحصول</th>
+                <th>الدلال الناشر</th>
+                <th>حالة المزارع</th>
+                <th>تاريخ النشر</th>
+                <th>إجراء الحذف</th>
+              </tr>
+            </thead>
+            <tbody id="marketTableBody">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                  يرجى تسجيل دخول الأدمن لمراقبة إعلانات السوق.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODAL: Admin Login                         -->
+  <!-- ========================================== -->
+  <div class="modal-overlay" id="authModal">
+    <div class="modal-box">
+      <div class="card-title">🔐 تسجيل دخول المشرف (م. عمر)</div>
+      <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
+        لإدارة التراخيص والمستخدمين مباشرة في Firestore.
+      </p>
+
+      <div class="form-group">
+        <label>البريد الإلكتروني المعتمد:</label>
+        <input type="email" id="adminEmail" value="mralhwmy@gmail.com">
+      </div>
+      <div class="form-group">
+        <label>كلمة المرور:</label>
+        <input type="password" id="adminPassword" placeholder="أدخل كلمة مرور Firebase">
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button class="btn btn-primary" style="flex: 1;" onclick="handleAdminLogin()">تسجيل الدخول</button>
+        <button class="btn btn-outline" onclick="toggleAuthModal()">إلغاء</button>
+      </div>
+    </div>
   </div>
 
-  <button class="btn" onclick="generateKey()">توليد رمز التفعيل 🔑</button>
+  <!-- ========================================== -->
+  <!-- MODAL: Transfer Device Subscription        -->
+  <!-- ========================================== -->
+  <div class="modal-overlay" id="transferModal">
+    <div class="modal-box">
+      <div class="card-title">🔄 نقل الاشتراك لجهاز عميل جديد</div>
+      <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
+        عندما يفرمّت العميل جواله أو يشتري جوالاً جديداً، ينسخ هذا الإجراء الأيام المتبقية لجهازه الجديد ويبطل القديم.
+      </p>
 
-  <div class="result-box" id="resultBox">
-    <div class="result-title">رمز التفعيل المخصص لهذا العميل:</div>
-    <div class="key-display" id="keyDisplay">ACTV-XXXX-XXXX</div>
-    <button class="copy-btn" onclick="copyKey()">📋 نسخ الرمز</button>
+      <div class="form-group">
+        <label>كود الجهاز القديم (المنقول منه):</label>
+        <input type="text" id="transferOldCode" placeholder="MSRB-XXXX-XXXX">
+      </div>
+      <div class="form-group">
+        <label>كود الجهاز الجديد (المنقول إليه):</label>
+        <input type="text" id="transferNewCode" placeholder="MSRB-YYYY-YYYY">
+      </div>
+      <div class="form-group">
+        <label>سبب النقل / ملاحظة:</label>
+        <input type="text" id="transferReason" placeholder="تغيير الجوال / فرمطة الجهاز">
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button class="btn btn-gold" style="flex: 1;" onclick="executeDeviceTransfer()">تأكيد نقل الاشتراك</button>
+        <button class="btn btn-outline" onclick="closeTransferModal()">إلغاء</button>
+      </div>
+    </div>
   </div>
 
-  <footer>
-    تطوير المهندس عمر الحومي — تبع سوفت &copy; 2026
-  </footer>
-</div>
+  <!-- Toast Notification -->
+  <div id="toast">تم الإجراء بنجاح</div>
 
-<script>
-  const SECRET_SALT = "mosarib_secure_license_secret_key_alhomi_2026_water_app";
+  <!-- ========================================== -->
+  <!-- JAVASCRIPT LOGIC                          -->
+  <!-- ========================================== -->
+  <script>
+    // Cryptographic Constants (strictly identical to LicenseManager.kt)
+    const SECRET_SALT = "mosarib_secure_license_secret_key_alhomi_2026_water_app";
+    const DEVELOPER_PHONE = "967773712030";
 
-  async function sha256(message) {
-    const msgBuffer = new TextEncoder().encode(message);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-  }
+    // Firebase Project Configuration
+    const firebaseConfig = {
+      projectId: "mosarib",
+      storageBucket: "mosarib.firebasestorage.app",
+      apiKey: "AIzaSyAwMKIqNLhQ7V08HVcZz-ywZDzomaPoQnA",
+      appId: "1:365688587385:android:9d503870452a1eef79c0a8"
+    };
 
-  async function generateKey() {
-    const input = document.getElementById("deviceCode").value.trim().toUpperCase();
-    if (!input) {
-      alert("يرجى إدخال كود جهاز العميل أولاً");
-      return;
+    let fbApp = null;
+    let auth = null;
+    let db = null;
+    let currentUser = null;
+
+    // Initialize Firebase if available
+    try {
+      if (typeof firebase !== 'undefined') {
+        fbApp = firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        db = firebase.firestore();
+
+        auth.onAuthStateChanged(user => {
+          currentUser = user;
+          updateAuthUI(user);
+          if (user) {
+            loadCloudData();
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("Firebase offline or CDN unreachable:", e);
     }
 
-    const cleanCode = input.replace(/-/g, "").trim();
-    const hash = await sha256(cleanCode + SECRET_SALT);
-    const part1 = hash.substring(0, 4);
-    const part2 = hash.substring(4, 8);
-    const generatedKey = `ACTV-${part1}-${part2}`;
+    // UI Tab Switching
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
 
-    document.getElementById("keyDisplay").innerText = generatedKey;
-    document.getElementById("resultBox").style.display = "block";
-  }
+      event.currentTarget.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    }
 
-  function copyKey() {
-    const text = document.getElementById("keyDisplay").innerText;
-    navigator.clipboard.writeText(text).then(() => {
-      alert("تم نسخ رمز التفعيل بنجاح: " + text);
-    });
-  }
+    // Role & Plan State
+    let selectedRole = "ACTV";
+    let selectedPlan = "M";
 
-  // Handle enter key
-  document.getElementById("deviceCode").addEventListener("keyup", function(e) {
-    if (e.key === "Enter") generateKey();
-  });
-</script>
+    function selectRole(role, elem) {
+      selectedRole = role;
+      document.querySelectorAll('#roleSelector .tile-option').forEach(t => t.classList.remove('selected'));
+      elem.classList.add('selected');
+    }
 
+    function selectPlan(plan, elem) {
+      selectedPlan = plan;
+      document.querySelectorAll('#planSelector .tile-option').forEach(t => t.classList.remove('selected'));
+      elem.classList.add('selected');
+    }
+
+    // SHA-256 via Web Crypto API
+    async function sha256(message) {
+      const msgBuffer = new TextEncoder().encode(message);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+    }
+
+    // Generate Single Key
+    async function generateKey() {
+      const input = document.getElementById("deviceCode").value.trim().toUpperCase();
+      if (!input) {
+        alert("يرجى إدخال كود جهاز العميل أولاً");
+        return;
+      }
+
+      const cleanCode = input.replace(/-/g, "").trim();
+      const hash = await sha256(cleanCode + SECRET_SALT + selectedRole + selectedPlan);
+      const part1 = hash.substring(0, 4);
+      const part2 = hash.substring(4, 8);
+      const fullKey = `${selectedRole}-${selectedPlan}-${part1}-${part2}`;
+
+      document.getElementById("keyDisplay").innerText = fullKey;
+      document.getElementById("resultBox").style.display = "block";
+      showToast("تم توليد المفتاح بنجاح!");
+    }
+
+    function copyKey() {
+      const text = document.getElementById("keyDisplay").innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast("تم نسخ المفتاح: " + text);
+      });
+    }
+
+    function sendWhatsApp() {
+      const key = document.getElementById("keyDisplay").innerText;
+      const devCode = document.getElementById("deviceCode").value.trim().toUpperCase();
+      const msg = `مرحباً بك عزيزي المشترك،\nتم إصدار رمز تفعيل تطبيق منظومة «جِربة» الزراعية لجهازك (${devCode}):\n\n🔑 ${key}\n\nيرجى نسخه ولصقه في شاشة التفعيل. نتمنى لك موسماً مباركاً!`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    // Batch Card Generator for the Isolation
+    async function generateBatchCards() {
+      const role = document.getElementById("batchRole").value;
+      const plan = document.getElementById("batchPlan").value;
+      const count = parseInt(document.getElementById("batchCount").value, 10) || 10;
+
+      const tbody = document.getElementById("batchTableBody");
+      tbody.innerHTML = "";
+
+      for (let i = 1; i <= count; i++) {
+        // Generate pseudo-random device card token
+        const randId = "CRD" + Math.random().toString(36).substring(2, 7).toUpperCase();
+        const randHash = await sha256(randId);
+        const devCode = `MSRB-${randHash.substring(0,4)}-${randHash.substring(4,8)}`;
+        const clean = devCode.replace(/-/g, "");
+
+        const keyHash = await sha256(clean + SECRET_SALT + role + plan);
+        const key = `${role}-${plan}-${keyHash.substring(0,4)}-${keyHash.substring(4,8)}`;
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${i}</td>
+          <td><span class="badge badge-gold">${role}</span></td>
+          <td>${plan === 'M' ? 'شهري' : (plan === 'Y' ? 'سنوي' : 'دائم')}</td>
+          <td><code>${devCode}</code></td>
+          <td style="font-weight:900; color:var(--success);"><code>${key}</code></td>
+          <td><button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('${key}'); showToast('تم النسخ');">نسخ</button></td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      document.getElementById("batchResults").style.display = "block";
+      showToast(`تم توليد ${count} كرت بنجاح!`);
+    }
+
+    // Cloud Authentication Handlers
+    function toggleAuthModal() {
+      const modal = document.getElementById("authModal");
+      modal.style.display = modal.style.display === "flex" ? "none" : "flex";
+    }
+
+    async function handleAdminLogin() {
+      if (!auth) {
+        alert("خدمات Firebase غير متصلة");
+        return;
+      }
+      const email = document.getElementById("adminEmail").value.trim();
+      const pass = document.getElementById("adminPassword").value.trim();
+
+      try {
+        await auth.signInWithEmailAndPassword(email, pass);
+        toggleAuthModal();
+        showToast("تم تسجيل الدخول بنجاح كأدمن!");
+      } catch (err) {
+        alert("خطأ في تسجيل الدخول: " + err.message);
+      }
+    }
+
+    function updateAuthUI(user) {
+      const dot = document.getElementById("authDot");
+      const text = document.getElementById("authStatusText");
+      const btn = document.getElementById("authBtn");
+
+      if (user) {
+        dot.classList.add("online");
+        text.innerText = `متصل: ${user.email}`;
+        btn.innerText = "خروج 🚪";
+        btn.onclick = () => auth.signOut();
+      } else {
+        dot.classList.remove("online");
+        text.innerText = "السحابة: غير مسجل الدخول";
+        btn.innerText = "دخول الأدمن 🔐";
+        btn.onclick = toggleAuthModal;
+      }
+    }
+
+    // Load Data from Firestore
+    async function loadCloudData() {
+      if (!db || !currentUser) return;
+
+      // 1. Load System Limits
+      try {
+        const doc = await db.collection("system_config").doc("limits").get();
+        if (doc.exists) {
+          const data = doc.data();
+          document.getElementById("launchPeriodToggle").checked = !!data.isFreeLaunchPeriod;
+          if (data.musribLimit) document.getElementById("limitMusrib").value = data.musribLimit;
+          if (data.dallalListingsLimit) document.getElementById("limitDallalListings").value = data.dallalListingsLimit;
+          if (data.dallalDealsLimit) document.getElementById("limitDallalDeals").value = data.dallalDealsLimit;
+        }
+      } catch (e) {
+        console.error("Error loading limits:", e);
+      }
+
+      // 2. Load Subscriptions
+      try {
+        const snap = await db.collection("subscriptions").limit(50).get();
+        const tbody = document.getElementById("subsTableBody");
+        tbody.innerHTML = "";
+        if (snap.empty) {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:16px;">لا توجد اشتراكات مسجلة في السحابة حالياً.</td></tr>`;
+        } else {
+          snap.forEach(d => {
+            const sub = d.data();
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td><code>${d.id}</code></td>
+              <td>${sub.owner_name || 'بدون اسم'}</td>
+              <td>${sub.phone || '-'}</td>
+              <td><span class="badge badge-gold">${sub.role_type || 'MUSRIB'}</span></td>
+              <td>${sub.plan || 'MONTHLY'}</td>
+              <td>${sub.expires_at ? new Date(sub.expires_at).toLocaleDateString('ar-YE') : '-'}</td>
+              <td><span class="badge ${sub.status === 'ACTIVE' ? 'badge-success' : 'badge-danger'}">${sub.status || 'ACTIVE'}</span></td>
+              <td>
+                <button class="btn btn-outline btn-sm" onclick="extendSubscription('${d.id}', 30)">+30 يوم</button>
+                <button class="btn btn-danger btn-sm" onclick="suspendSubscription('${d.id}')">إيقاف</button>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+      } catch (e) {
+        console.error("Error loading subscriptions:", e);
+      }
+    }
+
+    // Save Limits to Firestore
+    async function saveSystemLimits() {
+      if (!db || !currentUser) {
+        alert("يرجى تسجيل دخول الأدمن أولاً لحفظ الإعدادات في Firestore");
+        return;
+      }
+      const limitsData = {
+        isFreeLaunchPeriod: document.getElementById("launchPeriodToggle").checked,
+        musribLimit: parseInt(document.getElementById("limitMusrib").value, 10) || 200,
+        dallalListingsLimit: parseInt(document.getElementById("limitDallalListings").value, 10) || 10,
+        dallalDealsLimit: parseInt(document.getElementById("limitDallalDeals").value, 10) || 5,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: currentUser.email
+      };
+
+      try {
+        await db.collection("system_config").doc("limits").set(limitsData, { merge: true });
+        showToast("تم حفظ الإعدادات في السحابة بنجاح!");
+      } catch (err) {
+        alert("خطأ في الحفظ: " + err.message);
+      }
+    }
+
+    // Modal Device Transfer
+    function openTransferModal() {
+      document.getElementById("transferModal").style.display = "flex";
+    }
+    function closeTransferModal() {
+      document.getElementById("transferModal").style.display = "none";
+    }
+
+    async function executeDeviceTransfer() {
+      if (!db || !currentUser) {
+        alert("يرجى تسجيل الدخول كأدمن أولاً");
+        return;
+      }
+      const oldCode = document.getElementById("transferOldCode").value.trim().toUpperCase();
+      const newCode = document.getElementById("transferNewCode").value.trim().toUpperCase();
+      const reason = document.getElementById("transferReason").value.trim();
+
+      if (!oldCode || !newCode) {
+        alert("يرجى إدخال كود الجهازين القديم والجديد");
+        return;
+      }
+
+      try {
+        const oldRef = db.collection("subscriptions").doc(oldCode);
+        const oldDoc = await oldRef.get();
+        if (!oldDoc.exists) {
+          alert("كود الجهاز القديم غير موجود في قاعدة البيانات!");
+          return;
+        }
+
+        const data = oldDoc.data();
+        // Copy to new device
+        await db.collection("subscriptions").doc(newCode).set({
+          ...data,
+          transferredFrom: oldCode,
+          transferredAt: firebase.firestore.FieldValue.serverTimestamp(),
+          transferReason: reason,
+          status: "ACTIVE"
+        });
+
+        // Mark old as transferred
+        await oldRef.update({
+          status: `TRANSFERRED_TO_${newCode}`,
+          transferredAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        closeTransferModal();
+        showToast(`تم نقل الاشتراك بنجاح من ${oldCode} إلى ${newCode}`);
+        loadCloudData();
+      } catch (err) {
+        alert("خطأ أثناء نقل الاشتراك: " + err.message);
+      }
+    }
+
+    // Toast Utility
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      toast.innerText = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 3000);
+    }
+
+    // Save generated key to cloud optionally
+    async function saveKeyToCloud() {
+      if (!db || !currentUser) {
+        alert("يرجى تسجيل دخول الأدمن أولاً لقيد الاشتراك في السحابة");
+        return;
+      }
+      const devCode = document.getElementById("deviceCode").value.trim().toUpperCase();
+      const key = document.getElementById("keyDisplay").innerText;
+      if (!devCode || !key) return;
+
+      const duration = selectedPlan === 'M' ? 30 : (selectedPlan === 'Y' ? 365 : 3650);
+      const expiresAt = Date.now() + (duration * 24 * 3600 * 1000);
+
+      try {
+        await db.collection("subscriptions").doc(devCode).set({
+          device_code: devCode,
+          generated_key: key,
+          role_type: selectedRole,
+          plan: selectedPlan === 'M' ? 'MONTHLY' : (selectedPlan === 'Y' ? 'YEARLY' : 'LIFETIME'),
+          status: "ACTIVE",
+          expires_at: expiresAt,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdBy: currentUser.email
+        }, { merge: true });
+        showToast("تم قيد الاشتراك في السحابة بنجاح!");
+        loadCloudData();
+      } catch (err) {
+        alert("خطأ في القيد: " + err.message);
+      }
+    }
+  </script>
 </body>
 </html>
