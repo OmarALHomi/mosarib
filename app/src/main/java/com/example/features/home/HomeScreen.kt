@@ -189,7 +189,7 @@ fun HomeScreen(
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "المُسَرِّبْ",
+                                    text = "جِربة",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.ExtraBold,
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -198,7 +198,7 @@ fun HomeScreen(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "• Mosarib",
+                                    text = "• Jerba",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = AccentGold,
                                         fontWeight = FontWeight.Bold
@@ -206,7 +206,7 @@ fun HomeScreen(
                                 )
                             }
                             Text(
-                                text = "لوحة التحكم وإدارة مياه الآبار والسقي",
+                                text = "المنظومة الزراعية الشاملة وإدارة الري والوساطة",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 11.sp
