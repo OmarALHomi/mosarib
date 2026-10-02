@@ -116,6 +116,28 @@ jobs:
           done < <(grep -nE "^e: |error:|What went wrong|Execution failed|> Task .*FAILED" /tmp/gradle_assemble.log | head -20 || true)
           tail -30 /tmp/gradle_assemble.log
 
+      # عند التشغيل اليدوي فقط: يُعلن محتوى مخططات Room المولّدة كتعليقات مشفّرة base64،
+      # لأن تنزيل artifacts قد لا يكون متاحًا. تُستخدم مرة واحدة لحفظ المخطط في المستودع.
+      - name: Dump Room schemas (manual runs only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          python3 - <<'PY'
+          import base64, glob, os
+
+          files = sorted(glob.glob("app/schemas/**/*.json", recursive=True))
+          if not files:
+              print("::warning title=SCHEMA|none::لم يُنتج البناء أي مخطط في app/schemas")
+          for path in files:
+              text = open(path, encoding="utf-8").read()
+              name = path.replace("app/schemas/", "")
+              encoded = base64.b64encode(text.encode("utf-8")).decode("ascii")
+              chunk_size = 2500
+              parts = [encoded[i:i + chunk_size] for i in range(0, len(encoded), chunk_size)] or [""]
+              for index, part in enumerate(parts, start=1):
+                  print(f"::warning title=SCHEMA|{name}|{index}/{len(parts)}::{part}")
+          print(f"::warning title=SCHEMA|FILES::{'|'.join(files) if files else 'none'}")
+          PY
+
       - name: Fail the job if any stage failed
         if: steps.unit_tests.outcome != 'success' || steps.lint.outcome == 'failure' || steps.assemble.outcome == 'failure'
         run: |
