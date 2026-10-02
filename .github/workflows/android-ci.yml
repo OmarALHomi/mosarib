@@ -30,14 +30,66 @@ jobs:
       - name: Guard invariants (no destructive migration, no debug-signed release, fixed identity)
         run: ./tools/ci_invariants.sh
 
+      # الخطوات التالية تُبقي خرج Gradle في ملف، ثم تُعلن الأخطاء كتعليقات (annotations) على
+      # الدفعة. السبب: تفاصيل الأخطاء يجب أن تكون مقروءة من واجهة الفحص دون تنزيل سجلات كاملة،
+      # وهذا ما تعتمد عليه المراجعة الآلية في هذه المرحلة.
       - name: Unit tests
-        run: ./gradlew :app:testDebugUnitTest --stacktrace
+        id: unit_tests
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          ./gradlew :app:testDebugUnitTest --stacktrace 2>&1 | tee /tmp/gradle_test.log
+
+      - name: Report unit test failures
+        if: steps.unit_tests.outcome == 'failure'
+        run: |
+          echo "=== أخطاء الترجمة/الاختبار ==="
+          grep -nE "^e: |^error:|error: |What went wrong|Caused by|FAILED|Execution failed|> Task .*FAILED" /tmp/gradle_test.log | head -25 || true
+          while IFS= read -r line; do
+            echo "::error title=unit tests::$line"
+          done < <(grep -nE "^e: |^error:|What went wrong|Caused by|Execution failed|> Task .*FAILED" /tmp/gradle_test.log | head -20 || true)
+          echo "=== آخر 30 سطرًا ==="
+          tail -30 /tmp/gradle_test.log
 
       - name: Lint (fails the build on errors)
-        run: ./gradlew :app:lintDebug --stacktrace
+        id: lint
+        if: steps.unit_tests.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          ./gradlew :app:lintDebug --stacktrace 2>&1 | tee /tmp/gradle_lint.log
+
+      - name: Report lint failures
+        if: steps.lint.outcome == 'failure'
+        run: |
+          grep -nE "Error:|error:|What went wrong|Execution failed" /tmp/gradle_lint.log | head -20 || true
+          while IFS= read -r line; do
+            echo "::error title=lint::$line"
+          done < <(grep -nE "Error:|What went wrong|Execution failed" /tmp/gradle_lint.log | head -20 || true)
+          echo "=== آخر 30 سطرًا ==="
+          tail -30 /tmp/gradle_lint.log
 
       - name: Assemble debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+        id: assemble
+        if: steps.unit_tests.outcome == 'success' && steps.lint.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleDebug --stacktrace 2>&1 | tee /tmp/gradle_assemble.log
+
+      - name: Report assemble failures
+        if: steps.assemble.outcome == 'failure'
+        run: |
+          while IFS= read -r line; do
+            echo "::error title=assemble::$line"
+          done < <(grep -nE "^e: |error:|What went wrong|Execution failed|> Task .*FAILED" /tmp/gradle_assemble.log | head -20 || true)
+          tail -30 /tmp/gradle_assemble.log
+
+      - name: Fail the job if any stage failed
+        if: steps.unit_tests.outcome != 'success' || steps.lint.outcome == 'failure' || steps.assemble.outcome == 'failure'
+        run: |
+          echo "فشل أحد أطوار البناء. راجع التعليقات (annotations) أعلاه."
+          exit 1
 
       - name: Upload reports
         if: always()
@@ -45,7 +97,9 @@ jobs:
         with:
           name: build-reports
           retention-days: 14
+          if-no-files-found: ignore
           path: |
             app/build/reports/**
             app/build/test-results/**
             app/build/outputs/apk/debug/*.apk
+            /tmp/gradle_*.log
