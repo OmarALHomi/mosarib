@@ -306,9 +306,11 @@ class BackupSnapshotTest {
 
         val plan = BackupSnapshot.plan(json, BackupSnapshot.readAll(db))
         assertTrue(plan.canRestore)
+        // كل الجداول المزروعة موجودة مسبقًا بنفس المفاتيح، فتُعدّ مستبدَلة في المعاينة.
         assertEquals(1, plan.reports.first { it.tableKey == BackupSnapshot.KEY_SETTLEMENT_DEALS }.rowsToOverwrite)
         assertEquals(1, plan.reports.first { it.tableKey == BackupSnapshot.KEY_DEAL_PAYMENTS }.rowsToOverwrite)
-        assertEquals(0, plan.reports.first { it.tableKey == BackupSnapshot.KEY_FARM_EXPENSES }.rowsToOverwrite)
+        assertEquals(1, plan.reports.first { it.tableKey == BackupSnapshot.KEY_FARM_EXPENSES }.rowsToOverwrite)
+        assertEquals(13, plan.totalRowsInFile)
 
         // المعاينة لا تكتب شيئًا.
         assertEquals(0, BackupSnapshot.readAll(restoredDb).customers.size)

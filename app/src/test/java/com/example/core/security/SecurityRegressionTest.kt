@@ -26,14 +26,45 @@ class SecurityRegressionTest {
     @Test
     fun `modern android also fails closed when biometrics are unavailable`() = assertUnavailableCannotUnlock()
 
+    /**
+     * اختبارات Robolectric تُبلّغ افتراضيًا أن المصادقة متاحة، لذلك تُحقن حالة «غير متاحة»
+     * صراحةً. الاختبار يثبت السلوك عند غياب البصمة، لا سلوك الظل الافتراضي.
+     */
     private fun assertUnavailableCannotUnlock() {
         val controller = Robolectric.buildActivity(Activity::class.java).setup()
         try {
             var successes = 0
             var error: String? = null
-            val request = BiometricHelper.authenticate(controller.get(), { successes++ }, { error = it })
-            assertEquals(0, successes)
-            assertNotNull(error)
+            val request = BiometricHelper.authenticate(
+                controller.get(),
+                { successes++ },
+                { error = it },
+                availabilityCheck = { false }
+            )
+            assertEquals("لا فتح بلا مصادقة ناجحة", 0, successes)
+            assertNotNull("يجب إبلاغ المستخدم بسبب عدم الفتح", error)
+            request.cancel()
+        } finally {
+            controller.pause().stop().destroy()
+        }
+    }
+
+    /**
+     * مجرد بدء المصادقة لا يفتح شيئًا: النجاح لا يأتي إلا من callback النظام نفسه.
+     * حتى لو أبلغ النظام أن البصمة متاحة، لا يجوز أن يُحسب الطلب ناجحًا بذاته.
+     */
+    @Test
+    fun `starting biometric authentication never unlocks by itself`() {
+        val controller = Robolectric.buildActivity(Activity::class.java).setup()
+        try {
+            var successes = 0
+            val request = BiometricHelper.authenticate(
+                controller.get(),
+                { successes++ },
+                { /* أي رسالة خطأ مقبولة هنا؛ المهم ألا يُفتح */ },
+                availabilityCheck = { true }
+            )
+            assertEquals("بدء التحقق ليس تحققًا ناجحًا", 0, successes)
             request.cancel()
         } finally {
             controller.pause().stop().destroy()

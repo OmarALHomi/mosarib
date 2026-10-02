@@ -36,15 +36,22 @@ object BiometricHelper {
         return false
     }
 
-    /** The caller must cancel the returned request when its screen is disposed. */
+    /**
+     * The caller must cancel the returned request when its screen is disposed.
+     *
+     * [availabilityCheck] قابل للحقن للاختبار فقط: الأصل هو قراءة حالة النظام. اختبارات
+     * Robolectric تُبلّغ افتراضيًا أن المصادقة متاحة، فلا يمكن إثبات «الفشل المغلق» إلا بفرض
+     * الحالة. القيمة الافتراضية هي السلوك الإنتاجي نفسه، فلا يتغير شيء عند الاستدعاء العادي.
+     */
     @Suppress("DEPRECATION")
     fun authenticate(
         activity: Activity,
         onSuccess: () -> Unit,
-        onError: (String) -> Unit
+        onError: (String) -> Unit,
+        availabilityCheck: (Context) -> Boolean = { isAvailable(it) }
     ): CancellationSignal {
         val signal = CancellationSignal()
-        if (!isAvailable(activity)) {
+        if (!availabilityCheck(activity)) {
             onError("البصمة غير متاحة. يمكنك استخدام قفل الهاتف إذا كان مفعّلاً")
             return signal
         }
