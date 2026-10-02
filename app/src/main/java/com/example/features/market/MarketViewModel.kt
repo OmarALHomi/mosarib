@@ -108,7 +108,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         val listing = CropListing(
-            id = UUID.randomUUID().toString().take(12),
+            id = UUID.randomUUID().toString(),
             title = title.trim(),
             cropType = cropType,
             description = description.trim(),

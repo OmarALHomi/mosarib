@@ -8,6 +8,7 @@ import com.example.core.database.AppDatabase
 import com.example.core.ui.ToastMessage
 import com.example.core.ui.ToastType
 import com.example.core.license.LicenseManager
+import com.example.core.security.BiometricHelper
 import com.example.core.util.BackupManager
 import com.example.core.util.GoogleDriveBackupHelper
 import com.example.features.pumps.PumpSource
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -31,6 +33,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     val appConfig: StateFlow<AppConfig> = settingsRepo.appConfig
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppConfig())
+
+    // null means the persisted authentication policy has not loaded yet.
+    val biometricLockEnabled: StateFlow<Boolean?> = settingsRepo.appConfig
+        .map { it.biometricEnabled }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val pumps: StateFlow<List<PumpSource>> = pumpRepo.allPumps
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -90,6 +97,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun updateBiometricEnabled(enabled: Boolean) {
+        if (enabled && !BiometricHelper.isAvailable(getApplication())) {
+            showToast("سجّل بصمة في إعدادات الهاتف أولاً؛ لم يتم تفعيل القفل", ToastType.ERROR)
+            return
+        }
         viewModelScope.launch {
             settingsRepo.updateBiometricEnabled(enabled)
             showToast(if (enabled) "تم تفعيل القفل بالبصمة بنجاح" else "تم إلغاء قفل البصمة", ToastType.INFO)
@@ -336,8 +347,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
         viewModelScope.launch {
             _isDriveLoading.value = true
+            var temporaryFile: File? = null
             try {
-                val tempFile = File(getApplication<Application>().cacheDir, driveFile.name)
+                // Cloud names are untrusted metadata, never local filesystem paths.
+                val tempFile = File.createTempFile("drive_restore_", ".back", getApplication<Application>().cacheDir)
+                temporaryFile = tempFile
                 val dlResult = GoogleDriveBackupHelper.downloadAppDataBackup(getApplication(), account, driveFile.id, tempFile)
                 dlResult.onSuccess { file ->
                     val restoreResult = BackupManager.restoreFromFile(getApplication(), db, file)
@@ -347,13 +361,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     }.onFailure { e ->
                         showToast("فشل في تطبيق النسخة المستعادة: ${e.localizedMessage}", ToastType.ERROR)
                     }
-                    file.delete()
                 }.onFailure { e ->
                     showToast("فشل تنزيل النسخة من Google Drive: ${e.localizedMessage}", ToastType.ERROR)
                 }
             } catch (e: Exception) {
                 showToast("حدث خطأ أثناء الاستعادة من Drive: ${e.localizedMessage}", ToastType.ERROR)
             } finally {
+                temporaryFile?.delete()
                 _isDriveLoading.value = false
             }
         }

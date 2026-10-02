@@ -108,7 +108,7 @@ class DealsViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        val id = UUID.randomUUID().toString().take(12)
+        val id = UUID.randomUUID().toString()
         val shortSeq = (1000..9999).random()
         val dealNumber = "SLH-$shortSeq"
         val remaining = (totalAmount - advancePayment).coerceAtLeast(0.0)
@@ -169,7 +169,7 @@ class DealsViewModel(application: Application) : AndroidViewModel(application) {
 
         val newRemaining = (deal.remainingAmount - amount).coerceAtLeast(0.0)
         val payment = DealPayment(
-            id = UUID.randomUUID().toString().take(10),
+            id = UUID.randomUUID().toString(),
             dealId = deal.id,
             amount = amount,
             paidBy = paidBy,

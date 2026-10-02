@@ -542,6 +542,7 @@ fun SettingsScreen(
 
                         Switch(
                             checked = config.biometricEnabled,
+                            enabled = isBiometricAvailable || config.biometricEnabled,
                             onCheckedChange = { viewModel.updateBiometricEnabled(it) },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
