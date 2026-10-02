@@ -320,7 +320,11 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                     date = System.currentTimeMillis(),
                     notes = notes
                 )
-                voucherRepo.insertVoucher(voucher)
+                val newId = voucherRepo.insertVoucher(voucher)
+                val cust = customers.value.find { it.id == customerId }
+                if (cust != null && cust.linkCode.isNotBlank()) {
+                    com.example.core.sync.MusribSyncManager.syncVoucher(cust.linkCode, voucher.copy(id = newId))
+                }
 
                 val title = if (type == VoucherType.RECEIPT) "سند القبض" else "سند الصرف"
                 showToast("تم حفظ $title بنجاح", ToastType.SUCCESS)
@@ -330,7 +334,11 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
 
     fun deleteVoucher(voucher: Voucher) {
         viewModelScope.launch {
+            val cust = customers.value.find { it.id == voucher.customerId }
             voucherRepo.deleteVoucher(voucher)
+            if (cust != null && cust.linkCode.isNotBlank()) {
+                com.example.core.sync.MusribSyncManager.deleteEntry(cust.linkCode, "voucher_${voucher.id}")
+            }
             showToast("تم حذف السند بنجاح", ToastType.INFO)
         }
     }

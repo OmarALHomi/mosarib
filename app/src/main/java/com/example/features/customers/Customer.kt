@@ -14,5 +14,6 @@ data class Customer(
     val customPricePerHour: Double? = null, // Optional special hourly price override for this customer
     val isBeneficiary: Boolean = false, // حساب مستفيد (يقبل الصرف، أو تسجيل سقي له أو لعملاء على حسابه)
     val createdAt: Long = System.currentTimeMillis(),
-    val isArchived: Boolean = false
+    val isArchived: Boolean = false,
+    val linkCode: String = "" // كود الربط لمشاركة الحساب مع المزارع
 )

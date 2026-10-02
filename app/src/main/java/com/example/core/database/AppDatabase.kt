@@ -10,6 +10,8 @@ import androidx.room.withTransaction
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.features.customers.Customer
 import com.example.features.customers.CustomerDao
+import com.example.features.farmer.LinkedMusrib
+import com.example.features.farmer.LinkedMusribDao
 import com.example.features.pumps.PumpSource
 import com.example.features.pumps.PumpSourceDao
 import com.example.features.sessions.WaterSession
@@ -28,9 +30,10 @@ import kotlinx.coroutines.launch
         WaterSession::class,
         PumpSource::class,
         Voucher::class,
-        AppSetting::class
+        AppSetting::class,
+        LinkedMusrib::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -41,6 +44,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun pumpSourceDao(): PumpSourceDao
     abstract fun voucherDao(): VoucherDao
     abstract fun appSettingDao(): AppSettingDao
+    abstract fun linkedMusribDao(): LinkedMusribDao
 
     companion object {
         @Volatile
@@ -54,6 +58,25 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE customers ADD COLUMN linkCode TEXT NOT NULL DEFAULT ''")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS linked_musribs (
+                        linkCode TEXT NOT NULL PRIMARY KEY,
+                        musribName TEXT NOT NULL DEFAULT '',
+                        musribPhone TEXT NOT NULL DEFAULT '',
+                        farmName TEXT NOT NULL DEFAULT '',
+                        currentBalance REAL NOT NULL DEFAULT 0.0,
+                        totalDebit REAL NOT NULL DEFAULT 0.0,
+                        totalPaid REAL NOT NULL DEFAULT 0.0,
+                        lastSyncTimestamp INTEGER NOT NULL DEFAULT 0,
+                        addedAt INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -61,7 +84,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "water_distributor_db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance

@@ -90,7 +90,8 @@ fun MainApp(
     customersViewModel: CustomersViewModel = viewModel(),
     vouchersViewModel: VouchersViewModel = viewModel(),
     reportsViewModel: ReportsViewModel = viewModel(),
-    settingsViewModel: SettingsViewModel = viewModel()
+    settingsViewModel: SettingsViewModel = viewModel(),
+    farmerViewModel: com.example.features.farmer.FarmerViewModel = viewModel()
 ) {
     val appConfig by settingsViewModel.appConfig.collectAsStateWithLifecycle()
     val isSystemDark = isSystemInDarkTheme()
@@ -109,6 +110,8 @@ fun MainApp(
             var selectedCustomerId by remember { mutableLongStateOf(0L) }
             var showReportsScreen by remember { mutableStateOf(false) }
             var showAboutScreen by remember { mutableStateOf(false) }
+            var showFarmerScreen by remember { mutableStateOf(false) }
+            var selectedMusribForFarmer by remember { mutableStateOf<com.example.features.farmer.LinkedMusrib?>(null) }
 
             if (showSplashScreen) {
                 SplashScreen(onTimeout = { showSplashScreen = false })
@@ -116,6 +119,20 @@ fun MainApp(
                 BiometricLockScreen(onUnlock = { isBiometricUnlocked = true })
             } else if (showAboutScreen) {
                 AboutScreen(onBack = { showAboutScreen = false })
+            } else if (showFarmerScreen) {
+                if (selectedMusribForFarmer != null) {
+                    com.example.features.farmer.FarmerLedgerScreen(
+                        viewModel = farmerViewModel,
+                        musrib = selectedMusribForFarmer!!,
+                        onBack = { selectedMusribForFarmer = null }
+                    )
+                } else {
+                    androidx.activity.compose.BackHandler { showFarmerScreen = false }
+                    com.example.features.farmer.FarmerScreen(
+                        viewModel = farmerViewModel,
+                        onOpenLedger = { selectedMusribForFarmer = it }
+                    )
+                }
             } else if (selectedCustomerId > 0) {
                 CustomerDetailScreen(
                     customerId = selectedCustomerId,
@@ -231,7 +248,8 @@ fun MainApp(
                                     onNavigateToCustomer = { custId ->
                                         selectedCustomerId = custId
                                     },
-                                    onOpenReports = { showReportsScreen = true }
+                                    onOpenReports = { showReportsScreen = true },
+                                    onOpenFarmer = { showFarmerScreen = true }
                                 )
                             }
                             AppTab.SESSIONS -> {

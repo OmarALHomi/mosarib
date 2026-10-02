@@ -14,3 +14,4 @@ debug.keystore
 *.jks
 *.keystore
 keystore.properties
+.vscode/
