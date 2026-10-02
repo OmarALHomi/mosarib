@@ -19,17 +19,21 @@ enum class Currency(
     USD("USD", "دولار أمريكي", "$", 2);
 
     /** عدد الوحدات الصغرى في وحدة واحدة: 1 للريال اليمني، 100 للسعودي والدولار. */
-    val minorPerUnit: Long = if (minorUnits == 0) 1L else pow10(minorUnits.toLong())
+    val minorPerUnit: Long = if (minorUnits == 0) 1L else pow10(minorUnits)
 
     companion object {
-        private fun pow10(exponent: Long): Long {
-            var result = 1L
-            repeat(exponent.toInt()) { result *= 10L }
-            return result
-        }
-
         fun fromCode(code: String): Currency? = entries.firstOrNull { it.code == code }
     }
+}
+
+/**
+ * لا تُوضع هذه الدالة داخل `companion object`: أسماء التعداد تُهيَّأ قبل رفيقها، فاستدعاؤها
+ * من هناك يفشل بخطأ تهيئة وقت الترجمة. دالة على مستوى الملف آمنة.
+ */
+private fun pow10(exponent: Int): Long {
+    var result = 1L
+    repeat(exponent) { result *= 10L }
+    return result
 }
 
 /** خطأ حسابي في المال. الرسالة عربية لأنها تُعرض للمستخدم في مسار الإدخال. */
