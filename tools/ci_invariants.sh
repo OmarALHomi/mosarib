@@ -24,7 +24,7 @@ fi
 pass "لا يوجد ترحيل مدمّر في كود app/src/main"
 
 # 2) مخطط Room مُصدَّر (شرط اختبار الترحيلات).
-grep -q "exportSchema = true" app/src/main/java/com/example/core/database/AppDatabase.kt \
+grep -q "exportSchema = true" app/src/main/java/com/baynana/core/database/AppDatabase.kt \
   || fail "exportSchema ليس true في AppDatabase.kt — لا يمكن اختبار الترحيلات."
 grep -q 'arg("room.schemaLocation"' app/build.gradle.kts \
   || fail "room.schemaLocation غير مضبوط في app/build.gradle.kts."
@@ -42,7 +42,7 @@ pass "لا توقيع بمفتاح التصحيح في نسخة release"
 #    لأي مستخدم من قبل. بعد أول توزيع حقيقي لا يُغيَّر هذا السطر إطلاقًا.
 grep -q 'applicationId = "com.baynana.app"' app/build.gradle.kts \
   || fail "applicationId تغيّر — كسر مسار التحديث. راجع قرار الهوية قبل التعديل."
-grep -q 'DATABASE_NAME = "water_distributor_db"' app/src/main/java/com/example/core/database/AppDatabase.kt \
+grep -q 'DATABASE_NAME = "water_distributor_db"' app/src/main/java/com/baynana/core/database/AppDatabase.kt \
   || fail "اسم قاعدة البيانات تغيّر — يفقد المستخدمون دفاترهم."
 pass "معرّف الحزمة واسم قاعدة البيانات ثابتان"
 
