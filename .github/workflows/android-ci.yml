@@ -43,13 +43,44 @@ jobs:
       - name: Report unit test failures
         if: steps.unit_tests.outcome == 'failure'
         run: |
-          echo "=== أخطاء الترجمة/الاختبار ==="
-          grep -nE "^e: |^error:|error: |What went wrong|Caused by|FAILED|Execution failed|> Task .*FAILED" /tmp/gradle_test.log | head -25 || true
+          echo "=== أخطاء الترجمة ==="
+          grep -nE "^e: |^error:" /tmp/gradle_test.log | head -25 || true
           while IFS= read -r line; do
-            echo "::error title=unit tests::$line"
-          done < <(grep -nE "^e: |^error:|What went wrong|Caused by|Execution failed|> Task .*FAILED" /tmp/gradle_test.log | head -20 || true)
-          echo "=== آخر 30 سطرًا ==="
-          tail -30 /tmp/gradle_test.log
+            echo "::error title=compile::$line"
+          done < <(grep -nE "^e: |^error:" /tmp/gradle_test.log | head -20 || true)
+
+          # أسماء الاختبارات الفاشلة وسببها، سطر لكل اختبار. تقارير JUnit XML هي المصدر.
+          echo "=== الاختبارات الفاشلة ==="
+          python3 - <<'PY' || true
+          import glob, re, sys, xml.etree.ElementTree as ET
+
+          def clean(text: str, limit: int = 400) -> str:
+              text = " ".join((text or "").split())
+              return text[:limit]
+
+          found = 0
+          for path in sorted(glob.glob("app/build/test-results/testDebugUnitTest/*.xml")):
+              try:
+                  root = ET.parse(path).getroot()
+              except Exception as error:  # noqa: BLE001
+                  print(f"::warning title=report::تعذّر قراءة {path}: {error}")
+                  continue
+              for case in root.iter("testcase"):
+                  failure = case.find("failure")
+                  error = case.find("error")
+                  node = failure if failure is not None else error
+                  if node is None:
+                      continue
+                  found += 1
+                  name = f"{case.get('classname', '?')}.{case.get('name', '?')}"
+                  message = clean(node.get("message") or node.text or "بلا رسالة")
+                  print(f"::error title={name}::{message}")
+          if found == 0:
+              print("لم يُعثر على اختبار فاشل في التقارير؛ راجع آخر السجل.")
+              print(clean(open("/tmp/gradle_test.log", encoding="utf-8", errors="replace").read()[-2000:]))
+          PY
+          echo "=== آخر 20 سطرًا ==="
+          tail -20 /tmp/gradle_test.log
 
       - name: Lint (fails the build on errors)
         id: lint
