@@ -147,7 +147,7 @@ fun MainApp(
                 BiometricLockScreen(onUnlock = { isBiometricUnlocked = true })
             } else if (!appConfig.isOnboardingCompleted) {
                 com.example.features.onboarding.RoleSelectionScreen(
-                    initialName = appConfig.distributorName.takeIf { it != "مستخدم جِربة" } ?: "",
+                    initialName = appConfig.distributorName.takeIf { it != "مستخدم بيننا" } ?: "",
                     initialPhone = appConfig.distributorPhone.takeIf { it != "777000000" } ?: "",
                     initialVillage = appConfig.userVillage,
                     onComplete = { name, phone, village, pRole, aRoles ->

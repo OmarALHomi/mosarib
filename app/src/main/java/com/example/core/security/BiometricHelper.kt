@@ -69,7 +69,7 @@ object BiometricHelper {
                     }
                 }
                 val prompt = android.hardware.biometrics.BiometricPrompt.Builder(activity)
-                    .setTitle("جِربة")
+                    .setTitle("بيننا")
                     .setSubtitle("أدخل البصمة لتأكيد الهوية وفتح التطبيق")
                     .setNegativeButton("إلغاء", executor) { _: DialogInterface, _: Int ->
                         if (!signal.isCanceled) onError("تم إلغاء المصادقة")

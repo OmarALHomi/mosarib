@@ -13,7 +13,9 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "omarAlhomi.mosarib.com"
+    // هوية التطبيق المعتمدة: «بيننا». لا تثبيت سابق لأي مستخدم (قرار المالك 2026-10-03)،
+    // فالتغيير الآن لا يكسر مسار تحديث أحد. بعد أول توزيع حقيقي: لا يُغيَّر هذا السطر أبدًا.
+    applicationId = "com.baynana.app"
     minSdk = 24
     targetSdk = 36
     versionCode = 1

@@ -38,11 +38,20 @@ grep -q 'signingConfig = if (hasReleaseKeystore) signingConfigs.getByName("relea
 pass "لا توقيع بمفتاح التصحيح في نسخة release"
 
 # 4) الهوية الثابتة: معرّف الحزمة واسم قاعدة البيانات (قرارات موثّقة).
-grep -q 'applicationId = "omarAlhomi.mosarib.com"' app/build.gradle.kts \
+#    قرار المالك 2026-10-03: الاسم «بيننا»، والمعرّف com.baynana.app، ولم يُثبَّت التطبيق
+#    لأي مستخدم من قبل. بعد أول توزيع حقيقي لا يُغيَّر هذا السطر إطلاقًا.
+grep -q 'applicationId = "com.baynana.app"' app/build.gradle.kts \
   || fail "applicationId تغيّر — كسر مسار التحديث. راجع قرار الهوية قبل التعديل."
 grep -q 'DATABASE_NAME = "water_distributor_db"' app/src/main/java/com/example/core/database/AppDatabase.kt \
   || fail "اسم قاعدة البيانات تغيّر — يفقد المستخدمون دفاترهم."
 pass "معرّف الحزمة واسم قاعدة البيانات ثابتان"
+
+# 4ب) الاسم الظاهر ثابت: «بيننا» وتحته «مستودع حساباتك ومعاملاتك».
+grep -q '<string name="app_name">بيننا</string>' app/src/main/res/values/strings.xml \
+  || fail "الاسم الظاهر ليس «بيننا» في strings.xml."
+grep -q '<string name="app_subtitle">مستودع حساباتك ومعاملاتك</string>' app/src/main/res/values/strings.xml \
+  || fail "العنوان تحت الاسم ليس «مستودع حساباتك ومعاملاتك» في strings.xml."
+pass "الاسم الظاهر والعنوان معتمدان كما قرر المالك"
 
 # 5) لا مفاتيح أو أسرار داخل المستودع.
 if git ls-files | grep -E "(^|/)(keystore\.properties|debug\.keystore|.*\.jks|.*\.keystore|local\.properties)$" >/dev/null 2>&1; then

@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 /**
- * Manages real-time, offline-first synchronization of Jerba crop and fruit listings.
+ * Manages real-time, offline-first synchronization of Baynana crop and fruit listings.
  * Connects the local Room database with Firestore collection "listings".
  */
 object MarketSyncManager {

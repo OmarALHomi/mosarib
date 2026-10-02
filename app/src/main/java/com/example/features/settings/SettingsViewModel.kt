@@ -124,7 +124,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     ) {
         viewModelScope.launch {
             settingsRepo.completeOnboarding(name, phone, village, primaryRole, activeRoles)
-            showToast("مرحباً بك في منظومة جِربة! 🌾", ToastType.SUCCESS)
+            showToast("مرحباً بك في منظومة بيننا! 🌾", ToastType.SUCCESS)
             onDone()
         }
     }

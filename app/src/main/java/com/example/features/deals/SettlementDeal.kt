@@ -16,7 +16,7 @@ import java.util.Locale
 
 /**
  * Represents a formal agricultural settlement deal between seller (farmer),
- * buyer (mojabri), and broker (dallal) in the Jerba ecosystem.
+ * buyer (mojabri), and broker (dallal) in the Baynana ecosystem.
  */
 @Entity(tableName = "settlement_deals")
 data class SettlementDeal(

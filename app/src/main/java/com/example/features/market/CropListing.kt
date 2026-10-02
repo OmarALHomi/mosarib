@@ -10,7 +10,7 @@ import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Represents an agricultural crop/fruit listing in the Jerba harvest market.
+ * Represents an agricultural crop/fruit listing in the Baynana harvest market.
  * Designed to empower Dallals (brokers) while protecting their commissions by
  * masking the farmer's contact information by default.
  */

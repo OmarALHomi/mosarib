@@ -118,7 +118,7 @@ fun AddListingDialog(
                             )
                         )
                         Text(
-                            text = "سوق وبورصة جِربة الزراعية",
+                            text = "سوق بيننا للثمرة والمحصول",
                             style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                         )
                     }

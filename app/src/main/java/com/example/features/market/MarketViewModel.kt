@@ -132,7 +132,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
             _isLoading.value = false
 
             if (result.isSuccess) {
-                _toast.value = ToastMessage("تم نشر عرض المحصول في بورصة جِربة بنجاح 🌾", ToastType.SUCCESS)
+                _toast.value = ToastMessage("تم نشر عرض المحصول في سوق بيننا بنجاح 🌾", ToastType.SUCCESS)
                 onComplete(true)
             } else {
                 _toast.value = ToastMessage("تم حفظ العرض محلياً وسيرفع للسوق فور توفر الإنترنت", ToastType.INFO)
@@ -170,7 +170,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
         val msg = """
 السلام عليكم ورحمة الله وبركاته،
 الأخ الدلال: ${listing.dallalName.ifBlank { "المحترم" }}،
-بخصوص عرض المحصول المعروض في تطبيق [جِربة]:
+بخصوص عرض المحصول المعروض في تطبيق [بيننا]:
 🌾 المحصول: ${listing.title} (${listing.cropType})
 📍 الموقع: ${listing.district} - ${listing.village}
 💰 السعر المعروض: ${listing.getDisplayPrice()}
@@ -199,7 +199,7 @@ class MarketViewModel(application: Application) : AndroidViewModel(application) 
 📍 القرية / المحل: ${village.ifBlank { "العزلة" }}
 🌾 نوع المحصول: $cropType
 
-عندي ثمرة/محصول جاهز للقطاف والتسويق، وأرغب في تكليفك بالدلالة والوساطة لبيعه عبر تطبيق [جِربة].
+عندي ثمرة/محصول جاهز للقطاف والتسويق، وأرغب في تكليفك بالدلالة والوساطة لبيعه عبر تطبيق [بيننا].
 ${if (notes.isNotBlank()) "📝 تفاصيل إضافية: $notes" else ""}
 
 يرجى التواصل للتنسيق والمعاينة الميدانية.

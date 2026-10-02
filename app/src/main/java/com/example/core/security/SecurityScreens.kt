@@ -154,7 +154,7 @@ fun BiometricLockScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "جِربة",
+                text = "بيننا",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White,
@@ -215,7 +215,7 @@ fun BiometricLockScreen(
                     authenticationSignal?.cancel()
                     @Suppress("DEPRECATION")
                     val intent = keyguard.createConfirmDeviceCredentialIntent(
-                        "جِربة", "أكد قفل الهاتف للوصول إلى حساباتك"
+                        "بيننا", "أكد قفل الهاتف للوصول إلى حساباتك"
                     )
                     if (intent != null) {
                         credentialLauncher.launch(intent)

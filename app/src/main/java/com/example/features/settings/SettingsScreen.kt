@@ -394,7 +394,7 @@ fun SettingsScreen(
             }
         }
 
-        // Section: Roles Management (أدواري في منظومة جِربة)
+        // Section: Roles Management (أدواري في منظومة بيننا)
         item {
             Card(
                 modifier = Modifier
@@ -417,7 +417,7 @@ fun SettingsScreen(
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text("أدواري في منظومة جِربة", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                            Text("أدواري في منظومة بيننا", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                             Text("فعّل الأدوار التي تمارسها لتظهر لك أقسامها مباشرة", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
                         }
                     }

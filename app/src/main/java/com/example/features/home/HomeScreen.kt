@@ -190,24 +190,16 @@ fun HomeScreen(
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "جِربة",
+                                    text = "بيننا",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.ExtraBold,
                                         color = MaterialTheme.colorScheme.onSurface,
                                         letterSpacing = 0.5.sp
                                     )
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "• Jerba",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = AccentGold,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                )
                             }
                             Text(
-                                text = "المنظومة الزراعية الشاملة وإدارة الري والوساطة",
+                                text = "مستودع حساباتك ومعاملاتك",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 11.sp

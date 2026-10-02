@@ -164,8 +164,8 @@ object BackupSnapshot {
 
     fun toJson(source: SnapshotSource): JSONObject {
         val root = JSONObject()
-        root.put("app", "Jerba")
-        root.put("appName", "جِربة | Jerba")
+        root.put("app", "Baynana")
+        root.put("appName", "بيننا")
         root.put("legacyApp", "Mosarib")
         root.put("formatVersion", FORMAT_VERSION)
         root.put("dbVersion", CURRENT_DB_VERSION)

@@ -508,7 +508,7 @@ fun CustomerDetailScreen(
                                             .clip(RoundedCornerShape(20.dp))
                                             .background(Color.Black.copy(alpha = 0.28f))
                                             .clickable {
-                                                val msg = "مرحباً يا ${customer.name}، كود ربط حسابك في تطبيق جِربة الزراعي مع المسرب (${config.distributorName.ifBlank { "المسرب" }}):\n#${customer.linkCode}\nأدخل هذا الكود في التطبيق لمتابعة دورات السقي ورصيدك مباشرة."
+                                                val msg = "مرحباً يا ${customer.name}، كود ربط حسابك في تطبيق بيننا مع المسرب (${config.distributorName.ifBlank { "المسرب" }}):\n#${customer.linkCode}\nأدخل هذا الكود في التطبيق لمتابعة دورات السقي ورصيدك مباشرة."
                                                 FileSharingHelper.copyToClipboard(context, customer.linkCode)
                                                 FileSharingHelper.shareText(context, msg, "مشاركة كود الربط")
                                             }

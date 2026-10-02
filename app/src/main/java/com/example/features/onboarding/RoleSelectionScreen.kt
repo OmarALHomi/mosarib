@@ -122,7 +122,7 @@ fun RoleSelectionScreen(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
-                    text = "مرحباً بك في «جِربة»",
+                    text = "مرحباً بك في «بيننا»",
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -130,7 +130,7 @@ fun RoleSelectionScreen(
                 )
 
                 Text(
-                    text = "المنظومة الزراعية الشاملة وإدارة الري والوساطة",
+                    text = "مستودع حساباتك ومعاملاتك",
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
@@ -284,7 +284,7 @@ fun RoleSelectionScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
                 ) {
                     Text(
-                        text = "بدء استخدام منظومة جِربة 🚀",
+                        text = "بدء استخدام منظومة بيننا 🚀",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.White)
                     )
                 }

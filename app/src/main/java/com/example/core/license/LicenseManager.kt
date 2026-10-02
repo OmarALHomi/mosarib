@@ -6,7 +6,7 @@ import android.provider.Settings
 import java.security.MessageDigest
 
 /**
- * Offline-first license and device activation manager for the Jerba ecosystem.
+ * Offline-first license and device activation manager for the Baynana ecosystem.
  * Supports 4 distinct roles:
  * - [LicenseRole.MUSRIB]: Prefix ACTV (Water irrigation provider)
  * - [LicenseRole.DALLAL]: Prefix DLLV (Broker / Marketer)
@@ -381,7 +381,7 @@ object LicenseManager {
     ): String {
         val msg = """
 السلام عليكم يا باشمهندس عمر،
-أود تفعيل تطبيق جِربة (${role.titleArabic} — ${requestedPlan.titleArabic}).
+أود تفعيل تطبيق بيننا (${role.titleArabic} — ${requestedPlan.titleArabic}).
 كود جهازي هو:
 $deviceCode
         """.trimIndent()

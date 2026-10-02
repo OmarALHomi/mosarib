@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 data class AppConfig(
-    val distributorName: String = "مستخدم جِربة",
+    val distributorName: String = "مستخدم بيننا",
     val distributorPhone: String = "777000000",
     val defaultPricePerHour: Double = 5000.0,
     val currencySymbol: String = "ر.ي",
@@ -24,7 +24,7 @@ class SettingsRepository(
     val appConfig: Flow<AppConfig> = settingDao.getAllSettings().map { list ->
         val map = list.associate { it.key to it.value }
         AppConfig(
-            distributorName = map["distributor_name"] ?: "مستخدم جِربة",
+            distributorName = map["distributor_name"] ?: "مستخدم بيننا",
             distributorPhone = map["distributor_phone"] ?: "777000000",
             defaultPricePerHour = map["default_price_per_hour"]?.toDoubleOrNull() ?: 5000.0,
             currencySymbol = map["currency_symbol"] ?: "ر.ي",

@@ -31,8 +31,8 @@ import java.util.Locale
  */
 object BackupManager {
 
-    const val BACKUP_FILE_PREFIX = "jerba_backup_"
-    const val SAFETY_COPY_PREFIX = "jerba_before_restore_"
+    const val BACKUP_FILE_PREFIX = "baynana_backup_"
+    const val SAFETY_COPY_PREFIX = "baynana_before_restore_"
 
     /** عدد نسخ الأمان التلقائية المحفوظة قبل حذف الأقدم. */
     private const val MAX_SAFETY_COPIES = 5
@@ -192,7 +192,7 @@ object BackupManager {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "application/json"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - جِربة | Jerba")
+            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - بيننا")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
@@ -216,7 +216,7 @@ object BackupManager {
         val driveIntent = Intent(Intent.ACTION_SEND).apply {
             type = "application/octet-stream"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - جِربة | Jerba")
+            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - بيننا")
             `package` = "com.google.android.apps.docs"
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -238,7 +238,7 @@ object BackupManager {
                 val contentValues = android.content.ContentValues().apply {
                     put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, backupFile.name)
                     put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream")
-                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/JerbaBackups")
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/BaynanaBackups")
                 }
                 val uri = context.contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
                 if (uri != null) {
@@ -248,7 +248,7 @@ object BackupManager {
                 }
             } else {
                 val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
-                val subDir = File(downloadsDir, "JerbaBackups")
+                val subDir = File(downloadsDir, "BaynanaBackups")
                 if (!subDir.exists()) subDir.mkdirs()
                 val targetFile = File(subDir, backupFile.name)
                 backupFile.copyTo(targetFile, overwrite = true)

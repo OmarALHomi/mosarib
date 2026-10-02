@@ -18,8 +18,19 @@ class ExampleRobolectricTest {
     @Test
     fun `read string from context`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val appName = context.getString(R.string.app_name)
-        assertEquals("جِربة | Jerba", appName)
+        assertEquals("بيننا", context.getString(R.string.app_name))
+        assertEquals("مستودع حساباتك ومعاملاتك", context.getString(R.string.app_subtitle))
+    }
+
+    /**
+     * هوية التطبيق المعتمدة: قرار المالك 2026-10-03. لا تثبيت سابق لأي مستخدم، فالتغيير الآن
+     * لا يكسر مسار تحديث. بعد أول توزيع حقيقي يفشل هذا الاختبار إن غُيّر المعرّف سهوًا.
+     */
+    @Test
+    fun `application identity is the approved one`() {
+        assertEquals("com.baynana.app", BuildConfig.APPLICATION_ID)
+        assertEquals(false, BuildConfig.APPLICATION_ID.contains("com.example"))
+        assertEquals(false, BuildConfig.APPLICATION_ID.contains("omarAlhomi"))
     }
 
     @Test
