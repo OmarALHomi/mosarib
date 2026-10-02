@@ -126,20 +126,20 @@ jobs:
             exit 0
           fi
           python3 - <<'PY'
-          import base64, glob, os
+          import base64, glob, gzip
 
           files = sorted(glob.glob("app/schemas/**/*.json", recursive=True))
           if not files:
               print("::warning title=SCHEMA|none::لم يُنتج البناء أي مخطط في app/schemas")
           for path in files:
               text = open(path, encoding="utf-8").read()
-              name = path.replace("app/schemas/", "")
-              encoded = base64.b64encode(text.encode("utf-8")).decode("ascii")
-              # GitHub يسمح بعشرة تعليقات لكل خطوة؛ نوزّع الملف على 8 أجزاء كحد أقصى.
-              chunk_size = max(2000, (len(encoded) + 7) // 8)
+              # gzip ثم base64: مخطط Room نصي متكرر فتقليصه إلى سدس حجمه يجعله يدخل في
+              # عدد الأجزاء المسموح. ورسالة التعليق تُقتطع عند 4096 حرفًا، فنقسم على 4000.
+              encoded = base64.b64encode(gzip.compress(text.encode("utf-8"))).decode("ascii")
+              chunk_size = 4000
               parts = [encoded[i:i + chunk_size] for i in range(0, len(encoded), chunk_size)] or [""]
               for index, part in enumerate(parts, start=1):
-                  print(f"::warning title=SCHEMA|{name}|{index}/{len(parts)}::{part}")
+                  print(f"::warning title=SCHEMA|{path.replace('app/schemas/', '')}|{index}/{len(parts)}::{part}")
           print(f"::warning title=SCHEMA|FILES::{'|'.join(files) if files else 'none'}")
           PY
 
