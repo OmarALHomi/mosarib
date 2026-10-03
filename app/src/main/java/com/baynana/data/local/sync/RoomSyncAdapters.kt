@@ -88,18 +88,34 @@ class RoomSyncStore(private val db: AppDatabase, private val cursorKey: String =
     }
 
     private suspend fun applyUpsert(change: RemoteChange): ApplyOutcome {
-        val entry = try {
-            decodeEntry(change.payload)
+        val wire = try {
+            decodeWire(change.payload)
         } catch (_: Exception) {
             return ApplyOutcome.UNSUPPORTED
         }
-        val inserted = dao.insertEntryIfNew(entry)
+        // الإسقاطات تُشترط بوجود قيودها محليًا: الترتيب الزمني يضمن وصول الدين قبل سداده، وإن
+        // وصل إسقاط بلا دينه فالأفضل عدم التطبيق وإظهار الحالة للمراجعة بدل أرصدة ناقصة.
+        val missingDebt = wire.allocations.map { it.first }.filter { dao.getEntry(it) == null }
+        if (missingDebt.isNotEmpty()) return ApplyOutcome.UNSUPPORTED
+
+        val inserted = dao.insertEntryIfNew(wire.entry)
+        wire.allocations.forEach { (debtEntryId, amountMinor) ->
+            dao.upsertAllocation(
+                com.baynana.data.local.ledger.EntryAllocation(
+                    paymentEntryId = wire.entry.id,
+                    debtEntryId = debtEntryId,
+                    amountMinor = amountMinor,
+                    currency = wire.entry.currency,
+                    createdAt = wire.entry.occurredAt
+                )
+            )
+        }
         return if (inserted == -1L) ApplyOutcome.DUPLICATE else ApplyOutcome.APPLIED
     }
 
     private suspend fun applyVoid(change: RemoteChange): ApplyOutcome {
         val reversal = try {
-            decodeEntry(change.payload)
+            decodeWire(change.payload).entry
         } catch (_: Exception) {
             return ApplyOutcome.UNSUPPORTED
         }
@@ -158,41 +174,72 @@ private fun OutboxItem.toEnvelope() = OutboxEnvelope(
 )
 
 /**
- * فكّ حمولة القيد القادمة من السلك. المبالغ **نصّية بالوحدة الصغرى** (ADR-04) ويُرفض أي رقم
- * عشري أو رمز عملة غير معروف — الرفض هنا يجعل التغيير UNSUPPORTED الذي يُسجَّل ولا يفسد الأرصدة.
+ * فكّ حمولة السلك. الصيغة هي **نفس ما يُرسل** بالضبط (`OutboxPayloads`): غلاف فيه `entry`
+ * وإسقاطات اختيارية، والمبالغ **نصّية بالوحدة الصغرى** (ADR-04).
+ *
+ * هذا التماثل شرطٌ لا تحسين: ما نُرسله يُخزَّن في الطرف الآخر ويعود إلينا في السحب، فلو اختلف
+ * الفكّ عن البناء لصار كل ما نستقبله «غير مفهوم» — وهذا ما كشفه CI فعلًا.
+ *
+ * الرفض هنا مقصود ومحدود: أي مبلغ ليس عددًا صحيحًا نصًّا، أو نوع قيد غير معروف، يمنع التطبيق
+ * ويُسجَّل للمراجعة، بدل أن يدخل رقم فاسد إلى أرصدة الناس.
  */
-internal fun decodeEntry(payload: String): LedgerEntry {
-    val json = JSONObject(payload)
-    val amountText = json.getString("amountMinor")
+internal data class DecodedWire(
+    val entry: LedgerEntry,
+    /** إسقاطات السداد كما وردت: (debtEntryId, amountMinor). */
+    val allocations: List<Pair<String, Long>>,
+    val isVoid: Boolean
+)
+
+internal fun decodeWire(payload: String): DecodedWire {
+    val root = JSONObject(payload)
+    val body = if (root.has("entry")) root.getJSONObject("entry") else root
+    val kind = root.optString("kind", "")
+
+    val amountText = body.getString("amountMinor")
     require(amountText.all { it.isDigit() || it == '-' }) { "المبلغ ليس عددًا صحيحًا نصًّا" }
     val amount = amountText.toLong()
     require(amount > 0L) { "مبلغ غير موجب" }
 
-    val type = json.getString("type")
+    val type = body.getString("type")
     require(type in EntryType.all || type == EntryType.ADJUSTMENT) { "نوع قيد غير معروف: $type" }
 
-    return LedgerEntry(
-        id = json.getString("id"),
-        roomId = json.getString("roomId"),
-        operationId = json.getString("operationId"),
+    val entry = LedgerEntry(
+        id = body.getString("id"),
+        roomId = body.getString("roomId"),
+        operationId = body.getString("operationId"),
         type = type,
-        owedByMemberId = json.getString("owedByMemberId"),
-        owedToMemberId = json.getString("owedToMemberId"),
+        owedByMemberId = body.getString("owedByMemberId"),
+        owedToMemberId = body.getString("owedToMemberId"),
         amountMinor = amount,
-        currency = json.getString("currency"),
-        occurredAt = json.getLong("occurredAt"),
-        description = json.optString("description", ""),
-        quantityNote = json.optString("quantityNote", ""),
-        status = json.optString("status", EntryStatus.SENT),
-        createdByMemberId = json.optString("createdByMemberId", ""),
-        sourceTable = if (json.has("sourceTable")) json.getString("sourceTable") else null,
-        sourceId = if (json.has("sourceId")) json.getString("sourceId") else null,
-        listingId = if (json.has("listingId")) json.getString("listingId") else null,
-        reversesEntryId = if (json.has("reversesEntryId")) json.getString("reversesEntryId") else null,
-        createdAt = json.optLong("createdAt", json.getLong("occurredAt")),
-        updatedAt = json.optLong("updatedAt", json.getLong("occurredAt"))
+        currency = body.getString("currency"),
+        occurredAt = body.getLong("occurredAt"),
+        description = body.optString("description", ""),
+        quantityNote = body.optString("quantityNote", ""),
+        status = body.optString("status", EntryStatus.SENT),
+        createdByMemberId = body.optString("createdByMemberId", ""),
+        sourceTable = if (body.has("sourceTable")) body.getString("sourceTable") else null,
+        sourceId = if (body.has("sourceId")) body.getString("sourceId") else null,
+        listingId = if (body.has("listingId")) body.getString("listingId") else null,
+        reversesEntryId = if (body.has("reversesEntryId")) body.getString("reversesEntryId") else null,
+        createdAt = body.optLong("createdAt", body.getLong("occurredAt")),
+        updatedAt = body.optLong("updatedAt", body.getLong("occurredAt"))
     )
+
+    val allocations = mutableListOf<Pair<String, Long>>()
+    root.optJSONArray("allocations")?.let { array ->
+        for (index in 0 until array.length()) {
+            val row = array.getJSONObject(index)
+            val text = row.getString("amountMinor")
+            require(text.all { it.isDigit() }) { "مبلغ الإسقاط ليس عددًا صحيحًا نصًّا" }
+            allocations += row.getString("debtEntryId") to text.toLong()
+        }
+    }
+
+    return DecodedWire(entry = entry, allocations = allocations, isVoid = kind == "VOID")
 }
+
+/** توافق للخلف: نداءات قديمة تريد القيد وحده. */
+internal fun decodeEntry(payload: String): LedgerEntry = decodeWire(payload).entry
 
 /**
  * ملخّص محلي لِما بقي بانتظار الإرسال — يُعرض للمستخدم بدل «نجح سحابيًا» الكاذبة.

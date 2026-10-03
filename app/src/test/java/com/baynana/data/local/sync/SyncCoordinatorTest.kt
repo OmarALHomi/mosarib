@@ -63,7 +63,8 @@ class SyncCoordinatorTest {
             val start = cursor?.toIntOrNull() ?: 0
             val changes = order.drop(start).map { operationId ->
                 val payload = byOperation.getValue(operationId)
-                val entityId = JSONObject(payload).getString("id")
+                val body = JSONObject(payload)
+                val entityId = (if (body.has("entry")) body.getJSONObject("entry") else body).getString("id")
                 RemoteChange(RemoteChange.UPSERT, "entry", entityId, operationId, payload, ++serverTime)
             }
             return PullPage(changes, nextCursor = order.size.toString(), hasMore = false)
@@ -162,7 +163,9 @@ class SyncCoordinatorTest {
         val server = FakeServer()
         SyncCoordinator(db, server).syncOnce(now)
         assertEquals(listOf("op-restart"), server.received)
-        assertEquals(entry.id, JSONObject(server.byOperation.getValue("op-restart")).getString("id"))
+        val pushed = JSONObject(server.byOperation.getValue("op-restart"))
+        assertEquals(entry.id, pushed.getJSONObject("entry").getString("id"))
+        assertEquals("المبلغ نصًّا بالوحدة الصغرى على السلك", "500000", pushed.getJSONObject("entry").getString("amountMinor"))
     }
 
     @Test
