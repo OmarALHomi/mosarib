@@ -29,13 +29,22 @@ import com.baynana.features.deals.DealPayment
 import com.baynana.features.deals.SettlementDealDao
 import com.baynana.features.farmer.FarmExpense
 import com.baynana.features.farmer.FarmExpenseDao
+import com.baynana.data.local.ledger.Acknowledgement
+import com.baynana.data.local.ledger.EntryAllocation
+import com.baynana.data.local.ledger.LedgerDao
+import com.baynana.data.local.ledger.LedgerEntry
+import com.baynana.data.local.ledger.LedgerRoom
+import com.baynana.data.local.ledger.OutboxItem
+import com.baynana.data.local.ledger.RoomMember
+import com.baynana.data.local.ledger.SyncState
+import androidx.room.AutoMigration
 import kotlinx.coroutines.launch
 
 /**
  * إصدار قاعدة البيانات. ثابت على مستوى الملف لأن تعليق [Database] يحتاج قيمة وقت الترجمة،
  * ويقرأه اختبار الترحيلات ومحرّك النسخ الاحتياطي. لا يُنقص أبدًا، وأي زيادة تحتاج ترحيلًا.
  */
-const val DATABASE_VERSION = 6
+const val DATABASE_VERSION = 7
 
 @Database(
     entities = [
@@ -48,11 +57,22 @@ const val DATABASE_VERSION = 6
         CropListing::class,
         SettlementDeal::class,
         DealPayment::class,
-        FarmExpense::class
+        FarmExpense::class,
+        // ح٣: الغرفة والقيد والإقرار وصندوق الصادر.
+        LedgerRoom::class,
+        RoomMember::class,
+        LedgerEntry::class,
+        EntryAllocation::class,
+        Acknowledgement::class,
+        OutboxItem::class,
+        SyncState::class
     ],
     version = DATABASE_VERSION,
     // تصدير المخطط إلزامي: بدونه لا يمكن اختبار الترحيلات ولا مقارنة الإصدارات قبل النشر.
-    exportSchema = true
+    exportSchema = true,
+    // ترحيل 6→7 تلقائي: الجداول الجديدة إضافة بحتة، وRoom يولّد الترحيل ويتحقق منه بالمخطط
+    // المصدَّر، فلا نكتب SQL باليد ولا نخاطر بترحيل غير مطابق. الاختبارات في LedgerMigrationTest.
+    autoMigrations = [AutoMigration(from = 6, to = 7)]
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -66,6 +86,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun cropListingDao(): CropListingDao
     abstract fun settlementDealDao(): SettlementDealDao
     abstract fun farmExpenseDao(): FarmExpenseDao
+
+    /** دفتر الغرفة والقيد والإقرار وصندوق الصادر (ح٣). */
+    abstract fun ledgerDao(): LedgerDao
 
     companion object {
         /**
@@ -189,8 +212,15 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
-         * كل الترحيلات بترتيب تصاعدي، متاحة للاختبار. أي إصدار جديد يجب أن يضيف ترحيلًا هنا،
-         * ولا يُسمح بأي حال باستخدام الترحيل المدمّر fallbackToDestructiveMigration.
+         * الترحيلات اليدوية من 1 إلى 6. الترحيل 6→7 (ح٣) **تلقائي** ويولّده Room من فرق
+         * المخططات، فليس من هذه القائمة؛ انظر [AUTO_MIGRATION_RANGES].
+         */
+        val AUTO_MIGRATION_RANGES: List<Pair<Int, Int>> = listOf(6 to 7)
+
+        /**
+         * كل الترحيلات اليدوية بترتيب تصاعدي، متاحة للاختبار. أي إصدار جديد يجب أن يضيف
+         * ترحيلًا هنا (أو نطاقًا في AUTO_MIGRATION_RANGES)، ولا يُسمح بأي حال باستخدام
+         * الترحيل المدمّر fallbackToDestructiveMigration.
          */
         internal val ALL_MIGRATIONS = listOf(
             MIGRATION_1_2,

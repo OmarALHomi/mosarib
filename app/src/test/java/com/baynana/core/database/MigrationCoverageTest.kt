@@ -20,7 +20,7 @@ class MigrationCoverageTest {
     }
 
     @Test
-    fun migrationsCoverEveryVersionWithoutGaps() {
+    fun manualMigrationsCoverOneThroughSixWithoutGaps() {
         val migrations = AppDatabase.ALL_MIGRATIONS
         assertTrue("لا توجد ترحيلات مسجلة", migrations.isNotEmpty())
 
@@ -40,11 +40,23 @@ class MigrationCoverageTest {
             cursor = migration.endVersion
         }
 
-        assertEquals(
-            "إصدار قاعدة البيانات يجب أن يساوي نهاية آخر ترحيل",
-            DATABASE_VERSION,
-            cursor
-        )
+        assertEquals("الترحيلات اليدوية تنتهي عند 6", 6, cursor)
+    }
+
+    /**
+     * الترحيل 6→7 تلقائي (Room يولّده من فرق المخططات). هذا الاختبار يمنع نسيان تحديث النطاق
+     * عند أي إصدار قادم: سلسلة اليدوي + التلقائي يجب أن تنتهي عند إصدار قاعدة البيانات.
+     */
+    @Test
+    fun autoMigrationRangesContinueTheManualChain() {
+        val manualEnd = AppDatabase.ALL_MIGRATIONS.maxOf { it.endVersion }
+        var cursor = manualEnd
+        AppDatabase.AUTO_MIGRATION_RANGES.forEach { (from, to) ->
+            assertEquals("فجوة قبل الترحيل التلقائي", cursor, from)
+            assertEquals("الترحيل التلقائي يجب أن ينتهي عند الإصدار التالي", from + 1, to)
+            cursor = to
+        }
+        assertEquals("إصدار قاعدة البيانات يجب أن يساوي نهاية السلسلة", DATABASE_VERSION, cursor)
     }
 
     @Test

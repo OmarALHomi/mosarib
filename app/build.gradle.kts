@@ -94,8 +94,11 @@ android {
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
   // مخططات Room تُصدَّر إلى app/schemas لتُقرأ في اختبارات الترحيل ومقارنة الإصدارات.
+  // مخططات Room تُصدَّر إلى app/schemas لتُقرأ في اختبارات الترحيل ومقارنة الإصدارات.
   sourceSets {
     getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    // اختبارات الوحدة (Robolectric) تقرأ المخططات أيضًا لبناء قاعدة إصدار قديم واختبار الترحيل.
+    getByName("test").assets.srcDir("$projectDir/schemas")
   }
   dependenciesInfo {
     includeInApk = false
@@ -148,6 +151,7 @@ dependencies {
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.robolectric)
+  testImplementation(libs.androidx.room.testing)
   androidTestImplementation(platform(libs.androidx.compose.bom))
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   androidTestImplementation(libs.androidx.espresso.core)
