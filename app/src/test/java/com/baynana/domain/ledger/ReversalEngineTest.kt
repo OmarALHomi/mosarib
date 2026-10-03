@@ -42,14 +42,31 @@ class ReversalEngineTest {
     }
 
     @Test
-    fun `the original plus its mirror cancel each other exactly`() {
-        val original = entry()
-        val mirror = ReversalEngine.mirror(original, "rev-1", "op-rev", now + 1, "")
-        val entries = listOf(original, mirror)
+    fun `the voided original plus its mirror cancel each other exactly`() {
+        // كتابة الإلغاء تفعل الأمرين في معاملة واحدة: الأصل يصير VOIDED، والعكسي يُدرج.
+        val original = entry(status = EntryStatus.VOIDED)
+        val mirror = ReversalEngine.mirror(entry(), "rev-1", "op-rev", now + 1, "")
+        assertEquals("المرآة تشير إلى الأصل", original.id, mirror.reversesEntryId)
 
-        val balance = BalanceEngine.compute("room-1", "YER_NEW", entries, emptyList())
+        val balance = BalanceEngine.compute("room-1", "YER_NEW", listOf(original, mirror), emptyList())
         assertEquals(0L, balance.netOf("farmer"))
         assertEquals(0L, balance.netOf("distributor"))
+        assertTrue(balance.isSettled)
+    }
+
+    /**
+     * انحدار مُصلَح: كانت التصفية تستثني العكسي بشرط رؤية أصله في القائمة، وقائمة «النشطة» لا
+     * تُظهر الملغى، فبقي العكسي محسوبًا فانقلب الدين موجبًا بعد إلغائه. العكسي يُستثنى دائمًا.
+     */
+    @Test
+    fun `a mirror is never counted even when the voided original is not in the list`() {
+        val mirror = ReversalEngine.mirror(entry(), "rev-1", "op-rev", now + 1, "")
+        val balance = BalanceEngine.compute("room-1", "YER_NEW", listOf(mirror), emptyList())
+
+        assertEquals("لا أثر للعكسي وحده", 0L, balance.netOf("farmer"))
+        assertEquals(0L, balance.openDebtMinor)
+        assertEquals(0L, balance.unappliedReceiptMinor)
+        assertTrue(balance.isSettled)
     }
 
     @Test
