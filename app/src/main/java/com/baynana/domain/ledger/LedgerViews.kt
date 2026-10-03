@@ -58,21 +58,16 @@ fun EntryView.remainingMinor(allocatedByEntry: Map<String, Long>): Long {
 
 /**
  * القيود المؤثرة حسابيًا في الأرصدة:
- * - **الملغى** يُستثنى (أثره سقط).
- * - **القيد العكسي** يُستثنى كذلك لأن أصله ملغى: لو حُسب لَحُسب الإلغاء مرتين — مرة بإسقاط
- *   الأصل ومرة بعكس الاتجاه — فصار الرصيد موجبًا بعد إلغاء دين. دوره الإظهار والتبليغ لا الحساب.
+ * - **الملغى** يُستثنى: أثره سقط بالإلغاء.
+ * - **القيد العكسي** يُستثنى **دائمًا**: وجوده يعني أن أصله ملغى في المعاملة نفسها، فلو حُسب
+ *   لَحُسب الإلغاء مرتين — مرة بإسقاط الأصل ومرة بعكس الاتجاه — وانقلب الدين موجبًا. دوره
+ *   الإظهار والتبليغ، لا الحساب. (وُجد هذا الخلل فعلًا في CI: التصفية كانت تعتمد على رؤية
+ *   الأصل الملغى في القائمة، وقائمة «النشطة» لا تُظهره، فبقي العكسي محسوبًا.)
  * - **المسودة** تُستثنى لأنها لم تُشارك: لا تُدرج في أرقام يراها الطرف الآخر، بل تُعدّ وحدها
  *   ليُعلن للمستخدم أن لديه مسودات لم تُرسل.
  */
-fun List<EntryView>.effectiveEntries(): List<EntryView> {
-    if (isEmpty()) return this
-    val voidedIds = filter { it.status == EntryStatus.VOIDED }.map { it.id }.toSet()
-    return filter { entry ->
-        entry.status != EntryStatus.VOIDED &&
-            entry.status != EntryStatus.DRAFT &&
-            (entry.reversesEntryId == null || entry.reversesEntryId !in voidedIds)
-    }
-}
+fun List<EntryView>.effectiveEntries(): List<EntryView> =
+    filter { it.status != EntryStatus.VOIDED && it.status != EntryStatus.DRAFT && !it.isReversal }
 
 /** رصيد عضو: موجب يعني أن الغرفة له، وسالب يعني أن عليه. */
 data class MemberBalance(

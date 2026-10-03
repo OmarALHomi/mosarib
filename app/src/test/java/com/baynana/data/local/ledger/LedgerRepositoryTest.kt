@@ -117,7 +117,9 @@ class LedgerRepositoryTest {
         assertEquals(distributor, result.entry.owedByMemberId)
         assertEquals(farmer, result.entry.owedToMemberId)
         assertEquals(600_000L, dao.allocatedToDebt(debt.id))
-        assertEquals(1, dao.nextOutboxBatch().size)
+        // صفّان في الصندوق: واحد للسقية وآخر للسداد، وكل قيد له صف واحد فقط.
+        assertEquals(2, dao.nextOutboxBatch().size)
+        assertEquals(1, dao.countOutboxForEntity(result.entry.id))
     }
 
     @Test
@@ -133,7 +135,7 @@ class LedgerRepositoryTest {
         assertEquals(first.entry.id, replay.entry.id)
         assertEquals("الخصم لم يتضاعف", 400_000L, dao.allocatedToDebt(debt.id))
         assertEquals("قيد واحد فقط", 1, dao.getActiveEntries("room-1").count { it.type == EntryType.PAYMENT })
-        assertEquals("وصف صادر واحد", 1, dao.nextOutboxBatch().size)
+        assertEquals("وصف صادر واحد للسداد", 1, dao.countOutboxForEntity(first.entry.id))
     }
 
     @Test
