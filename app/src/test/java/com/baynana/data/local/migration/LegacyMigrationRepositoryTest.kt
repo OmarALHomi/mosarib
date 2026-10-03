@@ -88,7 +88,7 @@ class LegacyMigrationRepositoryTest {
         seedLegacy()
         val plan = migration.buildPlan()
 
-        // الجرد قبل التنفيذ: 13,000 ريال + 600 ريال = 1,360,000 فلس.
+        // الجرد قبل التنفيذ: 13,000 ريال + 600 ريال = 1,360,000 فلس (×100).
         assertEquals(1_360_000L, plan.legacyTotalMinor)
         assertTrue(plan.allReconcile)
 
@@ -103,6 +103,8 @@ class LegacyMigrationRepositoryTest {
         assertEquals(day1, first.occurredAt)
         assertEquals(1_300_000L, first.amountMinor)
         assertEquals("water_sessions", first.sourceTable)
+        // كود الربط القديم يبقى للعميل حتى يستطيع المزارع إعادة الربط به.
+        assertEquals("ABC12", db.ledgerDao().getRoom("legacy-room-1")!!.linkCode)
         assertEquals(EntryStatus.ACKNOWLEDGED, first.status)
 
         // جداول الإرث كما هي: لا حذف ولا تعديل.
@@ -122,15 +124,11 @@ class LegacyMigrationRepositoryTest {
         val snapshot = repository.snapshot("legacy-room-1")
         val customerId = db.customerDao().getAllCustomersForBackup().first { it.name == "أحمد المزارع" }.id
 
+        // 13,000 ريال قديمة = 1,300,000 فلس جديدة (١ ريال يمني جديد = ١٠٠ فلس).
         assertEquals(1_300_000L, snapshot.chargedMinor)
         assertEquals(0L, snapshot.paidMinor)
         assertEquals(1_300_000L, snapshot.remainingMinor)
         assertEquals(1_300_000L, snapshot.openDebtOf("legacy-customer-$customerId"))
-        assertEquals(
-            "الرصيد في الدفتر الجديد = المتبقي في الدفتر القديم",
-            1_300_000L,
-            snapshot.remainingMinor
-        )
     }
 
     @Test
@@ -139,11 +137,12 @@ class LegacyMigrationRepositoryTest {
         val plan = migration.buildPlan()
         migration.apply(plan, now = now)
         val second = migration.apply(plan, now = now + 60_000)
+        assertEquals("عميلان في الخطة", 2, plan.reconciliations.size)
 
         assertEquals("لا غرفة جديدة", 0, second.roomsWritten)
         assertEquals("لا قيد جديد", 0, second.entriesWritten)
         assertEquals("2 قيد كان مُرحَّلًا", 2, second.entriesAlreadyPresent)
-        assertEquals(2, db.ledgerDao().getEntriesIncludingVoided("legacy-room-1").size)
+        assertEquals("قيد واحد للغرفة الأولى (السقية الثانية مسدَّدة)", 1, db.ledgerDao().getEntriesIncludingVoided("legacy-room-1").size)
         assertEquals(1, db.ledgerDao().getEntriesIncludingVoided("legacy-room-2").size)
     }
 
@@ -156,7 +155,7 @@ class LegacyMigrationRepositoryTest {
         val room = db.ledgerDao().getRoom("legacy-room-${archivedCustomer.id}")!!
         assertEquals("CLOSED", room.status)
         assertNotNull("سجل العميل مؤرشف لكن محفوظ", db.ledgerDao().getEntry("legacy-session-3"))
-        assertEquals(600_000L, db.ledgerDao().getEntry("legacy-session-3")!!.amountMinor)
+        assertEquals(60_000L, db.ledgerDao().getEntry("legacy-session-3")!!.amountMinor)
     }
 
     @Test
@@ -184,7 +183,7 @@ class LegacyMigrationRepositoryTest {
         val marker = db.ledgerDao().getSyncState(LegacyMigrationRepository.MARKER_KEY)
 
         assertNotNull(marker)
-        assertEquals(outcome.plan.entries.size.toString(), marker!!.cursor)
+        assertEquals("كل قيود الخطة صارت في الدفتر", outcome.plan.entries.size.toString(), marker!!.cursor)
         assertEquals(now, marker.lastSyncAt)
         assertEquals("", marker.lastError)
     }

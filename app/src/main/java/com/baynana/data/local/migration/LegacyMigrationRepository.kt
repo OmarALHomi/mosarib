@@ -130,10 +130,20 @@ class LegacyMigrationRepository(private val db: AppDatabase) {
             alreadyDone += result.third - result.second
         }
 
+        // العلامة تُخبر بالحقيقة: كم قيدًا من الخطة صار موجودًا فعلًا في الدفتر بعد هذه الجولة
+        // (بعد ترحيل جزئي لا تكتب «اكتمل»)، وكم عميلًا أُوقف ولماذا.
+        val appliedRooms = plan.rooms
+            .filter { onlyCustomers == null || it.customerId in onlyCustomers }
+            .map { it.roomId }
+        val plannedIds = plan.entries.map { it.id }.toSet()
+        val presentNow = appliedRooms.sumOf { roomId ->
+            db.ledgerDao().getEntriesIncludingVoided(roomId).count { it.id in plannedIds }
+        }
+
         db.ledgerDao().upsertSyncState(
             SyncState(
                 key = MARKER_KEY,
-                cursor = plan.entries.size.toString(),
+                cursor = presentNow.toString(),
                 lastSyncAt = now,
                 lastError = refused.joinToString("؛ ") { "${it.customerName}: فرق ${it.differenceMinor}" }
             )
@@ -150,6 +160,9 @@ class LegacyMigrationRepository(private val db: AppDatabase) {
 
     private suspend fun writeRoom(room: PlannedRoom, now: Long) {
         val dao = db.ledgerDao()
+        // سلامة إضافية: لو كان الكود محجوزًا لغرفة أخرى قائمة، لا نكتب غرفة بكود مزدوج.
+        val taken = dao.getRoomByLinkCode(room.linkCode)
+        val linkCode = if (taken != null && taken.id != room.roomId) "legacy-${room.customerId}" else room.linkCode
         dao.upsertRoom(
             LedgerRoom(
                 id = room.roomId,
@@ -158,7 +171,7 @@ class LegacyMigrationRepository(private val db: AppDatabase) {
                 title = room.title,
                 // عميل مؤرشف: الغرفة للقراءة فقط. وسجلاته باقية كما هي.
                 status = if (room.archived) RoomStatus.CLOSED else RoomStatus.ACTIVE,
-                linkCode = room.linkCode.ifBlank { "legacy-${room.customerId}" },
+                linkCode = linkCode,
                 counterpartName = room.counterpartName,
                 counterpartPhone = room.counterpartPhone,
                 createdAt = now,

@@ -39,7 +39,7 @@ class LegacyMigrationEngineTest {
         assertEquals("legacy:session:10", entry.operationId)
         assertEquals(day1, entry.occurredAt)
         assertEquals(EntryType.WATER_SESSION, entry.type)
-        assertEquals("الريال العشري صار فلسًا: 15,000 ريال = 1,500,000 فلس", 1_500_000L, entry.amountMinor)
+        assertEquals("الريال العشري صار فلسًا: 15,000 ريال × 100 = 1,500,000 فلس", 1_500_000L, entry.amountMinor)
         assertEquals("water_sessions", entry.sourceTable)
         assertEquals("10", entry.sourceId)
     }
@@ -67,7 +67,7 @@ class LegacyMigrationEngineTest {
     private fun LegacyMigrationPlan.ledgerTotal(): Long = entries.filter { it.debtDirection > 0 }.sumOf { it.amountMinor }
 
     @Test
-    fun `sessions already settled migrate nothing but are counted in the audit`() {
+    fun `a session with zero remaining is audited as settled and never migrated`() {
         val plan = LegacyMigrationEngine.plan(
             LegacySnapshot(
                 customers = listOf(customer(1)),
@@ -118,14 +118,14 @@ class LegacyMigrationEngineTest {
         )
 
         val audit = plan.reconciliations.single()
-        assertEquals(1_000_000L, audit.legacyMinor)
-        assertEquals(1_000_000L, audit.plannedMinor)
-        assertEquals(300_000L, audit.creditMinor)
+        assertEquals(100_000L, audit.legacyMinor)
+        assertEquals(100_000L, audit.plannedMinor)
+        assertEquals(30_000L, audit.creditMinor)
         assertTrue("الجرد مطابق", audit.matches)
 
         val credit = plan.entries.single { it.debtDirection < 0 }
         assertEquals(EntryType.GENERAL_RECEIPT, credit.type)
-        assertEquals(300_000L, credit.amountMinor)
+        assertEquals(30_000L, credit.amountMinor)
         assertEquals("legacy:credit:11", credit.operationId)
     }
 
@@ -146,7 +146,7 @@ class LegacyMigrationEngineTest {
         assertEquals("قيد واحد فقط: السقية", 1, plan.entries.size)
         val audit = plan.reconciliations.single()
         assertEquals(3, audit.voucherCount)
-        assertEquals("مجموع سندات القبض مجرود", 500_000L, audit.voucherTotalMinor)
+        assertEquals("مجموع سندات القبض مجرود", 50_000L, audit.voucherTotalMinor)
         assertTrue(audit.warnings.any { it.contains("لم تُرحَّل كقيود") })
         assertTrue(plan.allReconcile)
     }
@@ -198,21 +198,35 @@ class LegacyMigrationEngineTest {
     fun `legacy decimal riyals convert to fils without binary floating point drift`() {
         assertEquals(1_500_000L, LegacyMigrationEngine.toMinor(15_000.0, "YER_NEW"))
         assertEquals(250_050L, LegacyMigrationEngine.toMinor(2_500.50, "YER_NEW"))
-        // 0.1 + 0.2 في Double = 0.30000000000000004: التحويل من النص يمنع دخول هذا الشبح.
-        assertEquals(30L, LegacyMigrationEngine.toMinor(0.1 + 0.2, "YER_NEW"))
         assertEquals(70_025L, LegacyMigrationEngine.toMinor(700.25, "YER_NEW"))
+        // 0.1 + 0.2 في Double = 0.30000000000000004: يُقرَّب إلى فلسين ويُعلَن، ولا يدخل الحساب الجديد.
+        val ghost = LegacyMigrationEngine.toMinorDetailed(0.1 + 0.2, "YER_NEW")
+        assertEquals(30L, ghost.minor)
+        assertTrue("التعديل مُعلَن لا صامت", ghost.adjusted)
+        assertFalse("القيمة السليمة لا تُعدّ معدّلة", LegacyMigrationEngine.toMinorDetailed(700.25, "YER_NEW").adjusted)
     }
 
     @Test
-    fun `an unreadable legacy amount is refused loudly instead of becoming zero`() {
+    fun `an impossible legacy amount is refused loudly instead of becoming zero`() {
         var refused = false
         try {
-            LegacyMigrationEngine.toMinor(1_000_000_000_000.5, "YER_NEW")
+            LegacyMigrationEngine.toMinor(9_999_999_999_999.0, "YER_NEW")
         } catch (error: IllegalArgumentException) {
             refused = true
             assertTrue(error.message!!.contains("مبلغ قديم غير صالح"))
         }
-        assertFalse("المبلغ الضخم غير الصالح لا يمرّ صامتًا", !refused)
+        assertTrue("المبلغ الضخم غير المعقول لا يمرّ صامتًا ولا يصير صفرًا", refused)
+    }
+
+    @Test
+    fun `a nonsense legacy value is refused with a clear Arabic reason, never silently zeroed`() {
+        var message = ""
+        try {
+            LegacyMigrationEngine.toMinor(Double.NaN, "YER_NEW")
+        } catch (error: IllegalArgumentException) {
+            message = error.message.orEmpty()
+        }
+        assertTrue("القيمة غير الرقمية تُرفض برسالة مفهومة: $message", message.contains("قيمة غير رقمية"))
     }
 
     @Test
@@ -222,6 +236,35 @@ class LegacyMigrationEngineTest {
         assertTrue(plan.notes.any { it.contains("لا حذف ولا تعديل للإرث") })
         assertTrue(plan.notes.any { it.contains("العملة المستهدفة") })
         assertTrue(LegacyMigrationEngine.statusText(plan).contains("عملاء: 0"))
+    }
+
+    @Test
+    fun `a unique legacy link code is preserved so the farmer can reconnect with his old code`() {
+        val plan = LegacyMigrationEngine.plan(
+            LegacySnapshot(
+                customers = listOf(customer(1).copy(linkCode = "OLD123")),
+                sessions = emptyList(),
+                vouchers = emptyList()
+            )
+        )
+        assertEquals("OLD123", plan.rooms.single().linkCode)
+    }
+
+    @Test
+    fun `a duplicated legacy link code becomes a derived code so two rooms never collide`() {
+        val plan = LegacyMigrationEngine.plan(
+            LegacySnapshot(
+                customers = listOf(
+                    customer(1).copy(linkCode = "SAME"),
+                    customer(2).copy(linkCode = "SAME"),
+                    customer(3).copy(linkCode = "  ")
+                ),
+                sessions = emptyList(),
+                vouchers = emptyList()
+            )
+        )
+        // كود الربط فريد في جدول الغرف: لا غرفتان بكود واحد، ولا عميل بلا كود.
+        assertEquals(setOf("legacy-1", "legacy-2", "legacy-3"), plan.rooms.map { it.linkCode }.toSet())
     }
 
     @Test

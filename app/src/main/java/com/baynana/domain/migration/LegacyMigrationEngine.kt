@@ -133,6 +133,9 @@ object LegacyMigrationEngine {
     fun plan(snapshot: LegacySnapshot, currency: String = "YER_NEW"): LegacyMigrationPlan {
         val sessionsByCustomer = snapshot.sessions.groupBy { it.customerId }
         val vouchersByCustomer = snapshot.vouchers.groupBy { it.customerId }
+        // كود الربط فريد في غرف الدفتر: أي كود قديم مكرّر أو فارغ يُستبدل بكود مشتق من رقم العميل،
+        // فلا يصطدم عميلان على كود واحد ولا يفقد عميل رمزه الأصلي إن كان فريدًا.
+        val linkCodeCounts = snapshot.customers.groupingBy { it.linkCode.trim() }.eachCount()
         val rooms = mutableListOf<PlannedRoom>()
         val entries = mutableListOf<PlannedEntry>()
         val reconciliations = mutableListOf<CustomerReconciliation>()
@@ -150,7 +153,9 @@ object LegacyMigrationEngine {
                 title = customer.name.ifBlank { "عميل قديم ${customer.id}" },
                 counterpartName = customer.name,
                 counterpartPhone = customer.phone,
-                linkCode = customer.linkCode,
+                linkCode = customer.linkCode.trim()
+                    .takeIf { it.isNotBlank() && linkCodeCounts[it] == 1 }
+                    ?: "legacy-${customer.id}",
                 currency = currency,
                 archived = customer.isArchived
             )
@@ -163,6 +168,7 @@ object LegacyMigrationEngine {
             var settled = 0
             var live = 0
             var creditMinor = 0L
+            var adjustedAmounts = 0
 
             for (session in customerSessions) {
                 if (session.isLive) {
@@ -170,7 +176,9 @@ object LegacyMigrationEngine {
                     warnings += "سقية جارية (رقم ${session.id}) لم تُرحَّل: مبالغها لم تُقفل بعد"
                     continue
                 }
-                val remaining = toMinorSigned(session.remainingDebt, currency)
+                val converted = toMinorDetailed(session.remainingDebt, currency)
+                val remaining = if (session.remainingDebt < 0.0) -converted.minor else converted.minor
+                if (converted.adjusted) adjustedAmounts++
                 // «الديون» تُجمع من الموجب وحدها، والدفع الزائد يُجمع في الرصيد الدائن بجانبها،
                 // فلا يُنقص أحدهما الآخر ثم يظهر فرق وهمي في الجرد (§4.1: لا صافي يخفي الحقيقة).
                 legacyMinor += remaining.coerceAtLeast(0L)
@@ -223,16 +231,22 @@ object LegacyMigrationEngine {
             }
 
             val vouchers = vouchersByCustomer[customer.id].orEmpty()
-            val voucherTotal = vouchers.filter { it.type == "RECEIPT" }.sumOf { toMinor(it.amount, currency) }
+            // الجرد هنا للعرض فقط: نأخذ المقدار المطلق حتى لا يُوقف ترحيل عميل كامل بسبب
+            // شذوذ في رقم قديم لا يُنشئ قيدًا أصلًا (§لا تدخل أرقام منقوصة إلى الدفتر).
+            val voucherTotal = vouchers.filter { it.type == "RECEIPT" }
+                .sumOf { toMinorDetailed(kotlin.math.abs(it.amount), currency).minor }
             if (vouchers.isNotEmpty()) {
                 warnings += "سندات قديمة: ${vouchers.size} سندًا بمجموع قبض ${voucherTotal} فلسًا — " +
                     "لم تُرحَّل كقيود لأنها مطويّة داخل «المتبقي» في النموذج القديم، وجُردت هنا للمراجعة"
+            }
+            if (adjustedAmounts > 0) {
+                warnings += "قيم عشرية دقيقة في $adjustedAmounts سقية عُدّلت إلى فلسين (أثر حساب عشري قديم)"
             }
             if (customerSessions.isEmpty() && vouchers.isEmpty()) {
                 warnings += "عميل بلا سقيات ولا سندات: أُنشئت له غرفة فارغة للربط المستقبلي"
             }
             if (customer.isArchived) {
-                warnings += "عميل مؤرشف: غرفته تُنشأ للقراءة فقط، وسجلاته محفوظة لا محذوفة"
+                warnings += "عميل في الأرشيف (مؤرشف): غرفته تُنشأ للقراءة فقط، وسجلاته محفوظة لا محذوفة"
             }
 
             reconciliations += CustomerReconciliation(
@@ -274,21 +288,43 @@ object LegacyMigrationEngine {
 
     /** تحويل بإشارة: الدفع الزائد القديم يصبح رصيدًا دائنًا، ولا يُمرَّر السالب إلى المحلّل. */
     fun toMinorSigned(legacyMajor: Double, currency: String): Long {
-        val minor = toMinor(kotlin.math.abs(legacyMajor), currency)
+        val minor = toMinor(legacyMajor, currency)
         return if (legacyMajor < 0.0) -minor else minor
     }
 
+    /** مبلغ قديم بعد التحويل، وهل احتاج تدقيقًا إلى خانتين. */
+    data class ConvertedAmount(val minor: Long, val adjusted: Boolean)
+
     /**
-     * تحويل الريال العشري القديم إلى فلس: يمرّ من نصّ عشري (لا حساب عشري عندنا)، ويُرفض ما لا
-     * يُفهم برسالة صريحة بدل أن يصبح صفرًا صامتًا.
+     * تحويل الريال العشري القديم إلى فلس بلا حساب عشري جديد:
+     * 1) القيمة تُقرأ كنصّها العشري الدقيق (`BigDecimal.valueOf`)،
+     * 2) تُقرَّب إلى خانات العملة (`HALF_UP`) لأن الإرث مخزَّن `Double` وقد يحمل أثرًا عشريًا مثل
+     *    `0.30000000000000004` من جمع قديم — ورفضه يعني إيقاف ترحيل عميل كامل لأجل أثر حاسوبي،
+     * 3) ثم تمرّ من محلّل المال نفسه فيتحقق السقف والرمز.
+     *
+     * و**كل تقريب يُعدّ ويُعلن** في تقرير الترحيل، فلا يمرّ تعديل على أرقام الناس بلا إشعار.
      */
-    fun toMinor(legacyMajor: Double, currency: String): Long {
-        val text = BigDecimal.valueOf(legacyMajor).toPlainString()
+    fun toMinorDetailed(legacyMajor: Double, currency: String): ConvertedAmount {
+        require(!legacyMajor.isNaN() && !legacyMajor.isInfinite()) {
+            "مبلغ قديم غير صالح ($legacyMajor): قيمة غير رقمية في الدفتر القديم"
+        }
+        val exact = BigDecimal.valueOf(legacyMajor)
+        val units = when (val found = com.baynana.domain.money.Currency.fromCode(currency)) {
+            null -> throw IllegalArgumentException("عملة غير معروفة: $currency")
+            else -> found.minorUnits
+        }
+        val truncated = exact.stripTrailingZeros()
+        val adjusted = truncated.scale() > units
+        val rounded = exact.setScale(units, java.math.RoundingMode.HALF_UP)
+        val text = rounded.toPlainString()
         return when (val parsed = MoneyWire.decodeLegacyMajor(text, currency)) {
-            is MoneyParse.Ok -> parsed.money.minor
+            is MoneyParse.Ok -> ConvertedAmount(parsed.money.minor, adjusted)
             is MoneyParse.Error -> throw IllegalArgumentException("مبلغ قديم غير صالح ($text): ${parsed.message}")
         }
     }
+
+    /** التحويل بالبساطة: الفلسات وحدها. */
+    fun toMinor(legacyMajor: Double, currency: String): Long = toMinorDetailed(legacyMajor, currency).minor
 
     /** حالة العلامة: هل الترحيل أُنجز سابقًا؟ ولماذا لا يُعاد؟ */
     fun statusText(plan: LegacyMigrationPlan): String = buildString {
