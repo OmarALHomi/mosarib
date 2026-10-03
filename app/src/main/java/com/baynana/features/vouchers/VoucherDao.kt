@@ -34,6 +34,10 @@ interface VoucherDao {
     @Query("SELECT * FROM vouchers WHERE id = :id")
     suspend fun getVoucherById(id: Long): Voucher?
 
+    /** كل السندات بلا حد: للنسخ الاحتياطي ولجرد الترحيل من الإرث (ح٧). */
+    @Query("SELECT * FROM vouchers ORDER BY id ASC")
+    suspend fun getAllVouchersForBackup(): List<Voucher>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVoucher(voucher: Voucher): Long
 

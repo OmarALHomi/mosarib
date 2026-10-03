@@ -28,6 +28,13 @@ interface WaterSessionDao {
     @Query("SELECT * FROM water_sessions WHERE id = :id")
     suspend fun getSessionById(id: Long): WaterSession?
 
+    /**
+     * كل السقيات بلا حد وبلا ترشيح، للنسخ الاحتياطي وللترحيل من الإرث (ح٧).
+     * لا تُستخدم في الشاشات: الشاشات تقرأ بتدفق وبترشيح.
+     */
+    @Query("SELECT * FROM water_sessions ORDER BY id ASC")
+    suspend fun getAllSessionsForBackup(): List<WaterSession>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: WaterSession): Long
 
