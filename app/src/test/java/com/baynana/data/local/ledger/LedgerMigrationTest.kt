@@ -205,11 +205,84 @@ class LedgerMigrationTest {
         assertTrue("حذف غرفة فيها قيود مرفوض (RESTRICT)", refused)
     }
 
+
+    @Test
+    fun `upgrading a real version 8 database adds tombstones and the retry column without losing anything`() {
+        // الإصدار 8 كان آخر إصدار قبل ح٦: غرف وقيود وخارج دون جدول الشواهد ودون عمود إعادة المحاولة.
+        buildDatabaseAtVersion(8) { sqlite ->
+            sqlite.execSQL(
+                "INSERT INTO rooms (id, kind, currency, title, status, linkCode, counterpartName, counterpartPhone, createdAt, updatedAt, closedAt) " +
+                    "VALUES ('room-8', 'WATER', 'YER_NEW', 'غرفة قديمة', 'ACTIVE', 'LNK-8', 'أحمد', '777111222', 1000, 2000, NULL)"
+            )
+            sqlite.execSQL(
+                "INSERT INTO room_members (roomId, memberId, displayName, phone, role, isMe, joinedAt, lastSeenAt) " +
+                    "VALUES ('room-8', 'm-me', 'أنا', '', 'distributor', 1, 1000, 0)"
+            )
+            sqlite.execSQL(
+                "INSERT INTO room_members (roomId, memberId, displayName, phone, role, isMe, joinedAt, lastSeenAt) " +
+                    "VALUES ('room-8', 'm-other', 'أحمد', '', 'farmer', 0, 1000, 0)"
+            )
+            sqlite.execSQL(
+                "INSERT INTO entries (id, roomId, operationId, type, owedByMemberId, owedToMemberId, amountMinor, currency, occurredAt, description, quantityNote, status, createdByMemberId, sourceTable, sourceId, listingId, reversesEntryId, createdAt, updatedAt) " +
+                    "VALUES ('entry-8', 'room-8', 'op-8', 'WATER_SESSION', 'm-other', 'm-me', 1500000, 'YER_NEW', 2000, 'سقية قديمة', '', 'ACKNOWLEDGED', 'm-me', NULL, NULL, NULL, NULL, 2000, 2000)"
+            )
+            sqlite.execSQL(
+                "INSERT INTO outbox (operationId, entityType, entityId, action, payload, state, attempts, lastError, createdAt, updatedAt) " +
+                    "VALUES ('op-8', 'entry', 'entry-8', 'UPSERT', '{}', 'PENDING', 2, 'انقطاع شبكة', 2000, 2000)"
+            )
+            sqlite.execSQL("INSERT INTO sync_state (`key`, cursor, lastSyncAt, lastError) VALUES ('pull', '42', 3000, '')")
+        }
+
+        val database = openAppDatabase()
+
+        // أول لمسة تشغّل AutoMigration(8→9): إضافة جدول الشواهد وعمود nextAttemptAt ثم التحقق من المخطط.
+        assertEquals("الغرفة القديمة باقية", "ACTIVE", runBlocking { database.ledgerDao().getRoom("room-8")!!.status })
+        assertEquals(1_500_000L, runBlocking { database.ledgerDao().getEntry("entry-8")!!.amountMinor })
+
+        val readable = database.openHelper.readableDatabase
+        readable.query("PRAGMA user_version").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("القاعدة على الإصدار الحالي", DATABASE_VERSION, cursor.getInt(0))
+        }
+
+        // القيود المعلّقة بقيت بحالتها وعدّاد محاولاتها ولم تُصفَّر.
+        readable.query("SELECT operationId, attempts, lastError, nextAttemptAt FROM outbox").use { cursor ->
+            assertTrue("صف الخارج القديم موجود", cursor.moveToFirst())
+            assertEquals("op-8", cursor.getString(0))
+            assertEquals("عدد المحاولات محفوظ", 2, cursor.getInt(1))
+            assertEquals("انقطاع شبكة", cursor.getString(2))
+            assertEquals("العمود الجديد يبدأ صفرًا", 0L, cursor.getLong(3))
+        }
+        readable.query("SELECT cursor FROM sync_state WHERE `key` = 'pull'").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("مؤشر السحب محفوظ", "42", cursor.getString(0))
+        }
+
+        // جدول الشواهد جديد وقابل للكتابة فعلًا (حاجز منع عودة القيد المحذوف).
+        val writable = database.openHelper.writableDatabase
+        writable.execSQL(
+            "INSERT INTO tombstones (entityId, entityType, operationId, reason, deletedAt, recordedAt) " +
+                "VALUES ('entry-9', 'entry', 'op-9', 'حُذف من الطرف الآخر', 4000, 4000)"
+        )
+        readable.query("SELECT entityId, reason FROM tombstones").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("entry-9", cursor.getString(0))
+            assertEquals("السبب محفوظ لا مهمَل", "حُذف من الطرف الآخر", cursor.getString(1))
+        }
+
+        // ولا صف واحد ضاع من الجداول القديمة.
+        readable.query("SELECT COUNT(*) FROM entries").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("قيد واحد كما كان", 1, cursor.getInt(0))
+        }
+    }
+
     @Test
     fun `the exported schema of the current version is committed`() {
         // المخطط المصدَّر شرط لأي ترحيل قادم: غيابه يعني أن اختبار الترحيل القادم مستحيل،
         // وأن ترحيلًا تلقائيًا لاحقًا لا يجد ما يقارن به. لهذا يُسحب المخطط من CI ويُحفظ.
         assertTrue("مخطط الإصدار 6 مطلوب لبناء قاعدة قديمة حقيقية", schemaFile(6).exists())
+        assertTrue("مخطط الإصدار 8 مطلوب لاختبار الترقية إلى 9", schemaFile(8).exists())
         assertTrue(
             "مخطط الإصدار الحالي ($DATABASE_VERSION) يجب أن يكون محفوظًا في المستودع",
             schemaFile(DATABASE_VERSION).exists()
