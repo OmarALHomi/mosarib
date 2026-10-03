@@ -4,6 +4,12 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.baynana.core.database.AppDatabase
+import com.baynana.domain.ledger.AckDecision
+import com.baynana.domain.ledger.EntryStatus
+import com.baynana.domain.ledger.EntryType
+import com.baynana.domain.ledger.OutboxState
+import com.baynana.domain.ledger.RoomKind
+import com.baynana.domain.ledger.RoomStatus
 import com.baynana.domain.money.Currency
 import com.baynana.domain.money.Money
 import com.baynana.domain.money.MoneyWire
@@ -107,6 +113,11 @@ class LedgerDaoTest {
         dao.upsertRoom(room(id = id, kind = kind, status = status, linkCode = linkCode).copy(currency = currency))
         seedMembers(roomId = id)
     }
+
+
+    /** السداد مرآة الدين: من استلم المال صار عليه، ومن دفعه صار له. */
+    private fun LedgerEntry.mirroredReceipt(receiverId: String, payerId: String) =
+        copy(owedByMemberId = receiverId, owedToMemberId = payerId)
 
     @Test
     fun `a new entry is stored with its payload enqueued in one transaction`() = runBlocking {
@@ -220,7 +231,8 @@ class LedgerDaoTest {
         seedRoom()
         dao.insertEntryAndEnqueue(entry(id = "debt-1", operationId = "op-debt-1", amountMinor = 500_000L), "p")
         dao.insertEntryAndEnqueue(
-            entry(id = "pay-1", operationId = "op-pay-1", type = EntryType.PAYMENT, amountMinor = 300_000L),
+            entry(id = "pay-1", operationId = "op-pay-1", type = EntryType.PAYMENT, amountMinor = 300_000L)
+                .mirroredReceipt(meId, otherId),
             "p"
         )
 
@@ -243,7 +255,8 @@ class LedgerDaoTest {
         seedRoom()
         dao.insertEntryAndEnqueue(entry(id = "debt-1", operationId = "op-debt-1", amountMinor = 5_000_000L), "p")
         dao.insertEntryAndEnqueue(
-            entry(id = "pay-1", operationId = "op-pay-1", type = EntryType.PAYMENT, amountMinor = 300_000L),
+            entry(id = "pay-1", operationId = "op-pay-1", type = EntryType.PAYMENT, amountMinor = 300_000L)
+                .mirroredReceipt(meId, otherId),
             "p"
         )
 
@@ -258,6 +271,7 @@ class LedgerDaoTest {
         dao.insertEntryAndEnqueue(entry(id = "debt-yer", operationId = "op-debt-yer", amountMinor = 500_000L), "p")
         dao.insertEntryAndEnqueue(
             entry(id = "pay-usd", operationId = "op-pay-usd", type = EntryType.PAYMENT, amountMinor = 30_000L)
+                .mirroredReceipt(meId, otherId)
                 .copy(currency = Currency.USD.code),
             "p"
         )

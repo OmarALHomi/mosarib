@@ -6,6 +6,9 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import com.baynana.domain.ledger.EntryStatus
+import com.baynana.domain.ledger.EntryType
+import com.baynana.domain.ledger.OutboxState
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -83,6 +86,13 @@ interface LedgerDao {
     @Query("UPDATE entries SET status = :status, updatedAt = :updatedAt WHERE id = :entryId")
     suspend fun updateEntryStatus(entryId: String, status: String, updatedAt: Long)
 
+    /**
+     * حذف صف قيد. مسموح فقط لمسودة لم تُشارك بعد (§4.4)؛ الحذف بعد المشاركة ممنوع والمسار
+     * الصحيح هو القيد العكسي. النداء يأتي من مستودع الدفتر بعد التحقق، لا من الشاشة.
+     */
+    @Query("DELETE FROM entries WHERE id = :entryId")
+    suspend fun deleteEntry(entryId: String)
+
     @Query(
         "SELECT * FROM entries WHERE roomId = :roomId AND type IN (:types) " +
             "AND status != :voided ORDER BY occurredAt ASC, createdAt ASC"
@@ -98,6 +108,13 @@ interface LedgerDao {
 
     @Query("SELECT COUNT(*) FROM entries WHERE roomId = :roomId AND status = :status")
     suspend fun countEntriesWithStatus(roomId: String, status: String): Int
+
+    /** القيد العكسي الذي ألغى هذا القيد، إن وُجد (الفهرس الفريد يضمن واحدًا على الأكثر). */
+    @Query("SELECT * FROM entries WHERE reversesEntryId = :entryId LIMIT 1")
+    suspend fun getReversalOf(entryId: String): LedgerEntry?
+
+    @Query("SELECT * FROM entries WHERE roomId = :roomId AND type = :type ORDER BY occurredAt ASC")
+    suspend fun getEntriesOfType(roomId: String, type: String): List<LedgerEntry>
 
     // ----------------------------------------------------------- الإسقاطات
 
@@ -116,6 +133,24 @@ interface LedgerDao {
 
     @Query("SELECT COALESCE(SUM(amountMinor), 0) FROM entry_allocations WHERE debtEntryId = :debtEntryId")
     suspend fun allocatedToDebt(debtEntryId: String): Long
+
+    /** كل الإسقاطات التي دخل فيها القيد، من جهة السداد أو من جهة الدين. */
+    @Query("SELECT * FROM entry_allocations WHERE paymentEntryId = :entryId OR debtEntryId = :entryId ORDER BY createdAt ASC")
+    suspend fun getAllocationsForEntry(entryId: String): List<EntryAllocation>
+
+    /** كل إسقاطات غرفة واحدة، كلها بمفتاح الغرفة على القيدين، فتُبنى منها الأرصدة. */
+    @Query(
+        "SELECT a.* FROM entry_allocations a JOIN entries e ON e.id = a.paymentEntryId " +
+            "WHERE e.roomId = :roomId ORDER BY a.createdAt ASC"
+    )
+    suspend fun getAllocationsInRoom(roomId: String): List<EntryAllocation>
+
+    /**
+     * تحرير إسقاطات قيد أُلغي: السداد يعود رصيدًا متاحًا، والدين الذي سُدّ جزئيًا يعود مفتوحًا
+     * بمقدار ما تحرّر. لا يحذف هذا أي قيد، بل يسقط التخصيص فقط، ويُسجَّل الحدث في صندوق الصادر.
+     */
+    @Query("DELETE FROM entry_allocations WHERE paymentEntryId = :entryId OR debtEntryId = :entryId")
+    suspend fun releaseAllocationsForEntry(entryId: String): Int
 
     @Query("SELECT COALESCE(SUM(amountMinor), 0) FROM entry_allocations WHERE paymentEntryId = :paymentEntryId")
     suspend fun allocatedFromPayment(paymentEntryId: String): Long
@@ -154,6 +189,10 @@ interface LedgerDao {
     @Query("UPDATE outbox SET state = :state, attempts = attempts + 1, lastError = :error, updatedAt = :updatedAt WHERE operationId = :operationId")
     suspend fun markOutbox(operationId: String, state: String, error: String, updatedAt: Long)
 
+    /** هل جُدول لهذا القيد إرسال؟ (يمنع حذف مسودة سبق أن غادرت الجهاز) */
+    @Query("SELECT COUNT(*) FROM outbox WHERE entityId = :entityId")
+    suspend fun countOutboxForEntity(entityId: String): Int
+
     @Query("SELECT COUNT(*) FROM outbox WHERE state IN (:states)")
     fun observeOutboxCount(
         states: List<String> = listOf(OutboxState.PENDING, OutboxState.FAILED)
@@ -189,6 +228,65 @@ interface LedgerDao {
                 payload = payload,
                 createdAt = entry.createdAt,
                 updatedAt = entry.createdAt
+            )
+        )
+        return true
+    }
+
+    /**
+     * حفظ قيد جديد مع إسقاطاته وجدولة إرساله في معاملة واحدة.
+     *
+     * الإسقاطات تُحسب خارج هذه الدالة (في محرّك `domain`) ثم تُطبَّق هنا ذرّيًا مع القيد:
+     * فلا يوجد قيد محلي مخصَّص جزئيًا، ولا إسقاط بلا قيد، ولا قيد بلا صف في صندوق الصادر.
+     * تكرار `operationId` يُرجع false بلا أي كتابة إضافية — وهذا حاجز منع الازدواج عند إعادة
+     * التشغيل أو إعادة الإرسال.
+     */
+    @Transaction
+    suspend fun insertEntryWithAllocationsAndEnqueue(
+        entry: LedgerEntry,
+        payload: String,
+        allocations: List<EntryAllocation>
+    ): Boolean {
+        val rowId = insertEntryIfNew(entry)
+        if (rowId == -1L) return false
+        allocations.forEach { upsertAllocation(it) }
+        enqueueOutbox(
+            OutboxItem(
+                operationId = entry.operationId,
+                entityType = "entry",
+                entityId = entry.id,
+                action = "UPSERT",
+                payload = payload,
+                createdAt = entry.createdAt,
+                updatedAt = entry.createdAt
+            )
+        )
+        return true
+    }
+
+    /**
+     * إلغاء قيد بقيد عكسي في معاملة واحدة: يُدرج القيد العكسي، يُعلَّم الأصل [EntryStatus.VOIDED]،
+     * وتُحرَّر إسقاطات الأصل، ويُجدول الإرسال. لا حذف لصف القيد الأصلي أبدًا.
+     */
+    @Transaction
+    suspend fun insertReversalAndVoid(
+        reversal: LedgerEntry,
+        originalEntryId: String,
+        payload: String,
+        updatedAt: Long
+    ): Boolean {
+        if (insertEntryIfNew(reversal) == -1L) return false
+        updateEntryStatus(originalEntryId, EntryStatus.VOIDED, updatedAt)
+        releaseAllocationsForEntry(originalEntryId)
+        enqueueOutbox(
+            OutboxItem(
+                operationId = reversal.operationId,
+                entityType = "entry",
+                entityId = reversal.id,
+                action = "VOID",
+                payload = payload,
+                createdAt = reversal.createdAt,
+                updatedAt = reversal.createdAt
             )
         )
         return true
@@ -239,7 +337,12 @@ interface LedgerDao {
         val payment = getEntry(paymentEntryId) ?: return false
         val debt = getEntry(debtEntryId) ?: return false
         if (payment.currency != debt.currency) return false
-        if (payment.type != EntryType.PAYMENT && payment.type != EntryType.GENERAL_RECEIPT) return false
+        if (payment.roomId != debt.roomId) return false
+        if (payment.type !in EntryType.credits) return false
+        if (debt.type !in EntryType.debts) return false
+        // الاتجاه: القيد مرآة الدين. لا يُسقَط سداد على دين لشخص آخر في الغرفة.
+        if (payment.owedByMemberId != debt.owedToMemberId) return false
+        if (payment.owedToMemberId != debt.owedByMemberId) return false
         // المبالغ كلها Long ومحدودة بسقف Money.MAX_MINOR، فالجمع هنا آمن بلا فيض.
         if (allocatedFromPayment(paymentEntryId) + amountMinor > payment.amountMinor) return false
         if (allocatedToDebt(debtEntryId) + amountMinor > debt.amountMinor) return false

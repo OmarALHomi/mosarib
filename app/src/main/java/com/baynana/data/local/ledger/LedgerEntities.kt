@@ -5,6 +5,10 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.Relation
+import com.baynana.domain.ledger.EntryStatus
+import com.baynana.domain.ledger.OutboxState
+import com.baynana.domain.ledger.RoomKind
+import com.baynana.domain.ledger.RoomStatus
 
 /**
  * نموذج الغرفة والقيد والإقرار (ح٣ من خطة البناء v6).
@@ -14,70 +18,9 @@ import androidx.room.Relation
  * - **معرّف العملية ثابت** (`operationId` بفهرس فريد): إعادة الإرسال لا تُنشئ قيدًا ثانيًا.
  * - **الإقرار طبقة فوق القيد** لا بديلًا عنه: الرفض أو طلب التعديل يبقيان القيد ويغيّران حالته.
  * - **لا حذف متسلسل لدفتر**: علاقة الغرفة بالقيود `RESTRICT`، فلا يُمحى تاريخ بطرف واحد.
+ * - المفردات (`RoomKind`/`EntryType`/`EntryStatus`...) تعيش في `domain/ledger` لأن المحرّك
+ *   المحاسبي يحتاجها، وهنا نستوردها فقط فلا توجد قائمتان تختلفان يومًا.
  */
-
-/** أنواع الغرف: كل غرفة قالب واحد وعملة واحدة، ولا تُخلط أرصدة قالبين. */
-object RoomKind {
-    const val GENERAL = "GENERAL"       // مستخدم بلا قالب (دين قريب أو بيت)
-    const val WATER = "WATER"           // مسرب ومزارع
-    const val SHOP = "SHOP"             // بقالة وزبون
-    const val MARKET = "MARKET"         // دلال ومجبري ومزارع
-
-    val all = listOf(GENERAL, WATER, SHOP, MARKET)
-}
-
-/** دورة حياة الغرفة. لا تُفتح إلا بعد قبول الطرفين. */
-object RoomStatus {
-    const val PENDING = "PENDING"       // دُعيت ولم تُقبل بعد: لا يظهر فيها قيد للطرف الآخر
-    const val ACTIVE = "ACTIVE"         // قبل الطرفان: الكتابة والإقرار مفعّلان
-    const val CLOSED = "CLOSED"         // أُغلقت بتراضي الطرفين: قراءة فقط
-    const val REJECTED = "REJECTED"     // رُفضت الدعوة
-
-    val all = listOf(PENDING, ACTIVE, CLOSED, REJECTED)
-}
-
-/** أنواع القيود. كل قيد بيان مستقل حتى لو سُدّد لاحقًا. */
-object EntryType {
-    const val WATER_SESSION = "WATER_SESSION"     // سقية: ساعات/مصدر ماء/سعر ساعة
-    const val GOODS_DEBT = "GOODS_DEBT"           // دين سلعة (بقالة)
-    const val SETTLEMENT = "SETTLEMENT"           // صلح ثمرة
-    const val PAYMENT = "PAYMENT"                 // سداد (مربوط أو عام)
-    const val GENERAL_RECEIPT = "GENERAL_RECEIPT" // قبض عام: لا يُغلق أي دين
-    const val ADJUSTMENT = "ADJUSTMENT"           // تسوية/قيد عكسي
-
-    val all = listOf(WATER_SESSION, GOODS_DEBT, SETTLEMENT, PAYMENT, GENERAL_RECEIPT, ADJUSTMENT)
-}
-
-/** حالة القيد. [VOIDED] تُصل بحالة معلنة لا بحذف. */
-object EntryStatus {
-    const val DRAFT = "DRAFT"                       // مسودة محلية لم تُرسل
-    const val SENT = "SENT"                         // وصل الطرف الآخر ولم يُقرّ
-    const val ACKNOWLEDGED = "ACKNOWLEDGED"         // أقرّه الطرف
-    const val DISPUTED = "DISPUTED"                 // اعترض عليه الطرف
-    const val CHANGE_REQUESTED = "CHANGE_REQUESTED" // طلب تعديلًا
-    const val VOIDED = "VOIDED"                     // أُلغي بقيد عكسي
-
-    val all = listOf(DRAFT, SENT, ACKNOWLEDGED, DISPUTED, CHANGE_REQUESTED, VOIDED)
-}
-
-/** قرار الإقرار لكل عضو في كل قيد. */
-object AckDecision {
-    const val ACKNOWLEDGED = "ACKNOWLEDGED"
-    const val DISPUTED = "DISPUTED"
-    const val CHANGE_REQUESTED = "CHANGE_REQUESTED"
-
-    val all = listOf(ACKNOWLEDGED, DISPUTED, CHANGE_REQUESTED)
-}
-
-/** حالة عنصر صندوق الصادر. [DEAD] تحتاج تدخلًا بشريًا (سبب واضح لا إعادة صامتة). */
-object OutboxState {
-    const val PENDING = "PENDING"
-    const val SENT = "SENT"
-    const val FAILED = "FAILED"
-    const val DEAD = "DEAD"
-
-    val all = listOf(PENDING, SENT, FAILED, DEAD)
-}
 
 /**
  * غرفة مشتركة بين طرفين أو أكثر. الغرفة تُنشأ محليًا بحالة [RoomStatus.PENDING]، ولا يعرض
@@ -175,6 +118,8 @@ data class RoomMember(
         Index("roomId", "owedByMemberId"),
         Index("roomId", "owedToMemberId"),
         Index(value = ["operationId"], unique = true),
+        // قيد عكسي واحد لكل قيد: الفهرس الفريد يمنع الإلغاء المزدوج بنيويًا (والفراغات متعددة).
+        Index(value = ["reversesEntryId"], unique = true),
         Index("status"),
         Index("occurredAt"),
         Index("sourceTable", "sourceId")
@@ -198,6 +143,11 @@ data class LedgerEntry(
     val sourceId: String? = null,
     /** يُمنع البيع المزدوج: أول صلح يثبّت العرض المحجوز. */
     val listingId: String? = null,
+    /**
+     * القيد العكسي يشير إلى القيد الذي ألغاه. لا حذف لقيد شارك فيه طرف آخر: يُلغى بقيد عكسي
+     * ظاهر للطرفين، والفهرس الفريد أعلاه يضمن ألا يُلغى القيد مرتين.
+     */
+    val reversesEntryId: String? = null,
     val createdAt: Long,
     val updatedAt: Long
 )

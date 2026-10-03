@@ -44,7 +44,7 @@ import kotlinx.coroutines.launch
  * إصدار قاعدة البيانات. ثابت على مستوى الملف لأن تعليق [Database] يحتاج قيمة وقت الترجمة،
  * ويقرأه اختبار الترحيلات ومحرّك النسخ الاحتياطي. لا يُنقص أبدًا، وأي زيادة تحتاج ترحيلًا.
  */
-const val DATABASE_VERSION = 7
+const val DATABASE_VERSION = 8
 
 @Database(
     entities = [
@@ -70,9 +70,13 @@ const val DATABASE_VERSION = 7
     version = DATABASE_VERSION,
     // تصدير المخطط إلزامي: بدونه لا يمكن اختبار الترحيلات ولا مقارنة الإصدارات قبل النشر.
     exportSchema = true,
-    // ترحيل 6→7 تلقائي: الجداول الجديدة إضافة بحتة، وRoom يولّد الترحيل ويتحقق منه بالمخطط
-    // المصدَّر، فلا نكتب SQL باليد ولا نخاطر بترحيل غير مطابق. الاختبارات في LedgerMigrationTest.
-    autoMigrations = [AutoMigration(from = 6, to = 7)]
+    // الترحيلات التلقائية: إضافات بحتة (جداول ح٣ في 6→7، وعمود القيد العكسي في 7→8).
+    // Room يولّدها من فرق المخططات المصدَّرة ويتحقق منها، فلا نكتب SQL باليد ولا نخاطر بترحيل
+    // غير مطابق. الاختبار يبني قاعدة **إصدار 6 حقيقية** ويرقّيها إلى الحالي، فيمرّ بالسلسلة كلها.
+    autoMigrations = [
+        AutoMigration(from = 6, to = 7),
+        AutoMigration(from = 7, to = 8)
+    ]
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -212,10 +216,10 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
-         * الترحيلات اليدوية من 1 إلى 6. الترحيل 6→7 (ح٣) **تلقائي** ويولّده Room من فرق
-         * المخططات، فليس من هذه القائمة؛ انظر [AUTO_MIGRATION_RANGES].
+         * الترحيلات اليدوية من 1 إلى 6. أما 6→7 (ح٣) و7→8 (ح٤) فـ**تلقائية** يولّدها Room من
+         * فرق المخططات، فليست من هذه القائمة؛ انظر [AUTO_MIGRATION_RANGES].
          */
-        val AUTO_MIGRATION_RANGES: List<Pair<Int, Int>> = listOf(6 to 7)
+        val AUTO_MIGRATION_RANGES: List<Pair<Int, Int>> = listOf(6 to 7, 7 to 8)
 
         /**
          * كل الترحيلات اليدوية بترتيب تصاعدي، متاحة للاختبار. أي إصدار جديد يجب أن يضيف
