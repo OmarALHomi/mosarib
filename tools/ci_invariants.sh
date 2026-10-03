@@ -85,13 +85,13 @@ fi
 # 7) لا كسور عشرية في مسارات المال داخل domain (ADR-04): التخزين والحساب والعرض بالفلس.
 #    الاستثناء الوحيد: `Money.ofMajor` الذي يحوّل إدخال المستخدم بالريال إلى فلس مرة واحدة.
 MONEY_DOUBLE_HITS=$(
-  grep -rnE "(^|[^A-Za-z0-9_])(Double|Float)([^A-Za-z0-9_]|$)|toDouble\(|toFloat\("     app/src/main/java/com/baynana/domain/money app/src/main/java/com/baynana/domain/ledger 2>/dev/null     | grep -vE ':[0-9]+:[[:space:]]*(\*|//|/\*)' || true
+  grep -rnE "(^|[^A-Za-z0-9_])(Double|Float)([^A-Za-z0-9_]|$)|toDouble\(|toFloat\("     app/src/main/java/com/baynana/domain/money app/src/main/java/com/baynana/domain/ledger app/src/main/java/com/baynana/domain/settlement 2>/dev/null     | grep -vE ':[0-9]+:[[:space:]]*(\*|//|/\*)' || true
 )
 if [ -n "$MONEY_DOUBLE_HITS" ]; then
   echo "FAIL: كسور عشرية في مسار مالي (ADR-04 يمنع Double/Float):"
   echo "$MONEY_DOUBLE_HITS"
   exit 1
 fi
-echo "OK: لا Double ولا Float في مسارات المال (money/ledger)"
+echo "OK: لا Double ولا Float في مسارات المال (money/ledger/settlement)"
 
 echo "كل الحواجز سليمة."
