@@ -206,9 +206,13 @@ class LedgerMigrationTest {
     }
 
     @Test
-    fun `schema export is wired so migrations can be validated`() {
-        // المخطط المصدَّر شرط لأي ترحيل قادم: غيابه يعني أن اختبار الترحيل القادم مستحيل.
-        // يُبنى اختبار الترحيل أعلاه من هذا الملف نفسه، فهو حجر الأساس لهذا الاختبار.
+    fun `the exported schema of the current version is committed`() {
+        // المخطط المصدَّر شرط لأي ترحيل قادم: غيابه يعني أن اختبار الترحيل القادم مستحيل،
+        // وأن ترحيلًا تلقائيًا لاحقًا لا يجد ما يقارن به. لهذا يُسحب المخطط من CI ويُحفظ.
         assertTrue("مخطط الإصدار 6 مطلوب لبناء قاعدة قديمة حقيقية", schemaFile(6).exists())
+        assertTrue(
+            "مخطط الإصدار الحالي ($DATABASE_VERSION) يجب أن يكون محفوظًا في المستودع",
+            schemaFile(DATABASE_VERSION).exists()
+        )
     }
 }
