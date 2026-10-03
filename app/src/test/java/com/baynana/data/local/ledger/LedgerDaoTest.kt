@@ -93,10 +93,24 @@ class LedgerDaoTest {
         dao.upsertMember(RoomMember(roomId = roomId, memberId = otherId, displayName = "أحمد", joinedAt = now))
     }
 
+    /**
+     * غرفة جاهزة للكتابة. العضوَان يُكتبان قبل القيود لأن المخطط يربط طرفَي القيد بعضوية
+     * الغرفة نفسها، فيستحيل قيد على غريب أو خلط غرفتين.
+     */
+    private suspend fun seedRoom(
+        id: String = "room-1",
+        kind: String = RoomKind.WATER,
+        status: String = RoomStatus.ACTIVE,
+        linkCode: String = "LNK-1",
+        currency: String = Currency.YER_NEW.code
+    ) {
+        dao.upsertRoom(room(id = id, kind = kind, status = status, linkCode = linkCode).copy(currency = currency))
+        seedMembers(roomId = id)
+    }
+
     @Test
     fun `a new entry is stored with its payload enqueued in one transaction`() = runBlocking {
-        dao.upsertRoom(room())
-        seedMembers()
+        seedRoom()
 
         val money = Money.ofMajor(10_000, Currency.YER_NEW)
         val wire = MoneyWire.encode(money)
@@ -117,7 +131,7 @@ class LedgerDaoTest {
 
     @Test
     fun `replaying the same operation never creates a second entry`() = runBlocking {
-        dao.upsertRoom(room())
+        seedRoom()
         assertTrue(dao.insertEntryAndEnqueue(entry(), "payload"))
         // نفس operationId بمعرّف صف مختلف: إعادة إرسال أو إعادة تشغيل.
         val replay = dao.insertEntryAndEnqueue(entry(id = "entry-1-copy"), "payload")
@@ -130,7 +144,7 @@ class LedgerDaoTest {
 
     @Test
     fun `acknowledgement changes status and keeps the entry intact`() = runBlocking {
-        dao.upsertRoom(room())
+        seedRoom()
         dao.insertEntryAndEnqueue(entry(), "payload")
 
         dao.recordDecision(
@@ -151,7 +165,7 @@ class LedgerDaoTest {
 
     @Test
     fun `a dispute keeps the entry and records the reason`() = runBlocking {
-        dao.upsertRoom(room())
+        seedRoom()
         dao.insertEntryAndEnqueue(entry(), "payload")
 
         dao.recordDecision(
@@ -173,7 +187,7 @@ class LedgerDaoTest {
 
     @Test
     fun `one decision per member per entry, the newest replaces the previous`() = runBlocking {
-        dao.upsertRoom(room())
+        seedRoom()
         dao.insertEntryAndEnqueue(entry(), "payload")
 
         dao.recordDecision("entry-1", otherId, AckDecision.DISPUTED, "رقم خطأ", now + 1, EntryStatus.DISPUTED, now + 1)
@@ -190,7 +204,7 @@ class LedgerDaoTest {
 
     @Test
     fun `decisions of the two members live side by side`() = runBlocking {
-        dao.upsertRoom(room())
+        seedRoom()
         dao.insertEntryAndEnqueue(entry(), "payload")
 
         dao.recordDecision("entry-1", otherId, AckDecision.ACKNOWLEDGED, "", now + 1, EntryStatus.ACKNOWLEDGED, now + 1)
@@ -203,7 +217,7 @@ class LedgerDaoTest {
 
     @Test
     fun `allocation is bounded by the payment and the debt`() = runBlocking {
-        dao.upsertRoom(room())
+        seedRoom()
         dao.insertEntryAndEnqueue(entry(id = "debt-1", operationId = "op-debt-1", amountMinor = 500_000L), "p")
         dao.insertEntryAndEnqueue(
             entry(id = "pay-1", operationId = "op-pay-1", type = EntryType.PAYMENT, amountMinor = 300_000L),
@@ -226,7 +240,7 @@ class LedgerDaoTest {
 
     @Test
     fun `allocation refuses to exceed the payment itself`() = runBlocking {
-        dao.upsertRoom(room())
+        seedRoom()
         dao.insertEntryAndEnqueue(entry(id = "debt-1", operationId = "op-debt-1", amountMinor = 5_000_000L), "p")
         dao.insertEntryAndEnqueue(
             entry(id = "pay-1", operationId = "op-pay-1", type = EntryType.PAYMENT, amountMinor = 300_000L),
@@ -240,7 +254,7 @@ class LedgerDaoTest {
 
     @Test
     fun `allocation never crosses currencies`() = runBlocking {
-        dao.upsertRoom(room())
+        seedRoom()
         dao.insertEntryAndEnqueue(entry(id = "debt-yer", operationId = "op-debt-yer", amountMinor = 500_000L), "p")
         dao.insertEntryAndEnqueue(
             entry(id = "pay-usd", operationId = "op-pay-usd", type = EntryType.PAYMENT, amountMinor = 30_000L)
@@ -254,7 +268,7 @@ class LedgerDaoTest {
 
     @Test
     fun `only a payment or a general receipt can be allocated`() = runBlocking {
-        dao.upsertRoom(room())
+        seedRoom()
         dao.insertEntryAndEnqueue(entry(id = "debt-1", operationId = "op-debt-1", amountMinor = 500_000L), "p")
         dao.insertEntryAndEnqueue(entry(id = "debt-2", operationId = "op-debt-2", amountMinor = 500_000L), "p")
 
@@ -267,7 +281,7 @@ class LedgerDaoTest {
 
     @Test
     fun `debt entries are ordered oldest first for fifo allocation`() = runBlocking {
-        dao.upsertRoom(room())
+        seedRoom()
         dao.insertEntryAndEnqueue(entry(id = "e-old", operationId = "op-old", amountMinor = 100_000L).copy(occurredAt = now - 5_000), "p")
         dao.insertEntryAndEnqueue(entry(id = "e-new", operationId = "op-new", amountMinor = 200_000L).copy(occurredAt = now), "p")
 
@@ -277,7 +291,7 @@ class LedgerDaoTest {
 
     @Test
     fun `a listing can be reserved once and only once`() = runBlocking {
-        dao.upsertRoom(room(kind = RoomKind.MARKET, linkCode = "LNK-2"))
+        seedRoom(kind = RoomKind.MARKET, linkCode = "LNK-2")
         dao.insertEntryAndEnqueue(
             entry(id = "deal-1", operationId = "op-deal-1", type = EntryType.SETTLEMENT, listingId = "listing-9"),
             "p"
@@ -290,7 +304,7 @@ class LedgerDaoTest {
 
     @Test
     fun `a voided entry leaves the active ledger but is never deleted`() = runBlocking {
-        dao.upsertRoom(room())
+        seedRoom()
         dao.insertEntryAndEnqueue(entry(), "p")
         dao.updateEntryStatus("entry-1", EntryStatus.VOIDED, now + 50)
 
@@ -301,7 +315,7 @@ class LedgerDaoTest {
 
     @Test
     fun `a room cannot be deleted while it still has entries`() = runBlocking {
-        dao.upsertRoom(room())
+        seedRoom()
         dao.insertEntryAndEnqueue(entry(), "p")
 
         // حذف الغرفة مباشرة يجب أن يرفضه المخطط (RESTRICT)، فلا يُمحى دفتر بين لحظة وأخرى.
@@ -316,7 +330,7 @@ class LedgerDaoTest {
 
     @Test
     fun `room status flow keeps pending rooms out of the shared ledger`() = runBlocking {
-        dao.upsertRoom(room(status = RoomStatus.PENDING))
+        seedRoom(status = RoomStatus.PENDING)
         assertEquals(RoomStatus.PENDING, dao.getRoom("room-1")!!.status)
 
         dao.updateRoomStatus("room-1", RoomStatus.ACTIVE, now + 1, null)
@@ -330,7 +344,7 @@ class LedgerDaoTest {
 
     @Test
     fun `outbox tracks failures with a visible reason instead of silent retries`() = runBlocking {
-        dao.upsertRoom(room())
+        seedRoom()
         dao.insertEntryAndEnqueue(entry(), "p")
 
         dao.markOutbox("op-1", OutboxState.FAILED, "لا يوجد اتصال", now + 1)
@@ -346,10 +360,8 @@ class LedgerDaoTest {
 
     @Test
     fun `two rooms never mix their balances or currencies`() = runBlocking {
-        dao.upsertRoom(room(id = "room-yer", linkCode = "LNK-YER"))
-        dao.upsertRoom(room(id = "room-usd", linkCode = "LNK-USD").copy(currency = Currency.USD.code))
-        seedMembers(roomId = "room-yer")
-        seedMembers(roomId = "room-usd")
+        seedRoom(id = "room-yer", linkCode = "LNK-YER")
+        seedRoom(id = "room-usd", linkCode = "LNK-USD", currency = Currency.USD.code)
         dao.insertEntryAndEnqueue(entry(id = "e-yer", operationId = "op-yer").copy(roomId = "room-yer"), "p")
         dao.insertEntryAndEnqueue(
             entry(id = "e-usd", operationId = "op-usd", amountMinor = 10_000L)
@@ -364,21 +376,29 @@ class LedgerDaoTest {
     }
 
     @Test
-    fun `an entry of one room cannot point at a member of another room`() = runBlocking {
-        dao.upsertRoom(room(id = "room-yer", linkCode = "LNK-YER"))
-        dao.upsertRoom(room(id = "room-usd", linkCode = "LNK-USD").copy(currency = Currency.USD.code))
-        seedMembers(roomId = "room-yer")
+    fun `an entry can only name members of its own room`() = runBlocking {
+        seedRoom(id = "room-yer", linkCode = "LNK-YER")
+        // غرفة بلا أعضاء بعد: طرفا أي قيد فيها ليسا عضوين، فالمخطط يرفض.
+        dao.upsertRoom(room(id = "room-empty", linkCode = "LNK-EMPTY"))
 
-        // العضو مذكور في الغرفة الثانية؟ لا: المفتاح (roomId, memberId) للعضو غائب، فالمخطط يرفض.
-        var refused = false
-        try {
+        fun insertEntry(id: String, roomId: String, operationId: String) {
             db.openHelper.writableDatabase.execSQL(
                 "INSERT INTO entries (id, roomId, operationId, type, owedByMemberId, owedToMemberId, amountMinor, currency, occurredAt, description, quantityNote, status, createdByMemberId, sourceTable, sourceId, listingId, createdAt, updatedAt) " +
-                    "VALUES ('e-x', 'room-usd', 'op-x', 'PAYMENT', '$meId', '$otherId', 100, 'USD', 1, '', '', 'SENT', '$meId', NULL, NULL, NULL, 1, 1)"
+                    "VALUES ('$id', '$roomId', '$operationId', 'PAYMENT', '$meId', '$otherId', 100, 'YER_NEW', 1, '', '', 'SENT', '$meId', NULL, NULL, NULL, 1, 1)"
             )
+        }
+
+        // داخل غرفته وبين عضوَيها: مقبول.
+        insertEntry("e-ok", "room-yer", "op-ok")
+        assertEquals(1, dao.getActiveEntries("room-yer").size)
+
+        // وفي غرفة ليست لهما: مرفوض بنيويًا، فلا يظهر في دفتر طرف قيد لم يوافق عليه أصلًا.
+        var refused = false
+        try {
+            insertEntry("e-x", "room-empty", "op-x")
         } catch (_: android.database.sqlite.SQLiteConstraintException) {
             refused = true
         }
-        assertTrue("قيود الغرفة لا تخلط أعضاء غرفة أخرى", refused)
+        assertTrue("قيد بطرف ليس عضوًا في غرفته يجب أن يُرفض", refused)
     }
 }

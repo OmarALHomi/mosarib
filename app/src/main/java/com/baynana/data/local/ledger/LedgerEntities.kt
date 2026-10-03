@@ -141,6 +141,8 @@ data class RoomMember(
  * - [amountMinor] بالوحدة الصغرى (فلس)، و[currency] نسخة تاريخية من عملة الغرفة وقت القيد.
  * - [operationId] فريد: يمنع أي تكرار عند إعادة الإرسال أو إعادة التشغيل.
  * - [sourceTable]/[sourceId] يربطان قيود الإرث (جلسات وسندات قديمة) عند الترحيل (ح٧).
+ * - الطرفان مقيّدان بعضوية الغرفة نفسها: الكتابة السلكية (ح٦) يجب أن تكتب عضوَي الغرفة قبل
+ *   قيودها، وهذا ترتيب مطلوب لا عيب. الحذف RESTRICT فلا يُمحى عضو له تاريخ.
  */
 @Entity(
     tableName = "entries",
@@ -151,10 +153,27 @@ data class RoomMember(
             childColumns = ["roomId"],
             onDelete = ForeignKey.RESTRICT,
             onUpdate = ForeignKey.NO_ACTION
+        ),
+        // طرفا القيد عضوين في **نفس** الغرفة: لا قيد على غريب، ولا خلط بين غرفتين.
+        ForeignKey(
+            entity = RoomMember::class,
+            parentColumns = ["roomId", "memberId"],
+            childColumns = ["roomId", "owedByMemberId"],
+            onDelete = ForeignKey.RESTRICT,
+            onUpdate = ForeignKey.NO_ACTION
+        ),
+        ForeignKey(
+            entity = RoomMember::class,
+            parentColumns = ["roomId", "memberId"],
+            childColumns = ["roomId", "owedToMemberId"],
+            onDelete = ForeignKey.RESTRICT,
+            onUpdate = ForeignKey.NO_ACTION
         )
     ],
     indices = [
-        Index("roomId"),
+        // يغطي الفهرسان أيضًا الاستعلام بالغرفة (roomId هو العمود الأول).
+        Index("roomId", "owedByMemberId"),
+        Index("roomId", "owedToMemberId"),
         Index(value = ["operationId"], unique = true),
         Index("status"),
         Index("occurredAt"),

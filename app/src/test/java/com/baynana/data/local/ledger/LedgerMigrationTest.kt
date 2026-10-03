@@ -159,6 +159,10 @@ class LedgerMigrationTest {
                 "VALUES ('room-1', 'm-other', 'أحمد', '', 'farmer', 0, 1000, 0)"
         )
         writable.execSQL(
+            "INSERT INTO room_members (roomId, memberId, displayName, phone, role, isMe, joinedAt, lastSeenAt) " +
+                "VALUES ('room-1', 'm-me', 'أنا', '', 'distributor', 1, 1000, 0)"
+        )
+        writable.execSQL(
             "INSERT INTO entries (id, roomId, operationId, type, owedByMemberId, owedToMemberId, amountMinor, currency, occurredAt, description, quantityNote, status, createdByMemberId, sourceTable, sourceId, listingId, createdAt, updatedAt) " +
                 "VALUES ('entry-1', 'room-1', 'op-1', 'WATER_SESSION', 'm-other', 'm-me', 1000000, 'YER_NEW', 2000, 'سقية 5 ساعات', '', 'SENT', 'm-me', NULL, NULL, NULL, 2000, 2000)"
         )
@@ -179,7 +183,19 @@ class LedgerMigrationTest {
         }
         assertTrue("معرّف العملية فريد: لا قيدان بنفس العملية", duplicated)
 
-        // 5) الرفض لا الحذف المتسلسل: غرفة فيها قيود لا تُمحى.
+        // 5) قيد بطرف ليس عضوًا في الغرفة مرفوض على قاعدة مرقّاة (حماية المخطط، لا اجتهاد الشاشة).
+        var strangerRefused = false
+        try {
+            writable.execSQL(
+                "INSERT INTO entries (id, roomId, operationId, type, owedByMemberId, owedToMemberId, amountMinor, currency, occurredAt, description, quantityNote, status, createdByMemberId, sourceTable, sourceId, listingId, createdAt, updatedAt) " +
+                    "VALUES ('entry-3', 'room-1', 'op-3', 'PAYMENT', 'm-stranger', 'm-me', 5000, 'YER_NEW', 4000, '', '', 'SENT', 'm-me', NULL, NULL, NULL, 4000, 4000)"
+            )
+        } catch (_: android.database.sqlite.SQLiteConstraintException) {
+            strangerRefused = true
+        }
+        assertTrue("طرف القيد يجب أن يكون عضوًا في غرفته", strangerRefused)
+
+        // 6) الرفض لا الحذف المتسلسل: غرفة فيها قيود لا تُمحى.
         var refused = false
         try {
             writable.execSQL("DELETE FROM rooms WHERE id = 'room-1'")
