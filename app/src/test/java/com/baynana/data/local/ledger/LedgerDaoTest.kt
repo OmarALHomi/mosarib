@@ -88,26 +88,31 @@ class LedgerDaoTest {
         updatedAt = now
     )
 
+    private suspend fun seedMembers(roomId: String = "room-1") {
+        dao.upsertMember(RoomMember(roomId = roomId, memberId = meId, displayName = "أنا", isMe = true, joinedAt = now))
+        dao.upsertMember(RoomMember(roomId = roomId, memberId = otherId, displayName = "أحمد", joinedAt = now))
+    }
+
     @Test
     fun `a new entry is stored with its payload enqueued in one transaction`() = runBlocking {
         dao.upsertRoom(room())
-        dao.upsertMember(RoomMember(roomId = "room-1", memberId = meId, displayName = "أنا", isMe = true, joinedAt = now))
-        dao.upsertMember(RoomMember(roomId = "room-1", memberId = otherId, displayName = "أحمد", joinedAt = now))
+        seedMembers()
 
         val money = Money.ofMajor(10_000, Currency.YER_NEW)
-        val payload = MoneyWire.encode(money).entries.joinToString(",") { "${it.key}=${it.value}" }
-        val inserted = dao.insertEntryAndEnqueue(entry(amountMinor = money.minor), payload)
+        val wire = MoneyWire.encode(money)
+        val inserted = dao.insertEntryAndEnqueue(entry(amountMinor = money.minor), wire.toString())
 
         assertTrue(inserted)
         val stored = dao.getEntry("entry-1")
         assertNotNull(stored)
-        assertEquals(1_000_000L, stored!!.amountMinor)
-        assertEquals("1500000", MoneyWire.encode(Money.ofMinor(stored.amountMinor, Currency.YER_NEW))[MoneyWire.KEY_AMOUNT_MINOR])
+        assertEquals("10,000 ريال = 1,000,000 فلس", 1_000_000L, stored!!.amountMinor)
+        // المبلغ على السلك نصًّا بالوحدة الصغرى، لا رقمًا عشريًا (ADR-04).
+        assertEquals("1000000", wire[MoneyWire.KEY_AMOUNT_MINOR])
 
         val batch = dao.nextOutboxBatch()
         assertEquals(1, batch.size)
         assertEquals("op-1", batch.first().operationId)
-        assertTrue(batch.first().payload.contains("amountMinor"))
+        assertTrue(batch.first().payload.contains(MoneyWire.KEY_AMOUNT_MINOR))
     }
 
     @Test
@@ -128,15 +133,12 @@ class LedgerDaoTest {
         dao.upsertRoom(room())
         dao.insertEntryAndEnqueue(entry(), "payload")
 
-        dao.recordAcknowledgement(
-            Acknowledgement(
-                id = "ack-1",
-                entryId = "entry-1",
-                memberId = otherId,
-                decision = AckDecision.ACKNOWLEDGED,
-                decidedAt = now + 10,
-                createdAt = now + 10
-            ),
+        dao.recordDecision(
+            entryId = "entry-1",
+            memberId = otherId,
+            decision = AckDecision.ACKNOWLEDGED,
+            note = "",
+            decidedAt = now + 10,
             resultingStatus = EntryStatus.ACKNOWLEDGED,
             updatedAt = now + 10
         )
@@ -152,16 +154,12 @@ class LedgerDaoTest {
         dao.upsertRoom(room())
         dao.insertEntryAndEnqueue(entry(), "payload")
 
-        dao.recordAcknowledgement(
-            Acknowledgement(
-                id = "ack-1",
-                entryId = "entry-1",
-                memberId = otherId,
-                decision = AckDecision.DISPUTED,
-                note = "عدد الساعات غير صحيح",
-                decidedAt = now + 5,
-                createdAt = now + 5
-            ),
+        dao.recordDecision(
+            entryId = "entry-1",
+            memberId = otherId,
+            decision = AckDecision.DISPUTED,
+            note = "عدد الساعات غير صحيح",
+            decidedAt = now + 5,
             resultingStatus = EntryStatus.DISPUTED,
             updatedAt = now + 5
         )
@@ -178,22 +176,33 @@ class LedgerDaoTest {
         dao.upsertRoom(room())
         dao.insertEntryAndEnqueue(entry(), "payload")
 
-        dao.upsertAcknowledgement(
-            Acknowledgement("ack-old", "entry-1", otherId, AckDecision.DISPUTED, "", now, now)
-        )
-        dao.upsertAcknowledgement(
-            Acknowledgement("ack-new", "entry-1", otherId, AckDecision.ACKNOWLEDGED, "", now + 100, now + 100)
-        )
+        dao.recordDecision("entry-1", otherId, AckDecision.DISPUTED, "رقم خطأ", now + 1, EntryStatus.DISPUTED, now + 1)
+        // المفتاح طبيعي (entryId, memberId): القرار الجديد يستبدل القديم ولا يضيف صفًا متعارضًا.
+        dao.recordDecision("entry-1", otherId, AckDecision.ACKNOWLEDGED, "", now + 100, EntryStatus.ACKNOWLEDGED, now + 100)
 
         val ack = dao.getAcknowledgement("entry-1", otherId)!!
         assertEquals(AckDecision.ACKNOWLEDGED, ack.decision)
         assertEquals(now + 100, ack.decidedAt)
-        // الفهرس الفريد على (entryId, memberId) يمنع وجود قرارين متعارضين لنفس العضو.
+        assertEquals("", ack.note)
         assertEquals(1, dao.getEntryWithDetails("entry-1")!!.acknowledgements.size)
+        assertEquals(EntryStatus.ACKNOWLEDGED, dao.getEntry("entry-1")!!.status)
     }
 
     @Test
-    fun `allocations never exceed the payment or the debt`() = runBlocking {
+    fun `decisions of the two members live side by side`() = runBlocking {
+        dao.upsertRoom(room())
+        dao.insertEntryAndEnqueue(entry(), "payload")
+
+        dao.recordDecision("entry-1", otherId, AckDecision.ACKNOWLEDGED, "", now + 1, EntryStatus.ACKNOWLEDGED, now + 1)
+        dao.recordDecision("entry-1", meId, AckDecision.CHANGE_REQUESTED, "راجع السعر", now + 2, EntryStatus.CHANGE_REQUESTED, now + 2)
+
+        val details = dao.getEntryWithDetails("entry-1")!!
+        assertEquals(2, details.acknowledgements.size)
+        assertEquals("طلب تعديل واحد لا يُلغي إقرار الطرف الآخر", 2, details.acknowledgements.map { it.memberId }.distinct().size)
+    }
+
+    @Test
+    fun `allocation is bounded by the payment and the debt`() = runBlocking {
         dao.upsertRoom(room())
         dao.insertEntryAndEnqueue(entry(id = "debt-1", operationId = "op-debt-1", amountMinor = 500_000L), "p")
         dao.insertEntryAndEnqueue(
@@ -201,14 +210,59 @@ class LedgerDaoTest {
             "p"
         )
 
-        dao.upsertAllocation(EntryAllocation("alloc-1", "pay-1", "debt-1", 200_000L, Currency.YER_NEW.code, now))
+        assertTrue(dao.allocatePayment("pay-1", "debt-1", 200_000L, now + 1))
         assertEquals(200_000L, dao.allocatedToDebt("debt-1"))
         assertEquals(200_000L, dao.allocatedFromPayment("pay-1"))
 
-        dao.upsertAllocation(EntryAllocation("alloc-2", "pay-1", "debt-1", 100_000L, Currency.YER_NEW.code, now + 1))
-        // إعادة الإسقاط لنفس (السداد، الدين) تُحدّث المبلغ ولا تُضاعفه.
+        // إعادة الإسقاط لنفس الزوج تُحدّث الصف نفسه ولا تُضاعف المبلغ.
+        assertTrue(dao.allocatePayment("pay-1", "debt-1", 100_000L, now + 2))
         assertEquals(100_000L, dao.allocatedToDebt("debt-1"))
         assertEquals(1, dao.getAllocationsForPayment("pay-1").size)
+
+        // ما زاد عن الدين مرفوض: الزائد يبقى رصيدًا في السداد ولا يُسقَط قهرًا.
+        assertFalse("لا يُسقَط على الدين أكثر من قيمته", dao.allocatePayment("pay-1", "debt-1", 450_000L, now + 3))
+        assertEquals(100_000L, dao.allocatedToDebt("debt-1"))
+    }
+
+    @Test
+    fun `allocation refuses to exceed the payment itself`() = runBlocking {
+        dao.upsertRoom(room())
+        dao.insertEntryAndEnqueue(entry(id = "debt-1", operationId = "op-debt-1", amountMinor = 5_000_000L), "p")
+        dao.insertEntryAndEnqueue(
+            entry(id = "pay-1", operationId = "op-pay-1", type = EntryType.PAYMENT, amountMinor = 300_000L),
+            "p"
+        )
+
+        assertFalse("لا توزيع بأكثر من مبلغ السداد", dao.allocatePayment("pay-1", "debt-1", 400_000L, now + 1))
+        assertTrue(dao.allocatePayment("pay-1", "debt-1", 300_000L, now + 2))
+        assertFalse("استُهلك السداد كاملًا", dao.allocatePayment("pay-1", "debt-1", 1L, now + 3))
+    }
+
+    @Test
+    fun `allocation never crosses currencies`() = runBlocking {
+        dao.upsertRoom(room())
+        dao.insertEntryAndEnqueue(entry(id = "debt-yer", operationId = "op-debt-yer", amountMinor = 500_000L), "p")
+        dao.insertEntryAndEnqueue(
+            entry(id = "pay-usd", operationId = "op-pay-usd", type = EntryType.PAYMENT, amountMinor = 30_000L)
+                .copy(currency = Currency.USD.code),
+            "p"
+        )
+
+        assertFalse("لا مقاصة ولا تحويل تلقائي بين عملتين", dao.allocatePayment("pay-usd", "debt-yer", 10_000L, now + 1))
+        assertTrue(dao.getAllocationsForPayment("pay-usd").isEmpty())
+    }
+
+    @Test
+    fun `only a payment or a general receipt can be allocated`() = runBlocking {
+        dao.upsertRoom(room())
+        dao.insertEntryAndEnqueue(entry(id = "debt-1", operationId = "op-debt-1", amountMinor = 500_000L), "p")
+        dao.insertEntryAndEnqueue(entry(id = "debt-2", operationId = "op-debt-2", amountMinor = 500_000L), "p")
+
+        assertFalse(
+            "لا يُسقَط دين على دين آخر",
+            dao.allocatePayment("debt-2", "debt-1", 100_000L, now + 1)
+        )
+        assertFalse("المبلغ صفر ليس إسقاطًا", dao.allocatePayment("debt-2", "debt-1", 0L, now + 2))
     }
 
     @Test
@@ -294,9 +348,12 @@ class LedgerDaoTest {
     fun `two rooms never mix their balances or currencies`() = runBlocking {
         dao.upsertRoom(room(id = "room-yer", linkCode = "LNK-YER"))
         dao.upsertRoom(room(id = "room-usd", linkCode = "LNK-USD").copy(currency = Currency.USD.code))
-        dao.insertEntryAndEnqueue(entry(id = "e-yer", operationId = "op-yer"), "p")
+        seedMembers(roomId = "room-yer")
+        seedMembers(roomId = "room-usd")
+        dao.insertEntryAndEnqueue(entry(id = "e-yer", operationId = "op-yer").copy(roomId = "room-yer"), "p")
         dao.insertEntryAndEnqueue(
-            entry(id = "e-usd", operationId = "op-usd", amountMinor = 10_000L).copy(roomId = "room-usd", currency = Currency.USD.code),
+            entry(id = "e-usd", operationId = "op-usd", amountMinor = 10_000L)
+                .copy(roomId = "room-usd", currency = Currency.USD.code),
             "p"
         )
 
@@ -304,5 +361,24 @@ class LedgerDaoTest {
         assertEquals(1, dao.getActiveEntries("room-usd").size)
         assertEquals(Currency.YER_NEW.code, dao.getActiveEntries("room-yer").first().currency)
         assertEquals(Currency.USD.code, dao.getActiveEntries("room-usd").first().currency)
+    }
+
+    @Test
+    fun `an entry of one room cannot point at a member of another room`() = runBlocking {
+        dao.upsertRoom(room(id = "room-yer", linkCode = "LNK-YER"))
+        dao.upsertRoom(room(id = "room-usd", linkCode = "LNK-USD").copy(currency = Currency.USD.code))
+        seedMembers(roomId = "room-yer")
+
+        // العضو مذكور في الغرفة الثانية؟ لا: المفتاح (roomId, memberId) للعضو غائب، فالمخطط يرفض.
+        var refused = false
+        try {
+            db.openHelper.writableDatabase.execSQL(
+                "INSERT INTO entries (id, roomId, operationId, type, owedByMemberId, owedToMemberId, amountMinor, currency, occurredAt, description, quantityNote, status, createdByMemberId, sourceTable, sourceId, listingId, createdAt, updatedAt) " +
+                    "VALUES ('e-x', 'room-usd', 'op-x', 'PAYMENT', '$meId', '$otherId', 100, 'USD', 1, '', '', 'SENT', '$meId', NULL, NULL, NULL, 1, 1)"
+            )
+        } catch (_: android.database.sqlite.SQLiteConstraintException) {
+            refused = true
+        }
+        assertTrue("قيود الغرفة لا تخلط أعضاء غرفة أخرى", refused)
     }
 }

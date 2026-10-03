@@ -101,6 +101,10 @@ interface LedgerDao {
 
     // ----------------------------------------------------------- الإسقاطات
 
+    /**
+     * كتابة إسقاط بمفتاحه الطبيعي `(paymentEntryId, debtEntryId)`: إعادة الإسقاط تُحدّث الصف
+     * نفسه. الأفضل أن ينادي المنادي [allocatePayment] لأنها تتحقق من الحدود أولًا.
+     */
     @Upsert
     suspend fun upsertAllocation(allocation: EntryAllocation)
 
@@ -191,16 +195,63 @@ interface LedgerDao {
     }
 
     /**
-     * تسجيل إقرار عضو: قرار واحد لكل عضو لكل قيد، ثم تحديث حالة القيد بحسب القرار.
-     * لا يُحذف القيد ولا تُمس أرقامه.
+     * تسجيل قرار عضو على قيد: قرار واحد لكل عضو لكل قيد (المفتاح الطبيعي)، ثم تحديث حالة القيد
+     * بحسب القرار. لا يُحذف القيد ولا تُمس أرقامه، ولا يُجمّد دفتر كاتبه.
      */
     @Transaction
-    suspend fun recordAcknowledgement(
-        acknowledgement: Acknowledgement,
+    suspend fun recordDecision(
+        entryId: String,
+        memberId: String,
+        decision: String,
+        note: String,
+        decidedAt: Long,
         resultingStatus: String,
         updatedAt: Long
     ) {
-        upsertAcknowledgement(acknowledgement)
-        updateEntryStatus(acknowledgement.entryId, resultingStatus, updatedAt)
+        upsertAcknowledgement(
+            Acknowledgement(
+                entryId = entryId,
+                memberId = memberId,
+                decision = decision,
+                note = note,
+                decidedAt = decidedAt,
+                createdAt = decidedAt
+            )
+        )
+        updateEntryStatus(entryId, resultingStatus, updatedAt)
+    }
+
+    /**
+     * إسقاط سداد على دين محدد بحدود صارمة: لا يتجاوز مبلغ السداد، ولا يتجاوز قيمة الدين، ولا
+     * يجوز الخلط بين عملتين (لا مقاصة ولا تحويل تلقائي). ما زاد عن الدين يبقى رصيدًا في السداد
+     * غير مسقَط (رصيد في الغرفة)، ولا يُسقَط قهرًا.
+     *
+     * تُرجع false إن رفضت الحدود الطلب، فالمنادي (ح٤) يقرر: تخصيص جزئي أو إظهار سبب الرفض.
+     */
+    @Transaction
+    suspend fun allocatePayment(
+        paymentEntryId: String,
+        debtEntryId: String,
+        amountMinor: Long,
+        createdAt: Long
+    ): Boolean {
+        if (amountMinor <= 0L) return false
+        val payment = getEntry(paymentEntryId) ?: return false
+        val debt = getEntry(debtEntryId) ?: return false
+        if (payment.currency != debt.currency) return false
+        if (payment.type != EntryType.PAYMENT && payment.type != EntryType.GENERAL_RECEIPT) return false
+        // المبالغ كلها Long ومحدودة بسقف Money.MAX_MINOR، فالجمع هنا آمن بلا فيض.
+        if (allocatedFromPayment(paymentEntryId) + amountMinor > payment.amountMinor) return false
+        if (allocatedToDebt(debtEntryId) + amountMinor > debt.amountMinor) return false
+        upsertAllocation(
+            EntryAllocation(
+                paymentEntryId = paymentEntryId,
+                debtEntryId = debtEntryId,
+                amountMinor = amountMinor,
+                currency = payment.currency,
+                createdAt = createdAt
+            )
+        )
+        return true
     }
 }

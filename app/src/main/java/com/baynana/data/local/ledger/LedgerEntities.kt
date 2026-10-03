@@ -186,9 +186,13 @@ data class LedgerEntry(
 /**
  * إسقاط سداد على قيود محددة: أي دفعة سدّدت أي دين وبكم. لا يجوز أن يتجاوز مجموع الإسقاطات
  * للسداد مبلغه، ولا أن يتجاوز المسدد على دين قيمته.
+ *
+ * **المفتاح طبيعي** `(paymentEntryId, debtEntryId)` لا مُعرّف مصطنع: إعادة الإسقاط لنفس الزوج
+ * تُحدّث المبلغ في مكانه بدل أن تضيف صفًا متعارضًا (خطأ صامت عند استخدام معرّف جديد).
  */
 @Entity(
     tableName = "entry_allocations",
+    primaryKeys = ["paymentEntryId", "debtEntryId"],
     foreignKeys = [
         ForeignKey(
             entity = LedgerEntry::class,
@@ -207,12 +211,10 @@ data class LedgerEntry(
     ],
     indices = [
         Index("paymentEntryId"),
-        Index("debtEntryId"),
-        Index(value = ["paymentEntryId", "debtEntryId"], unique = true)
+        Index("debtEntryId")
     ]
 )
 data class EntryAllocation(
-    @androidx.room.PrimaryKey val id: String,
     val paymentEntryId: String,
     val debtEntryId: String,
     val amountMinor: Long,
@@ -223,9 +225,13 @@ data class EntryAllocation(
 /**
  * إقرار عضو على قيد. قرار واحد لكل عضو لكل قيد: إعادة الإقرار تُحدّث القرار ولا تُنشئ سجلًا
  * ثانيًا. قبول الطرف يغيّر حالة القيد فقط، ولا يمسحه ولا يجمّد دفتر كاتبه.
+ *
+ * **المفتاح طبيعي** `(entryId, memberId)`: لا يمكن بنيويًا وجود قرارين متعارضين لنفس العضو،
+ * ولا يمكن أن يكتب نداء إقرار بمعرّف جديد صفًا يتجاهله `@Upsert` صامتًا.
  */
 @Entity(
     tableName = "acknowledgements",
+    primaryKeys = ["entryId", "memberId"],
     foreignKeys = [
         ForeignKey(
             entity = LedgerEntry::class,
@@ -237,12 +243,11 @@ data class EntryAllocation(
     ],
     indices = [
         Index("entryId"),
-        Index(value = ["entryId", "memberId"], unique = true),
+        Index("memberId"),
         Index("decidedAt")
     ]
 )
 data class Acknowledgement(
-    @androidx.room.PrimaryKey val id: String,
     val entryId: String,
     val memberId: String,
     val decision: String,
