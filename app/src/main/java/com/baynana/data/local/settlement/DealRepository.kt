@@ -16,6 +16,7 @@ import com.baynana.domain.settlement.CommissionEngine
 import com.baynana.domain.settlement.CommissionStatus
 import com.baynana.domain.settlement.DealEngine
 import com.baynana.domain.settlement.DealStatus
+import com.baynana.domain.settlement.InstallmentScheduleEngine
 import com.baynana.domain.settlement.InstallmentStatus
 import java.util.UUID
 
@@ -203,7 +204,7 @@ class DealRepository(
         }
         if (plan.resultingStatus != deal.status) {
             dao.setStatus(
-                dealId = dealId,
+                id = dealId,
                 status = plan.resultingStatus,
                 updatedAt = paidAt,
                 closedAt = if (plan.resultingStatus == DealStatus.COMPLETED) paidAt else null
