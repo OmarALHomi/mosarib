@@ -15,7 +15,8 @@ private fun requireAmount(amountMinor: Long) {
 }
 
 private fun requireCurrency(currency: String) {
-    require(Currency.fromCode(currency).code == currency) { "عملة غير معروفة: $currency" }
+    val known = Currency.fromCode(currency)
+    require(known != null && known.code == currency) { "عملة غير معروفة: $currency" }
 }
 
 private fun requireMembers(first: String, second: String) {

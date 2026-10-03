@@ -22,14 +22,14 @@ object ReversalEngine {
     /** هل يجوز إلغاء هذا القيد؟ */
     fun check(entry: EntryView, alreadyReversedBy: EntryView?): ReversalCheck = when {
         entry.status == EntryStatus.VOIDED || alreadyReversedBy != null ->
-            Refused("قيد ملغى سابقًا بقيد عكسي")
+            ReversalCheck.Refused("قيد ملغى سابقًا بقيد عكسي")
         entry.isReversal ->
-            Refused("لا يُلغى قيد عكسي مباشرة؛ أنشئ قيدًا جديدًا يوضح التصحيح")
+            ReversalCheck.Refused("لا يُلغى قيد عكسي مباشرة؛ أنشئ قيدًا جديدًا يوضح التصحيح")
         entry.status == EntryStatus.DRAFT ->
-            Refused("مسودة لم تُشارك بعد؛ احذفها بدل إلغائها")
+            ReversalCheck.Refused("مسودة لم تُشارك بعد؛ احذفها بدل إلغائها")
         entry.amountMinor <= 0L ->
-            Refused("قيد بلا مبلغ")
-        else -> Allowed
+            ReversalCheck.Refused("قيد بلا مبلغ")
+        else -> ReversalCheck.Allowed
     }
 
     /** يبني القيد العكسي: نفس المبلغ والعملة، والطرفان معكوسان، ويشير إلى الأصل. */
