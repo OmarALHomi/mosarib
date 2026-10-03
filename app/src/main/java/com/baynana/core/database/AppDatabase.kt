@@ -236,7 +236,7 @@ abstract class AppDatabase : RoomDatabase() {
          * الترحيلات اليدوية من 1 إلى 6. أما 6→7 (ح٣) و7→8 (ح٤) و8→9 (ح٦) فـ**تلقائية** يولّدها
          * Room من فرق المخططات، فليست من هذه القائمة؛ انظر [AUTO_MIGRATION_RANGES].
          */
-        val AUTO_MIGRATION_RANGES: List<Pair<Int, Int>> = listOf(6 to 7, 7 to 8, 8 to 9)
+        val AUTO_MIGRATION_RANGES: List<Pair<Int, Int>> = listOf(6 to 7, 7 to 8, 8 to 9, 9 to 10)
 
         /**
          * كل الترحيلات اليدوية بترتيب تصاعدي، متاحة للاختبار. أي إصدار جديد يجب أن يضيف

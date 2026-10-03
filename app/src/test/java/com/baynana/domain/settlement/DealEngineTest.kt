@@ -255,7 +255,8 @@ class DealEngineTest {
 
     @Test
     fun `an existing active deal on the same listing blocks a competitor even if the listing looks open`() {
-        val others = listOf(DealEngine.DealSummary("deal-1", "listing-1", DealStatus.ACTIVE))
+        // صلح آخر (بمعرّف مختلف) على نفس العرض: الحجز قائم حتى لو بدت حالة العرض مفتوحة.
+        val others = listOf(DealEngine.DealSummary("deal-9", "listing-1", DealStatus.ACTIVE))
         val reason = refusal(draft(), openListing(), others)
         assertTrue(reason, reason.contains("لا بيع مزدوج"))
     }
