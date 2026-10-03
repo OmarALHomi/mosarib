@@ -38,6 +38,10 @@ import com.baynana.data.local.ledger.OutboxItem
 import com.baynana.data.local.ledger.RoomMember
 import com.baynana.data.local.ledger.SyncState
 import com.baynana.data.local.ledger.Tombstone
+import com.baynana.data.local.settlement.DealCommission
+import com.baynana.data.local.settlement.DealInstallment
+import com.baynana.data.local.settlement.DealDao
+import com.baynana.data.local.settlement.DealRecord
 import androidx.room.AutoMigration
 import kotlinx.coroutines.launch
 
@@ -45,7 +49,7 @@ import kotlinx.coroutines.launch
  * إصدار قاعدة البيانات. ثابت على مستوى الملف لأن تعليق [Database] يحتاج قيمة وقت الترجمة،
  * ويقرأه اختبار الترحيلات ومحرّك النسخ الاحتياطي. لا يُنقص أبدًا، وأي زيادة تحتاج ترحيلًا.
  */
-const val DATABASE_VERSION = 9
+const val DATABASE_VERSION = 10
 
 @Database(
     entities = [
@@ -68,7 +72,11 @@ const val DATABASE_VERSION = 9
         OutboxItem::class,
         SyncState::class,
         // ح٦: حجر القبر يمنع عودة كيان مُغلق عن بعد من ذاكرة قديمة.
-        Tombstone::class
+        Tombstone::class,
+        // ح٨: الصلح وأقساطه وسعايته (بمبالغ بالوحدة الصغرى، والجدولان القديمان لا يُمَسّان).
+        DealRecord::class,
+        DealInstallment::class,
+        DealCommission::class
     ],
     version = DATABASE_VERSION,
     // تصدير المخطط إلزامي: بدونه لا يمكن اختبار الترحيلات ولا مقارنة الإصدارات قبل النشر.
@@ -79,7 +87,9 @@ const val DATABASE_VERSION = 9
     autoMigrations = [
         AutoMigration(from = 6, to = 7),
         AutoMigration(from = 7, to = 8),
-        AutoMigration(from = 8, to = 9)
+        AutoMigration(from = 8, to = 9),
+        // 9→10: جداول الصلح الثلاثة فقط — إضافة بحتة بلا لمس صف قائم.
+        AutoMigration(from = 9, to = 10)
     ]
 )
 @TypeConverters(Converters::class)
@@ -97,6 +107,9 @@ abstract class AppDatabase : RoomDatabase() {
 
     /** دفتر الغرفة والقيد والإقرار وصندوق الصادر (ح٣). */
     abstract fun ledgerDao(): LedgerDao
+
+    /** الصلح وأقساطه وسعايته (ح٨). */
+    abstract fun dealDao(): DealDao
 
     companion object {
         /**

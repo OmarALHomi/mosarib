@@ -192,6 +192,20 @@ class DealEngineTest {
     // ------------------------------------------------------------- الأقساط
 
     @Test
+    fun `a seller commission bigger than what remains is refused, not turned into a negative payout`() {
+        val reason = refusal(
+            draft().copy(
+                totalMinor = 500_000L,
+                advanceMinor = 490_000L,
+                count = 1,
+                commission = CommissionEngine.Policy(payer = CommissionPayer.SELLER, rateBasisPoints = 500)
+            )
+        )
+        assertTrue(reason, reason.contains("أكبر من المتبقي"))
+        assertTrue("الرسالة تقترح مخرجًا", reason.contains("اجعل السعاية على المشتري"))
+    }
+
+    @Test
     fun `an indivisible remainder goes to the last installment so the sum is exact`() {
         val result = InstallmentScheduleEngine.build(
             totalMinor = 1_000_000L,

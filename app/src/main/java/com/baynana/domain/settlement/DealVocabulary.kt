@@ -73,6 +73,18 @@ object CommissionPayer {
     }
 }
 
+/** حالة بيان السعاية في حساب الدلال. */
+object CommissionStatus {
+    const val OPEN = "OPEN"         // مستحقة ولم تُسدد
+    const val REVERSED = "REVERSED" // عُكست مع فسخ الصلح بقيد عكسي
+
+    fun label(status: String): String = when (status) {
+        OPEN -> "مستحقة"
+        REVERSED -> "معكوسة"
+        else -> "غير معروفة"
+    }
+}
+
 /** حالات العرض في السوق، لأن الصلح هو من يحجز العرض. */
 object ListingState {
     const val OPEN = "OPEN"

@@ -277,12 +277,109 @@ class LedgerMigrationTest {
         }
     }
 
+
+    @Test
+    fun `upgrading a real version 9 database adds the settlement tables without touching the ledger`() {
+        // الإصدار 9 كان آخر إصدار قبل ح٨: غرف وقيود وصندوق صادر وشواهد، وبلا جداول صلح.
+        buildDatabaseAtVersion(9) { sqlite ->
+            sqlite.execSQL(
+                "INSERT INTO rooms (id, kind, currency, title, status, linkCode, counterpartName, counterpartPhone, createdAt, updatedAt, closedAt) " +
+                    "VALUES ('room-9', 'MARKET', 'YER_NEW', 'غرفة قائمة', 'ACTIVE', 'LNK-9', 'صالح', '', 1000, 2000, NULL)"
+            )
+            sqlite.execSQL(
+                "INSERT INTO room_members (roomId, memberId, displayName, phone, role, isMe, joinedAt, lastSeenAt) " +
+                    "VALUES ('room-9', 'me', 'أنا', '', 'owner', 1, 1000, 0)"
+            )
+            sqlite.execSQL(
+                "INSERT INTO room_members (roomId, memberId, displayName, phone, role, isMe, joinedAt, lastSeenAt) " +
+                    "VALUES ('room-9', 'm-farmer', 'أحمد', '', 'farmer', 0, 1000, 0)"
+            )
+            sqlite.execSQL(
+                "INSERT INTO entries (id, roomId, operationId, type, owedByMemberId, owedToMemberId, amountMinor, currency, occurredAt, description, quantityNote, status, createdByMemberId, sourceTable, sourceId, listingId, reversesEntryId, createdAt, updatedAt) " +
+                    "VALUES ('entry-9', 'room-9', 'op-9', 'SETTLEMENT', 'm-farmer', 'me', 250000, 'YER_NEW', 2000, 'قيد قديم', '', 'SENT', 'me', NULL, NULL, NULL, NULL, 2000, 2000)"
+            )
+            sqlite.execSQL(
+                "INSERT INTO outbox (operationId, entityType, entityId, action, payload, state, attempts, lastError, nextAttemptAt, createdAt, updatedAt) " +
+                    "VALUES ('op-9', 'entry', 'entry-9', 'UPSERT', '{}', 'PENDING', 1, '', 0, 2000, 2000)"
+            )
+            sqlite.execSQL(
+                "INSERT INTO tombstones (entityId, entityType, operationId, reason, deletedAt, recordedAt) " +
+                    "VALUES ('entry-old', 'entry', 'op-old', 'حُذف قديمًا', 1500, 1500)"
+            )
+        }
+
+        val database = openAppDatabase()
+
+        // أول لمسة تشغّل AutoMigration(9→10): جداول الصلح تُضاف، والدفتر القديم لا يُلمس.
+        assertEquals(250_000L, runBlocking { database.ledgerDao().getEntry("entry-9")!!.amountMinor })
+        val readable = database.openHelper.readableDatabase
+        readable.query("PRAGMA user_version").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(DATABASE_VERSION, cursor.getInt(0))
+        }
+
+        val found = mutableSetOf<String>()
+        readable.query("SELECT name FROM sqlite_master WHERE type = 'table'").use { cursor ->
+            while (cursor.moveToNext()) found += cursor.getString(0)
+        }
+        val expected = setOf("deals", "deal_installments", "deal_commissions")
+        assertTrue("جداول الصلح ناقصة بعد الترقية: ${expected - found}", found.containsAll(expected))
+
+        // لا صف واحد ضاع من الدفتر: قيد، وسطر صادر، وشاهد واحد.
+        readable.query("SELECT COUNT(*) FROM entries").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(1, cursor.getInt(0))
+        }
+        readable.query("SELECT attempts FROM outbox WHERE operationId = 'op-9'").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("محاولات الإرسال محفوظة", 1, cursor.getInt(0))
+        }
+        readable.query("SELECT COUNT(*) FROM tombstones").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(1, cursor.getInt(0))
+        }
+
+        // والجداول الجديدة قابلة للكتابة فعلًا كما سيكتبها التطبيق.
+        val writable = database.openHelper.writableDatabase
+        writable.execSQL(
+            "INSERT INTO deals (id, roomId, listingId, cropTitle, place, currency, totalMinor, advanceMinor, " +
+                "sellerMemberId, sellerName, buyerMemberId, buyerName, brokerMemberId, brokerName, " +
+                "commissionTotalMinor, commissionSellerMinor, commissionBuyerMinor, commissionPayer, " +
+                "commissionRateBasisPoints, status, dealAt, firstDueAt, intervalDays, terms, createdByMemberId, " +
+                "createdAt, updatedAt, closedAt) " +
+                "VALUES ('deal-9', 'room-9', NULL, 'قمح', 'صنعاء', 'YER_NEW', 500000, 100000, 'm-farmer', 'أحمد', " +
+                "'m-buyer', 'صالح', 'me', 'أنا', 12500, 0, 12500, 'BUYER', 250, 'PENDING', 2000, 3000, 30, '', 'me', 2000, 2000, NULL)"
+        )
+        writable.execSQL(
+            "INSERT INTO deal_installments (id, dealId, seq, dueAt, amountMinor, paidMinor, status, createdAt, updatedAt) " +
+                "VALUES ('ins-deal-9-1', 'deal-9', 1, 3000, 400000, 0, 'SCHEDULED', 2000, 2000)"
+        )
+        writable.execSQL(
+            "INSERT INTO deal_commissions (id, dealId, roomId, memberId, payerMemberId, currency, totalMinor, entryId, status, createdAt, updatedAt) " +
+                "VALUES ('fee-deal-9', 'deal-9', 'room-9', 'me', 'm-buyer', 'YER_NEW', 12500, NULL, 'OPEN', 2000, 2000)"
+        )
+        readable.query("SELECT totalMinor FROM deals WHERE id = 'deal-9'").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("الصلح الجديد بالوحدة الصغرى", 500_000L, cursor.getLong(0))
+        }
+
+        // الغرفة التي فيها قيود وصلح لا تُمحى: RESTRICT يحمي تاريخ الطرفين على مستوى القاعدة.
+        var roomRefused = false
+        try {
+            writable.execSQL("DELETE FROM rooms WHERE id = 'room-9'")
+        } catch (_: android.database.sqlite.SQLiteConstraintException) {
+            roomRefused = true
+        }
+        assertTrue("غرفة فيها قيود وصلح لا تُمحى", roomRefused)
+    }
+
     @Test
     fun `the exported schema of the current version is committed`() {
         // المخطط المصدَّر شرط لأي ترحيل قادم: غيابه يعني أن اختبار الترحيل القادم مستحيل،
         // وأن ترحيلًا تلقائيًا لاحقًا لا يجد ما يقارن به. لهذا يُسحب المخطط من CI ويُحفظ.
         assertTrue("مخطط الإصدار 6 مطلوب لبناء قاعدة قديمة حقيقية", schemaFile(6).exists())
         assertTrue("مخطط الإصدار 8 مطلوب لاختبار الترقية إلى 9", schemaFile(8).exists())
+        assertTrue("مخطط الإصدار 9 مطلوب لاختبار الترقية إلى 10", schemaFile(9).exists())
         assertTrue(
             "مخطط الإصدار الحالي ($DATABASE_VERSION) يجب أن يكون محفوظًا في المستودع",
             schemaFile(DATABASE_VERSION).exists()

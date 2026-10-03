@@ -168,6 +168,14 @@ object DealEngine {
             }
         }
 
+        // سعاية البائع تُخصم من المتبقي بعد العربون؛ وإن التهمته فهو خلل اتفاق لا رقم سالب.
+        if (remaining < commission.sellerMinor) {
+            return Check.Refused(
+                "نصيب البائع من السعاية (${commission.sellerMinor} فلسًا) أكبر من المتبقي بعد العربون " +
+                    "(${remaining} فلسًا): خفّض السعاية أو ارفع العربون، أو اجعل السعاية على المشتري"
+            )
+        }
+
         val notes = mutableListOf<String>()
         notes += "السعاية بيان مستقل في حساب الدلال، ولا تدخل في دَين المحصول."
         if (draft.listingId != null) notes += "العرض يُحجز بهذا الصلح ما دام قائمًا، ويُعلَم «تم البيع» عند الإكمال."
