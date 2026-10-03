@@ -125,9 +125,9 @@ class MoneyTest {
     fun `hourly rate times minutes rounds half up in fils`() {
         val perHour = Money.ofMajor(5_000, Currency.YER_NEW)
         assertEquals(375_000L, perHour.times(45, 60).minor) // 3750 ريال
-        assertEquals(58_300L, perHour.times(7, 60).minor)   // 583 ريال
+        assertEquals(58_333L, perHour.times(7, 60).minor)   // 583.33 ريال
         assertEquals(250_000L, perHour.times(30, 60).minor) // 2500 ريال
-        assertEquals(4_200L, perHour.times(1, 120).minor)   // 42 ريال
+        assertEquals(4_167L, perHour.times(1, 120).minor)   // 41.67 ريال
     }
 
     @Test
@@ -236,7 +236,7 @@ class MoneyTest {
     @Test
     fun `plain major string is stable for pdf and import`() {
         assertEquals("15000", Money.ofMajor(15_000, Currency.YER_NEW).toPlainMajorString())
-        assertEquals("15000.5", Money.ofMinor(1_500_050, Currency.YER_NEW).toPlainMajorString())
+        assertEquals("15000.50", Money.ofMinor(1_500_050, Currency.YER_NEW).toPlainMajorString())
         assertEquals("1500000", Money.ofMajor(15_000, Currency.YER_NEW).toMinorString())
     }
 

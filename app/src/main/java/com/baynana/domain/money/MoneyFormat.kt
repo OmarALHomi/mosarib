@@ -24,9 +24,12 @@ object MoneyFormat {
     fun displayNumber(money: Money): String {
         val major = money.minor / money.currency.minorPerUnit
         val fraction = money.minor % money.currency.minorPerUnit
-        val formatter = DecimalFormat(if (money.currency.minorUnits == 0) "#,##0" else "#,##0.00", enSymbols)
+        // القالب يتغيّر بحسب وجود الكسر فعلًا: قالب ثابت بخانتين يُظهر «15,000.00» دائمًا،
+        // والقاعدة المعتمدة أن المستخدم يرى ريالات صحيحة إن لم يكن هناك كسر حقيقي.
+        val pattern = if (fraction == 0L || money.currency.minorUnits == 0) "#,##0" else "#,##0.00"
+        val formatter = DecimalFormat(pattern, enSymbols)
         return if (fraction == 0L) {
-            formatter.format(major.toDouble())
+            formatter.format(major)
         } else {
             formatter.format(major + fraction.toDouble() / money.currency.minorPerUnit)
         }
