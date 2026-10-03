@@ -77,6 +77,22 @@ interface LedgerDao {
     @Query("SELECT * FROM entries WHERE roomId = :roomId AND status != :voided ORDER BY occurredAt DESC")
     suspend fun getActiveEntries(roomId: String, voided: String = EntryStatus.VOIDED): List<LedgerEntry>
 
+    /** القيود التي تنتظر إقرار الطرف الآخر في كل الغرف (لبادج المعلّق). */
+    @Query(
+        "SELECT COUNT(*) FROM entries WHERE status = :sent AND type IN (:types)"
+    )
+    suspend fun countAwaitingAcknowledgement(
+        sent: String = EntryStatus.SENT,
+        types: List<String> = EntryType.debts + EntryType.credits
+    ): Int
+
+    /**
+     * كل قيود الغرفة بما فيها الملغى: اللقطة الموحّدة تحتاج الأصل الملغى لتعرف أن القيد العكسي
+     * يقابله فتستثنيه من الحساب. أما [getActiveEntries] فتُستخدم حيث لا يظهر الملغى للمستخدم.
+     */
+    @Query("SELECT * FROM entries WHERE roomId = :roomId ORDER BY occurredAt ASC, createdAt ASC")
+    suspend fun getEntriesIncludingVoided(roomId: String): List<LedgerEntry>
+
     @Query("SELECT * FROM entries WHERE id = :entryId")
     suspend fun getEntry(entryId: String): LedgerEntry?
 

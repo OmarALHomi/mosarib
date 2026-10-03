@@ -6,7 +6,6 @@ import com.baynana.domain.ledger.AllocationEngine
 import com.baynana.domain.ledger.AllocationMode
 import com.baynana.domain.ledger.AllocationPlan
 import com.baynana.domain.ledger.AllocationView
-import com.baynana.domain.ledger.BalanceEngine
 import com.baynana.domain.ledger.EntryStatus
 import com.baynana.domain.ledger.EntryType
 import com.baynana.domain.ledger.EntryView
@@ -15,6 +14,10 @@ import com.baynana.domain.ledger.ReceiptSpec
 import com.baynana.domain.ledger.ReversalCheck
 import com.baynana.domain.ledger.ReversalEngine
 import com.baynana.domain.ledger.RoomBalance
+import com.baynana.domain.ledger.LedgerSnapshot
+import com.baynana.domain.ledger.MemberStatement
+import com.baynana.domain.ledger.SnapshotEngine
+import com.baynana.domain.ledger.StatementEngine
 import com.baynana.domain.ledger.allocationsByEntry
 import java.util.UUID
 
@@ -59,19 +62,31 @@ class LedgerRepository(
 
     // ------------------------------------------------------------------ الأرصدة
 
-    suspend fun balance(roomId: String): RoomBalance {
+    suspend fun balance(roomId: String): RoomBalance = snapshot(roomId).toRoomBalance()
+
+    /**
+     * اللقطة الموحّدة للغرفة (ح٥): كل رقم يظهر في أي شاشة أو ملف يأتي من هنا.
+     *
+     * القيود الملغاة تُقرأ ** أيضًا** لأن اللقطة تحتاج معرفة أن القيد العكسي يقابل أصلًا ملغى؛
+     * واللقطة هي التي تُسقط الملغى والعكسي من الحساب (انظر `effectiveEntries`).
+     */
+    suspend fun snapshot(roomId: String): LedgerSnapshot {
         val room = dao.getRoom(roomId) ?: error("غرفة غير موجودة: $roomId")
-        val entries = dao.getActiveEntries(roomId).map { it.toView() }
+        val entries = dao.getEntriesIncludingVoided(roomId).map { it.toView() }
         val allocations = dao.getAllocationsInRoom(roomId).map { it.toView() }
-        return BalanceEngine.compute(roomId, room.currency, entries, allocations)
+        return SnapshotEngine.build(roomId, room.currency, entries, allocations)
     }
+
+    /** كشف عضو واحد (المزارع في قالب الري): نفس أرقام اللقطة، مرتبة زمنيًا برصيد جارٍ. */
+    suspend fun statementFor(roomId: String, memberId: String): MemberStatement =
+        StatementEngine.statementFor(memberId, snapshot(roomId))
 
     /** الديون المفتوحة على عضو، الأقدم أولًا — نفس الترتيب الذي سيستخدمه FIFO. */
     suspend fun openDebts(roomId: String, memberId: String): List<LedgerEntry> {
-        val entries = dao.getActiveEntries(roomId).map { it.toView() }
+        val entries = dao.getEntriesIncludingVoided(roomId).map { it.toView() }
         val allocations = dao.getAllocationsInRoom(roomId).map { it.toView() }
-        val ids = BalanceEngine.openDebtsFor(memberId, entries, allocations).map { it.id }.toSet()
-        return dao.getActiveEntries(roomId).filter { it.id in ids }
+        val ids = SnapshotEngine.openDebtsFor(memberId, entries, allocations).map { it.id }.toSet()
+        return dao.getEntriesIncludingVoided(roomId).filter { it.id in ids }
             .sortedWith(compareBy({ it.occurredAt }, { it.id }))
     }
 

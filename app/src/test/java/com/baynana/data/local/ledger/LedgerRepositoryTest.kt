@@ -11,6 +11,7 @@ import com.baynana.domain.ledger.NewDebtSpec
 import com.baynana.domain.ledger.ReceiptSpec
 import com.baynana.domain.ledger.RoomKind
 import com.baynana.domain.ledger.RoomStatus
+import com.baynana.domain.ledger.StatementText
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -337,5 +338,63 @@ class LedgerRepositoryTest {
         assertEquals(0L, dao.allocatedToDebt(debt.id))
         assertEquals(500_000L, result.unappliedMinor)
         assertTrue(result.plan.skipped.any { it.reason == "بعملة أخرى: لا تحويل تلقائي" })
+    }
+
+    // ---------------------------------------------------- اللقطة الموحّدة (ح٥)
+
+    @Test
+    fun `the snapshot of a real room gives the golden numbers used by every screen`() = runBlocking {
+        // مبلغ 10,000 ريال، مقدم 2,000، ثم قبض 3,000 → الباقي 5,000 (بوابة v6 §15).
+        val debt = session(1_000_000L, at = now - 3_000, operationId = "op-golden")
+        repository.recordReceipt(receiptSpec(200_000L, AllocationMode.OldestFirst, operationId = "op-down", at = now - 2_000))
+        repository.recordReceipt(receiptSpec(300_000L, AllocationMode.OldestFirst, operationId = "op-later", at = now - 1_000))
+
+        val snapshot = repository.snapshot("room-1")
+        assertEquals(1_000_000L, snapshot.chargedMinor)
+        assertEquals(500_000L, snapshot.paidMinor)
+        assertEquals(500_000L, snapshot.remainingMinor)
+        assertEquals(500_000L, snapshot.openDebtMinor)
+        assertEquals(0L, snapshot.unappliedReceiptMinor)
+        assertEquals(500_000L, dao.allocatedToDebt(debt.id))
+        assertEquals(
+            "وكل سطح يعرض النص نفسه",
+            "المبلغ: 10,000 ر.ي • المسدَّد: 5,000 ر.ي • الباقي: 5,000 ر.ي",
+            StatementText.summary(repository.statementFor("room-1", farmer))
+        )
+    }
+
+    @Test
+    fun `the snapshot after a reversal shows no debt, while the history still holds every row`() = runBlocking {
+        val debt = session(1_000_000L, operationId = "op-to-void")
+        repository.recordReceipt(receiptSpec(400_000L, AllocationMode.OldestFirst))
+        repository.reverseEntry(debt.id, "سقية مكررة", operationId = "op-rev-snapshot")
+
+        val snapshot = repository.snapshot("room-1")
+        assertEquals(0L, snapshot.chargedMinor)
+        assertEquals(0L, snapshot.remainingMinor)
+        assertEquals(400_000L, snapshot.unappliedReceiptMinor)
+        assertEquals("القيدان باقيان في التاريخ", 2, dao.getEntriesIncludingVoided("room-1").count { it.type != EntryType.PAYMENT })
+        assertEquals("والملغى يظهر بحالته لا يُخفى", EntryStatus.VOIDED, dao.getEntry(debt.id)!!.status)
+    }
+
+    @Test
+    fun `the statement is built from the same snapshot, line by line`() = runBlocking {
+        val first = session(300_000L, at = now - 9_000, operationId = "op-1")
+        val second = session(700_000L, at = now - 8_000, operationId = "op-2")
+        repository.recordReceipt(receiptSpec(300_000L, AllocationMode.OldestFirst))
+
+        val snapshot = repository.snapshot("room-1")
+        val statement = repository.statementFor("room-1", farmer)
+
+        assertEquals(snapshot.chargedMinor, statement.chargedMinor)
+        assertEquals(snapshot.remainingMinor, statement.remainingMinor)
+        assertEquals(
+            "ترتيب الأسطر يطابق ترتيب اللقطة الزمني",
+            snapshot.lines.map { it.entryId },
+            statement.lines.map { it.entryId }
+        )
+        assertEquals(first.id, statement.lines.first().entryId)
+        assertTrue(second.id in statement.lines.map { it.entryId })
+        assertEquals(statement.netMinor, statement.lines.last().runningNetMinor)
     }
 }

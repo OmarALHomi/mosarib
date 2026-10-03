@@ -20,19 +20,19 @@ object MoneyFormat {
         return if (withCurrency) "$text ${money.currency.symbol}" else text
     }
 
-    /** المبلغ بالريال بفواصل آلاف، وبلا كسر إن كان صفرًا، وبلا رمز عملة. */
+    /**
+     * المبلغ بالريال بفواصل آلاف، وبلا كسر إن كان صفرًا، وبلا رمز عملة.
+     *
+     * **بلا `Double` نهائيًا** (ADR-04): الجزء الصحيح يُنسَّق من `Long` مباشرة، والكسر يُبنى نصًّا
+     * من باقي القسمة مع حشو أصفار على عدد خانات العملة. الطريقة السابقة كانت تحوّل الكسر إلى
+     * `Double` لتنسيقه، وهي زلة صغيرة في مسار مالي — تُصلح هنا ويمنعها حاجز آلي.
+     */
     fun displayNumber(money: Money): String {
         val major = money.minor / money.currency.minorPerUnit
         val fraction = money.minor % money.currency.minorPerUnit
-        // القالب يتغيّر بحسب وجود الكسر فعلًا: قالب ثابت بخانتين يُظهر «15,000.00» دائمًا،
-        // والقاعدة المعتمدة أن المستخدم يرى ريالات صحيحة إن لم يكن هناك كسر حقيقي.
-        val pattern = if (fraction == 0L || money.currency.minorUnits == 0) "#,##0" else "#,##0.00"
-        val formatter = DecimalFormat(pattern, enSymbols)
-        return if (fraction == 0L) {
-            formatter.format(major)
-        } else {
-            formatter.format(major + fraction.toDouble() / money.currency.minorPerUnit)
-        }
+        val integer = DecimalFormat("#,##0", enSymbols).format(major)
+        if (fraction == 0L || money.currency.minorUnits == 0) return integer
+        return "$integer.${fraction.toString().padStart(money.currency.minorUnits, '0')}"
     }
 
     /**
