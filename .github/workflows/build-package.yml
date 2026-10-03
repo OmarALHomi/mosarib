@@ -1,0 +1,243 @@
+name: حزمة التطبيق (APK مضغوط للتحميل)
+
+# يبني نسخة التطبيق ويحفظها في ملف مضغوط واحد يمكن تنزيله من صفحة التشغيل نفسها.
+#
+# كيف يُشغَّل؟
+#   1) من واجهة GitHub: تبويب Actions ← «حزمة التطبيق (APK مضغوط للتحميل)» ← Run workflow.
+#   2) أو بإنشاء الملف `.ci/build-package` في أي دفعة (نفس طريق ملفات العلامة الأخرى).
+#
+# ما يُبنى؟
+#   - نسخة **الإصدار** إن كانت مفاتيح التوقيع مضبوطة في أسرار المستودع (Secrets):
+#     KEYSTORE_BASE64، STORE_PASSWORD، KEY_PASSWORD، واختياريًا KEY_ALIAS.
+#   - وإلا نسخة **تجريبية (debug)** موقّعة بمفتاح التطوير: تُثبَّت للتجربة فقط ولا تُوزَّع على
+#     الناس، واسم الملف نفسه يقول ذلك صراحة. ومسار الإصدار عندنا لا يقبل التوقيع بمفتاح
+#     التصحيح أبدًا (حاجز في البناء + حاجز في الفحص هنا).
+#
+# أين أجد الملف؟
+#   صفحة التشغيل ← قسم Artifacts أسفل الصفحة ← اسم الحزمة ← تنزيل ZIP.
+#   وتبقى متاحة ٩٠ يومًا.
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "النوع: auto (إصدار إن توفّر مفتاح، وإلا تجريبي) أو debug (تجريبي دائمًا)"
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - debug
+  push:
+    paths:
+      - ".ci/build-package"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: بناء الحزمة
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      VARIANT_REQUEST: ${{ github.event.inputs.variant || 'auto' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Guard invariants before packaging
+        run: ./tools/ci_invariants.sh
+
+      - name: Decode the release keystore when the secrets exist
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "has_keystore=false" >> "$GITHUB_OUTPUT"
+            echo "لا مفاتيح إصدار مضبوطة: ستُبنى نسخة تجريبية (debug) للتجربة، وليست للنشر."
+            exit 0
+          fi
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/keys/release.jks"
+          {
+            echo "KEYSTORE_PATH=$RUNNER_TEMP/keys/release.jks"
+            echo "KEY_ALIAS=${KEY_ALIAS:-mosarib_key}"
+            echo "STORE_PASSWORD=$STORE_PASSWORD"
+            echo "KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+          echo "has_keystore=true" >> "$GITHUB_OUTPUT"
+          echo "مفتاح الإصدار جاهز: ستُبنى نسخة إصدار موقّعة بمفتاح المشروع."
+
+      - name: Build the chosen variant
+        id: build
+        env:
+          HAS_KEYSTORE: ${{ steps.keystore.outputs.has_keystore }}
+        run: |
+          set -o pipefail
+          if [ "$HAS_KEYSTORE" = "true" ] && [ "$VARIANT_REQUEST" != "debug" ]; then
+            VARIANT=release
+            ./gradlew :app:assembleRelease --stacktrace 2>&1 | tee /tmp/gradle_package.log
+          else
+            VARIANT=debug
+            ./gradlew :app:assembleDebug --stacktrace 2>&1 | tee /tmp/gradle_package.log
+          fi
+          echo "variant=$VARIANT" >> "$GITHUB_OUTPUT"
+          echo "VARIANT=$VARIANT" >> "$GITHUB_ENV"
+
+      - name: Report build failures instead of silent exit code 1
+        if: failure()
+        run: |
+          while IFS= read -r line; do
+            echo "::error title=build::$line"
+          done < <(grep -nE "^e: |error:|What went wrong|Execution failed|> Task .*FAILED" /tmp/gradle_package.log | head -20 || true)
+          tail -40 /tmp/gradle_package.log || true
+
+      - name: Verify the signature of the built APK
+        run: |
+          set -euo pipefail
+          APK=$(find app/build/outputs/apk/${VARIANT} -name '*.apk' -print -quit)
+          if [ -z "$APK" ]; then
+            echo "::error title=package::لم يُنتج البناء أي APK في app/build/outputs/apk/${VARIANT}"
+            exit 1
+          fi
+          echo "APK=$APK" >> "$GITHUB_ENV"
+
+          SIGNER=$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -name apksigner | sort -V | tail -n 1)
+          $SIGNER verify --print-certs "$APK" > /tmp/apk_certs.txt
+          cat /tmp/apk_certs.txt
+
+          if [ "$VARIANT" = "release" ]; then
+            # نسخة الجمهور: ممنوع منعًا قاطعًا أن تكون موقّعة بمفتاح التطوير (قرار المالك).
+            if grep -q "CN=Android Debug" /tmp/apk_certs.txt; then
+              echo "::error title=signature::نسخة الإصدار موقّعة بمفتاح التصحيح — تُرفض ولا تُنشر"
+              exit 1
+            fi
+            echo "نسخة الإصدار موقّعة بمفتاح المشروع."
+          else
+            grep -q "CN=Android Debug" /tmp/apk_certs.txt || {
+              echo "::error title=signature::نسخة تجريبية بلا توقيع التطوير المتوقّع"
+              exit 1
+            }
+            echo "نسخة تجريبية موقّعة بمفتاح التطوير: للتجربة فقط، ولا تُوزَّع على الناس."
+          fi
+
+      - name: Package the APK with checksum and Arabic install notes
+        run: |
+          set -euo pipefail
+          VERSION_NAME=$(grep -m1 'versionName = ' app/build.gradle.kts | sed -E 's/.*versionName = "([^"]+)".*/\1/')
+          VERSION_CODE=$(grep -m1 'versionCode = ' app/build.gradle.kts | sed -E 's/.*versionCode = ([0-9]+).*/\1/')
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          NAME="baynana-${VARIANT}-v${VERSION_NAME}-${SHORT_SHA}"
+          mkdir -p dist
+          cp "$APK" "dist/${NAME}.apk"
+          (cd dist && sha256sum "${NAME}.apk" > "${NAME}.sha256.txt")
+
+          if [ "$VARIANT" = "release" ]; then
+            WARNING="هذه نسخة إصدار موقّعة بمفتاح المشروع."
+            KIND_NOTE="ثبّتها على هاتفك للتجربة الميدانية. لا تغيّر مفتاح التوقيع بعد أول توزيع حقيقي."
+          else
+            WARNING="تنبيه: هذه نسخة **تجريبية** موقّعة بمفتاح التطوير (debug)، وليست للنشر ولا للتوزيع على المزارعين."
+            KIND_NOTE="استخدمها للتجربة على جهازك فقط، ولا ترفعها إلى Google Play."
+          fi
+
+          cat > "dist/README-INSTALL.txt" <<TXT
+          بيننا — حزمة التطبيق
+          =====================
+          النوع: ${VARIANT}
+          الإصدار: ${VERSION_NAME} (${VERSION_CODE})
+          الدفعة: ${SHORT_SHA}
+          تاريخ البناء: $(date -u +"%Y-%m-%d %H:%M UTC")
+
+          ${WARNING}
+
+          طريقة التثبيت على أندرويد:
+          1) انقل ملف ${NAME}.apk إلى الهاتف، أو نزّله من الهاتف مباشرة من صفحة التشغيل.
+          2) افتح الملف، وإن ظهر تحذير «تثبيت من مصدر غير معروف» فاسمح به لهذه المرة.
+          3) إن كانت نسخة قديمة مثبّتة بنفس مفتاح التوقيع فسيُحدّثها مباشرة؛ وإن كان المفتاح
+             مختلفًا فسيطلب النظام إزالة القديمة أولًا (احتفظ بنسخة احتياطية قبل ذلك).
+
+          ${KIND_NOTE}
+
+          التحقق من سلامة الملف (اختياري، من جهاز حاسوب):
+            sha256sum -c ${NAME}.sha256.txt
+
+          ملاحظة: ملفات النسخ الاحتياطي في التطبيق تُكتب في مجلد التنزيلات باسم baynana_backup_…
+          TXT
+
+          (cd dist && zip -r "${NAME}.zip" "${NAME}.apk" "${NAME}.sha256.txt" "README-INSTALL.txt" >/dev/null)
+          echo "PACKAGE_NAME=${NAME}" >> "$GITHUB_ENV"
+          ls -lh dist
+          echo "=== محتوى الحزمة ==="
+          unzip -l "dist/${NAME}.zip"
+
+      - name: Summarise the download instructions
+        run: |
+          {
+            echo "## حزمة ${PACKAGE_NAME}"
+            echo ""
+            echo "| البند | القيمة |"
+            echo "|---|---|"
+            echo "| النوع | ${VARIANT} |"
+            echo "| المعرّف | com.baynana.app |"
+            echo "| الدفعة | ${GITHUB_SHA:0:7} |"
+            echo "| المفتاح | $([ "$VARIANT" = "release" ] && echo 'مفتاح المشروع' || echo 'مفتاح التطوير (تجريبي)') |"
+            echo ""
+            if [ "$VARIANT" = "debug" ]; then
+              echo "> **تنبيه:** هذه نسخة تجريبية موقّعة بمفتاح التطوير، للتجربة فقط وليست للنشر."
+              echo ""
+            fi
+            echo "### كيف تنزّل الملف؟"
+            echo "1. ابقَ في هذه الصفحة وانزل إلى قسم **Artifacts** في الأسفل."
+            echo "2. اضغط على \`${PACKAGE_NAME}\` لتُنزَّل الحزمة المضغوطة (ZIP)."
+            echo "3. فكّ الضغط، ثم افتح ملف APK على الهاتف واسمح بالتثبيت من مصدر غير معروف."
+            echo ""
+            echo "رابط مباشر لهذه الصفحة: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=الحزمة جاهزة::نزّل ${PACKAGE_NAME} من قسم Artifacts في أسفل صفحة التشغيل"
+
+      - name: Upload the package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          retention-days: 90
+          if-no-files-found: error
+          path: dist/*.zip
+
+      - name: Upload the raw APK as well
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}-apk-only
+          retention-days: 90
+          if-no-files-found: error
+          path: dist/*.apk
+
+      - name: Note about the trigger marker
+        if: github.event_name == 'push'
+        run: |
+          {
+            echo ""
+            echo "### ملاحظة عن إعادة التشغيل"
+            echo "شُغّل هذا البناء بوجود الملف \`.ci/build-package\`. ما دام موجودًا سيُعاد البناء مع كل"
+            echo "دفعة تلمسه. احذفه (دفعة صغيرة تحذفه) إن لم تكن تريد ذلك، أو شغّل البناء يدويًا من"
+            echo "تبويب Actions ← Run workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
