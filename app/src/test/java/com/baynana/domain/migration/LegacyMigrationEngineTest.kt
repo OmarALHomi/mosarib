@@ -219,6 +219,14 @@ class LegacyMigrationEngineTest {
     }
 
     @Test
+    fun `a negative legacy amount keeps its sign through the conversion, not inside the parser`() {
+        // المحلّل المالي يرفض السالب؛ فالتحويل يعمل على المقدار ثم تُعاد الإشارة.
+        assertEquals(30_000L, LegacyMigrationEngine.toMinor(-300.0, "YER_NEW"))
+        assertEquals(-30_000L, LegacyMigrationEngine.toMinorSigned(-300.0, "YER_NEW"))
+        assertEquals(30_000L, LegacyMigrationEngine.toMinorSigned(300.0, "YER_NEW"))
+    }
+
+    @Test
     fun `a nonsense legacy value is refused with a clear Arabic reason, never silently zeroed`() {
         var message = ""
         try {

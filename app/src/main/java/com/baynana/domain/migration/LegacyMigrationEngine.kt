@@ -286,7 +286,10 @@ object LegacyMigrationEngine {
     /** معرّف العملية: ثابت ومشتق، فهو حاجز منع الازدواج عند إعادة الترحيل. */
     fun operationIdOf(sessionId: Long): String = "legacy:session:$sessionId"
 
-    /** تحويل بإشارة: الدفع الزائد القديم يصبح رصيدًا دائنًا، ولا يُمرَّر السالب إلى المحلّل. */
+    /**
+     * تحويل بإشارة كاملة (للاستخدام الخارجي): الدفع الزائد القديم يصبح رصيدًا دائنًا.
+     * المحلّل المالي يرفض الأرقام السالبة عمدًا، فالإشارة تُطبَّق هنا بعد تحويل المقدار.
+     */
     fun toMinorSigned(legacyMajor: Double, currency: String): Long {
         val minor = toMinor(legacyMajor, currency)
         return if (legacyMajor < 0.0) -minor else minor
@@ -303,12 +306,16 @@ object LegacyMigrationEngine {
      * 3) ثم تمرّ من محلّل المال نفسه فيتحقق السقف والرمز.
      *
      * و**كل تقريب يُعدّ ويُعلن** في تقرير الترحيل، فلا يمرّ تعديل على أرقام الناس بلا إشعار.
+     *
+     * تُعيد **المقدار** (بلا إشارة) مع علم التقريب؛ الإشارة تُعالَج عند مستدعيها.
      */
     fun toMinorDetailed(legacyMajor: Double, currency: String): ConvertedAmount {
         require(!legacyMajor.isNaN() && !legacyMajor.isInfinite()) {
             "مبلغ قديم غير صالح ($legacyMajor): قيمة غير رقمية في الدفتر القديم"
         }
-        val exact = BigDecimal.valueOf(legacyMajor)
+        // المقدار المطلق عمدًا: `MoneyParser` يرفض السالب (فالأرقام السالبة لا تدخل المال)،
+        // والإشارة مسؤولية المستدعي عبر [toMinorSigned] أو المعالجة الصريحة للاتجاه.
+        val exact = BigDecimal.valueOf(kotlin.math.abs(legacyMajor))
         val units = when (val found = com.baynana.domain.money.Currency.fromCode(currency)) {
             null -> throw IllegalArgumentException("عملة غير معروفة: $currency")
             else -> found.minorUnits
