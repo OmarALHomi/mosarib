@@ -12,9 +12,10 @@ package com.baynana.domain.money
  * - لا تجاوز صامت: أي خروج عن [MAX_MINOR] يرفع [MoneyException].
  * - التقريب عند الضرب فقط، بسياسة واحدة معلنة: نصف لأعلى (HALF_UP) وبإشارة صحيحة.
  * - لا مبالغ سالبة: يُستخدم [negate] فقط للإلغاء العكسي الصريح في دفتر القيود.
+ * - الوحدة الصغرى [MinorUnits] هي نوع كل تخزين وحساب، والإرسال في الـAPI نصّي عبر [MoneyWire].
  */
 data class Money(
-    val minor: Long,
+    val minor: MinorUnits,
     val currency: Currency
 ) : Comparable<Money> {
 
@@ -59,7 +60,7 @@ data class Money(
     }
 
     /** الإلغاء العكسي الصريح: يقلب المبلغ لمقابلته في دفتر القيود (لا يُستعمل للإدخال). */
-    fun negate(): Long = -minor
+    fun negate(): MinorUnits = -minor
 
     // ------------------------------------------------------------ الاستعلام
 
@@ -72,12 +73,16 @@ data class Money(
         return minor.compareTo(other.minor)
     }
 
+    /** العرض بالريال مع رمز العملة (الكسر يُحذف إن كان صفرًا). */
     fun format(): String = MoneyFormat.format(this)
 
-    /** الوحدة الكاملة مع الكسور (مثل 12.50)، بلا فواصل آلاف. */
-    fun toPlainString(): String = MoneyFormat.toPlainString(this)
+    /** الوحدة الصغرى نصًّا: شكل التخزين والسلك. */
+    fun toMinorString(): String = MoneyFormat.toMinorString(this)
 
-    override fun toString(): String = "${toPlainString()} ${currency.code}"
+    /** الريال بلا فواصل آلاف، للطباعة والاستيراد. */
+    fun toPlainMajorString(): String = MoneyFormat.toPlainMajorString(this)
+
+    override fun toString(): String = "${toMinorString()} ${currency.code}"
 
     // ------------------------------------------------------------- داخلي
 
@@ -89,7 +94,7 @@ data class Money(
 
     companion object {
         /** حد أعلى وقائي: تريليون وحدة، يمنع تجاوزًا أو قيمة شاذة تُفسد الأرصدة. */
-        const val MAX_MINOR: Long = 1_000_000_000_000L
+        const val MAX_MINOR: MinorUnits = 1_000_000_000_000L
 
         /** مبلغ بالوحدة الكاملة (مثل 15000 ريال). */
         fun ofMajor(amount: Long, currency: Currency): Money {
@@ -102,21 +107,21 @@ data class Money(
             return Money(minor, currency)
         }
 
-        fun ofMinor(minor: Long, currency: Currency): Money = Money(minor, currency)
+        fun ofMinor(minor: MinorUnits, currency: Currency): Money = Money(minor, currency)
 
         fun zero(currency: Currency): Money = Money(0L, currency)
 
         /** يقرأ مبلغًا كتبه المستخدم؛ انظر [MoneyParser] لتفاصيل ما يُقبل وما يُرفض. */
         fun parse(input: String, currency: Currency): MoneyParse = MoneyParser.parse(input, currency)
 
-        private fun checkedAdd(left: Long, right: Long): Long = try {
+        private fun checkedAdd(left: MinorUnits, right: MinorUnits): MinorUnits = try {
             Math.addExact(left, right)
         } catch (_: ArithmeticException) {
             throw MoneyException("المبلغ أكبر من الحد المسموح")
         }
 
         /** ضرب مع تقريب HALF_UP بلا كسور عائمة: كل الحساب على صحيح 64-بت. */
-        internal fun roundedMultiply(value: Long, numerator: Long, denominator: Long): Long {
+        internal fun roundedMultiply(value: MinorUnits, numerator: Long, denominator: Long): MinorUnits {
             if (value == 0L || numerator == 0L) return 0L
             val product = try {
                 Math.multiplyExact(value, numerator)

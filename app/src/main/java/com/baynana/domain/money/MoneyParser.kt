@@ -3,6 +3,9 @@ package com.baynana.domain.money
 /**
  * قراءة المبالغ كما يكتبها الناس في اليمن: أرقام عربية أو لاتينية، وفواصل آلاف عربية أو
  * لاتينية، ومسافات. لا تخمين: ما لا يُفهم يُرفض برسالة صريحة، ولا يُقرَّب صامتًا.
+ *
+ * المدخل **بالريال** كما يكتبه المستخدم، والنتيجة **بالفلس** لأن التخزين كله بالوحدة الصغرى.
+ * الكسر مسموح بخانتين في كل العملات (فلسان)، وزيادة الخانتين تُرفض ولا تُقرَّب.
  */
 object MoneyParser {
 
@@ -45,9 +48,6 @@ object MoneyParser {
         val majorText = parts[0].ifEmpty { "0" }
         val fractionText = parts.getOrNull(1) ?: ""
 
-        if (fractionText.isNotEmpty() && currency.minorUnits == 0) {
-            return MoneyParse.Error("${currency.arabicName} لا يقبل كسورًا؛ اكتب مبلغًا صحيحًا")
-        }
         if (fractionText.length > currency.minorUnits) {
             return MoneyParse.Error("أكثر من ${currency.minorUnits} خانة عشرية مسموح به في ${currency.arabicName}")
         }
