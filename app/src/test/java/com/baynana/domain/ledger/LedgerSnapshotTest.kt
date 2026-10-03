@@ -154,17 +154,25 @@ class LedgerSnapshotTest {
         assertEquals("الباقي كامل", charged, snapshot.remainingMinor)
         assertEquals("والمقبوض معلن بجانبه", Money.ofMajor(2_000, Currency.YER_NEW).minor, snapshot.unappliedReceiptMinor)
         assertTrue("لا يُعلن الصفاء", !snapshot.isSettled)
+        // الملخّص يفصل الدين المفتوح عن الرصيد الدائن، ويُعلن عدد ما ينتظر الإقرار (القيدان هنا
+        // لم يُقرّا بعد، فكلاهما محسوب).
         assertEquals(
-            "الديون المفتوحة: 10,000 ر.ي • أرصدة دائنة معلّقة: 2,000 ر.ي",
+            "الديون المفتوحة: 10,000 ر.ي • أرصدة دائنة معلّقة: 2,000 ر.ي • في انتظار الإقرار: 2",
             StatementText.roomSummary(snapshot)
         )
     }
 
     @Test
     fun `the room summary separates open debts from credit balances`() {
-        val text = StatementText.roomSummary(goldenSnapshot())
+        val snapshot = goldenSnapshot()
+        val text = StatementText.roomSummary(snapshot)
         assertTrue(text.startsWith("الديون المفتوحة: 5,000 ر.ي"))
         assertTrue(text.contains("أرصدة دائنة معلّقة: 0 ر.ي"))
+        assertEquals(
+            "الديون المفتوحة: 5,000 ر.ي • أرصدة دائنة معلّقة: 0 ر.ي • في انتظار الإقرار: 3",
+            text
+        )
+        assertEquals(3, snapshot.awaitingAcknowledgement)
     }
 
     @Test
