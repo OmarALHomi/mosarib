@@ -202,8 +202,46 @@ interface LedgerDao {
         limit: Int = 20
     ): List<OutboxItem>
 
+    /**
+     * عناصر جاهزة للإرسال الآن فقط: حالتها قابلة للإرسال ولم يحن موعدها بعد فشل سابق.
+     * الترتيب بالإنشاء (الأقدم أولًا) فيُحفظ ترتيب الكتابة حتى مع الفشل.
+     */
+    @Query(
+        "SELECT * FROM outbox WHERE state IN (:states) AND nextAttemptAt <= :now " +
+            "ORDER BY createdAt ASC LIMIT :limit"
+    )
+    suspend fun dueOutboxBatch(
+        now: Long,
+        limit: Int = 20,
+        states: List<String> = listOf(OutboxState.PENDING, OutboxState.FAILED)
+    ): List<OutboxItem>
+
+    @Query(
+        "SELECT * FROM outbox WHERE state IN (:states) AND nextAttemptAt > :now " +
+            "ORDER BY nextAttemptAt ASC"
+    )
+    suspend fun deferredOutbox(
+        now: Long,
+        states: List<String> = listOf(OutboxState.PENDING, OutboxState.FAILED)
+    ): List<OutboxItem>
+
     @Query("UPDATE outbox SET state = :state, attempts = attempts + 1, lastError = :error, updatedAt = :updatedAt WHERE operationId = :operationId")
     suspend fun markOutbox(operationId: String, state: String, error: String, updatedAt: Long)
+
+    @Query(
+        "UPDATE outbox SET state = :state, attempts = attempts + 1, lastError = :error, " +
+            "nextAttemptAt = :nextAttemptAt, updatedAt = :updatedAt WHERE operationId = :operationId"
+    )
+    suspend fun markOutboxForRetry(
+        operationId: String,
+        state: String,
+        error: String,
+        nextAttemptAt: Long,
+        updatedAt: Long
+    )
+
+    @Query("UPDATE outbox SET state = :state, lastError = :error, updatedAt = :updatedAt WHERE operationId = :operationId")
+    suspend fun markOutboxFinal(operationId: String, state: String, error: String, updatedAt: Long)
 
     /** هل جُدول لهذا القيد إرسال؟ (يمنع حذف مسودة سبق أن غادرت الجهاز) */
     @Query("SELECT COUNT(*) FROM outbox WHERE entityId = :entityId")
@@ -224,6 +262,17 @@ interface LedgerDao {
 
     @Query("SELECT * FROM sync_state WHERE `key` = :key")
     suspend fun getSyncState(key: String): SyncState?
+
+    // ----------------------------------------------------------- حجر القبر
+
+    @Upsert
+    suspend fun upsertTombstone(tombstone: Tombstone)
+
+    @Query("SELECT COUNT(*) FROM tombstones WHERE entityId = :entityId")
+    suspend fun countTombstones(entityId: String): Int
+
+    @Query("SELECT * FROM tombstones ORDER BY deletedAt DESC")
+    fun observeTombstones(): Flow<List<Tombstone>>
 
     // ------------------------------------------------------ عمليات مركّبة
 

@@ -37,6 +37,7 @@ import com.baynana.data.local.ledger.LedgerRoom
 import com.baynana.data.local.ledger.OutboxItem
 import com.baynana.data.local.ledger.RoomMember
 import com.baynana.data.local.ledger.SyncState
+import com.baynana.data.local.ledger.Tombstone
 import androidx.room.AutoMigration
 import kotlinx.coroutines.launch
 
@@ -44,7 +45,7 @@ import kotlinx.coroutines.launch
  * إصدار قاعدة البيانات. ثابت على مستوى الملف لأن تعليق [Database] يحتاج قيمة وقت الترجمة،
  * ويقرأه اختبار الترحيلات ومحرّك النسخ الاحتياطي. لا يُنقص أبدًا، وأي زيادة تحتاج ترحيلًا.
  */
-const val DATABASE_VERSION = 8
+const val DATABASE_VERSION = 9
 
 @Database(
     entities = [
@@ -65,7 +66,9 @@ const val DATABASE_VERSION = 8
         EntryAllocation::class,
         Acknowledgement::class,
         OutboxItem::class,
-        SyncState::class
+        SyncState::class,
+        // ح٦: حجر القبر يمنع عودة كيان مُغلق عن بعد من ذاكرة قديمة.
+        Tombstone::class
     ],
     version = DATABASE_VERSION,
     // تصدير المخطط إلزامي: بدونه لا يمكن اختبار الترحيلات ولا مقارنة الإصدارات قبل النشر.
@@ -75,7 +78,8 @@ const val DATABASE_VERSION = 8
     // غير مطابق. الاختبار يبني قاعدة **إصدار 6 حقيقية** ويرقّيها إلى الحالي، فيمرّ بالسلسلة كلها.
     autoMigrations = [
         AutoMigration(from = 6, to = 7),
-        AutoMigration(from = 7, to = 8)
+        AutoMigration(from = 7, to = 8),
+        AutoMigration(from = 8, to = 9)
     ]
 )
 @TypeConverters(Converters::class)
@@ -216,10 +220,10 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
-         * الترحيلات اليدوية من 1 إلى 6. أما 6→7 (ح٣) و7→8 (ح٤) فـ**تلقائية** يولّدها Room من
-         * فرق المخططات، فليست من هذه القائمة؛ انظر [AUTO_MIGRATION_RANGES].
+         * الترحيلات اليدوية من 1 إلى 6. أما 6→7 (ح٣) و7→8 (ح٤) و8→9 (ح٦) فـ**تلقائية** يولّدها
+         * Room من فرق المخططات، فليست من هذه القائمة؛ انظر [AUTO_MIGRATION_RANGES].
          */
-        val AUTO_MIGRATION_RANGES: List<Pair<Int, Int>> = listOf(6 to 7, 7 to 8)
+        val AUTO_MIGRATION_RANGES: List<Pair<Int, Int>> = listOf(6 to 7, 7 to 8, 8 to 9)
 
         /**
          * كل الترحيلات اليدوية بترتيب تصاعدي، متاحة للاختبار. أي إصدار جديد يجب أن يضيف

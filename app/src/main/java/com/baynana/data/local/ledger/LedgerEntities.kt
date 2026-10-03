@@ -242,8 +242,31 @@ data class OutboxItem(
     val state: String = OutboxState.PENDING,
     val attempts: Int = 0,
     val lastError: String = "",
+    /**
+     * أقرب وقت يجوز فيه إعادة المحاولة (backoff أسّي). القيمة الافتراضية في المخطط ضرورية
+     * ليصحّ الترحيل التلقائي على قواعد قائمة فيها صفوف.
+     */
+    @androidx.room.ColumnInfo(defaultValue = "0") val nextAttemptAt: Long = 0L,
     val createdAt: Long,
     val updatedAt: Long
+)
+
+/**
+ * حجر قبر: كيان أُغلق أو حُذف عن بعد. وجوده يمنع عودة السجل من ذاكرة قديمة أو من إعادة تسليم
+ * متأخرة (الخطة §6.2). ولا يُحذف الصف الأصلي من الجداول أبدًا: الأثر التاريخي يبقى، والحجر يمنع
+ * اعتباره نشطًا.
+ */
+@Entity(
+    tableName = "tombstones",
+    indices = [Index("entityType"), Index("deletedAt")]
+)
+data class Tombstone(
+    @androidx.room.PrimaryKey val entityId: String,
+    val entityType: String,
+    val operationId: String,
+    val reason: String = "",
+    val deletedAt: Long,
+    val recordedAt: Long
 )
 
 /** مؤشر المزامنة لكل مجموعة أو غرفة: يمنع إعادة تنزيل التاريخ كاملًا. */
