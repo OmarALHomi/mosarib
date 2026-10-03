@@ -54,14 +54,13 @@ class SyncWorker(
             "summary" to report.summaryText()
         )
 
-        // مخرجات الجولة تُثبَّت على العمل نفسه، فتُقرأ من شاشة الحالة بلا إعادة حساب.
-        setOutputData(output)
-
         return when {
             // عناصر «ميتة» تحتاج تدخل المستخدم: لا فائدة من إعادة العمل، والحالة تُعرض في الشاشة.
-            report.dead > 0 -> Result.success()
+            report.dead > 0 -> Result.success(output)
+            // إعادة المحاولة لا تحمل مخرجات (Result.retry بلا وسائط)، والحالة تُقرأ من القاعدة
+            // عبر SyncStatusReader: المنتظر والفاشل والميت وموعد المحاولة القادمة.
             report.stoppedForRetry -> Result.retry()
-            else -> Result.success()
+            else -> Result.success(output)
         }
     }
 }
