@@ -87,7 +87,7 @@ class DealRepositoryTest {
     private fun listing(state: String = ListingState.OPEN, holder: String? = null) =
         DealEngine.ListingSnapshot(id = "listing-1", state = state, reservedByDealId = holder)
 
-    private fun opened(dealId: String = "deal-1"): DealRepository.OpenOutcome {
+    private suspend fun opened(dealId: String = "deal-1"): DealRepository.OpenOutcome {
         val result = repository.open(draft(id = dealId), listing())
         assertTrue("الصلح يجب أن يُفتح: $result", result is DealRepository.OpenResult.Opened)
         return (result as DealRepository.OpenResult.Opened).outcome

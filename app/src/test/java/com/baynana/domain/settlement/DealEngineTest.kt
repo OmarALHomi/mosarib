@@ -178,7 +178,7 @@ class DealEngineTest {
             draft().copy(
                 totalMinor = 500_000L,
                 advanceMinor = 0L,
-                count = 1,
+                installmentCount = 1,
                 commission = CommissionEngine.Policy(
                     payer = CommissionPayer.SELLER,
                     rateBasisPoints = 2_000
@@ -197,7 +197,7 @@ class DealEngineTest {
             draft().copy(
                 totalMinor = 500_000L,
                 advanceMinor = 490_000L,
-                count = 1,
+                installmentCount = 1,
                 commission = CommissionEngine.Policy(payer = CommissionPayer.SELLER, rateBasisPoints = 500)
             )
         )
