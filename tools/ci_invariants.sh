@@ -118,4 +118,21 @@ if [ -n "$LEGACY_PALETTE_HITS" ]; then
 fi
 echo "OK: لا Double ولا Float في واجهة التصميم الجديدة، واللوحة القديمة محصورة في جسر واحد"
 
+# 9) لا تكرار لأسماء الموارد داخل المجلد نفسه (مثل `ic_launcher_foreground.png` و`.xml` معًا).
+#    سبب الحاجز: هذه الأخطاء لا تظهر في المحرّر، بل تُفشل دمج الموارد في البناء/الاختبارات
+#    برسالة «Duplicate resources» — وقد كلفتنا دورة CI كاملة مرة.
+RES_DUPLICATES=""
+while IFS= read -r dir; do
+  dup=$(ls "$dir" 2>/dev/null | sed 's/\.[^.]*$//' | sort | uniq -d)
+  if [ -n "$dup" ]; then
+    RES_DUPLICATES="$RES_DUPLICATES$dir: $(echo "$dup" | tr '\n' ' ')\n"
+  fi
+done < <(find app/src/main/res -maxdepth 1 -type d \( -name "drawable*" -o -name "mipmap*" \) | sort)
+if [ -n "$RES_DUPLICATES" ]; then
+  echo "FAIL: اسم مورد مكرر في المجلد نفسه (دمج الموارد سيفشل):"
+  printf "%b" "$RES_DUPLICATES"
+  exit 1
+fi
+echo "OK: لا تكرار لأسماء الموارد في مجلدات drawable/mipmap"
+
 echo "كل الحواجز سليمة."
