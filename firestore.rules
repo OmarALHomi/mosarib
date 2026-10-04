@@ -1,91 +1,257 @@
 rules_version = '2';
+
+// ============================================================================
+// قواعد Firestore لبيننا — رفض افتراضي (ح١٥، مراجعة المخاطر §8)
+// ============================================================================
+//
+// القاعدة الأولى والأخيرة: **ما لا يُسمح به نصًّا مرفوض**. لا يوجد أي `if true` على مجموعة تحمل
+// بيانات أشخاص، ولا قراءة عامة لكشف أو دين أو هاتف أو اشتراك.
+//
+// ما كان قبل هذا الملفّ (SEC-01):
+//   `subscriptions` و`users` و`musrib_links` و`musrib_entries` كانت `allow read: if true` —
+//   أي أن مجهولًا يقرأ اشتراكات الناس وأكواد توليدها وحركات الري بينهم بديونها وأرقامهم.
+//   وقد صار كل ذلك: للأطراف وحدهم، أو للأدمن.
+//
+// قرار موثّق (ح١٥): **المرايا السحابية القديمة (`musrib_links`, `musrib_entries`, `deals`,
+// `listings`, `marketing_requests`) مُجمَّدة للعميل**: لا كتابة من جهاز ولا قراءة لغير الأدمن.
+// السبب أن نموذجها لا يسجّل أطرافًا مُثبَّتين (كود الربط وحده كان يفتح كل شيء)، فإصلاحها بـ«نصف
+// ثقة» يبقي الثغرة. البديل المنفَّذ في ح٣/ح٦/ح٩ موجود: غرف بأطراف مُعلنة، وسوق بعرض عام منزوع
+// الرقم، وترخيص موقّع. والمزامنة السحابية الجديدة تمرّ من `rooms/*` و`market/*` و`licenses/*`.
+//
+// الأدمن: بادعاء `admin` يُصدره الخادم (لا بالبريد ولا بالحقل في الوثيقة). ورشة الإصدار:
+// `tools/set_admin_claim.mjs` — يُشغَّل مرة بمفتاح الخدمة المحفوظ عند المالك وحده.
+// ============================================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isAuthenticated() {
+    // ---------------------------------------------------------------- أدوات مشتركة
+
+    function isSignedIn() {
       return request.auth != null;
     }
 
     function isAdmin() {
-      return isAuthenticated() && (
-        request.auth.token.email == "mralhwmy@gmail.com"
-      );
+      return isSignedIn() && request.auth.token.admin == true;
     }
 
-    function isOwner(uid) {
-      return isAuthenticated() && request.auth.uid == uid;
+    function isMe(uid) {
+      return isSignedIn() && request.auth.uid == uid;
     }
 
-    // 1. Subscriptions: Only Admin can write or alter subscriptions
-    // Anyone authenticated can read their own device subscription
-    match /subscriptions/{deviceCode} {
-      allow read: if true; // Devices check their license status
-      allow write: if isAdmin();
+    /** وثيقة الغرفة كما هي في القاعدة (قراءة واحدة تُقرأ منها العضوية). */
+    function roomData(roomId) {
+      return get(/databases/$(database)/documents/rooms/$(roomId)).data;
     }
 
-    // 2. System Config & Dynamic Limits: Only Admin can write
-    match /system_config/{configId} {
-      allow read: if true; // App reads launch limits and general configuration
-      allow write: if isAdmin();
+    function isRoomMember(roomId) {
+      return isSignedIn() && request.auth.uid in roomData(roomId).memberUids;
     }
 
-    // 3. User Profiles & Verification
-    match /users/{userId} {
-      allow read: if true;
-      // Users can update their personal profile info, but CANNOT self-verify or change accountStatus
-      allow create: if isOwner(userId);
-      allow update: if isAdmin() || (
-        isOwner(userId) && 
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isVerified', 'accountStatus', 'suspendedReason'])
-      );
-      allow delete: if isAdmin();
+    /** الحقول التي تغيّرت بين الحالة الحالية والقادمة. */
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
     }
 
-    // 4. Musrib-Farmer Irrigation Links
-    match /musrib_links/{linkCode} {
-      // Readable by anyone with the linkCode (Musrib & Farmer)
-      allow read: if true;
-      // Created and updated by the Musrib who owns it
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
-    }
+    // ---------------------------------------------------------------- المستخدمون
 
-    // 5. Musrib Entries (Water Sessions + Vouchers FIFO)
-    match /musrib_entries/{linkCode}/entries/{entryId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
-    }
+    // الملفّ الشخصي: صاحبه يقرأه. وحقول الثقة (توثيق، حالة حساب، حظر، دور، اشتراك) لا يكتبها
+    // العميل أبدًا — لا هو ولا غيره؛ يكتبها الأدمن أو الخادم. هذا هو رفض «رفع الحظر عن النفس».
+    match /users/{uid} {
+      allow read: if isMe(uid) || isAdmin();
 
-    // 6. Crop Listings (Harvest Market)
-    match /listings/{listingId} {
-      allow read: if true; // Public market
-      allow create: if isAuthenticated();
-      // Only publisher or Admin can update/delete
-      allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.dallal_uid == request.auth.uid);
-    }
+      allow create: if isMe(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.isVerified == false
+        && request.resource.data.accountStatus == 'ACTIVE';
 
-    // 7. Settlement Deals & Installments
-    match /deals/{dealId} {
-      // Readable by parties of the deal (Dallal, Farmer, Buyer) or Admin
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
+      allow update: if isAdmin() || (isMe(uid)
+        && !changedKeys().hasAny([
+          'isVerified', 'accountStatus', 'suspendedReason',
+          'role', 'roles', 'blocked', 'blockedReason', 'subscription'
+        ]));
+
       allow delete: if isAdmin();
 
-      match /payments/{paymentId} {
-        allow read, write: if isAuthenticated();
+      // الأجهزة الموثوقة: بلا أسرار — معرّفات وأسماء فقط، ولا يقرؤها إلا صاحبها.
+      match /devices/{deviceId} {
+        allow read: if isMe(uid) || isAdmin();
+        allow create, update: if isMe(uid) && request.resource.data.deviceId == deviceId;
+        allow delete: if isMe(uid) || isAdmin();
       }
     }
 
-    // 8. Marketing Requests (Farmer -> Dallal)
-    match /marketing_requests/{requestId} {
-      allow read, write: if isAuthenticated();
+    // ---------------------------------------------------------------- الترخيص
+
+    // الاستحقاق الموقّع: يُقرأ لصاحبه (ليلتقطه جهازه)، ولا يكتبه العميل إطلاقًا — لا هو ولا
+    // غيره. الكتابة من المالك/الخادم وحدهما، فمحاولة تمديد الاشتراك من الجهاز تُرفض هنا.
+    match /licenses/{uid} {
+      allow read: if isMe(uid) || isAdmin();
+      allow write: if isAdmin();
     }
 
-    // 9. Abuse Reports
-    match /reports/{reportId} {
-      allow create: if true;
+    // الاشتراكات القديمة: كانت مقروءة للعامة (كشف أكواد واشتراكات الناس). الآن: الأدمن فقط،
+    // وصاحب الجهاز إن كان الجهاز مربوطًا بحسابه (uid مكتوب في الوثيقة).
+    match /subscriptions/{deviceCode} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow write: if isAdmin();
+    }
+
+    // حدود الإطلاق: الوثيقة `limits` وحدها مقروءة عامة (أرقام بلا أشخاص، والتطبيق يحتاجها
+    // بلا حساب)، وما عداها لا. والكتابة للأدمن وحده.
+    match /system_config/{configId} {
+      allow read: if configId == 'limits' || isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // سجلّ التدقيق: قراءة وكتابة للأدمن، ولا تعديل ولا حذف — سجلٌّ يُعدَّل ليس سجلًّا.
+    match /admin_audit/{entryId} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // ---------------------------------------------------------------- الغرف والدفتر
+
+    // الغرفة تُفتح بقبول الطرفين: تُنشأ `PENDING` بعضوية معلنة، ولا تُقرأ إلا لأعضائها،
+    // والأطراف والعملة والنوع لا تُعدَّل بعد الإنشاء.
+    match /rooms/{roomId} {
+      allow read: if isAdmin() || isRoomMember(roomId);
+
+      allow create: if isSignedIn()
+        && request.auth.uid in request.resource.data.memberUids
+        && request.resource.data.memberUids.size() >= 2
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.status == 'PENDING';
+
+      allow update: if isAdmin() || (isRoomMember(roomId)
+        && !changedKeys().hasAny(['memberUids', 'currency', 'kind', 'createdByUid', 'linkCode'])
+        && request.resource.data.status in ['PENDING', 'ACTIVE', 'CLOSED', 'REJECTED']);
+
+      allow delete: if false;
+
+      // القيد: يُنشئه عضو الغرفة باسمه هو، ويبقى المبلغ والطرفان ومعرّف العملية غير قابلة
+      // للتغيير بعد الكتابة (تصحيح المال بقيد عكسي لا بتعديل صامت)، ولا يُحذف صفّ أبدًا.
+      match /entries/{entryId} {
+        allow read: if isAdmin() || isRoomMember(roomId);
+
+        allow create: if isRoomMember(roomId)
+          && request.resource.data.roomId == roomId
+          && request.resource.data.createdByMemberId == request.auth.uid
+          && request.resource.data.amountMinor is int
+          && request.resource.data.amountMinor > 0
+          && request.resource.data.currency is string;
+
+        allow update: if isAdmin() || (isRoomMember(roomId)
+          && !changedKeys().hasAny([
+            'amountMinor', 'currency', 'owedByMemberId', 'owedToMemberId',
+            'operationId', 'createdByMemberId', 'roomId', 'type'
+          ]));
+
+        // لا حذف قيد شارك فيه طرف ثانٍ: الإلغاء بقيد عكسي يراه الاثنان (قرار موثّق).
+        allow delete: if false;
+
+        // الإقرار/الاعتراض/طلب التعديل: كل عضو يكتب قراره هو فقط، بمعرّفه هو.
+        match /acks/{ackUid} {
+          allow read: if isAdmin() || isRoomMember(roomId);
+          allow create, update: if isMe(ackUid) && isRoomMember(roomId);
+          allow delete: if false;
+        }
+      }
+
+      // الصلح داخل الغرفة: أطرافه أعضاء فيها، ولا يُحذف (الفسخ بقيد عكسي وحالة معلنة).
+      match /deals/{dealId} {
+        allow read: if isAdmin() || isRoomMember(roomId);
+        allow create: if isRoomMember(roomId)
+          && request.auth.uid in request.resource.data.partyUids;
+        allow update: if isAdmin() || (isRoomMember(roomId)
+          && request.auth.uid in resource.data.partyUids
+          && !changedKeys().hasAny(['partyUids', 'roomId', 'totalAmountMinor', 'currency', 'createdByMemberId']));
+        allow delete: if false;
+      }
+    }
+
+    // ---------------------------------------------------------------- السوق العام
+
+    // العرض العام: لا هاتف مزارع ولا مبلغ دين — والرفض على **الوثيقة نفسها** عند الكتابة،
+    // فلا يعتمد الأمر على الشاشة. والنشر ليس بيد صاحب العرض: الحالة `PUBLISHED` يضعها
+    // الأدمن بعد مصادقة على مراجعة بعينها (ح٩)، والمالك ينشئ مسودة ويعدّلها فقط.
+    match /market/listings/{listingId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.ownerUid == request.auth.uid)
+        || (resource.data.status == 'PUBLISHED' && resource.data.hasPublicProjection == true);
+
+      allow create: if isSignedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.status == 'DRAFT'
+        && !request.resource.data.keys().hasAny(['farmerPhone', 'farmer_phone', 'phone', 'debtAmountMinor', 'debtMinor']);
+
+      allow update: if isAdmin() || (isSignedIn()
+        && resource.data.ownerUid == request.auth.uid
+        && !changedKeys().hasAny(['ownerUid', 'status', 'hasPublicProjection', 'moderationRevision'])
+        && !request.resource.data.keys().hasAny(['farmerPhone', 'farmer_phone', 'phone', 'debtAmountMinor', 'debtMinor']));
+
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.ownerUid == request.auth.uid);
+
+      // طلب التسويق: صاحبه ينشئه، والدلال المخوَّل يقرّره — ولا يقرؤه غيرهما.
+      match /requests/{requestId} {
+        allow read: if isAdmin()
+          || (isSignedIn() && (resource.data.requesterUid == request.auth.uid
+            || resource.data.targetUid == request.auth.uid));
+        allow create: if isSignedIn()
+          && request.resource.data.requesterUid == request.auth.uid
+          && request.resource.data.status == 'PENDING';
+        allow update: if isAdmin()
+          || (isSignedIn() && (resource.data.targetUid == request.auth.uid
+            || resource.data.requesterUid == request.auth.uid)
+            && !changedKeys().hasAny(['requesterUid', 'targetUid', 'listingId']));
+        allow delete: if false;
+      }
+    }
+
+    // ---------------------------------------------------------------- الصلح القديم
+
+    // مرآة الصلح القديمة: مُجمَّدة للعميل (انظر رأس الملفّ). وقراءتها/كتابتها للأدمن وحده،
+    // لأن نموذجها لا يحمل أطرافًا مُثبَّتين، وأي فتح جزئي هنا يعيد ثغرة SEC-01.
+    match /deals/{dealId} {
       allow read, write: if isAdmin();
+
+      match /payments/{paymentId} {
+        allow read, write: if isAdmin();
+      }
+    }
+
+    // ---------------------------------------------------------------- الباقي القديم
+
+    // كل ما يلي مُجمَّد للعميل أيضًا، بنفس السبب: نموذج قائم على «من يعرف الكود يقرأ».
+    // القرار موثّق في رأس الملفّ، والبديل الجديد هو `rooms/*` و`market/listings/*`.
+    match /musrib_links/{linkCode} {
+      allow read, write: if isAdmin();
+    }
+
+    match /musrib_entries/{linkCode}/entries/{entryId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /listings/{listingId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /marketing_requests/{requestId} {
+      allow read, write: if isAdmin();
+    }
+
+    // البلاغات: أي مستخدم مسجَّل يبلّغ (وهذا حقّه)، ولا يقرأها إلا الأدمن، ولا تُعدَّل ولا تُحذف.
+    match /reports/{reportId} {
+      allow create: if isSignedIn()
+        && request.resource.data.reporterUid == request.auth.uid;
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // سقوط إلى الرفض: توثيقٌ للقاعدة لا حماية إضافية (Firestore يجمع المطابقات بـ«أي سماح»
+    // ثم يرفض ما لم يُسمح له). فائدة السطر أنه يجعل «لا قاعدة = رفض» مكتوبة لا مُفترضة.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

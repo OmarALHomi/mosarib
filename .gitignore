@@ -16,3 +16,11 @@ debug.keystore
 keystore.properties
 .vscode/
 /versions
+# أدوات Node (تُثبَّت بـ`npm install --prefix tools` ولا تُرفع)
+tools/node_modules/
+node_modules/
+package-lock.json
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

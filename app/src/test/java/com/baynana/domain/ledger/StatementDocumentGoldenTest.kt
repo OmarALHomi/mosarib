@@ -20,7 +20,7 @@ class StatementDocumentGoldenTest {
         id: String,
         type: String = EntryType.WATER_SESSION,
         description: String = "سقية 5 ساعات",
-        direction: String = LineDirection.CHARGE,
+        direction: LineDirection = LineDirection.CHARGE,
         amountMinor: Long,
         allocatedMinor: Long = 0,
         remainingMinor: Long = amountMinor,

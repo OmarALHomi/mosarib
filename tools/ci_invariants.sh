@@ -264,4 +264,25 @@ if [ -f tools/license_keygen.html ]; then
   pass "صفحة توليد المفاتيح بلا إنترنت وبلا إسناد HTML"
 fi
 
+# 16) قواعد Firestore: لا قراءة عامة، ولا صلاحية مطلقة لحساب مسجَّل، وحالات §8.2 محفوظة.
+#     سبب الحاجز: العيب الذي أغلقه SEC-01 كان سطرًا واحدًا — `allow read: if true` على مجموعة
+#     فيها أكواد الناس واشتراكاتهم. وهذه الفحوص نصّية صريحة تعمل حتى بلا شبكة وبلا محاكي؛
+#     والفحص السلوكي الكامل على المحاكي في tools/firestore_rules_test.mjs.
+if [ -f firestore.rules ]; then
+  RULES_CODE=$(sed -E 's://.*$::' firestore.rules)
+  if echo "$RULES_CODE" | grep -qE "if[[:space:]]+true[[:space:]]*;"; then
+    fail "قاعدة Firestore فيها \`if true\`: لا قراءة عامة لبيانات أشخاص."
+  fi
+  if echo "$RULES_CODE" | grep -q "allow read, write: if isSignedIn();"; then
+    fail "قاعدة Firestore تمنح أي حساب مسجَّل قراءة وكتابة مطلقًا."
+  fi
+  for needed in "match /licenses/{uid}" "match /rooms/{roomId}" "match /market/listings/{listingId}" "allow delete: if false;"; do
+    echo "$RULES_CODE" | grep -qF "$needed" || fail "قواعد Firestore فقدت \"$needed\" (منع تمديد الاستحقاق/حذف القيود/نشر بلا مصادقة)."
+  done
+  if ! grep -q "set_admin_claim" firestore.rules; then
+    fail "رأس قواعد Firestore يجب أن يذكر أداة الادعاء (tools/set_admin_claim.mjs) فلا يُنسى الإعداد."
+  fi
+  pass "قواعد Firestore: رفض افتراضي بلا قراءة عامة ولا صلاحية مطلقة"
+fi
+
 echo "كل الحواجز سليمة."

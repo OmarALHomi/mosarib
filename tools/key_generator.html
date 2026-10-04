@@ -1854,6 +1854,32 @@
       }
     }
 
+    /**
+     * الادعاء (claim) هو صلاحية الأدمن الوحيدة: قواعد Firestore لا تعرف البريد ولا اسم الحساب،
+     * بل تقرأ `token.admin`. ومن يدخل بحسابه بلا هذا الادعاء يرى اللوحة لكن كل عملية سحابية
+     * تُرفض — وهذا سلوك صحيح لكنه محيّر، فنقولها صراحة في الشريط مع زرّ تحديث الرمز.
+     */
+    async function refreshAdminClaim(pill, text) {
+      if (!currentUser) return;
+      try {
+        const token = await currentUser.getIdTokenResult(true);
+        if (token.claims && token.claims.admin === true) {
+          text.innerText = "متصل (أدمن موثّق)";
+          return;
+        }
+        text.innerText = "متصل بلا ادعاء أدمن";
+        showGlassToast(
+          "ينقص ادعاء الأدمن",
+          "هذا الحساب مسجَّل دخول لكنه لا يحمل ادعاء admin، فترفض قواعد Firestore عملياته. " +
+            "شغّل tools/set_admin_claim.mjs مرة واحدة، ثم اضغط هنا لتحديث الصلاحية.",
+          "error"
+        );
+        pill.onclick = () => refreshAdminClaim(pill, text);
+      } catch (e) {
+        text.innerText = "تعذّر قراءة الصلاحية";
+      }
+    }
+
     function updateAuthUI(user) {
       const dot = document.getElementById("authDot");
       const text = document.getElementById("authStatusText");
@@ -1868,6 +1894,7 @@
             showGlassToast("خروج", "تم تسجيل الخروج بنجاح", "info");
           }
         };
+        refreshAdminClaim(pill, text);
       } else {
         dot.classList.remove("online");
         text.innerText = "دخول الأدمن";

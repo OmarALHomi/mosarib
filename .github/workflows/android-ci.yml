@@ -53,6 +53,44 @@ jobs:
             echo "::warning title=LICENSE::بيئة بلا node — يُخطّى اختبار الموقّع (ويبقى اختبار المتجه الذهبي في Kotlin)"
           fi
 
+      # حاجز بنية قواعد Firestore: يعمل بلا شبكة ولا محاكي، ويكشف القراءة العامة (`if true`)
+      # واختفاء حالات §8.2 من المصفوفة (ح١٥)
+      - name: Guard Firestore rules structure (deny-by-default, §8.2 matrix present)
+        run: |
+          if command -v node >/dev/null 2>&1; then
+            node tools/rules_guard.mjs
+          else
+            echo "::warning title=RULES::بيئة بلا node — يُخطّى الحاجز البنيوي (ويبقى الحاجز النصّي في ci_invariants)"
+          fi
+
+      # مصفوفة قواعد Firestore على المحاكي الحقيقي: ٣٥ حالة رفض وشواهد سماح (ح١٥، §8.2)
+      - name: Install Firestore rules tooling (emulator + rules test kit)
+        id: rules_tools
+        continue-on-error: true
+        run: |
+          npm install --prefix tools --no-audit --no-fund 2>&1 | tail -5
+
+      - name: Firestore rules matrix (on the emulator)
+        id: rules_matrix
+        continue-on-error: true
+        run: |
+          if [ ! -x tools/node_modules/.bin/firebase ]; then
+            echo "::error title=rules::أدوات المحاكي غير مثبّتة — تعذّر تشغيل مصفوفة §8.2 لقواعد Firestore"
+            exit 1
+          fi
+          set -o pipefail
+          tools/node_modules/.bin/firebase emulators:exec --only firestore --project demo-baynana \
+            "node tools/firestore_rules_test.mjs" 2>&1 | tee /tmp/rules_matrix.log
+
+      - name: Report rules matrix failures
+        if: steps.rules_matrix.outcome == 'failure'
+        run: |
+          while IFS= read -r line; do
+            echo "::error title=rules::$line"
+          done < <(grep -nE "AssertionError|Error:|error:|Expected|PERMISSION_DENIED|missing|rules" /tmp/rules_matrix.log | head -25 || true)
+          echo "=== آخر 40 سطرًا ==="
+          tail -40 /tmp/rules_matrix.log
+
       # الخطوات التالية تُبقي خرج Gradle في ملف، ثم تُعلن الأخطاء كتعليقات (annotations) على
       # الدفعة. السبب: تفاصيل الأخطاء يجب أن تكون مقروءة من واجهة الفحص دون تنزيل سجلات كاملة،
       # وهذا ما تعتمد عليه المراجعة الآلية في هذه المرحلة.
@@ -167,7 +205,7 @@ jobs:
           PY
 
       - name: Fail the job if any stage failed
-        if: steps.unit_tests.outcome != 'success' || steps.lint.outcome == 'failure' || steps.assemble.outcome == 'failure'
+        if: steps.unit_tests.outcome != 'success' || steps.lint.outcome == 'failure' || steps.assemble.outcome == 'failure' || steps.rules_matrix.outcome == 'failure'
         run: |
           echo "فشل أحد أطوار البناء. راجع التعليقات (annotations) أعلاه."
           exit 1

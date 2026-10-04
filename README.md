@@ -65,10 +65,10 @@
 app/src/main/java/com/baynana/
 ├── MainActivity.kt / MainScreen.kt    دخول، قفل، تنقّل يدوي
 ├── core/
-│   ├── database/                     Room + ترحيلات 1–6
-│   ├── license/                      تفعيل محلي متعدد الأدوار (يحتاج تقوية)
+│   ├── database/                     Room + ترحيلات 1–6 يدوية ثم 6→12 تلقائية
+│   ├── license/                      ترخيص: تصريح موقّع (ECDSA) ومنع استرداد متكرر (ح١٣)
 │   ├── security/                     قفل بصمة/قفل الهاتف وربط جهاز
-│   ├── sync/                         ري، سوق، صلوح — Firestore
+│   ├── sync/                         المرايا السحابية القديمة (مُجمَّدة للعميل في ح١٥)
 │   ├── ui/                           مكونات مشتركة
 │   └── util/                         تنسيق، PDF، نسخ، Drive، مشاركة
 ├── features/
@@ -77,15 +77,36 @@ app/src/main/java/com/baynana/
 │   └── home / settings / splash / about
 └── ui/theme/                         Material 3 + Cairo + RTL
 
-tools/key_generator.html              لوحة أدمن ويب أولية
-firestore.rules                       قواعد مقترحة في المستودع، ليست إثباتًا لنشرها
+tools/key_generator.html              لوحة الأدمن: عقود، ترخيص موقّع، سجل تدقيق، رقابة سوق
+tools/license_keygen.html             توليد زوج مفاتيح التصاريح (بلا إنترنت مطلقًا)
+tools/ci_invariants.sh                حواجز القرارات الثابتة (تعمل محليًا وفي CI)
+tools/admin_console_test.mjs          اختبار XSS للوحة الأدمن
+tools/license_signer_test.mjs         اختبار موقّع التصاريح + المتجه الذهبي للتطبيق
+tools/rules_guard.mjs                 حاجز بنية قواعد Firestore (بلا شبكة)
+tools/firestore_rules_test.mjs        مصفوفة §8.2 على محاكي Firestore
+tools/set_admin_claim.mjs             منح ادعاء الأدمن (مرة واحدة، بمفتاح خارج المستودع)
+firestore.rules                       قواعد مفروضة: رفض افتراضي، ومصفوفة §8.2 تحرسها في CI
 ```
 
 - Kotlin · Jetpack Compose · Room · Coroutines/Flow · Firebase.
-- قاعدة البيانات: `water_distributor_db`، الإصدار **6**، عشر جداول حاليًا.
+- قاعدة البيانات: `water_distributor_db`، الإصدار **12**، ٢٧ جدولًا (الجداول العشرة القديمة + الدفتر المشترك والصلح والسوق والترخيص)، وكل ترقية لها مخطط مُصدَّر واختبار ترحيل حقيقي.
 - الهوية المعتمدة (قرار المالك 2026-10-03): الاسم **«بيننا»**، والعنوان **«مستودع حساباتك ومعاملاتك»**، ومعرّف التطبيق `com.baynana.app`. لم يكن التطبيق مثبّتًا لأي مستخدم قبل هذا القرار، وهذا آخر وقت جاز فيه التغيير: بعده لا يُغيَّر المعرّف ولا مفتاح التوقيع أبدًا.
 - اسم قاعدة البيانات يبقى `water_distributor_db`، ومساحة الأسماء في الكود صارت `com.baynana` (ح١ من الخطة، نُفِّذت بلا تغيير سلوكي).
 - أول تشغيل يهيئ إعدادات ومضخة بداية، ولا يضيف ديونًا أو جلسات تجريبية لدفاتر المستخدم.
+
+## التحقق المحلي (بلا جهاز Android)
+
+```bash
+./tools/ci_invariants.sh          # الحواجز الثابتة: هوية، ترحيلات، مفردات، لوحة، قواعد
+node tools/admin_console_test.mjs     # لوحة الأدمن: حمولات XSS تُعرض نصًّا (SEC-04)
+node tools/license_signer_test.mjs    # موقّع التصاريح + طباعة متجه ذهبي لاختبار Kotlin
+node tools/rules_guard.mjs            # بنية قواعد Firestore: لا قراءة عامة، وحالات §8.2
+npm install --prefix tools            # مرة واحدة (أدوات Node)
+tools/node_modules/.bin/firebase emulators:exec --only firestore --project demo-baynana \
+  "node tools/firestore_rules_test.mjs"   # مصفوفة القواعد على المحاكي
+```
+
+اختبارات Kotlin وحدها تحتاج JDK/Android SDK، وتُشغَّل في CI (‏`./gradlew :app:testDebugUnitTest`).
 
 ## قبل الإطلاق
 
