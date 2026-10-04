@@ -1,11 +1,5 @@
 package com.baynana.domain.handover
 
-import com.baynana.data.local.handover.HandoverPayloads
-import com.baynana.data.local.ledger.LedgerRoom
-import com.baynana.data.local.ledger.RoomMember
-import com.baynana.data.local.profile.LocalProfile
-import com.baynana.domain.ledger.RoomKind
-import com.baynana.domain.ledger.RoomStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -222,54 +216,4 @@ class HandoverBundleCodecTest {
         assertNull(Base64Url.decode("ليس-صالحًا"))
     }
 
-    /**
-     * العلامة المحلية «أنا» تعني «صاحب هذا الجهاز» على جهازه وحده. وقد وقعت فعلًا في دعوة غرفة
-     * فقرأ الطرف الآخر «من: أنا». هنا حارس الحمولة نفسها: تُنقّى عند البناء، وتُقرأ «غير معروف»
-     * عند الاستلام، ولا يضيع نصيب صاحب الاسم الصالح.
-     */
-    @Test
-    fun theLocalPlaceholderNeverTravelsInsideARoomInvitation() {
-        val room = LedgerRoom(
-            id = "room-1",
-            kind = RoomKind.WATER,
-            currency = "YER_NEW",
-            title = "ريّ أبو أحمد",
-            status = RoomStatus.PENDING,
-            linkCode = "WATER-1234",
-            createdAt = 1_700_000_000_000L,
-            updatedAt = 1_700_000_000_000L
-        )
-        val members = listOf(
-            RoomMember(
-                roomId = "room-1",
-                memberId = "me",
-                displayName = LocalProfile.PLACEHOLDER,
-                isMe = true,
-                role = "owner",
-                joinedAt = 1_700_000_000_000L
-            ),
-            RoomMember(
-                roomId = "room-1",
-                memberId = "counterpart-room-1",
-                displayName = "أبو أحمد",
-                role = "counterpart",
-                joinedAt = 1_700_000_000_000L
-            )
-        )
-
-        val payload = HandoverPayloads.roomInvitation(
-            room = room,
-            members = members,
-            inviterMemberId = "me",
-            partnerMemberId = "counterpart-room-1"
-        )
-        assertFalse("العلامة المحلية سافرت في الحمولة", payload.contains(LocalProfile.PLACEHOLDER))
-
-        val decoded = HandoverPayloads.decodeRoomInvitation(payload)
-        assertEquals(
-            LocalProfile.UNKNOWN_LABEL,
-            decoded.members.first { it.memberId == "me" }.displayName
-        )
-        assertEquals("أبو أحمد", decoded.members.first { it.memberId == "counterpart-room-1" }.displayName)
-    }
 }

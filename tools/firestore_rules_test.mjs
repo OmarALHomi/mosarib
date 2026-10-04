@@ -169,6 +169,15 @@ await seed(LISTING, {
   crop: "بن",
   district: "حرض",
 });
+// مسودّة حقيقية: النشر الذاتي يُختبر على مسودّة، لا على عرض منشور مسبقًا (كتابة الحالة نفسها
+// لا تُعدّ تغييرًا في الفرق، فالسماح بها ليس ثقبًا ولا رفضها دليلًا).
+await seed("market_listings/listing-draft-1", {
+  ownerUid: "alice",
+  status: "DRAFT",
+  hasPublicProjection: false,
+  crop: "بن",
+  district: "حرض",
+});
 await seed("users/alice", { uid: "alice", isVerified: false, accountStatus: "ACTIVE", displayName: "أبو محمد" });
 await seed("licenses/alice", { role: "MUSRIB", plan: "MONTHLY", expiresAt: 1 });
 await seed("subscriptions/MSRB-8F42-9D1B", { uid: "alice", status: "ACTIVE" });
@@ -256,7 +265,7 @@ await mustDeny(
 );
 await mustDeny(
   "§8.2/٥ صاحب العرض يعدّل حالته إلى منشور بعد إنشائه",
-  updateDoc(doc(alice, LISTING), { status: "PUBLISHED" })
+  updateDoc(doc(alice, "market_listings/listing-draft-1"), { status: "PUBLISHED" })
 );
 await mustDeny(
   "§8.2/٥ إضافة هاتف إلى عرض منشور",
