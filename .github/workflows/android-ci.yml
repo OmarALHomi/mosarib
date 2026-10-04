@@ -14,6 +14,9 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # كتابة المحتوى لازم فقط لخطوة نشر نسخة المعاينة (تُشترط بوجود .ci/publish-demo)
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -148,6 +151,28 @@ jobs:
         run: |
           echo "فشل أحد أطوار البناء. راجع التعليقات (annotations) أعلاه."
           exit 1
+
+      # عند وجود الملف .ci/publish-demo: يُنشر APK التصحيح كإصدار GitHub باسم «معاينة» ليجده
+      # المالك بضغطة واحدة بدل البحث في مرفقات التشغيل. والعلامة تُحذف بعد نجاح النشر.
+      # تنبيه: هذا بناء تصحيح (debug) للمعاينة فقط، وليس نسخة توزيع للمستخدمين.
+      - name: Publish preview APK as a GitHub release (only when .ci/publish-demo exists)
+        if: hashFiles('.ci/publish-demo') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APK=$(ls app/build/outputs/apk/debug/*.apk 2>/dev/null | head -1 || true)
+          if [ -z "$APK" ]; then
+            echo "::warning title=PREVIEW::لا يوجد APK لبناه هذا التشغيل؛ تأكد من نجاح طور التجميع."
+            exit 0
+          fi
+          TAG="preview-d2"
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" "$APK#app-debug.apk" \
+            --title "معاينة التصميم الجديد — «بيننا» (د١+د٢)" \
+            --prerelease \
+            --notes "نسخة تصحيح (debug) **للمعاينة فقط**، ليست نسخة توزيع ولا موقّعة بمفتاح الإصدار.
+          ما فيها: هوية «بيننا» الجديدة (أيقونة وألوان)، الهيكل الجديد (الرئيسية/غرفي/الحركات/السوق/المزيد)،
+          كشف الغرفة مع الإقرار والاعتراض، القيد الجديد والسداد/القبض العام، وحوار جرد الترحيل."
 
       - name: Upload reports
         if: always()
