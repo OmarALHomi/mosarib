@@ -48,6 +48,7 @@ import com.baynana.data.local.ledger.LedgerHomeRepository
 import com.baynana.data.local.ledger.LedgerRepository
 import com.baynana.domain.ledger.RoomFeed
 import com.baynana.features.statements.StatementExport
+import com.baynana.ui.components.AckBar
 import com.baynana.ui.components.CrisisBanner
 import com.baynana.ui.components.EmptyState
 import com.baynana.ui.components.EntryCard
@@ -89,7 +90,7 @@ fun RoomDetailScreen(
     var loaded by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
-    var ackTarget by remember { mutableStateOf<String?>(null) }
+    var ackTarget by remember { mutableStateOf<Pair<String, String>?>(null) }
     var showAddDebt by remember { mutableStateOf(false) }
     var showReceipt by remember { mutableStateOf(false) }
 
@@ -102,6 +103,32 @@ fun RoomDetailScreen(
     }
 
     LaunchedEffect(roomId) { reload() }
+
+    /** قرار إقرار واحد: يغيّر الحالة فقط، ولا يمسح قيدًا ولا مبلغًا. */
+    fun respond(entryId: String, decision: String, note: String) {
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    home.respondToEntry(entryId, decision, note, System.currentTimeMillis())
+                }
+            }.fold(
+                onSuccess = {
+                    ackTarget = null
+                    message = when (decision) {
+                        com.baynana.domain.ledger.AckDecision.ACKNOWLEDGED ->
+                            "تم الإقرار — لم يُمسح القيد، ووصل الخبر للطرف عند المزامنة"
+                        else -> "سُجّل قرارك مع سببه، والقيد باقٍ ظاهرًا للطرفين"
+                    }
+                    reload()
+                    onChanged()
+                },
+                onFailure = {
+                    ackTarget = null
+                    message = it.message ?: "تعذّر تسجيل القرار"
+                }
+            )
+        }
+    }
 
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
 
@@ -267,43 +294,30 @@ fun RoomDetailScreen(
                         )
                     }
                     items(pending, key = { it.entryId }) { entry ->
-                        EntryCard(
-                            entry = entry,
-                            currency = current.currency,
-                            dateText = dateFormat.format(Date(entry.occurredAt)),
-                            trailing = {
-                                Column {
-                                    Button(onClick = {
-                                        scope.launch {
-                                            runCatching {
-                                                withContext(Dispatchers.IO) {
-                                                    home.respondToEntry(
-                                                        entryId = entry.entryId,
-                                                        decision = com.baynana.domain.ledger.AckDecision.ACKNOWLEDGED,
-                                                        note = "",
-                                                        decidedAt = System.currentTimeMillis()
-                                                    )
-                                                }
-                                            }.fold(
-                                                onSuccess = {
-                                                    message = "تم الإقرار — أُبلغ الطرف عند المزامنة"
-                                                    reload()
-                                                    onChanged()
-                                                },
-                                                onFailure = { message = it.message ?: "تعذّر الإقرار" }
-                                            )
-                                        }
-                                    }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
-                                        Text("أقرّ", style = MaterialTheme.typography.labelMedium)
-                                    }
-                                    Spacer(Modifier.height(6.dp))
-                                    OutlinedButton(onClick = { ackTarget = entry.entryId },
-                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
-                                        Text("اعتراض", style = MaterialTheme.typography.labelMedium)
-                                    }
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            EntryCard(
+                                entry = entry,
+                                currency = current.currency,
+                                dateText = dateFormat.format(Date(entry.occurredAt))
+                            )
+                            AckBar(
+                                onAcknowledge = {
+                                    respond(
+                                        entry.entryId,
+                                        com.baynana.domain.ledger.AckDecision.ACKNOWLEDGED,
+                                        ""
+                                    )
+                                },
+                                onDispute = {
+                                    ackTarget = entry.entryId to
+                                        com.baynana.domain.ledger.AckDecision.DISPUTED
+                                },
+                                onChangeRequested = {
+                                    ackTarget = entry.entryId to
+                                        com.baynana.domain.ledger.AckDecision.CHANGE_REQUESTED
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
 
@@ -342,29 +356,11 @@ fun RoomDetailScreen(
         }
     }
 
-    ackTarget?.let { entryId ->
+    ackTarget?.let { (entryId, decision) ->
         AckDialog(
+            decision = decision,
             onDismiss = { ackTarget = null },
-            onConfirm = { decision, note ->
-                scope.launch {
-                    runCatching {
-                        withContext(Dispatchers.IO) {
-                            home.respondToEntry(entryId, decision, note, System.currentTimeMillis())
-                        }
-                    }.fold(
-                        onSuccess = {
-                            ackTarget = null
-                            message = "تم تسجيل قرارك — ولم يُمسح القيد"
-                            reload()
-                            onChanged()
-                        },
-                        onFailure = {
-                            ackTarget = null
-                            message = it.message ?: "تعذّر تسجيل القرار"
-                        }
-                    )
-                }
-            }
+            onConfirm = { note -> respond(entryId, decision, note) }
         )
     }
 
@@ -397,32 +393,32 @@ fun RoomDetailScreen(
 }
 
 @Composable
-private fun AckDialog(onDismiss: () -> Unit, onConfirm: (String, String) -> Unit) {
+private fun AckDialog(
+    decision: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    val isDispute = decision == com.baynana.domain.ledger.AckDecision.DISPUTED
     var note by remember { mutableStateOf("") }
-    var decision by remember { mutableStateOf(com.baynana.domain.ledger.AckDecision.DISPUTED) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("اعتراض على القيد", fontWeight = FontWeight.Bold) },
+        title = {
+            Text(
+                if (isDispute) "اعتراض على القيد" else "طلب تعديل",
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             Column {
                 Text(
-                    "الاعتراض لا يمحو القيد: يبقى ظاهرًا للطرفين مع سببك، حتى يُصحَّح بقيد جديد.",
+                    if (isDispute) {
+                        "الاعتراض لا يمحو القيد: يبقى ظاهرًا للطرفين مع سببك، حتى يُصحَّح بقيد جديد."
+                    } else {
+                        "طلب التعديل يفتح تصحيحًا معلنًا: القيد يبقى في مكانه حتى يُكتب القيد الصحيح."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (decision == com.baynana.domain.ledger.AckDecision.DISPUTED) {
-                        Button(onClick = { decision = com.baynana.domain.ledger.AckDecision.DISPUTED }) { Text("اعتراض") }
-                    } else {
-                        OutlinedButton(onClick = { decision = com.baynana.domain.ledger.AckDecision.DISPUTED }) { Text("اعتراض") }
-                    }
-                    if (decision == com.baynana.domain.ledger.AckDecision.CHANGE_REQUESTED) {
-                        Button(onClick = { decision = com.baynana.domain.ledger.AckDecision.CHANGE_REQUESTED }) { Text("طلب تعديل") }
-                    } else {
-                        OutlinedButton(onClick = { decision = com.baynana.domain.ledger.AckDecision.CHANGE_REQUESTED }) { Text("طلب تعديل") }
-                    }
-                }
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(
                     value = note,
@@ -433,10 +429,9 @@ private fun AckDialog(onDismiss: () -> Unit, onConfirm: (String, String) -> Unit
             }
         },
         confirmButton = {
-            Button(
-                enabled = note.isNotBlank(),
-                onClick = { onConfirm(decision, note) }
-            ) { Text("أرسل") }
+            Button(enabled = note.isNotBlank(), onClick = { onConfirm(note) }) {
+                Text("أرسل السبب")
+            }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
     )

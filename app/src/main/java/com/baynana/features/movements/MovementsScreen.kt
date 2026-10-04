@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,6 +26,7 @@ import com.baynana.features.home.BaynanaHomeViewModel
 import com.baynana.ui.components.EmptyState
 import com.baynana.ui.components.EntryCard
 import com.baynana.ui.components.InfoPill
+import com.baynana.ui.components.SyncBadge
 import com.baynana.ui.theme.BaynanaStatus
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -46,7 +48,8 @@ private enum class MovementFilter(val label: String) {
 @Composable
 fun MovementsScreen(
     state: BaynanaHomeViewModel.UiState,
-    onOpenRoom: (String) -> Unit
+    onOpenRoom: (String) -> Unit,
+    onOpenSyncStatus: () -> Unit = {}
 ) {
     var filter by remember { mutableStateOf(MovementFilter.ALL) }
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
@@ -81,6 +84,17 @@ fun MovementsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+
+        item {
+            // سطر الصدق: ما حال دفترك الآن (ولا يُدّعى اتصال غير موجود).
+            SyncBadge(
+                if (state.loading) "جاري قراءة دفترك…" else state.syncLine,
+                isWarning = state.loading
+            )
+            TextButton(onClick = onOpenSyncStatus) {
+                Text("حالة كل حركة — ما أُرسل وما بقي وما فشل", style = MaterialTheme.typography.labelMedium)
             }
         }
 

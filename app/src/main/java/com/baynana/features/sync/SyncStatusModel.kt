@@ -85,13 +85,13 @@ object SyncStatusModel {
             .map { entry ->
                 val room = snapshot.rooms.firstOrNull { it.id == entry.roomId }
                 val mine = myIds[entry.roomId]
-                val others = ackByEntry[entry.entryId].orEmpty()
+                val others = ackByEntry[entry.id].orEmpty()
                     .filter { mine == null || it.memberId != mine }
                     .maxByOrNull { it.decidedAt }
                 row(
                     entry = entry,
                     room = room,
-                    pending = outboxByEntry[entry.entryId],
+                    pending = outboxByEntry[entry.id],
                     otherPartyDecision = others,
                     dateText = dateFormat.format(Date(entry.occurredAt))
                 )

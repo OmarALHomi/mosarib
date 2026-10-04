@@ -169,12 +169,15 @@ fun StatementScreen(
                 item { SyncBadge(text) }
             }
 
-            if (current == null && error == null) {
-                item {
-                    EmptyState(
-                        title = "لا كشف بعد",
-                        body = "لا سطور في هذه الغرفة حتى الآن. أول قيد تكتبه يظهر هنا برصيده الجاري."
-                    )
+            if (current == null) {
+                // شرط واحد صريح: الشرط المركّب يمنع Kotlin من استنتاج أن `current` غير فارغ بعده.
+                if (error == null) {
+                    item {
+                        EmptyState(
+                            title = "لا كشف بعد",
+                            body = "لا سطور في هذه الغرفة حتى الآن. أول قيد تكتبه يظهر هنا برصيده الجاري."
+                        )
+                    }
                 }
                 return@LazyColumn
             }

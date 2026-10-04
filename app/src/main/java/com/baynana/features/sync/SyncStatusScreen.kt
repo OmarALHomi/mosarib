@@ -91,6 +91,11 @@ fun SyncStatusScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
     }
 
+    // تُحسب الحالة مرة واحدة عند تغيّر اللقطة. لا `remember` داخل نطاق `LazyColumn` لأنه ليس
+    // دالة تركيبة، بل حاوية عناصر — وكان هذا خطأ ترجمة حقيقيًا كشفه CI.
+    val current = snapshot
+    val view = current?.let { SyncStatusModel.build(it) }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -140,13 +145,10 @@ fun SyncStatusScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 item { SyncBadge(text, isWarning = true) }
             }
 
-            val current = snapshot
-            if (current == null) {
+            if (view == null) {
                 item { SyncBadge("جاري التحميل…") }
                 return@LazyColumn
             }
-
-            val view = remember(current) { SyncStatusModel.build(current) }
 
             item {
                 SectionHeader(

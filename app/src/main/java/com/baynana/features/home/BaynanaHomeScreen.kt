@@ -18,6 +18,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,7 +49,9 @@ fun BaynanaHomeScreen(
     onOpenRoom: (String) -> Unit,
     onRunMigration: () -> Unit,
     onOpenMigrationDetail: () -> Unit,
-    onOpenTab: (ShellTab) -> Unit
+    onOpenTab: (ShellTab) -> Unit,
+    /** فتح «حالة المزامنة» من شريط الصدق أسفل الشاشة. */
+    onOpenSyncStatus: () -> Unit = {}
 ) {
     val rooms = state.rooms
     // قاعدة ADR-04: لا تُجمع عملتان. النظام يفتح الكارت بأكثر عملة تعاملًا معك، ويعلن الباقي بحدة
@@ -186,6 +189,12 @@ fun BaynanaHomeScreen(
         item {
             Spacer(Modifier.height(6.dp))
             SyncBadge(state.syncLine)
+            TextButton(onClick = onOpenSyncStatus) {
+                Text(
+                    "ما حال كل حركة؟ أُرسلت أم ما زالت في جهازك",
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
             Spacer(Modifier.height(18.dp))
         }
     }

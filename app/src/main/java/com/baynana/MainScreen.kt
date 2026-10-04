@@ -256,7 +256,8 @@ private fun ShellScaffold(
                         onOpenRoom = onOpenRoom,
                         onRunMigration = onRunMigration,
                         onOpenMigrationDetail = onOpenMigrationDetail,
-                        onOpenTab = { onNavigate(ShellHost.navigate(it)) }
+                        onOpenTab = { onNavigate(ShellHost.navigate(it)) },
+                        onOpenSyncStatus = { onNavigate(BaynanaShell.extra("sync")) }
                     )
 
                     ShellTab.ROOMS -> RoomsScreen(
@@ -267,7 +268,8 @@ private fun ShellScaffold(
 
                     ShellTab.MOVEMENTS -> com.baynana.features.movements.MovementsScreen(
                         state = homeState,
-                        onOpenRoom = onOpenRoom
+                        onOpenRoom = onOpenRoom,
+                        onOpenSyncStatus = { onNavigate(BaynanaShell.extra("sync")) }
                     )
 
                     ShellTab.MARKET -> BaynanaMarketScreen(
