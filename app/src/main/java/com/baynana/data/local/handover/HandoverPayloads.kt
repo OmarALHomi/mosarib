@@ -3,6 +3,7 @@ package com.baynana.data.local.handover
 import com.baynana.data.local.ledger.Acknowledgement
 import com.baynana.data.local.ledger.LedgerRoom
 import com.baynana.data.local.ledger.RoomMember
+import com.baynana.data.local.profile.LocalProfile
 import com.baynana.domain.ledger.AckDecision
 import com.baynana.domain.ledger.EntryStatus
 import org.json.JSONArray
@@ -96,7 +97,8 @@ object HandoverPayloads {
             memberArray.put(
                 JSONObject()
                     .put("memberId", member.memberId)
-                    .put("displayName", member.displayName)
+                    // العلامة المحلية «أنا» لا تُرسل: الطرف الآخر يقرأ اسمًا أو لا يقرأ شيئًا.
+                    .put("displayName", LocalProfile.wireName(member.displayName))
                     .put("phone", member.phone)
                     .put("role", member.role)
                     .put("joinedAt", member.joinedAt)
@@ -144,7 +146,7 @@ object HandoverPayloads {
             RoomMember(
                 roomId = roomJson.getString("id"),
                 memberId = row.getString("memberId"),
-                displayName = row.optString("displayName", ""),
+                displayName = LocalProfile.peerLabel(row.optString("displayName", "")),
                 phone = row.optString("phone", ""),
                 role = row.optString("role", ""),
                 isMe = false,

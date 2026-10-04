@@ -85,13 +85,22 @@ jobs:
       - name: Report rules matrix failures
         if: steps.rules_matrix.outcome == 'failure'
         run: |
-          # ضجيج عميل Firestore (`@firebase/firestore ... PERMISSION_DENIED`) يظهر في كل حالة رفض
-          # متوقعة، فلا يصلح دليلًا. الدليل هو سطور المصفوفة نفسها: كل حالة فاشلة تُطبع ببادئة
-          # «⛔ error:» وفيها اسمها وسببها (انظر `reportFailure` في tools/firestore_rules_test.mjs).
+          # الدليل على الفشل سطر المصفوفة نفسه: كل حالة فاشلة تُطبع ببادئة «⛔ error:» وفيها اسمها
+          # وسببها (انظر `reportFailure` في tools/firestore_rules_test.mjs)، والنجاح 🚫 فلا يختلط بالفشل.
+          #
+          # تحذير تشغيلي مقصود: عدد التعليقات (annotations) التي يقبلها GitHub لكل خطوة محدود، فقد
+          # سبق أن ابتلعت تعليقات النجاح الميزانية فبقي التشغيل الأحمر بلا اسم حالة. لذلك نُرتّب
+          # الأولويات: سطر الفشل أولًا، ثم سبب الخروج، ثم آخر السجل — بميزانية مضبوطة.
           while IFS= read -r line; do
             echo "::error title=rules::$line"
-          done < <(grep -nE "⛔|AssertionError|Error:|error:|Expected|missing" /tmp/rules_matrix.log \
-            | grep -vE "@firebase/firestore" | head -25 || true)
+          done < <(grep -nE "⛔|AssertionError|Expected|missing|❌" /tmp/rules_matrix.log | head -3 || true)
+          while IFS= read -r line; do
+            echo "::error title=rules-exception::$line"
+          done < <(grep -nE "Error|error|Unhandled|FATAL|exited" /tmp/rules_matrix.log \
+            | grep -vE "@firebase/firestore" | head -2 || true)
+          while IFS= read -r line; do
+            echo "::error title=rules-tail::$line"
+          done < <(tail -5 /tmp/rules_matrix.log || true)
           echo "=== آخر 40 سطرًا ==="
           tail -40 /tmp/rules_matrix.log
 

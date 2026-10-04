@@ -8,6 +8,7 @@ import com.baynana.data.local.ledger.LedgerEntry
 import com.baynana.data.local.ledger.LedgerRoom
 import com.baynana.data.local.ledger.OutboxPayloads
 import com.baynana.data.local.ledger.RoomMember
+import com.baynana.data.local.profile.LocalProfile
 import com.baynana.domain.ledger.EntryStatus
 import com.baynana.domain.ledger.EntryType
 import com.baynana.domain.ledger.OutboxState
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -62,8 +64,13 @@ class HandoverJourneyTest {
         target.close()
     }
 
-    /** يزرع في جهاز «أ»: غرفة ريّ فيها طرفان، وقيد سقية معلّق. */
-    private fun seedSource() = runBlocking {
+    /**
+     * يزرع في جهاز «أ»: غرفة ريّ فيها طرفان، وقيد سقية معلّق.
+     *
+     * [ownerName] هو اسم صاحب الجهاز نفسه؛ واختباره بالعلامة المحلية «أنا» يخصّ حالة الجهاز
+     * الذي لم يُكتب فيه اسم بعد — وهي الحالة التي يجب أن تُقرأ «غير معروف» لا «أنا».
+     */
+    private fun seedSource(ownerName: String = "أبو سالم") = runBlocking {
         val dao = source.ledgerDao()
         dao.upsertRoom(
             LedgerRoom(
@@ -82,7 +89,7 @@ class HandoverJourneyTest {
             RoomMember(
                 roomId = roomId,
                 memberId = "me",
-                displayName = "أنا",
+                displayName = ownerName,
                 isMe = true,
                 role = "owner",
                 joinedAt = now - 5000
@@ -121,6 +128,33 @@ class HandoverJourneyTest {
         HandoverRepository(source, clock = { now }, deviceCodeLabel = { "MSRB-AAAA-BBBB" }).prepareOutgoing()
     }
 
+    @Test
+    fun placeholderNameNeverTravelsInAnInvite() = runBlocking {
+        // جهاز بلا اسم محفوظ: صفّ العضو فيه العلامة المحلية «أنا».
+        seedSource(ownerName = LocalProfile.PLACEHOLDER)
+        val outgoing = prepareOnSource()
+        val snapshot = outgoing.bundle.items.first { it.entityType == "room" }.payload
+        assertFalse(
+            "العلامة المحلية «أنا» ظهرت في حمولة لقطة الغرفة",
+            snapshot.contains("\"displayName\":\"${LocalProfile.PLACEHOLDER}\"")
+        )
+        assertTrue(
+            "لقطة الغرفة حملت اسمًا صالحًا أو لا اسم، ولا تحمل العلامة المحلية",
+            HandoverPayloads.decodeRoomInvitation(snapshot).members
+                .none { !LocalProfile.isSendable(it.displayName) && it.displayName != LocalProfile.UNKNOWN_LABEL }
+        )
+
+        val repo = targetRepo()
+        repo.importBundle(outgoing.text)
+        val invite = target.handoverDao().invitesByStatus(InviteStatus.PENDING).single()
+        assertEquals(LocalProfile.UNKNOWN_LABEL, invite.inviterName)
+
+        // ومع ذلك لا تضيع الحركة: القبول يفتح الغرفة بمعرّفات الطرفين لا بالأسماء.
+        val accepted = repo.acceptInvitation(invite.id)
+        assertEquals(1, accepted.applied)
+        assertEquals(1_500_000L, target.ledgerDao().getEntry("entry-1")?.amountMinor)
+    }
+
     private fun targetRepo() = HandoverRepository(target, clock = { now + 60_000 }, deviceCodeLabel = { "MSRB-CCCC-DDDD" })
 
     @Test
@@ -145,7 +179,7 @@ class HandoverJourneyTest {
         // لا غرفة بعد: الدعوة تنتظر قرارًا، ولا شيء يمكن أن يُقرأ عن الطرف الآخر قبل القبول.
         assertNull(target.ledgerDao().getRoom(roomId))
         val invite = target.handoverDao().invitesByStatus(InviteStatus.PENDING).single()
-        assertEquals("أبو أحمد", invite.inviterName)
+        assertEquals("أبو سالم", invite.inviterName)
         assertEquals("counterpart-$roomId", invite.partnerMemberId)
 
         // القبول: تُنشأ الغرفة بمعرّفات الطرفين، ويُطبَّق القيد الذي كان ينتظرها.

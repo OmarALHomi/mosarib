@@ -54,6 +54,7 @@ import com.baynana.data.local.handover.HandoverLogRow
 import com.baynana.data.local.handover.HandoverRepository
 import com.baynana.data.local.handover.InviteStatus
 import com.baynana.data.local.handover.PendingInviteRow
+import com.baynana.data.local.profile.LocalProfile
 import com.baynana.ui.components.EmptyState
 import com.baynana.ui.components.SectionHeader
 import com.baynana.ui.components.SyncBadge
@@ -409,9 +410,17 @@ private fun InviteCard(
                 )
             }
             Text(
-                "من: ${invite.inviterName.ifBlank { "طرف عبر ملفّ تسليم" }} • العملة: ${invite.currency} • النوع: ${invite.kind}",
+                "من: ${LocalProfile.peerLabel(invite.inviterName)} • العملة: ${invite.currency} • النوع: ${invite.kind}",
                 style = MaterialTheme.typography.bodySmall
             )
+            if (LocalProfile.wireName(invite.inviterName).isBlank()) {
+                Text(
+                    "هذا الطرف لم يُرسل اسمه (جهاز بنسخة قديمة أو اسم فارغ). الغرفة تُفتح بمعرّفات الطرفين " +
+                        "لا بالأسماء، فلا يضيع دين — لكن اطلب اسمه لتعرف من يدعوك.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
             if (invite.note.isNotBlank()) {
                 Text(invite.note, style = MaterialTheme.typography.bodySmall)
             }

@@ -87,7 +87,8 @@ async function mustDeny(label, promise) {
     throw new Error(`رفض لسبب آخر في «${label}»`);
   }
   results.push({ label, outcome: "denied" });
-  console.log(`  ⛔ ${label}`);
+  // 🚫 = «رُفضت كما يجب». و⛔ محفوظة للفشل وحده، فيصل تقرير CI إلى اسم الحالة الفاشلة بلا لبس.
+  console.log(`  🚫 ${label}`);
 }
 
 async function mustAllow(label, promise) {

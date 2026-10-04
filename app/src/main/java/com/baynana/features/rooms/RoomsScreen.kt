@@ -25,6 +25,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +41,7 @@ import com.baynana.core.util.LinkCodeGenerator
 import com.baynana.data.local.ledger.LedgerHomeRepository
 import com.baynana.data.local.ledger.LedgerRoom
 import com.baynana.data.local.ledger.RoomMember
+import com.baynana.data.local.profile.LocalProfile
 import com.baynana.domain.ledger.RoomKind
 import com.baynana.domain.ledger.RoomStatus
 import com.baynana.features.home.BaynanaHomeViewModel
@@ -136,9 +138,18 @@ private fun CreateRoomDialog(onDismiss: () -> Unit, onCreated: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var kind by remember { mutableStateOf(RoomKind.WATER) }
+    var myName by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+
+    // اسمي أنا: يُحمَّل من الإعدادات، فإن غاب طُلب هنا قبل إرسال أي دعوة — لأن دعوة بلا اسم
+    // تجعل الطرف الآخر يقرأ «من: أنا» فلا يعرف من يدعوه.
+    LaunchedEffect(Unit) {
+        myName = withContext(Dispatchers.IO) {
+            LocalProfile.read(AppDatabase.getDatabase(context).appSettingDao())
+        }.orEmpty()
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -158,6 +169,16 @@ private fun CreateRoomDialog(onDismiss: () -> Unit, onCreated: () -> Unit) {
                     KindChip("عام", kind == RoomKind.GENERAL) { kind = RoomKind.GENERAL }
                 }
                 Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = myName,
+                    onValueChange = { myName = it },
+                    label = { Text("اسمك") },
+                    singleLine = true,
+                    supportingText = { Text("هكذا سيراك الطرف الآخر في الدعوة وكشف الحساب") },
+                    isError = myName.isNotBlank() && !LocalProfile.isSendable(myName),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -185,6 +206,10 @@ private fun CreateRoomDialog(onDismiss: () -> Unit, onCreated: () -> Unit) {
                     error = "اكتب اسم الطرف: الغرفة بلا اسم لا يُعرف صاحبها"
                     return@Button
                 }
+                if (!LocalProfile.isSendable(myName)) {
+                    error = "اكتب اسمك: الدعوة بلا اسم تجعل الطرف الآخر يقرأ «من: أنا»"
+                    return@Button
+                }
                 scope.launch {
                     runCatching {
                         withContext(Dispatchers.IO) {
@@ -192,6 +217,8 @@ private fun CreateRoomDialog(onDismiss: () -> Unit, onCreated: () -> Unit) {
                             val now = System.currentTimeMillis()
                             val roomId = "room-${UUID.randomUUID()}"
                             val linkCode = LinkCodeGenerator.generate()
+                            val ownerName = LocalProfile.clean(myName)
+                            LocalProfile.save(db.appSettingDao(), ownerName)
                             db.withTransaction {
                                 db.ledgerDao().upsertRoom(
                                     LedgerRoom(
@@ -211,7 +238,8 @@ private fun CreateRoomDialog(onDismiss: () -> Unit, onCreated: () -> Unit) {
                                     RoomMember(
                                         roomId = roomId,
                                         memberId = LedgerHomeRepository.MY_MEMBER_ID,
-                                        displayName = "أنا",
+                                        // الاسم الحقيقي لا علامة «أنا»: هذا الصفّ هو ما يُرسل في الدعوة.
+                                        displayName = ownerName,
                                         isMe = true,
                                         role = "owner",
                                         joinedAt = now

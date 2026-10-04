@@ -8,6 +8,7 @@ import com.baynana.data.local.ledger.Tombstone
 import com.baynana.data.local.handover.HandoverPayloads
 import com.baynana.data.local.handover.InviteStatus
 import com.baynana.data.local.handover.PendingInviteRow
+import com.baynana.data.local.profile.LocalProfile
 import com.baynana.domain.ledger.EntryStatus
 import com.baynana.domain.ledger.EntryType
 import com.baynana.domain.ledger.RoomStatus
@@ -161,7 +162,7 @@ class RoomSyncStore(private val db: AppDatabase, private val cursorKey: String =
                     kind = invite.room.kind,
                     currency = invite.room.currency,
                     inviterMemberId = invite.inviterMemberId,
-                    inviterName = inviter?.displayName.orEmpty(),
+                    inviterName = LocalProfile.wireName(inviter?.displayName),
                     partnerMemberId = invite.partnerMemberId,
                     payload = change.payload,
                     receivedAt = change.serverTime,
