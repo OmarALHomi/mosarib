@@ -35,6 +35,10 @@ interface LedgerDao {
     @Query("SELECT * FROM rooms WHERE status = :status ORDER BY updatedAt DESC")
     fun observeRoomsByStatus(status: String): Flow<List<LedgerRoom>>
 
+    /** قراءة واحدة لكل الغرف (بلا تدفّق): تستعملها خلاصة الرئيسية التي تُبنى عند الطلب. */
+    @Query("SELECT * FROM rooms ORDER BY updatedAt DESC")
+    suspend fun getAllRooms(): List<LedgerRoom>
+
     @Query("SELECT * FROM rooms WHERE id = :roomId")
     suspend fun getRoom(roomId: String): LedgerRoom?
 

@@ -1,347 +1,275 @@
 package com.baynana
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
-import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.SupervisorAccount
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.People
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.Storefront
+import androidx.compose.material.icons.outlined.SupervisorAccount
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.baynana.features.about.AboutScreen
-import com.baynana.features.customers.CustomerDetailScreen
-import com.baynana.features.customers.CustomersScreen
-import com.baynana.features.customers.CustomersViewModel
-import com.baynana.features.home.HomeScreen
-import com.baynana.features.reports.ReportsScreen
-import com.baynana.features.splash.SplashScreen
-import com.baynana.features.reports.ReportsViewModel
-import com.baynana.features.sessions.SessionsScreen
-import com.baynana.features.sessions.SessionsViewModel
-import com.baynana.features.settings.SettingsScreen
-import com.baynana.features.settings.SettingsViewModel
-import com.baynana.features.vouchers.VouchersScreen
-import com.baynana.features.vouchers.VouchersViewModel
+import androidx.compose.ui.platform.LocalContext
+import com.baynana.core.database.AppDatabase
 import com.baynana.core.security.BiometricLockScreen
-import com.baynana.core.ui.BaynanaNavBar
-import com.baynana.ui.theme.AccentGold
-import com.baynana.ui.theme.PrimaryTeal
+import com.baynana.features.about.AboutScreen
+import com.baynana.features.deals.DealsScreen
+import com.baynana.features.deals.DealsViewModel
+import com.baynana.features.farmer.FarmAccountingScreen
+import com.baynana.features.reports.ReportsScreen
+import com.baynana.features.reports.ReportsViewModel
+import com.baynana.features.settings.SettingsScreen
+import com.baynana.features.home.BaynanaHomeScreen
+import com.baynana.features.home.BaynanaHomeViewModel
+import com.baynana.features.home.MigrationDialog
+import com.baynana.features.more.MoreScreen
+import com.baynana.features.rooms.RoomDetailScreen
+import com.baynana.features.rooms.RoomsScreen
+import com.baynana.features.settings.SettingsViewModel
+import com.baynana.features.shell.BaynanaShell
+import com.baynana.features.shell.ShellHost
+import com.baynana.features.splash.SplashScreen
 import com.baynana.ui.theme.BaynanaTheme
 
-enum class AppTab(
-    val title: String,
-    val selectedIcon: ImageVector,
-    val unselectedIcon: ImageVector,
-    val testTag: String
-) {
-    SESSIONS("سجلات السقي", Icons.Filled.WaterDrop, Icons.Outlined.WaterDrop, "tab_sessions"),
-    CUSTOMERS("العملاء", Icons.Filled.People, Icons.Outlined.People, "tab_customers"),
-    HOME("الرئيسية", Icons.Filled.Home, Icons.Outlined.Home, "tab_home"),
-    VOUCHERS("سجل العمليات", Icons.AutoMirrored.Filled.ReceiptLong, Icons.AutoMirrored.Outlined.ReceiptLong, "tab_vouchers"),
-    SETTINGS("الإعدادات", Icons.Filled.Settings, Icons.Outlined.Settings, "tab_settings")
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * هيكل التطبيق الجديد: أربعة تبويبات ثابتة + «المزيد».
+ *
+ * الفرق عن الهيكل القديم: لا «سجلات سقي» ولا «عملاء» ولا «سجل عمليات»؛ فالمستخدم يبدأ من
+ * **الرصيد** لا من النموذج. والتبويبات تُقرأ من [BaynanaShell] فيبقى المنطق قابلًا للاختبار.
+ */
 @Composable
 fun MainApp(
-    sessionsViewModel: SessionsViewModel = viewModel(),
-    customersViewModel: CustomersViewModel = viewModel(),
-    vouchersViewModel: VouchersViewModel = viewModel(),
-    reportsViewModel: ReportsViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel(),
-    farmerViewModel: com.baynana.features.farmer.FarmerViewModel = viewModel(),
-    marketViewModel: com.baynana.features.market.MarketViewModel = viewModel(),
-    dealsViewModel: com.baynana.features.deals.DealsViewModel = viewModel()
+    homeViewModel: BaynanaHomeViewModel = viewModel()
 ) {
     val appConfig by settingsViewModel.appConfig.collectAsStateWithLifecycle()
     val biometricLockEnabled by settingsViewModel.biometricLockEnabled.collectAsStateWithLifecycle()
-    val isSystemDark = isSystemInDarkTheme()
+    val homeState by homeViewModel.state.collectAsStateWithLifecycle()
+
     val darkTheme = when (appConfig.themeMode) {
         "LIGHT" -> false
         "DARK" -> true
-        else -> isSystemDark
+        else -> androidx.compose.foundation.isSystemInDarkTheme()
     }
-
     BaynanaTheme(darkTheme = darkTheme) {
-        // Arabic RTL layout provider
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-            var showSplashScreen by remember { mutableStateOf(true) }
-            var isBiometricUnlocked by remember { mutableStateOf(false) }
-            var selectedTab by remember { mutableStateOf(AppTab.HOME) }
-            var selectedCustomerId by remember { mutableLongStateOf(0L) }
-            var showReportsScreen by remember { mutableStateOf(false) }
-            var showAboutScreen by remember { mutableStateOf(false) }
-            var showFarmerScreen by remember { mutableStateOf(false) }
-            var showMarketScreen by remember { mutableStateOf(false) }
-            var showDealsScreen by remember { mutableStateOf(false) }
-            var showAccountingScreen by remember { mutableStateOf(false) }
-            var selectedMusribForFarmer by remember { mutableStateOf<com.baynana.features.farmer.LinkedMusrib?>(null) }
+            var showSplash by remember { mutableStateOf(true) }
+            var isUnlocked by remember { mutableStateOf(false) }
+            var shell by remember { mutableStateOf(BaynanaShell.home()) }
+            var showMigration by remember { mutableStateOf(false) }
 
             val lifecycleOwner = LocalLifecycleOwner.current
             DisposableEffect(lifecycleOwner) {
                 val observer = LifecycleEventObserver { _, event ->
-                    if (event == Lifecycle.Event.ON_STOP) isBiometricUnlocked = false
+                    if (event == Lifecycle.Event.ON_STOP) isUnlocked = false
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)
                 onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
             }
 
-            if (showSplashScreen) {
-                SplashScreen(onTimeout = { showSplashScreen = false })
-            } else if (biometricLockEnabled == null) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            when {
+                showSplash -> SplashScreen(onTimeout = { showSplash = false })
+
+                biometricLockEnabled == null -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator()
-                        Text("جاري تحميل إعدادات الحماية", modifier = Modifier.padding(top = 16.dp))
-                    }
-                }
-            } else if (biometricLockEnabled == true && !isBiometricUnlocked) {
-                BiometricLockScreen(onUnlock = { isBiometricUnlocked = true })
-            } else if (!appConfig.isOnboardingCompleted) {
-                com.baynana.features.onboarding.RoleSelectionScreen(
-                    initialName = appConfig.distributorName.takeIf { it != "مستخدم بيننا" } ?: "",
-                    initialPhone = appConfig.distributorPhone.takeIf { it != "777000000" } ?: "",
-                    initialVillage = appConfig.userVillage,
-                    onComplete = { name, phone, village, pRole, aRoles ->
-                        settingsViewModel.completeOnboarding(name, phone, village, pRole, aRoles) {}
-                    }
-                )
-            } else if (showAccountingScreen) {
-                val context = androidx.compose.ui.platform.LocalContext.current
-                com.baynana.features.farmer.FarmAccountingScreen(
-                    expensesDao = com.baynana.core.database.AppDatabase.getDatabase(context).farmExpenseDao(),
-                    onBack = { showAccountingScreen = false }
-                )
-            } else if (showAboutScreen) {
-                AboutScreen(onBack = { showAboutScreen = false })
-            } else if (showFarmerScreen) {
-                if (selectedMusribForFarmer != null) {
-                    com.baynana.features.farmer.FarmerLedgerScreen(
-                        viewModel = farmerViewModel,
-                        musrib = selectedMusribForFarmer!!,
-                        onBack = { selectedMusribForFarmer = null }
-                    )
-                } else {
-                    androidx.activity.compose.BackHandler { showFarmerScreen = false }
-                    com.baynana.features.farmer.FarmerScreen(
-                        viewModel = farmerViewModel,
-                        onOpenLedger = { selectedMusribForFarmer = it }
-                    )
-                }
-            } else if (showMarketScreen) {
-                com.baynana.features.market.MarketScreen(
-                    viewModel = marketViewModel,
-                    onBack = { showMarketScreen = false }
-                )
-            } else if (showDealsScreen) {
-                com.baynana.features.deals.DealsScreen(
-                    viewModel = dealsViewModel,
-                    onBack = { showDealsScreen = false }
-                )
-            } else if (selectedCustomerId > 0) {
-                CustomerDetailScreen(
-                    customerId = selectedCustomerId,
-                    viewModel = customersViewModel,
-                    onBack = { selectedCustomerId = 0L },
-                    onAddSessionForCustomer = { _ ->
-                        selectedCustomerId = 0L
-                        selectedTab = AppTab.SESSIONS
-                    }
-                )
-            } else if (showReportsScreen) {
-                Scaffold(
-                    topBar = {
-                        TopAppBar(
-                            title = { Text("التقارير والإحصائيات", fontWeight = FontWeight.Bold) },
-                            navigationIcon = {
-                                IconButton(onClick = { showReportsScreen = false }) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "رجوع"
-                                    )
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            )
+                        Text(
+                            "جاري تحضير دفترك",
+                            modifier = Modifier.padding(top = 16.dp),
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
-                ) { innerPadding ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    ) {
-                        ReportsScreen(viewModel = reportsViewModel)
-                    }
                 }
-            } else {
-                Scaffold(
-                    topBar = {
-                        if (selectedTab != AppTab.HOME) {
-                            TopAppBar(
-                                title = {
-                                    Text(
-                                        text = when (selectedTab) {
-                                            AppTab.SESSIONS -> "سجلات السقي"
-                                            AppTab.CUSTOMERS -> "إدارة العملاء والمزارع"
-                                            AppTab.VOUCHERS -> "سجل العمليات"
-                                            AppTab.SETTINGS -> "الإعدادات العامة"
-                                            else -> ""
-                                        },
-                                        style = MaterialTheme.typography.titleLarge.copy(
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    )
-                                },
-                                colors = TopAppBarDefaults.topAppBarColors(
-                                    containerColor = MaterialTheme.colorScheme.surface
-                                ),
-                                actions = {
-                                    if (selectedTab == AppTab.SESSIONS || selectedTab == AppTab.VOUCHERS) {
-                                        IconButton(
-                                            onClick = { showReportsScreen = true },
-                                            modifier = Modifier.testTag("action_open_reports")
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Assessment,
-                                                contentDescription = "التقارير",
-                                                tint = PrimaryTeal
-                                            )
-                                        }
-                                    }
-                                }
-                            )
-                        }
-                    },
-                    bottomBar = {
-                        val tabIndex = when (selectedTab) {
-                            AppTab.SESSIONS  -> 0
-                            AppTab.CUSTOMERS -> 1
-                            AppTab.HOME      -> 2
-                            AppTab.VOUCHERS  -> 3
-                            AppTab.SETTINGS  -> 4
-                        }
-                        BaynanaNavBar(
-                            selectedIndex = tabIndex,
-                            onItemSelected = { idx ->
-                                selectedTab = when (idx) {
-                                    0 -> AppTab.SESSIONS
-                                    1 -> AppTab.CUSTOMERS
-                                    3 -> AppTab.VOUCHERS
-                                    4 -> AppTab.SETTINGS
-                                    else -> AppTab.HOME
-                                }
-                            }
-                        )
-                    }
-                ) { innerPadding ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    ) {
-                        when (selectedTab) {
-                            AppTab.HOME -> {
-                                HomeScreen(
-                                    sessionsViewModel = sessionsViewModel,
-                                    customersViewModel = customersViewModel,
-                                    vouchersViewModel = vouchersViewModel,
-                                    settingsViewModel = settingsViewModel,
-                                    onNavigateToTab = { tab -> selectedTab = tab },
-                                    onNavigateToCustomer = { custId ->
-                                        selectedCustomerId = custId
-                                    },
-                                    onOpenReports = { showReportsScreen = true },
-                                    onOpenFarmer = { showFarmerScreen = true },
-                                    onOpenMarket = { showMarketScreen = true },
-                                    onOpenDeals = { showDealsScreen = true },
-                                    onOpenAccounting = { showAccountingScreen = true }
-                                )
-                            }
-                            AppTab.SESSIONS -> {
-                                SessionsScreen(
-                                    viewModel = sessionsViewModel,
-                                    onNavigateToCustomer = { custId ->
-                                        selectedCustomerId = custId
-                                    }
-                                )
-                            }
-                            AppTab.CUSTOMERS -> {
-                                CustomersScreen(
-                                    viewModel = customersViewModel,
-                                    onNavigateToDetail = { custId ->
-                                        selectedCustomerId = custId
-                                    }
-                                )
-                            }
-                            AppTab.VOUCHERS -> {
-                                VouchersScreen(
-                                    viewModel = vouchersViewModel,
-                                    onNavigateToCustomer = { custId ->
-                                        selectedCustomerId = custId
-                                    }
-                                )
-                            }
-                            AppTab.SETTINGS -> {
-                                SettingsScreen(
-                                    viewModel = settingsViewModel,
-                                    onNavigateToAbout = { showAboutScreen = true }
-                                )
-                            }
-                        }
-                    }
-                }
+
+                biometricLockEnabled == true && !isUnlocked ->
+                    BiometricLockScreen(onUnlock = { isUnlocked = true })
+
+                else -> ShellScaffold(
+                    shell = shell,
+                    onNavigate = { shell = it },
+                    homeState = homeState,
+                    onOpenRoom = { roomId -> shell = BaynanaShell.room(roomId) },
+                    onRefresh = homeViewModel::refresh,
+                    onRunMigration = homeViewModel::runMigration,
+                    showMigrationDialog = showMigration,
+                    onOpenMigrationDetail = { showMigration = true },
+                    onCloseMigrationDetail = { showMigration = false }
+                )
             }
         }
     }
+}
+
+@Composable
+private fun ShellScaffold(
+    shell: BaynanaShell,
+    onNavigate: (BaynanaShell) -> Unit,
+    homeState: BaynanaHomeViewModel.UiState,
+    onOpenRoom: (String) -> Unit,
+    onRefresh: () -> Unit,
+    onRunMigration: () -> Unit,
+    showMigrationDialog: Boolean,
+    onOpenMigrationDetail: () -> Unit,
+    onCloseMigrationDetail: () -> Unit
+) {
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                ShellTab.entries.forEach { tab ->
+                    val selected = shell.tab == tab.tab
+                    NavigationBarItem(
+                        selected = selected,
+                        onClick = { onNavigate(ShellHost.navigate(tab.tab)) },
+                        icon = {
+                            Icon(
+                                imageVector = if (selected) tab.selectedIcon else tab.unselectedIcon,
+                                contentDescription = tab.title
+                            )
+                        },
+                        label = { Text(tab.title) }
+                    )
+                }
+            }
+        }
+    ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            when (val host = shell) {
+                is BaynanaShell.Room -> {
+                    BackHandler { onNavigate(BaynanaShell.rooms()) }
+                    RoomDetailScreen(
+                        roomId = host.roomId,
+                        onBack = { onNavigate(BaynanaShell.rooms()) },
+                        onChanged = onRefresh
+                    )
+                }
+
+                is BaynanaShell.Extra -> {
+                    val backToMore = { onNavigate(ShellHost.back(host) ?: BaynanaShell.home()) }
+                    BackHandler { backToMore() }
+                    when (host.key) {
+                        "deals" -> DealsScreen(
+                            viewModel = viewModel<DealsViewModel>(),
+                            onBack = backToMore
+                        )
+
+                        "farm" -> {
+                            val context = LocalContext.current
+                            val expensesDao = remember { AppDatabase.getDatabase(context).farmExpenseDao() }
+                            FarmAccountingScreen(expensesDao = expensesDao, onBack = backToMore)
+                        }
+
+                        "reports" -> ReportsScreen(viewModel = viewModel<ReportsViewModel>())
+
+                        "settings" -> SettingsScreen(
+                            viewModel = viewModel(),
+                            onNavigateToAbout = { onNavigate(BaynanaShell.extra("about")) }
+                        )
+
+                        "about" -> AboutScreen(onBack = backToMore)
+
+                        else -> Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) { Text("شاشة غير معروفة: ${host.key}") }
+                    }
+                }
+
+                else -> when (shell.tab) {
+                    ShellTab.HOME -> BaynanaHomeScreen(
+                        state = homeState,
+                        onRefresh = onRefresh,
+                        onOpenRoom = onOpenRoom,
+                        onRunMigration = onRunMigration,
+                        onOpenMigrationDetail = onOpenMigrationDetail,
+                        onOpenTab = { onNavigate(ShellHost.navigate(it)) }
+                    )
+
+                    ShellTab.ROOMS -> RoomsScreen(
+                        state = homeState,
+                        onOpenRoom = onOpenRoom,
+                        onRefresh = onRefresh
+                    )
+
+                    ShellTab.MOVEMENTS -> com.baynana.features.movements.MovementsScreen(
+                        state = homeState,
+                        onOpenRoom = onOpenRoom
+                    )
+
+                    ShellTab.MARKET -> com.baynana.features.market.MarketScreen(
+                        viewModel = viewModel(),
+                        onBack = { onNavigate(ShellHost.navigate(ShellTab.HOME)) }
+                    )
+
+                    ShellTab.MORE -> MoreScreen(
+                        onOpenMigration = onOpenMigrationDetail,
+                        onOpenDeals = { onNavigate(BaynanaShell.extra("deals")) },
+                        onOpenFarmAccounting = { onNavigate(BaynanaShell.extra("farm")) },
+                        onOpenReports = { onNavigate(BaynanaShell.extra("reports")) },
+                        onOpenSettings = { onNavigate(BaynanaShell.extra("settings")) },
+                        onOpenAbout = { onNavigate(BaynanaShell.extra("about")) }
+                    )
+                }
+            }
+        }
+
+        val plan = homeState.migration.plan
+        if (showMigrationDialog && plan != null) {
+            MigrationDialog(
+                plan = plan,
+                running = homeState.migration.running,
+                outcome = homeState.migration.outcome,
+                error = homeState.migration.error,
+                onDismiss = onCloseMigrationDetail,
+                onApply = onRunMigration
+            )
+        }
+    }
+}
+
+/** تبويبات الشريط السفلي: أربعة ثابتة والمزيد. */
+enum class ShellTab(
+    val title: String,
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector
+) {
+    HOME("الرئيسية", Icons.Filled.Home, Icons.Outlined.Home),
+    ROOMS("غرفي", Icons.Filled.SupervisorAccount, Icons.Outlined.SupervisorAccount),
+    MOVEMENTS("الحركات", Icons.Filled.ReceiptLong, Icons.Outlined.ReceiptLong),
+    MARKET("السوق", Icons.Filled.Storefront, Icons.Outlined.Storefront),
+    MORE("المزيد", Icons.Filled.MoreHoriz, Icons.Outlined.MoreHoriz)
 }

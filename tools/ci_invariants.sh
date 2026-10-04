@@ -94,4 +94,28 @@ if [ -n "$MONEY_DOUBLE_HITS" ]; then
 fi
 echo "OK: لا Double ولا Float في مسارات المال (money/ledger/settlement/market)"
 
+# 8) الواجهة الجديدة (د١–د٢) بلا Double/Float وبلا حساب مبالغ داخلها (ADR-04 + خطة التصميم §8).
+#    النطاق: الملفات التي وُلدت في مسار التصميم الجديد فقط؛ أما الشاشات القديمة فتُحذف في د٤–د٦
+#    ولا يُشترط إصلاحها هنا (وإلا تجمّد العمل على الشكل القديم بدل تجاوزه).
+NEW_UI_PATHS="app/src/main/java/com/baynana/MainScreen.kt app/src/main/java/com/baynana/ui/theme app/src/main/java/com/baynana/ui/identity app/src/main/java/com/baynana/ui/components app/src/main/java/com/baynana/features/home/BaynanaHomeScreen.kt app/src/main/java/com/baynana/features/home/BaynanaHomeViewModel.kt app/src/main/java/com/baynana/features/home/MigrationDialog.kt app/src/main/java/com/baynana/features/rooms app/src/main/java/com/baynana/features/movements app/src/main/java/com/baynana/features/more/MoreScreen.kt app/src/main/java/com/baynana/features/shell"
+NEW_UI_HITS=$(
+  grep -rnE "(^|[^A-Za-z0-9_])(Double|Float)([^A-Za-z0-9_]|$)|toDouble\(|toFloat\(" $NEW_UI_PATHS 2>/dev/null \
+    | grep -vE ':[0-9]+:[[:space:]]*(\*|//|/\*)' || true
+)
+if [ -n "$NEW_UI_HITS" ]; then
+  echo "FAIL: كسور عشرية في واجهة التصميم الجديدة (المال بالفلس فقط):"
+  echo "$NEW_UI_HITS"
+  exit 1
+fi
+
+# 8ب) لوحة الهوية الجديدة هي المعتمدة: لا تبقى أسماء لوحة المسرب إلا في ملف الجسر المُعلن.
+LEGACY_PALETTE_HITS=$(
+  grep -rnE "PrimaryTeal|SecondaryAqua|AccentGold|AccentEmerald|StatusDebt" app/src/main/java/com/baynana \
+    | grep -v "ui/theme/LegacyPaletteAliases.kt" | grep -v "LegacyPaletteAliases" || true
+)
+if [ -n "$LEGACY_PALETTE_HITS" ]; then
+  echo "تنبيه: أسماء اللوحة القديمة في $(echo "$LEGACY_PALETTE_HITS" | wc -l | tr -d ' ') سطرًا داخل شاشات لم تُنقَّ بعد (تُحذف مع ملف الجسر في د٦)."
+fi
+echo "OK: لا Double ولا Float في واجهة التصميم الجديدة، واللوحة القديمة محصورة في جسر واحد"
+
 echo "كل الحواجز سليمة."

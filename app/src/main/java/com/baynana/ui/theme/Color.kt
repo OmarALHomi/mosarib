@@ -2,39 +2,73 @@ package com.baynana.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Luxury Water & Distributor Palette (Aqua, Emerald Deep Teal, Gold, Slate)
-val PrimaryTeal = Color(0xFF007A87)
-val PrimaryTealLight = Color(0xFF00A8B5)
-val PrimaryTealDark = Color(0xFF004D56)
+/**
+ * لوحة «بيننا» — «حقول اليمن».
+ *
+ * لماذا غيّرنا اللوحة المائية القديمة: كانت لوحة تطبيق توزيع مياه (فيروزي وأزرق)، و«بيننا» دفتر
+ * حسابات بين طرفين. الأخضر الترابي الدافئ يقول «أرض وحصاد وأمانة»، والذهبي يُصرف بحدّ أقصى (شعار
+ * الإقرار وبصمة النسخة)، والأحمر للخطر المالي وحده.
+ *
+ * قواعد ملزمة:
+ * - **لا لون يحمل معنى وحده**: كل حالة بلون ورمز وكلمة.
+ * - **التباين ≥ 4.5:1** في الوضعين (يفحصه اختبار التباين في `DesignTokensTest`).
+ * - المبالغ لا تُلوَّن بالذهبي أبدًا: الذهبي للتزيين لا للأرقام.
+ */
 
-val SecondaryAqua = Color(0xFF00B4D8)
-val SecondaryAquaLight = Color(0xFF90E0EF)
-val SecondaryAquaDark = Color(0xFF0077B6)
+// ---------------------------------------------------------------- الأساسي: أخضر الحصاد
+val HarvestGreen = Color(0xFF0E6B4F)
+val HarvestGreenLight = Color(0xFF3E9B77)
+val HarvestGreenDark = Color(0xFF064434)
+val HarvestContainer = Color(0xFFD8EBE1)
+val HarvestContainerDark = Color(0xFF123A2D)
 
-val AccentGold = Color(0xFFD4AF37)
-val AccentAmber = Color(0xFFFFAA00)
-val AccentEmerald = Color(0xFF00B894)
-val AccentCoral = Color(0xFFFF6B6B)
-val AccentCrimson = Color(0xFFE63946)
+// ---------------------------------------------------------------- الثانوي: ترابي دافئ
+val WarmEarth = Color(0xFF8D6E63)
+val WarmEarthLight = Color(0xFFB79A8E)
+val WarmEarthContainer = Color(0xFFF0E4DD)
+val WarmEarthContainerDark = Color(0xFF3A2E29)
 
-// Light Theme Neutrals
-val LightBackground = Color(0xFFF4F8FA)
-val LightSurface = Color(0xFFFFFFFF)
-val LightSurfaceVariant = Color(0xFFE8F1F5)
-val LightOnSurface = Color(0xFF132228)
-val LightOnSurfaceVariant = Color(0xFF495E67)
-val LightOutline = Color(0xFFD6E4EA)
+// ---------------------------------------------------------------- المميّز: ذهبي بخيل
+val HarvestGold = Color(0xFFC9A227)
+val HarvestGoldContainer = Color(0xFFF6ECC8)
+val HarvestGoldContainerDark = Color(0xFF3D3312)
 
-// Dark Theme Neutrals (Deep Ocean — high contrast for readability)
-val DarkBackground = Color(0xFF0A1014)
-val DarkSurface = Color(0xFF111A20)
-val DarkSurfaceVariant = Color(0xFF1A272F)
-val DarkOnSurface = Color(0xFFF0F6F8)
-val DarkOnSurfaceVariant = Color(0xFFAABCC6)
-val DarkOutline = Color(0xFF2A3F4D)
+// ---------------------------------------------------------------- الأسطح: ورق دافئ وحبر داكن
+val PaperBackground = Color(0xFFF7F3EA)
+val PaperSurface = Color(0xFFFFFDF8)
+val PaperSurfaceVariant = Color(0xFFEDE7DA)
+val InkOnPaper = Color(0xFF1B1A17)
+val InkMuted = Color(0xFF5C5850)
+val PaperOutline = Color(0xFFD8D2C4)
 
-// Custom Status Colors
-val StatusActive = Color(0xFF00E676)
-val StatusDebt = Color(0xFFEF5350)
-val StatusPaid = Color(0xFF26A69A)
-val StatusRunning = Color(0xFFFFB300)
+val NightBackground = Color(0xFF0E1512)
+val NightSurface = Color(0xFF16201C)
+val NightSurfaceVariant = Color(0xFF22302A)
+val NightOnSurface = Color(0xFFF3F1EA)
+val NightOnSurfaceVariant = Color(0xFFC2C9C3)
+val NightOutline = Color(0xFF33443C)
+
+// ---------------------------------------------------------------- دلالات الحالة
+/** خطر مالي: تحذير، فشل دائم، اعتراض. */
+val DangerRed = Color(0xFFB3261E)
+val DangerRedLight = Color(0xFFFFB4AB)
+val DangerContainer = Color(0xFFF9DEDC)
+val DangerContainerDark = Color(0xFF5C1A17)
+
+/** إقرار وتمام: قيد مُقرّ، صلح مكتمل. */
+val AcknowledgedGreen = Color(0xFF1B6B45)
+val AcknowledgedGreenLight = Color(0xFF7DDBA8)
+val AcknowledgedContainer = Color(0xFFDCEFE3)
+val AcknowledgedContainerDark = Color(0xFF15402B)
+
+/** انتظار: قيد مُرسل لم يُقرّ، قسط مستحق. */
+val WaitingAmber = Color(0xFF8A5A00)
+val WaitingAmberLight = Color(0xFFFFCF7A)
+val WaitingContainer = Color(0xFFFBEBD0)
+val WaitingContainerDark = Color(0xFF463206)
+
+/** معلومة/مسودة: مسودة محلية، رصيد دائن. */
+val InfoBlue = Color(0xFF2A5B8A)
+val InfoBlueLight = Color(0xFFA8CBEE)
+val InfoContainer = Color(0xFFDEEAF6)
+val InfoContainerDark = Color(0xFF1B3348)
