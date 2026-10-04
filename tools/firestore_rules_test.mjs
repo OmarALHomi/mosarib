@@ -79,7 +79,7 @@ async function seed(path, data) {
 const ROOM = "rooms/room-water-1";
 const ENTRY = `${ROOM}/entries/entry-1`;
 const DEAL = `${ROOM}/deals/deal-1`;
-const LISTING = "market/listings/listing-published-1";
+const LISTING = "market_listings/listing-published-1";
 
 await testEnv.clearFirestore();
 
@@ -184,7 +184,7 @@ await mustDeny(
 // ٥) عرض عام فيه هاتف مزارع أو مبلغ دين
 await mustDeny(
   "§8.2/٥ إنشاء عرض فيه هاتف مزارع",
-  setDoc(doc(alice, "market/listings/l1"), {
+  setDoc(doc(alice, "market_listings/l1"), {
     ownerUid: "alice",
     status: "DRAFT",
     farmerPhone: "777123456",
@@ -192,7 +192,7 @@ await mustDeny(
 );
 await mustDeny(
   "§8.2/٥ إنشاء عرض فيه مبلغ دين",
-  setDoc(doc(alice, "market/listings/l2"), {
+  setDoc(doc(alice, "market_listings/l2"), {
     ownerUid: "alice",
     status: "DRAFT",
     debtAmountMinor: 500000,
@@ -200,7 +200,7 @@ await mustDeny(
 );
 await mustDeny(
   "§8.2/٥ صاحب العرض ينشر بنفسه بلا مصادقة (status=PUBLISHED)",
-  setDoc(doc(alice, "market/listings/l3"), {
+  setDoc(doc(alice, "market_listings/l3"), {
     ownerUid: "alice",
     status: "PUBLISHED",
     hasPublicProjection: true,
@@ -216,7 +216,7 @@ await mustDeny(
 );
 await mustDeny(
   "§8.2/٥ مجهول يقرأ عرضًا غير منشور",
-  getDoc(doc(anonymous, "market/listings/draft-hidden"))
+  getDoc(doc(anonymous, "market_listings/draft-hidden"))
 );
 
 // ٦) نصّ فيه وسوم: يُخزَّن نصًّا ولا يُنفَّذ (يُعرض بأمان في اللوحة — tools/admin_console_test.mjs)
@@ -277,20 +277,20 @@ await mustAllow("مجهول يقرأ وثيقة حدود الإطلاق وحده
 await mustDeny("مجهول لا يقرأ بقية إعدادات النظام", getDoc(doc(anonymous, "system_config/secrets")));
 await mustDeny("غير أدمن لا يكتب الإعدادات", setDoc(doc(alice, "system_config/limits"), { musribLimit: 1 }));
 await mustAllow("مجهول يقرأ عرضًا منشورًا منزوع الرقم", getDoc(doc(anonymous, LISTING)));
-await mustAllow("صاحب العرض ينشئ مسودة نظيفة", setDoc(doc(alice, "market/listings/draft-1"), {
+await mustAllow("صاحب العرض ينشئ مسودة نظيفة", setDoc(doc(alice, "market_listings/draft-1"), {
   ownerUid: "alice",
   status: "DRAFT",
   crop: "بن",
 }));
-await mustAllow("صاحب العرض يعدّل مسودته", updateDoc(doc(alice, "market/listings/draft-1"), { crop: "بن يمني" }));
-await mustAllow("صاحب الطلب ينشئ طلب تسويق", setDoc(doc(alice, "market/listings/draft-1/requests/r1"), {
+await mustAllow("صاحب العرض يعدّل مسودته", updateDoc(doc(alice, "market_listings/draft-1"), { crop: "بن يمني" }));
+await mustAllow("صاحب الطلب ينشئ طلب تسويق", setDoc(doc(alice, "market_listings/draft-1/requests/r1"), {
   requesterUid: "alice",
   targetUid: "bob",
   listingId: "draft-1",
   status: "PENDING",
 }));
-await mustAllow("الدلال المخوَّل يقرأ الطلب", getDoc(doc(bob, "market/listings/draft-1/requests/r1")));
-await mustDeny("غيرهما لا يقرأ الطلب", getDoc(doc(carol, "market/listings/draft-1/requests/r1")));
+await mustAllow("الدلال المخوَّل يقرأ الطلب", getDoc(doc(bob, "market_listings/draft-1/requests/r1")));
+await mustDeny("غيرهما لا يقرأ الطلب", getDoc(doc(carol, "market_listings/draft-1/requests/r1")));
 await mustAllow("مستخدم مسجَّل يبلّغ", setDoc(doc(alice, "reports/rep-1"), { reporterUid: "alice", reason: "إعلان مخالف" }));
 await mustDeny("مجهول لا يبلّغ", setDoc(doc(anonymous, "reports/rep-2"), { reporterUid: "anon", reason: "x" }));
 await mustDeny("المبلّغ لا يقرأ سجلّ البلاغات", getDoc(doc(alice, "reports/rep-1")));

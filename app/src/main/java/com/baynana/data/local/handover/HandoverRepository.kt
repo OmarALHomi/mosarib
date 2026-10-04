@@ -7,6 +7,7 @@ import com.baynana.domain.handover.BundleParse
 import com.baynana.domain.handover.HandoverBundle
 import com.baynana.domain.handover.HandoverBundleCodec
 import com.baynana.domain.handover.HandoverItem
+import com.baynana.domain.ledger.OutboxState
 import com.baynana.domain.ledger.RoomStatus
 import com.baynana.domain.sync.ApplyOutcome
 import com.baynana.domain.sync.RemoteChange
@@ -131,7 +132,7 @@ class HandoverRepository(
      */
     suspend fun prepareOutgoing(roomId: String? = null, limit: Int = 120): Outgoing {
         val now = clock()
-        val rows = ledger.pendingForHandover(limit)
+        val rows = ledger.pendingForHandover(limit, OutboxState.SENT)
         // لقطة الغرفة تُبنى أولًا وتُوضع في رأس الحزمة: الطرف الآخر يحصل على الغرفة **قبل** قيودها،
         // وإلا وصل القيد إلى غرفة لا يعرفها فيُحفظ مؤجّلًا حتى يقبل الدعوة.
         val roomItems = mutableListOf<HandoverItem>()
@@ -457,7 +458,7 @@ class HandoverRepository(
     /** عدد ما لم يُقَرّ بعد (يظهر في الحزمة القادمة) — يُقرأ كتدفّق فتُحدَّث الشاشة وحدها. */
     fun observeWaitingCount(): Flow<Int> = dao.observePendingItemCount()
 
-    suspend fun pendingCount(): Int = ledger.pendingHandoverCount()
+    suspend fun pendingCount(): Int = ledger.pendingHandoverCount(OutboxState.SENT)
 
     suspend fun openInvitations(): Int = dao.countInvites(InviteStatus.PENDING)
 

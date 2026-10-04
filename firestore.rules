@@ -175,7 +175,7 @@ service cloud.firestore {
     // العرض العام: لا هاتف مزارع ولا مبلغ دين — والرفض على **الوثيقة نفسها** عند الكتابة،
     // فلا يعتمد الأمر على الشاشة. والنشر ليس بيد صاحب العرض: الحالة `PUBLISHED` يضعها
     // الأدمن بعد مصادقة على مراجعة بعينها (ح٩)، والمالك ينشئ مسودة ويعدّلها فقط.
-    match /market/listings/{listingId} {
+    match /market_listings/{listingId} {
       allow read: if isAdmin()
         || (isSignedIn() && resource.data.ownerUid == request.auth.uid)
         || (resource.data.status == 'PUBLISHED' && resource.data.hasPublicProjection == true);
@@ -223,7 +223,7 @@ service cloud.firestore {
     // ---------------------------------------------------------------- الباقي القديم
 
     // كل ما يلي مُجمَّد للعميل أيضًا، بنفس السبب: نموذج قائم على «من يعرف الكود يقرأ».
-    // القرار موثّق في رأس الملفّ، والبديل الجديد هو `rooms/*` و`market/listings/*`.
+    // القرار موثّق في رأس الملفّ، والبديل الجديد هو `rooms/*` و`market_listings/*`.
     match /musrib_links/{linkCode} {
       allow read, write: if isAdmin();
     }

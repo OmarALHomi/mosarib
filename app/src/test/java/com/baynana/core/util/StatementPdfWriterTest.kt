@@ -55,7 +55,7 @@ class StatementPdfWriterTest {
         lines = lines,
         chargedMinor = lines.filter { it.direction == LineDirection.CHARGE }.sumOf { it.amountMinor },
         paidMinor = lines.filter { it.direction == LineDirection.PAYMENT }.sumOf { it.amountMinor },
-        remainingMinor = 2_500_000,
+        remainingMinor = 250_000,
         unappliedMinor = 0,
         netMinor = 2_500_000
     )
@@ -77,11 +77,11 @@ class StatementPdfWriterTest {
             type = EntryType.WATER_SESSION,
             description = "سقية 5 ساعات",
             direction = LineDirection.CHARGE,
-            amountMinor = 5_000_000,
-            allocatedMinor = 2_500_000,
-            remainingMinor = 2_500_000,
+            amountMinor = 500_000,
+            allocatedMinor = 250_000,
+            remainingMinor = 250_000,
             status = EntryStatus.ACKNOWLEDGED,
-            runningNetMinor = -5_000_000
+            runningNetMinor = -500_000
         ),
         StatementLine(
             entryId = "p1",
@@ -89,11 +89,11 @@ class StatementPdfWriterTest {
             type = EntryType.PAYMENT,
             description = "سداد نقدي",
             direction = LineDirection.PAYMENT,
-            amountMinor = 2_500_000,
-            allocatedMinor = 2_500_000,
+            amountMinor = 250_000,
+            allocatedMinor = 250_000,
             remainingMinor = 0,
             status = EntryStatus.ACKNOWLEDGED,
-            runningNetMinor = -2_500_000
+            runningNetMinor = -250_000
         )
     )
 

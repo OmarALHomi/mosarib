@@ -10,6 +10,7 @@ import com.baynana.data.local.ledger.OutboxPayloads
 import com.baynana.data.local.ledger.RoomMember
 import com.baynana.domain.ledger.EntryStatus
 import com.baynana.domain.ledger.EntryType
+import com.baynana.domain.ledger.OutboxState
 import com.baynana.domain.ledger.RoomKind
 import com.baynana.domain.ledger.RoomStatus
 import kotlinx.coroutines.flow.first
@@ -233,7 +234,7 @@ class HandoverJourneyTest {
             decidedAt = now + 120_000
         )
         assertEquals(EntryStatus.ACKNOWLEDGED, target.ledgerDao().getEntry("entry-1")?.status)
-        assertEquals(1, target.ledgerDao().pendingForHandover(limit = 50).size)
+        assertEquals(1, target.ledgerDao().pendingForHandover(limit = 50, sentState = OutboxState.SENT).size)
 
         // حزمة العودة: دعوة/لقطة + الإقرار. تصل إلى جهاز «أ» فتُقرأ ويصير القيد مُقَرًّا عنده أيضًا.
         val backBundle = repo.prepareOutgoing()

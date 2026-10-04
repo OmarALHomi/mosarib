@@ -90,8 +90,8 @@ class StatementDocumentGoldenTest {
     fun `٠٢ دين واحد`() {
         val lines = document(
             statement(
-                listOf(line("e1", amountMinor = 3_500_000, runningNetMinor = -3_500_000)),
-                charged = 3_500_000
+                listOf(line("e1", amountMinor = 350_000, runningNetMinor = -350_000)),
+                charged = 350_000
             )
         )
         assertEquals("التاريخ • البيان • المبلغ • الرصيد الجاري", lines[4])
@@ -105,16 +105,16 @@ class StatementDocumentGoldenTest {
         val lines = document(
             statement(
                 listOf(
-                    line("e1", amountMinor = 1_000_000, runningNetMinor = -1_000_000),
+                    line("e1", amountMinor = 100_000, runningNetMinor = -100_000),
                     line(
                         "e2",
                         description = "دين سلعة: كيس أرز",
                         type = EntryType.GOODS_DEBT,
-                        amountMinor = 2_000_000,
-                        runningNetMinor = -3_000_000
+                        amountMinor = 200_000,
+                        runningNetMinor = -300_000
                     )
                 ),
-                charged = 3_000_000
+                charged = 300_000
             )
         )
         assertEquals("2026-10-03 • سقية 5 ساعات • 1,000 ر.ي • عليك 1,000 ر.ي", lines[5])
@@ -127,20 +127,20 @@ class StatementDocumentGoldenTest {
         val lines = document(
             statement(
                 listOf(
-                    line("e1", amountMinor = 5_000_000, allocatedMinor = 2_000_000, remainingMinor = 3_000_000, runningNetMinor = -5_000_000),
+                    line("e1", amountMinor = 500_000, allocatedMinor = 200_000, remainingMinor = 300_000, runningNetMinor = -500_000),
                     line(
                         "p1",
                         type = EntryType.PAYMENT,
                         description = "سداد نقدي",
                         direction = LineDirection.PAYMENT,
-                        amountMinor = 2_000_000,
-                        allocatedMinor = 2_000_000,
+                        amountMinor = 200_000,
+                        allocatedMinor = 200_000,
                         remainingMinor = 0,
-                        runningNetMinor = -3_000_000
+                        runningNetMinor = -300_000
                     )
                 ),
-                charged = 5_000_000,
-                paid = 2_000_000
+                charged = 500_000,
+                paid = 200_000
             )
         )
         assertEquals("2026-10-03 • سداد نقدي • − 2,000 ر.ي • عليك 3,000 ر.ي", lines[6])
@@ -153,25 +153,27 @@ class StatementDocumentGoldenTest {
         val lines = document(
             statement(
                 listOf(
-                    line("e1", amountMinor = 1_000_000, allocatedMinor = 1_000_000, remainingMinor = 0, runningNetMinor = -1_000_000),
+                    line("e1", amountMinor = 100_000, allocatedMinor = 100_000, remainingMinor = 0, runningNetMinor = -100_000),
                     line(
                         "p1",
                         type = EntryType.GENERAL_RECEIPT,
                         description = "قبض عام",
                         direction = LineDirection.PAYMENT,
-                        amountMinor = 1_500_000,
-                        allocatedMinor = 1_000_000,
+                        amountMinor = 150_000,
+                        allocatedMinor = 100_000,
                         remainingMinor = 0,
-                        runningNetMinor = 0
+                        runningNetMinor = 50_000
                     )
                 ),
-                charged = 1_000_000,
-                paid = 1_500_000,
-                unapplied = 500_000
+                charged = 100_000,
+                paid = 150_000,
+                unapplied = 50_000
             )
         )
-        assertTrue(lines.contains("رصيد دائن معلّق: 5,000 ر.ي — لم يُخصَّص على دَين بعد"))
-        assertEquals("المبلغ: 1,000 ر.ي • المسدَّد: 1,500 ر.ي • الباقي: -5,000 ر.ي", lines[3])
+        assertTrue(lines.contains("رصيد دائن معلّق: 500 ر.ي — لم يُخصَّص على دَين بعد"))
+        // ٠٥ قاعدة معلنة: «الباقي» لا يكون سالبًا أبدًا؛ الزائد يُكتب «لك» في الغرفة والعملة نفسيهما.
+        assertEquals("المبلغ: 1,000 ر.ي • المسدَّد: 1,500 ر.ي • الباقي: 0 ر.ي • لك: 500 ر.ي", lines[3])
+        assertEquals("2026-10-03 • قبض عام • − 1,500 ر.ي • لك 500 ر.ي", lines[6])
     }
 
     // ٠٦ — الريال السعودي: الاسم والرمز يتبعان العملة، لا نصًّا ثابتًا.

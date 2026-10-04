@@ -87,7 +87,9 @@ class LicenseTokenTest {
     @Test
     fun grantFieldsAreValidatedNotTrusted() {
         val base = LicenseToken.payloadText(validGrant)
-        assertNull("نسخة حمولة مجهولة تُرفض", LicenseToken.decodeGrant(base.replaceFirst("^1", "2")))
+        // تنبيه مقصود: `replaceFirst(String, String)` في Kotlin بحث نصّي لا regex، فـ"^1" لا تُبدّل
+        // شيئًا. لذلك نبني نسخة الغد بإزاحة الحرف الأول صراحةً — وإلا مرّ فحص «نسخة مجهولة» بلا فحص.
+        assertNull("نسخة حمولة مجهولة تُرفض", LicenseToken.decodeGrant("2" + base.drop(1)))
         assertNull("مدة صفرية تُرفض", LicenseToken.decodeGrant(base.replace("|30|", "|0|")))
         assertNull("مدة أطول من عقد تُرفض", LicenseToken.decodeGrant(base.replace("|30|", "|99999|")))
         assertNull("انتهاء قبل الإصدار يُرفض", LicenseToken.decodeGrant(base.replace("|1762592000000", "|1750000000000")))

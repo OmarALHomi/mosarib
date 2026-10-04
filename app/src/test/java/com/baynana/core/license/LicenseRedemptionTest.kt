@@ -104,8 +104,18 @@ class LicenseRedemptionTest {
     private fun publicKeyMaterial(): String =
         Base64.encodeToString(keys.public.encoded, Base64.NO_WRAP)
 
+    /**
+     * الفاحص هنا مولَّد من زوج مفاتيح الاختبار نفسه: التوقيع حقيقي والتحقق حقيقي (P1363 ← DER)، ولا
+     * نعتمد على مفتاح مثبَّت في الأصول. و`missingPublicKeyAssetIsReportedAsSuch` هو الذي يثبّت أن
+     * قالب الأصول الفارغ لا يمرّ كمفتاح صالح.
+     */
     private fun redeem(token: String) = runBlocking {
-        LicenseManager.redeem(context, token, repository)
+        LicenseManager.redeem(
+            context = context,
+            enteredKey = token,
+            repository = repository,
+            verifierOverride = EcdsaSignatureVerifier(publicKeyMaterial())
+        )
     }
 
     private fun storedExpiry(role: LicenseManager.LicenseRole = LicenseManager.LicenseRole.MUSRIB): Long =

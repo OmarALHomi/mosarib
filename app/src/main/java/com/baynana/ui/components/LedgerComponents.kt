@@ -72,7 +72,12 @@ fun NumbersHeader(
     ) {
         HeaderCell("المبلغ", chargedMinor, currency)
         HeaderCell("المسدَّد", paidMinor, currency)
-        HeaderCell("الباقي", remainingMinor, currency, emphasize = true)
+        // سداد زائد: «لك» لا «الباقي» — الكلمة تحمل الاتجاه، فلا يُعرض سالب ولا يُفهم موجبًا خطأً.
+        if (remainingMinor < 0L) {
+            HeaderCell("لك", -remainingMinor, currency, emphasize = true)
+        } else {
+            HeaderCell("الباقي", remainingMinor, currency, emphasize = true)
+        }
     }
 }
 

@@ -1,8 +1,7 @@
 package com.baynana.data.local.market
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
+import androidx.room.Upsert
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
@@ -11,10 +10,17 @@ interface MarketDao {
 
     // ------------------------------------------------------------------ العروض
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /**
+     * **`@Upsert` لا `@Insert(REPLACE)`** — وهذا ليس تفصيلًا: `INSERT OR REPLACE` في SQLite تُنفَّذ
+     * حذفًا ثم إدراجًا، وبما أن `market_contacts` و`market_moderations` أبناء بـ`ON DELETE CASCADE`،
+     * فإن كل تحديث للعرض كان يمحو رقم الدلال وصفّ المصادقة معه — عيب حقيقي كشفه اختبار الخصوصية في CI:
+     * الرسالة كانت «رقم الدلال مصرّح بنشره فيظهر» والرقم غير موجود. و`@Upsert` تُنفَّذ
+     * `ON CONFLICT DO UPDATE` فلا حذف ولا سلسلة حذف. ويحرس هذا حاجز ١٨ في `tools/ci_invariants.sh`.
+     */
+    @Upsert
     suspend fun upsertListing(row: MarketListingRow)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertContact(row: MarketContactRow)
 
     @Query("SELECT * FROM market_listings WHERE id = :id")
@@ -48,7 +54,7 @@ interface MarketDao {
 
     // ------------------------------------------------------------------ طلبات التسويق
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertRequest(row: MarketingRequestRow)
 
     @Query("SELECT * FROM market_requests WHERE id = :id")
@@ -69,7 +75,7 @@ interface MarketDao {
 
     // ------------------------------------------------------------------ المصادقة
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertModeration(row: ModerationRow)
 
     @Query("SELECT * FROM market_moderations WHERE listingId = :listingId AND revision = :revision")

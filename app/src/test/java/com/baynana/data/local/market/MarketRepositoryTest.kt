@@ -164,6 +164,26 @@ class MarketRepositoryTest {
     }
 
     @Test
+    fun `تحديث_العرض_لا_يمحو_صفوفه_التابعة`() = runBlocking {
+        // هذا الاختبار وُلد من عيب حقيقي: كانت كتابة العرض `INSERT OR REPLACE`، وهي في SQLite حذفٌ
+        // ثم إدراج، فأخذت معها بالـ`ON DELETE CASCADE` صفّ رقم الدلال وصفّ المصادقة. النتيجة أن عرضًا
+        // منشورًا بلا وسيلة اتصال، ومصادقة تختفي فيُرفض النشر التالي بلا سبب مفهوم.
+        acceptMarketing()
+        repository.save(draft(), broker, false, true, "733000000", now)
+        repository.submitForReview("listing-1")
+        repository.moderate("listing-1", 1, ModerationDecision.APPROVED, "", now = now)
+        repository.publish("listing-1")
+
+        repository.save(draft(title = "رمان صنف أول"), broker, false, true, "733000000", now + 5)
+
+        val contact = db.marketDao().getContact("listing-1")
+        assertNotNull("صفّ الاتصال يبقى بعد تحديث العرض", contact)
+        assertEquals("ورقم الدلال محفوظ كما هو", "733000000", contact!!.brokerPhone)
+        assertEquals("ورقم المزارع في مكانه المنفصل", "777123456", contact.farmerPhone)
+        assertNotNull("وسجلّ المصادقة على المراجعة ١ لا يُمحى", db.marketDao().getModeration("listing-1", 1))
+    }
+
+    @Test
     fun `النصّ_الحرّ_يرفض_رقم_تواصل_أو_ذكر_دين`() = runBlocking {
         acceptMarketing()
         val withPhone = repository.save(

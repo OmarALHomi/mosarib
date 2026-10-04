@@ -6,6 +6,7 @@ import android.provider.Settings
 import com.baynana.core.database.AppDatabase
 import com.baynana.data.local.license.LicenseRepository
 import com.baynana.domain.license.LicenseRejection
+import com.baynana.domain.license.LicenseSignatureVerifier
 import com.baynana.domain.license.LicenseToken
 import kotlinx.coroutines.runBlocking
 import java.security.MessageDigest
@@ -219,10 +220,18 @@ object LicenseManager {
      *
      * @param repository حقنة اختبارية صريحة؛ الإنتاج يمرّر `null` فيُستعمل دفتر التطبيق.
      */
+    /**
+     * @param verifierOverride فاحص قابل للحقن **للاختبارات وحدها**. سبب وجوده أن اختبارات هذه البوابة
+     *   تولّد زوج مفاتيح P-256 بنفسها وتوقّع به كما توقّع لوحة الأدمن، فتُمرِّن مسار التحقق الحقيقي
+     *   (تحويل المستطيل P1363 ← DER ← `Signature.verify`) بدل أن تعتمد على مفتاح مثبَّت في الأصول.
+     *   والإنتاج لا يمرّر شيئًا أبدًا، فيبقى المفتاح العام من `assets/license_public_key.txt` وحده —
+     *   ولهذا تظل نسخة بلا مفتاح تقول `NO_PUBLIC_KEY` بصراحة ولا تقبل كل شيء.
+     */
     suspend fun redeem(
         context: Context,
         enteredKey: String,
-        repository: LicenseRepository? = null
+        repository: LicenseRepository? = null,
+        verifierOverride: LicenseSignatureVerifier? = null
     ): ActivationOutcome {
         val trimmed = enteredKey.trim()
         if (trimmed.isEmpty()) {
@@ -240,7 +249,8 @@ object LicenseManager {
 
         // ---- المسار المعتمد: تصريح موقّع
         if (LicenseToken.looksLikeToken(trimmed)) {
-            return when (val outcome = repo.redeemSigned(trimmed, deviceCode, LicenseSignatures.verifier(context))) {
+            val verifier = verifierOverride ?: LicenseSignatures.verifier(context)
+            return when (val outcome = repo.redeemSigned(trimmed, deviceCode, verifier)) {
                 is LicenseRepository.Redemption.Rejected ->
                     ActivationOutcome.Rejected(outcome.reason, outcome.reason.messageArabic)
 

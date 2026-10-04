@@ -131,7 +131,7 @@ const requiredBlocks = [
     why: "كل عضو يكتب إقراره هو فقط",
   },
   {
-    path: "market/listings/{listingId}",
+    path: "market_listings/{listingId}",
     need: ["farmerPhone", "PUBLISHED", "DRAFT"],
     why: "لا هاتف مزارع، ولا نشر بلا مصادقة",
   },

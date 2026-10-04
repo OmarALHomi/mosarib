@@ -62,10 +62,6 @@ interface LedgerDao {
     @Query("SELECT * FROM room_members WHERE roomId = :roomId AND memberId = :memberId")
     suspend fun getMember(roomId: String, memberId: String): RoomMember?
 
-    /** كل أعضاء غرفة: بها تُبنى لقطة الغرفة في حزمة التسليم (ح١٩). */
-    @Query("SELECT * FROM room_members WHERE roomId = :roomId ORDER BY joinedAt ASC")
-    suspend fun getMembers(roomId: String): List<RoomMember>
-
     // ------------------------------------------------------------- القيود
 
     /**
@@ -284,8 +280,14 @@ interface LedgerDao {
     @Query("SELECT * FROM room_members WHERE isMe = 1")
     fun observeMyMemberships(): Flow<List<RoomMember>>
 
-    /** أعضاء غرفة: للاختيار بين «كشفي» و«كشف الطرف» في شاشة الكشف. */
-    @Query("SELECT * FROM room_members WHERE roomId = :roomId")
+    /**
+     * أعضاء غرفة: للاختيار بين «كشفي» و«كشف الطرف» في شاشة الكشف، ولبناء لقطة الغرفة في حزمة
+     * التسليم (ح١٩). ترتيبهم بزمن الانضمام ثابت، فلا تختلف لقطة عن لقطة بلا سبب.
+     *
+     * **دالة واحدة فقط بهذا الاسم**: تعريف ثانٍ يُنتج تعارضًا في شيفرة Room المولَّدة، وقد وقع فعلًا
+     * في CI (`Conflicting overloads` في `LedgerDao_Impl`) وأوقف الترجمة كلها.
+     */
+    @Query("SELECT * FROM room_members WHERE roomId = :roomId ORDER BY joinedAt ASC")
     suspend fun getMembers(roomId: String): List<RoomMember>
 
     /**
@@ -328,10 +330,10 @@ interface LedgerDao {
      * يُعاد إرساله في كل حزمة.
      */
     @Query("SELECT * FROM outbox WHERE state != :sentState ORDER BY createdAt ASC LIMIT :limit")
-    suspend fun pendingForHandover(limit: Int, sentState: String = OutboxState.SENT): List<OutboxItem>
+    suspend fun pendingForHandover(limit: Int, sentState: String): List<OutboxItem>
 
     @Query("SELECT COUNT(*) FROM outbox WHERE state != :sentState")
-    suspend fun pendingHandoverCount(sentState: String = OutboxState.SENT): Int
+    suspend fun pendingHandoverCount(sentState: String): Int
 
     @Query("SELECT * FROM tombstones ORDER BY deletedAt DESC")
     fun observeTombstones(): Flow<List<Tombstone>>

@@ -59,8 +59,18 @@ class HandoverBundleCodecTest {
     @Test
     fun singleCharacterTamperIsDetected() {
         val text = HandoverBundleCodec.encode(bundle(entryItem()))
-        val tampered = text.replace("1500000", "9500000")
-        assertTrue(tampered != text)
+        // التحريف داخل حقل مُرمَّز (base64url): المبالغ والأوصاف كلها مُرمَّزة، فالبحث عن رقم صريح
+        // في النصّ لا يصيب شيئًا ولا يفحص شيئًا. نغيّر حرفًا واحدًا في حمولة السطر الأول.
+        val lines = text.trimEnd('\n').lines().toMutableList()
+        val itemIndex = lines.indexOfFirst { it.startsWith("item ") }
+        assertTrue("الحزمة فيها سطر حركة", itemIndex >= 0)
+        val fields = lines[itemIndex].split(' ').toMutableList()
+        val payloadField = fields.last()
+        val flipped = (if (payloadField.first() == 'A') 'B' else 'A') + payloadField.drop(1)
+        fields[fields.lastIndex] = flipped
+        lines[itemIndex] = fields.joinToString(" ")
+        val tampered = lines.joinToString("\n") + "\n"
+        assertTrue("التحريف وقع فعلًا", tampered != text)
 
         val parsed = HandoverBundleCodec.parse(tampered)
         assertTrue(parsed is BundleParse.Refused)
@@ -83,8 +93,15 @@ class HandoverBundleCodecTest {
         // حزمة تقول في ترويستها ٣ عناصر وفيها عنصران، وبصمتها صحيحة (كتبها مُرسل مخطئ). تُرفض
         // كاملةً ولا يُستورد منها شيء: نصف حزمة أخطر من لا حزمة.
         val text = HandoverBundleCodec.encode(bundle(entryItem(), entryItem(operationId = "op-2")))
-        val bumped = text.replace("items 2", "items 3")
-        val body = bumped.lines().dropLast(1).joinToString("\n") + "\n"
+        // البصمة تُحسب على كل ما سبق سطر البصمة. فنبني «البدن» الصحيح أولًا (بلا سطر البصمة ولا
+        // سطر فارغ زائد من `lines()`)، ثم نُعلن فيه ٣ عناصر ونُوقّع من جديد — فالجواب المطلوب هو
+        // رفض «حزمة ناقصة» لا رفض «تحريف».
+        val bodyLines = text.trimEnd('\n').lines().toMutableList()
+        assertEquals("digest ", bodyLines.removeAt(bodyLines.lastIndex).take(7))
+        val itemsIndex = bodyLines.indexOfFirst { it.startsWith("items ") }
+        assertEquals("items 2", bodyLines[itemsIndex])
+        bodyLines[itemsIndex] = "items 3"
+        val body = bodyLines.joinToString("\n") + "\n"
         val resigned = body + "digest " + HandoverBundleCodec.digestOf(body) + "\n"
 
         val parsed = HandoverBundleCodec.parse(resigned)

@@ -276,7 +276,7 @@ if [ -f firestore.rules ]; then
   if echo "$RULES_CODE" | grep -q "allow read, write: if isSignedIn();"; then
     fail "قاعدة Firestore تمنح أي حساب مسجَّل قراءة وكتابة مطلقًا."
   fi
-  for needed in "match /licenses/{uid}" "match /rooms/{roomId}" "match /market/listings/{listingId}" "allow delete: if false;"; do
+  for needed in "match /licenses/{uid}" "match /rooms/{roomId}" "match /market_listings/{listingId}" "allow delete: if false;"; do
     echo "$RULES_CODE" | grep -qF "$needed" || fail "قواعد Firestore فقدت \"$needed\" (منع تمديد الاستحقاق/حذف القيود/نشر بلا مصادقة)."
   done
   if ! grep -q "set_admin_claim" firestore.rules; then
@@ -299,5 +299,42 @@ if [ "$LICENSE_PREFIX" = "$HANDOVER_PREFIX" ] || [ -z "$LICENSE_PREFIX" ] || [ -
   fail "بادئة التصريح وبادئة الحزمة يجب أن تكونا مختلفتين ومعلنتين (تصريح=$LICENSE_PREFIX حزمة=$HANDOVER_PREFIX)."
 fi
 pass "بادئة الحزمة اليدوية لها مصدر واحد، ومختلفة عن بادئة التصاريح"
+
+# 18) لا `@Insert(REPLACE)` على كيان أبٍ له أبناء بـ`ON DELETE CASCADE`.
+#     سبب الحاجز عيب حقيقي وصل إلى CI: `INSERT OR REPLACE` في SQLite حذفٌ ثم إدراج، فكل تحديث
+#     لصفّ `market_listings` كان يمحو بالـCASCADE صفّ رقم الدلال وصفّ المصادقة، فيظهر عرض منشور
+#     بلا وسيلة اتصال وتختفي المصادقة. العلاج `@Upsert` (‏ON CONFLICT DO UPDATE)، وهذا الحاجز
+#     يمنع عودة النمط إلى أي كيان أبٍ فيه أبناء بـCASCADE، لا في السوق وحده.
+python3 - <<'PY_GUARD'
+import re, pathlib, sys
+
+root = pathlib.Path("app/src/main/java")
+sources = {p: p.read_text(encoding="utf-8") for p in root.rglob("*.kt")}
+merged = "\n".join(sources.values())
+
+# أ) الآباء الذين لهم أبناء بـCASCADE
+cascade_parents = set()
+for m in re.finditer(r"ForeignKey\(\s*entity\s*=\s*(\w+)::class,(.*?)\)", merged, re.S):
+    if "ForeignKey.CASCADE" in m.group(2):
+        cascade_parents.add(m.group(1))
+
+# ب) كتابة REPLACE على كيان من هؤلاء الآباء
+offenders = []
+for path, text in sorted(sources.items()):
+    for m in re.finditer(
+        r"@Insert\(onConflict = OnConflictStrategy\.REPLACE\)[^\n]*\n[^\n]*fun (\w+)\([^\n]*?\b\w+: (\w+)",
+        text,
+    ):
+        fun, typ = m.groups()
+        if typ in cascade_parents:
+            offenders.append(f"{path}: {fun}({typ})")
+
+if offenders:
+    print("FAIL: كتابة REPLACE على أبٍ ذي أبناء CASCADE (تُمحى صفوف تابعة):", file=sys.stderr)
+    for line in offenders:
+        print("   " + line, file=sys.stderr)
+    sys.exit(1)
+print(f"OK: لا REPLACE على الأبّاء ذوي الأبناء CASCADE ({len(cascade_parents)} أبًا: {', '.join(sorted(cascade_parents))})")
+PY_GUARD
 
 echo "كل الحواجز سليمة."

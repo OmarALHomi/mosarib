@@ -140,7 +140,13 @@ object StatementText {
         return buildString {
             append("المبلغ: ").append(money(chargedMinor, code))
             append(" • المسدَّد: ").append(money(paidMinor, code))
-            append(" • الباقي: ").append(money(remainingMinor, code))
+            if (remainingMinor < 0L) {
+                // سداد زائد: لا «باقٍ سالب» في النصّ، بل صفرٌ عليك وزائدٌ لك في الغرفة والعملة نفسيهما.
+                append(" • الباقي: ").append(money(0L, code))
+                append(" • لك: ").append(money(-remainingMinor, code))
+            } else {
+                append(" • الباقي: ").append(money(remainingMinor, code))
+            }
         }
     }
 

@@ -146,7 +146,7 @@ rooms/{roomId}                    نوع الغرفة، العملة، الأط�
 rooms/{roomId}/entries/{entryId}  القيود المشتركة المعتمدة
 rooms/{roomId}/entries/{entryId}/acks/{uid}
 rooms/{roomId}/deals/{dealId}     الصلح وأقساطه
-market/listings/{listingId}       عام: بلا هاتف مزارع وبلا دين
+market_listings/{listingId}       عام: بلا هاتف مزارع وبلا دين
 licenses/{uid}                    استحقاق موقّع (خادم فقط)
 app_config/public                 الإعدادات العامة وحدود الإطلاق
 admin_audit/{eventId}             خادم فقط
