@@ -151,10 +151,10 @@ private fun ShellScaffold(
         bottomBar = {
             NavigationBar {
                 ShellTab.entries.forEach { tab ->
-                    val selected = shell.tab == tab.tab
+                    val selected = shell.tab == tab
                     NavigationBarItem(
                         selected = selected,
-                        onClick = { onNavigate(ShellHost.navigate(tab.tab)) },
+                        onClick = { onNavigate(ShellHost.navigate(tab)) },
                         icon = {
                             Icon(
                                 imageVector = if (selected) tab.selectedIcon else tab.unselectedIcon,
