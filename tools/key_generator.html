@@ -3,7 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>جِربة | مركز التحكم الإداري والتراخيص</title>
+  <title>بيننا | مركز التحكم الإداري والتراخيص</title>
+
+  <!--
+    سياسة أمان المحتوى (CSP): الطبقة الثانية بعد بناء DOM بأمان.
+    - لا يُسمح بتحميل سكربتات من أي مضيف غير gstatic (حِزمة Firebase المُثبَّتة).
+    - connect-src محدودة بمشروع Firebase وحده، فأي محاولة تسريب من محتوى محقون تفشل.
+    - object/base/form-action مغلقة: لا إدراج كائنات ولا تلاعب بالمسارات النسبية.
+    سبب وجودها: لو نُسي يومًا إسناد نصّ إلى innerHTML، يبقى للمتصفح خطّ دفاع ثانٍ.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://www.gstatic.com; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebaseapp.com; form-action 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'">
+  <meta name="referrer" content="no-referrer">
   
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -726,7 +736,7 @@
       <div class="brand">
         <div class="brand-logo">🌱</div>
         <div class="brand-text">
-          <h1>جِربة الإدارية</h1>
+          <h1>بيننا الإدارية</h1>
           <span>المركز السحابي والتراخيص</span>
         </div>
       </div>
@@ -769,6 +779,9 @@
         </button>
         <button class="tab-btn" onclick="switchTab('market-moderation-tab', this)">
           <span>📢</span> رقابة السوق
+        </button>
+        <button class="tab-btn" onclick="switchTab('audit-tab', this)">
+          <span>🧾</span> سجل التدقيق
         </button>
       </nav>
     </div>
@@ -864,7 +877,7 @@
           <div>
             <span class="field-label">الدور:</span>
             <select id="batchRoleSelect" class="styled-input">
-              <option value="ACTV">💧 مسرب (خدمة الري)</option>
+              <option value="ACTV">💧 موزّع ماء (خدمة الري)</option>
               <option value="DLLV">🤝 دلال (وساطة وسوق)</option>
               <option value="BJRV">📦 مجبري (مشتري محاصيل)</option>
               <option value="FRMV">🌾 مزارع (توثيق الحساب)</option>
@@ -1004,7 +1017,7 @@
 
         <div class="grid-3">
           <div>
-            <span class="field-label">حد سقيات المسرب:</span>
+            <span class="field-label">حد سقيات موزّع الماء:</span>
             <input type="number" id="limitMusribInput" class="styled-input" value="200">
           </div>
           <div>
@@ -1027,6 +1040,39 @@
     <!-- TAB 6: Market Moderation                       -->
     <!-- ============================================== -->
     <section id="market-moderation-tab" class="tab-content">
+    <section id="audit-tab" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🧾 سجل العمليات الإدارية</div>
+        </div>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">
+          كل عملية إدارية (توثيق، إيقاف، تمديد، نقل، حذف عرض، تغيير حدود) تُكتب هنا باسم من نفّذها
+          ووقتها. السجل يُقرأ ولا يُعدَّل من هذه اللوحة: الأثر الإداري لا يُمحى.
+        </p>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>الوقت</th>
+                <th>العملية</th>
+                <th>الهدف</th>
+                <th>المنفّذ</th>
+                <th>التفصيل</th>
+              </tr>
+            </thead>
+            <tbody id="auditTableBody">
+              <tr>
+                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                  يرجى تسجيل دخول الأدمن لعرض السجل.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+
       <div class="card">
         <div class="card-header">
           <div class="card-title">📢 رقابة عروض السوق والبلاغات</div>
@@ -1121,17 +1167,108 @@
     let currentRole = "ACTV";
     let currentPlan = "M";
 
+    // ===== BEGIN: SAFE RENDER (يُختبر آليًا في tools/admin_console_test.mjs) =====
+    //
+    // قاعدة هذا القسم واحدة: **لا يدخل نصّ من البيانات إلى HTML أبدًا**.
+    // كل قيمة تُكتب في `textContent` (لا يُفسَّر منها وسم)، وكل زرّ يُربط بـ`addEventListener`
+    // (لا `onclick` داخل نصّ)، وكل معرّف يبقى في إغلاق الدالة لا في نصّ وسم.
+    //
+    // وخط الدفاع الثاني: CSP في ترويسة الصفحة يمنع تحميل أي سكربت من خارج gstatic ويمنع أي
+    // اتصال بمضيف غير مضيف المشروع، فحتى لو نجح نسيان يومًا لا يجد المحتوى المحقون مهربًا.
+
+    /** عنصر واحد بلا أي تحليل لوسوم: الوسم اسمًا، والصنف اسمًا، والنصّ نصًّا. */
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined && text !== null) node.textContent = safeText(text);
+      return node;
+    }
+
+    /** نصّ آمن للعرض: نصّ فحسب، بلا محارف تحكّم تُفسد العرض (لا وسوم ولا كيانات). */
+    function safeText(value) {
+      if (value === undefined || value === null) return "";
+      return String(value).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+    }
+
+    /** خليّة نصّية: `{bold, code, weight}` تغطّي كل ما كانت تفعله القوالب الوسمية. */
+    function textCell(value, options) {
+      const settings = options || {};
+      const cell = el("td");
+      let holder = cell;
+      if (settings.code) {
+        holder = el("code");
+        cell.appendChild(holder);
+      }
+      if (settings.bold) {
+        const strong = el("b");
+        holder.appendChild(strong);
+        holder = strong;
+      }
+      holder.textContent = safeText(value);
+      if (settings.weight) cell.style.fontWeight = settings.weight;
+      return cell;
+    }
+
+    /** خليّة شارة: الكلمة من البيانات، والشكل من الحالة — اللون وحده لا يحمل المعنى. */
+    function badgeCell(value, kind) {
+      const cell = el("td");
+      const className = kind === "danger" ? "badge-danger"
+        : (kind === "warn" ? "badge-warning" : "badge-active");
+      cell.appendChild(el("span", `status-badge ${className}`, value));
+      return cell;
+    }
+
+    /** زرّ بإجراء مربوط بالكود لا بنصّ: معرّف الصفّ يبقى في الإغلاق. */
+    function actionButton(label, className, handler) {
+      const button = el("button", className || "btn btn-outline btn-sm", label);
+      button.type = "button";
+      button.addEventListener("click", handler);
+      return button;
+    }
+
+    /** خليّة أزرار: تُستقبل الأزرار جاهزة، ولا يُبنى منها نصّ. */
+    function actionCell(buttons) {
+      const cell = el("td");
+      (buttons || []).forEach(button => cell.appendChild(button));
+      return cell;
+    }
+
+    /** صفّ فارغ: رسالة واحدة، بلا وسوم مبنية بالنصّ. */
+    function emptyRow(colspan, message) {
+      const row = el("tr");
+      const cell = el("td", null, message);
+      cell.colSpan = colspan;
+      cell.style.textAlign = "center";
+      cell.style.padding = "16px";
+      row.appendChild(cell);
+      return row;
+    }
+
+    /** صفّ من خلايا جاهزة. */
+    function rowWith(cells) {
+      const row = el("tr");
+      (cells || []).forEach(cell => row.appendChild(cell));
+      return row;
+    }
+
+    /** تفريغ جدول: `replaceChildren` لا `innerHTML = ""`. */
+    function clearTable(tbody) {
+      if (tbody) tbody.replaceChildren();
+    }
+    // ===== END: SAFE RENDER =====
+
     // 2. Theme Management (Dark / Light)
     function initTheme() {
-      const savedTheme = localStorage.getItem("jerba_theme") || "dark";
+      const savedTheme = localStorage.getItem("baynana_admin_theme") || "dark";
       setTheme(savedTheme);
     }
 
     function setTheme(theme) {
       document.documentElement.setAttribute("data-theme", theme);
-      localStorage.setItem("jerba_theme", theme);
+      localStorage.setItem("baynana_admin_theme", theme);
       const btn = document.getElementById("themeToggleBtn");
-      if (btn) btn.innerHTML = theme === "dark" ? "☀️" : "🌙";
+      // نصّ ثابت بلا وسوم: `textContent` لا `innerHTML` حتى في الرموز.
+      if (btn) btn.textContent = theme === "dark" ? "☀️" : "🌙";
     }
 
     function toggleTheme() {
@@ -1148,18 +1285,15 @@
       const container = document.getElementById("glassToastContainer");
       if (!container) return;
 
-      const toast = document.createElement("div");
-      toast.className = `glass-toast toast-${type}`;
-      
+      const toast = el("div", `glass-toast toast-${type}`);
       const icon = type === "success" ? "✓" : (type === "error" ? "✕" : "ℹ");
 
-      toast.innerHTML = `
-        <div class="toast-icon-wrap">${icon}</div>
-        <div class="toast-body">
-          <div class="toast-title">${title}</div>
-          <div class="toast-msg">${message}</div>
-        </div>
-      `;
+      // كل نصّ يمرّ من `textCell`/`el(..., text)` أي `textContent`: لا يُفسَّر أي حرف كوسم.
+      toast.appendChild(el("div", "toast-icon-wrap", icon));
+      const body = el("div", "toast-body");
+      body.appendChild(el("div", "toast-title", title));
+      body.appendChild(el("div", "toast-msg", message));
+      toast.appendChild(body);
 
       container.appendChild(toast);
 
@@ -1177,6 +1311,9 @@
       btn.classList.add("active");
       const target = document.getElementById(tabId);
       if (target) target.classList.add("active");
+
+      // سجل التدقيق يُقرأ عند فتح تبويبه: أخفّ من تحميله في كل تحديث، وأحدث عند النظر إليه.
+      if (tabId === "audit-tab") loadAudit();
     }
 
     // 5. Role and Plan Selectors
@@ -1228,7 +1365,7 @@
     function sendWhatsApp() {
       const key = document.getElementById("keyDisplay").innerText;
       const dev = document.getElementById("deviceCodeInput").value.trim().toUpperCase();
-      const msg = `مرحباً بك عزيزي المشترك،\nتم إصدار رمز تفعيل تطبيق منظومة «جِربة» الزراعية لجهازك (${dev}):\n\n🔑 ${key}\n\nنتمنى لك موسماً مباركاً!`;
+      const msg = `مرحباً بك عزيزي المشترك،\nتم إصدار رمز تفعيل تطبيق «بيننا» لجهازك (${dev}):\n\n🔑 ${key}\n\nنتمنى لك موسماً مباركاً!`;
       window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
     }
 
@@ -1239,7 +1376,7 @@
       const count = parseInt(document.getElementById("batchCountInput").value, 10) || 10;
 
       const tbody = document.getElementById("batchTableBody");
-      tbody.innerHTML = "";
+      clearTable(tbody);
 
       for (let i = 1; i <= count; i++) {
         const randId = "CRD" + Math.random().toString(36).substring(2, 7).toUpperCase();
@@ -1249,22 +1386,100 @@
         const keyHash = await sha256(clean + SECRET_SALT + role + plan);
         const key = `${role}-${plan}-${keyHash.substring(0, 4)}-${keyHash.substring(4, 8)}`;
 
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${i}</td>
-          <td><span class="status-badge badge-warning">${role}</span></td>
-          <td>${plan === 'M' ? 'شهري' : (plan === 'Y' ? 'سنوي' : 'دائم')}</td>
-          <td><code>${dev}</code></td>
-          <td style="font-weight:900; color:var(--accent);"><code>${key}</code></td>
-          <td>
-            <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('${key}'); showGlassToast('نسخ', '${key}', 'success');">نسخ</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
+        const planLabel = plan === 'M' ? 'شهري' : (plan === 'Y' ? 'سنوي' : 'دائم');
+        tbody.appendChild(rowWith([
+          textCell(i),
+          badgeCell(role, "warn"),
+          textCell(planLabel),
+          textCell(dev, { code: true }),
+          accentCodeCell(key),
+          actionCell([
+            actionButton("نسخ", "btn btn-outline btn-sm", () => copyKey(key))
+          ])
+        ]));
       }
 
       document.getElementById("batchTableWrap").style.display = "block";
       showGlassToast("كروت العزلة", `تم توليد ${count} كرت بنجاح`, "success");
+    }
+
+    /** خليّة المفتاح: خطّ عريض بلون التمييز، والنصّ يبقى نصًّا. */
+    function accentCodeCell(value) {
+      const cell = el("td");
+      cell.style.fontWeight = "900";
+      cell.style.color = "var(--accent)";
+      cell.appendChild(el("code", null, value));
+      return cell;
+    }
+
+    // ===== سجل التدقيق (ح١٢): الأثر الإداري لا يُمحى =====
+    //
+    // كل عملية تُكتب في `admin_audit` باسم المنفّذ ووقته وقبل/بعد. والقراءة من اللوحة فقط:
+    // لا زرّ حذف ولا تعديل، لأن سجلًا يُعدَّل ليس سجلًا. التفصيل يُبنى نصًّا محضًا (JSON) كي لا
+    // يحتاج تخزينه أي تحليل وسوم.
+
+    /** وصف قصير للعملية كما يُقرأ: «توثيق مستخدم»، «إيقاف اشتراك»… */
+    const AUDIT_ACTIONS = {
+      USER_VERIFY: "توثيق/إلغاء توثيق مستخدم",
+      SUBSCRIPTION_EXTEND: "تمديد اشتراك",
+      SUBSCRIPTION_SUSPEND: "إيقاف اشتراك",
+      MARKET_DELETE: "حذف عرض من السوق",
+      LIMITS_SAVE: "تعديل حدود الإطلاق",
+      DEVICE_TRANSFER: "نقل جهاز إلى مشترك آخر"
+    };
+
+    async function auditLog(action, targetId, detail, before, after) {
+      if (!db || !currentUser) return;
+      const entry = {
+        action: action,
+        actionLabel: AUDIT_ACTIONS[action] || action,
+        targetId: safeText(targetId),
+        detail: safeText(detail),
+        before: before === undefined ? null : safeText(JSON.stringify(before)),
+        after: after === undefined ? null : safeText(JSON.stringify(after)),
+        byUid: currentUser.uid,
+        byEmail: currentUser.email || "",
+        at: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      try {
+        await db.collection("admin_audit").add(entry);
+      } catch (e) {
+        // لا نُسقط العملية لأن التسجيل فشل، لكن نقولها بصوت مسموع: سجل ناقص خبر لا يُخفى.
+        showGlassToast("تنبيه", "نُفّذت العملية لكن لم يُكتب أثرها في سجل التدقيق: " + e.message, "error");
+      }
+    }
+
+    async function loadAudit() {
+      if (!db || !currentUser) return;
+      try {
+        const snap = await db.collection("admin_audit").orderBy("at", "desc").limit(50).get();
+        const tbody = document.getElementById("auditTableBody");
+        clearTable(tbody);
+        if (snap.empty) {
+          tbody.appendChild(emptyRow(5, "لا عمليات مسجّلة بعد"));
+          return;
+        }
+        snap.forEach(d => {
+          const a = d.data();
+          const when = a.at && a.at.toDate ? a.at.toDate().toLocaleString("ar-YE") : "-";
+          const detail = [a.detail, a.after ? "بعد: " + a.after : ""].filter(Boolean).join(" • ");
+          tbody.appendChild(rowWith([
+            textCell(when),
+            textCell(a.actionLabel || a.action || "-", { bold: true }),
+            textCell(a.targetId || "-", { code: true }),
+            textCell(a.byEmail || a.byUid || "-"),
+            textCell(detail || "-")
+          ]));
+        });
+      } catch (e) {
+        showGlassToast("خطأ", "تعذّر قراءة سجل التدقيق: " + e.message, "error");
+      }
+    }
+
+    /** نسخ إلى الحافظة: لا نصّ وسم، فقط قيمة المفتاح. */
+    function copyKey(key) {
+      navigator.clipboard.writeText(key);
+      showGlassToast("نسخ", key, "success");
     }
 
     // 8. Firebase Integration
@@ -1378,24 +1593,27 @@
       try {
         const snap = await db.collection("users").limit(50).get();
         const tbody = document.getElementById("usersTableBody");
-        tbody.innerHTML = "";
+        clearTable(tbody);
         if (snap.empty) {
-          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:16px;">لا يوجد مستخدمون حالياً</td></tr>`;
+          tbody.appendChild(emptyRow(6, "لا يوجد مستخدمون حالياً"));
         } else {
           snap.forEach(d => {
             const u = d.data();
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td><b>${u.fullName || d.id}</b></td>
-              <td>${u.phoneNumber || '-'}</td>
-              <td>${u.activeRoles || 'MUSRIB'}</td>
-              <td><span class="status-badge ${u.verified ? 'badge-active' : 'badge-warning'}">${u.verified ? 'موثّق ✓' : 'غير موثق'}</span></td>
-              <td><span class="status-badge ${u.status === 'SUSPENDED' ? 'badge-danger' : 'badge-active'}">${u.status || 'ACTIVE'}</span></td>
-              <td>
-                <button class="btn btn-outline btn-sm" onclick="toggleUserVerify('${d.id}', ${!u.verified})">${u.verified ? 'إلغاء التوثيق' : 'توثيق ✓'}</button>
-              </td>
-            `;
-            tbody.appendChild(tr);
+            const suspended = u.status === "SUSPENDED";
+            tbody.appendChild(rowWith([
+              textCell(u.fullName || d.id, { bold: true }),
+              textCell(u.phoneNumber || "-"),
+              textCell(u.activeRoles || "MUSRIB"),
+              badgeCell(u.verified ? "موثّق ✓" : "غير موثق", u.verified ? "ok" : "warn"),
+              badgeCell(u.status || "ACTIVE", suspended ? "danger" : "ok"),
+              actionCell([
+                actionButton(
+                  u.verified ? "إلغاء التوثيق" : "توثيق ✓",
+                  "btn btn-outline btn-sm",
+                  () => toggleUserVerify(d.id, !u.verified)
+                )
+              ])
+            ]));
           });
         }
       } catch (e) {
@@ -1406,22 +1624,28 @@
       try {
         const snap = await db.collection("crop_listings").limit(30).get();
         const tbody = document.getElementById("marketTableBody");
-        tbody.innerHTML = "";
+        clearTable(tbody);
         if (snap.empty) {
-          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:16px;">لا توجد عروض في السوق</td></tr>`;
+          tbody.appendChild(emptyRow(6, "لا توجد عروض في السوق"));
         } else {
           snap.forEach(d => {
             const item = d.data();
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td><b>${item.title || item.cropType}</b></td>
-              <td>${item.cropType || '-'}</td>
-              <td>${item.dallalName || '-'}</td>
-              <td>${item.farmerPhone ? (item.hideFarmerPhone ? '🔒 محجوب' : item.farmerPhone) : '-'}</td>
-              <td>${item.createdAt ? new Date(item.createdAt.toDate ? item.createdAt.toDate() : item.createdAt).toLocaleDateString('ar-YE') : '-'}</td>
-              <td><button class="btn btn-danger btn-sm" onclick="deleteMarketListing('${d.id}')">حذف</button></td>
-            `;
-            tbody.appendChild(tr);
+            // رقم المزارع لا يُعرض في هذه اللوحة إلا إذا كان منشورًا بإذنه؛ وإلا فالحجب معلن.
+            const phoneText = item.farmerPhone
+              ? (item.hideFarmerPhone ? "🔒 محجوب" : item.farmerPhone)
+              : "-";
+            tbody.appendChild(rowWith([
+              textCell(item.title || item.cropType, { bold: true }),
+              textCell(item.cropType || "-"),
+              textCell(item.dallalName || "-"),
+              textCell(phoneText),
+              textCell(item.createdAt
+                ? new Date(item.createdAt.toDate ? item.createdAt.toDate() : item.createdAt).toLocaleDateString("ar-YE")
+                : "-"),
+              actionCell([
+                actionButton("حذف", "btn btn-danger btn-sm", () => deleteMarketListing(d.id))
+              ])
+            ]));
           });
         }
       } catch (e) {
@@ -1431,28 +1655,27 @@
 
     function renderSubsTable(subs) {
       const tbody = document.getElementById("subsTableBody");
-      tbody.innerHTML = "";
+      clearTable(tbody);
       if (subs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:16px;">لا توجد اشتراكات مطابقة</td></tr>`;
+        tbody.appendChild(emptyRow(8, "لا توجد اشتراكات مطابقة"));
         return;
       }
       subs.forEach(s => {
-        const tr = document.createElement("tr");
-        const expStr = s.expires_at ? new Date(s.expires_at).toLocaleDateString('ar-YE') : '-';
-        tr.innerHTML = `
-          <td><code>${s.id}</code></td>
-          <td><b>${s.owner_name || 'بدون اسم'}</b></td>
-          <td>${s.phone || '-'}</td>
-          <td><span class="status-badge badge-warning">${s.role_type || 'MUSRIB'}</span></td>
-          <td>${s.plan || 'MONTHLY'}</td>
-          <td>${expStr}</td>
-          <td><span class="status-badge ${s.status === 'ACTIVE' ? 'badge-active' : 'badge-danger'}">${s.status || 'ACTIVE'}</span></td>
-          <td>
-            <button class="btn btn-outline btn-sm" onclick="extendSubscription('${s.id}')">+30 يوم</button>
-            <button class="btn btn-danger btn-sm" onclick="suspendSubscription('${s.id}')">إيقاف</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
+        const expStr = s.expires_at ? new Date(s.expires_at).toLocaleDateString("ar-YE") : "-";
+        const active = s.status === "ACTIVE";
+        tbody.appendChild(rowWith([
+          textCell(s.id, { code: true }),
+          textCell(s.owner_name || "بدون اسم", { bold: true }),
+          textCell(s.phone || "-"),
+          badgeCell(s.role_type || "MUSRIB", "warn"),
+          textCell(s.plan || "MONTHLY"),
+          textCell(expStr),
+          badgeCell(s.status || "ACTIVE", active ? "ok" : "danger"),
+          actionCell([
+            actionButton("+30 يوم", "btn btn-outline btn-sm", () => extendSubscription(s.id)),
+            actionButton("إيقاف", "btn btn-danger btn-sm", () => suspendSubscription(s.id))
+          ])
+        ]));
       });
     }
 
@@ -1475,6 +1698,8 @@
           const currentExp = doc.data().expires_at || Date.now();
           const newExp = Math.max(currentExp, Date.now()) + (30 * 24 * 3600 * 1000);
           await ref.update({ expires_at: newExp, status: "ACTIVE" });
+          await auditLog("SUBSCRIPTION_EXTEND", id, "تمديد ٣٠ يومًا",
+            { expires_at: currentExp }, { expires_at: newExp, status: "ACTIVE" });
           showGlassToast("تمديد الاشتراك", `تم تمديد 30 يوماً للجهاز ${id}`, "success");
           loadCloudData();
         }
@@ -1487,6 +1712,7 @@
       if (!confirm(`هل تريد إيقاف اشتراك الجهاز ${id}؟`)) return;
       try {
         await db.collection("subscriptions").doc(id).update({ status: "SUSPENDED" });
+        await auditLog("SUBSCRIPTION_SUSPEND", id, "إيقاف بمخالفة", null, { status: "SUSPENDED" });
         showGlassToast("إيقاف الاشتراك", `تم إيقاف الجهاز ${id}`, "info");
         loadCloudData();
       } catch (e) {
@@ -1498,6 +1724,8 @@
       if (!db || !currentUser) return;
       try {
         await db.collection("users").doc(userId).set({ verified: newStatus }, { merge: true });
+        await auditLog("USER_VERIFY", userId, newStatus ? "توثيق" : "إلغاء توثيق",
+          { verified: !newStatus }, { verified: newStatus });
         showGlassToast("التوثيق", `تم تحديث توثيق المستخدم ${userId}`, "success");
         loadCloudData();
       } catch (e) {
@@ -1509,6 +1737,7 @@
       if (!confirm("هل تريد حذف هذا العرض من السوق؟")) return;
       try {
         await db.collection("crop_listings").doc(id).delete();
+        await auditLog("MARKET_DELETE", id, "حذف عرض من السوق", null, null);
         showGlassToast("حذف", "تم حذف الإعلان من السوق", "info");
         loadCloudData();
       } catch (e) {

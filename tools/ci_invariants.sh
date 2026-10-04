@@ -179,4 +179,43 @@ fi
 LEGACY_LEFTOVER=$(grep -rlE "مسرب|جربة|دورة ري" app/src/main/java 2>/dev/null | wc -l | tr -d ' ')
 echo "OK: الواجهة الجديدة خالية من الاسم القديم (وشاشات لم تُنقَّ بعد: $LEGACY_LEFTOVER ملفًا تُحذف في د٦)"
 
+# 13) لوحة الأدمن: لا إسنادة HTML من نصّ مُدخَل، وCSP قائمة (SEC-04).
+#     سبب الحاجز: حقول المستخدم/الاشتراك/العرض كانت تُبنى بـinnerHTML، فأي اسم مصمَّم بعناية يصير
+#     كودًا في جلسة الأدمن. الإصلاح: بناء DOM بـtextContent وربط الأحداث بـaddEventListener؛
+#     وهذا الحاجز يمنع عودة النمط القديم، والاختبار الحقيقي في tools/admin_console_test.mjs.
+ADMIN_PANEL="tools/key_generator.html"
+if [ -f "$ADMIN_PANEL" ]; then
+  INNER_HTML_HITS=$(
+    grep -nE "(innerHTML|outerHTML|insertAdjacentHTML|document\.write)" "$ADMIN_PANEL" \
+      | grep -E "\$\{|\+ *[\"']" \
+      | grep -vE ':[0-9]+:[[:space:]]*(\*|//|/\*)' || true
+  )
+  if [ -n "$INNER_HTML_HITS" ]; then
+    echo "FAIL: لوحة الأدمن تبني HTML من نصّ مُدخَل (خطر XSS):"
+    echo "$INNER_HTML_HITS"
+    exit 1
+  fi
+  if ! grep -q 'http-equiv="Content-Security-Policy"' "$ADMIN_PANEL"; then
+    echo "FAIL: لوحة الأدمن بلا سياسة أمان محتوى (CSP)."
+    exit 1
+  fi
+  if ! grep -q "SAFE RENDER" "$ADMIN_PANEL"; then
+    echo "FAIL: كتلة SAFE RENDER مفقودة من لوحة الأدمن (وهي ما يختبره tools/admin_console_test.mjs)."
+    exit 1
+  fi
+fi
+echo "OK: لوحة الأدمن تبني DOM بأمان ومعها CSP"
+
+# 14) الاسم القديم لا يعود إلى الأدوات ولا اللوحة الإدارية.
+LEGACY_TOOL_HITS=$(
+  grep -rnE "مسرب|جِربة|جربة|دورة ري" tools/*.html tools/*.mjs tools/*.py 2>/dev/null \
+    | grep -vE ':[0-9]+:[[:space:]]*(\*|//|#)' || true
+)
+if [ -n "$LEGACY_TOOL_HITS" ]; then
+  echo "FAIL: الاسم القديم في أدوات المشروع:"
+  echo "$LEGACY_TOOL_HITS"
+  exit 1
+fi
+echo "OK: لا أثر للاسم القديم في الأدوات واللوحة الإدارية"
+
 echo "كل الحواجز سليمة."

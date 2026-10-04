@@ -205,7 +205,7 @@ def convert(source: str, target: str, font_regular: str, font_bold: str) -> None
         topMargin=MARGIN,
         bottomMargin=MARGIN,
         title=os.path.basename(source),
-        author="جِربة | Jerba",
+        author="بيننا | Baynana",
     )
     flow = []
     paragraph: list[str] = []

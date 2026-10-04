@@ -33,6 +33,16 @@ jobs:
       - name: Guard invariants (no destructive migration, no debug-signed release, fixed identity)
         run: ./tools/ci_invariants.sh
 
+      # اختبار لوحة الأدمن: يحمّل كتلة بناء DOM الآمن من اللوحة نفسها ويرمي عليها حمولات XSS
+      # حقيقية، ثم يسأل الشجرة: هل وُلد وسم؟ هل ارتبط إجراء بنصّ؟ (SEC-04 — ح١٢)
+      - name: Guard admin console (XSS payloads render as text)
+        run: |
+          if command -v node >/dev/null 2>&1; then
+            node tools/admin_console_test.mjs
+          else
+            echo "::warning title=ADMIN::بيئة بلا node — تُخطّى الاختبارات الديناميكية للوحة (الحاجز الثابت يعمل)"
+          fi
+
       # الخطوات التالية تُبقي خرج Gradle في ملف، ثم تُعلن الأخطاء كتعليقات (annotations) على
       # الدفعة. السبب: تفاصيل الأخطاء يجب أن تكون مقروءة من واجهة الفحص دون تنزيل سجلات كاملة،
       # وهذا ما تعتمد عليه المراجعة الآلية في هذه المرحلة.
