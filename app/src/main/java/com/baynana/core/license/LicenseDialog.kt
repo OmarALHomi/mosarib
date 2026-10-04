@@ -42,7 +42,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,9 +55,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.baynana.core.database.AppDatabase
+import com.baynana.data.local.license.LicenseKinds
+import com.baynana.data.local.license.LicenseRepository
 import com.baynana.ui.theme.AccentEmerald
 import com.baynana.ui.theme.AccentGold
 import com.baynana.ui.theme.PrimaryTeal
+import android.text.format.DateUtils
+
+/** كم محاولة سابقة نُظهر للصاحب: ثلاث تكفي للمعرفة ولا تُحوّل الشاشة إلى سجلّ طويل. */
+private const val LICENSE_ATTEMPTS_SHOWN = 3
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,13 +77,20 @@ fun LicenseDialog(
     val deviceCode = remember { LicenseManager.getDeviceCode(context) }
     var enteredKey by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var checking by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+
+    // سجلّ الترخيص على هذا الجهاز: يقرأه صاحبه بلا إنترنت ولا مكالمة، فيعرف لماذا رُفض رمزه.
+    val licenseRepository = remember { LicenseRepository(AppDatabase.getDatabase(context)) }
+    val recentAttempts by licenseRepository.observeEvents(LICENSE_ATTEMPTS_SHOWN)
+        .collectAsStateWithLifecycle(initialValue = emptyList())
 
     var selectedPlan by remember { mutableStateOf(LicenseManager.SubscriptionPlan.MONTHLY) }
 
     fun copyDeviceCode() {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("كود جهاز المسرب", deviceCode)
+        val clip = ClipData.newPlainText("كود جهاز بيننا", deviceCode)
         clipboard.setPrimaryClip(clip)
         Toast.makeText(context, "تم نسخ كود الجهاز إلى الحافظة", Toast.LENGTH_SHORT).show()
     }
@@ -87,18 +104,39 @@ fun LicenseDialog(
     }
 
     fun submitActivation() {
+        if (checking) return
         errorMessage = null
         if (enteredKey.isBlank()) {
             errorMessage = "يرجى كتابة رمز التفعيل أولاً"
             return
         }
 
-        val plan = LicenseManager.verifyAndActivate(context, enteredKey)
-        if (plan != null) {
-            Toast.makeText(context, "تهانينا! تم تفعيل ${plan.titleArabic} بنجاح", Toast.LENGTH_LONG).show()
-            onActivated()
-        } else {
-            errorMessage = "رمز التفعيل غير صالح لهذا الجهاز، يرجى التأكد والتواصل مع المطور"
+        checking = true
+        scope.launch {
+            // السبب يأتي من الفاحص نفسه: لكل رفض رسالته التي تصف حالته الحقيقية
+            // («لجهاز آخر»، «استُردّ سابقًا») بدل رسالة واحدة عامة تُخفي ما جرى.
+            when (val outcome = LicenseManager.redeem(context, enteredKey)) {
+                is LicenseManager.ActivationOutcome.Activated -> {
+                    val extra = if (outcome.expiresAtBefore > 0L &&
+                        outcome.result.expiresAt > outcome.expiresAtBefore
+                    ) {
+                        " وأُضيفت المدة إلى ما تبقّى"
+                    } else {
+                        ""
+                    }
+                    Toast.makeText(
+                        context,
+                        "تهانينا! تم تفعيل ${outcome.result.titleArabic} بنجاح$extra",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    onActivated()
+                }
+
+                is LicenseManager.ActivationOutcome.Rejected -> {
+                    errorMessage = outcome.messageArabic
+                }
+            }
+            checking = false
         }
     }
 
@@ -268,7 +306,7 @@ fun LicenseDialog(
             OutlinedTextField(
                 value = enteredKey,
                 onValueChange = { enteredKey = it.uppercase() },
-                label = { Text("أدخل رمز التفعيل (ACTV-XXXX-XXXX)") },
+                label = { Text("أدخل التصريح الموقّع أو رمز التفعيل القديم") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
@@ -290,6 +328,7 @@ fun LicenseDialog(
             // Submit Button
             Button(
                 onClick = { submitActivation() },
+                enabled = !checking,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
@@ -303,10 +342,47 @@ fun LicenseDialog(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "تفعيل التطبيق الآن",
+                    text = if (checking) "جارٍ التحقق…" else "تفعيل التطبيق الآن",
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp
                 )
+            }
+
+            if (recentAttempts.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = "آخر محاولات التفعيل على هذا الجهاز",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                recentAttempts.forEach { attempt ->
+                    val granted = attempt.outcome == LicenseKinds.GRANTED
+                    Text(
+                        // السطر يقول الحقيقة كاملة: ماذا جرى، ومتى، وبأي سبب — بلا كلمات مطمئنة كاذبة.
+                        text = buildString {
+                            append(if (granted) "✅ قُبل" else "⛔ رُفض")
+                            append(" • ")
+                            append(
+                                DateUtils.getRelativeTimeSpanString(
+                                    attempt.occurredAt,
+                                    System.currentTimeMillis(),
+                                    DateUtils.MINUTE_IN_MILLIS
+                                )
+                            )
+                            if (!granted && attempt.message.isNotEmpty()) {
+                                append(" • ")
+                                append(attempt.message)
+                            }
+                        },
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                }
             }
 
             Spacer(modifier = Modifier.height(18.dp))

@@ -783,6 +783,9 @@
         <button class="tab-btn" onclick="switchTab('audit-tab', this)">
           <span>🧾</span> سجل التدقيق
         </button>
+        <button class="tab-btn" onclick="switchTab('license-tab', this)">
+          <span>✍️</span> التصاريح الموقّعة
+        </button>
       </nav>
     </div>
 
@@ -1040,6 +1043,99 @@
     <!-- TAB 6: Market Moderation                       -->
     <!-- ============================================== -->
     <section id="market-moderation-tab" class="tab-content">
+    <!-- ============================================== -->
+    <!-- TAB: التصاريح الموقّعة (ح١٣)                    -->
+    <!-- ============================================== -->
+    <section id="license-tab" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">✍️ إصدار تصريح موقّع</div>
+          <span class="status-badge badge-warning">المفتاح الخاص لا يُحفظ</span>
+        </div>
+
+        <p style="color: var(--text-muted); font-size: 13px; line-height: 1.8; margin-bottom: 12px;">
+          التصريح الموقّع <strong>لا يمكن توليده من داخل التطبيق</strong>: التطبيق يتحقق بالمفتاح العام
+          وحده. الصق مفتاحك الخاص (PKCS#8) هنا، وقّع، ثم أعطِ العميل الرمز الناتج. الرمز يُستردّ
+          <strong>مرة واحدة على كل جهاز</strong>: إدخاله ثانية لا يمدّد شيئًا.
+        </p>
+
+        <span class="field-label">المفتاح الخاص (PKCS#8) — يُبقى في الذاكرة فقط:</span>
+        <div class="input-wrap">
+          <textarea id="licensePrivateKeyInput" class="styled-input" rows="3"
+            placeholder="-----BEGIN PRIVATE KEY-----" autocomplete="off" spellcheck="false"
+            style="font-family: monospace; font-size: 11px;"></textarea>
+        </div>
+
+        <span class="field-label">كود جهاز العميل:</span>
+        <div class="input-wrap">
+          <input type="text" id="licenseDeviceInput" class="styled-input" placeholder="MSRB-XXXX-XXXX"
+            autocomplete="off" spellcheck="false"
+            style="text-transform: uppercase; font-family: monospace; letter-spacing: 2px;">
+        </div>
+
+        <span class="field-label">المهنة:</span>
+        <div class="input-wrap">
+          <select id="licenseRoleSelect" class="styled-input">
+            <option value="MUSRIB">المُسَرِّب (خدمة الري)</option>
+            <option value="DALLAL">الدلال (الوساطة والتسويق)</option>
+            <option value="BUYER">المشتري / المجبري</option>
+            <option value="FARMER">المزارع (توثيق الحساب)</option>
+          </select>
+        </div>
+
+        <span class="field-label">الخطة والمدة:</span>
+        <div class="input-wrap">
+          <select id="licensePlanSelect" class="styled-input">
+            <option value="MONTHLY">شهري — 30 يومًا</option>
+            <option value="YEARLY">سنوي — 365 يومًا</option>
+            <option value="LIFETIME">توثيق دائم — 3650 يومًا</option>
+          </select>
+        </div>
+        <div class="input-wrap">
+          <input type="number" id="licenseDaysInput" class="styled-input" min="1" max="3650" value="30"
+            inputmode="numeric" placeholder="عدد الأيام">
+        </div>
+
+        <button class="btn btn-primary btn-block" onclick="issueLicense()">
+          <span>✍️</span> توقيع التصريح وإظهار الرمز
+        </button>
+
+        <div class="key-glass-card">
+          <div class="key-badge-label">الرمز الموقّع (يُرسل للعميل كما هو)</div>
+          <textarea id="licenseTokenOutput" class="styled-input" rows="4" readonly
+            style="font-family: monospace; font-size: 11px; direction: ltr; text-align: left;"></textarea>
+          <div class="key-actions-row">
+            <button class="btn btn-gold btn-sm" onclick="copyLicenseToken()">📋 نسخ الرمز</button>
+            <button class="btn btn-primary btn-sm" onclick="sendLicenseWhatsApp()">💬 إرسال واتساب</button>
+          </div>
+          <div class="key-badge-label" id="licenseSummaryLabel">—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🔎 التحقق من تصريح</div>
+        </div>
+        <p style="color: var(--text-muted); font-size: 13px; line-height: 1.8; margin-bottom: 12px;">
+          نفس الفحص الذي يجريه التطبيق: تحقّق قبل الإرسال بدل أن تنتظر رد العميل.
+        </p>
+        <div class="input-wrap">
+          <textarea id="licensePublicKeyInput" class="styled-input" rows="3"
+            placeholder="المفتاح العام (SPKI)" autocomplete="off" spellcheck="false"
+            style="font-family: monospace; font-size: 11px;"></textarea>
+        </div>
+        <div class="input-wrap">
+          <textarea id="licenseVerifyTokenInput" class="styled-input" rows="3"
+            placeholder="الرمز الموقّع للتحقق منه" autocomplete="off" spellcheck="false"
+            style="font-family: monospace; font-size: 11px; direction: ltr; text-align: left;"></textarea>
+        </div>
+        <button class="btn btn-outline btn-block" onclick="checkLicenseToken()">
+          <span>🔎</span> تحقّق الآن
+        </button>
+        <div class="key-badge-label" id="licenseVerifyLabel">—</div>
+      </div>
+    </section>
+
     <section id="audit-tab" class="tab-content">
       <div class="card">
         <div class="card-header">
@@ -1257,6 +1353,126 @@
     }
     // ===== END: SAFE RENDER =====
 
+    // ===== BEGIN: LICENSE SIGNING (يُستخرج ويُنفَّذ في tools/license_signer_test.mjs) =====
+    //
+    // توقيع التصاريح (ح١٣). لا سرّ في هذا الملفّ: المفتاح الخاص يكتبه المالك بيده عند الاستعمال،
+    // ولا يُحفظ في التخزين المحلي ولا يُرسل إلى Firebase ولا يُكتب في أي مجموعة — وإن أُعيد تحميل
+    // الصفحة انمحت نسخته من الذاكرة، وهذا مقصود.
+    //
+    // الصيغة مطابقة للفاحص في التطبيق بالحرف الواحد: الحمولة نصّ مفصول بـ`|`، والتوقيع على بايتات
+    // UTF-8 لتلك الحمولة، والرمز `BNNA1.<payload>.<signature>` بترميز base64url بلا حشو.
+    // والاختبار يشغّل هذه الكتلة نفسها في Node ويتحقق من رمزها بمكتبة مستقلة (تشغيلان مستقلان
+    // لبايتات الرمز نفسه)، ثم يُثبَّت الرمز الناتج في اختبار Kotlin ليكون التصريح الموقّع في المتصفح
+    // مقبولًا في التطبيق — لا أن يكون «يعمل عندي».
+
+    const LICENSE_PREFIX = "BNNA1";
+    const LICENSE_PAYLOAD_VERSION = "1";
+
+    /** كود الجهاز يُطبَّع كما يطبّعه التطبيق: بلا فواصل وبأحرف كبيرة. */
+    function licenseDeviceCode(code) {
+      return String(code || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    }
+
+    /** الحمولة بالترتيب نفسه الذي يقرأه التطبيق: الإصدار|المعرّف|الجهاز|المهنة|الخطة|الأيام|الإصدار|الانتهاء */
+    function buildLicensePayload(fields) {
+      return [
+        LICENSE_PAYLOAD_VERSION,
+        String(fields.licenseId),
+        licenseDeviceCode(fields.deviceCode),
+        String(fields.role).toUpperCase(),
+        String(fields.plan).toUpperCase(),
+        String(fields.durationDays),
+        String(fields.issuedAt),
+        String(fields.expiresAt)
+      ].join("|");
+    }
+
+    function bytesFromBase64(text) {
+      const cleaned = String(text)
+        .replace(/-----[^-]+-----/g, "")
+        .replace(/\s+/g, "")
+        .replace(/=+$/, "")
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+      if (cleaned.length === 0 || !/^[A-Za-z0-9+/]+$/.test(cleaned)) {
+        throw new Error("نصّ المفتاح ليس base64 صحيحًا.");
+      }
+      const binary = atob(cleaned);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes;
+    }
+
+    function base64UrlFromBytes(bytes) {
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    async function importLicenseSigningKey(privateKeyBase64) {
+      return crypto.subtle.importKey(
+        "pkcs8",
+        bytesFromBase64(privateKeyBase64),
+        { name: "ECDSA", namedCurve: "P-256" },
+        false,
+        ["sign"]
+      );
+    }
+
+    async function importLicenseVerifyKey(publicKeyBase64) {
+      return crypto.subtle.importKey(
+        "spki",
+        bytesFromBase64(publicKeyBase64),
+        { name: "ECDSA", namedCurve: "P-256" },
+        true,
+        ["verify"]
+      );
+    }
+
+    /** معرّف التصريح: فريد لكل إصدار، وهو مفتاح منع الاسترداد المزدوج في قاعدة التطبيق. */
+    function makeLicenseId() {
+      const random = crypto.getRandomValues(new Uint8Array(8));
+      const hex = Array.from(random).map(b => b.toString(16).padStart(2, "0")).join("");
+      return "lic-" + Date.now().toString(36) + "-" + hex;
+    }
+
+    /** يوقّع تصريحًا ويعيد الحمولة والتوقيع والرمز. */
+    async function signLicense(privateKeyBase64, fields) {
+      const payload = buildLicensePayload(fields);
+      const payloadBytes = new TextEncoder().encode(payload);
+      const key = await importLicenseSigningKey(privateKeyBase64);
+      const signature = await crypto.subtle.sign(
+        { name: "ECDSA", hash: "SHA-256" },
+        key,
+        payloadBytes
+      );
+      const signatureB64 = base64UrlFromBytes(new Uint8Array(signature));
+      return {
+        payload: payload,
+        signature: signatureB64,
+        token: LICENSE_PREFIX + "." + base64UrlFromBytes(payloadBytes) + "." + signatureB64
+      };
+    }
+
+    /** يتحقق من رمز بمفتاح عام: نفس الفحص الذي يجري في التطبيق، لكن في المتصفح. */
+    async function verifyLicenseToken(publicKeyBase64, token) {
+      const parts = String(token || "").trim().split(".");
+      if (parts.length !== 3 || parts[0].toUpperCase() !== LICENSE_PREFIX) {
+        throw new Error("الرمز ليس تصريحًا موقّعًا من بيننا.");
+      }
+      const payloadBytes = bytesFromBase64(parts[1]);
+      const signatureBytes = bytesFromBase64(parts[2]);
+      const key = await importLicenseVerifyKey(publicKeyBase64);
+      const valid = await crypto.subtle.verify(
+        { name: "ECDSA", hash: "SHA-256" },
+        key,
+        signatureBytes,
+        payloadBytes
+      );
+      return { valid: valid, payload: new TextDecoder().decode(payloadBytes) };
+    }
+    // ===== END: LICENSE SIGNING =====
+
     // 2. Theme Management (Dark / Light)
     function initTheme() {
       const savedTheme = localStorage.getItem("baynana_admin_theme") || "dark";
@@ -1314,6 +1530,7 @@
 
       // سجل التدقيق يُقرأ عند فتح تبويبه: أخفّ من تحميله في كل تحديث، وأحدث عند النظر إليه.
       if (tabId === "audit-tab") loadAudit();
+      if (tabId === "license-tab") syncLicenseDays();
     }
 
     // 5. Role and Plan Selectors
@@ -1446,6 +1663,105 @@
       } catch (e) {
         // لا نُسقط العملية لأن التسجيل فشل، لكن نقولها بصوت مسموع: سجل ناقص خبر لا يُخفى.
         showGlassToast("تنبيه", "نُفّذت العملية لكن لم يُكتب أثرها في سجل التدقيق: " + e.message, "error");
+      }
+    }
+
+
+    // ---------------------------------------------------------------- التصاريح الموقّعة (ح١٣)
+
+    /** يعبّئ عدد الأيام من الخطة المختارة، ويبقى قابلًا للتعديل لمدة مخصّصة. */
+    function syncLicenseDays() {
+      const plan = document.getElementById("licensePlanSelect").value;
+      const days = plan === "LIFETIME" ? 3650 : (plan === "YEARLY" ? 365 : 30);
+      document.getElementById("licenseDaysInput").value = String(days);
+    }
+
+    function licenseSummaryText(fields, token) {
+      const expiry = new Date(fields.expiresAt).toLocaleDateString("ar");
+      return "المهنة: " + fields.role + " • الخطة: " + fields.plan + " • الأيام: " + fields.durationDays +
+        " • حتى: " + expiry + " • طول الرمز: " + token.length + " حرفًا";
+    }
+
+    async function issueLicense() {
+      const privateKey = document.getElementById("licensePrivateKeyInput").value.trim();
+      const deviceCode = document.getElementById("licenseDeviceInput").value.trim();
+      const role = document.getElementById("licenseRoleSelect").value;
+      const plan = document.getElementById("licensePlanSelect").value;
+      const durationDays = parseInt(document.getElementById("licenseDaysInput").value, 10);
+
+      if (privateKey.length < 40) {
+        showGlassToast("ناقص", "الصق المفتاح الخاص أولًا (PKCS#8 بصيغة base64).", "error");
+        return;
+      }
+      if (deviceCode.length < 6) {
+        showGlassToast("ناقص", "اكتب كود جهاز العميل كما يظهر عنده.", "error");
+        return;
+      }
+      if (!Number.isInteger(durationDays) || durationDays < 1 || durationDays > 3650) {
+        showGlassToast("مدة غير صالحة", "عدد الأيام يجب أن يكون بين 1 و3650.", "error");
+        return;
+      }
+
+      const issuedAt = Date.now();
+      const fields = {
+        licenseId: makeLicenseId(),
+        deviceCode: deviceCode,
+        role: role,
+        plan: plan,
+        durationDays: durationDays,
+        issuedAt: issuedAt,
+        expiresAt: issuedAt + durationDays * 24 * 3600 * 1000
+      };
+
+      try {
+        const signed = await signLicense(privateKey, fields);
+        document.getElementById("licenseTokenOutput").value = signed.token;
+        document.getElementById("licenseSummaryLabel").textContent =
+          licenseSummaryText(fields, signed.token);
+        showGlassToast("جاهز", "وُقّع التصريح. انسخه وأرسله للعميل.", "success");
+      } catch (error) {
+        showGlassToast("تعذّر التوقيع", error.message, "error");
+      }
+    }
+
+    function copyLicenseToken() {
+      const token = document.getElementById("licenseTokenOutput").value.trim();
+      if (!token) {
+        showGlassToast("لا شيء", "وقّع تصريحًا أولًا.", "info");
+        return;
+      }
+      navigator.clipboard.writeText(token)
+        .then(() => showGlassToast("تم النسخ", "الرمز في الحافظة.", "success"))
+        .catch(() => showGlassToast("تعذّر النسخ", "انسخ الرمز يدويًا من الصندوق.", "error"));
+    }
+
+    function sendLicenseWhatsApp() {
+      const token = document.getElementById("licenseTokenOutput").value.trim();
+      if (!token) {
+        showGlassToast("لا شيء", "وقّع تصريحًا أولًا.", "info");
+        return;
+      }
+      const device = document.getElementById("licenseDeviceInput").value.trim();
+      const message = "تصريح بيننا للجهاز " + device + "\n" + token +
+        "\n\nافتح «حول» ثم «تفعيل» والصق الرمز. الرمز يُستردّ مرة واحدة.";
+      window.open("https://wa.me/?text=" + encodeURIComponent(message), "_blank");
+    }
+
+    async function checkLicenseToken() {
+      const publicKey = document.getElementById("licensePublicKeyInput").value.trim();
+      const token = document.getElementById("licenseVerifyTokenInput").value.trim();
+      const label = document.getElementById("licenseVerifyLabel");
+      if (publicKey.length < 40 || token.length < 20) {
+        label.textContent = "الصق المفتاح العام والرمز معًا.";
+        return;
+      }
+      try {
+        const result = await verifyLicenseToken(publicKey, token);
+        label.textContent = result.valid
+          ? "✅ التوقيع صحيح — الحمولة: " + result.payload
+          : "⛔ التوقيع لا يطابق هذه الحمولة.";
+      } catch (error) {
+        label.textContent = "تعذّر التحقق: " + error.message;
       }
     }
 

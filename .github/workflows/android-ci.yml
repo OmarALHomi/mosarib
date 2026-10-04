@@ -43,6 +43,16 @@ jobs:
             echo "::warning title=ADMIN::بيئة بلا node — تُخطّى الاختبارات الديناميكية للوحة (الحاجز الثابت يعمل)"
           fi
 
+      # اختبار موقّع التصاريح: يوقّع الحمولة بكتلة اللوحة نفسها (WebCrypto) ثم يتحقق منها بمكتبة
+      # Node مستقلة، ويتأكد أن صيغة الحقول والترميز مطابقة لما يقرأه التطبيق (ح١٣ — LIC-01)
+      - name: Guard license signer (browser token verifies independently)
+        run: |
+          if command -v node >/dev/null 2>&1; then
+            node tools/license_signer_test.mjs
+          else
+            echo "::warning title=LICENSE::بيئة بلا node — يُخطّى اختبار الموقّع (ويبقى اختبار المتجه الذهبي في Kotlin)"
+          fi
+
       # الخطوات التالية تُبقي خرج Gradle في ملف، ثم تُعلن الأخطاء كتعليقات (annotations) على
       # الدفعة. السبب: تفاصيل الأخطاء يجب أن تكون مقروءة من واجهة الفحص دون تنزيل سجلات كاملة،
       # وهذا ما تعتمد عليه المراجعة الآلية في هذه المرحلة.

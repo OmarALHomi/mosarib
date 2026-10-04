@@ -3,10 +3,27 @@ package com.baynana.core.license
 import android.content.Context
 import android.net.Uri
 import android.provider.Settings
+import com.baynana.core.database.AppDatabase
+import com.baynana.data.local.license.LicenseRepository
+import com.baynana.domain.license.LicenseRejection
+import com.baynana.domain.license.LicenseToken
+import kotlinx.coroutines.runBlocking
 import java.security.MessageDigest
 
 /**
- * Offline-first license and device activation manager for the Baynana ecosystem.
+ * الترخيص والتفعيل في «بيننا» — بلا إنترنت وبلا حساب.
+ *
+ * **مساران، ولا ثالث:**
+ * 1. **تصريح موقّع (ح١٣، وهو المعتمد):** `BNNA1.<payload>.<توقيع>` يوقّعه المالك بمفتاحه الخاص
+ *    ECDSA P-256، ويتحقق منه التطبيق بالمفتاح العام في الأصول. لا يمكن توليده من داخل التطبيق،
+ *    ولا استخدامه مرتين: يُسجَّل في جدول `licenses` بمفتاحه الفريد فيُرفض التكرار (منع replay).
+ * 2. **مفتاح قديم (للتوافق فقط):** مولَّد من سرّ مكتوب في الكود، فيمكن توليده من يعرف الكود،
+ *    ولذلك هو أضعف أمنيًا بطبيعته ويُوسَم `LEGACY` في السجل. نُبقيه لأن أجهزة كثيرة تعمل به،
+ *    لكنه أُغلق العيب الأخطر فيه: إدخال الرمز نفسه مرتين لم يعد يمدّد شيئًا.
+ *
+ * **قاعدة المال**: الترخيص استحقاق لا رصيد؛ لا يمرّ من هنا أي مبلغ ولا عملة، ولا يُحسب الكسر.
+ *
+ * Legacy notes kept for backward compatibility with earlier Mosarib single-role keys.
  * Supports 4 distinct roles:
  * - [LicenseRole.MUSRIB]: Prefix ACTV (Water irrigation provider)
  * - [LicenseRole.DALLAL]: Prefix DLLV (Broker / Marketer)
@@ -40,6 +57,9 @@ object LicenseManager {
     private const val KEY_CONFIG_LIMIT_DALLAL_DEALS = "config_limit_dallal_deals"
 
     // Cryptographic salts
+    /** وسم يُكتب في سجل الترخيص مع كل مفتاح من المسار القديم، فلا يُخلط بالنوع المعتمد. */
+    const val LEGACY_KEY_NOTE = "مفتاح النسخة القديمة (السرّ المتناظر) — يُستبدل بتصريح موقّع."
+
     private const val DEVICE_CODE_SALT = "msrb_device_token_salt_v1"
     private const val SECRET_ACTIVATION_SALT = "mosarib_secure_license_secret_key_alhomi_2026_water_app"
 
@@ -68,10 +88,31 @@ object LicenseManager {
     data class ActivationResult(
         val role: LicenseRole,
         val plan: SubscriptionPlan,
-        val expiresAt: Long
+        val expiresAt: Long,
+        /**
+         * العنوان كما يُعرض. التصاريح الموقّعة قد تحمل مدة مخصّصة (٩٠ يومًا مثلًا) لا يوافقها اسم
+         * خطة في هذه النسخة، فنعرض المدة الموقّعة نفسها بدل أن نكذب باسم خطة.
+         */
+        val labelArabic: String = ""
     ) {
         val titleArabic: String
-            get() = "${role.titleArabic} — ${plan.titleArabic}"
+            get() = labelArabic.ifEmpty { "${role.titleArabic} — ${plan.titleArabic}" }
+    }
+
+    /** نتيجة محاولة تفعيل: قُبلت (باستحقاق معروف) أو رُفضت (بسبب عربي ظاهر). */
+    sealed interface ActivationOutcome {
+        data class Activated(
+            val result: ActivationResult,
+            /** نهاية الاستحقاق قبل هذه العملية (0 إن لم يكن هناك استحقاق). */
+            val expiresAtBefore: Long,
+            /** `SIGNED` أو `LEGACY` — يُعلن نوع الاستحقاق ولا يُخفى. */
+            val kind: String
+        ) : ActivationOutcome
+
+        data class Rejected(
+            val reason: LicenseRejection,
+            val messageArabic: String
+        ) : ActivationOutcome
     }
 
     fun sha256(input: String): String {
@@ -99,6 +140,10 @@ object LicenseManager {
     }
 
     /**
+     * **موروث — لا يُستعمل للمفاتيح الجديدة**: يولّد مفتاحًا من سرّ مكتوب في الكود، أي أن من يقرأ
+     * الكود يستطيع توليده. بقي للتوافق مع أجهزة تعمل به، واللوحة الإدارية تُظهره بوضوح تحت
+     * «المفاتيح القديمة» أما الجديد فهو [LicenseToken] الموقّع.
+     *
      * Mathematical generator producing the activation key for a given device, role, and plan.
      * Example: ACTV-M-8F42-9D1B, DLLV-Y-8F42-9D1B, FRMV-L-8F42-9D1B
      */
@@ -167,42 +212,155 @@ object LicenseManager {
     }
 
     /**
-     * Verifies the activation key entered by the user.
-     * Activates the specific role and plan, extends time if already active,
-     * writes cryptographic signature, and returns [ActivationResult].
+     * يسترد رمزًا (تصريحًا موقّعًا أو مفتاحًا قديمًا) ويفعّل المهنة.
+     *
+     * كل الكتابة تمرّ من [LicenseRepository]: هو الذي يسجّل الاستحقاق بمفتاحه الفريد ويمنع
+     * الاسترداد الثاني، وهو الذي يكتب أثره في `license_events` في المعاملة نفسها.
+     *
+     * @param repository حقنة اختبارية صريحة؛ الإنتاج يمرّر `null` فيُستعمل دفتر التطبيق.
      */
-    fun verifyAndActivate(context: Context, enteredKey: String): ActivationResult? {
+    suspend fun redeem(
+        context: Context,
+        enteredKey: String,
+        repository: LicenseRepository? = null
+    ): ActivationOutcome {
+        val trimmed = enteredKey.trim()
+        if (trimmed.isEmpty()) {
+            return ActivationOutcome.Rejected(
+                LicenseRejection.MALFORMED,
+                "اكتب رمز التفعيل أولًا."
+            )
+        }
+
         val deviceCode = getDeviceCode(context)
-        val resolved = resolveKey(deviceCode, enteredKey) ?: return null
+        val repo = repository ?: LicenseRepository(
+            db = AppDatabase.getDatabase(context),
+            knownRoles = LicenseRole.entries.map { it.name }.toSet()
+        )
+
+        // ---- المسار المعتمد: تصريح موقّع
+        if (LicenseToken.looksLikeToken(trimmed)) {
+            return when (val outcome = repo.redeemSigned(trimmed, deviceCode, LicenseSignatures.verifier(context))) {
+                is LicenseRepository.Redemption.Rejected ->
+                    ActivationOutcome.Rejected(outcome.reason, outcome.reason.messageArabic)
+
+                is LicenseRepository.Redemption.Granted -> {
+                    val role = runCatching { LicenseRole.valueOf(outcome.role) }.getOrNull()
+                        ?: return ActivationOutcome.Rejected(
+                            LicenseRejection.UNKNOWN_TERM,
+                            LicenseRejection.UNKNOWN_TERM.messageArabic
+                        )
+                    val result = applyGrant(
+                        context = context,
+                        role = role,
+                        planName = outcome.plan,
+                        durationDays = outcome.durationDays,
+                        expiresAt = outcome.expiresAt
+                    )
+                    ActivationOutcome.Activated(result, outcome.expiresAtBefore, outcome.kind)
+                }
+            }
+        }
+
+        // ---- المسار الموروث: مفتاح من السرّ المكتوب في الكود (يُوسَم LEGACY في السجل)
+        val resolved = resolveKey(deviceCode, trimmed)
+            ?: return ActivationOutcome.Rejected(
+                LicenseRejection.MALFORMED,
+                "هذا الرمز غير صالح لهذا الجهاز. تأكد من نسخه كاملًا، أو اطلب تصريحًا جديدًا."
+            )
         val (role, plan) = resolved
+        val outcome = repo.claimLegacy(
+            rawKey = trimmed,
+            deviceCode = deviceCode,
+            role = role.name,
+            plan = plan.name,
+            durationDays = plan.durationDays,
+            note = LEGACY_KEY_NOTE
+        )
+        return when (outcome) {
+            is LicenseRepository.Redemption.Rejected ->
+                ActivationOutcome.Rejected(outcome.reason, outcome.reason.messageArabic)
 
+            is LicenseRepository.Redemption.Granted -> {
+                val result = applyGrant(
+                    context = context,
+                    role = role,
+                    planName = plan.name,
+                    durationDays = plan.durationDays,
+                    expiresAt = outcome.expiresAt
+                )
+                ActivationOutcome.Activated(result, outcome.expiresAtBefore, outcome.kind)
+            }
+        }
+    }
+
+    /**
+     * المسار المتزامن القديم (يعود بـ`null` عند أي رفض، بلا سبب).
+     * بقي للتوافق مع الاختبارات والنداءات القديمة؛ الواجهة الجديدة تستدعي [redeem] لتعرض السبب.
+     */
+    fun verifyAndActivate(context: Context, enteredKey: String): ActivationResult? =
+        when (val outcome = runBlocking { redeem(context, enteredKey) }) {
+            is ActivationOutcome.Activated -> outcome.result
+            is ActivationOutcome.Rejected -> null
+        }
+
+    /**
+     * يكتب الاستحقاق في التخزين السريع (SharedPreferences) بعد أن ثبّته المستودع في الدفتر.
+     *
+     * العلاقة بينهما صريحة: **الدفتر هو الأصل** (صفّ في `licenses` لا يُكرَّر، فلا تمديد مرتين)،
+     * وSharedPreferences مجرّد مرآة سريعة يقرأها باقي التطبيق بلا `suspend` — ثلاثون موضعًا تسأل
+     * «هل المهنة مفعّلة؟» في مسار الواجهة، ولا يصحّ أن يقف كل واحد منها على قاعدة البيانات.
+     */
+    private fun applyGrant(
+        context: Context,
+        role: LicenseRole,
+        planName: String,
+        durationDays: Int,
+        expiresAt: Long
+    ): ActivationResult {
+        val plan = SubscriptionPlan.entries.firstOrNull { it.name == planName }
+        val resolvedPlan = plan ?: fallbackPlanFor(durationDays)
+        val label = if (plan != null) {
+            "${role.titleArabic} — ${plan.titleArabic}"
+        } else {
+            "${role.titleArabic} — تصريح موقّع لمدة $durationDays يومًا"
+        }
+
+        val deviceCode = getDeviceCode(context)
+        val activatedAt = System.currentTimeMillis()
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
-        val currentExpiry = getRoleExpiresAt(context, role)
-        val baseTime = maxOf(System.currentTimeMillis(), currentExpiry)
-        val newExpiresAt = baseTime + (plan.durationDays * 24L * 3600L * 1000L)
-
-        val roleSig = sha256(deviceCode + SECRET_ACTIVATION_SALT + role.name + plan.name + newExpiresAt)
+        val roleSig = sha256(deviceCode + SECRET_ACTIVATION_SALT + role.name + resolvedPlan.name + expiresAt)
 
         val editor = sp.edit()
             .putBoolean("role_activated_${role.name}", true)
-            .putString("role_plan_${role.name}", plan.name)
-            .putLong("role_expires_at_${role.name}", newExpiresAt)
+            .putString("role_plan_${role.name}", resolvedPlan.name)
+            .putLong("role_expires_at_${role.name}", expiresAt)
             .putString("role_signature_${role.name}", roleSig)
-            .putLong("role_activated_at_${role.name}", System.currentTimeMillis())
+            .putLong("role_activated_at_${role.name}", activatedAt)
 
         // If activating MUSRIB, also mirror to legacy keys for 100% backward compatibility
         if (role == LicenseRole.MUSRIB) {
-            val legacySig = sha256(deviceCode + SECRET_ACTIVATION_SALT + plan.name + newExpiresAt)
+            val legacySig = sha256(deviceCode + SECRET_ACTIVATION_SALT + resolvedPlan.name + expiresAt)
             editor
                 .putBoolean(KEY_LEGACY_IS_ACTIVATED, true)
-                .putString(KEY_LEGACY_SUBSCRIPTION_PLAN, plan.name)
-                .putLong(KEY_LEGACY_EXPIRES_AT, newExpiresAt)
+                .putString(KEY_LEGACY_SUBSCRIPTION_PLAN, resolvedPlan.name)
+                .putLong(KEY_LEGACY_EXPIRES_AT, expiresAt)
                 .putString(KEY_LEGACY_ACTIVATION_SIGNATURE, legacySig)
-                .putLong(KEY_LEGACY_ACTIVATED_AT, System.currentTimeMillis())
+                .putLong(KEY_LEGACY_ACTIVATED_AT, activatedAt)
         }
 
         editor.apply()
-        return ActivationResult(role, plan, newExpiresAt)
+        return ActivationResult(role, resolvedPlan, expiresAt, label)
+    }
+
+    /**
+     * خطة تُعرض للمدة فقط عندما يحمل التصريح مدة مخصّصة لا يوافقها اسم خطة في هذه النسخة.
+     * التصنيف تقريبي للعرض، أما **المدة المعروضة فموقّعة** فلا يأتي التقريب على حقّ المستخدم.
+     */
+    private fun fallbackPlanFor(durationDays: Int): SubscriptionPlan = when {
+        durationDays >= SubscriptionPlan.LIFETIME.durationDays -> SubscriptionPlan.LIFETIME
+        durationDays >= SubscriptionPlan.YEARLY.durationDays -> SubscriptionPlan.YEARLY
+        else -> SubscriptionPlan.MONTHLY
     }
 
     /**

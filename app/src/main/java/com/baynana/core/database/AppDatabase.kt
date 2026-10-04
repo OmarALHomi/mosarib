@@ -48,6 +48,10 @@ import com.baynana.data.local.market.MarketDao
 import com.baynana.data.local.market.MarketListingRow
 import com.baynana.data.local.market.MarketingRequestRow
 import com.baynana.data.local.market.ModerationRow
+// ح١٣: سجلّ الترخيص — استحقاق يُستردّ مرة واحدة، وأحداث لا تُعيد التمديد.
+import com.baynana.data.local.license.LicenseDao
+import com.baynana.data.local.license.LicenseEventRow
+import com.baynana.data.local.license.LicenseRow
 import androidx.room.AutoMigration
 import kotlinx.coroutines.launch
 
@@ -55,7 +59,7 @@ import kotlinx.coroutines.launch
  * إصدار قاعدة البيانات. ثابت على مستوى الملف لأن تعليق [Database] يحتاج قيمة وقت الترجمة،
  * ويقرأه اختبار الترحيلات ومحرّك النسخ الاحتياطي. لا يُنقص أبدًا، وأي زيادة تحتاج ترحيلًا.
  */
-const val DATABASE_VERSION = 11
+const val DATABASE_VERSION = 12
 
 @Database(
     entities = [
@@ -87,7 +91,10 @@ const val DATABASE_VERSION = 11
         MarketListingRow::class,
         MarketContactRow::class,
         MarketingRequestRow::class,
-        ModerationRow::class
+        ModerationRow::class,
+        // ح١٣: الاستحقاق الموقّع وأحداث الاسترداد (المفتاح الأساسي نفسه هو مانع الـreplay).
+        LicenseRow::class,
+        LicenseEventRow::class
     ],
     version = DATABASE_VERSION,
     // تصدير المخطط إلزامي: بدونه لا يمكن اختبار الترحيلات ولا مقارنة الإصدارات قبل النشر.
@@ -102,7 +109,9 @@ const val DATABASE_VERSION = 11
         // 9→10: جداول الصلح الثلاثة فقط — إضافة بحتة بلا لمس صف قائم.
         AutoMigration(from = 9, to = 10),
         // 10→11: جداول السوق الأربعة — إضافة بحتة كذلك.
-        AutoMigration(from = 10, to = 11)
+        AutoMigration(from = 10, to = 11),
+        // 11→12: سجلّ الترخيص (جدولان جديدان) — إضافة بحتة، بلا مسّ أي صف قائم.
+        AutoMigration(from = 11, to = 12)
     ]
 )
 @TypeConverters(Converters::class)
@@ -126,6 +135,9 @@ abstract class AppDatabase : RoomDatabase() {
 
     /** ح٩ (٢/٢): السوق — عروض، طلبات تسويق، ومصادقات. */
     abstract fun marketDao(): MarketDao
+
+    /** ح١٣: سجلّ الترخيص — كل استحقاق بمفتاحه الفريد، وكل محاولة استرداد بأثرها. */
+    abstract fun licenseDao(): LicenseDao
 
     companion object {
         /**
@@ -253,7 +265,7 @@ abstract class AppDatabase : RoomDatabase() {
          * Room من فرق المخططات، فليست من هذه القائمة؛ انظر [AUTO_MIGRATION_RANGES].
          */
         val AUTO_MIGRATION_RANGES: List<Pair<Int, Int>> =
-            listOf(6 to 7, 7 to 8, 8 to 9, 9 to 10, 10 to 11)
+            listOf(6 to 7, 7 to 8, 8 to 9, 9 to 10, 10 to 11, 11 to 12)
 
         /**
          * كل الترحيلات اليدوية بترتيب تصاعدي، متاحة للاختبار. أي إصدار جديد يجب أن يضيف

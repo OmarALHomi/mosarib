@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>بيننا | توليد مفاتيح التصاريح (بلا إنترنت)</title>
+
+  <!--
+    صفحة تعمل بلا إنترنت مطلقًا: لا خطوط خارجية ولا مكتبات ولا أي اتصال.
+    CSP هنا أضيق ما يمكن: `default-src 'none'` مع السماح بالسكربت والنمط في الصفحة نفسها فقط.
+    سبب ذلك: هذا الملفّ يتعامل مع **مفتاح خاص**، فلا مكان فيه لطلب شبكي عرضي — ولا حتى خط جميل.
+  -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'">
+  <meta name="referrer" content="no-referrer">
+  <style>
+    :root {
+      --bg: #0d1418;
+      --card: #16222a;
+      --border: #24404a;
+      --text: #eaf4f2;
+      --muted: #9db3b0;
+      --gold: #d9a83a;
+      --teal: #2fbfa0;
+      --danger: #e2574c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px 16px 60px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, "Segoe UI", Tahoma, sans-serif;
+      line-height: 1.8;
+    }
+    .wrap { max-width: 820px; margin: 0 auto; }
+    h1 { font-size: 22px; margin: 0 0 6px; }
+    .sub { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .card h2 { font-size: 16px; margin: 0 0 10px; color: var(--gold); }
+    label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 6px; }
+    textarea, button {
+      width: 100%;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+    textarea {
+      background: #0b1116;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      direction: ltr;
+      text-align: left;
+      resize: vertical;
+    }
+    button {
+      margin-top: 10px;
+      padding: 12px;
+      border: 0;
+      border-radius: 10px;
+      background: var(--teal);
+      color: #06231d;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    button.ghost { background: transparent; color: var(--teal); border: 1px solid var(--teal); }
+    .note {
+      font-size: 13px;
+      color: var(--muted);
+      border-inline-start: 3px solid var(--gold);
+      padding-inline-start: 10px;
+      margin: 10px 0;
+    }
+    .warn {
+      font-size: 13px;
+      color: #ffd9d4;
+      background: rgba(226, 87, 76, 0.12);
+      border: 1px solid rgba(226, 87, 76, 0.5);
+      border-radius: 10px;
+      padding: 10px;
+      margin: 10px 0;
+    }
+    #status { font-size: 14px; font-weight: 700; min-height: 24px; margin-top: 8px; }
+    #status.ok { color: var(--teal); }
+    #status.bad { color: var(--danger); }
+    ol { padding-inline-start: 20px; font-size: 14px; }
+    code { color: var(--gold); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🔐 توليد مفاتيح التصاريح</h1>
+    <div class="sub">يعمل بلا إنترنت، ولا يرسل شيئًا إلى أي مكان. المفتاح الخاص لا يغادر هذا المتصفح إلا بنسخه بيدك.</div>
+
+    <div class="card">
+      <h2>1. توليد الزوج مرة واحدة</h2>
+      <div class="note">
+        هذا الزوج يُولَّد **مرة واحدة** لصاحب التطبيق:
+        المفتاح الخاص يبقى عندك (مدير أسرار أو ملفّ على جهاز لا يخرج)، والمفتاح العام يُلصق في
+        التطبيق. لو ضاع المفتاح الخاص لم يبقَ سبيل لإصدار تصاريح جديدة، ولو تسرّب استطاع حامله
+        إصدار تصاريح مثلنا — ولهذا لا يُحفظ في المستودع ولا في المتصفح.
+      </div>
+      <button id="generateButton">🎲 ولّد زوج مفاتيح P-256</button>
+      <div id="status"></div>
+    </div>
+
+    <div class="card" id="privateCard" style="display: none;">
+      <h2>2. المفتاح الخاص (PKCS#8) — لا يُشارَك أبدًا</h2>
+      <div class="warn">
+        انسخه الآن إلى مدير أسرار أو إلى ملفّ مشفّر خارج الجهاز. لا يُرسل في واتساب، ولا يُرفع إلى
+        Firebase، ولا يُضاف إلى المستودع. لو حُمّل مفتاح غيره، أوقف العمل بالقديم فورًا.
+      </div>
+      <textarea id="privateKeyOutput" rows="6" readonly></textarea>
+      <button class="ghost" id="copyPrivateButton">📋 نسخ المفتاح الخاص</button>
+    </div>
+
+    <div class="card" id="publicCard" style="display: none;">
+      <h2>3. المفتاح العام (SPKI) — يُلصق في التطبيق</h2>
+      <div class="note">
+        الصقه في <code>app/src/main/assets/license_public_key.txt</code> بدل أسطر القالب، ثم أعد بناء
+        التطبيق. هذا المفتاح ليس سرًّا: وجوده في التطبيق هو الغرض منه.
+      </div>
+      <textarea id="publicKeyOutput" rows="6" readonly></textarea>
+      <button class="ghost" id="copyPublicButton">📋 نسخ المفتاح العام</button>
+
+      <label>تحقّق سريع (اختياري): الصق هنا أي تصريح موقّعًا لتتأكد أن هذا المفتاح يطابقه</label>
+      <textarea id="checkTokenInput" rows="3" placeholder="BNNA1...."></textarea>
+      <button class="ghost" id="checkButton">🔎 افحص التصريح</button>
+      <div id="checkStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>ما بعد التوليد</h2>
+      <ol>
+        <li>افتح <code>tools/key_generator.html</code> واذهب إلى تبويب «التصاريح الموقّعة».</li>
+        <li>الصق المفتاح الخاص هناك، واكتب كود جهاز العميل، ووقّع التصريح.</li>
+        <li>أرسل الرمز للعميل: يُدخله مرة واحدة في «حول ← تفعيل»، ولا يمدّده إدخاله ثانية.</li>
+        <li>احتفظ بسجلّ ما أصدرته وباسم صاحبه في مكانك الآمن (سجل الترخيص في التطبيق يخبرك بما استُردّ).</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    // هذا الملفّ يتعامل مع أسرار، فالقاعدة هنا أشدّ: لا نصّ يدخل واجهة إلا عبر `textContent`،
+    // ولا اتصال شبكي إطلاقًا (وCSP يمنعه حتى لو نُسي يومًا).
+
+    function setStatus(element, message, ok) {
+      element.textContent = message;
+      element.className = ok ? "ok" : "bad";
+    }
+
+    function toBase64(bytes) {
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      return btoa(binary);
+    }
+
+    function fromBase64(text) {
+      const cleaned = String(text).replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
+      const binary = atob(cleaned);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes;
+    }
+
+    async function copyFrom(textareaId, statusElement) {
+      const value = document.getElementById(textareaId).value.trim();
+      if (!value) {
+        setStatus(statusElement, "لا شيء لنسخه بعد.", false);
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(value);
+        setStatus(statusElement, "تم النسخ. احفظه في مكانه الآمن الآن.", true);
+      } catch (error) {
+        setStatus(statusElement, "تعذّر النسخ تلقائيًا: حدّد النصّ وانسخه بيدك.", false);
+      }
+    }
+
+    let publicKeyBase64 = "";
+
+    async function generateKeyPair() {
+      const status = document.getElementById("status");
+      status.textContent = "جارٍ التوليد…";
+      status.className = "";
+      try {
+        const pair = await crypto.subtle.generateKey(
+          { name: "ECDSA", namedCurve: "P-256" },
+          true,
+          ["sign", "verify"]
+        );
+        const privateBytes = new Uint8Array(await crypto.subtle.exportKey("pkcs8", pair.privateKey));
+        const publicBytes = new Uint8Array(await crypto.subtle.exportKey("spki", pair.publicKey));
+        publicKeyBase64 = toBase64(publicBytes);
+
+        document.getElementById("privateKeyOutput").value = toBase64(privateBytes);
+        document.getElementById("publicKeyOutput").value =
+          "-----BEGIN PUBLIC KEY-----\n" + publicKeyBase64 + "\n-----END PUBLIC KEY-----";
+        document.getElementById("privateCard").style.display = "block";
+        document.getElementById("publicCard").style.display = "block";
+        setStatus(status, "تم التوليد. انسخ المفتاح الخاص إلى مكانه الآمن قبل إغلاق الصفحة.", true);
+      } catch (error) {
+        setStatus(status, "تعذّر التوليد: " + error.message, false);
+      }
+    }
+
+    async function checkToken() {
+      const status = document.getElementById("checkStatus");
+      const token = document.getElementById("checkTokenInput").value.trim();
+      if (!publicKeyBase64) {
+        setStatus(status, "ولّد الزوج أولًا.", false);
+        return;
+      }
+      const parts = token.split(".");
+      if (parts.length !== 3) {
+        setStatus(status, "الرمز ليس بصيغة BNNA1.<الحمولة>.<التوقيع>.", false);
+        return;
+      }
+      try {
+        const key = await crypto.subtle.importKey(
+          "spki",
+          fromBase64(publicKeyBase64),
+          { name: "ECDSA", namedCurve: "P-256" },
+          false,
+          ["verify"]
+        );
+        const valid = await crypto.subtle.verify(
+          { name: "ECDSA", hash: "SHA-256" },
+          key,
+          fromBase64(parts[2]),
+          fromBase64(parts[1])
+        );
+        setStatus(
+          status,
+          valid ? "✅ التوقيع مطابق لهذا المفتاح." : "⛔ التوقيع لا يطابق هذا المفتاح.",
+          valid
+        );
+      } catch (error) {
+        setStatus(status, "تعذّر الفحص: " + error.message, false);
+      }
+    }
+
+    document.getElementById("generateButton").addEventListener("click", generateKeyPair);
+    document.getElementById("copyPrivateButton").addEventListener("click", function () {
+      copyFrom("privateKeyOutput", document.getElementById("status"));
+    });
+    document.getElementById("copyPublicButton").addEventListener("click", function () {
+      copyFrom("publicKeyOutput", document.getElementById("checkStatus"));
+    });
+    document.getElementById("checkButton").addEventListener("click", checkToken);
+  </script>
+</body>
+</html>

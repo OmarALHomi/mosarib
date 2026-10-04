@@ -218,4 +218,50 @@ if [ -n "$LEGACY_TOOL_HITS" ]; then
 fi
 echo "OK: لا أثر للاسم القديم في الأدوات واللوحة الإدارية"
 
+# 15) الترخيص: لا استحقاق يُكتب إلا من مستودع الترخيص (حيث مانع الازدواج)، وسجلّ الأحداث معه.
+#     سبب الحاجز: الخطأ الأصلي (LIC-01) لم يكن في دالة، بل في **تعدّد مسارات الكتابة**: كان
+#     `verifyAndActivate` يضيف المدة كل مرة. فيمنع هذا الحاجز أي مسار كتابة جديد لجدول `licenses`
+#     خارج المستودع الذي يُدرج بمفتاح فريد داخل معاملة واحدة مع الحدث.
+LICENSE_WRITERS=$(grep -rln "insertLicenseIfNew" app/src/main/java 2>/dev/null || true)
+unexpected=$(echo "$LICENSE_WRITERS" | grep -v "data/local/license/LicenseRepository.kt" | grep -v "data/local/license/LicenseDao.kt" || true)
+if [ -n "$unexpected" ]; then
+  echo "FAIL: كتابة استحقاق من خارج مستودع الترخيص (يسقط معها مانع الاسترداد المزدوج):"
+  echo "$unexpected"
+  exit 1
+fi
+pass "لا كتابة استحقاق خارج مستودع الترخيص"
+
+# 15ب) التصاريح الموقّعة تحتاج مفتاحًا عامًا في الأصول: وجود القالب شرط، وغيابه يعني نسخة لا
+#      تستطيع التحقق أصلًا. (القالب نفسه ليس مفتاحًا، واختبار Kotlin يتحقق من ذلك.)
+if [ ! -f app/src/main/assets/license_public_key.txt ]; then
+  fail "ملفّ المفتاح العام للتصاريح مفقود: app/src/main/assets/license_public_key.txt"
+fi
+pass "ملفّ المفتاح العام للتصاريح موجود (قالب أو مفتاح المالك)"
+
+# 15ج) رمز التصريح له مصدر واحد في الكوتلن: العلامة والقواعد في domain/license وحدها، فلا تُكتب
+#      الصيغة مرتين ثم تتباعد.
+STRAY_PREFIX=$(grep -rn '"BNNA1' app/src/main/java 2>/dev/null | grep -v "domain/license/LicenseToken.kt" || true)
+if [ -n "$STRAY_PREFIX" ]; then
+  echo "FAIL: صيغة التصريح مكرّرة خارج domain/license/LicenseToken.kt:"
+  echo "$STRAY_PREFIX"
+  exit 1
+fi
+pass "صيغة التصريح لها مصدر واحد"
+
+# 15د) صفحة توليد المفاتيح تبقى بلا إنترنت تمامًا: لا رابط خارجي ولا إسناد HTML من نصّ.
+#      سبب الحاجز: هذه الصفحة تمسك **المفتاح الخاص**، فأي طلب شبكي فيها (ولو لخط أو مكتبة) بابٌ
+#      لا يجوز فتحه، وأي `innerHTML` فيها خطر لا يُقبل في سياق يحمل سرًّا.
+if [ -f tools/license_keygen.html ]; then
+  EXTERNAL_URLS=$(grep -nE "https?://" tools/license_keygen.html | grep -vE ":[0-9]+:[[:space:]]*(\*|//)" || true)
+  if [ -n "$EXTERNAL_URLS" ]; then
+    echo "FAIL: صفحة توليد المفاتيح تطلب شيئًا من الشبكة:"
+    echo "$EXTERNAL_URLS"
+    exit 1
+  fi
+  if grep -qE "innerHTML|outerHTML|insertAdjacentHTML|document\.write" tools/license_keygen.html; then
+    fail "صفحة توليد المفاتيح تُسند HTML — تُبنى بـtextContent فقط."
+  fi
+  pass "صفحة توليد المفاتيح بلا إنترنت وبلا إسناد HTML"
+fi
+
 echo "كل الحواجز سليمة."
