@@ -43,14 +43,60 @@ const testEnv = await initializeTestEnvironment({
 
 // ------------------------------------------------------------------ أدوات
 
+/**
+ * هل الرفض رفضُ صلاحية فعلًا؟
+ *
+ * هذا الفحص هو الفرق بين اختبار حقيقي واختبار يمرّ بالمصادفة: `assertFails` تفرح بأي رفض، ولو كان
+ * `NOT_FOUND` لأن الوثيقة غير موجودة أصلًا أو `INVALID_ARGUMENT` لأن المسار خطأ. فحالة تُقاس على
+ * قاعدة أمن يجب أن تُرفض بـ`PERMISSION_DENIED` صراحةً، وإلا فهي **لم تُختبر**.
+ */
+function isPermissionDenied(error) {
+  if (!error) return false;
+  const code = error.code ?? "";
+  const status = error.status ?? error.statusCode ?? "";
+  const message = String(error.message ?? "");
+  return (
+    code === "permission-denied" ||
+    code === 7 ||
+    status === "PERMISSION_DENIED" ||
+    /permission|PERMISSION_DENIED|insufficient/i.test(message)
+  );
+}
+
+/** يطبع سطرًا يلتقطه تقرير CI كتعليق (error:) وفيه اسم الحالة وسببها. */
+function reportFailure(label, why, error) {
+  const detail = error?.code ? `${error.code}: ${error.message}` : String(error?.message ?? error ?? "");
+  console.error(`⛔ error: الحالة «${label}» ${why} — ${detail}`);
+}
+
 async function mustDeny(label, promise) {
-  await assertFails(promise);
+  let error = null;
+  let resolved = false;
+  try {
+    await promise;
+    resolved = true;
+  } catch (e) {
+    error = e;
+  }
+  if (resolved) {
+    reportFailure(label, "كان يجب أن تُرفض فسُمحت", null);
+    throw new Error(`قاعدة مثقوبة: «${label}» سُمحت`);
+  }
+  if (!isPermissionDenied(error)) {
+    reportFailure(label, "رُفضت لسبب غير الصلاحية (فحص بلا معنى)", error);
+    throw new Error(`رفض لسبب آخر في «${label}»`);
+  }
   results.push({ label, outcome: "denied" });
   console.log(`  ⛔ ${label}`);
 }
 
 async function mustAllow(label, promise) {
-  await assertSucceeds(promise);
+  try {
+    await assertSucceeds(promise);
+  } catch (e) {
+    reportFailure(label, "كان يجب أن تُسمح فرُفضت", e);
+    throw e;
+  }
   results.push({ label, outcome: "allowed" });
   console.log(`  ✅ ${label}`);
 }
@@ -122,6 +168,7 @@ await seed(LISTING, {
   crop: "بن",
   district: "حرض",
 });
+await seed("users/alice", { uid: "alice", isVerified: false, accountStatus: "ACTIVE", displayName: "أبو محمد" });
 await seed("licenses/alice", { role: "MUSRIB", plan: "MONTHLY", expiresAt: 1 });
 await seed("subscriptions/MSRB-8F42-9D1B", { uid: "alice", status: "ACTIVE" });
 await seed("system_config/secrets", { anything: "يجب ألا يُقرأ" });

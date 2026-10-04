@@ -77,7 +77,11 @@ class LicenseRepository(
                 is LicenseCheck.Rejected -> {
                     dao.insertEvent(
                         event(
-                            licenseId = attemptKey(entered),
+                            // الأثر يربط الحدث **بالاستحقاق نفسه** كلما عُرف: رمز سليم لاستحقاق قائم
+                            // يُربط بمفتاحه (`signed:<licenseId>`) فتُقرأ القصة كاملة — «هذا الاستحقاق
+                            // استُردّ مرة، وحاول صاحبه ثانيةً». وما لا يُعرف استحقاقه (توقيع فاسد، أو
+                            // جهاز آخر، أو رمز مشوّه) يُربط ببصمة المحاولة، فلا يُنسب إلى بريء.
+                            licenseId = auditLicenseKey(entered, check.reason) ?: attemptKey(entered),
                             occurredAt = now,
                             outcome = LicenseKinds.REJECTED,
                             reason = check.reason.name,
@@ -289,6 +293,17 @@ class LicenseRepository(
         expiresAtBefore = before,
         expiresAtAfter = after
     )
+
+    /**
+     * مفتاح الاستحقاق الذي يُربط به حدث الرفض: يُعرف فقط في حالة «استُردّ سابقًا» حيث الرمز سليم
+     * ومفتاحه مسجَّل في الجدول. وما عداها `null` فيُستعمل [attemptKey].
+     */
+    private fun auditLicenseKey(entered: String, reason: LicenseRejection): String? {
+        if (reason != LicenseRejection.ALREADY_REDEEMED) return null
+        val parsed = LicenseToken.parse(entered.trim()) as? LicenseToken.Parsed.Signed ?: return null
+        val grant = LicenseToken.decodeGrant(parsed.payloadText) ?: return null
+        return LicenseToken.redemptionKey(grant)
+    }
 
     private fun attemptKey(entered: String): String =
         "attempt:" + sha256Hex(entered.trim()).take(24)

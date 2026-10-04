@@ -207,7 +207,17 @@ class HandoverJourneyTest {
     fun tamperedFileIsRefusedAndWritesNothing() = runBlocking {
         seedSource()
         val outgoing = prepareOnSource()
-        val tampered = outgoing.text.replace("1500000", "9500000")
+        // التحريف الحقيقي داخل حقل مُرمَّز (base64url): المبلغ مخزَّن في الحمولة المرمَّزة، فالبحث
+        // عن «1500000» في النصّ لا يصيب شيئًا ويكون «الملفّ المحرَّف» هو نفسه السليم — فحصٌ بلا فحص.
+        val lines = outgoing.text.trimEnd('\n').lines().toMutableList()
+        val itemIndex = lines.indexOfFirst { it.startsWith("item ") }
+        assertTrue("الحزمة فيها سطر حركة", itemIndex >= 0)
+        val fields = lines[itemIndex].split(' ').toMutableList()
+        val payloadField = fields.last()
+        fields[fields.lastIndex] = (if (payloadField.first() == 'A') "B" else "A") + payloadField.drop(1)
+        lines[itemIndex] = fields.joinToString(" ")
+        val tampered = lines.joinToString("\n") + "\n"
+        assertTrue("التحريف وقع فعلًا", tampered != outgoing.text)
 
         val repo = targetRepo()
         val report = repo.importBundle(tampered)

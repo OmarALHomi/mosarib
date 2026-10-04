@@ -121,14 +121,20 @@ class LicenseMigrationTest {
     }
 
     @Test
-    fun upgradeFromElevenToTwelveKeepsTheLedgerAndAddsLicenseTables() {
-        assertEquals("هذا الاختبار مكتوب للانتقال إلى 12", 12, DATABASE_VERSION)
+    fun upgradeFromElevenToCurrentKeepsTheLedgerAndAddsLicenseTables() {
+        // الاختبار لا يثبّت رقمًا: الترقية تُقاس إلى **الإصدار الحالي** أيًّا كان، فكل حزمة ترفع
+        // الإصدار (١٢ ثم ١٣ ح١٩) تمرّ من هنا بلا تعديل ولا «تحديث رقم» صامت.
+        assertTrue("الإصدار الحالي يجب أن يكون 12 أو أحدث", DATABASE_VERSION >= 12)
         buildDatabaseAtVersion(11) { sqlite -> seedLegacyLedger(sqlite) }
 
         // ١) Room نفسه يرحّل ويتحقق من المخطط الناتج (مقارنة البصمة)، وإن اختلف المخطط يفشل البناء.
         val room = openWithRoom()
         try {
-            assertEquals("Room فتح القاعدة على الإصدار 12", 12, room.openHelper.writableDatabase.version)
+            assertEquals(
+                "Room فتح القاعدة على الإصدار الحالي",
+                DATABASE_VERSION,
+                room.openHelper.writableDatabase.version
+            )
         } finally {
             room.close()
         }

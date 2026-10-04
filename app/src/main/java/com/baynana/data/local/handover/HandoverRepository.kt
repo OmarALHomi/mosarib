@@ -303,6 +303,10 @@ class HandoverRepository(
             } else {
                 roomIdOfPayload(item.payload)
             }
+            // هل كانت الغرفة موجودة **قبل** هذه اللقطة؟ الجواب يفرّق بين «دعوة فُتحت للمراجعة»
+            // و«حالة غرفة قائمة تَقَدَّمت». والفارق ليس تجميليًّا: لو حُسبت الدعوة «تطبيقًا» لظنّ
+            // المستخدم أن قيودًا دخلت دفتره وهو لم يقبل بعد، ولا شيء منها دخل.
+            val roomExistedBefore = item.entityType != ENTITY_ROOM || ledger.getRoom(item.entityId) != null
 
             // غرفة غير موجودة عندك: العنصر يُحفظ «مؤجّلًا» ولا يُرفض ولا يُرمى. يُطبَّق تلقائيًا
             // في اللحظة التي تقبل فيها الدعوة (acceptInvitation)، فلا يضيع قيد بسبب ترتيب رسالة.
@@ -335,8 +339,7 @@ class HandoverRepository(
             )
             when (applier.apply(change)) {
                 ApplyOutcome.APPLIED -> {
-                    applied++
-                    if (item.entityType == ENTITY_ROOM && ledger.getRoom(item.entityId) == null) invited++
+                    if (item.entityType == ENTITY_ROOM && !roomExistedBefore) invited++ else applied++
                 }
                 ApplyOutcome.DUPLICATE -> duplicates++
                 else -> {

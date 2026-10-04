@@ -335,6 +335,27 @@ if offenders:
         print("   " + line, file=sys.stderr)
     sys.exit(1)
 print(f"OK: لا REPLACE على الأبّاء ذوي الأبناء CASCADE ({len(cascade_parents)} أبًا: {', '.join(sorted(cascade_parents))})")
+
+# ج) دالة DAO مكرّرة بالاسم والتوقيع نفسه: يُنتج تعارضًا في شيفرة Room المولَّدة ويوقف الترجمة كلها.
+#    وقع فعلًا: `getMembers(roomId: String)` مرتين في LedgerDao فأوقف CI عند `LedgerDao_Impl`.
+duplicates = []
+for path, text in sorted(sources.items()):
+    if "@Dao" not in text:
+        continue
+    seen = {}
+    for m in re.finditer(r"fun\s+(\w+)\s*\(([^)]*)\)", text):
+        name, params = m.group(1), m.group(2)
+        types = ",".join(p.split(":")[-1].strip() for p in params.split(",") if p.strip())
+        key = f"{name}({types})"
+        if key in seen:
+            duplicates.append(f"{path}: {key}")
+        seen[key] = True
+if duplicates:
+    print("FAIL: دالة DAO مكرّرة (تعارض توليد Room):", file=sys.stderr)
+    for line in duplicates:
+        print("   " + line, file=sys.stderr)
+    sys.exit(1)
+print("OK: لا دوال DAO مكرّرة بالاسم والتوقيع")
 PY_GUARD
 
 echo "كل الحواجز سليمة."

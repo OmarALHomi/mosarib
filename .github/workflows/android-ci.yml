@@ -85,9 +85,13 @@ jobs:
       - name: Report rules matrix failures
         if: steps.rules_matrix.outcome == 'failure'
         run: |
+          # ضجيج عميل Firestore (`@firebase/firestore ... PERMISSION_DENIED`) يظهر في كل حالة رفض
+          # متوقعة، فلا يصلح دليلًا. الدليل هو سطور المصفوفة نفسها: كل حالة فاشلة تُطبع ببادئة
+          # «⛔ error:» وفيها اسمها وسببها (انظر `reportFailure` في tools/firestore_rules_test.mjs).
           while IFS= read -r line; do
             echo "::error title=rules::$line"
-          done < <(grep -nE "AssertionError|Error:|error:|Expected|PERMISSION_DENIED|missing|rules" /tmp/rules_matrix.log | head -25 || true)
+          done < <(grep -nE "⛔|AssertionError|Error:|error:|Expected|missing" /tmp/rules_matrix.log \
+            | grep -vE "@firebase/firestore" | head -25 || true)
           echo "=== آخر 40 سطرًا ==="
           tail -40 /tmp/rules_matrix.log
 
