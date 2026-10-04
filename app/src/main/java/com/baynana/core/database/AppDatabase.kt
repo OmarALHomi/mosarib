@@ -42,6 +42,12 @@ import com.baynana.data.local.settlement.DealCommission
 import com.baynana.data.local.settlement.DealInstallment
 import com.baynana.data.local.settlement.DealDao
 import com.baynana.data.local.settlement.DealRecord
+// ح٩ جزء ٢: تخزين السوق — العرض، وجهات الاتصال الخاصة، طلبات التسويق، والمصادقات.
+import com.baynana.data.local.market.MarketContactRow
+import com.baynana.data.local.market.MarketDao
+import com.baynana.data.local.market.MarketListingRow
+import com.baynana.data.local.market.MarketingRequestRow
+import com.baynana.data.local.market.ModerationRow
 import androidx.room.AutoMigration
 import kotlinx.coroutines.launch
 
@@ -49,7 +55,7 @@ import kotlinx.coroutines.launch
  * إصدار قاعدة البيانات. ثابت على مستوى الملف لأن تعليق [Database] يحتاج قيمة وقت الترجمة،
  * ويقرأه اختبار الترحيلات ومحرّك النسخ الاحتياطي. لا يُنقص أبدًا، وأي زيادة تحتاج ترحيلًا.
  */
-const val DATABASE_VERSION = 10
+const val DATABASE_VERSION = 11
 
 @Database(
     entities = [
@@ -76,7 +82,12 @@ const val DATABASE_VERSION = 10
         // ح٨: الصلح وأقساطه وسعايته (بمبالغ بالوحدة الصغرى، والجدولان القديمان لا يُمَسّان).
         DealRecord::class,
         DealInstallment::class,
-        DealCommission::class
+        DealCommission::class,
+        // ح٩ (٢/٢): السوق — صفّ العرض لا يحمل هاتف مزارع، والاتصال في جدول منفصل بقصد.
+        MarketListingRow::class,
+        MarketContactRow::class,
+        MarketingRequestRow::class,
+        ModerationRow::class
     ],
     version = DATABASE_VERSION,
     // تصدير المخطط إلزامي: بدونه لا يمكن اختبار الترحيلات ولا مقارنة الإصدارات قبل النشر.
@@ -89,7 +100,9 @@ const val DATABASE_VERSION = 10
         AutoMigration(from = 7, to = 8),
         AutoMigration(from = 8, to = 9),
         // 9→10: جداول الصلح الثلاثة فقط — إضافة بحتة بلا لمس صف قائم.
-        AutoMigration(from = 9, to = 10)
+        AutoMigration(from = 9, to = 10),
+        // 10→11: جداول السوق الأربعة — إضافة بحتة كذلك.
+        AutoMigration(from = 10, to = 11)
     ]
 )
 @TypeConverters(Converters::class)
@@ -110,6 +123,9 @@ abstract class AppDatabase : RoomDatabase() {
 
     /** الصلح وأقساطه وسعايته (ح٨). */
     abstract fun dealDao(): DealDao
+
+    /** ح٩ (٢/٢): السوق — عروض، طلبات تسويق، ومصادقات. */
+    abstract fun marketDao(): MarketDao
 
     companion object {
         /**
@@ -236,7 +252,8 @@ abstract class AppDatabase : RoomDatabase() {
          * الترحيلات اليدوية من 1 إلى 6. أما 6→7 (ح٣) و7→8 (ح٤) و8→9 (ح٦) فـ**تلقائية** يولّدها
          * Room من فرق المخططات، فليست من هذه القائمة؛ انظر [AUTO_MIGRATION_RANGES].
          */
-        val AUTO_MIGRATION_RANGES: List<Pair<Int, Int>> = listOf(6 to 7, 7 to 8, 8 to 9, 9 to 10)
+        val AUTO_MIGRATION_RANGES: List<Pair<Int, Int>> =
+            listOf(6 to 7, 7 to 8, 8 to 9, 9 to 10, 10 to 11)
 
         /**
          * كل الترحيلات اليدوية بترتيب تصاعدي، متاحة للاختبار. أي إصدار جديد يجب أن يضيف

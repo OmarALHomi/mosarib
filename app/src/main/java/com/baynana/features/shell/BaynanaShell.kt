@@ -14,6 +14,16 @@ sealed interface BaynanaShell {
     /** تبويب جذري بلا تفاصيل مفتوحة. */
     data class Tab(override val tab: ShellTab) : BaynanaShell
 
+    /**
+     * شاشة فرعية تحت تبويب آخر (غير «المزيد»): مثل «عرضي في السوق» و«طلبات التسويق».
+     *
+     * الفرق عن [Extra]: هذا يُبقي التبويب الأصلي محدَّدًا في الشريط السفلي، لأن المستخدم ما زال
+     * داخل السوق أو داخل غرفه، لا داخل «المزيد».
+     */
+    data class Sub(val parent: ShellTab, val key: String) : BaynanaShell {
+        override val tab: ShellTab get() = parent
+    }
+
     /** كشف غرفة مفتوح فوق تبويب «غرفي». */
     data class Room(val roomId: String) : BaynanaShell {
         override val tab: ShellTab get() = ShellTab.ROOMS
@@ -34,6 +44,7 @@ sealed interface BaynanaShell {
         fun rooms(): BaynanaShell = Tab(ShellTab.ROOMS)
         fun room(roomId: String): BaynanaShell = Room(roomId)
         fun extra(key: String): BaynanaShell = Extra(key)
+        fun sub(parent: ShellTab, key: String): BaynanaShell = Sub(parent, key)
     }
 }
 
@@ -45,6 +56,7 @@ object ShellHost {
     fun back(shell: BaynanaShell): BaynanaShell? = when (shell) {
         is BaynanaShell.Room -> BaynanaShell.rooms()
         is BaynanaShell.Extra -> BaynanaShell.Tab(shell.tab)
+        is BaynanaShell.Sub -> BaynanaShell.Tab(shell.parent)
         is BaynanaShell.Tab -> if (shell.tab == ShellTab.HOME) null else BaynanaShell.home()
     }
 }

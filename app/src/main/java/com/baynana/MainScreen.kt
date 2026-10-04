@@ -54,6 +54,8 @@ import com.baynana.features.settings.SettingsScreen
 import com.baynana.features.home.BaynanaHomeScreen
 import com.baynana.features.home.BaynanaHomeViewModel
 import com.baynana.features.home.MigrationDialog
+import com.baynana.features.market.BaynanaMarketScreen
+import com.baynana.features.market.BaynanaMarketViewModel
 import com.baynana.features.more.MoreScreen
 import com.baynana.features.rooms.RoomDetailScreen
 import com.baynana.features.rooms.RoomsScreen
@@ -178,6 +180,19 @@ private fun ShellScaffold(
                     )
                 }
 
+                is BaynanaShell.Sub -> {
+                    val backToParent = { onNavigate(BaynanaShell.Tab(host.parent)) }
+                    BackHandler { backToParent() }
+                    when (host.key) {
+                        // قنوات فرعية تحت السوق والأدوار تُبنى هنا لاحقًا (د٤/د٦)،
+                        // وحتى ذلك الحين لا يفتح مسارٌ شاشةً غير موجودة.
+                        else -> Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) { Text("شاشة غير معروفة: ${host.key}") }
+                    }
+                }
+
                 is BaynanaShell.Extra -> {
                     val backToMore = { onNavigate(ShellHost.back(host) ?: BaynanaShell.home()) }
                     BackHandler { backToMore() }
@@ -230,9 +245,8 @@ private fun ShellScaffold(
                         onOpenRoom = onOpenRoom
                     )
 
-                    ShellTab.MARKET -> com.baynana.features.market.MarketScreen(
-                        viewModel = viewModel(),
-                        onBack = { onNavigate(ShellHost.navigate(ShellTab.HOME)) }
+                    ShellTab.MARKET -> BaynanaMarketScreen(
+                        viewModel = viewModel<BaynanaMarketViewModel>()
                     )
 
                     ShellTab.MORE -> MoreScreen(

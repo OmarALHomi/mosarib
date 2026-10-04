@@ -68,6 +68,13 @@ class ShellHostTest {
     }
 
     @Test
+    fun `sub_screen_keeps_its_parent_tab_selected`() {
+        val shell = BaynanaShell.sub(ShellTab.MARKET, "my-listings")
+        assertSame("الشاشة الفرعية تُبقي تبويبها محدَّدًا", ShellTab.MARKET, shell.tab)
+        assertEquals(ShellTab.MARKET, ShellHost.back(shell)?.tab)
+    }
+
+    @Test
     fun `room_detail_belongs_to_rooms_tab`() {
         assertSame(ShellTab.ROOMS, BaynanaShell.room("room-2").tab)
     }
