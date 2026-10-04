@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -46,6 +47,8 @@ fun MoreScreen(
     onOpenReports: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onOpenAbout: () -> Unit = {},
+    /** «حالة المزامنة»: حقيقة كل حركة وما العمل فيها. */
+    onOpenSyncStatus: () -> Unit = {},
     onOpenCatalog: (() -> Unit)? = null
 ) {
     data class Item(
@@ -67,6 +70,12 @@ fun MoreScreen(
             comingSoon = true
         ),
         Item(Icons.AutoMirrored.Filled.MenuBook, "الترحيل من الدفتر القديم", "الجرد والقرار قبل أي نقل", onOpenMigration),
+        Item(
+            Icons.Default.Sync,
+            "حالة المزامنة",
+            "لكل حركة: محفوظة في جهازك، أُرسلت، أُقرّت، أو فشلت ومعها الحل",
+            onOpenSyncStatus
+        ),
         Item(Icons.Default.Settings, "الإعدادات", "الاسم، الحماية، الوضع الليلي", onOpenSettings),
         Item(Icons.Default.Info, "حول «بيننا»", "ما التطبيق وما لا يفعله", onOpenAbout)
     ).let { base ->

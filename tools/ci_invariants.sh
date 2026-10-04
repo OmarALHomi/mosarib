@@ -94,10 +94,10 @@ if [ -n "$MONEY_DOUBLE_HITS" ]; then
 fi
 echo "OK: لا Double ولا Float في مسارات المال (money/ledger/settlement/market)"
 
-# 8) الواجهة الجديدة (د١–د٢) بلا Double/Float وبلا حساب مبالغ داخلها (ADR-04 + خطة التصميم §8).
-#    النطاق: الملفات التي وُلدت في مسار التصميم الجديد فقط؛ أما الشاشات القديمة فتُحذف في د٤–د٦
+# 8) الواجهة الجديدة (د١–د٤) بلا Double/Float وبلا حساب مبالغ داخلها (ADR-04 + خطة التصميم §8).
+#    النطاق: الملفات التي وُلدت في مسار التصميم الجديد فقط؛ أما الشاشات القديمة فتُحذف في د٦
 #    ولا يُشترط إصلاحها هنا (وإلا تجمّد العمل على الشكل القديم بدل تجاوزه).
-NEW_UI_PATHS="app/src/main/java/com/baynana/MainScreen.kt app/src/main/java/com/baynana/ui/theme app/src/main/java/com/baynana/ui/identity app/src/main/java/com/baynana/ui/components app/src/main/java/com/baynana/features/home/BaynanaHomeScreen.kt app/src/main/java/com/baynana/features/home/BaynanaHomeViewModel.kt app/src/main/java/com/baynana/features/home/MigrationDialog.kt app/src/main/java/com/baynana/features/rooms app/src/main/java/com/baynana/features/movements app/src/main/java/com/baynana/features/more/MoreScreen.kt app/src/main/java/com/baynana/features/shell"
+NEW_UI_PATHS="app/src/main/java/com/baynana/MainScreen.kt app/src/main/java/com/baynana/ui/theme app/src/main/java/com/baynana/ui/identity app/src/main/java/com/baynana/ui/components app/src/main/java/com/baynana/features/home/BaynanaHomeScreen.kt app/src/main/java/com/baynana/features/home/BaynanaHomeViewModel.kt app/src/main/java/com/baynana/features/home/MigrationDialog.kt app/src/main/java/com/baynana/features/rooms app/src/main/java/com/baynana/features/movements app/src/main/java/com/baynana/features/more/MoreScreen.kt app/src/main/java/com/baynana/features/shell app/src/main/java/com/baynana/features/statements app/src/main/java/com/baynana/features/sync"
 NEW_UI_HITS=$(
   grep -rnE "(^|[^A-Za-z0-9_])(Double|Float)([^A-Za-z0-9_]|$)|toDouble\(|toFloat\(" $NEW_UI_PATHS 2>/dev/null \
     | grep -vE ':[0-9]+:[[:space:]]*(\*|//|/\*)' || true
@@ -149,7 +149,7 @@ echo "OK: أيقونات مادريال مستوردة بأسمائها لا ب�
 
 # 11) لا تنسيق أرقام في الواجهة الجديدة بـNumberFormat/DecimalFormat/String.format: كل مبلغ يمرّ
 #     من `MoneyFormat`، والفواصل والكسور تُحسب هناك مرة واحدة (ADR-04 + د٣).
-NEW_UI_PATHS="app/src/main/java/com/baynana/MainScreen.kt app/src/main/java/com/baynana/ui/theme app/src/main/java/com/baynana/ui/identity app/src/main/java/com/baynana/ui/components app/src/main/java/com/baynana/features/home/BaynanaHomeScreen.kt app/src/main/java/com/baynana/features/home/BaynanaHomeViewModel.kt app/src/main/java/com/baynana/features/home/MigrationDialog.kt app/src/main/java/com/baynana/features/rooms app/src/main/java/com/baynana/features/movements app/src/main/java/com/baynana/features/more/MoreScreen.kt app/src/main/java/com/baynana/features/shell app/src/main/java/com/baynana/features/market/BaynanaMarketScreen.kt app/src/main/java/com/baynana/features/market/BaynanaMarketViewModel.kt app/src/main/java/com/baynana/features/market/ListingDialogs.kt app/src/main/java/com/baynana/features/dev"
+NEW_UI_PATHS="app/src/main/java/com/baynana/MainScreen.kt app/src/main/java/com/baynana/ui/theme app/src/main/java/com/baynana/ui/identity app/src/main/java/com/baynana/ui/components app/src/main/java/com/baynana/features/home/BaynanaHomeScreen.kt app/src/main/java/com/baynana/features/home/BaynanaHomeViewModel.kt app/src/main/java/com/baynana/features/home/MigrationDialog.kt app/src/main/java/com/baynana/features/rooms app/src/main/java/com/baynana/features/movements app/src/main/java/com/baynana/features/more/MoreScreen.kt app/src/main/java/com/baynana/features/shell app/src/main/java/com/baynana/features/market/BaynanaMarketScreen.kt app/src/main/java/com/baynana/features/market/BaynanaMarketViewModel.kt app/src/main/java/com/baynana/features/market/ListingDialogs.kt app/src/main/java/com/baynana/features/statements app/src/main/java/com/baynana/features/sync app/src/main/java/com/baynana/features/dev"
 FORMAT_HITS=$(
   grep -rnE "(NumberFormat|DecimalFormat|String\.format|"%.2f"|\.toBigDecimal)" $NEW_UI_PATHS 2>/dev/null \
     | grep -vE ':[0-9]+:[[:space:]]*(\*|//|/\*)' || true
@@ -160,5 +160,23 @@ if [ -n "$FORMAT_HITS" ]; then
   exit 1
 fi
 echo "OK: لا تنسيق أرقام يدوي في الواجهة الجديدة (MoneyFormat وحده)"
+
+# 12) لا مفردات من الاسم القديم («مسرب/جربة/دورة ري») في أي نصّ يراه المستخدم ولا في الواجهة الجديدة.
+#     سبب الحاجز: خطة التصميم §12 تعتبر بقاء الاسم القديم في نصّ ظاهر علامة «لم ينتهِ التصميم».
+#     النطاق الآن: نصوص الموارد + أسطح التصميم الجديدة. أما الشاشات القديمة (26 ملفًا) فتُحذف في د٦،
+#     ويُطبع ما بقي فيها **تقريرًا** لا فشلًا؛ وبعد د٦ يصير النطاق المستودع كله.
+LEGACY_WORDING_PATHS="app/src/main/res/values/strings.xml app/src/main/res/values-ar app/src/main/java/com/baynana/MainScreen.kt app/src/main/java/com/baynana/ui app/src/main/java/com/baynana/features/home app/src/main/java/com/baynana/features/rooms app/src/main/java/com/baynana/features/movements app/src/main/java/com/baynana/features/more app/src/main/java/com/baynana/features/shell app/src/main/java/com/baynana/features/statements app/src/main/java/com/baynana/features/sync app/src/main/java/com/baynana/features/market/BaynanaMarketScreen.kt app/src/main/java/com/baynana/features/market/ListingDialogs.kt"
+LEGACY_WORDING_HITS=$(
+  grep -rnE "مسرب|جربة|دورة ري" $LEGACY_WORDING_PATHS 2>/dev/null \
+    | grep -v "LegacyPaletteAliases.kt" \
+    | grep -vE ':[0-9]+:[[:space:]]*(\*|//|/\*)' || true
+)
+if [ -n "$LEGACY_WORDING_HITS" ]; then
+  echo "FAIL: مفردات من الاسم القديم في سطح يراه المستخدم:"
+  echo "$LEGACY_WORDING_HITS"
+  exit 1
+fi
+LEGACY_LEFTOVER=$(grep -rlE "مسرب|جربة|دورة ري" app/src/main/java 2>/dev/null | wc -l | tr -d ' ')
+echo "OK: الواجهة الجديدة خالية من الاسم القديم (وشاشات لم تُنقَّ بعد: $LEGACY_LEFTOVER ملفًا تُحذف في د٦)"
 
 echo "كل الحواجز سليمة."

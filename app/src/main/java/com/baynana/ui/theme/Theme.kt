@@ -119,7 +119,9 @@ internal val LightStatus = BaynanaStatusColors(
     onInfoContainer = OnInfoContainer,
     danger = DangerRed,
     dangerContainer = DangerContainer,
-    onDangerContainer = OnDangerDark
+    // نصّ الخطر على حاويته: كان مربوطًا بلون الوضع الليلي (ورديّ على ورديّ)، وهذا ما كشفه
+    // اختبار التباين قبل أن يصل إلى مستخدم.
+    onDangerContainer = OnDanger
 )
 
 internal val DarkStatus = BaynanaStatusColors(
@@ -134,7 +136,7 @@ internal val DarkStatus = BaynanaStatusColors(
     onInfoContainer = OnInfoContainerDark,
     danger = DangerRedLight,
     dangerContainer = DangerContainerDark,
-    onDangerContainer = OnDangerContainer
+    onDangerContainer = OnDangerDark
 )
 
 private val LocalStatusColors = staticCompositionLocalOf { LightStatus }

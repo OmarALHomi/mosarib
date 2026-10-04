@@ -47,7 +47,9 @@ import com.baynana.core.database.AppDatabase
 import com.baynana.data.local.ledger.LedgerHomeRepository
 import com.baynana.data.local.ledger.LedgerRepository
 import com.baynana.domain.ledger.RoomFeed
-import com.baynana.domain.ledger.StatementText
+import com.baynana.features.statements.StatementExport
+import com.baynana.ui.components.CrisisBanner
+import com.baynana.ui.components.EmptyState
 import com.baynana.ui.components.EntryCard
 import com.baynana.ui.components.NumbersHeader
 import com.baynana.ui.components.SectionHeader
@@ -73,7 +75,9 @@ import java.util.Locale
 fun RoomDetailScreen(
     roomId: String,
     onBack: () -> Unit,
-    onChanged: () -> Unit
+    onChanged: () -> Unit,
+    /** فتح «كشف الطرف»: شاشة الكشف الكامل بالرصيد الجاري والمشاركة. */
+    onOpenStatement: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -83,13 +87,17 @@ fun RoomDetailScreen(
 
     var feed by remember { mutableStateOf<RoomFeed?>(null) }
     var loaded by remember { mutableStateOf(false) }
+    var loadError by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     var ackTarget by remember { mutableStateOf<String?>(null) }
     var showAddDebt by remember { mutableStateOf(false) }
     var showReceipt by remember { mutableStateOf(false) }
 
     suspend fun reload() {
-        feed = withContext(Dispatchers.IO) { home.feedOf(roomId) }
+        runCatching { withContext(Dispatchers.IO) { home.feedOf(roomId) } }.fold(
+            onSuccess = { feed = it; loadError = null },
+            onFailure = { loadError = it.message ?: "تعذّر فتح الغرفة" }
+        )
         loaded = true
     }
 
@@ -116,14 +124,29 @@ fun RoomDetailScreen(
                 actions = {
                     IconButton(onClick = {
                         scope.launch {
-                            val text = withContext(Dispatchers.IO) { buildStatementText(ledger, roomId, feed) }
-                            if (text != null) {
-                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, text)
+                            val current = feed ?: return@launch
+                            val export = runCatching {
+                                withContext(Dispatchers.IO) {
+                                    val statement = ledger.statementFor(roomId, current.myMemberId)
+                                    StatementExport.build(
+                                        statement = statement,
+                                        roomTitle = current.title,
+                                        subject = "كشف حساب",
+                                        dateText = { at -> dateFormat.format(Date(at)) }
+                                    )
                                 }
-                                context.startActivity(Intent.createChooser(intent, "إرسال الكشف"))
+                            }.getOrNull()
+                            if (export == null) {
+                                message = "تعذّر تجهيز الكشف — أعد المحاولة"
+                                return@launch
                             }
+                            // النصّ المُشارَك هو نفسه المعروض في «كشف الطرف»: مصدر واحد للنصّ.
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TITLE, export.fileName)
+                                putExtra(Intent.EXTRA_TEXT, export.body)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "إرسال الكشف"))
                         }
                     }) { Icon(Icons.Default.Share, contentDescription = "مشاركة الكشف") }
                 },
@@ -141,6 +164,16 @@ fun RoomDetailScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             val current = feed
+            if (loadError != null && current == null) {
+                item {
+                    CrisisBanner(
+                        title = "تعذّر فتح الغرفة",
+                        action = loadError.orEmpty() + " — أعد المحاولة.",
+                        isDanger = true,
+                        onAction = { scope.launch { reload() } }
+                    )
+                }
+            }
             if (!loaded) {
                 item { SyncBadge("جاري قراءة الكشف…") }
             } else if (current == null) {
@@ -203,15 +236,25 @@ fun RoomDetailScreen(
                 }
 
                 item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { showAddDebt = true }) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Button(onClick = { showAddDebt = true }, modifier = Modifier.weight(1f)) {
                             Text("قيد جديد")
                         }
-                        OutlinedButton(onClick = { showReceipt = true }) {
+                        OutlinedButton(onClick = { showReceipt = true }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.Payments, contentDescription = null)
                             Spacer(Modifier.width(6.dp))
                             Text("سداد/قبض")
                         }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(
+                        onClick = { onOpenStatement(roomId) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("الكشف الكامل — رصيد جارٍ بعد كل سطر")
                     }
                 }
 
@@ -269,6 +312,17 @@ fun RoomDetailScreen(
                         title = "الحركات (${current.entries.size})",
                         subtitle = if (current.hasHistory) null else "لا حركة بعد في هذه الغرفة"
                     )
+                }
+
+                if (!current.hasHistory) {
+                    item {
+                        EmptyState(
+                            title = "الدفتر نظيف هنا",
+                            body = "اكتب أول قيد بـ«قيد جديد»: يُحفظ في دفترك فورًا، ويصل الطرف عند الاتصال.",
+                            actionLabel = "قيد جديد",
+                            onAction = { showAddDebt = true }
+                        )
+                    }
                 }
 
                 items(current.entries, key = { it.entryId }) { entry ->
@@ -340,23 +394,6 @@ fun RoomDetailScreen(
             }
         )
     }
-}
-
-/** نصّ الكشف: من `StatementEngine` نفسه — لا صياغة ثانية في الواجهة. */
-private suspend fun buildStatementText(
-    ledger: LedgerRepository,
-    roomId: String,
-    feed: RoomFeed?
-): String? {
-    if (feed == null) return null
-    val statement = ledger.statementFor(roomId, feed.myMemberId)
-    val header = "كشف حساب — ${feed.title} (${feed.counterpartName})\n"
-    val summary = StatementText.summary(statement) + "\n"
-    val format = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-    val lines = statement.lines.joinToString("\n") { line ->
-        StatementText.line(line, statement.currency, format.format(Date(line.occurredAt)))
-    }
-    return header + summary + "\n" + lines + "\n\nمن دفتر «بيننا»"
 }
 
 @Composable

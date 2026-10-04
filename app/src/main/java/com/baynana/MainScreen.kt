@@ -61,6 +61,8 @@ import com.baynana.features.rooms.RoomDetailScreen
 import com.baynana.features.rooms.RoomsScreen
 import com.baynana.features.settings.SettingsViewModel
 import com.baynana.features.shell.BaynanaShell
+import com.baynana.features.statements.StatementScreen
+import com.baynana.features.sync.SyncStatusScreen
 import com.baynana.features.shell.ShellHost
 import com.baynana.features.splash.SplashScreen
 import com.baynana.ui.theme.BaynanaTheme
@@ -176,7 +178,8 @@ private fun ShellScaffold(
                     RoomDetailScreen(
                         roomId = host.roomId,
                         onBack = { onNavigate(BaynanaShell.rooms()) },
-                        onChanged = onRefresh
+                        onChanged = onRefresh,
+                        onOpenStatement = { roomId -> onNavigate(BaynanaShell.statement(roomId)) }
                     )
                 }
 
@@ -184,7 +187,17 @@ private fun ShellScaffold(
                     val backToParent = { onNavigate(BaynanaShell.Tab(host.parent)) }
                     BackHandler { backToParent() }
                     when (host.key) {
-                        // قنوات فرعية تحت السوق والأدوار تُبنى هنا لاحقًا (د٤/د٦)،
+                        // كشف الطرف: أسطر زمنية برصيد جارٍ، ومشاركة من نفس نصّ الشاشة.
+                        BaynanaShell.KEY_STATEMENT -> {
+                            val roomId = host.arg.orEmpty()
+                            if (roomId.isBlank()) {
+                                backToParent()
+                            } else {
+                                StatementScreen(roomId = roomId, onBack = backToParent)
+                            }
+                        }
+
+                        // قنوات فرعية تحت السوق والأدوار تُبنى هنا لاحقًا (د٦)،
                         // وحتى ذلك الحين لا يفتح مسارٌ شاشةً غير موجودة.
                         else -> Box(
                             modifier = Modifier.fillMaxSize(),
@@ -216,6 +229,9 @@ private fun ShellScaffold(
                         )
 
                         "about" -> AboutScreen(onBack = backToMore)
+
+                        // حالة المزامنة: ما حال كل حركة وما العمل فيها (لا نجاح كاذب).
+                        "sync" -> SyncStatusScreen(onBack = backToMore)
 
                         "catalog" -> if (BuildConfig.DEBUG) {
                             com.baynana.features.dev.ComponentCatalogScreen(onBack = backToMore)
@@ -265,6 +281,7 @@ private fun ShellScaffold(
                         onOpenReports = { onNavigate(BaynanaShell.extra("reports")) },
                         onOpenSettings = { onNavigate(BaynanaShell.extra("settings")) },
                         onOpenAbout = { onNavigate(BaynanaShell.extra("about")) },
+                        onOpenSyncStatus = { onNavigate(BaynanaShell.extra("sync")) },
                         // شاشة العيّنات للتطوير فقط: في نسخة التوزيع لا يظهر العنصر ولا الشاشة.
                         onOpenCatalog = if (BuildConfig.DEBUG) {
                             { onNavigate(BaynanaShell.extra("catalog")) }

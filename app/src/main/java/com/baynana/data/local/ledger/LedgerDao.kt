@@ -259,6 +259,45 @@ interface LedgerDao {
     @Query("DELETE FROM outbox WHERE operationId = :operationId")
     suspend fun deleteOutbox(operationId: String)
 
+    // ------------------------------------------------ شاشة حالة المزامنة (د٤)
+
+    /**
+     * أحدث قيود الدفتر كلها (لا غرفة واحدة) لعرض «ما حال كل حركة؟» في شاشة واحدة.
+     * ترتيبها بالأحدث: المستخدم يبحث عمّا كتبه للتوّ، لا عن أول سطر في التاريخ.
+     */
+    @Query("SELECT * FROM entries ORDER BY occurredAt DESC, id DESC LIMIT :limit")
+    fun observeRecentEntries(limit: Int = 80): Flow<List<LedgerEntry>>
+
+    /** صندوق الصادر كما هو: منه وحده تُعرف حقيقة «أُرسل أم لا» بلا تخمين. */
+    @Query("SELECT * FROM outbox ORDER BY createdAt DESC LIMIT :limit")
+    fun observeOutboxItems(limit: Int = 120): Flow<List<OutboxItem>>
+
+    /** إقرارات الطرفين بأسبابها: الاعتراض يُعرض بنصّ صاحبه لا بوصف من عندنا. */
+    @Query("SELECT * FROM acknowledgements ORDER BY decidedAt DESC LIMIT :limit")
+    fun observeRecentAcknowledgements(limit: Int = 200): Flow<List<Acknowledgement>>
+
+    /** عضو «أنا» في كل غرفة: لتمييز إقراري من إقرار الطرف. */
+    @Query("SELECT * FROM room_members WHERE isMe = 1")
+    fun observeMyMemberships(): Flow<List<RoomMember>>
+
+    /** أعضاء غرفة: للاختيار بين «كشفي» و«كشف الطرف» في شاشة الكشف. */
+    @Query("SELECT * FROM room_members WHERE roomId = :roomId")
+    suspend fun getMembers(roomId: String): List<RoomMember>
+
+    /**
+     * إعادة محاولة إرسال فشل نهائيًا: قرار بشري صريح من شاشة حالة المزامنة.
+     * تُصفَّر المحاولات والخطأ لأن السبب القديم قد زال (اتصال، رقم مُصحّح)، ولا تُحذف العملية.
+     */
+    @Query(
+        "UPDATE outbox SET state = :pending, attempts = 0, lastError = '', nextAttemptAt = 0, " +
+            "updatedAt = :now WHERE operationId = :operationId"
+    )
+    suspend fun requeueOutbox(
+        operationId: String,
+        now: Long,
+        pending: String = OutboxState.PENDING
+    )
+
     // ------------------------------------------------------ مؤشر المزامنة
 
     @Upsert

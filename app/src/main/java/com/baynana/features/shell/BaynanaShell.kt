@@ -20,7 +20,7 @@ sealed interface BaynanaShell {
      * الفرق عن [Extra]: هذا يُبقي التبويب الأصلي محدَّدًا في الشريط السفلي، لأن المستخدم ما زال
      * داخل السوق أو داخل غرفه، لا داخل «المزيد».
      */
-    data class Sub(val parent: ShellTab, val key: String) : BaynanaShell {
+    data class Sub(val parent: ShellTab, val key: String, val arg: String? = null) : BaynanaShell {
         override val tab: ShellTab get() = parent
     }
 
@@ -44,7 +44,13 @@ sealed interface BaynanaShell {
         fun rooms(): BaynanaShell = Tab(ShellTab.ROOMS)
         fun room(roomId: String): BaynanaShell = Room(roomId)
         fun extra(key: String): BaynanaShell = Extra(key)
-        fun sub(parent: ShellTab, key: String): BaynanaShell = Sub(parent, key)
+        fun sub(parent: ShellTab, key: String, arg: String? = null): BaynanaShell = Sub(parent, key, arg)
+
+        /** كشف حساب غرفة: شاشة فرعية تحت «غرفي»، ومعرّف الغرفة في الوسيط. */
+        fun statement(roomId: String): BaynanaShell = Sub(ShellTab.ROOMS, KEY_STATEMENT, roomId)
+
+        /** مفاتيح الشاشات الفرعية في مكان واحد فلا ينشأ «نصّ سحري» يتكرّر في ملفات. */
+        const val KEY_STATEMENT = "statement"
     }
 }
 

@@ -238,7 +238,7 @@ fun ComponentCatalogScreen(onBack: () -> Unit) {
 
 private fun sampleEntry(
     type: String = EntryType.WATER_SESSION,
-    direction: String = LineDirection.CHARGE,
+    direction: LineDirection = LineDirection.CHARGE,
     status: String = EntryStatus.SENT,
     description: String = "سقية 5 ساعات — البئر الشرقي",
     isReversal: Boolean = false

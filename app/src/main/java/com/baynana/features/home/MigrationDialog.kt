@@ -46,7 +46,7 @@ fun MigrationDialog(
         text = {
             Column(modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
                 Text(
-                    "المصدر: دفتر المسرب القديم. والترحيل ينقل **المتبقي** فقط، وبتاريخ آخر سقية مسجّل، " +
+                    "المصدر: دفترك القديم. والترحيل ينقل **المتبقي** فقط، وبتاريخ آخر سقية مسجّل، " +
                         "ولا يحذف شيئًا من الدفتر القديم.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

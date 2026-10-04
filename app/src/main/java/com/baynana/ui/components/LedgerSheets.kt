@@ -306,12 +306,24 @@ private fun StatementRow(line: StatementLine, currency: String, dateFormat: Simp
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Text(
-            text = (if (isCharge) "" else "− ") + amountText(line.amountMinor, currency),
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Bold,
-            color = if (isCharge) MaterialTheme.colorScheme.onSurface else BaynanaStatus.colors.acknowledged
-        )
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = (if (isCharge) "" else "− ") + amountText(line.amountMinor, currency),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                color = if (isCharge) MaterialTheme.colorScheme.onSurface else BaynanaStatus.colors.acknowledged
+            )
+            // الرصيد الجاري بعد هذا السطر: «كم عليّ حتى هنا؟» — رقم واحد يجيب بلا جمع ذهني.
+            Text(
+                text = when {
+                    line.runningNetMinor == 0L -> "مصفّى حتى هنا"
+                    line.runningNetMinor < 0L -> "عليك ${amountText(line.runningNetMinor, currency)}"
+                    else -> "لك ${amountText(line.runningNetMinor, currency)}"
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

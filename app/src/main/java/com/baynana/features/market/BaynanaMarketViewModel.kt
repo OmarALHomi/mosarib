@@ -168,12 +168,12 @@ class BaynanaMarketViewModel(application: Application) : AndroidViewModel(applic
             is MarketRepository.SaveResult.RemoderationRequired ->
                 "تعديل بعد النشر: رُفعت المراجعة إلى ${result.revision}، والعرض عاد للمصادقة" to false
 
-            is MarketRepository.SaveResult.Saved -> successNote ?: when (result.status) {
+            is MarketRepository.SaveResult.Saved -> (successNote ?: when (result.status) {
                 "DRAFT" -> "حُفظ كمسودة في دفترك"
                 "PENDING_REVIEW" -> "أُرسل للمصادقة: لا يُنشر حتى تُصادَق هذه المراجعة"
                 "PUBLISHED" -> "نُشر العرض في دفترك، ويمكنك مشاركته بضغطة"
                 else -> "حُفظ (الحالة: ${result.status})"
-            } to false
+            }) to false
         }
         _state.value = _state.value.copy(message = text, isWarning = warning)
     }
