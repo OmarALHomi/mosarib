@@ -175,7 +175,7 @@ fun ReceiptDialog(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var amount by remember { mutableStateOf("") }
-    var mode by remember { mutableStateOf(AllocationMode.OldestFirst) }
+    var mode by remember { mutableStateOf<AllocationMode>(AllocationMode.OldestFirst) }
     var error by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
 

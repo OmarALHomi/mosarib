@@ -39,8 +39,8 @@ import com.baynana.ui.theme.BaynanaStatus
  * كل مبلغ في هذه المكوّنات يمرّ من [MoneyFormat] — لا حساب في الواجهة (ADR-04).
  */
 
-/** مبلغ من الوحدة الصغرى نصًّا. المصدر الوحيد لعرض المال في الواجهة. */
-@Composable
+/** مبلغ من الوحدة الصغرى نصًّا. المصدر الوحيد لعرض المال في الواجهة. **دالة نقية** لا
+ *  @Composable، لأنها تُستدعى داخل معالِجات الأحداث (onClick) كذلك. */
 fun amountText(minor: Long, currencyCode: String): String {
     val currency = Currency.fromCode(currencyCode) ?: return "$minor فلسًا"
     return MoneyFormat.format(Money.ofMinor(kotlin.math.abs(minor), currency))
