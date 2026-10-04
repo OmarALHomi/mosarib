@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>معاينة تصميم «بيننا» — حزمتا د١+د٢</title>
+<style>
+  :root {
+    --harvest-green: #0E6B4F;
+    --harvest-green-light: #3E9B77;
+    --harvest-container: #D8EBE1;
+    --warm-earth: #8D6E63;
+    --warm-container: #F0E4DD;
+    --harvest-gold: #C9A227;
+    --gold-container: #F6ECC8;
+    --paper-bg: #F7F3EA;
+    --paper-surface: #FFFDF8;
+    --paper-variant: #EDE7DA;
+    --ink: #1B1A17;
+    --ink-muted: #5C5850;
+    --outline: #D8D2C4;
+    --acknowledged: #1B6B45;
+    --acknowledged-container: #DCEFE3;
+    --waiting: #8A5A00;
+    --waiting-container: #FBEBD0;
+    --info: #2A5B8A;
+    --info-container: #DEEAF6;
+    --danger: #B3261E;
+    --danger-container: #F9DEDC;
+    --night-bg: #0E1512;
+    --night-surface: #16201C;
+    --night-ink: #F3F1EA;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #EFEADF;
+    color: var(--ink);
+    font-family: "Noto Naskh Arabic", "Amiri", "Segoe UI", "Tahoma", system-ui, sans-serif;
+    line-height: 1.7;
+  }
+  .page { max-width: 1240px; margin: 0 auto; padding: 28px 18px 60px; }
+  header.top {
+    background: var(--paper-surface);
+    border: 1px solid var(--outline);
+    border-radius: 18px;
+    padding: 22px 24px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .wordmark { display: flex; align-items: center; gap: 14px; }
+  .wordmark h1 { margin: 0; font-size: 30px; letter-spacing: 0; }
+  .tagline { color: var(--ink-muted); font-size: 15px; margin: 0; }
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin-inline-start: auto; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 600;
+  }
+  .pill.ok { background: var(--acknowledged-container); color: var(--acknowledged); }
+  .pill.wait { background: var(--waiting-container); color: var(--waiting); }
+  .pill.info { background: var(--info-container); color: var(--info); }
+  .pill.gold { background: var(--gold-container); color: #6A5405; }
+  .note {
+    background: var(--gold-container);
+    border: 1px solid #E3D08C;
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin: 18px 0 26px;
+    font-size: 15px;
+  }
+  h2.section { font-size: 21px; margin: 34px 0 4px; }
+  p.section-sub { color: var(--ink-muted); margin: 0 0 14px; font-size: 14px; }
+  .palette { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .swatch { width: 132px; border-radius: 12px; overflow: hidden; border: 1px solid var(--outline); background: #fff; }
+  .swatch .chip { height: 54px; }
+  .swatch .meta { padding: 6px 9px; font-size: 11.5px; color: var(--ink-muted); direction: ltr; text-align: left; }
+  .swatch .meta b { display: block; color: var(--ink); font-size: 12.5px; }
+  .frames { display: flex; gap: 26px; flex-wrap: wrap; }
+  .frame { width: 360px; }
+  .frame > .label { font-size: 14px; font-weight: 700; margin-bottom: 8px; color: var(--ink-muted); }
+  .phone {
+    width: 360px; height: 720px; border-radius: 26px; overflow: hidden;
+    background: var(--paper-bg); border: 1px solid var(--outline);
+    box-shadow: 0 16px 34px rgba(24, 20, 12, 0.12);
+    display: flex; flex-direction: column; position: relative;
+  }
+  .screen { flex: 1; overflow: hidden; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .screen.dim { filter: saturate(0.85); }
+  .topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
+  .topbar .title { font-size: 19px; font-weight: 800; }
+  .topbar .sub { font-size: 12px; color: var(--ink-muted); }
+  .icon-btn {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--paper-variant);
+    display: grid; place-items: center; color: var(--ink-muted); font-size: 15px;
+  }
+  .spacer { flex: 1; }
+  .card {
+    background: var(--paper-surface); border: 1px solid var(--outline);
+    border-radius: 14px; padding: 13px;
+  }
+  .card.tight { padding: 10px 12px; }
+  .net {
+    background: var(--harvest-container);
+    border: 1px solid #BFDCCD;
+    border-radius: 18px; padding: 16px;
+  }
+  .net .lbl { color: #0B4E3A; font-size: 13px; font-weight: 700; }
+  .net .amount { font-size: 30px; font-weight: 800; margin: 4px 0 8px; color: #083A2B; }
+  .net .row3 { display: flex; gap: 14px; font-size: 12.5px; color: #0B4E3A; flex-wrap: wrap; }
+  .net .row3 b { font-weight: 700; }
+  .sec-head { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; }
+  .sec-head .t { font-size: 15px; font-weight: 800; }
+  .sec-head .s { font-size: 11.5px; color: var(--ink-muted); }
+  .room { display: flex; align-items: center; gap: 10px; }
+  .room .info { flex: 1; }
+  .room .name { font-weight: 700; font-size: 14.5px; }
+  .room .meta { font-size: 11.5px; color: var(--ink-muted); }
+  .room .net-amt { font-weight: 800; font-size: 15px; }
+  .room .net-amt.neg { color: var(--danger); }
+  .room .net-amt.pos { color: var(--harvest-green); }
+  .chips { display: flex; gap: 6px; align-items: center; margin-top: 5px; flex-wrap: wrap; }
+  .chip {
+    border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .entry { border: 1px solid var(--outline); background: var(--paper-surface); border-radius: 12px; padding: 11px 12px; }
+  .entry.reversal { border-style: dashed; }
+  .entry .line1 { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .entry .amt { font-weight: 800; font-size: 16px; }
+  .entry .amt.pay { color: var(--harvest-green); }
+  .entry .amt.void { color: var(--ink-muted); text-decoration: line-through; }
+  .entry .desc { font-size: 13px; margin-top: 2px; }
+  .entry .date { font-size: 11px; color: var(--ink-muted); }
+  .numbers { display: flex; justify-content: space-between; gap: 8px; text-align: center; padding: 4px 0; }
+  .numbers div { flex: 1; }
+  .numbers .k { font-size: 11.5px; color: var(--ink-muted); }
+  .numbers .v { font-size: 15px; font-weight: 700; }
+  .numbers .v.em { color: var(--harvest-green); font-weight: 800; }
+  .btnrow { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    border-radius: 999px; padding: 8px 15px; font-size: 13.5px; font-weight: 700;
+    background: var(--harvest-green); color: #fff; border: none;
+  }
+  .btn.ghost { background: transparent; color: var(--harvest-green); border: 1.5px solid var(--harvest-green); }
+  .btn.small { padding: 5px 12px; font-size: 11.5px; }
+  .btn.muted { background: var(--paper-variant); color: var(--ink-muted); }
+  .sync {
+    background: var(--paper-variant); color: var(--ink-muted);
+    border-radius: 10px; padding: 7px 11px; font-size: 11.5px;
+  }
+  .sync.warn { background: var(--waiting-container); color: var(--waiting); }
+  .tabbar {
+    border-top: 1px solid var(--outline); background: var(--paper-surface);
+    display: flex; padding: 6px 4px 8px;
+  }
+  .tab { flex: 1; text-align: center; font-size: 11px; color: var(--ink-muted); }
+  .tab .ic { display: block; font-size: 17px; }
+  .tab.active { color: var(--harvest-green); font-weight: 800; }
+  .tab.active .ic { color: var(--harvest-green); }
+  .menu-item { display: flex; align-items: center; gap: 11px; }
+  .menu-item .ic {
+    width: 34px; height: 34px; border-radius: 10px; background: var(--harvest-container);
+    display: grid; place-items: center; color: var(--harvest-green);
+  }
+  .menu-item .tt { font-weight: 700; font-size: 14px; }
+  .menu-item .ss { font-size: 11.5px; color: var(--ink-muted); }
+  .overlay {
+    position: absolute; inset: 0; background: rgba(27, 26, 23, 0.45);
+    display: grid; place-items: center; padding: 18px;
+  }
+  .dialog {
+    background: var(--paper-surface); border-radius: 20px; padding: 16px; width: 100%;
+    max-height: 84%; overflow: auto;
+  }
+  .dialog h3 { margin: 0 0 6px; font-size: 17px; }
+  .dialog p { margin: 0 0 10px; font-size: 12.5px; color: var(--ink-muted); }
+  .recon { border-top: 1px dashed var(--outline); padding-top: 8px; margin-top: 8px; }
+  .recon .nm { font-weight: 700; font-size: 13.5px; display: flex; gap: 8px; align-items: center; }
+  .recon .ln { font-size: 11.5px; color: var(--ink-muted); }
+  .recon .ln.bad { color: var(--danger); }
+  .dark .phone-note { color: #C2C9C3; }
+  .phone.dark { background: var(--night-bg); border-color: #26332D; }
+  .phone.dark .card, .phone.dark .entry, .phone.dark .tabbar, .phone.dark .dialog { background: var(--night-surface); border-color: #26332D; color: var(--night-ink); }
+  .phone.dark .topbar .title, .phone.dark .room .name, .phone.dark .entry .desc { color: var(--night-ink); }
+  .phone.dark .room .meta, .phone.dark .entry .date, .phone.dark .numbers .k, .phone.dark .sec-head .s { color: #C2C9C3; }
+  .phone.dark .sync { background: #22302A; color: #C2C9C3; }
+  table.changes { width: 100%; border-collapse: collapse; background: var(--paper-surface); border-radius: 14px; overflow: hidden; }
+  table.changes th, table.changes td { padding: 9px 12px; border-bottom: 1px solid var(--outline); font-size: 13.5px; text-align: right; }
+  table.changes th { background: var(--paper-variant); font-size: 13px; }
+  footer { margin-top: 40px; color: var(--ink-muted); font-size: 13px; }
+  code { direction: ltr; display: inline-block; background: var(--paper-variant); border-radius: 6px; padding: 1px 6px; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="top">
+    <div class="wordmark">
+      <svg width="62" height="62" viewBox="0 0 108 108" aria-label="شعار بيننا">
+        <rect width="108" height="108" rx="24" fill="#0E6B4F" />
+        <path d="M30 74 C 45 46, 63 46, 78 74" fill="none" stroke="#F7F3EA" stroke-width="7" stroke-linecap="round" />
+        <path d="M30 34 C 45 62, 63 62, 78 34" fill="none" stroke="#F7F3EA" stroke-width="7" stroke-linecap="round" opacity="0.55" />
+        <circle cx="54" cy="54" r="6.5" fill="#C9A227" />
+      </svg>
+      <div>
+        <h1>بيننا</h1>
+        <p class="tagline">مستودع حساباتك ومعاملاتك</p>
+      </div>
+    </div>
+    <div class="pill-row">
+      <span class="pill ok">د١ الهوية ✓</span>
+      <span class="pill ok">د٢ الصدفة والشاشات ✓</span>
+      <span class="pill gold">معاينة تصميم</span>
+    </div>
+  </header>
+
+  <div class="note">
+    هذه <b>معاينة تصميم مطابقة للشيفرة المنفَّذة</b> (نفس المصطلحات والمبالغ وحالات الأزرار) لعرضها في المتصفح.
+    النسخة الحقيقية على الجهاز تُبنى من نفس الملفات: <code>MainScreen.kt</code>، <code>features/home</code>،
+    <code>features/rooms</code>، <code>features/movements</code>، <code>features/more</code>،
+    <code>ui/theme</code>، <code>ui/components</code>. حسابٌ رقميّ واحد يغذّي كل شاشة: <code>LedgerSnapshot</code>.
+  </div>
+
+  <h2 class="section">لوحة «حقول اليمن»</h2>
+  <p class="section-sub">اللون الأخضر للحصاد هو الأساسي، والذهبي لا يزيد عن 5% من الشاشة، والأرضي للحواشي والبيانات الثانوية.</p>
+  <div class="palette">
+    <div class="swatch"><div class="chip" style="background:#0E6B4F"></div><div class="meta"><b>HarvestGreen</b>#0E6B4F</div></div>
+    <div class="swatch"><div class="chip" style="background:#8D6E63"></div><div class="meta"><b>WarmEarth</b>#8D6E63</div></div>
+    <div class="swatch"><div class="chip" style="background:#C9A227"></div><div class="meta"><b>HarvestGold</b>#C9A227</div></div>
+    <div class="swatch"><div class="chip" style="background:#F7F3EA"></div><div class="meta"><b>PaperBackground</b>#F7F3EA</div></div>
+    <div class="swatch"><div class="chip" style="background:#FFFDF8"></div><div class="meta"><b>PaperSurface</b>#FFFDF8</div></div>
+    <div class="swatch"><div class="chip" style="background:#1B6B45"></div><div class="meta"><b>Acknowledged</b>#1B6B45</div></div>
+    <div class="swatch"><div class="chip" style="background:#8A5A00"></div><div class="meta"><b>Waiting</b>#8A5A00</div></div>
+    <div class="swatch"><div class="chip" style="background:#B3261E"></div><div class="meta"><b>Danger</b>#B3261E</div></div>
+    <div class="swatch"><div class="chip" style="background:#0E1512"></div><div class="meta"><b>NightBackground</b>#0E1512</div></div>
+  </div>
+
+  <h2 class="section">الشاشات الخمس + كشف الغرفة (فاتح)</h2>
+  <p class="section-sub">تبويبان ثابتان لكل قالب، والمحتوى نفسه يختلف بحسب الدور. الشريط: الرئيسية · غرفي · الحركات · السوق · المزيد.</p>
+
+  <div class="frames">
+
+    <!-- الرئيسية -->
+    <div class="frame">
+      <div class="label">١ — الرئيسية: «كم لي وكم عليّ؟» و«ما الذي ينتظرني؟»</div>
+      <div class="phone">
+        <div class="screen">
+          <div class="topbar">
+            <span class="title">دفترك</span>
+            <span class="spacer"></span>
+            <span class="icon-btn">⟳</span>
+          </div>
+
+          <div class="net">
+            <div class="lbl">لك عند الناس</div>
+            <div class="amount">125,500 ر.ي</div>
+            <div class="row3">
+              <span>المبلغ: <b>310,000 ر.ي</b></span>
+              <span>المسدَّد: <b>184,500 ر.ي</b></span>
+              <span>الباقي: <b>125,500 ر.ي</b></span>
+            </div>
+          </div>
+
+          <div class="sec-head"><span class="t">ينتظر إقرارك (2)</span></div>
+          <div class="card tight room">
+            <div class="info">
+              <div class="name">مسرب الوادي</div>
+              <div class="meta">بانتظار إقرارك: 2 قيدًا</div>
+              <div class="chips">
+                <span class="chip" style="background:#DCEFE3;color:#1B6B45"><span class="dot"></span>قائمة</span>
+              </div>
+            </div>
+            <div class="net-amt pos">+ 60,000 ر.ي</div>
+          </div>
+
+          <div class="card" style="background:#DEEAF6;border-color:#BFD5EC">
+            <div style="font-weight:700;font-size:13.5px;color:#20496F">دفترك القديم فيه 3 عملاء و5 قيود</div>
+            <div style="font-size:11.5px;color:#20496F;margin-top:4px">
+              المجموع: 148,000 ر.ي. الترحيل ينقل المتبقي كما كان بتاريخ كل سقية، ولا يحذف شيئًا من الدفتر القديم.
+            </div>
+            <div class="btnrow" style="margin-top:10px">
+              <button class="btn small">رحّل الآن</button>
+              <button class="btn small ghost">أرني الجرد أولًا</button>
+            </div>
+          </div>
+
+          <div class="sec-head"><span class="t">غرفي (3)</span><span class="s">اضغط أي غرفة لترى كشفها كاملًا</span></div>
+
+          <div class="card tight room">
+            <div class="info">
+              <div class="name">بقالة الأمانة</div>
+              <div class="meta">أبو أحمد • آخر حركة في دفترك</div>
+              <div class="chips"><span class="chip" style="background:#DCEFE3;color:#1B6B45"><span class="dot"></span>قائمة</span></div>
+            </div>
+            <div class="net-amt neg">− 18,500 ر.ي</div>
+          </div>
+
+          <div class="card tight room">
+            <div class="info">
+              <div class="name">دلال الرمان</div>
+              <div class="meta">سالم الدلال • كود الربط: K7X2M</div>
+              <div class="chips"><span class="chip" style="background:#FBEBD0;color:#8A5A00"><span class="dot"></span>بانتظار قبول الربط</span></div>
+            </div>
+            <div class="net-amt pos">+ 84,000 ر.ي</div>
+          </div>
+
+          <div class="spacer"></div>
+          <div class="sync">كل ما تكتبه محفوظ في دفترك على هذا الجهاز</div>
+        </div>
+        <div class="tabbar">
+          <div class="tab active"><span class="ic">⌂</span>الرئيسية</div>
+          <div class="tab"><span class="ic">☰</span>غرفي</div>
+          <div class="tab"><span class="ic">≡</span>الحركات</div>
+          <div class="tab"><span class="ic">🛒</span>السوق</div>
+          <div class="tab"><span class="ic">⋯</span>المزيد</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- كشف الغرفة -->
+    <div class="frame">
+      <div class="label">٢ — كشف الغرفة: الأرقام، ثم ما ينتظر إقراري، ثم الحركات</div>
+      <div class="phone">
+        <div class="screen">
+          <div class="topbar">
+            <span class="icon-btn">›</span>
+            <div>
+              <div class="title" style="font-size:17px">مسرب الوادي</div>
+              <div class="sub">أحمد بن ناصر</div>
+            </div>
+            <span class="spacer"></span>
+            <span class="icon-btn">⤴</span>
+          </div>
+
+          <div class="card">
+            <div class="chips" style="margin:0 0 8px">
+              <span class="chip" style="background:#DCEFE3;color:#1B6B45"><span class="dot"></span>قائمة</span>
+              <span class="chip" style="background:#EDE7DA;color:#5C5850">كود الربط: K7X2M</span>
+            </div>
+            <div class="numbers">
+              <div><div class="k">المبلغ</div><div class="v">180,000 ر.ي</div></div>
+              <div><div class="k">المسدَّد</div><div class="v">120,000 ر.ي</div></div>
+              <div><div class="k">الباقي</div><div class="v em">60,000 ر.ي</div></div>
+            </div>
+            <div style="margin-top:8px;font-size:13.5px;font-weight:800;color:#0E6B4F">الصافي: لك 60,000 ر.ي</div>
+            <div style="margin-top:6px;font-size:11.5px;color:#20496F">
+              رصيد دائن معلّق: 10,000 ر.ي — لم يُخصَّص على دَين بعد
+            </div>
+          </div>
+
+          <div class="btnrow">
+            <button class="btn small">قيد جديد</button>
+            <button class="btn small ghost">💵 سداد/قبض</button>
+          </div>
+
+          <div class="sec-head"><span class="t">ينتظر إقرارك (1)</span><span class="s">الإقرار يغيّر الحالة فقط، ولا يمسح القيد</span></div>
+          <div class="entry">
+            <div class="line1">
+              <span class="amt">45,000 ر.ي</span>
+              <span class="chip" style="background:#FBEBD0;color:#8A5A00"><span class="dot"></span>بانتظار الإقرار</span>
+            </div>
+            <div class="desc">سقية 5 ساعات — البئر الشرقي</div>
+            <div class="date">2026-10-02</div>
+            <div class="btnrow" style="margin-top:8px">
+              <button class="btn small">أقرّ</button>
+              <button class="btn small ghost">اعتراض</button>
+            </div>
+          </div>
+
+          <div class="sec-head"><span class="t">الحركات (4)</span></div>
+          <div class="entry">
+            <div class="line1">
+              <span class="amt">45,000 ر.ي</span>
+              <span class="chip" style="background:#DCEFE3;color:#1B6B45"><span class="dot"></span>مُقرّ</span>
+            </div>
+            <div class="desc">سقية 6 ساعات — البئر الشرقي</div>
+            <div class="date">2026-09-28</div>
+          </div>
+          <div class="entry">
+            <div class="line1">
+              <span class="amt pay">− 40,000 ر.ي</span>
+              <span class="chip" style="background:#DCEFE3;color:#1B6B45"><span class="dot"></span>مُقرّ</span>
+            </div>
+            <div class="desc">قبض عام — بقي غير مخصَّص</div>
+            <div class="date">2026-09-25</div>
+          </div>
+          <div class="entry reversal">
+            <div class="line1">
+              <span class="amt void">30,000 ر.ي</span>
+              <span class="chip" style="background:#EDE7DA;color:#5C5850"><span class="dot"></span>ملغى بقيد عكسي</span>
+            </div>
+            <div class="desc">قيد عكسي: تصحيح سقية مكرّرة</div>
+            <div class="date">2026-09-21</div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><span class="ic">⌂</span>الرئيسية</div>
+          <div class="tab active"><span class="ic">☰</span>غرفي</div>
+          <div class="tab"><span class="ic">≡</span>الحركات</div>
+          <div class="tab"><span class="ic">🛒</span>السوق</div>
+          <div class="tab"><span class="ic">⋯</span>المزيد</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- الحركات -->
+    <div class="frame">
+      <div class="label">٣ — الحركات: تدفّق واحد لكل الغرف، والغرفة مكتوبة على كل سطر</div>
+      <div class="phone">
+        <div class="screen">
+          <div class="topbar"><span class="title">الحركات</span></div>
+          <div style="font-size:11.5px;color:#5C5850;margin-top:-6px">
+            كل ما جرى في غرفك، الأحدث أولًا. الغرفة مكتوبة على كل سطر حتى لا تختلط الحسابات.
+          </div>
+
+          <div class="btnrow">
+            <button class="btn small">الكل</button>
+            <button class="btn small ghost">عليّ</button>
+            <button class="btn small ghost">لي</button>
+            <button class="btn small ghost">بانتظار الإقرار</button>
+          </div>
+
+          <div style="font-size:12px;color:#0E6B4F;font-weight:700;margin-top:6px">
+            مسرب الوادي <span class="chip" style="background:#FBEBD0;color:#8A5A00;margin-inline-start:6px">ينتظر إقرارك: 2</span>
+          </div>
+          <div class="entry">
+            <div class="line1">
+              <span class="amt">45,000 ر.ي</span>
+              <span class="chip" style="background:#FBEBD0;color:#8A5A00"><span class="dot"></span>بانتظار الإقرار</span>
+            </div>
+            <div class="desc">سقية 5 ساعات — البئر الشرقي</div>
+            <div class="date">2026-10-02</div>
+          </div>
+
+          <div style="font-size:12px;color:#0E6B4F;font-weight:700;margin-top:6px">بقالة الأمانة</div>
+          <div class="entry">
+            <div class="line1">
+              <span class="amt pay">− 12,000 ر.ي</span>
+              <span class="chip" style="background:#DCEFE3;color:#1B6B45"><span class="dot"></span>مُقرّ</span>
+            </div>
+            <div class="desc">سداد — الأقدم فالأقدم</div>
+            <div class="date">2026-10-01</div>
+          </div>
+
+          <div style="font-size:12px;color:#0E6B4F;font-weight:700;margin-top:6px">دلال الرمان</div>
+          <div class="entry">
+            <div class="line1">
+              <span class="amt">84,000 ر.ي</span>
+              <span class="chip" style="background:#DEEAF6;color:#2A5B8A"><span class="dot"></span>مسودة لم تُرسل</span>
+            </div>
+            <div class="desc">دَين سلعة — 4 كراتين رمان</div>
+            <div class="date">2026-09-30</div>
+          </div>
+
+          <div class="spacer"></div>
+          <div class="sync">الحفظ محلي أولًا: القيد يظهر في دفترك قبل إقرار الطرف</div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><span class="ic">⌂</span>الرئيسية</div>
+          <div class="tab"><span class="ic">☰</span>غرفي</div>
+          <div class="tab active"><span class="ic">≡</span>الحركات</div>
+          <div class="tab"><span class="ic">🛒</span>السوق</div>
+          <div class="tab"><span class="ic">⋯</span>المزيد</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <h2 class="section">«المزيد» وحوار جرد الترحيل</h2>
+  <p class="section-sub">ما لم يُبنَ بعد يُعلن «قريبًا» صراحةً — لا زرّ فارغ ولا وعد بميزة غير موجودة.</p>
+
+  <div class="frames">
+    <div class="frame">
+      <div class="label">٤ — المزيد (فاتح)</div>
+      <div class="phone">
+        <div class="screen">
+          <div class="topbar"><span class="title">المزيد</span></div>
+          <div style="font-size:11.5px;color:#5C5850;margin-top:-6px">
+            «بيننا» دفتر حسابات محلي أولًا. لا نطلب مالًا، ولا نحجب بياناتك عند أي إيقاف، ولا نعرض ديونك لأحد.
+          </div>
+
+          <div class="card tight menu-item">
+            <div class="ic">⚖</div>
+            <div><div class="tt">الصلح والأقساط</div><div class="ss">بيان الصلح، الأقساط، وسعاية الدلال</div></div>
+          </div>
+          <div class="card tight menu-item">
+            <div class="ic">🌾</div>
+            <div><div class="tt">مزرعتي</div><div class="ss">مصروفات المزرعة في دفترك الخاص</div></div>
+          </div>
+          <div class="card tight menu-item">
+            <div class="ic">📊</div>
+            <div><div class="tt">التقارير</div><div class="ss">خلاصات وطباعة الكشوف</div></div>
+          </div>
+          <div class="card tight menu-item">
+            <div class="ic">🗄</div>
+            <div style="flex:1"><div class="tt">النسخ الاحتياطي</div><div class="ss">النسخ يعمل من الإعدادات؛ ومعاينة الاستعادة تُبنى في حزمة قادمة</div></div>
+            <span class="chip" style="background:#EDE7DA;color:#5C5850">قريبًا</span>
+          </div>
+          <div class="card tight menu-item">
+            <div class="ic">📒</div>
+            <div><div class="tt">الترحيل من الدفتر القديم</div><div class="ss">الجرد والقرار قبل أي نقل</div></div>
+          </div>
+          <div class="card tight menu-item">
+            <div class="ic">⚙</div>
+            <div><div class="tt">الإعدادات</div><div class="ss">الاسم، الحماية، الوضع الليلي</div></div>
+          </div>
+          <div class="card tight menu-item">
+            <div class="ic">ℹ</div>
+            <div><div class="tt">حول «بيننا»</div><div class="ss">ما التطبيق وما لا يفعله</div></div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><span class="ic">⌂</span>الرئيسية</div>
+          <div class="tab"><span class="ic">☰</span>غرفي</div>
+          <div class="tab"><span class="ic">≡</span>الحركات</div>
+          <div class="tab"><span class="ic">🛒</span>السوق</div>
+          <div class="tab active"><span class="ic">⋯</span>المزيد</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame">
+      <div class="label">٥ — حوار «أرني الجرد أولًا»: لا ترحيل صامت</div>
+      <div class="phone">
+        <div class="screen dim" style="padding:0">
+          <div class="screen" style="padding:14px">
+            <div class="topbar"><span class="title">دفترك</span></div>
+            <div class="net"><div class="lbl">لك عند الناس</div><div class="amount">125,500 ر.ي</div></div>
+            <div class="card tight room"><div class="info"><div class="name">مسرب الوادي</div><div class="meta">بانتظار إقرارك: 2 قيدًا</div></div><div class="net-amt pos">+ 60,000 ر.ي</div></div>
+            <div class="card tight room"><div class="info"><div class="name">بقالة الأمانة</div><div class="meta">أبو أحمد</div></div><div class="net-amt neg">− 18,500 ر.ي</div></div>
+          </div>
+          <div class="overlay">
+            <div class="dialog">
+              <h3>الترحيل من الدفتر القديم</h3>
+              <p>
+                المصدر: دفتر المسرب القديم. والترحيل ينقل <b>المتبقي</b> فقط، وبتاريخ آخر سقية مسجّل،
+                ولا يحذف شيئًا من الدفتر القديم.
+              </p>
+              <div class="chips" style="margin-bottom:8px">
+                <span class="chip" style="background:#DEEAF6;color:#2A5B8A">عملاء: 3</span>
+                <span class="chip" style="background:#DEEAF6;color:#2A5B8A">قيود: 5</span>
+              </div>
+              <div style="font-weight:800;font-size:13.5px">الإجمالي القديم: 148,000 ر.ي ← المرحَّل: 148,000 ر.ي</div>
+
+              <div class="recon">
+                <div class="nm">أحمد بن ناصر <span class="chip" style="background:#DCEFE3;color:#1B6B45">يطابق</span></div>
+                <div class="ln">قديم: 60,000 ر.ي • مرحَّل: 60,000 ر.ي</div>
+              </div>
+              <div class="recon">
+                <div class="nm">أبو أحمد <span class="chip" style="background:#DCEFE3;color:#1B6B45">يطابق</span></div>
+                <div class="ln">قديم: 18,500 ر.ي • مرحَّل: 18,500 ر.ي</div>
+              </div>
+              <div class="recon">
+                <div class="nm">سالم الدلال <span class="chip" style="background:#F9DEDC;color:#B3261E">لا يطابق</span></div>
+                <div class="ln bad">قديم: 69,500 ر.ي • مرحَّل: 84,000 ر.ي • فرق لا يُرحَّل حتى يُحلّ</div>
+              </div>
+
+              <div class="btnrow" style="margin-top:12px">
+                <button class="btn small muted">رحّل الآن</button>
+                <button class="btn small ghost">لاحقًا</button>
+              </div>
+              <div style="font-size:11px;color:#5C5850;margin-top:8px">
+                زرّ «رحّل الآن» معطَّل لأن هناك فرقًا في الجرد: القاعدة أن الترحيل لا يبدأ بفرق غير مفسَّر.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame">
+      <div class="label">٦ — الوضع الليلي: نفس الشاشة بلوحة الليل (نموذج)</div>
+      <div class="phone dark">
+        <div class="screen">
+          <div class="topbar"><span class="title">دفترك</span><span class="spacer"></span><span class="icon-btn" style="background:#22302A;color:#C2C9C3">⟳</span></div>
+          <div class="net" style="background:#123A2D;border-color:#1C5340">
+            <div class="lbl" style="color:#7DDBA8">لك عند الناس</div>
+            <div class="amount" style="color:#D8EBE1">125,500 ر.ي</div>
+            <div class="row3" style="color:#9FCBB8">
+              <span>المبلغ: <b>310,000 ر.ي</b></span>
+              <span>المسدَّد: <b>184,500 ر.ي</b></span>
+            </div>
+          </div>
+          <div class="card tight room">
+            <div class="info">
+              <div class="name">مسرب الوادي</div>
+              <div class="meta">بانتظار إقرارك: 2 قيدًا</div>
+            </div>
+            <div class="net-amt pos" style="color:#7DDBA8">+ 60,000 ر.ي</div>
+          </div>
+          <div class="card tight room">
+            <div class="info">
+              <div class="name">بقالة الأمانة</div>
+              <div class="meta">أبو أحمد</div>
+            </div>
+            <div class="net-amt neg" style="color:#FFB4AB">− 18,500 ر.ي</div>
+          </div>
+          <div class="spacer"></div>
+          <div class="sync">كل ما تكتبه محفوظ في دفترك على هذا الجهاز</div>
+        </div>
+        <div class="tabbar" style="background:#16201C;border-color:#26332D">
+          <div class="tab active" style="color:#7DDBA8"><span class="ic">⌂</span>الرئيسية</div>
+          <div class="tab" style="color:#C2C9C3"><span class="ic">☰</span>غرفي</div>
+          <div class="tab" style="color:#C2C9C3"><span class="ic">≡</span>الحركات</div>
+          <div class="tab" style="color:#C2C9C3"><span class="ic">🛒</span>السوق</div>
+          <div class="tab" style="color:#C2C9C3"><span class="ic">⋯</span>المزيد</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section">ما الذي تغيّر فعلًا عن النسخة القديمة</h2>
+  <table class="changes">
+    <tr><th>قبل</th><th>بعد (د١+د٢)</th></tr>
+    <tr>
+      <td>أيقونة أندرويد الافتراضية (روبوت)</td>
+      <td>أيقونة «بيننا»: قوسان متقابلان ونقطة ذهبية بينهما + أيقونة أحادية اللون + خلفية نافذة بلون الورق</td>
+    </tr>
+    <tr>
+      <td>لوحة فيروزية «تطبيق مضخة ماء»</td>
+      <td>لوحة «حقول اليمن»: أخضر حصاد، أرضي دافئ، ذهبي محدود، ورق/ليل</td>
+    </tr>
+    <tr>
+      <td>تبويبات: سجلات السقي · العملاء · الرئيسية · سجل العمليات · الإعدادات</td>
+      <td>الرئيسية · غرفي · الحركات · السوق · المزيد — والمستخدم يبدأ من الرصيد لا من النموذج</td>
+    </tr>
+    <tr>
+      <td>الشاشة الرئيسية عن السقي والمضخات والساعات</td>
+      <td>الشاشة الرئيسية تجيب: كم لي وكم عليّ؟ وما الذي ينتظر إقراري؟ (الأرقام من <code>LedgerSnapshot</code>)</td>
+    </tr>
+    <tr>
+      <td>لا مكان للإقرار أو الاعتراض في الواجهة</td>
+      <td>كشف الغرفة فيه «أقرّ» و«اعتراض» مع سبب مكتوب؛ الإقرار يغيّر الحالة فقط ولا يمسح القيد</td>
+    </tr>
+    <tr>
+      <td>الواجهة تحسب بالـ<code>Double</code> (25 ملفًا)</td>
+      <td>ملفات الواجهة الجديدة بصفر <code>Double</code>، وكل مبلغ يمرّ من <code>MoneyFormat</code>/<code>StatementText</code> — وحاجز CI يمنع العودة</td>
+    </tr>
+    <tr>
+      <td>لا مكان لرصيد دائن معلّق أو قبض عام</td>
+      <td>«قبض عام» ظاهر مع إعلان ما بقي غير مخصَّص، ولا يُغلق دَينًا بعينه</td>
+    </tr>
+    <tr>
+      <td>الترحيل من الدفتر القديم بلا واجهة</td>
+      <td>حوار جرد يعرض كل عميل وما سيُرحَّل، ويرفض الترحيل عند أي فرق غير مفسَّر</td>
+    </tr>
+  </table>
+
+  <footer>
+    ملف المعاينة: <code>docs/design/preview/index.html</code> — يُفتح بلا إنترنت. والنسخة القابلة للتثبيت تُنشر كإصدار
+    <code>preview-d2</code> من CI (بناء تصحيح للمعاينة فقط).
+  </footer>
+
+</div>
+</body>
+</html>
