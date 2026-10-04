@@ -62,6 +62,10 @@ interface LedgerDao {
     @Query("SELECT * FROM room_members WHERE roomId = :roomId AND memberId = :memberId")
     suspend fun getMember(roomId: String, memberId: String): RoomMember?
 
+    /** كل أعضاء غرفة: بها تُبنى لقطة الغرفة في حزمة التسليم (ح١٩). */
+    @Query("SELECT * FROM room_members WHERE roomId = :roomId ORDER BY joinedAt ASC")
+    suspend fun getMembers(roomId: String): List<RoomMember>
+
     // ------------------------------------------------------------- القيود
 
     /**
@@ -314,6 +318,21 @@ interface LedgerDao {
     @Query("SELECT COUNT(*) FROM tombstones WHERE entityId = :entityId")
     suspend fun countTombstones(entityId: String): Int
 
+    // ------------------------------------------- التسليم اليدوي بلا خادم (ح١٩)
+
+    /**
+     * كل ما لم يُقَرّ بعد، مرتّبًا بالزمن — للتسليم اليدوي عبر ملف/رمز.
+     *
+     * يُدرج الفاشل والميت أيضًا عن قصد: التسليم اليدوي طريق مشروع لما استعصى على الآلة، وإخفاؤه
+     * يعني أن قيدًا معلّقًا لا يصل أبدًا. أما SENT فيُستثنى احترامًا لمعنى الكلمة: ما أُرسل لا
+     * يُعاد إرساله في كل حزمة.
+     */
+    @Query("SELECT * FROM outbox WHERE state != :sentState ORDER BY createdAt ASC LIMIT :limit")
+    suspend fun pendingForHandover(limit: Int, sentState: String = OutboxState.SENT): List<OutboxItem>
+
+    @Query("SELECT COUNT(*) FROM outbox WHERE state != :sentState")
+    suspend fun pendingHandoverCount(sentState: String = OutboxState.SENT): Int
+
     @Query("SELECT * FROM tombstones ORDER BY deletedAt DESC")
     fun observeTombstones(): Flow<List<Tombstone>>
 
@@ -398,6 +417,45 @@ interface LedgerDao {
             )
         )
         return true
+    }
+
+    /**
+     * تسجيل قرار عضو على قيد **مع جدولة إرساله** في المعاملة نفسها: القرار الذي لا يُرسل لا يعلم
+     * به الطرف الآخر، فيبقى القيد معلّقًا في نظر الجهازين — وهذا بالضبط ما يجعل الإقرار ينتقل
+     * في حزمة التسليم (ح١٩) أو في أي قناة لاحقة بلا مسار خاص.
+     */
+    @Transaction
+    suspend fun recordDecisionAndEnqueue(
+        entryId: String,
+        memberId: String,
+        decision: String,
+        note: String,
+        decidedAt: Long,
+        resultingStatus: String,
+        updatedAt: Long,
+        operationId: String,
+        payload: String
+    ) {
+        recordDecision(
+            entryId = entryId,
+            memberId = memberId,
+            decision = decision,
+            note = note,
+            decidedAt = decidedAt,
+            resultingStatus = resultingStatus,
+            updatedAt = updatedAt
+        )
+        enqueueOutbox(
+            OutboxItem(
+                operationId = operationId,
+                entityType = "ack",
+                entityId = entryId,
+                action = "UPSERT",
+                payload = payload,
+                createdAt = decidedAt,
+                updatedAt = decidedAt
+            )
+        )
     }
 
     /**

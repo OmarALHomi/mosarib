@@ -233,6 +233,9 @@ private fun ShellScaffold(
                         // حالة المزامنة: ما حال كل حركة وما العمل فيها (لا نجاح كاذب).
                         "sync" -> SyncStatusScreen(onBack = backToMore)
 
+                        // التسليم بلا إنترنت: حزمة نصّية تُمرَّر في واتساب أو ملفًّا (ح١٩).
+                        "handover" -> com.baynana.features.handover.HandoverScreen(onBack = backToMore)
+
                         "catalog" -> if (BuildConfig.DEBUG) {
                             com.baynana.features.dev.ComponentCatalogScreen(onBack = backToMore)
                         } else {
@@ -284,6 +287,7 @@ private fun ShellScaffold(
                         onOpenSettings = { onNavigate(BaynanaShell.extra("settings")) },
                         onOpenAbout = { onNavigate(BaynanaShell.extra("about")) },
                         onOpenSyncStatus = { onNavigate(BaynanaShell.extra("sync")) },
+                        onOpenHandover = { onNavigate(BaynanaShell.extra("handover")) },
                         // شاشة العيّنات للتطوير فقط: في نسخة التوزيع لا يظهر العنصر ولا الشاشة.
                         onOpenCatalog = if (BuildConfig.DEBUG) {
                             { onNavigate(BaynanaShell.extra("catalog")) }

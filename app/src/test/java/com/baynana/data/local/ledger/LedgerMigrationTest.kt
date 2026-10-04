@@ -10,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -374,12 +375,89 @@ class LedgerMigrationTest {
     }
 
     @Test
+    fun `upgrading a real version 12 database adds the handover tables and keeps licence and ledger rows`() {
+        // الإصدار 12 كان آخر إصدار قبل ح١٩: كل شيء قائم (غرف، قيود، صادر، ترخيص) وبلا جداول تسليم.
+        buildDatabaseAtVersion(12) { sqlite ->
+            sqlite.execSQL(
+                "INSERT INTO rooms (id, kind, currency, title, status, linkCode, counterpartName, counterpartPhone, createdAt, updatedAt, closedAt) " +
+                    "VALUES ('room-12', 'WATER', 'YER_NEW', 'غرفة قائمة', 'ACTIVE', 'LNK-12', 'أبو أحمد', '', 1000, 2000, NULL)"
+            )
+            sqlite.execSQL(
+                "INSERT INTO room_members (roomId, memberId, displayName, phone, role, isMe, joinedAt, lastSeenAt) " +
+                    "VALUES ('room-12', 'me', 'أنا', '', 'owner', 1, 1000, 0)"
+            )
+            sqlite.execSQL(
+                "INSERT INTO entries (id, roomId, operationId, type, owedByMemberId, owedToMemberId, amountMinor, currency, occurredAt, description, quantityNote, status, createdByMemberId, sourceTable, sourceId, listingId, reversesEntryId, createdAt, updatedAt) " +
+                    "VALUES ('entry-12', 'room-12', 'op-12', 'WATER_SESSION', 'me', 'm-farmer', 1750000, 'YER_NEW', 2000, 'سقية قديمة', '', 'SENT', 'me', NULL, NULL, NULL, NULL, 2000, 2000)"
+            )
+            sqlite.execSQL(
+                "INSERT INTO outbox (operationId, entityType, entityId, action, payload, state, attempts, lastError, nextAttemptAt, createdAt, updatedAt) " +
+                    "VALUES ('op-12', 'entry', 'entry-12', 'UPSERT', '{}', 'PENDING', 0, '', 0, 2000, 2000)"
+            )
+            sqlite.execSQL(
+                "INSERT INTO licenses (licenseId, kind, deviceCode, role, plan, durationDays, issuedAt, expiresAt, grantedAt, tokenSha256, note) " +
+                    "VALUES ('lic-12', 'SIGNED', 'MSRB-1111-2222', 'MUSRIB', 'MONTHLY', 30, 1000, 9000000, 1000, 'SHA', 'استحقاق سابق')"
+            )
+        }
+
+        val database = openAppDatabase()
+
+        // أول لمسة تشغّل AutoMigration(12→13): ثلاثة جداول تُضاف، ولا صف قائم يُلمس.
+        assertEquals(1_750_000L, runBlocking { database.ledgerDao().getEntry("entry-12")!!.amountMinor })
+        runBlocking {
+            assertNotNull(
+                "الاستحقاق السابق باقٍ (لا ترحيل يمحو ترخيصًا)",
+                database.licenseDao().getLicense("lic-12")
+            )
+        }
+
+        val readable = database.openHelper.readableDatabase
+        readable.query("PRAGMA user_version").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(DATABASE_VERSION, cursor.getInt(0))
+        }
+
+        val found = mutableSetOf<String>()
+        readable.query("SELECT name FROM sqlite_master WHERE type = 'table'").use { cursor ->
+            while (cursor.moveToNext()) found += cursor.getString(0)
+        }
+        val expected = setOf("handover_log", "pending_invites", "pending_items")
+        assertTrue("جداول التسليم ناقصة بعد الترقية: ${expected - found}", found.containsAll(expected))
+
+        readable.query("SELECT COUNT(*) FROM outbox").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("سطر الصادر القديم باقٍ", 1, cursor.getInt(0))
+        }
+
+        // والجداول الجديدة تعمل فعلًا (لا وجود شكلي): صفّ دعوة يُكتب ويُقرأ.
+        runBlocking {
+            database.handoverDao().insertInviteIfNew(
+                com.baynana.data.local.handover.PendingInviteRow(
+                    id = "invite-12",
+                    roomId = "room-12",
+                    title = "غرفة من ملفّ تسليم",
+                    kind = "WATER",
+                    currency = "YER_NEW",
+                    inviterMemberId = "m-farmer",
+                    inviterName = "أحمد",
+                    partnerMemberId = "me",
+                    payload = "{}",
+                    receivedAt = 5000,
+                    bundleId = "bnn-12"
+                )
+            )
+            assertEquals(1, database.handoverDao().countInvites(com.baynana.data.local.handover.InviteStatus.PENDING))
+        }
+    }
+
+    @Test
     fun `the exported schema of the current version is committed`() {
         // المخطط المصدَّر شرط لأي ترحيل قادم: غيابه يعني أن اختبار الترحيل القادم مستحيل،
         // وأن ترحيلًا تلقائيًا لاحقًا لا يجد ما يقارن به. لهذا يُسحب المخطط من CI ويُحفظ.
         assertTrue("مخطط الإصدار 6 مطلوب لبناء قاعدة قديمة حقيقية", schemaFile(6).exists())
         assertTrue("مخطط الإصدار 8 مطلوب لاختبار الترقية إلى 9", schemaFile(8).exists())
         assertTrue("مخطط الإصدار 9 مطلوب لاختبار الترقية إلى 10", schemaFile(9).exists())
+        assertTrue("مخطط الإصدار 12 مطلوب لاختبار الترقية إلى 13", schemaFile(12).exists())
         assertTrue(
             "مخطط الإصدار الحالي ($DATABASE_VERSION) يجب أن يكون محفوظًا في المستودع",
             schemaFile(DATABASE_VERSION).exists()

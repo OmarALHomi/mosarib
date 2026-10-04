@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Gavel
+import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
@@ -49,6 +50,8 @@ fun MoreScreen(
     onOpenAbout: () -> Unit = {},
     /** «حالة المزامنة»: حقيقة كل حركة وما العمل فيها. */
     onOpenSyncStatus: () -> Unit = {},
+    /** «التسليم بلا إنترنت»: ملفّ/رمز يمرّ في واتساب بلا حساب ولا خادم (ح١٩). */
+    onOpenHandover: () -> Unit = {},
     onOpenCatalog: (() -> Unit)? = null
 ) {
     data class Item(
@@ -75,6 +78,12 @@ fun MoreScreen(
             "حالة المزامنة",
             "لكل حركة: محفوظة في جهازك، أُرسلت، أُقرّت، أو فشلت ومعها الحل",
             onOpenSyncStatus
+        ),
+        Item(
+            Icons.Default.ImportExport,
+            "التسليم بلا إنترنت",
+            "جهّز حزمة من حركاتك وأرسلها في واتساب، أو استورد حزمة وصلتك — بلا حساب ولا شبكة",
+            onOpenHandover
         ),
         Item(Icons.Default.Settings, "الإعدادات", "الاسم، الحماية، الوضع الليلي", onOpenSettings),
         Item(Icons.Default.Info, "حول «بيننا»", "ما التطبيق وما لا يفعله", onOpenAbout)

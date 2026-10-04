@@ -5,8 +5,12 @@ import com.baynana.core.database.AppDatabase
 import com.baynana.data.local.ledger.LedgerEntry
 import com.baynana.data.local.ledger.OutboxItem
 import com.baynana.data.local.ledger.Tombstone
+import com.baynana.data.local.handover.HandoverPayloads
+import com.baynana.data.local.handover.InviteStatus
+import com.baynana.data.local.handover.PendingInviteRow
 import com.baynana.domain.ledger.EntryStatus
 import com.baynana.domain.ledger.EntryType
+import com.baynana.domain.ledger.RoomStatus
 import com.baynana.domain.sync.ApplyOutcome
 import com.baynana.domain.sync.OutboxEnvelope
 import com.baynana.domain.sync.RemoteChange
@@ -77,7 +81,12 @@ class RoomSyncStore(private val db: AppDatabase, private val cursorKey: String =
         if (dao.countTombstones(change.entityId) > 0) return@withTransaction ApplyOutcome.SKIPPED_TOMBSTONED
 
         when (change.kind) {
-            RemoteChange.UPSERT -> applyUpsert(change)
+            // النوع يحدّد المسار قبل الحالة: الإقرار ودعوة الغرفة ليسا قيودًا، ولكل منهما فحوصه.
+            RemoteChange.UPSERT -> when (change.entityType) {
+                ENTITY_ACK -> applyAcknowledgement(change)
+                ENTITY_ROOM -> applyRoomSnapshot(change)
+                else -> applyUpsert(change)
+            }
             RemoteChange.VOID -> applyVoid(change)
             RemoteChange.DELETE -> {
                 recordTombstone(change)
@@ -85,6 +94,101 @@ class RoomSyncStore(private val db: AppDatabase, private val cursorKey: String =
             }
             else -> ApplyOutcome.UNSUPPORTED
         }
+    }
+
+    /**
+     * إقرار وارد على قيد موجود. الفحوص هنا ليست شكلية:
+     * - **من يُقرّ؟** الطرف الذي عليه المال في القيد ([LedgerEntry.owedByMemberId]). فإقرار من غير
+     *   صاحب الشأن يُرفض ولا يُكتب، فلا يستطيع طرف أن «يُقرّ» عن غيره ولا أن يُبرئ نفسه.
+     * - **لا إقرار على ملغى**: الملغى بقيد عكسي انتهى أمره بحالة معلنة.
+     * - **إعادة التسليم لا تُضاعف**: نفس القرار بنفس الزمن = DUPLICATE بلا كتابة.
+     */
+    private suspend fun applyAcknowledgement(change: RemoteChange): ApplyOutcome {
+        val decoded = try {
+            HandoverPayloads.decodeAcknowledgement(change.payload)
+        } catch (_: Exception) {
+            return ApplyOutcome.UNSUPPORTED
+        }
+        val entry = dao.getEntry(decoded.acknowledgement.entryId) ?: return ApplyOutcome.UNSUPPORTED
+        // غرفة معلنة لا تطابق غرفة القيد = حمولة مُعادة التوجيه، ولا تُقبل.
+        if (decoded.roomId.isNotBlank() && decoded.roomId != entry.roomId) return ApplyOutcome.UNSUPPORTED
+        if (entry.status == EntryStatus.VOIDED) return ApplyOutcome.UNSUPPORTED
+        if (entry.owedByMemberId != decoded.acknowledgement.memberId) return ApplyOutcome.UNSUPPORTED
+        if (dao.getMember(entry.roomId, decoded.acknowledgement.memberId) == null) return ApplyOutcome.UNSUPPORTED
+
+        val existing = dao.getAcknowledgement(decoded.acknowledgement.entryId, decoded.acknowledgement.memberId)
+        if (existing != null &&
+            existing.decision == decoded.acknowledgement.decision &&
+            existing.decidedAt == decoded.acknowledgement.decidedAt
+        ) {
+            return ApplyOutcome.DUPLICATE
+        }
+        dao.recordDecision(
+            entryId = decoded.acknowledgement.entryId,
+            memberId = decoded.acknowledgement.memberId,
+            decision = decoded.acknowledgement.decision,
+            note = decoded.acknowledgement.note,
+            decidedAt = decoded.acknowledgement.decidedAt,
+            resultingStatus = decoded.resultingStatus,
+            updatedAt = change.serverTime
+        )
+        return ApplyOutcome.APPLIED
+    }
+
+    /**
+     * لقطة غرفة واردة. القاعدتان اللتان لا تُخترقان:
+     * - **لا تُنشأ غرفة تلقائيًا**: المجهولة تُخزَّن «دعوة بانتظار قرار» في `pending_invites`،
+     *   فلا يفتح كود الربط كشفًا ولا دينًا قبل قبول صريح من الطرف.
+     * - **لا حذف ولا رجوع في الحالة**: الدمج تقدّم فقط (PENDING → ACTIVE → CLOSED)، والطلبات
+     *   المتكرّرة أو الرجعية تُرجع DUPLICATE بلا كتابة.
+     */
+    private suspend fun applyRoomSnapshot(change: RemoteChange): ApplyOutcome {
+        val invite = try {
+            HandoverPayloads.decodeRoomInvitation(change.payload)
+        } catch (_: Exception) {
+            return ApplyOutcome.UNSUPPORTED
+        }
+        val existingRoom = dao.getRoom(invite.room.id)
+        if (existingRoom == null) {
+            // لقطة بلا عضو مُسمّى للطرف المدعو لا تكفي لإنشاء غرفة: كل قيد فيها سيصير مجهول النسب.
+            if (invite.partnerMemberId.isBlank()) return ApplyOutcome.UNSUPPORTED
+            val inviter = invite.members.firstOrNull { it.memberId == invite.inviterMemberId }
+            val inserted = db.handoverDao().insertInviteIfNew(
+                PendingInviteRow(
+                    id = change.operationId,
+                    roomId = invite.room.id,
+                    title = invite.room.title,
+                    kind = invite.room.kind,
+                    currency = invite.room.currency,
+                    inviterMemberId = invite.inviterMemberId,
+                    inviterName = inviter?.displayName.orEmpty(),
+                    partnerMemberId = invite.partnerMemberId,
+                    payload = change.payload,
+                    receivedAt = change.serverTime,
+                    bundleId = "", 
+                    status = InviteStatus.PENDING,
+                    note = invite.note
+                )
+            )
+            return if (inserted == -1L) ApplyOutcome.DUPLICATE else ApplyOutcome.APPLIED
+        }
+        val merged = when {
+            existingRoom.status == RoomStatus.PENDING && invite.room.status == RoomStatus.ACTIVE -> RoomStatus.ACTIVE
+            existingRoom.status == RoomStatus.ACTIVE && invite.room.status == RoomStatus.CLOSED -> RoomStatus.CLOSED
+            else -> null
+        } ?: return ApplyOutcome.DUPLICATE
+        dao.updateRoomStatus(
+            roomId = existingRoom.id,
+            status = merged,
+            updatedAt = change.serverTime,
+            closedAt = if (merged == RoomStatus.CLOSED) change.serverTime else existingRoom.closedAt
+        )
+        return ApplyOutcome.APPLIED
+    }
+
+    private companion object {
+        const val ENTITY_ACK = "ack"
+        const val ENTITY_ROOM = "room"
     }
 
     private suspend fun applyUpsert(change: RemoteChange): ApplyOutcome {
@@ -278,8 +382,9 @@ class SyncStatusReader(private val db: AppDatabase) {
 /**
  * منفّذ جولة مزامنة واحدة: يجمع المحرّك مع المخزن والقناة.
  *
- * ملاحظة صريحة: **لا توجد قناة حقيقية بعد**. ترتيب العمل في خطة v6 يضع النقل السلكي الفعلي في
- * ح١٩ (وسيط ملفات/QR) وح٢٢ (الخادم الخاص)، وحتى ذلك الحين تُمرَّر قناة حقيقية من خارج هذه الطبقة.
+ * ملاحظة صريحة: **لا قناة سلكية بعد** (لا Firestore مربوطة ولا خادم). ترتيب العمل في خطة v6 يضع
+ * النقل السلكي الفعلي في ح٢٢ (الخادم الخاص)، أما ح١٩ فقد نفّذ طريق **الملفّ/الرمز اليدوي** الذي
+ * لا يحتاج قناة ولا شبكة: يُشغّله المستخدم من الشاشة ويستعمل هذا المستودع نفسه في تطبيق التغييرات.
  * ووجود القناة كواجهة يعني أن المحرّك والعامل قابلان للاختبار اليوم كاملَين بلا شبكة.
  */
 class SyncCoordinator(

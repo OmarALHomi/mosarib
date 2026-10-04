@@ -53,13 +53,17 @@ import com.baynana.data.local.license.LicenseDao
 import com.baynana.data.local.license.LicenseEventRow
 import com.baynana.data.local.license.LicenseRow
 import androidx.room.AutoMigration
+import com.baynana.data.local.handover.HandoverDao
+import com.baynana.data.local.handover.HandoverLogRow
+import com.baynana.data.local.handover.PendingInviteRow
+import com.baynana.data.local.handover.PendingItemRow
 import kotlinx.coroutines.launch
 
 /**
  * إصدار قاعدة البيانات. ثابت على مستوى الملف لأن تعليق [Database] يحتاج قيمة وقت الترجمة،
  * ويقرأه اختبار الترحيلات ومحرّك النسخ الاحتياطي. لا يُنقص أبدًا، وأي زيادة تحتاج ترحيلًا.
  */
-const val DATABASE_VERSION = 12
+const val DATABASE_VERSION = 13
 
 @Database(
     entities = [
@@ -94,7 +98,12 @@ const val DATABASE_VERSION = 12
         ModerationRow::class,
         // ح١٣: الاستحقاق الموقّع وأحداث الاسترداد (المفتاح الأساسي نفسه هو مانع الـreplay).
         LicenseRow::class,
-        LicenseEventRow::class
+        LicenseEventRow::class,
+        // ح١٩: سجلّ التسليم اليدوي، والدعوات المنتظرة (لا تُفتح غرفة إلا بقبول بشري)،
+        // والعناصر التي وصلت قبل قبول غرفتها فتُطبَّق لحظة القبول.
+        HandoverLogRow::class,
+        PendingInviteRow::class,
+        PendingItemRow::class
     ],
     version = DATABASE_VERSION,
     // تصدير المخطط إلزامي: بدونه لا يمكن اختبار الترحيلات ولا مقارنة الإصدارات قبل النشر.
@@ -111,7 +120,9 @@ const val DATABASE_VERSION = 12
         // 10→11: جداول السوق الأربعة — إضافة بحتة كذلك.
         AutoMigration(from = 10, to = 11),
         // 11→12: سجلّ الترخيص (جدولان جديدان) — إضافة بحتة، بلا مسّ أي صف قائم.
-        AutoMigration(from = 11, to = 12)
+        AutoMigration(from = 11, to = 12),
+        // 12→13: سجلّ التسليم اليدوي والدعوات المنتظرة — إضافة بحتة كذلك.
+        AutoMigration(from = 12, to = 13)
     ]
 )
 @TypeConverters(Converters::class)
@@ -138,6 +149,9 @@ abstract class AppDatabase : RoomDatabase() {
 
     /** ح١٣: سجلّ الترخيص — كل استحقاق بمفتاحه الفريد، وكل محاولة استرداد بأثرها. */
     abstract fun licenseDao(): LicenseDao
+
+    /** ح١٩: سجلّ الحزم اليدوية والدعوات المنتظرة. */
+    abstract fun handoverDao(): HandoverDao
 
     companion object {
         /**
@@ -265,7 +279,7 @@ abstract class AppDatabase : RoomDatabase() {
          * Room من فرق المخططات، فليست من هذه القائمة؛ انظر [AUTO_MIGRATION_RANGES].
          */
         val AUTO_MIGRATION_RANGES: List<Pair<Int, Int>> =
-            listOf(6 to 7, 7 to 8, 8 to 9, 9 to 10, 10 to 11, 11 to 12)
+            listOf(6 to 7, 7 to 8, 8 to 9, 9 to 10, 10 to 11, 11 to 12, 12 to 13)
 
         /**
          * كل الترحيلات اليدوية بترتيب تصاعدي، متاحة للاختبار. أي إصدار جديد يجب أن يضيف

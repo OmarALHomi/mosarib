@@ -149,7 +149,7 @@ echo "OK: أيقونات مادريال مستوردة بأسمائها لا ب�
 
 # 11) لا تنسيق أرقام في الواجهة الجديدة بـNumberFormat/DecimalFormat/String.format: كل مبلغ يمرّ
 #     من `MoneyFormat`، والفواصل والكسور تُحسب هناك مرة واحدة (ADR-04 + د٣).
-NEW_UI_PATHS="app/src/main/java/com/baynana/MainScreen.kt app/src/main/java/com/baynana/ui/theme app/src/main/java/com/baynana/ui/identity app/src/main/java/com/baynana/ui/components app/src/main/java/com/baynana/features/home/BaynanaHomeScreen.kt app/src/main/java/com/baynana/features/home/BaynanaHomeViewModel.kt app/src/main/java/com/baynana/features/home/MigrationDialog.kt app/src/main/java/com/baynana/features/rooms app/src/main/java/com/baynana/features/movements app/src/main/java/com/baynana/features/more/MoreScreen.kt app/src/main/java/com/baynana/features/shell app/src/main/java/com/baynana/features/market/BaynanaMarketScreen.kt app/src/main/java/com/baynana/features/market/BaynanaMarketViewModel.kt app/src/main/java/com/baynana/features/market/ListingDialogs.kt app/src/main/java/com/baynana/features/statements app/src/main/java/com/baynana/features/sync app/src/main/java/com/baynana/features/dev"
+NEW_UI_PATHS="app/src/main/java/com/baynana/MainScreen.kt app/src/main/java/com/baynana/ui/theme app/src/main/java/com/baynana/ui/identity app/src/main/java/com/baynana/ui/components app/src/main/java/com/baynana/features/home/BaynanaHomeScreen.kt app/src/main/java/com/baynana/features/home/BaynanaHomeViewModel.kt app/src/main/java/com/baynana/features/home/MigrationDialog.kt app/src/main/java/com/baynana/features/rooms app/src/main/java/com/baynana/features/movements app/src/main/java/com/baynana/features/more/MoreScreen.kt app/src/main/java/com/baynana/features/shell app/src/main/java/com/baynana/features/market/BaynanaMarketScreen.kt app/src/main/java/com/baynana/features/market/BaynanaMarketViewModel.kt app/src/main/java/com/baynana/features/market/ListingDialogs.kt app/src/main/java/com/baynana/features/statements app/src/main/java/com/baynana/features/sync app/src/main/java/com/baynana/features/handover app/src/main/java/com/baynana/features/dev"
 FORMAT_HITS=$(
   grep -rnE "(NumberFormat|DecimalFormat|String\.format|"%.2f"|\.toBigDecimal)" $NEW_UI_PATHS 2>/dev/null \
     | grep -vE ':[0-9]+:[[:space:]]*(\*|//|/\*)' || true
@@ -165,7 +165,7 @@ echo "OK: لا تنسيق أرقام يدوي في الواجهة الجديدة
 #     سبب الحاجز: خطة التصميم §12 تعتبر بقاء الاسم القديم في نصّ ظاهر علامة «لم ينتهِ التصميم».
 #     النطاق الآن: نصوص الموارد + أسطح التصميم الجديدة. أما الشاشات القديمة (26 ملفًا) فتُحذف في د٦،
 #     ويُطبع ما بقي فيها **تقريرًا** لا فشلًا؛ وبعد د٦ يصير النطاق المستودع كله.
-LEGACY_WORDING_PATHS="app/src/main/res/values/strings.xml app/src/main/res/values-ar app/src/main/java/com/baynana/MainScreen.kt app/src/main/java/com/baynana/ui app/src/main/java/com/baynana/features/home app/src/main/java/com/baynana/features/rooms app/src/main/java/com/baynana/features/movements app/src/main/java/com/baynana/features/more app/src/main/java/com/baynana/features/shell app/src/main/java/com/baynana/features/statements app/src/main/java/com/baynana/features/sync app/src/main/java/com/baynana/features/market/BaynanaMarketScreen.kt app/src/main/java/com/baynana/features/market/ListingDialogs.kt app/src/main/java/com/baynana/features/dev"
+LEGACY_WORDING_PATHS="app/src/main/res/values/strings.xml app/src/main/res/values-ar app/src/main/java/com/baynana/MainScreen.kt app/src/main/java/com/baynana/ui app/src/main/java/com/baynana/features/home app/src/main/java/com/baynana/features/rooms app/src/main/java/com/baynana/features/movements app/src/main/java/com/baynana/features/more app/src/main/java/com/baynana/features/shell app/src/main/java/com/baynana/features/statements app/src/main/java/com/baynana/features/sync app/src/main/java/com/baynana/features/handover app/src/main/java/com/baynana/features/market/BaynanaMarketScreen.kt app/src/main/java/com/baynana/features/market/ListingDialogs.kt app/src/main/java/com/baynana/features/dev"
 LEGACY_WORDING_HITS=$(
   grep -rnE "مسرب|جربة|دورة ري" $LEGACY_WORDING_PATHS 2>/dev/null \
     | grep -v "LegacyPaletteAliases.kt" \
@@ -284,5 +284,20 @@ if [ -f firestore.rules ]; then
   fi
   pass "قواعد Firestore: رفض افتراضي بلا قراءة عامة ولا صلاحية مطلقة"
 fi
+
+# 17) بادئة حزمة التسليم بلا خادم (ح١٩) لها مصدر واحد أيضًا، ويجب ألا تشتبك مع بادئة التصاريح.
+#     سبب الحاجز: كلتاهما تمرّ في واتساب؛ لو تساوت البادئتان لأرسل مستخدمٌ تصريحه مكان حزمة.
+STRAY_HANDOVER=$(grep -rn '"BNNH1' app/src/main/java 2>/dev/null | grep -v "domain/handover/HandoverBundle.kt" || true)
+if [ -n "$STRAY_HANDOVER" ]; then
+  echo "FAIL: بادئة حزمة التسليم مكرّرة خارج domain/handover/HandoverBundle.kt:"
+  echo "$STRAY_HANDOVER"
+  exit 1
+fi
+LICENSE_PREFIX=$(grep -o '"BNNA1[^"]*"' app/src/main/java/com/baynana/domain/license/LicenseToken.kt | head -1)
+HANDOVER_PREFIX=$(grep -o '"BNNH1[^"]*"' app/src/main/java/com/baynana/domain/handover/HandoverBundle.kt | head -1)
+if [ "$LICENSE_PREFIX" = "$HANDOVER_PREFIX" ] || [ -z "$LICENSE_PREFIX" ] || [ -z "$HANDOVER_PREFIX" ]; then
+  fail "بادئة التصريح وبادئة الحزمة يجب أن تكونا مختلفتين ومعلنتين (تصريح=$LICENSE_PREFIX حزمة=$HANDOVER_PREFIX)."
+fi
+pass "بادئة الحزمة اليدوية لها مصدر واحد، ومختلفة عن بادئة التصاريح"
 
 echo "كل الحواجز سليمة."

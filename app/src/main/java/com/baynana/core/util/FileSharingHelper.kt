@@ -31,6 +31,32 @@ object FileSharingHelper {
         }
     }
 
+    /**
+     * مشاركة ملف نصّي (حزمة تسليم بلا خادم، ح١٩) عبر أي تطبيق: واتساب، بلوتوث، أو حفظ في الملفات.
+     * نفس مسار FileProvider المعتمد — ولا نمرّر مسارًا خارج المجلدات المصرَّح بها في file_paths.xml.
+     */
+    fun shareTextFile(context: Context, file: File, title: String = "مشاركة ملف") {
+        try {
+            val uri: Uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, title)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(Intent.createChooser(intent, title).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+        } catch (e: Exception) {
+            Toast.makeText(context, "فشل في مشاركة الملف: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+        }
+    }
+
     fun openPdf(context: Context, file: File) {
         try {
             val uri: Uri = FileProvider.getUriForFile(

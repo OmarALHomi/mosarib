@@ -26,13 +26,20 @@ class LedgerHomeRepository(private val db: AppDatabase) {
         feedOf(room.id) ?: emptyFeed(room)
     }
 
+    /**
+     * معرّف صاحب هذا الجهاز في الغرفة. ليس ثابتًا «me» بالضرورة: الغرفة التي وصلت بدعوة تسليم
+     * تحمل معرّفًا معلنًا للطرف المدعو، ولا يصح أن يُكتب قيد باسم غيره.
+     */
+    suspend fun myMemberIdIn(roomId: String): String =
+        dao.getMyMembership(roomId)?.memberId ?: MY_MEMBER_ID
+
     suspend fun feedOf(roomId: String): RoomFeed? {
         val room = dao.getRoom(roomId) ?: return null
         val entries = dao.getEntriesIncludingVoided(roomId).map { it.toView() }
         val allocations = dao.getAllocationsInRoom(roomId).map { it.toView() }
         // القيود والعكس: `effectiveEntries` داخل اللقطة تُسقط الملغى والعكسي من الأرقام، أما الأسطر
         // فتُعرض كما هي مع حالتها، لأن المستخدم يجب أن يرى القيد الملغى وقيده العكسي.
-        val mine = dao.getMyMembership(roomId)?.memberId ?: MY_MEMBER_ID
+        val mine = myMemberIdIn(roomId)
         return RoomEntryFeed.build(
             roomId = room.id,
             title = room.title,
@@ -99,14 +106,26 @@ class LedgerHomeRepository(private val db: AppDatabase) {
             error("هذا القيد مالٌ لك لا عليك: الإقرار يكون من الطرف الذي عليه المال")
         }
 
-        dao.recordDecision(
+        // الإقرار يُجدول إرساله في نفس المعاملة: قرار لا يعلم به الطرف الآخر يبقى القيد معلّقًا
+        // في نظره، وهذا سبب وجوده في صندوق الصادر لا في جدول الإقرارات وحده.
+        val ack = com.baynana.data.local.ledger.Acknowledgement(
+            entryId = entryId,
+            memberId = myMemberId,
+            decision = decision,
+            note = note,
+            decidedAt = decidedAt,
+            createdAt = decidedAt
+        )
+        dao.recordDecisionAndEnqueue(
             entryId = entryId,
             memberId = myMemberId,
             decision = decision,
             note = note,
             decidedAt = decidedAt,
             resultingStatus = resulting,
-            updatedAt = decidedAt
+            updatedAt = decidedAt,
+            operationId = "ack:$entryId:$myMemberId:$decidedAt",
+            payload = com.baynana.data.local.handover.HandoverPayloads.acknowledgement(ack, resulting, entry.roomId)
         )
         AckResult(entryId = entryId, status = resulting, created = true)
     }
