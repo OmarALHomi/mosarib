@@ -135,4 +135,16 @@ if [ -n "$RES_DUPLICATES" ]; then
 fi
 echo "OK: لا تكرار لأسماء الموارد في مجلدات drawable/mipmap"
 
+# 10) لا استعمال كامل التسمية لأيقونات مادريال (`androidx.compose.material.icons.Icons.Filled.X`):
+#     لأن `Icons.Filled.X` خاصية امتداد (extension property) لا تُستدعى بأسماء كاملة، فيفشل البناء
+#     بـ«Unresolved reference» مع أن الأيقونة موجودة. الصحيح: استيراد الاسم ثم `Icons.Filled.X`.
+BAD_ICON_REFS=$(grep -rn "androidx\.compose\.material\.icons\.Icons\." app/src/main/java \
+  | grep -v "^[^:]*:[0-9]*:import " || true)
+if [ -n "$BAD_ICON_REFS" ]; then
+  echo "FAIL: أيقونة مستعملة بأسماء كاملة (خاصية امتداد لا تُستدعى هكذا):"
+  echo "$BAD_ICON_REFS" | head -5
+  exit 1
+fi
+echo "OK: أيقونات مادريال مستوردة بأسمائها لا بأسماء كاملة"
+
 echo "كل الحواجز سليمة."

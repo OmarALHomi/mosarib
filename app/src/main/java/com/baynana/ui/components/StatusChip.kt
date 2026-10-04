@@ -8,6 +8,27 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.BookmarkAdded
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Handshake
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.HourglassTop
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.RateReview
+import androidx.compose.material.icons.filled.RemoveCircle
+import androidx.compose.material.icons.filled.ReportProblem
+import androidx.compose.material.icons.filled.Sell
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Timelapse
+import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -81,31 +102,31 @@ object StatusLook {
         val colors = BaynanaStatus.colors
         return when (status) {
             EntryStatus.DRAFT -> Look(
-                "مسودة لم تُرسل", androidx.compose.material.icons.Icons.Filled.EditNote,
+                "مسودة لم تُرسل", Icons.Filled.EditNote,
                 colors.infoContainer, colors.onInfoContainer
             )
             EntryStatus.SENT -> Look(
-                "بانتظار الإقرار", androidx.compose.material.icons.Icons.Filled.HourglassTop,
+                "بانتظار الإقرار", Icons.Filled.HourglassTop,
                 colors.waitingContainer, colors.onWaitingContainer
             )
             EntryStatus.ACKNOWLEDGED -> Look(
-                "مُقرّ", androidx.compose.material.icons.Icons.Filled.CheckCircle,
+                "مُقرّ", Icons.Filled.CheckCircle,
                 colors.acknowledgedContainer, colors.onAcknowledgedContainer
             )
             EntryStatus.DISPUTED -> Look(
-                "معترَض عليه", androidx.compose.material.icons.Icons.Filled.ReportProblem,
+                "معترَض عليه", Icons.Filled.ReportProblem,
                 colors.dangerContainer, colors.onDangerContainer
             )
             EntryStatus.CHANGE_REQUESTED -> Look(
-                "طُلب تعديله", androidx.compose.material.icons.Icons.Filled.Edit,
+                "طُلب تعديله", Icons.Filled.Edit,
                 colors.waitingContainer, colors.onWaitingContainer
             )
             EntryStatus.VOIDED -> Look(
-                "ملغى بقيد عكسي", androidx.compose.material.icons.Icons.Filled.RemoveCircle,
+                "ملغى بقيد عكسي", Icons.Filled.RemoveCircle,
                 colors.dangerContainer, colors.onDangerContainer
             )
             else -> Look(
-                "غير معروف", androidx.compose.material.icons.Icons.Filled.HelpOutline,
+                "غير معروف", Icons.Filled.HelpOutline,
                 colors.infoContainer, colors.onInfoContainer
             )
         }
@@ -116,19 +137,19 @@ object StatusLook {
         val colors = BaynanaStatus.colors
         return when (status) {
             RoomStatus.PENDING -> Look(
-                "بانتظار قبول الربط", androidx.compose.material.icons.Icons.Filled.LinkOff,
+                "بانتظار قبول الربط", Icons.Filled.LinkOff,
                 colors.waitingContainer, colors.onWaitingContainer
             )
             RoomStatus.ACTIVE -> Look(
-                "قائمة", androidx.compose.material.icons.Icons.Filled.Link,
+                "قائمة", Icons.Filled.Link,
                 colors.acknowledgedContainer, colors.onAcknowledgedContainer
             )
             RoomStatus.CLOSED -> Look(
-                "مغلقة بتراضي الطرفين", androidx.compose.material.icons.Icons.Filled.Lock,
+                "مغلقة بتراضي الطرفين", Icons.Filled.Lock,
                 colors.infoContainer, colors.onInfoContainer
             )
             else -> Look(
-                "مرفوضة", androidx.compose.material.icons.Icons.Filled.Block,
+                "مرفوضة", Icons.Filled.Block,
                 colors.dangerContainer, colors.onDangerContainer
             )
         }
@@ -138,11 +159,11 @@ object StatusLook {
     fun deal(status: String): Look {
         val colors = BaynanaStatus.colors
         return when (status) {
-            DealStatus.DRAFT -> Look("مسودة", androidx.compose.material.icons.Icons.Filled.EditNote, colors.infoContainer, colors.onInfoContainer)
-            DealStatus.PENDING -> Look("بانتظار الإقرار", androidx.compose.material.icons.Icons.Filled.HourglassTop, colors.waitingContainer, colors.onWaitingContainer)
-            DealStatus.ACTIVE -> Look("قائم", androidx.compose.material.icons.Icons.Filled.Handshake, colors.acknowledgedContainer, colors.onAcknowledgedContainer)
-            DealStatus.COMPLETED -> Look("مكتمل", androidx.compose.material.icons.Icons.Filled.CheckCircle, colors.acknowledgedContainer, colors.onAcknowledgedContainer)
-            else -> Look("مفسوخ", androidx.compose.material.icons.Icons.Filled.Cancel, colors.dangerContainer, colors.onDangerContainer)
+            DealStatus.DRAFT -> Look("مسودة", Icons.Filled.EditNote, colors.infoContainer, colors.onInfoContainer)
+            DealStatus.PENDING -> Look("بانتظار الإقرار", Icons.Filled.HourglassTop, colors.waitingContainer, colors.onWaitingContainer)
+            DealStatus.ACTIVE -> Look("قائم", Icons.Filled.Handshake, colors.acknowledgedContainer, colors.onAcknowledgedContainer)
+            DealStatus.COMPLETED -> Look("مكتمل", Icons.Filled.CheckCircle, colors.acknowledgedContainer, colors.onAcknowledgedContainer)
+            else -> Look("مفسوخ", Icons.Filled.Cancel, colors.dangerContainer, colors.onDangerContainer)
         }
     }
 
@@ -150,10 +171,10 @@ object StatusLook {
     fun installment(status: String): Look {
         val colors = BaynanaStatus.colors
         return when (status) {
-            InstallmentStatus.SCHEDULED -> Look("مستحق", androidx.compose.material.icons.Icons.Filled.Event, colors.waitingContainer, colors.onWaitingContainer)
-            InstallmentStatus.PARTIAL -> Look("مدفوع جزئيًا", androidx.compose.material.icons.Icons.Filled.Timelapse, colors.waitingContainer, colors.onWaitingContainer)
-            InstallmentStatus.PAID -> Look("مدفوع", androidx.compose.material.icons.Icons.Filled.CheckCircle, colors.acknowledgedContainer, colors.onAcknowledgedContainer)
-            else -> Look("ملغى", androidx.compose.material.icons.Icons.Filled.Cancel, colors.dangerContainer, colors.onDangerContainer)
+            InstallmentStatus.SCHEDULED -> Look("مستحق", Icons.Filled.Event, colors.waitingContainer, colors.onWaitingContainer)
+            InstallmentStatus.PARTIAL -> Look("مدفوع جزئيًا", Icons.Filled.Timelapse, colors.waitingContainer, colors.onWaitingContainer)
+            InstallmentStatus.PAID -> Look("مدفوع", Icons.Filled.CheckCircle, colors.acknowledgedContainer, colors.onAcknowledgedContainer)
+            else -> Look("ملغى", Icons.Filled.Cancel, colors.dangerContainer, colors.onDangerContainer)
         }
     }
 
@@ -161,13 +182,13 @@ object StatusLook {
     fun listing(status: String): Look {
         val colors = BaynanaStatus.colors
         return when (status) {
-            ListingStatus.PUBLISHED -> Look("معروض", androidx.compose.material.icons.Icons.Filled.Storefront, colors.acknowledgedContainer, colors.onAcknowledgedContainer)
-            ListingStatus.RESERVED -> Look("محجوز لصلح", androidx.compose.material.icons.Icons.Filled.BookmarkAdded, colors.waitingContainer, colors.onWaitingContainer)
-            ListingStatus.SOLD -> Look("تم البيع", androidx.compose.material.icons.Icons.Filled.Sell, colors.infoContainer, colors.onInfoContainer)
-            ListingStatus.PENDING_REVIEW -> Look("بانتظار المصادقة", androidx.compose.material.icons.Icons.Filled.RateReview, colors.waitingContainer, colors.onWaitingContainer)
-            ListingStatus.REJECTED -> Look("مرفوض", androidx.compose.material.icons.Icons.Filled.Block, colors.dangerContainer, colors.onDangerContainer)
-            ListingStatus.WITHDRAWN -> Look("مسحوب", androidx.compose.material.icons.Icons.Filled.Undo, colors.infoContainer, colors.onInfoContainer)
-            else -> Look("مسودة", androidx.compose.material.icons.Icons.Filled.EditNote, colors.infoContainer, colors.onInfoContainer)
+            ListingStatus.PUBLISHED -> Look("معروض", Icons.Filled.Storefront, colors.acknowledgedContainer, colors.onAcknowledgedContainer)
+            ListingStatus.RESERVED -> Look("محجوز لصلح", Icons.Filled.BookmarkAdded, colors.waitingContainer, colors.onWaitingContainer)
+            ListingStatus.SOLD -> Look("تم البيع", Icons.Filled.Sell, colors.infoContainer, colors.onInfoContainer)
+            ListingStatus.PENDING_REVIEW -> Look("بانتظار المصادقة", Icons.Filled.RateReview, colors.waitingContainer, colors.onWaitingContainer)
+            ListingStatus.REJECTED -> Look("مرفوض", Icons.Filled.Block, colors.dangerContainer, colors.onDangerContainer)
+            ListingStatus.WITHDRAWN -> Look("مسحوب", Icons.Filled.Undo, colors.infoContainer, colors.onInfoContainer)
+            else -> Look("مسودة", Icons.Filled.EditNote, colors.infoContainer, colors.onInfoContainer)
         }
     }
 
