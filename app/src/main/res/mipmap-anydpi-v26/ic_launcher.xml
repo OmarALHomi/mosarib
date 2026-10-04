@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- أيقونة «بيننا»: قوسان متقابلان ونقطة بينهما. الخلفية لون هوية، والأمام علامة،
+<!-- أيقونة «بيننا»: مصافحة قلبية داخل قلب — الطرفان و«بيننا» بينهما. الخلفية لون الهوية، والأمام علامة،
      وطبقة مونوكروم لأندرويد 13+ فتُصبغ بألوان النظام بلا فقد الهوية. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background" />

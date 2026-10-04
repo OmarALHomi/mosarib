@@ -21,10 +21,10 @@ import androidx.compose.ui.graphics.Color
  */
 
 // ------------------------------------------------------------------ ثوابت مساعدة
-private val OnWarmDark = Color(0xFF231A17)
-private val OnGoldDark = Color(0xFF3D3312)
+private val OnNileDark = Color(0xFF0A2137)
+private val OnGoldDark = Color(0xFF3C3115)
 private val OnDangerDark = Color(0xFF5C1A17)
-private val OnHarvestContainer = Color(0xFFD8EBE1)
+private val OnNileContainer = Color(0xFFD8EBE1)
 private val OnEarthContainer = Color(0xFFF0E4DD)
 private val OnDangerContainer = Color(0xFFF9DEDC)
 private val OnAcknowledgedContainer = Color(0xFF14402B)
@@ -36,44 +36,44 @@ private val OnInfoContainerDark = Color(0xFFDEEAF6)
 
 // ------------------------------------------------------------------ المخططات
 private val LightColors = lightColorScheme(
-    primary = HarvestGreen,
-    onPrimary = PaperSurface,
-    primaryContainer = HarvestContainer,
-    onPrimaryContainer = HarvestGreenDark,
-    secondary = WarmEarth,
-    onSecondary = PaperSurface,
-    secondaryContainer = WarmEarthContainer,
-    onSecondaryContainer = OnWarmDark,
-    tertiary = HarvestGold,
-    onTertiary = OnWarmDark,
-    tertiaryContainer = HarvestGoldContainer,
+    primary = NavyNile,
+    onPrimary = CreamSurface,
+    primaryContainer = NileContainer,
+    onPrimaryContainer = NavyNileDark,
+    secondary = NileSoft,
+    onSecondary = CreamSurface,
+    secondaryContainer = NileSoftContainer,
+    onSecondaryContainer = OnNileDark,
+    tertiary = HoneyGold,
+    onTertiary = OnNileDark,
+    tertiaryContainer = HoneyGoldContainer,
     onTertiaryContainer = OnGoldDark,
-    background = PaperBackground,
-    onBackground = InkOnPaper,
-    surface = PaperSurface,
-    onSurface = InkOnPaper,
-    surfaceVariant = PaperSurfaceVariant,
+    background = CreamBackground,
+    onBackground = InkOnCream,
+    surface = CreamSurface,
+    onSurface = InkOnCream,
+    surfaceVariant = CreamSurfaceVariant,
     onSurfaceVariant = InkMuted,
-    outline = PaperOutline,
+    outline = CreamOutline,
     error = DangerRed,
-    onError = PaperSurface,
+    onError = CreamSurface,
     errorContainer = DangerContainer,
     onErrorContainer = OnDangerDark
 )
 
 private val DarkColors = darkColorScheme(
-    primary = HarvestGreenLight,
+    primary = NavyNileLight,
     onPrimary = NightBackground,
-    primaryContainer = HarvestContainerDark,
-    onPrimaryContainer = OnHarvestContainer,
-    secondary = WarmEarthLight,
+    primaryContainer = NileContainerDark,
+    onPrimaryContainer = OnNileContainer,
+    secondary = NileSoftLight,
     onSecondary = NightBackground,
-    secondaryContainer = WarmEarthContainerDark,
+    secondaryContainer = NileSoftContainerDark,
     onSecondaryContainer = OnEarthContainer,
-    tertiary = HarvestGold,
+    tertiary = HoneyGold,
     onTertiary = NightBackground,
-    tertiaryContainer = HarvestGoldContainerDark,
-    onTertiaryContainer = HarvestGoldContainer,
+    tertiaryContainer = HoneyGoldContainerDark,
+    onTertiaryContainer = HoneyGoldContainer,
     background = NightBackground,
     onBackground = NightOnSurface,
     surface = NightSurface,

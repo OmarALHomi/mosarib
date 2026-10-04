@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- خلفية النافذة ليلًا (حبر داكن) -->
-    <color name="baynana_window_background">#0E1512</color>
+    <!-- خلفية النافذة ليلًا (ليل نيلي داكن) -->
+    <color name="baynana_window_background">#0C1622</color>
 </resources>

@@ -18,19 +18,19 @@ object LegacyPaletteAliases {
 }
 
 @Deprecated("اسم قديم من لوحة المسرب — استعمل ألوان الهوية في Color.kt، وسيُحذف في د٦")
-val PrimaryTeal: Color get() = HarvestGreen
+val PrimaryTeal: Color get() = NavyNile
 @Deprecated("اسم قديم من لوحة المسرب — استعمل ألوان الهوية في Color.kt، وسيُحذف في د٦")
-val PrimaryTealLight: Color get() = HarvestGreenLight
+val PrimaryTealLight: Color get() = NavyNileLight
 @Deprecated("اسم قديم من لوحة المسرب — استعمل ألوان الهوية في Color.kt، وسيُحذف في د٦")
-val PrimaryTealDark: Color get() = HarvestGreenDark
+val PrimaryTealDark: Color get() = NavyNileDark
 @Deprecated("اسم قديم من لوحة المسرب — استعمل ألوان الهوية في Color.kt، وسيُحذف في د٦")
-val SecondaryAqua: Color get() = WarmEarth
+val SecondaryAqua: Color get() = NileSoft
 @Deprecated("اسم قديم من لوحة المسرب — استعمل ألوان الهوية في Color.kt، وسيُحذف في د٦")
-val SecondaryAquaLight: Color get() = WarmEarthLight
+val SecondaryAquaLight: Color get() = NileSoftLight
 @Deprecated("اسم قديم من لوحة المسرب — استعمل ألوان الهوية في Color.kt، وسيُحذف في د٦")
-val SecondaryAquaDark: Color get() = WarmEarthLight
+val SecondaryAquaDark: Color get() = NileSoftLight
 @Deprecated("اسم قديم من لوحة المسرب — استعمل ألوان الهوية في Color.kt، وسيُحذف في د٦")
-val AccentGold: Color get() = HarvestGold
+val AccentGold: Color get() = HoneyGold
 @Deprecated("اسم قديم من لوحة المسرب — استعمل ألوان الهوية في Color.kt، وسيُحذف في د٦")
 val AccentAmber: Color get() = WaitingAmber
 @Deprecated("اسم قديم من لوحة المسرب — استعمل ألوان الهوية في Color.kt، وسيُحذف في د٦")

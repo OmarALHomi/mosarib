@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- لون خلفية الأيقونة التكيفية: أخضر الحصاد (هوية «بيننا») -->
-    <color name="ic_launcher_background">#0E6B4F</color>
-    <!-- خلفية النافذة قبل رسم Compose (ورقي دافئ) -->
-    <color name="baynana_window_background">#F7F3EA</color>
+    <!-- لون خلفية الأيقونة التكيفية: نيلة «بيننا» (لون الشعار المعتمد) -->
+    <color name="ic_launcher_background">#14304F</color>
+    <!-- خلفية النافذة قبل رسم Compose (ورق كريمي) -->
+    <color name="baynana_window_background">#FAF7F0</color>
 </resources>
