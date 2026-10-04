@@ -174,6 +174,41 @@ object StatementText {
         }
     }
 
+    /** عناوين جدول الكشف: نفسها في الشاشة وفي الورق (شرط البوابة الذهبية). */
+    val COLUMN_TITLES: List<String> = listOf("التاريخ", "البيان", "المبلغ", "الرصيد الجاري")
+
+    /** مبلغ مفرد نصًّا — للخلايا وللترويسات، من `MoneyFormat` وحده. */
+    fun amount(minor: Long, currency: String): String = money(minor, requireCurrency(currency))
+
+    /** مبلغ السطر بإشارته: الدين موجب، والسداد بعلامة ناقص ظاهرة (لا يختفي الفرق في لون). */
+    fun signedAmount(minor: Long, currency: String, isCharge: Boolean): String =
+        (if (isCharge) "" else "− ") + amount(minor, currency)
+
+    /**
+     * الرصيد الجاري بعد السطر: «عليك …» أو «لك …» أو «مصفّى حتى هنا».
+     * الكلمة تحمل الإشارة، فمن لا يفرّق الألوان يقرأ الاتجاه من النصّ.
+     */
+    fun running(runningNetMinor: Long, currency: String): String = when {
+        runningNetMinor == 0L -> "مصفّى حتى هنا"
+        // الكلمة تحمل الإشارة، والرقم يُكتب مقدارًا مجرّدًا: «عليك 5,000 ر.ي» لا «عليك -5,000».
+        runningNetMinor < 0L -> "عليك ${amount(-runningNetMinor, currency)}"
+        else -> "لك ${amount(runningNetMinor, currency)}"
+    }
+
+    /**
+     * خلايا سطر الكشف الأربع. **المصدر الوحيد** الذي تُبنى منه صفوف الشاشة وصفوف الورق، فلا
+     * يمكن أن تختلف ورقة عن شاشة: كلاهما يقرأ هذه القائمة نفسها.
+     */
+    fun rowCells(line: StatementLine, currency: String, dateText: String): List<String> {
+        val code = requireCurrency(currency)
+        return listOf(
+            dateText,
+            line.description.ifBlank { line.type },
+            signedAmount(line.amountMinor, currency, line.direction == LineDirection.CHARGE),
+            running(line.runningNetMinor, currency)
+        )
+    }
+
     private fun money(minor: Long, currency: Currency): String =
         MoneyFormat.format(Money.ofMinor(minor, currency))
 

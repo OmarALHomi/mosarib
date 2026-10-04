@@ -26,6 +26,8 @@ import com.baynana.domain.ledger.EntryStatus
 import com.baynana.domain.ledger.EntryType
 import com.baynana.domain.ledger.LineDirection
 import com.baynana.domain.ledger.MemberStatement
+import com.baynana.domain.ledger.StatementDocument
+import com.baynana.domain.ledger.StatementDocumentBuilder
 import com.baynana.domain.ledger.PlannedAllocation
 import com.baynana.domain.ledger.RoomFeedEntry
 import com.baynana.domain.ledger.RoomStatus
@@ -181,21 +183,16 @@ fun ComponentCatalogScreen(onBack: () -> Unit) {
             )
         }
 
-        item { SectionHeader("ورقة الكشف", "StatementSheet — نصّها هو نصّ المشاركة") }
+        item { SectionHeader("ورقة الكشف", "StatementSheet — هي نفس المستند الذي يُطبع ويُشارَك") }
         item {
-            StatementSheet(
-                statement = sampleStatement(),
-                title = "كشف: مسرب الوادي",
-                subtitle = "أحمد بن ناصر • صنعاء",
-                onShare = {}
-            )
+            StatementSheet(document = sampleDocument(), onShare = {})
         }
 
         item { SectionHeader("صفّ الغرفة والفراغ", "RoomRow + EmptyState") }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 RoomRow(
-                    title = "مسرب الوادي",
+                    title = "موزّع مياه الوادي",
                     subtitle = "أحمد بن ناصر • كود الربط: K7X2M",
                     netMinor = 6_000_000L,
                     currency = "YER_NEW",
@@ -261,12 +258,45 @@ private fun sampleStatement() = MemberStatement(
     memberId = "me",
     currency = "YER_NEW",
     lines = listOf(
-        StatementLine("entry-1", 1_759_000_000_000L, EntryType.WATER_SESSION, "سقية 6 ساعات", LineDirection.CHARGE, 4_500_000L, 4_500_000L, 4_500_000L, EntryStatus.ACKNOWLEDGED, 4_500_000L),
-        StatementLine("entry-2", 1_759_100_000_000L, EntryType.PAYMENT, "سداد نقدي", LineDirection.PAYMENT, 2_000_000L, 2_000_000L, 2_500_000L, EntryStatus.ACKNOWLEDGED, 2_500_000L)
+        // الأرقام متناسقة كي تكون العيّنة صادقة: دين 45,000 ر.ي ثم سداد 20,000 ر.ي، فيبقى 25,000.
+        StatementLine(
+            entryId = "entry-1",
+            occurredAt = 1_759_000_000_000L,
+            type = EntryType.WATER_SESSION,
+            description = "سقية 6 ساعات",
+            direction = LineDirection.CHARGE,
+            amountMinor = 4_500_000L,
+            allocatedMinor = 2_000_000L,
+            remainingMinor = 2_500_000L,
+            status = EntryStatus.ACKNOWLEDGED,
+            runningNetMinor = -4_500_000L
+        ),
+        StatementLine(
+            entryId = "entry-2",
+            occurredAt = 1_759_100_000_000L,
+            type = EntryType.PAYMENT,
+            description = "سداد نقدي",
+            direction = LineDirection.PAYMENT,
+            amountMinor = 2_000_000L,
+            allocatedMinor = 2_000_000L,
+            remainingMinor = 0L,
+            status = EntryStatus.ACKNOWLEDGED,
+            runningNetMinor = -2_500_000L
+        )
     ),
     chargedMinor = 4_500_000L,
     paidMinor = 2_000_000L,
     remainingMinor = 2_500_000L,
     unappliedMinor = 500_000L,
     netMinor = 2_500_000L
+)
+
+/** مستند جاهز للعيّنة: يُبنى من نفس المسار الذي تبني به الشاشة الحقيقية. */
+private fun sampleDocument(): StatementDocument = StatementDocumentBuilder.build(
+    statement = sampleStatement(),
+    roomTitle = "بيت الوالد",
+    subject = "كشف: أحمد",
+    appVersion = "1.0",
+    fileNameStamp = "2026-04-02",
+    dateText = { at -> if (at == 1_759_000_000_000L) "2026-03-12" else "2026-04-02" }
 )

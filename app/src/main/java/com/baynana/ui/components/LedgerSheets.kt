@@ -26,14 +26,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.baynana.domain.ledger.AllocationPlan
-import com.baynana.domain.ledger.LineDirection
-import com.baynana.domain.ledger.MemberStatement
-import com.baynana.domain.ledger.StatementLine
-import com.baynana.domain.ledger.StatementText
+import com.baynana.domain.ledger.StatementDocument
+import com.baynana.domain.ledger.StatementDocumentRow
 import com.baynana.ui.theme.BaynanaStatus
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * مكوّنات الدفتر المتبقّية من مكتبة التصميم (د٣): شريط الإقرار، معاينة التخصيص، ورقة الكشف،
@@ -218,19 +213,17 @@ fun AllocationPreview(
 }
 
 /**
- * ورقة الكشف: العرض البصري لكشف عضو، ونصّه من `StatementText` نفسه.
+ * ورقة الكشف: العرض البصري لـ[StatementDocument] — نفس المستند الذي يُطبع ويُشارَك.
  *
- * الفائدة الحقيقية: ما تراه على الشاشة هو **حرفيًا** ما يخرج في المشاركة/الطباعة، لأن كليهما يقرأ
- * من الدالة نفسها. فلا يحدث أن يكون رصيد الشاشة مخالفًا لرصيد الورق.
+ * لا تُبنى هنا أي كلمة ولا رقم: الخلايا تأتي جاهزة من المستند (وهي نفسها التي يرسمها PDF)،
+ * فالورقة والشاشة قارئان لمستند واحد. واللون يفرّق الدين من السداد مع علامة «−» ظاهرة في النصّ،
+ * فلا يعتمد الاتجاه على اللون وحده.
  */
 @Composable
 fun StatementSheet(
-    statement: MemberStatement,
-    title: String,
-    subtitle: String? = null,
+    document: StatementDocument,
     onShare: (() -> Unit)? = null,
-    modifier: Modifier = Modifier,
-    dateFormat: SimpleDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
@@ -240,14 +233,12 @@ fun StatementSheet(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                subtitle?.let {
-                    Text(
-                        it,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(document.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    document.subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             onShare?.let { action ->
                 TextButton(onClick = action) { Text("شارك النصّ", style = MaterialTheme.typography.labelMedium) }
@@ -256,38 +247,54 @@ fun StatementSheet(
 
         Spacer(Modifier.height(10.dp))
         NumbersHeader(
-            chargedMinor = statement.chargedMinor,
-            paidMinor = statement.paidMinor,
-            remainingMinor = statement.remainingMinor,
-            currency = statement.currency
+            chargedMinor = document.chargedMinor,
+            paidMinor = document.paidMinor,
+            remainingMinor = document.remainingMinor,
+            currency = document.currency
         )
         Spacer(Modifier.height(8.dp))
+        // سطر التلخيص نفسه الذي يُطبع: يُقرأ هنا ويُقارَن آليًّا في الاختبار الذهبي.
         Text(
-            // النصّ المخزَّن للمشاركة: نقتبس أول سطر منه ليُعرف أن الشاشة والورق نصّ واحد
-            text = StatementText.summary(statement),
+            document.summary,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(10.dp))
 
-        statement.lines.forEach { line ->
-            StatementRow(line = line, currency = statement.currency, dateFormat = dateFormat)
+        Text(
+            document.columnTitles.joinToString(StatementDocument.CELL_SEPARATOR),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+
+        if (document.rows.isEmpty()) {
+            Text(
+                document.emptyNote.orEmpty(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            document.rows.forEach { row -> StatementRow(row = row) }
         }
 
-        if (statement.unappliedMinor > 0L) {
+        document.unappliedNote?.let {
             Spacer(Modifier.height(8.dp))
-            Text(
-                "رصيد دائن معلّق: ${amountText(statement.unappliedMinor, statement.currency)} — لم يُخصَّص على دَين بعد",
-                style = MaterialTheme.typography.bodySmall,
-                color = BaynanaStatus.colors.onInfoContainer
-            )
+            Text(it, style = MaterialTheme.typography.bodySmall, color = BaynanaStatus.colors.onInfoContainer)
         }
+
+        Spacer(Modifier.height(8.dp))
+        Text(
+            document.footnote,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
 @Composable
-private fun StatementRow(line: StatementLine, currency: String, dateFormat: SimpleDateFormat) {
-    val isCharge = line.direction == LineDirection.CHARGE
+private fun StatementRow(row: StatementDocumentRow) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -295,31 +302,22 @@ private fun StatementRow(line: StatementLine, currency: String, dateFormat: Simp
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
+            Text(row.cells[1], style = MaterialTheme.typography.bodyMedium, maxLines = 2)
             Text(
-                line.description.ifBlank { line.type },
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 2
-            )
-            Text(
-                "${dateFormat.format(Date(line.occurredAt))} • المتبقي ${amountText(line.remainingMinor, currency)}",
+                row.cells[0],
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = (if (isCharge) "" else "− ") + amountText(line.amountMinor, currency),
+                text = row.cells[2],
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
-                color = if (isCharge) MaterialTheme.colorScheme.onSurface else BaynanaStatus.colors.acknowledged
+                color = if (row.isCharge) MaterialTheme.colorScheme.onSurface else BaynanaStatus.colors.acknowledged
             )
-            // الرصيد الجاري بعد هذا السطر: «كم عليّ حتى هنا؟» — رقم واحد يجيب بلا جمع ذهني.
             Text(
-                text = when {
-                    line.runningNetMinor == 0L -> "مصفّى حتى هنا"
-                    line.runningNetMinor < 0L -> "عليك ${amountText(line.runningNetMinor, currency)}"
-                    else -> "لك ${amountText(line.runningNetMinor, currency)}"
-                },
+                text = row.cells[3],
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

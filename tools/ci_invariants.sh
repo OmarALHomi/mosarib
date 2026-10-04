@@ -165,7 +165,7 @@ echo "OK: لا تنسيق أرقام يدوي في الواجهة الجديدة
 #     سبب الحاجز: خطة التصميم §12 تعتبر بقاء الاسم القديم في نصّ ظاهر علامة «لم ينتهِ التصميم».
 #     النطاق الآن: نصوص الموارد + أسطح التصميم الجديدة. أما الشاشات القديمة (26 ملفًا) فتُحذف في د٦،
 #     ويُطبع ما بقي فيها **تقريرًا** لا فشلًا؛ وبعد د٦ يصير النطاق المستودع كله.
-LEGACY_WORDING_PATHS="app/src/main/res/values/strings.xml app/src/main/res/values-ar app/src/main/java/com/baynana/MainScreen.kt app/src/main/java/com/baynana/ui app/src/main/java/com/baynana/features/home app/src/main/java/com/baynana/features/rooms app/src/main/java/com/baynana/features/movements app/src/main/java/com/baynana/features/more app/src/main/java/com/baynana/features/shell app/src/main/java/com/baynana/features/statements app/src/main/java/com/baynana/features/sync app/src/main/java/com/baynana/features/market/BaynanaMarketScreen.kt app/src/main/java/com/baynana/features/market/ListingDialogs.kt"
+LEGACY_WORDING_PATHS="app/src/main/res/values/strings.xml app/src/main/res/values-ar app/src/main/java/com/baynana/MainScreen.kt app/src/main/java/com/baynana/ui app/src/main/java/com/baynana/features/home app/src/main/java/com/baynana/features/rooms app/src/main/java/com/baynana/features/movements app/src/main/java/com/baynana/features/more app/src/main/java/com/baynana/features/shell app/src/main/java/com/baynana/features/statements app/src/main/java/com/baynana/features/sync app/src/main/java/com/baynana/features/market/BaynanaMarketScreen.kt app/src/main/java/com/baynana/features/market/ListingDialogs.kt app/src/main/java/com/baynana/features/dev"
 LEGACY_WORDING_HITS=$(
   grep -rnE "مسرب|جربة|دورة ري" $LEGACY_WORDING_PATHS 2>/dev/null \
     | grep -v "LegacyPaletteAliases.kt" \

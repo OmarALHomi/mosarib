@@ -58,6 +58,8 @@ object SyncStatusModel {
         val entryId: String,
         val roomTitle: String,
         val title: String,
+        /** كلمة الشارة: تُكتب بدقّة لأن الحالة قد تكون «وارد من الطرف» لا «محفوظ». */
+        val chip: String,
         val detail: String,
         val state: Kind,
         val occurredAt: Long,
@@ -85,14 +87,17 @@ object SyncStatusModel {
             .map { entry ->
                 val room = snapshot.rooms.firstOrNull { it.id == entry.roomId }
                 val mine = myIds[entry.roomId]
-                val others = ackByEntry[entry.id].orEmpty()
-                    .filter { mine == null || it.memberId != mine }
-                    .maxByOrNull { it.decidedAt }
+                val all = ackByEntry[entry.id].orEmpty()
+                val others = all.filter { mine == null || it.memberId != mine }.maxByOrNull { it.decidedAt }
+                val myDecision = all.firstOrNull { mine != null && it.memberId == mine }
                 row(
                     entry = entry,
                     room = room,
                     pending = outboxByEntry[entry.id],
                     otherPartyDecision = others,
+                    myDecision = myDecision,
+                    isMine = entry.createdByMemberId.isBlank() || mine == null ||
+                        entry.createdByMemberId == mine,
                     dateText = dateFormat.format(Date(entry.occurredAt))
                 )
             }
@@ -105,6 +110,9 @@ object SyncStatusModel {
         room: LedgerRoom?,
         pending: OutboxItem?,
         otherPartyDecision: Acknowledgement?,
+        myDecision: Acknowledgement?,
+        /** هل هذا القيد كتبه صاحب الجهاز؟ (الوارد من الطرف لا يُرسَل من هنا ولا يُنتظر له إرسال.) */
+        isMine: Boolean,
         dateText: String
     ): Row {
         val roomTitle = room?.title?.takeIf { it.isNotBlank() } ?: "غرفة"
@@ -116,6 +124,7 @@ object SyncStatusModel {
                 entryId = entry.id,
                 roomTitle = roomTitle,
                 title = title,
+                chip = CHIP_DEAD,
                 detail = "فشل دائم: ${reason(pending)} — الحل: أعد المحاولة من هنا، وإن تكرّر فراجع " +
                     "رقم الطرف أو اتصالك ثم أعدها.",
                 state = Kind.DEAD,
@@ -129,6 +138,7 @@ object SyncStatusModel {
                 entryId = entry.id,
                 roomTitle = roomTitle,
                 title = title,
+                chip = CHIP_PROBLEM,
                 detail = "تعذّر الإرسال: ${reason(pending)} — ستُعاد المحاولة تلقائيًا، وقيدك محفوظ كما هو.",
                 state = Kind.PROBLEM,
                 occurredAt = entry.occurredAt,
@@ -142,6 +152,7 @@ object SyncStatusModel {
                 entryId = entry.id,
                 roomTitle = roomTitle,
                 title = title,
+                chip = CHIP_VOIDED,
                 detail = "أُلغي بقيد عكسي، والأثر باقٍ عند الطرفين. لا يُحذف قيد شارك فيه غيرك.",
                 state = Kind.VOIDED,
                 occurredAt = entry.occurredAt,
@@ -151,12 +162,19 @@ object SyncStatusModel {
 
         // ٣) اعتراض أو طلب تعديل: يُعرض بنصّ صاحبه.
         if (entry.status == EntryStatus.DISPUTED || entry.status == EntryStatus.CHANGE_REQUESTED) {
-            val what = if (entry.status == EntryStatus.DISPUTED) "اعترض الطرف" else "طلب الطرف تعديلًا"
-            val note = otherPartyDecision?.note?.takeIf { it.isNotBlank() }
+            val byOther = otherPartyDecision?.decision == entry.status
+            val what = when {
+                entry.status == EntryStatus.DISPUTED && byOther -> "اعترض الطرف"
+                entry.status == EntryStatus.DISPUTED -> "اعترضتَ أنت"
+                byOther -> "طلب الطرف تعديلًا"
+                else -> "طلبتَ تعديلًا"
+            }
+            val note = (if (byOther) otherPartyDecision else myDecision)?.note?.takeIf { it.isNotBlank() }
             return Row(
                 entryId = entry.id,
                 roomTitle = roomTitle,
                 title = title,
+                chip = CHIP_PROBLEM,
                 detail = if (note != null) {
                     "$what: «$note» — القيد باقٍ كما هو حتى يُصحَّح بقيد جديد."
                 } else {
@@ -174,19 +192,39 @@ object SyncStatusModel {
                 entryId = entry.id,
                 roomTitle = roomTitle,
                 title = title,
-                detail = "أقرّه الطرف: الحالة تغيّرت، ولم يُمسح القيد ولا تغيّر مبلغه.",
+                chip = CHIP_ACKNOWLEDGED,
+                detail = if (isMine) {
+                    "أقرّه الطرف: الحالة تغيّرت، ولم يُمسح القيد ولا تغيّر مبلغه."
+                } else {
+                    "أقررتَه أنت: الحالة تغيّرت، ولم يُمسح القيد ولا تغيّر مبلغه."
+                },
                 state = Kind.ACKNOWLEDGED,
                 occurredAt = entry.occurredAt,
                 dateText = dateText
             )
         }
 
-        // ٥) خرج من الجهاز وينتظر.
-        if (pending?.state == OutboxState.SENT || entry.status == EntryStatus.SENT) {
+        // ٥) وارد من الطرف: مكانه دفترك، ولا يُرسَل من هنا أصلًا.
+        if (!isMine) {
             return Row(
                 entryId = entry.id,
                 roomTitle = roomTitle,
                 title = title,
+                chip = CHIP_RECEIVED,
+                detail = "وصل من الطرف إلى دفترك، وينتظر إقرارك أنت — لم يُرسل شيء من جهازك ولا شيء ناقص.",
+                state = Kind.SENT,
+                occurredAt = entry.occurredAt,
+                dateText = dateText
+            )
+        }
+
+        // ٦) خرج من الجهاز فعلًا؟ صندوق الصادر وحده يقول ذلك، لا حالة القيد المحلية.
+        if (pending?.state == OutboxState.SENT) {
+            return Row(
+                entryId = entry.id,
+                roomTitle = roomTitle,
+                title = title,
+                chip = CHIP_SENT,
                 detail = "أُرسل — في انتظار إقرار الطرف.",
                 state = Kind.SENT,
                 occurredAt = entry.occurredAt,
@@ -194,11 +232,12 @@ object SyncStatusModel {
             )
         }
 
-        // ٦) الباقي: محفوظ في دفترك ولم يخرج بعد.
+        // ٧) الباقي: محفوظ في دفترك ولم يخرج بعد (مسودة أو في الطابور).
         return Row(
             entryId = entry.id,
             roomTitle = roomTitle,
             title = title,
+            chip = CHIP_LOCAL,
             detail = if (entry.status == EntryStatus.DRAFT) {
                 "مسودة محلية لم تُرسل بعد: تظهر لك وحدك حتى تُرسلها."
             } else {
@@ -245,6 +284,14 @@ object SyncStatusModel {
     /** سبب الفشل بنصّه، وإن لم يُسجَّل سبب نقول ذلك ولا نخترع واحدًا. */
     private fun reason(item: OutboxItem): String =
         item.lastError.trim().ifBlank { "بلا سبب مسجّل من الشبكة" }
+
+    const val CHIP_LOCAL = "محفوظ محليًا"
+    const val CHIP_SENT = "أُرسل — بانتظار الإقرار"
+    const val CHIP_ACKNOWLEDGED = "مُقرّ"
+    const val CHIP_PROBLEM = "يحتاج نظرك"
+    const val CHIP_DEAD = "فشل دائم"
+    const val CHIP_VOIDED = "ملغى بقيد عكسي"
+    const val CHIP_RECEIVED = "وارد من الطرف"
 
     fun defaultDateFormat(): SimpleDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 }

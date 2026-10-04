@@ -170,6 +170,7 @@ fun SyncStatusScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 SyncRowCard(
                     row = row,
                     busy = busyOperation.isNotEmpty() && busyOperation == row.retryOperationId,
+                    chip = syncLook(row.chip),
                     onRetry = {
                         scope.launch {
                             busyOperation = row.retryOperationId
@@ -203,9 +204,9 @@ fun SyncStatusScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 private fun SyncRowCard(
     row: SyncStatusModel.Row,
     busy: Boolean,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    chip: StatusChipLook
 ) {
-    val look = syncLook(row.state)
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = Modifier
@@ -215,10 +216,10 @@ private fun SyncRowCard(
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 StatusChip(
-                    text = look.label,
-                    container = look.container,
-                    onContainer = look.onContainer,
-                    icon = look.icon
+                    text = chip.label,
+                    container = chip.container,
+                    onContainer = chip.onContainer,
+                    icon = chip.icon
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
@@ -252,23 +253,26 @@ private fun SyncRowCard(
     }
 }
 
-/** لون الحالة ورمزها وكلمتها في مكان واحد: تُقرأ الحالة في نصف ثانية. */
+/**
+ * لون الحالة ورمزها وكلمتها: **الكلمة تُطلب من النموذج** (فهو من يعرف هل القيد وارد أو مُرسل)،
+ * واللون والرمز يُختاران من الحالة. هكذا لا تنشأ كلمة في الشاشة تخالف الحقيقة المخزّنة.
+ */
 @Composable
-private fun syncLook(kind: SyncStatusModel.Kind): StatusChipLook {
+private fun syncLook(chip: String): StatusChipLook {
     val colors = BaynanaStatus.colors
-    return when (kind) {
-        SyncStatusModel.Kind.LOCAL ->
-            StatusChipLook("محفوظ محليًا", Icons.Default.CloudOff, colors.infoContainer, colors.onInfoContainer)
-        SyncStatusModel.Kind.SENT ->
-            StatusChipLook("أُرسل — بانتظار الإقرار", Icons.Default.Schedule, colors.waitingContainer, colors.onWaitingContainer)
-        SyncStatusModel.Kind.ACKNOWLEDGED ->
-            StatusChipLook("مُقرّ", Icons.Default.CheckCircle, colors.acknowledgedContainer, colors.onAcknowledgedContainer)
-        SyncStatusModel.Kind.PROBLEM ->
-            StatusChipLook("يحتاج نظرك", Icons.Default.ReportProblem, colors.waitingContainer, colors.onWaitingContainer)
-        SyncStatusModel.Kind.DEAD ->
-            StatusChipLook("فشل دائم", Icons.Default.Error, colors.dangerContainer, colors.onDangerContainer)
-        SyncStatusModel.Kind.VOIDED ->
-            StatusChipLook("ملغى بقيد عكسي", Icons.Default.RemoveCircle, colors.dangerContainer, colors.onDangerContainer)
+    return when (chip) {
+        SyncStatusModel.CHIP_LOCAL ->
+            StatusChipLook(chip, Icons.Default.CloudOff, colors.infoContainer, colors.onInfoContainer)
+        SyncStatusModel.CHIP_SENT, SyncStatusModel.CHIP_RECEIVED ->
+            StatusChipLook(chip, Icons.Default.Schedule, colors.waitingContainer, colors.onWaitingContainer)
+        SyncStatusModel.CHIP_ACKNOWLEDGED ->
+            StatusChipLook(chip, Icons.Default.CheckCircle, colors.acknowledgedContainer, colors.onAcknowledgedContainer)
+        SyncStatusModel.CHIP_PROBLEM ->
+            StatusChipLook(chip, Icons.Default.ReportProblem, colors.waitingContainer, colors.onWaitingContainer)
+        SyncStatusModel.CHIP_DEAD ->
+            StatusChipLook(chip, Icons.Default.Error, colors.dangerContainer, colors.onDangerContainer)
+        else ->
+            StatusChipLook(chip, Icons.Default.RemoveCircle, colors.dangerContainer, colors.onDangerContainer)
     }
 }
 

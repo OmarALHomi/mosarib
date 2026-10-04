@@ -111,6 +111,7 @@ class SyncStatusModelTest {
             )
         )
         assertEquals(SyncStatusModel.Kind.ACKNOWLEDGED, view.rows.single().state)
+        assertEquals(SyncStatusModel.CHIP_ACKNOWLEDGED, view.rows.single().chip)
         assertTrue(view.rows.single().detail.contains("لم يُمسح"))
     }
 
@@ -125,6 +126,7 @@ class SyncStatusModelTest {
         )
         val row = view.rows.single()
         assertEquals(SyncStatusModel.Kind.LOCAL, row.state)
+        assertEquals(SyncStatusModel.CHIP_LOCAL, row.chip)
         assertTrue(row.detail.contains("محفوظ"))
         assertFalse(row.detail.contains("أُرسل"))
     }
@@ -249,6 +251,37 @@ class SyncStatusModelTest {
         val view = view(SyncStatusModel.Snapshot())
         assertTrue(view.rows.isEmpty())
         assertTrue(view.headline.contains("لا حركة"))
+    }
+
+    @Test
+    fun `الوارد من الطرف لا يُقال عنه إنه في طابور الإرسال`() {
+        val view = view(
+            SyncStatusModel.Snapshot(
+                rooms = listOf(room()),
+                entries = listOf(
+                    entry("e1", EntryStatus.SENT).copy(createdByMemberId = "them")
+                ),
+                myMemberships = listOf(member(memberId = "me", isMe = true))
+            )
+        )
+        val row = view.rows.single()
+        assertEquals(SyncStatusModel.CHIP_RECEIVED, row.chip)
+        assertTrue(row.detail.contains("وصل من الطرف"))
+        assertTrue(row.detail.contains("ينتظر إقرارك"))
+        assertEquals("", row.retryOperationId)
+    }
+
+    @Test
+    fun `إقراري أنا يُكتب بصيغته ولا يُنسب للطرف`() {
+        val view = view(
+            SyncStatusModel.Snapshot(
+                rooms = listOf(room()),
+                entries = listOf(entry("e1", EntryStatus.ACKNOWLEDGED).copy(createdByMemberId = "them")),
+                acknowledgements = listOf(ack("e1", memberId = "me", decision = EntryStatus.ACKNOWLEDGED)),
+                myMemberships = listOf(member(memberId = "me", isMe = true))
+            )
+        )
+        assertTrue(view.rows.single().detail.contains("أقررتَه أنت"))
     }
 
     @Test

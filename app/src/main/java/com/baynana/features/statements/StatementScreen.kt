@@ -12,11 +12,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,6 +36,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.baynana.core.database.AppDatabase
+import com.baynana.core.util.FileSharingHelper
+import com.baynana.core.util.StatementPdfFiles
 import com.baynana.data.local.ledger.LedgerHomeRepository
 import com.baynana.data.local.ledger.LedgerRepository
 import com.baynana.data.local.ledger.RoomMember
@@ -113,9 +117,27 @@ fun StatementScreen(
 
     val current = statement
     val roomLabel = feed?.title?.takeIf { it.isNotBlank() } ?: "غرفة"
+    val appVersion = remember {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0"
+        }.getOrDefault("0")
+    }
     val selectedName = members.firstOrNull { it.memberId == selectedMemberId }
         ?.displayName?.takeIf { it.isNotBlank() }
         ?: if (selectedMemberId == feed?.myMemberId) "كشفي" else "كشف الطرف"
+
+    // المستند يُبنى مرة واحدة عند تغيّر الكشف أو الاسم: هو مصدر الشاشة والمشاركة والورق (د٥).
+    val export = remember(current, roomLabel, selectedName, appVersion) {
+        current?.let {
+            StatementExport.build(
+                statement = it,
+                roomTitle = roomLabel,
+                subject = selectedName,
+                appVersion = appVersion,
+                dateText = { at -> dateFormat.format(Date(at)) }
+            )
+        }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -199,40 +221,69 @@ fun StatementScreen(
                 }
             }
 
-            item {
-                StatementSheet(
-                    statement = current,
-                    title = selectedName,
-                    subtitle = "$roomLabel • من دفترك على هذا الجهاز",
-                    onShare = {
-                        val export = StatementExport.build(
-                            statement = current,
-                            roomTitle = roomLabel,
-                            subject = selectedName,
-                            dateText = { at -> dateFormat.format(Date(at)) }
-                        )
-                        val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TITLE, export.fileName)
-                            putExtra(Intent.EXTRA_TEXT, export.body)
+            export?.let { built ->
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    val file = runCatching {
+                                        withContext(Dispatchers.IO) {
+                                            StatementPdfFiles.write(context, built.document)
+                                        }
+                                    }.getOrNull()
+                                    if (file == null) {
+                                        message = "تعذّر تجهيز ملفّ PDF — أعد المحاولة"
+                                    } else {
+                                        message = "الورق جاهز: ${file.name} — وفيه نفس سطور الشاشة"
+                                        FileSharingHelper.sharePdf(context, file, built.document.title)
+                                    }
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("شارك PDF")
                         }
-                        message = "النصّ المُشارَك هو نفسه المعروض هنا، حرفًا بحرف."
-                        context.startActivity(Intent.createChooser(intent, "إرسال الكشف"))
-                    },
-                    dateFormat = dateFormat
-                )
+                        OutlinedButton(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TITLE, built.fileName)
+                                    putExtra(Intent.EXTRA_TEXT, built.body)
+                                }
+                                message = "النصّ المُشارَك هو نفسه المعروض هنا، حرفًا بحرف."
+                                context.startActivity(Intent.createChooser(intent, "إرسال الكشف"))
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("شارك نصًّا")
+                        }
+                    }
+                }
+
+                item {
+                    StatementSheet(
+                        document = built.document,
+                        onShare = {
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TITLE, built.fileName)
+                                putExtra(Intent.EXTRA_TEXT, built.body)
+                            }
+                            message = "النصّ المُشارَك هو نفسه المعروض هنا، حرفًا بحرف."
+                            context.startActivity(Intent.createChooser(intent, "إرسال الكشف"))
+                        }
+                    )
+                }
             }
 
             if (current.lines.isNotEmpty()) {
                 item {
                     TextButton(onClick = {
-                        val export = StatementExport.build(
-                            statement = current,
-                            roomTitle = roomLabel,
-                            subject = selectedName,
-                            dateText = { at -> dateFormat.format(Date(at)) }
-                        )
-                        message = "اسم الملفّ عند المشاركة: ${export.fileName}"
+                        message = "اسم الملفّ عند المشاركة: ${export?.fileName.orEmpty()}"
                     }) { Text("ما اسم الملفّ الذي سيُرسل؟", style = MaterialTheme.typography.labelMedium) }
                 }
             }

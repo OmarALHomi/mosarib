@@ -29,14 +29,16 @@ class MarketRepository(private val db: AppDatabase) {
 
     /** عروض السوق العامة، جاهزة للشاشة والمشاركة: بلا هاتف مزارع ولا موقع دقيق. */
     fun observePublic(): Flow<List<MarketEngine.PublicListing>> =
-        dao.observePublicListings().map { rows -> rows.map { it.toPublic() } }
+        dao.observePublicListings().map { rows -> rows.map { it.toPublic(dao.getContact(it.id)) } }
 
     suspend fun publicListings(): List<MarketEngine.PublicListing> =
-        dao.getPublicListings().map { it.toPublic() }
+        dao.getPublicListings().map { it.toPublic(dao.getContact(it.id)) }
 
     /** أحدث مراجعة مُصادَق عليها لكل عرض — لبناء عرض عام «مصادق عليه» في تصدير أو تقرير. */
     suspend fun publicListingsWithModeration(): List<Pair<MarketEngine.PublicListing, ModerationRow?>> =
-        dao.getPublicListings().map { row -> row.toPublic() to dao.getModeration(row.id, row.revision) }
+        dao.getPublicListings().map { row ->
+            row.toPublic(dao.getContact(row.id)) to dao.getModeration(row.id, row.revision)
+        }
 
     // ------------------------------------------------------------------ عند الدلال
 
@@ -79,7 +81,7 @@ class MarketRepository(private val db: AppDatabase) {
         now: Long = System.currentTimeMillis()
     ): SaveResult = db.withTransaction {
         val existing = dao.getListing(draft.id)
-        val previousPublic = existing?.let { it.toPublic() }
+        val previousPublic = existing?.let { it.toPublic(dao.getContact(it.id)) }
 
         when (val check = MarketEngine.checkEdit(previousPublic, draft, actorMemberId, isFarmer, changesPriceOrBody)) {
             is MarketEngine.EditCheck.Refused -> SaveResult.Refused(check.reason)
@@ -281,14 +283,7 @@ class MarketRepository(private val db: AppDatabase) {
     suspend fun shareText(id: String): String? {
         val row = dao.getListing(id) ?: return null
         if (!row.isPublicVisible) return null
-        val contact = dao.getContact(id)
-        val public = MarketEngine.publicListingWithContact(
-            draft = row.toDraft(contact),
-            revision = row.revision,
-            status = row.status,
-            brokerPhone = contact?.brokerPhone.orEmpty()
-        )
-        return MarketEngine.publicText(public)
+        return MarketEngine.publicText(row.toPublic(dao.getContact(id)))
     }
 
     // ------------------------------------------------------------------ التحويلات الداخلية
@@ -348,6 +343,21 @@ class MarketRepository(private val db: AppDatabase) {
         revision = revision,
         status = status
     )
+
+    /**
+     * الصفّ العام كما يراه الناس: تُملأ قناة التواصل برقم الدلال **فقط** إذا اختار الدلال نشر رقمه،
+     * وإلا بقيت فارغة. وهذا هو الفرق الذي كان ساقطًا: العرض كان يُحفظ بنيّة النشر، ثم يُعاد بناؤه
+     * في القراءة بلا قناة تواصل فيظهر للناس عرضًا بلا وسيلة اتصال.
+     *
+     * وهاتف المزارع لا يدخل هذه الدالة أبدًا: مكانه [MarketContactRow.farmerPhone] ولا يُقرأ هنا.
+     */
+    private fun MarketListingRow.toPublic(contact: MarketContactRow?): MarketEngine.PublicListing =
+        MarketEngine.publicListingWithContact(
+            draft = toDraft(contact),
+            revision = revision,
+            status = status,
+            brokerPhone = contact?.brokerPhone.orEmpty()
+        )
 
     private suspend fun MarketListingRow.toBrokerView(): BrokerListing = BrokerListing(
         row = this,

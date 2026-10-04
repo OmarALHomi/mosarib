@@ -24,8 +24,6 @@ import androidx.compose.ui.graphics.Color
 // كل قيم اللوحة تعيش في `Color.kt` (حتى يقيسها اختبار التباين)، وهذه أسماء محلية للاختصار فقط.
 private val OnNile = NileOnContainer
 private val OnNileDark = NileOnContainerDark
-private val OnEarth = EarthOnContainer
-private val OnEarthDark = EarthOnContainerDark
 private val OnGold = GoldOnContainer
 private val OnGoldDark = GoldOnContainerDark
 private val OnDanger = DangerOnContainer
@@ -46,7 +44,7 @@ internal val LightColors = lightColorScheme(
     secondary = NileSoft,
     onSecondary = CreamSurface,
     secondaryContainer = NileSoftContainer,
-    onSecondaryContainer = OnEarth,
+    onSecondaryContainer = OnNile,
     tertiary = HoneyGold,
     onTertiary = OnGold,
     tertiaryContainer = HoneyGoldContainer,
@@ -73,7 +71,7 @@ internal val DarkColors = darkColorScheme(
     secondary = NileSoftLight,
     onSecondary = NightBackground,
     secondaryContainer = NileSoftContainerDark,
-    onSecondaryContainer = OnEarth,
+    onSecondaryContainer = OnNileDark,
     tertiary = HoneyGold,
     onTertiary = NightBackground,
     tertiaryContainer = HoneyGoldContainerDark,
@@ -86,7 +84,8 @@ internal val DarkColors = darkColorScheme(
     onSurfaceVariant = NightOnSurfaceVariant,
     outline = NightOutline,
     error = DangerRedLight,
-    onError = OnDangerDark,
+    // النصّ على لون الخطأ: أحمر داكن على ورديّ فاتح (٦:١)، لا ورديّ على ورديّ (١٫٣:١).
+    onError = OnDanger,
     errorContainer = DangerContainerDark,
     onErrorContainer = OnDangerDark
 )
