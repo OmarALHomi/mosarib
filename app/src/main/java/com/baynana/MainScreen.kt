@@ -217,6 +217,15 @@ private fun ShellScaffold(
 
                         "about" -> AboutScreen(onBack = backToMore)
 
+                        "catalog" -> if (BuildConfig.DEBUG) {
+                            com.baynana.features.dev.ComponentCatalogScreen(onBack = backToMore)
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) { Text("هذه الشاشة للتطوير فقط") }
+                        }
+
                         else -> Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
@@ -255,7 +264,13 @@ private fun ShellScaffold(
                         onOpenFarmAccounting = { onNavigate(BaynanaShell.extra("farm")) },
                         onOpenReports = { onNavigate(BaynanaShell.extra("reports")) },
                         onOpenSettings = { onNavigate(BaynanaShell.extra("settings")) },
-                        onOpenAbout = { onNavigate(BaynanaShell.extra("about")) }
+                        onOpenAbout = { onNavigate(BaynanaShell.extra("about")) },
+                        // شاشة العيّنات للتطوير فقط: في نسخة التوزيع لا يظهر العنصر ولا الشاشة.
+                        onOpenCatalog = if (BuildConfig.DEBUG) {
+                            { onNavigate(BaynanaShell.extra("catalog")) }
+                        } else {
+                            null
+                        }
                     )
                 }
             }

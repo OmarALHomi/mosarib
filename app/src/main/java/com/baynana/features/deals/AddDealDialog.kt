@@ -37,7 +37,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.baynana.features.market.CROP_CATEGORIES
+import com.baynana.features.crops.CropCategories
 import com.baynana.ui.theme.AccentGold
 import com.baynana.ui.theme.PrimaryTeal
 

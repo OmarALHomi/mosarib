@@ -19,7 +19,10 @@ import androidx.compose.ui.graphics.Color
 
 // ---------------------------------------------------------------- الأساسي: النيلة (أزرق الحبر)
 val NavyNile = Color(0xFF14304F)
+/** نيلي فاتح للوضع الفاتح (بقع وحدود)، ونيلي **أفتح** للوضع الليلي: القيمة الأولى لا تصلح نصًّا
+ *  على خلفية ليلية (٢٫٦:١ فقط)، وهي التي كشفها اختبار التباين وأُصلحت. */
 val NavyNileLight = Color(0xFF3F6489)
+val NavyNileOnDark = Color(0xFF8FB0CE)
 val NavyNileDark = Color(0xFF0A2137)
 val NileContainer = Color(0xFFD9E4F0)
 val NileContainerDark = Color(0xFF17334F)
@@ -75,3 +78,20 @@ val InfoBlue = Color(0xFF2A5B8A)
 val InfoBlueLight = Color(0xFFA8CBEE)
 val InfoContainer = Color(0xFFDEEAF6)
 val InfoContainerDark = Color(0xFF1B3348)
+
+// ---------------------------------------------------------------- أزواج الحاويات والنصّ عليها
+// تُعرَّف هنا (لا داخل `Theme.kt`) حتى يقيس اختبار التباين ما يُعرض فعلًا، فالقيمة المخفية لا تُقاس.
+val NileOnContainer = Color(0xFF0A2137)
+val NileOnContainerDark = Color(0xFFD9E4F0)
+val EarthOnContainer = Color(0xFF3A2E29)
+val EarthOnContainerDark = Color(0xFFF0E4DD)
+val GoldOnContainer = Color(0xFF3C3115)
+val GoldOnContainerDark = Color(0xFFF6EBC9)
+val DangerOnContainer = Color(0xFF5C1A17)
+val DangerOnContainerDark = Color(0xFFF9DEDC)
+val AcknowledgedOnContainer = Color(0xFF14402B)
+val AcknowledgedOnContainerDark = Color(0xFFDCEFE3)
+val WaitingOnContainer = Color(0xFF463206)
+val WaitingOnContainerDark = Color(0xFFFBEBD0)
+val InfoOnContainer = Color(0xFF1B3348)
+val InfoOnContainerDark = Color(0xFFDEEAF6)

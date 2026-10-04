@@ -21,33 +21,36 @@ import androidx.compose.ui.graphics.Color
  */
 
 // ------------------------------------------------------------------ ثوابت مساعدة
-private val OnNileDark = Color(0xFF0A2137)
-private val OnGoldDark = Color(0xFF3C3115)
-private val OnDangerDark = Color(0xFF5C1A17)
-private val OnNileContainer = Color(0xFFD8EBE1)
-private val OnEarthContainer = Color(0xFFF0E4DD)
-private val OnDangerContainer = Color(0xFFF9DEDC)
-private val OnAcknowledgedContainer = Color(0xFF14402B)
-private val OnWaitingContainer = Color(0xFF463206)
-private val OnInfoContainer = Color(0xFF1B3348)
-private val OnAcknowledgedContainerDark = Color(0xFFDCEFE3)
-private val OnWaitingContainerDark = Color(0xFFFBEBD0)
-private val OnInfoContainerDark = Color(0xFFDEEAF6)
+// كل قيم اللوحة تعيش في `Color.kt` (حتى يقيسها اختبار التباين)، وهذه أسماء محلية للاختصار فقط.
+private val OnNile = NileOnContainer
+private val OnNileDark = NileOnContainerDark
+private val OnEarth = EarthOnContainer
+private val OnEarthDark = EarthOnContainerDark
+private val OnGold = GoldOnContainer
+private val OnGoldDark = GoldOnContainerDark
+private val OnDanger = DangerOnContainer
+private val OnDangerDark = DangerOnContainerDark
+private val OnAckContainer = AcknowledgedOnContainer
+private val OnAckContainerDark = AcknowledgedOnContainerDark
+private val OnWaitContainer = WaitingOnContainer
+private val OnWaitContainerDark = WaitingOnContainerDark
+private val OnInfoContainer = InfoOnContainer
+private val OnInfoContainerDark = InfoOnContainerDark
 
 // ------------------------------------------------------------------ المخططات
-private val LightColors = lightColorScheme(
+internal val LightColors = lightColorScheme(
     primary = NavyNile,
     onPrimary = CreamSurface,
     primaryContainer = NileContainer,
-    onPrimaryContainer = NavyNileDark,
+    onPrimaryContainer = OnNile,
     secondary = NileSoft,
     onSecondary = CreamSurface,
     secondaryContainer = NileSoftContainer,
-    onSecondaryContainer = OnNileDark,
+    onSecondaryContainer = OnEarth,
     tertiary = HoneyGold,
-    onTertiary = OnNileDark,
+    onTertiary = OnGold,
     tertiaryContainer = HoneyGoldContainer,
-    onTertiaryContainer = OnGoldDark,
+    onTertiaryContainer = OnGold,
     background = CreamBackground,
     onBackground = InkOnCream,
     surface = CreamSurface,
@@ -58,22 +61,23 @@ private val LightColors = lightColorScheme(
     error = DangerRed,
     onError = CreamSurface,
     errorContainer = DangerContainer,
-    onErrorContainer = OnDangerDark
+    onErrorContainer = OnDanger
 )
 
-private val DarkColors = darkColorScheme(
-    primary = NavyNileLight,
+internal val DarkColors = darkColorScheme(
+    // نيلي أفتح من نظيره الفاتح: اللون الذي يبدو جميلًا كبقعة يفشل كنصّ على الليل (٢٫٦:١).
+    primary = NavyNileOnDark,
     onPrimary = NightBackground,
     primaryContainer = NileContainerDark,
-    onPrimaryContainer = OnNileContainer,
+    onPrimaryContainer = OnNileDark,
     secondary = NileSoftLight,
     onSecondary = NightBackground,
     secondaryContainer = NileSoftContainerDark,
-    onSecondaryContainer = OnEarthContainer,
+    onSecondaryContainer = OnEarth,
     tertiary = HoneyGold,
     onTertiary = NightBackground,
     tertiaryContainer = HoneyGoldContainerDark,
-    onTertiaryContainer = HoneyGoldContainer,
+    onTertiaryContainer = OnGoldDark,
     background = NightBackground,
     onBackground = NightOnSurface,
     surface = NightSurface,
@@ -84,7 +88,7 @@ private val DarkColors = darkColorScheme(
     error = DangerRedLight,
     onError = OnDangerDark,
     errorContainer = DangerContainerDark,
-    onErrorContainer = OnDangerContainer
+    onErrorContainer = OnDangerDark
 )
 
 /** ألوان دلالية: حالة القيد وحالة الحفظ وحالة السوق. تُقرأ من مكان واحد. */
@@ -103,13 +107,13 @@ data class BaynanaStatusColors(
     val onDangerContainer: Color
 )
 
-private val LightStatus = BaynanaStatusColors(
+internal val LightStatus = BaynanaStatusColors(
     acknowledged = AcknowledgedGreen,
     acknowledgedContainer = AcknowledgedContainer,
-    onAcknowledgedContainer = OnAcknowledgedContainer,
+    onAcknowledgedContainer = OnAckContainer,
     waiting = WaitingAmber,
     waitingContainer = WaitingContainer,
-    onWaitingContainer = OnWaitingContainer,
+    onWaitingContainer = OnWaitContainer,
     info = InfoBlue,
     infoContainer = InfoContainer,
     onInfoContainer = OnInfoContainer,
@@ -118,13 +122,13 @@ private val LightStatus = BaynanaStatusColors(
     onDangerContainer = OnDangerDark
 )
 
-private val DarkStatus = BaynanaStatusColors(
+internal val DarkStatus = BaynanaStatusColors(
     acknowledged = AcknowledgedGreenLight,
     acknowledgedContainer = AcknowledgedContainerDark,
-    onAcknowledgedContainer = OnAcknowledgedContainerDark,
+    onAcknowledgedContainer = OnAckContainerDark,
     waiting = WaitingAmberLight,
     waitingContainer = WaitingContainerDark,
-    onWaitingContainer = OnWaitingContainerDark,
+    onWaitingContainer = OnWaitContainerDark,
     info = InfoBlueLight,
     infoContainer = InfoContainerDark,
     onInfoContainer = OnInfoContainerDark,

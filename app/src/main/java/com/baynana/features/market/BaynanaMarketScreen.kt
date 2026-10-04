@@ -28,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -62,7 +63,7 @@ fun BaynanaMarketScreen(
     viewModel: BaynanaMarketViewModel,
     onBack: (() -> Unit)? = null
 ) {
-    val state by androidx.lifecycle.compose.collectAsStateWithLifecycle(viewModel.state)
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var showNewListing by remember { mutableStateOf(false) }

@@ -45,7 +45,8 @@ fun MoreScreen(
     onOpenFarmAccounting: () -> Unit = {},
     onOpenReports: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
-    onOpenAbout: () -> Unit = {}
+    onOpenAbout: () -> Unit = {},
+    onOpenCatalog: (() -> Unit)? = null
 ) {
     data class Item(
         val icon: ImageVector,
@@ -68,7 +69,15 @@ fun MoreScreen(
         Item(Icons.AutoMirrored.Filled.MenuBook, "الترحيل من الدفتر القديم", "الجرد والقرار قبل أي نقل", onOpenMigration),
         Item(Icons.Default.Settings, "الإعدادات", "الاسم، الحماية، الوضع الليلي", onOpenSettings),
         Item(Icons.Default.Info, "حول «بيننا»", "ما التطبيق وما لا يفعله", onOpenAbout)
-    )
+    ).let { base ->
+        // شاشة عيّنات المكوّنات: للمراجعة أثناء التطوير، ولا تظهر للمستخدم النهائي إطلاقًا.
+        if (onOpenCatalog == null) base else base + Item(
+            Icons.Default.Analytics,
+            "عيّنات المكوّنات (للمراجعة)",
+            "شاشة تطوير: كل حالات القيد والألوان والمكوّنات في صفحة واحدة",
+            onOpenCatalog
+        )
+    }
 
     LazyColumn(
         modifier = Modifier

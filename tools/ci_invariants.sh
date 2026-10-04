@@ -147,4 +147,18 @@ if [ -n "$BAD_ICON_REFS" ]; then
 fi
 echo "OK: أيقونات مادريال مستوردة بأسمائها لا بأسماء كاملة"
 
+# 11) لا تنسيق أرقام في الواجهة الجديدة بـNumberFormat/DecimalFormat/String.format: كل مبلغ يمرّ
+#     من `MoneyFormat`، والفواصل والكسور تُحسب هناك مرة واحدة (ADR-04 + د٣).
+NEW_UI_PATHS="app/src/main/java/com/baynana/MainScreen.kt app/src/main/java/com/baynana/ui/theme app/src/main/java/com/baynana/ui/identity app/src/main/java/com/baynana/ui/components app/src/main/java/com/baynana/features/home/BaynanaHomeScreen.kt app/src/main/java/com/baynana/features/home/BaynanaHomeViewModel.kt app/src/main/java/com/baynana/features/home/MigrationDialog.kt app/src/main/java/com/baynana/features/rooms app/src/main/java/com/baynana/features/movements app/src/main/java/com/baynana/features/more/MoreScreen.kt app/src/main/java/com/baynana/features/shell app/src/main/java/com/baynana/features/market/BaynanaMarketScreen.kt app/src/main/java/com/baynana/features/market/BaynanaMarketViewModel.kt app/src/main/java/com/baynana/features/market/ListingDialogs.kt app/src/main/java/com/baynana/features/dev"
+FORMAT_HITS=$(
+  grep -rnE "(NumberFormat|DecimalFormat|String\.format|"%.2f"|\.toBigDecimal)" $NEW_UI_PATHS 2>/dev/null \
+    | grep -vE ':[0-9]+:[[:space:]]*(\*|//|/\*)' || true
+)
+if [ -n "$FORMAT_HITS" ]; then
+  echo "FAIL: تنسيق أرقام في واجهة التصميم الجديدة — المطلوب MoneyFormat:"
+  echo "$FORMAT_HITS"
+  exit 1
+fi
+echo "OK: لا تنسيق أرقام يدوي في الواجهة الجديدة (MoneyFormat وحده)"
+
 echo "كل الحواجز سليمة."
