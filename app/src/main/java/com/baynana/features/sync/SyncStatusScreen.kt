@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.baynana.core.database.AppDatabase
+import com.baynana.core.sync.SyncConfig
 import com.baynana.data.local.ledger.SyncStatusRepository
 import com.baynana.ui.components.EmptyState
 import com.baynana.ui.components.SectionHeader
@@ -82,6 +83,8 @@ fun SyncStatusScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var message by remember { mutableStateOf<String?>(null) }
     var busyOperation by remember { mutableStateOf("") }
     var online by remember { mutableStateOf(isOnline(context)) }
+    // هل قناة المزامنة مضبوطة في هذه النسخة؟ (العنوان من الأصل البنائي، والرمز على الجهاز.)
+    val channelConfigured = remember { SyncConfig.isConfigured(context) }
 
     // نراقب الاتصال بهدوء كل عشرين ثانية: الشاشة تقول حاله بدقّة، ولا تُبنى عليها أي حقيقة محاسبية.
     LaunchedEffect(Unit) {
@@ -131,13 +134,10 @@ fun SyncStatusScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             item {
                 if (snapshot == null) {
                     SyncBadge("جاري قراءة دفترك…")
-                } else if (!online) {
-                    SyncBadge(
-                        "أنت بلا اتصال الآن: كل ما في هذه الشاشة محفوظ في جهازك، وسيُرسل الجديد عند عودة الشبكة",
-                        isWarning = true
-                    )
                 } else {
-                    SyncBadge("متّصل — وسيُرسل ما في الطابور تلقائيًا")
+                    // لا نقول «سيُرسل» إلا لقناة مضبوطة: الوعود الكاذبة أسوأ من الاعتراف بالنقص.
+                    val badge = SyncStatusModel.channelBadge(online = online, configured = channelConfigured)
+                    SyncBadge(badge.text, isWarning = badge.isWarning)
                 }
             }
 

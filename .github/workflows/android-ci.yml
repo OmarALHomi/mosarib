@@ -72,6 +72,16 @@ jobs:
             echo "::warning title=UPDATE::بيئة بلا node — يُخطّى اختبار أدوات الإصدار (ويبقى اختبار المتجهات في Kotlin)"
           fi
 
+      # عقد المزامنة (ح٢٢): يشغّل الخادم المرجعي داخل العملية، ويثبّت ردوده كمتجهات، ويؤكد أن
+      # متجهات Kotlin هي ما ينتجه الخادم الآن — فلا ينفصل التطبيق عن الخادم بصمت.
+      - name: Guard the sync contract (server reference vs app codec)
+        run: |
+          if command -v node >/dev/null 2>&1; then
+            node tools/sync_contract_test.mjs --check
+          else
+            echo "::warning title=SYNC::بيئة بلا node — يُخطّى فحص عقد المزامنة (ويبقى اختبار المتجهات في Kotlin)"
+          fi
+
       # حاجز بنية قواعد Firestore: يعمل بلا شبكة ولا محاكي، ويكشف القراءة العامة (`if true`)
       # واختفاء حالات §8.2 من المصفوفة (ح١٥)
       - name: Guard Firestore rules structure (deny-by-default, §8.2 matrix present)

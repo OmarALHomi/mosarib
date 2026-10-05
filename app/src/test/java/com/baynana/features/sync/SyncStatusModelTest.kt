@@ -101,6 +101,32 @@ class SyncStatusModelTest {
     private fun view(snapshot: SyncStatusModel.Snapshot) = SyncStatusModel.build(snapshot)
 
     @Test
+    fun `بلا قناة مضبوطة لا يُقال إن شيئًا سيُرسل`() {
+        val badge = SyncStatusModel.channelBadge(online = true, configured = false)
+        assertTrue("تحذير صريح لا طمأنة", badge.isWarning)
+        assertFalse("لا وعد بإرسال", badge.text.contains("سيُرسل"))
+        assertTrue("يقول أين البيانات فعلًا", badge.text.contains("محفوظ في جهازك"))
+    }
+
+    @Test
+    fun `حالة القناة المجهولة تُعامل كغير مضبوطة لا كمؤكَّدة`() {
+        val badge = SyncStatusModel.channelBadge(online = true, configured = null)
+        assertTrue(badge.isWarning)
+        assertFalse(badge.text.contains("سيُرسل"))
+    }
+
+    @Test
+    fun `قناة مضبوطة مع اتصال تقول الحقيقة كاملة`() {
+        val connected = SyncStatusModel.channelBadge(online = true, configured = true)
+        assertFalse(connected.isWarning)
+        assertTrue(connected.text.contains("سيُرسل"))
+
+        val offline = SyncStatusModel.channelBadge(online = false, configured = true)
+        assertTrue("بلا اتصال: تحذير لا طمأنة", offline.isWarning)
+        assertTrue(offline.text.contains("عودة الشبكة"))
+    }
+
+    @Test
     fun `قيد أُقرّ يقول أُقرّ ولا يقول شيئًا عن المسح`() {
         val view = view(
             SyncStatusModel.Snapshot(

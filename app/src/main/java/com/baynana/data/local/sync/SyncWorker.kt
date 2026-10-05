@@ -3,9 +3,11 @@ package com.baynana.data.local.sync
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.BackoffPolicy
@@ -25,9 +27,10 @@ import java.util.concurrent.TimeUnit
  *   `SyncStatusReader`؛ ولا يُعلن الإرسال إلا بعد قبول فعلي.
  * - **الفشل المؤقت يُعاد**، والرفض الدائم يبقى ظاهرًا بسببه ولا يُعاد صامتًا.
  *
- * القناة تُمرَّر من [SyncTransportProvider]، وهي الواجهة التي ستُربط بالنقل السلكي الفعلي (Firestore
- * أو الخادم الخاص في ح٢٢). وحتى تُربط، فإن غياب قناة يعني نتيجة «لم تُضبط قناة» بلا أي إفساد
- * للبيانات.
+ * القناة تُمرَّر من [SyncTransportProvider]، وهي الواجهة التي تُربط بالنقل السلكي الفعلي. ومنذ ح٢٢
+ * صار لها منفّذ حقيقي (`HttpSyncTransport` على عقد `v1` نفسه الذي ينفّذه الخادم المرجعي)، ويُربط في
+ * [SyncBridge] **فقط إن كان العنوان ورمز الجهاز مضبوطين**. فإن غابت القناة فالمعنى «لا خادم مضبوط
+ * في هذه النسخة»، لا عطل: التطبيق يعمل محليًّا كاملًا ولا تُرسل حزمة واحدة إلى أي جهة.
  *
  * **ملاحظة ح١٩:** منفذ الملفّ/الرمز اليدوي لا يمرّ من هنا عن قصد: لا يحتاج عاملًا خلفيًا ولا شبكة،
  * بل يُشغّله المستخدم بنفسه من شاشة «التسليم بلا إنترنت»، ويستعمل **نفس** مسار تطبيق التغييرات
@@ -88,7 +91,11 @@ object SyncTransportProvider {
 /** جدولة المزامنة: عمل واحد فريد باسم ثابت، فلا تتراكم مهام متوازية. */
 object SyncScheduler {
     const val WORK_NAME = "baynana-ledger-sync"
+
+    /** عمل دوري احتياطي: يسحب تغييرات الطرف الآخر حتى بلا كتابة محلية جديدة (ح٢٢). */
+    const val PERIODIC_WORK_NAME = "baynana-ledger-sync-periodic"
     private const val BACKOFF_SECONDS = 60L
+    private const val PERIODIC_HOURS = 6L
 
     fun schedule(context: Context, delayMillis: Long = 0L) {
         val request = OneTimeWorkRequestBuilder<SyncWorker>()
@@ -105,6 +112,36 @@ object SyncScheduler {
         WorkManager.getInstance(context).enqueueUniqueWork(
             WORK_NAME,
             ExistingWorkPolicy.KEEP,
+            request
+        )
+    }
+
+    /**
+     * تنبيه بعد كتابة محلية: يُجدول عملًا واحدًا فريدًا. `KEEP` مقصودة: كتابةٌ بعد كتابة لا تُنشئ
+     * طوابير متوازية، فالعمل الواحد يقرأ صندوق الصادر كاملًا — فلا تكرار ولا سباق.
+     */
+    fun requestSync(context: Context) {
+        schedule(context)
+    }
+
+    /**
+     * شبكة أمان دورية: بلا كتابة محلية جديدة، قد يصل قيد من الطرف الآخر ولا شيء يوقظ المزامنة.
+     * المدّة ٦ ساعات (أقلّ ما يجيزه النظام ١٥ دقيقة) والنية طمأنة لا إلحاح: لا استيقاظ متكرّر
+     * يستهلك البطارية، والتغييرات العاجلة يأتي بها تنبيه الكتابة أعلاه.
+     */
+    fun schedulePeriodic(context: Context) {
+        val request = PeriodicWorkRequestBuilder<SyncWorker>(PERIODIC_HOURS, TimeUnit.HOURS)
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+            )
+            .addTag(PERIODIC_WORK_NAME)
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            PERIODIC_WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
             request
         )
     }

@@ -2,6 +2,7 @@ package com.baynana.data.local.ledger
 
 import androidx.room.withTransaction
 import com.baynana.core.database.AppDatabase
+import com.baynana.data.local.sync.LedgerWriteSignal
 import com.baynana.domain.ledger.AllocationEngine
 import com.baynana.domain.ledger.AllocationMode
 import com.baynana.domain.ledger.AllocationPlan
@@ -127,6 +128,8 @@ class LedgerRepository(
             // سباق نادر: نفس operationId كُتب بين القراءة والكتابة.
             return@withTransaction EntryResult(dao.getEntryByOperationId(spec.operationId) ?: entry, created = false)
         }
+        // وصل القيد لدفتر صاحبه: تنبيه المزامنة بعد أن صار محفوظًا فعلًا (لا قبله).
+        LedgerWriteSignal.fire()
         EntryResult(entry, created = true)
     }
 
@@ -186,6 +189,7 @@ class LedgerRepository(
             val winner = dao.getEntryByOperationId(spec.operationId) ?: entry
             return@withTransaction ReceiptResult(winner, created = false, plan = planFor(winner, spec.mode))
         }
+        LedgerWriteSignal.fire()
         ReceiptResult(entry, created = true, plan = plan)
     }
 
@@ -232,6 +236,8 @@ class LedgerRepository(
                 )
             )
         }
+        // تخصيص لاحق = تغيير يخصّ الطرف الآخر (تحوّل دَين)، فينبّه المزامنة مثل أي كتابة.
+        LedgerWriteSignal.fire()
         plan
     }
 
@@ -278,6 +284,7 @@ class LedgerRepository(
                 releasedAllocations = 0
             )
         }
+        LedgerWriteSignal.fire()
         ReversalResult(reversal, created = true, releasedAllocations = before)
     }
 

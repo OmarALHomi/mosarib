@@ -281,6 +281,29 @@ object SyncStatusModel {
         return parts.joinToString(" • ")
     }
 
+    /** نصّ الشريط العلوي وقوّته (تحذير أو طمأنة). */
+    data class ChannelBadge(val text: String, val isWarning: Boolean = false)
+
+    /**
+     * شريط الحالة: هل نُرسل أصلًا؟
+     *
+     * كان الشريط يقول «سيُرسل ما في الطابور تلقائيًا» حتى في نسخة **بلا قناة مضبوطة**، وهذا أخطر
+     * من خطأ شكلي: يعني أن صاحب الدفتر يظن أن قيوده وصلت شريكه وهي على جهازه وحده. فعبارة الإرسال
+     * لا تُقال إلا لقناة قائمة ([configured] = true)، و`null` (لا نعرف) تُعامل كغير مضبوطة في النصّ
+     * التحذيري — لا كإرسال مؤكَّد.
+     */
+    fun channelBadge(online: Boolean, configured: Boolean?): ChannelBadge = when {
+        configured != true -> ChannelBadge(
+            text = "لم تُضبط قناة مزامنة بعد: كل ما تكتبه محفوظ في جهازك، ولا يُرسل إلى أي جهة",
+            isWarning = true
+        )
+        !online -> ChannelBadge(
+            text = "أنت بلا اتصال الآن: كل ما في هذه الشاشة محفوظ في جهازك، وسيُرسل الجديد عند عودة الشبكة",
+            isWarning = true
+        )
+        else -> ChannelBadge("متّصل — وسيُرسل ما في الطابور تلقائيًا")
+    }
+
     /** سبب الفشل بنصّه، وإن لم يُسجَّل سبب نقول ذلك ولا نخترع واحدًا. */
     private fun reason(item: OutboxItem): String =
         item.lastError.trim().ifBlank { "بلا سبب مسجّل من الشبكة" }

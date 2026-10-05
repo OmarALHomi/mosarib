@@ -389,6 +389,44 @@ grep -q "release_check.mjs --verify-apk" .github/workflows/build-package.yml \
   || fail "فحص بصمة الشهادة غير مستدعى قبل التغليف — لا يُوزَّع ملفّ بلا بصمة مقيسة (ح٢١)."
 pass "سجلّ التوزيع موجود ومفحوص، وبصمة الشهادة تُقاس قبل التغليف"
 
+# 20) قناة المزامنة (ح٢٢): عقد مكتوب، وخادم مرجعي يُثبته، وربط من موضع واحد، ولا سرّ في المستودع.
+#     السبب في أربع نقاط، وكلّها أعطال حقيقية لا ترف:
+#       أ) بلا خادم مرجعي مُشغَّل في الاختبار يصير «العقد» وعدًا في تعليق؛ فالعقد يُقاس بمخرَج.
+#       ب) الربط من موضع واحد: قناة تُنصَّب من مكان لم يُراجَع تعني مسارًا ثانيًا يرسل البيانات.
+#       ج) العنوان النصّي المكشوف (http) ممنوع في الشيفرة أيضًا، لا في المانيفست وحده.
+#       د) سرّ متتبَّع في المستودع تسريب دائم؛ ولهذا الأصل البنائي لا يقبل إلا سطر https.
+SYNC_REQUIRED="server/baynana-sync-server.mjs app/src/main/assets/sync_endpoint.txt tools/sync_contract_test.mjs"
+for file in $SYNC_REQUIRED; do
+  [ -f "$file" ] || fail "ملفّ قناة المزامنة مفقود: $file (ح٢٢)."
+done
+grep -q "sync_contract_test.mjs --check" .github/workflows/android-ci.yml \
+  || fail "فحص عقد المزامنة غير مستدعى في CI — العقد بلا فحص ينفصل عن التطبيق بصمت (ح٢٢)."
+SYNC_INSTALLERS=$(grep -rl "SyncTransportProvider.install(" app/src/main/java 2>/dev/null \
+  | grep -vE "^app/src/main/java/com/baynana/data/local/sync/SyncBridge.kt$" || true)
+if [ -n "$SYNC_INSTALLERS" ]; then
+  echo "$SYNC_INSTALLERS" >&2
+  fail "قناة المزامنة تُنصَّب من موضع غير SyncBridge — مسار ثانٍ يرسل بيانات العائلة."
+fi
+SYNC_CLEARTEXT=$(grep -rn "http://" app/src/main/java/com/baynana/core/sync app/src/main/java/com/baynana/data/local/sync 2>/dev/null \
+  | grep -vE ':[0-9]+:[[:space:]]*(\*|//)' || true)
+if [ -n "$SYNC_CLEARTEXT" ]; then
+  echo "$SYNC_CLEARTEXT" >&2
+  fail "عنوان مكشوف (http) في طبقة المزامنة — الدفاتر تُرسل بلا تشفير (ح٢٢)."
+fi
+if grep -q 'usesCleartextTraffic="true"' app/src/main/AndroidManifest.xml 2>/dev/null; then
+  fail "usesCleartextTraffic مفتوح — يُبطل اشتراط https في قناة المزامنة والتحديث."
+fi
+SYNC_ASSET_SECRET=$(grep -vE '^[[:space:]]*(#|$)' app/src/main/assets/sync_endpoint.txt 2>/dev/null \
+  | grep -vE '^[[:space:]]*https://' || true)
+if [ -n "$SYNC_ASSET_SECRET" ]; then
+  echo "$SYNC_ASSET_SECRET" >&2
+  fail "أصل قناة المزامنة يحمل ما ليس https — لا رمز ولا سرّ ولا عنوان مكشوف في المستودع (ح٢٢)."
+fi
+if [ -f server/baynana-sync-server.mjs ] && ! grep -q "process.env.SYNC_TOKEN" server/baynana-sync-server.mjs; then
+  fail "الخادم المرجعي بلا رمز جهاز من البيئة — رمز ثابت في الشيفرة سرّ متتبَّع (ح٢٢)."
+fi
+pass "قناة المزامنة: عقد مفحوص، وخادم مرجعي، وربط من موضع واحد، ولا سرّ ولا نصّ مكشوف"
+
 # 19ب) أدوات التحقق المحلي لا تُلتزم: هي بدائل تصريف على الجهاز، وليست شيفرة التطبيق.
 if git ls-files | grep -q "^\.verify-local/"; then
   fail "ملفات .verify-local متتبَّعة في المستودع — هي أدوات محلية تُبنى في الجهاز ولا تُشحن."
