@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.baynana.data.local.migration.LegacyMigrationOutcome
+import com.baynana.domain.migration.LegacyMigrationEngine
 import com.baynana.domain.migration.LegacyMigrationPlan
 import com.baynana.ui.components.InfoPill
 import com.baynana.ui.components.amountText
@@ -130,7 +131,8 @@ fun MigrationDialog(
             }
         },
         confirmButton = {
-            Button(enabled = !running && plan.allReconcile && outcome == null, onClick = onApply) {
+            // البوابة من المنطق النقيّ لا من الشاشة: زرٌّ معطَّل وحدَهُ ليس ضمانًا.
+            Button(enabled = !running && LegacyMigrationEngine.canApply(plan) && outcome == null, onClick = onApply) {
                 Text(if (running) "جاري الترحيل…" else "رحّل الآن")
             }
         },

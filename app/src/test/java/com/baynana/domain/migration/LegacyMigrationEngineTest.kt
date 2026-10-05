@@ -288,4 +288,21 @@ class LegacyMigrationEngineTest {
         )
         assertTrue(plan.entries.single().description.contains("مُرحَّلة من الدفتر القديم"))
     }
+
+    @Test
+    fun `canApply refuses a plan with any reconciliation difference`() {
+        val clean = LegacyMigrationEngine.plan(
+            LegacySnapshot(
+                customers = listOf(customer(1)),
+                sessions = listOf(session(10, 1, day1, remaining = 15_000.0)),
+                vouchers = emptyList()
+            )
+        )
+        assertTrue("خطة مطابقة بها قيود تُقبل", LegacyMigrationEngine.canApply(clean))
+        assertFalse(
+            "خطة بفرق واحد لا تُقبل — ولو كانت الشاشة قد نسيت الحرس",
+            LegacyMigrationEngine.canApply(clean.copy(reconciliations = clean.reconciliations.map { it.copy(plannedMinor = it.plannedMinor + 1) }))
+        )
+        assertFalse("وخطة بلا قيود ليست ترحيلًا", LegacyMigrationEngine.canApply(clean.copy(entries = emptyList())))
+    }
 }

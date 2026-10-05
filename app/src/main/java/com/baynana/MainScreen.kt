@@ -236,6 +236,8 @@ private fun ShellScaffold(
                         // نقل الدفتر: ملفّ ترحيل + جرد يمنع «نجاحًا» ينقصه قيد (ح٢٣).
                         "transfer" -> com.baynana.features.migration.MigrationScreen(onBack = backToMore)
                         "health" -> com.baynana.features.observe.ObserveScreen(onBack = backToMore)
+                        // «لوحة الترحيل» (د٦): قرار المالك على الإرث في شاشة كاملة، لا في نافذة عابرة.
+                        "legacy" -> com.baynana.features.migration.LegacyMigrationPanel(onBack = backToMore)
 
                         // التسليم بلا إنترنت: حزمة نصّية تُمرَّر في واتساب أو ملفًّا (ح١٩).
                         "handover" -> com.baynana.features.handover.HandoverScreen(onBack = backToMore)
@@ -291,7 +293,7 @@ private fun ShellScaffold(
                     )
 
                     ShellTab.MORE -> MoreScreen(
-                        onOpenMigration = onOpenMigrationDetail,
+                        onOpenMigration = { onNavigate(BaynanaShell.extra("legacy")) },
                         onOpenDeals = { onNavigate(BaynanaShell.extra("deals")) },
                         onOpenFarmAccounting = { onNavigate(BaynanaShell.extra("farm")) },
                         onOpenReports = { onNavigate(BaynanaShell.extra("reports")) },
