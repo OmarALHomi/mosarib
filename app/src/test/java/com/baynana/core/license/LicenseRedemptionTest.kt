@@ -19,6 +19,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -260,14 +261,24 @@ class LicenseRedemptionTest {
 
     @Test
     fun missingPublicKeyAssetIsReportedAsSuch() {
-        val material = LicenseSignatures.extractKeyMaterial(
-            java.io.File("app/src/main/assets/license_public_key.txt").takeIf { it.exists() }?.readText()
-                ?: java.io.File("src/main/assets/license_public_key.txt").readText()
-        )
-        assertTrue(
-            "قالب المفتاح الموجود في المستودع ليس مفتاحًا: وجود قالب لا يجوز أن يمرّ كمفتاح صالح",
-            material == null
-        )
-        assertNotNull("والمفتاح الحقيقي في الاختبار يُقرأ", LicenseSignatures.extractKeyMaterial(publicKeyMaterial()))
+        // القاعدة: **القالب لا يمرّ كمفتاح**. والمستودع يحمل قالبًا اليوم؛ فإن لصق المالك مفتاحه
+        // الحقيقي، تحوّل الفحص إلى الشرط الثاني: أن يكون المفتاح الموجود صالحًا فعلًا. فلا يصير
+        // هذا الاختبار أحمر يوم تُسلَّم مفاتيح الإنتاج (وهو يوم مقصود، لا عطب).
+        val raw = listOf(
+            java.io.File("app/src/main/assets/license_public_key.txt"),
+            java.io.File("src/main/assets/license_public_key.txt")
+        ).first { it.exists() }.readText()
+        val material = LicenseSignatures.extractKeyMaterial(raw)
+        if (material == null) {
+            assertFalse(
+                "قالب بلا مفتاح لا يجوز أن يُنتج فاحصًا صالحًا",
+                EcdsaSignatureVerifier(raw).isUsable
+            )
+        } else {
+            assertTrue(
+                "المفتاح الموجود في الأصول يجب أن يكون مفتاحًا عامًّا صالحًا (EC/X.509)",
+                EcdsaSignatureVerifier(material).isUsable
+            )
+        }
     }
 }

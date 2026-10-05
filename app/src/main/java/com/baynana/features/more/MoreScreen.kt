@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -52,6 +53,8 @@ fun MoreScreen(
     onOpenSyncStatus: () -> Unit = {},
     /** «التسليم بلا إنترنت»: ملفّ/رمز يمرّ في واتساب بلا حساب ولا خادم (ح١٩). */
     onOpenHandover: () -> Unit = {},
+    /** «التحديث»: فحص ملفّ الإصدار الموقّع، ثم تنزيل بزر (ح٢٠). */
+    onOpenUpdate: () -> Unit = {},
     onOpenCatalog: (() -> Unit)? = null
 ) {
     data class Item(
@@ -84,6 +87,12 @@ fun MoreScreen(
             "التسليم بلا إنترنت",
             "جهّز حزمة من حركاتك وأرسلها في واتساب، أو استورد حزمة وصلتك — بلا حساب ولا شبكة",
             onOpenHandover
+        ),
+        Item(
+            Icons.Default.SystemUpdate,
+            "التحديث",
+            "افحص ملفّ الإصدار الموقّع، ونزّل آخر نسخة زرًّا — بلا تنزيل صامت وبلا مفاجآت",
+            onOpenUpdate
         ),
         Item(Icons.Default.Settings, "الإعدادات", "الاسم، الحماية، الوضع الليلي", onOpenSettings),
         Item(Icons.Default.Info, "حول «بيننا»", "ما التطبيق وما لا يفعله", onOpenAbout)

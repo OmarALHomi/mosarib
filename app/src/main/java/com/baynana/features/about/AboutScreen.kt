@@ -64,6 +64,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.baynana.BuildConfig
 import com.baynana.core.license.LicenseDialog
 import com.baynana.core.license.LicenseManager
 import com.baynana.ui.theme.AccentEmerald
@@ -195,7 +196,7 @@ fun AboutScreen(
                                     .padding(horizontal = 10.dp, vertical = 4.dp)
                             ) {
                                 Text(
-                                    text = "الإصدار 1.0.0",
+                                    text = "الإصدار ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = PrimaryTeal,
                                         fontWeight = FontWeight.Bold

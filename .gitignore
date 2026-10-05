@@ -24,3 +24,6 @@ package-lock.json
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+
+# أدوات التحقق المحلي (بلا Gradle): تُبنى على الجهاز ولا تُشحن ولا تُلتزم.
+.verify-local/

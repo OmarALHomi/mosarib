@@ -358,4 +358,33 @@ if duplicates:
 print("OK: لا دوال DAO مكرّرة بالاسم والتوقيع")
 PY_GUARD
 
+# 19) قناة التحديث (ح٢٠): الفحص حين يفتح الإنسان الشاشة، ولا تثبيت صامت.
+#     السبب: أخطر انزلاق في قناة تحديث هو أن تصير خلفيةً تتنزّل وتثبّت بلا علم صاحب الجهاز —
+#     فيتغيّر تطبيقه في يده ويظنّ أن دفاتره هي التي تغيّرت. فالحاجز يمنع ثلاثة أمور:
+#       أ) بناء مستودع الإصدار خارج شاشة التحديث أو طبقة البيانات (أي: لا خدمة خلفية تفحص).
+#       ب) أي استعمال لواجهة تثبيت صامت (`PackageInstaller` أو صلاحية `REQUEST_INSTALL_PACKAGES`).
+#       ج) غياب قالبَي المفتاح والعنوان: بدونهما لا قناة أصلًا، والقالب الفارغ هو ما يجعل الرفض صريحًا.
+RELEASE_CALLERS=$(grep -rl "ReleaseRepository(" app/src/main/java 2>/dev/null \
+  | grep -vE "^(app/src/main/java/com/baynana/features/update/|app/src/main/java/com/baynana/data/local/update/)" || true)
+if [ -n "$RELEASE_CALLERS" ]; then
+  echo "$RELEASE_CALLERS" >&2
+  fail "قناة التحديث تُبنى خارج شاشة التحديث — أي فحص من الخلفية. الفحص قرار مستخدم."
+fi
+SILENT_INSTALL_HITS=$(grep -rnE "PackageInstaller|installPackage\(|REQUEST_INSTALL_PACKAGES" app/src/main 2>/dev/null \
+  | grep -vE ':[0-9]+:[[:space:]]*(\*|//|/\*)' || true)
+if [ -n "$SILENT_INSTALL_HITS" ]; then
+  echo "$SILENT_INSTALL_HITS" >&2
+  fail "واجهة تثبيت صامت في كود التطبيق — التثبيت يمرّ من شاشة النظام وحدها (ح٢٠)."
+fi
+for asset in app/src/main/assets/release_public_key.txt app/src/main/assets/release_endpoint.txt; do
+  [ -f "$asset" ] || fail "أصل قناة التحديث مفقود: $asset — بدونه لا تحقق ولا عنوان."
+done
+pass "قناة التحديث: لا فحص من الخلفية، ولا تثبيت صامت، وقالبَا المفتاح والعنوان موجودان"
+
+# 19ب) أدوات التحقق المحلي لا تُلتزم: هي بدائل تصريف على الجهاز، وليست شيفرة التطبيق.
+if git ls-files | grep -q "^\.verify-local/"; then
+  fail "ملفات .verify-local متتبَّعة في المستودع — هي أدوات محلية تُبنى في الجهاز ولا تُشحن."
+fi
+pass "أدوات التحقق المحلي غير متتبَّعة"
+
 echo "كل الحواجز سليمة."

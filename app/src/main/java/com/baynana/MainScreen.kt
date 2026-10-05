@@ -236,6 +236,13 @@ private fun ShellScaffold(
                         // التسليم بلا إنترنت: حزمة نصّية تُمرَّر في واتساب أو ملفًّا (ح١٩).
                         "handover" -> com.baynana.features.handover.HandoverScreen(onBack = backToMore)
 
+                        // التحديث (ح٢٠): رقم النسخة يأتي من البناء نفسه، فلا رقم مكتوب مرتين.
+                        "update" -> com.baynana.features.update.UpdateScreen(
+                            onBack = backToMore,
+                            currentVersionCode = BuildConfig.VERSION_CODE,
+                            currentVersionName = BuildConfig.VERSION_NAME
+                        )
+
                         "catalog" -> if (BuildConfig.DEBUG) {
                             com.baynana.features.dev.ComponentCatalogScreen(onBack = backToMore)
                         } else {
@@ -288,6 +295,7 @@ private fun ShellScaffold(
                         onOpenAbout = { onNavigate(BaynanaShell.extra("about")) },
                         onOpenSyncStatus = { onNavigate(BaynanaShell.extra("sync")) },
                         onOpenHandover = { onNavigate(BaynanaShell.extra("handover")) },
+                        onOpenUpdate = { onNavigate(BaynanaShell.extra("update")) },
                         // شاشة العيّنات للتطوير فقط: في نسخة التوزيع لا يظهر العنصر ولا الشاشة.
                         onOpenCatalog = if (BuildConfig.DEBUG) {
                             { onNavigate(BaynanaShell.extra("catalog")) }

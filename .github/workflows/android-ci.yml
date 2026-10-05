@@ -53,6 +53,16 @@ jobs:
             echo "::warning title=LICENSE::بيئة بلا node — يُخطّى اختبار الموقّع (ويبقى اختبار المتجه الذهبي في Kotlin)"
           fi
 
+      # اختبار قناة الإصدار (ح٢٠): يولّد ملفًّا موقّعًا بأداة المالك، ويتحقق منه بمكتبة مستقلة،
+      # ويؤكد أن متجهات اختبارات Kotlin هي ما تنتجه الأداة الآن — فلا تنفصل النسختان.
+      - name: Guard release channel tooling (signed manifest round-trip)
+        run: |
+          if command -v node >/dev/null 2>&1; then
+            node tools/release_test.mjs
+          else
+            echo "::warning title=UPDATE::بيئة بلا node — يُخطّى اختبار أدوات الإصدار (ويبقى اختبار المتجهات في Kotlin)"
+          fi
+
       # حاجز بنية قواعد Firestore: يعمل بلا شبكة ولا محاكي، ويكشف القراءة العامة (`if true`)
       # واختفاء حالات §8.2 من المصفوفة (ح١٥)
       - name: Guard Firestore rules structure (deny-by-default, §8.2 matrix present)
