@@ -195,11 +195,6 @@ private fun OutcomeCard(outcome: SyncTokenSetup.Outcome) {
     val colors = BaynanaStatus.colors
     val accepted = outcome is SyncTokenSetup.Outcome.Accepted
     val refused = outcome is SyncTokenSetup.Outcome.Refused
-    val container = when {
-        accepted -> colors.acknowledgedContainer
-        refused -> colors.dangerContainer
-        else -> colors.waitingContainer
-    }
     val onContainer = when {
         accepted -> colors.onAcknowledgedContainer
         refused -> colors.onDangerContainer
