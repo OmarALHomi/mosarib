@@ -58,6 +58,8 @@ fun MoreScreen(
     onOpenHandover: () -> Unit = {},
     /** «التحديث»: فحص ملفّ الإصدار الموقّع، ثم تنزيل بزر (ح٢٠). */
     onOpenUpdate: () -> Unit = {},
+    /** «صحّة النسخة»: بوابات الإطلاق وأرقام هذا الجهاز — بلا تتبّع (ح٢٤). */
+    onOpenHealth: () -> Unit = {},
     onOpenCatalog: (() -> Unit)? = null
 ) {
     data class Item(

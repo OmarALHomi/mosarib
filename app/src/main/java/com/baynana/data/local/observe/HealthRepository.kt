@@ -62,7 +62,6 @@ class HealthRepository(
             lastUpdateCheckAt = update?.checkedAt ?: 0L,
             lastBackupAt = lastBackupAt(),
             migrationFileExported = reportPrefs().getBoolean(KEY_MIGRATION_EXPORTED, false)
-                .getBoolean(KEY_MIGRATION_EXPORTED, false)
         )
         return HealthReport.build(snapshot)
     }

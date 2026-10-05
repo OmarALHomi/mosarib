@@ -102,12 +102,15 @@ fun ObserveScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             )
         }
     ) { padding ->
+        // قيم محلّية: `state` خاصيّة مُفوَّضة، فلا يجوز الاعتماد على تحويلها النوعي داخل `when`.
+        val report = state.report
+        val error = state.error
         when {
             state.loading -> LoadingBody(Modifier.padding(padding))
-            state.error != null -> ErrorBody(state.error, measure, Modifier.padding(padding))
-            state.report == null -> EmptyBody(measure, Modifier.padding(padding))
+            error != null -> ErrorBody(error, measure, Modifier.padding(padding))
+            report == null -> EmptyBody(measure, Modifier.padding(padding))
             else -> ReportBody(
-                report = state.report!!,
+                report = report,
                 refreshing = state.refreshing,
                 onRefresh = measure,
                 onShare = { text ->
