@@ -64,15 +64,18 @@ object SyncBridge {
         if (clean.isEmpty()) return SyncTokenSetup.Outcome.Refused("لم تُدخل رمزًا")
 
         val previous = SyncTransportProvider.transport()
+        // القناة المرشّحة تُبنى محلّيًّا ولا تُثبَّت في الموضع العام إلا بعد الحكم: فلا تبقى قناة
+        // برمز مرفوض تعمل في الخلفية بينما الشاشة تقول «لم يُقبل».
+        val candidate = HttpSyncTransport(
+            changesUrl = url,
+            deviceId = SyncConfig.deviceId(appContext),
+            token = clean
+        )
         val verdict = runCatching {
-            SyncTransportProvider.install(
-                HttpSyncTransport(
-                    changesUrl = url,
-                    deviceId = SyncConfig.deviceId(appContext),
-                    token = clean
-                )
-            )
-            val report = SyncCoordinator(com.baynana.core.database.AppDatabase.getDatabase(appContext)).syncOnce()
+            val report = SyncCoordinator(
+                db = com.baynana.core.database.AppDatabase.getDatabase(appContext),
+                transport = candidate
+            ).syncOnce()
             SyncTokenSetup.interpret(report.errors, report.applied)
         }.getOrElse { failure ->
             SyncTokenSetup.Outcome.Unreachable(failure.message ?: "تعذّر تنفيذ جولة المزامنة")
