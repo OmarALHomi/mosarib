@@ -21,6 +21,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -225,7 +226,17 @@ class MigrationRepositoryTest {
     fun `ملفّ معدَّل في مبلغه يُكتشف`() = runBlocking {
         buildSourceLedger()
         val file = sourceMigration.export()
-        val tampered = file.text.replace("\"amountMinor\":\"1500000\"", "\"amountMinor\":\"1400000\"")
+        // التعديل يقع على **سطر الحدث** الذي يخصّ السقية الأولى: في نصّ الملفّ تكون علامات الاقتباس
+        // مهرَّبة (\") فاستبدال النصّ غير المهرَّب لا يفعل شيئًا — وهو ما جعل الاختبار يمرّ كذبًا أول
+        // مرة في CI. ولذلك يليه تأكيد أن النصّ تغيّر فعلًا قبل أن يُفحص.
+        val tampered = file.text.lineSequence().joinToString("\n") { line ->
+            if (line.startsWith("{\"kind\":\"event\"") && line.contains("op-water-1")) {
+                line.replace("1500000", "1400000")
+            } else {
+                line
+            }
+        }
+        assertNotEquals("الاختبار نفسه: التعديل يجب أن يقع فعلًا", file.text, tampered)
 
         val report = targetMigration.import(tampered, server)
 
