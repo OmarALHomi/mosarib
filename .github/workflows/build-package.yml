@@ -64,6 +64,11 @@ jobs:
       - name: Guard invariants before packaging
         run: ./tools/ci_invariants.sh
 
+      # ح٢١: لا يُبنى إصدار برقم سُجِّل موزَّعًا (الأجهزة التي حدّثت لا ترى الرقم نفسه مرة أخرى)،
+      # ولا يُتغيّر مفتاح التوقيع بعد أول توزيع. والمصدر: docs/RELEASE_LOG_AR.md
+      - name: Guard the release log (versionCode never reused, signing key never changed)
+        run: node tools/release_check.mjs --check
+
       - name: Decode the release keystore when the secrets exist
         id: keystore
         env:
@@ -141,6 +146,25 @@ jobs:
             echo "نسخة تجريبية موقّعة بمفتاح التطوير: للتجربة فقط، ولا تُوزَّع على الناس."
           fi
 
+      # ح٢١: بصمة الشهادة تُقاس من الملفّ نفسه وتُقارَن بالسجلّ قبل أي تغليف أو رفع.
+      - name: Verify the certificate fingerprint against the release log
+        run: |
+          set -euo pipefail
+          node tools/release_check.mjs --verify-apk "$APK" | tee /tmp/apk_identity.txt
+          if [ "$VARIANT" = "release" ]; then
+            CERT_SHA256=$(grep -m1 'بصمة شهادة التوقيع:' /tmp/apk_identity.txt | sed -E 's/.*: *//')
+            APK_SHA256=$(grep -m1 'بصمة الملفّ (sha256):' /tmp/apk_identity.txt | sed -E 's/.*: *//')
+            echo "CERT_SHA256=$CERT_SHA256" >> "$GITHUB_ENV"
+            echo "APK_SHA256=$APK_SHA256" >> "$GITHUB_ENV"
+            # ومتى ضُبطت البصمة المعتمدة في متغيّرات المستودع، صار أي انحراف فشلًا صريحًا.
+            if [ -n "${EXPECTED_APP_CERT_SHA256:-}" ] && [ "$CERT_SHA256" != "$EXPECTED_APP_CERT_SHA256" ]; then
+              echo "::error title=certificate::بصمة شهادة هذا البناء لا تطابق البصمة المعتمدة في المستودع"
+              exit 1
+            fi
+          fi
+        env:
+          EXPECTED_APP_CERT_SHA256: ${{ vars.EXPECTED_APP_CERT_SHA256 }}
+
       - name: Package the APK with checksum and Arabic install notes
         run: |
           set -euo pipefail
@@ -181,6 +205,10 @@ jobs:
           التحقق من سلامة الملف (اختياري، من جهاز حاسوب):
             sha256sum -c ${NAME}.sha256.txt
 
+          بصمة الملف (sha256): ${APK_SHA256:-غير محسوبة}
+          بصمة شهادة التوقيع (sha256): ${CERT_SHA256:-مفتاح التطوير التجريبي}
+          قارِن بصمة الشهادة بما في docs/RELEASE_LOG_AR.md: اختلافها يعني أن الحزمة ليست من المفتاح المعتمد.
+
           ملاحظة: ملفات النسخ الاحتياطي في التطبيق تُكتب في مجلد التنزيلات باسم baynana_backup_…
           TXT
 
@@ -201,6 +229,8 @@ jobs:
             echo "| المعرّف | com.baynana.app |"
             echo "| الدفعة | ${GITHUB_SHA:0:7} |"
             echo "| المفتاح | $([ "$VARIANT" = "release" ] && echo 'مفتاح المشروع' || echo 'مفتاح التطوير (تجريبي)') |"
+            echo "| بصمة الشهادة | ${CERT_SHA256:-—} |"
+            echo "| بصمة الملفّ (sha256) | ${APK_SHA256:-—} |"
             echo ""
             if [ "$VARIANT" = "debug" ]; then
               echo "> **تنبيه:** هذه نسخة تجريبية موقّعة بمفتاح التطوير، للتجربة فقط وليست للنشر."

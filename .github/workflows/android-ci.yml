@@ -53,6 +53,15 @@ jobs:
             echo "::warning title=LICENSE::بيئة بلا node — يُخطّى اختبار الموقّع (ويبقى اختبار المتجه الذهبي في Kotlin)"
           fi
 
+      # فحص سجلّ التوزيع (ح٢١): رقم الإصدار لم يُوزَّع قبله، ولا مفتاحان في السجلّ.
+      - name: Guard the release log (ح٢١)
+        run: |
+          if command -v node >/dev/null 2>&1; then
+            node tools/release_check.mjs --check
+          else
+            echo "::warning title=RELEASE::بيئة بلا node — يُخطّى فحص سجلّ التوزيع"
+          fi
+
       # اختبار قناة الإصدار (ح٢٠): يولّد ملفًّا موقّعًا بأداة المالك، ويتحقق منه بمكتبة مستقلة،
       # ويؤكد أن متجهات اختبارات Kotlin هي ما تنتجه الأداة الآن — فلا تنفصل النسختان.
       - name: Guard release channel tooling (signed manifest round-trip)

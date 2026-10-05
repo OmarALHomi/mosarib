@@ -381,6 +381,14 @@ for asset in app/src/main/assets/release_public_key.txt app/src/main/assets/rele
 done
 pass "قناة التحديث: لا فحص من الخلفية، ولا تثبيت صامت، وقالبَا المفتاح والعنوان موجودان"
 
+# 19ج) سجلّ التوزيع (ح٢١) موجود، والأداة التي تقرؤه مستدعاة في المسارين: فلا يبقى سجلًّا زينة.
+[ -f docs/RELEASE_LOG_AR.md ] || fail "سجلّ الإصدارات الموزَّعة مفقود: docs/RELEASE_LOG_AR.md (ح٢١)."
+grep -q "release_check.mjs --check" .github/workflows/android-ci.yml \
+  || fail "فحص سجلّ التوزيع غير مستدعى في CI — السجلّ بلا فحص لا يمنع خطأً."
+grep -q "release_check.mjs --verify-apk" .github/workflows/build-package.yml \
+  || fail "فحص بصمة الشهادة غير مستدعى قبل التغليف — لا يُوزَّع ملفّ بلا بصمة مقيسة (ح٢١)."
+pass "سجلّ التوزيع موجود ومفحوص، وبصمة الشهادة تُقاس قبل التغليف"
+
 # 19ب) أدوات التحقق المحلي لا تُلتزم: هي بدائل تصريف على الجهاز، وليست شيفرة التطبيق.
 if git ls-files | grep -q "^\.verify-local/"; then
   fail "ملفات .verify-local متتبَّعة في المستودع — هي أدوات محلية تُبنى في الجهاز ولا تُشحن."
