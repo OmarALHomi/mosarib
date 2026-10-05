@@ -455,6 +455,39 @@ if grep -q "MigrationRepository(" app/src/main/java/com/baynana/data/local/sync/
 fi
 pass "الترحيل: أداة مفحوصة ومتجهات تربط الطرفين، والاستيراد يمرّ من عقد المزامنة وحده"
 
+# 22) الإطلاق المراقب (ح٢٤): مقاييس محليّة، وبوابات معلنة، ولا تتبّع.
+#     السبب: أخطر انزلاق في «الإطلاق المراقب» أن يصير مراقبةً للأشخاص لا للنسخة: تُضاف مكتبة تحليلات،
+#     فيُبنى سجلّ عن عائلات لم توافق، ويصير نجاح الإصدار رقمًا بعيدًا لا يراه صاحب الدفتر. فالحاجز يمنع:
+#       أ) غياب طبقات التقرير الثلاث (منطق نقيّ، قارئ محليّ، شاشة) — فالتقرير يصير وعدًا في دليل.
+#       ب) أي مكتبة تتبّع أو تحليلات في بناء التطبيق: القياس على الجهاز، والمشاركة بقرار المالك.
+#       ج) قراءة بياناتك عن بُعد: طبقة القياس لا تعرف الشبكة أصلًا (لا HTTP ولا URL).
+#       د) بناء التقرير في الخلفية أو في المزامنة: التقرير فعل يقصده الإنسان، مثل التحديث.
+OBSERVE_REQUIRED="app/src/main/java/com/baynana/domain/observe/HealthReport.kt app/src/main/java/com/baynana/data/local/observe/HealthRepository.kt app/src/main/java/com/baynana/features/observe/ObserveScreen.kt docs/OBSERVE_AR.md"
+for file in $OBSERVE_REQUIRED; do
+  [ -f "$file" ] || fail "ملفّ الإطلاق المراقب مفقود: $file (ح٢٤)."
+done
+TRACKERS=$(grep -rniE "firebase-analytics|crashlytics|com\.google\.firebase:firebase-perf|sentry|amplitude|mixpanel|appsflyer|adjust-android|datadog" \
+  app/build.gradle.kts gradle/libs.versions.toml 2>/dev/null || true)
+if [ -n "$TRACKERS" ]; then
+  echo "$TRACKERS" >&2
+  fail "مكتبة تتبّع أو تحليلات في البناء — دفاتر العائلات ليست بيانات قياس (ح٢٤)."
+fi
+OBSERVE_NET=$(grep -rnE "HttpURLConnection|OkHttp|okhttp3|URL\(|Socket\(|HttpSyncTransport" \
+  app/src/main/java/com/baynana/domain/observe app/src/main/java/com/baynana/data/local/observe 2>/dev/null \
+  | grep -vE ':[0-9]+:[[:space:]]*(\*|//)' || true)
+if [ -n "$OBSERVE_NET" ]; then
+  echo "$OBSERVE_NET" >&2
+  fail "طبقة القياس تلمس الشبكة — التقرير يُبنى على الجهاز ولا يُرسل وحده (ح٢٤)."
+fi
+if grep -rqE "HealthRepository\(" app/src/main/java/com/baynana/data/local/sync app/src/main/java/com/baynana/core 2>/dev/null; then
+  fail "التقرير يُبنى في الخلفية أو في المزامنة — القياس فعل يقصده المالك لا خدمة تعمل وحدها (ح٢٤)."
+fi
+for gate in G1 G2 G3 G4 G5 G6; do
+  grep -q "$gate" docs/OBSERVE_AR.md || fail "البوابة $gate غير معلنة في docs/OBSERVE_AR.md — بوابة بلا إعلان ليست بوابة (ح٢٤)."
+done
+grep -q "لا تتبّع" docs/OBSERVE_AR.md || fail "دليل الإطلاق لا ينصّ على «لا تتبّع» (ح٢٤)."
+pass "الإطلاق المراقب: تقرير محليّ ببوابات معلنة، ولا تتبّع ولا شبكة في طبقة القياس"
+
 # 19ب) أدوات التحقق المحلي لا تُلتزم: هي بدائل تصريف على الجهاز، وليست شيفرة التطبيق.
 if git ls-files | grep -q "^\.verify-local/"; then
   fail "ملفات .verify-local متتبَّعة في المستودع — هي أدوات محلية تُبنى في الجهاز ولا تُشحن."

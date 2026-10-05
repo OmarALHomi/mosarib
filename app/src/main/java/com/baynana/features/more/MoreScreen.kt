@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Sync
@@ -102,6 +103,7 @@ fun MoreScreen(
             "افحص ملفّ الإصدار الموقّع، ونزّل آخر نسخة زرًّا — بلا تنزيل صامت وبلا مفاجآت",
             onOpenUpdate
         ),
+        Item(Icons.Default.MonitorHeart, "صحّة النسخة", "بوابات الإطلاق وأرقام هذا الجهاز — بلا تتبّع", onOpenHealth),
         Item(Icons.Default.Settings, "الإعدادات", "الاسم، الحماية، الوضع الليلي", onOpenSettings),
         Item(Icons.Default.Info, "حول «بيننا»", "ما التطبيق وما لا يفعله", onOpenAbout)
     ).let { base ->

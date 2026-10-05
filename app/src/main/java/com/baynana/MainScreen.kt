@@ -235,6 +235,7 @@ private fun ShellScaffold(
 
                         // نقل الدفتر: ملفّ ترحيل + جرد يمنع «نجاحًا» ينقصه قيد (ح٢٣).
                         "transfer" -> com.baynana.features.migration.MigrationScreen(onBack = backToMore)
+                        "health" -> com.baynana.features.observe.ObserveScreen(onBack = backToMore)
 
                         // التسليم بلا إنترنت: حزمة نصّية تُمرَّر في واتساب أو ملفًّا (ح١٩).
                         "handover" -> com.baynana.features.handover.HandoverScreen(onBack = backToMore)
@@ -300,6 +301,7 @@ private fun ShellScaffold(
                         onOpenTransfer = { onNavigate(BaynanaShell.extra("transfer")) },
                         onOpenHandover = { onNavigate(BaynanaShell.extra("handover")) },
                         onOpenUpdate = { onNavigate(BaynanaShell.extra("update")) },
+                        onOpenHealth = { onNavigate(BaynanaShell.extra("health")) },
                         // شاشة العيّنات للتطوير فقط: في نسخة التوزيع لا يظهر العنصر ولا الشاشة.
                         onOpenCatalog = if (BuildConfig.DEBUG) {
                             { onNavigate(BaynanaShell.extra("catalog")) }

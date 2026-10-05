@@ -62,6 +62,13 @@ interface LedgerDao {
     @Query("SELECT * FROM room_members WHERE roomId = :roomId AND memberId = :memberId")
     suspend fun getMember(roomId: String, memberId: String): RoomMember?
 
+    /**
+     * كل الأعضاء في كل الغرف: يحتاجه **تقرير الصحّة** (ح٢٤) وحده، لبوابة «كل قيد يحمل اسم صاحبه».
+     * قراءة بلا حدّ مقصودة: بوابة تُقاس على عيّنة من الأسماء ليست بوابة.
+     */
+    @Query("SELECT * FROM room_members")
+    suspend fun getAllMembers(): List<RoomMember>
+
     // ------------------------------------------------------------- القيود
 
     /**
