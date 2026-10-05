@@ -427,6 +427,34 @@ if [ -f server/baynana-sync-server.mjs ] && ! grep -q "process.env.SYNC_TOKEN" s
 fi
 pass "قناة المزامنة: عقد مفحوص، وخادم مرجعي، وربط من موضع واحد، ولا سرّ ولا نصّ مكشوف"
 
+# 21) الترحيل بجرد مطابق (ح٢٣): أداة موجودة ومفحوصة، ودليل المالك مكتوب، ولا خروج بلا جرد.
+#     السبب: أخطر عطل في الترحيل ليس فشلًا ظاهرًا — بل «نجاح» ينقصه قيد واحد فيُكتشف بعد شهر.
+#     فالحاجز يمنع ثلاثة أشياء:
+#       أ) غياب أداة الترحيل أو عدم استدعاء فحصها في CI (الجرد يصير وعدًا في دليل).
+#       ب) غياب اختبار المتجهات الذي يربط Node بـKotlin: بلا الربط يعطي الطرفان جردين مختلفين.
+#       ج) مسار كتابة خاص للاستيراد: الاستيراد يجب أن يمرّ من عقد المزامنة نفسه.
+MIGRATION_REQUIRED="tools/migrate.mjs app/src/main/java/com/baynana/domain/migration/LedgerMigration.kt app/src/main/java/com/baynana/data/local/migration/MigrationRepository.kt"
+for file in $MIGRATION_REQUIRED; do
+  [ -f "$file" ] || fail "ملفّ الترحيل مفقود: $file (ح٢٣)."
+done
+grep -q "migrate.mjs --self-test" .github/workflows/android-ci.yml \
+  || fail "فحص الترحيل غير مستدعى في CI — جرد بلا فحص يصير وعدًا (ح٢٣)."
+[ -f app/src/test/java/com/baynana/domain/migration/LedgerMigrationTest.kt ] \
+  || fail "اختبار المتجهات الذهبية للترحيل مفقود — Node وKotlin قد يعطيان جردين مختلفين (ح٢٣)."
+# النطاق مقصود: ترحيل ح٢٣ وحده. أما LegacyMigrationRepository فهو ترحيل النسخ القديمة (v4→v5)
+# وهو يكتب في القاعدة بحكم أنه ينقل بيانات قديمة داخل الجهاز نفسه، لا ملفًّا خارجيًّا.
+MIGRATION_DIRECT_WRITES=$(grep -rnE "\b(insertEntryIfNew|upsertEntry|insertEntryWithAllocationsAndEnqueue)\(" \
+  app/src/main/java/com/baynana/data/local/migration/MigrationRepository.kt app/src/main/java/com/baynana/features/migration 2>/dev/null \
+  | grep -vE ':[0-9]+:[[:space:]]*(\*|//)' || true)
+if [ -n "$MIGRATION_DIRECT_WRITES" ]; then
+  echo "$MIGRATION_DIRECT_WRITES" >&2
+  fail "استيراد الترحيل يكتب في القاعدة مباشرة — المسار الوحيد المسموح هو عقد المزامنة (ح٢٣)."
+fi
+if grep -q "MigrationRepository(" app/src/main/java/com/baynana/data/local/sync/SyncWorker.kt 2>/dev/null; then
+  fail "المزامنة تستدعي الترحيل: الترحيل فعل يقصده المالك، لا شيء يعمل وحده في الخلفية."
+fi
+pass "الترحيل: أداة مفحوصة ومتجهات تربط الطرفين، والاستيراد يمرّ من عقد المزامنة وحده"
+
 # 19ب) أدوات التحقق المحلي لا تُلتزم: هي بدائل تصريف على الجهاز، وليست شيفرة التطبيق.
 if git ls-files | grep -q "^\.verify-local/"; then
   fail "ملفات .verify-local متتبَّعة في المستودع — هي أدوات محلية تُبنى في الجهاز ولا تُشحن."

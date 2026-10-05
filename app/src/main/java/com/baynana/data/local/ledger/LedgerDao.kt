@@ -268,6 +268,17 @@ interface LedgerDao {
     @Query("SELECT * FROM entries ORDER BY occurredAt DESC, id DESC LIMIT :limit")
     fun observeRecentEntries(limit: Int = 80): Flow<List<LedgerEntry>>
 
+    /**
+     * كل القيود بلا حدّ: يحتاجها **تصدير الترحيل** (ح٢٣) وحده، لأن الجرد يجب أن يرى الدفتر كاملًا.
+     * وحدّ الثمانين في الشاشات مقصود للعرض لا للحساب: لو صدّرنا بحدّ الشاشة لظهر جرد ناقص.
+     */
+    @Query("SELECT * FROM entries ORDER BY occurredAt ASC, id ASC")
+    suspend fun getAllEntries(): List<LedgerEntry>
+
+    /** كل صفوف صندوق الصادر بلا حدّ: هي المصدر الأول لأحداث الترحيل (حمولات كما كُتبت). */
+    @Query("SELECT * FROM outbox ORDER BY createdAt ASC, operationId ASC")
+    suspend fun getAllOutboxItems(): List<OutboxItem>
+
     /** صندوق الصادر كما هو: منه وحده تُعرف حقيقة «أُرسل أم لا» بلا تخمين. */
     @Query("SELECT * FROM outbox ORDER BY createdAt DESC LIMIT :limit")
     fun observeOutboxItems(limit: Int = 120): Flow<List<OutboxItem>>

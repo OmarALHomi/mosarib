@@ -82,6 +82,16 @@ jobs:
             echo "::warning title=SYNC::بيئة بلا node — يُخطّى فحص عقد المزامنة (ويبقى اختبار المتجهات في Kotlin)"
           fi
 
+      # الترحيل بجرد مطابق (ح٢٣): يستورد الأحداث عبر عقد المزامنة نفسه، ويؤكد «صفر فرق في الجرد»،
+      # ويتأكد أن متجهات Kotlin هي مخرَج الأداة الآن — فلا ينحرف الطرفان في قاعدة حساب واحدة.
+      - name: Guard ledger migration (inventory matches after import)
+        run: |
+          if command -v node >/dev/null 2>&1; then
+            node tools/migrate.mjs --self-test
+          else
+            echo "::warning title=MIGRATION::بيئة بلا node — يُخطّى فحص الترحيل (ويبقى اختبار Kotlin للمتجهات)"
+          fi
+
       # حاجز بنية قواعد Firestore: يعمل بلا شبكة ولا محاكي، ويكشف القراءة العامة (`if true`)
       # واختفاء حالات §8.2 من المصفوفة (ح١٥)
       - name: Guard Firestore rules structure (deny-by-default, §8.2 matrix present)

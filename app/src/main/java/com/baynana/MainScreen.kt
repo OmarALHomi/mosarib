@@ -233,6 +233,9 @@ private fun ShellScaffold(
                         // حالة المزامنة: ما حال كل حركة وما العمل فيها (لا نجاح كاذب).
                         "sync" -> SyncStatusScreen(onBack = backToMore)
 
+                        // نقل الدفتر: ملفّ ترحيل + جرد يمنع «نجاحًا» ينقصه قيد (ح٢٣).
+                        "transfer" -> com.baynana.features.migration.MigrationScreen(onBack = backToMore)
+
                         // التسليم بلا إنترنت: حزمة نصّية تُمرَّر في واتساب أو ملفًّا (ح١٩).
                         "handover" -> com.baynana.features.handover.HandoverScreen(onBack = backToMore)
 
@@ -294,6 +297,7 @@ private fun ShellScaffold(
                         onOpenSettings = { onNavigate(BaynanaShell.extra("settings")) },
                         onOpenAbout = { onNavigate(BaynanaShell.extra("about")) },
                         onOpenSyncStatus = { onNavigate(BaynanaShell.extra("sync")) },
+                        onOpenTransfer = { onNavigate(BaynanaShell.extra("transfer")) },
                         onOpenHandover = { onNavigate(BaynanaShell.extra("handover")) },
                         onOpenUpdate = { onNavigate(BaynanaShell.extra("update")) },
                         // شاشة العيّنات للتطوير فقط: في نسخة التوزيع لا يظهر العنصر ولا الشاشة.

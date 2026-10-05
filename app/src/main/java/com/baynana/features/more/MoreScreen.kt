@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.Analytics
@@ -51,6 +52,7 @@ fun MoreScreen(
     onOpenAbout: () -> Unit = {},
     /** «حالة المزامنة»: حقيقة كل حركة وما العمل فيها. */
     onOpenSyncStatus: () -> Unit = {},
+    onOpenTransfer: () -> Unit = {},
     /** «التسليم بلا إنترنت»: ملفّ/رمز يمرّ في واتساب بلا حساب ولا خادم (ح١٩). */
     onOpenHandover: () -> Unit = {},
     /** «التحديث»: فحص ملفّ الإصدار الموقّع، ثم تنزيل بزر (ح٢٠). */
@@ -81,6 +83,12 @@ fun MoreScreen(
             "حالة المزامنة",
             "لكل حركة: محفوظة في جهازك، أُرسلت، أُقرّت، أو فشلت ومعها الحل",
             onOpenSyncStatus
+        ),
+        Item(
+            Icons.AutoMirrored.Filled.CompareArrows,
+            "نقل الدفتر بجرد مطابق",
+            "صدّر دفترك في ملفّ، أو استورد ملفًّا — وبعد الاستيراد يُقارَن كل رقم ويُعرض أي فرق",
+            onOpenTransfer
         ),
         Item(
             Icons.Default.ImportExport,
