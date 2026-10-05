@@ -18,6 +18,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   API_PREFIX,
+  RELEASE_PATH,
   SyncServerStore,
   checkPayload,
   decodeCursor,
@@ -119,6 +120,29 @@ assert.ok(unauthorized.body.error.includes("رمز"), "رسالة عربية ل�
 const unknownPath = handleRequest(store, { method: "GET", url: "/admin/rooms", headers: { authorization: `Bearer ${TOKEN}` } }, { token: TOKEN, nowMillis });
 assert.equal(unknownPath.status, 404);
 console.log("  ✅ بلا رمز صالح: 401، ومسار غير معروف: 404 — ولا شيء غيرهما");
+
+// ---------------------------------------------------------- ٣ب) قناة الإصدار على الخادم نفسه
+// الخادم الخاص ينفّذ العقدين: المزامنة والتحميل. وهنا يُثبَّت أمران يخطئ فيهما من ينشر الخادم:
+//   ١) مسار الإصدار **عامّ**: يعمل بلا رمز مزامنة (جهاز جديد لم يُضبط له رمز بعد).
+//   ٢) النصّ يُخدَم **كما هو**: التوقيع يُتحقَّق من البايتات، فأي إعادة ترميز JSON تفسده.
+const releaseWithoutFile = handleRequest(
+  new SyncServerStore(),
+  { method: "GET", url: RELEASE_PATH, headers: {} },
+  { token: TOKEN, nowMillis }
+);
+assert.equal(releaseWithoutFile.status, 404, "بلا ملفّ إصدار: 404 لا نجاح كاذب");
+assert.ok(releaseWithoutFile.body.error.includes("ملفّ إصدار"), "ورسالة عربية مفهومة");
+
+const releaseSignature = "eyJwYXlsb2FkIjoiMS4yIn0.c2lnbmF0dXJl";
+const releaseWithFile = handleRequest(
+  new SyncServerStore(),
+  { method: "GET", url: RELEASE_PATH, headers: {} },
+  { token: TOKEN, nowMillis, releaseText: releaseSignature }
+);
+assert.equal(releaseWithFile.status, 200, "الملفّ يُخدَم على المسار الثابت");
+assert.equal(releaseWithFile.raw, releaseSignature, "النصّ كما هو بلا إعادة ترميز");
+assert.equal(releaseWithFile.body, undefined, "لا يُعاد ترميز الملفّ كـJSON");
+console.log("  ✅ قناة الإصدار على الخادم الخاص: عامّة بلا رمز، ونصّها يُخدَم كما هو (أو 404 عربية)");
 
 // ------------------------------------------------------------------ ٤) فحوص الحمولة مباشرة
 assert.ok(checkPayload(JSON.stringify({ amountMinor: "1500000" })) === null);

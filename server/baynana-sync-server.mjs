@@ -42,6 +42,16 @@ import http from "node:http";
 import https from "node:https";
 
 export const API_PREFIX = "/api/v1";
+
+/**
+ * مسار قناة الإصدار (ح٢٠) على الخادم الخاص نفسه.
+ *
+ * **وهو عامّ عن قصد**، خلافًا لمسار المزامنة: ملفّ الإصدار موقّع بمفتاح المالك، وقراءته لا تكشف
+ * شيئًا، وفحص التحديث يجب أن يعمل على جهاز لم يُضبط له رمز مزامنة بعد (جهاز جديد تمامًا). ولذلك
+ * يُخدَم هذا المسار **قبل** فحص الرمز، ولا يحتاج رمزًا. والتحقق يقع في التطبيق على الملفّ نفسه،
+ * فلا يهمّ من قدّمه.
+ */
+export const RELEASE_PATH = "/api/v1/app-release";
 export const MAX_ITEMS_PER_PUSH = 200;
 export const MAX_LIMIT = 200;
 export const DEFAULT_LIMIT = 50;
@@ -177,6 +187,16 @@ export function handleRequest(store, request, options = {}) {
   if (!url.pathname.startsWith(API_PREFIX)) {
     return { status: 404, body: { error: "مسار غير معروف" } };
   }
+  // قناة الإصدار تُخدَم قبل فحص الرمز: الملفّ موقّع وعامّ، وفحص التحديث لا يحتاج رمز مزامنة.
+  if (request.method === "GET" && url.pathname === RELEASE_PATH) {
+    const text = options.releaseText ?? null;
+    if (text === null || text.trim() === "") {
+      return { status: 404, body: { error: "لا ملفّ إصدار مُهيّأ على هذا الخادم" } };
+    }
+    // النصّ كما هو (لا إعادة ترميز): التوقيع يُتحقَّق من البايتات نفسها، فأي تحويل يفسده.
+    return { status: 200, raw: text, contentType: "text/plain; charset=utf-8" };
+  }
+
   if (expectedToken && request.headers?.authorization !== `Bearer ${expectedToken}`) {
     return { status: 401, body: { error: "رمز الجهاز غير صالح" } };
   }
@@ -227,6 +247,11 @@ export function createServer(options = {}) {
         }
       }
       const result = handleRequest(store, { method: req.method, url: req.url, headers: req.headers, body }, options);
+      if (result.raw !== undefined) {
+        res.writeHead(result.status, { "content-type": result.contentType ?? "text/plain; charset=utf-8" });
+        res.end(result.raw);
+        return;
+      }
       res.writeHead(result.status, { "content-type": "application/json; charset=utf-8" });
       res.end(JSON.stringify(result.body));
     });
@@ -246,11 +271,20 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const tlsCert = process.env.TLS_CERT ?? null;
   const tlsKey = process.env.TLS_KEY ?? null;
   const tls = tlsCert && tlsKey ? { cert: fs.readFileSync(tlsCert), key: fs.readFileSync(tlsKey) } : null;
-  const server = createServer({ token, stateFile, tls });
+  // ملفّ الإصدار الموقّع (نصّه كما هو): إن مُرِّر، صار الخادم نفسه قناة التحديث أيضًا — بعنوان
+  // واحد في التطبيق. وإن غاب، يُقال ذلك بصراحة (404 عربية) ولا يُخدَم شيء.
+  const releaseFile = process.env.RELEASE_FILE ?? null;
+  const releaseText = releaseFile ? fs.readFileSync(releaseFile, "utf8") : null;
+  const server = createServer({ token, stateFile, tls, releaseText });
   server.listen(port, "0.0.0.0", () => {
     const scheme = tls ? "https" : "http";
     console.log(`خادم بيننا المرجعي يعمل على ${scheme}://0.0.0.0:${port}${token ? " (برمز جهاز)" : " (بلا رمز — للتجربة المحلية فقط)"}`);
     if (!token) console.log("تنبيه: بلا SYNC_TOKEN لا مصادقة إطلاقًا. لا تنشره على شبكة عامة بهذه الحال.");
+    console.log(
+      releaseText
+        ? `قناة الإصدار: ${scheme}://0.0.0.0:${port}${RELEASE_PATH} (ملفّ موقّع يُخدَم كما هو)`
+        : "قناة الإصدار: غير مُهيّأة على هذا الخادم (RELEASE_FILE غائب) — والمسار يردّ 404 عربية."
+    );
     if (scheme === "http") {
       console.log("تنبيه: التطبيق يرفض النصّ المكشوف (usesCleartextTraffic=false). للتجربة على جهاز");
       console.log("        حقيقي ضع شهادة TLS (TLS_CERT/TLS_KEY) أو نفقًا يشغّل https.");
