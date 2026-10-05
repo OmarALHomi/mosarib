@@ -44,6 +44,8 @@ object HealthReport {
         val nextAttemptAt: Long,
         val lastSyncAt: Long,
         val lastSyncError: String,
+        /** سبب آخر حركة ميتة (`DEAD`) كما هو مكتوب في القاعدة — فالرفض يجب أن يُسمّى بسببه الحقيقي. */
+        val deadOutboxReason: String = "",
         val channelConfigured: Boolean,
         val updateState: String,
         val lastUpdateCheckAt: Long,
@@ -141,15 +143,15 @@ object HealthReport {
         )
 
         val metrics = listOf(
-            "الغرف" to snapshot.rooms.toString(),
-            "الأعضاء" to snapshot.members.toString(),
-            "القيود النشطة" to snapshot.activeEntries.toString(),
+            Metrics.LABEL_ROOMS to snapshot.rooms.toString(),
+            Metrics.LABEL_MEMBERS to snapshot.members.toString(),
+            Metrics.LABEL_ACTIVE to snapshot.activeEntries.toString(),
             "الملغى" to snapshot.voidedEntries.toString(),
             "القيود العكسية" to snapshot.reversals.toString(),
-            "مسودات محلية" to snapshot.drafts.toString(),
+            Metrics.LABEL_DRAFTS to snapshot.drafts.toString(),
             "في الطابور" to snapshot.pendingOutbox.toString(),
             "بانتظار إعادة" to snapshot.failedOutbox.toString(),
-            "يحتاج تدخلًا" to snapshot.deadOutbox.toString(),
+            Metrics.LABEL_DEAD to snapshot.deadOutbox.toString(),
             "آخر مزامنة" to Metrics.ageText(snapshot.now, snapshot.lastSyncAt),
             "آخر نسخة احتياطية" to Metrics.ageText(snapshot.now, snapshot.lastBackupAt),
             "آخر فحص تحديث" to Metrics.ageText(snapshot.now, snapshot.lastUpdateCheckAt),
@@ -186,7 +188,9 @@ object HealthReport {
                 action = ""
             )
         }
-        val reason = snapshot.lastSyncError.ifBlank { "سبب مسجَّل في شاشة حالة المزامنة" }
+        val reason = snapshot.lastSyncError
+            .ifBlank { snapshot.deadOutboxReason }
+            .ifBlank { "سبب مسجَّل في شاشة حالة المزامنة" }
         return Gate(
             id = "G2",
             statement = "لا فشل صامت: كل رفض يُعرض بسببه",
@@ -293,6 +297,13 @@ object HealthReport {
 
     /** صيغة عرض الأرقام: عرض صفري وسطر عربي — والمصدر واحد لكل الشاشات. */
     object Metrics {
+        // تسميات ثابتة: الشاشة والاختبارات تقرأ منها، فلا ينحرف نصّ عن نصّ بحرف واحد.
+        const val LABEL_ROOMS = "الغرف"
+        const val LABEL_MEMBERS = "الأعضاء"
+        const val LABEL_ACTIVE = "القيود النشطة"
+        const val LABEL_DRAFTS = "مسودات محلية"
+        const val LABEL_DEAD = "يحتاج تدخلًا"
+
         fun ageText(now: Long, at: Long): String {
             if (at <= 0L) return "لم يقع بعد"
             val minutes = (now - at) / 60_000

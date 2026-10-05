@@ -57,6 +57,11 @@ class HealthRepository(
             nextAttemptAt = sync.nextAttemptAt,
             lastSyncAt = dao.getSyncState(SYNC_STATE_KEY)?.lastSyncAt ?: 0L,
             lastSyncError = sync.lastError,
+            // سبب آخر حركة ميتة كما هو مكتوب: الرفض يجب أن يُسمّى بسببه لا بجملة عامّة.
+            deadOutboxReason = outbox
+                .lastOrNull { it.state == OutboxState.DEAD }
+                ?.lastError
+                .orEmpty(),
             channelConfigured = SyncConfig.isConfigured(context),
             updateState = updateText(update?.state, update?.knownLatestVersionName),
             lastUpdateCheckAt = update?.checkedAt ?: 0L,

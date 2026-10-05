@@ -95,11 +95,11 @@ class HealthRepositoryTest {
         val report = repository.report(now)
 
         val metrics = report.metrics.toMap()
-        assertEquals("1", metrics["الغرف"])
-        assertEquals("2", metrics["الأعضاء"])
-        assertEquals("القيود النشطة", "1", metrics["القيود النشطة"])
-        assertEquals("مسودات محليّة", "1", metrics["مسودات محليّة"])
-        assertEquals("يحتاج تدخلًا", "1", metrics["يحتاج تدخلًا"])
+        assertEquals("1", metrics[HealthReport.Metrics.LABEL_ROOMS])
+        assertEquals("2", metrics[HealthReport.Metrics.LABEL_MEMBERS])
+        assertEquals("1", metrics[HealthReport.Metrics.LABEL_ACTIVE])
+        assertEquals("1", metrics[HealthReport.Metrics.LABEL_DRAFTS])
+        assertEquals("1", metrics[HealthReport.Metrics.LABEL_DEAD])
     }
 
     @Test

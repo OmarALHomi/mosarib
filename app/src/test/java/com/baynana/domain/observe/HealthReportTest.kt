@@ -69,6 +69,16 @@ class HealthReportTest {
     }
 
     @Test
+    fun `سبب الحركة الميتة يُسمّى في البوابة إن لم يوجد خطأ مزامنة`() {
+        val report = HealthReport.build(
+            healthy().copy(deadOutbox = 1, lastSyncError = "", deadOutboxReason = "الصيغة مرفوضة من الخادم")
+        )
+        val gate = report.gates.first { it.id == "G2" }
+        assertEquals(HealthReport.GateState.FAIL, gate.state)
+        assertTrue("لا جملة عامّة بل السبب الحقيقي", gate.measured.contains("الصيغة مرفوضة من الخادم"))
+    }
+
+    @Test
     fun `فشل دائم بلا سبب ظاهر يُسقط بوابة الصمت`() {
         val report = HealthReport.build(healthy().copy(deadOutbox = 2, lastSyncError = "رمز الجهاز مرفوض"))
         val gate = report.gates.first { it.id == "G2" }
