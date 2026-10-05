@@ -84,7 +84,7 @@ class HealthRepositoryTest {
             OutboxItem(
                 operationId = "op-dead", entityType = "entry", entityId = "e-1", action = "UPSERT",
                 payload = "{}", state = OutboxState.DEAD, attempts = 4,
-                lastError = "رمز الجهاز مرفوض", createdAt = now
+                lastError = "رمز الجهاز مرفوض", createdAt = now, updatedAt = now
             )
         )
     }
