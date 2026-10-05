@@ -231,13 +231,18 @@ private fun ShellScaffold(
                         "about" -> AboutScreen(onBack = backToMore)
 
                         // حالة المزامنة: ما حال كل حركة وما العمل فيها (لا نجاح كاذب).
-                        "sync" -> SyncStatusScreen(onBack = backToMore)
+                        "sync" -> SyncStatusScreen(
+                            onBack = backToMore,
+                            onOpenDeviceLink = { onNavigate(BaynanaShell.extra("device-link")) }
+                        )
 
                         // نقل الدفتر: ملفّ ترحيل + جرد يمنع «نجاحًا» ينقصه قيد (ح٢٣).
                         "transfer" -> com.baynana.features.migration.MigrationScreen(onBack = backToMore)
                         "health" -> com.baynana.features.observe.ObserveScreen(onBack = backToMore)
                         // «لوحة الترحيل» (د٦): قرار المالك على الإرث في شاشة كاملة، لا في نافذة عابرة.
                         "legacy" -> com.baynana.features.migration.LegacyMigrationPanel(onBack = backToMore)
+                        // «ربط الجهاز» (ح٢٢ب): إدخال رمز الجهاز ثم إثبات أن القناة تعمل قبل الحفظ.
+                        "device-link" -> com.baynana.features.sync.SyncTokenScreen(onBack = backToMore)
 
                         // التسليم بلا إنترنت: حزمة نصّية تُمرَّر في واتساب أو ملفًّا (ح١٩).
                         "handover" -> com.baynana.features.handover.HandoverScreen(onBack = backToMore)
@@ -300,6 +305,7 @@ private fun ShellScaffold(
                         onOpenSettings = { onNavigate(BaynanaShell.extra("settings")) },
                         onOpenAbout = { onNavigate(BaynanaShell.extra("about")) },
                         onOpenSyncStatus = { onNavigate(BaynanaShell.extra("sync")) },
+                        onOpenDeviceLink = { onNavigate(BaynanaShell.extra("device-link")) },
                         onOpenTransfer = { onNavigate(BaynanaShell.extra("transfer")) },
                         onOpenHandover = { onNavigate(BaynanaShell.extra("handover")) },
                         onOpenUpdate = { onNavigate(BaynanaShell.extra("update")) },

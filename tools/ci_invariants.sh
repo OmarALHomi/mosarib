@@ -488,6 +488,30 @@ done
 grep -q "لا تتبّع" docs/OBSERVE_AR.md || fail "دليل الإطلاق لا ينصّ على «لا تتبّع» (ح٢٤)."
 pass "الإطلاق المراقب: تقرير محليّ ببوابات معلنة، ولا تتبّع ولا شبكة في طبقة القياس"
 
+# 23) ربط الجهاز (ح٢٢ب): رمز الجهاز يُكتب من موضع واحد، والإعداد لا يحفظ بلا إثبات.
+#     السبب: أخطر خطأ في إعداد قناة مشفّرة أن يُحفظ رمز خاطئ فيظنّ صاحبه أن قناته تعمل — وهو لا يرسل
+#     شيئًا ولا يستقبل، ويبقى يعتقد أن الطرف الآخر «لم يُقرّ». فالحاجز يمنع:
+#       أ) الكتابة على مفتاح الرمز خارج SyncConfig (مصدر واحد للحقيقة).
+#       ب) معرفة طبقة الإعداد بالشبكة (فلا «إثبات» مزعوم بلا جولة حقيقية).
+#       ج) غياب شاشة الربط أو غياب مسارها — فالباب الذي لا وجود له يعني قناة لا تُضبط على جهاز حقيقي.
+SYNC_TOKEN_WRITERS=$(grep -rln "KEY_DEVICE_TOKEN" app/src/main/java 2>/dev/null \
+  | grep -v "app/src/main/java/com/baynana/core/sync/SyncConfig.kt" || true)
+if [ -n "$SYNC_TOKEN_WRITERS" ]; then
+  echo "$SYNC_TOKEN_WRITERS" >&2
+  fail "مفتاح رمز الجهاز مكتوب من خارج SyncConfig — مصدر واحد للسرّ (ح٢٢ب)."
+fi
+SETUP_NET=$(grep -rnE "Http|okhttp|Socket|URL\(" app/src/main/java/com/baynana/core/sync/SyncTokenSetup.kt 2>/dev/null || true)
+if [ -n "$SETUP_NET" ]; then
+  echo "$SETUP_NET" >&2
+  fail "منطق الإعداد يعرف الشبكة — الحكم يجب أن يكون نقيًّا يُختبر بلا شبكة (ح٢٢ب)."
+fi
+for required in app/src/main/java/com/baynana/features/sync/SyncTokenScreen.kt app/src/test/java/com/baynana/core/sync/SyncTokenSetupTest.kt; do
+  [ -f "$required" ] || fail "ملفّ ربط الجهاز مفقود: $required (ح٢٢ب)."
+done
+grep -q "\"device-link\"" app/src/main/java/com/baynana/MainScreen.kt \
+  || fail "مسار «ربط الجهاز» غير موصول في التنقّل — شاشة لا تُفتح لا تُغني (ح٢٢ب)."
+pass "ربط الجهاز: الرمز من مصدر واحد، والإعداد نقيّ يُختبر، والباب موصول"
+
 # 19ب) أدوات التحقق المحلي لا تُلتزم: هي بدائل تصريف على الجهاز، وليست شيفرة التطبيق.
 if git ls-files | grep -q "^\.verify-local/"; then
   fail "ملفات .verify-local متتبَّعة في المستودع — هي أدوات محلية تُبنى في الجهاز ولا تُشحن."

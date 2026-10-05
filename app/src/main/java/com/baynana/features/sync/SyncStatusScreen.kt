@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -73,7 +74,11 @@ import kotlinx.coroutines.withContext
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SyncStatusScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun SyncStatusScreen(
+    onBack: () -> Unit,
+    onOpenDeviceLink: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val repository = remember { SyncStatusRepository(AppDatabase.getDatabase(context)) }
@@ -143,6 +148,23 @@ fun SyncStatusScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 
             message?.let { text ->
                 item { SyncBadge(text, isWarning = true) }
+            }
+
+            // «ربط الجهاز» (ح٢٢ب): الباب الذي بلا وجوده لا تُضبط القناة على جهاز حقيقي. ويظهر دائمًا
+            // — لأن من لم يضبط القناة بعد يحتاج أن يعرف أن للقناة بابًا، لا أن يرى «غير مضبوطة» بلا مخرج.
+            if (!channelConfigured) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        SyncBadge("لا قناة مزامنة على هذا الجهاز — والتطبيق يعمل محليًّا كاملًا.", isWarning = true)
+                        OutlinedButton(onClick = onOpenDeviceLink, modifier = Modifier.fillMaxWidth()) {
+                            Text("ربط الجهاز برمز من المالك")
+                        }
+                    }
+                }
+            } else {
+                item {
+                    TextButton(onClick = onOpenDeviceLink) { Text("إعدادات الربط (تبديل الرمز)") }
+                }
             }
 
             if (view == null) {

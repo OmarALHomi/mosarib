@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MonitorHeart
+import androidx.compose.material.icons.filled.PhonelinkSetup
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Sync
@@ -53,6 +54,8 @@ fun MoreScreen(
     onOpenAbout: () -> Unit = {},
     /** «حالة المزامنة»: حقيقة كل حركة وما العمل فيها. */
     onOpenSyncStatus: () -> Unit = {},
+    /** «ربط الجهاز» (ح٢٢ب): إدخال رمز الجهاز ثم إثبات القناة قبل الحفظ. */
+    onOpenDeviceLink: () -> Unit = {},
     onOpenTransfer: () -> Unit = {},
     /** «التسليم بلا إنترنت»: ملفّ/رمز يمرّ في واتساب بلا حساب ولا خادم (ح١٩). */
     onOpenHandover: () -> Unit = {},
@@ -86,6 +89,12 @@ fun MoreScreen(
             "حالة المزامنة",
             "لكل حركة: محفوظة في جهازك، أُرسلت، أُقرّت، أو فشلت ومعها الحل",
             onOpenSyncStatus
+        ),
+        Item(
+            Icons.Default.PhonelinkSetup,
+            "ربط الجهاز",
+            "رمز من المالك يُثبِت القناة، ولا يُحفظ حتى يُقبل",
+            onOpenDeviceLink
         ),
         Item(
             Icons.AutoMirrored.Filled.CompareArrows,

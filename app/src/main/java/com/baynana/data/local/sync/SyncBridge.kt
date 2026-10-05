@@ -3,6 +3,7 @@ package com.baynana.data.local.sync
 import android.content.Context
 import com.baynana.core.sync.HttpSyncTransport
 import com.baynana.core.sync.SyncConfig
+import com.baynana.core.sync.SyncTokenSetup
 import com.baynana.domain.sync.TransportPort
 
 /**
@@ -44,6 +45,47 @@ object SyncBridge {
         SyncScheduler.schedulePeriodic(appContext)
         true
     }.getOrDefault(false)
+
+    /**
+     * **جولة تحقّق برمز مرشّح** (ح٢٢ب): تثبّت قناةً مؤقّتة بالرمز المُدخَل، وتُجري جولة مزامنة حقيقية،
+     * ثم تحكم: قُبل، أم رُفض، أم تعذّر الوصول — **بلا حفظ إن لم يُقبل**.
+     *
+     * ولماذا هنا لا في الشاشة؟ لأن تنصيب القناة مسموح من هذا الملفّ وحده (حاجز ٢٠): مسار ثانٍ
+     * يُنصّب قناة هو مسار ثانٍ يرسل بيانات العائلة. والشاشة تسأل، والجواب يُبنى هنا.
+     *
+     * وإن قُبل: يُحفظ الرمز (المكان الوحيد الذي يكتبه `SyncConfig`) ويُثبَّت الربط الإنتاجي كاملًا
+     * بإشارة الكتابة والعمل الدوري. وإن لم يُقبل: **يُعاد الأثر كما كان**، فلا تبقى قناة نصف مضبوطة.
+     */
+    suspend fun tryConnect(context: Context, token: String): SyncTokenSetup.Outcome {
+        val appContext = context.applicationContext ?: context
+        val url = SyncConfig.changesUrl(appContext)
+            ?: return SyncTokenSetup.Outcome.Refused("لا عنوان مزامنة في هذا البناء: القناة لا تُضبط من الشاشة")
+        val clean = token.trim()
+        if (clean.isEmpty()) return SyncTokenSetup.Outcome.Refused("لم تُدخل رمزًا")
+
+        val previous = SyncTransportProvider.transport()
+        val verdict = runCatching {
+            SyncTransportProvider.install(
+                HttpSyncTransport(
+                    changesUrl = url,
+                    deviceId = SyncConfig.deviceId(appContext),
+                    token = clean
+                )
+            )
+            val report = SyncCoordinator(com.baynana.core.database.AppDatabase.getDatabase(appContext)).syncOnce()
+            SyncTokenSetup.interpret(report.errors, report.applied)
+        }.getOrElse { failure ->
+            SyncTokenSetup.Outcome.Unreachable(failure.message ?: "تعذّر تنفيذ جولة المزامنة")
+        }
+
+        if (SyncTokenSetup.shouldSave(verdict)) {
+            SyncConfig.saveDeviceToken(appContext, clean)
+            install(appContext)
+        } else {
+            SyncTransportProvider.install(previous)
+        }
+        return verdict
+    }
 
     /**
      * حقن قناة جاهزة (اختبار، أو قناة يشغّلها المالك يدويًّا في نسخة داخلية). منفصل عن [install]

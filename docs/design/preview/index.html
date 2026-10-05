@@ -3,195 +3,105 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>معاينة تصميم «بيننا» — حزمتا د١+د٢</title>
+<title>معاينة «بيننا» — ما هو منفَّذ فعلًا (ح٢٤ + د٦)</title>
 <style>
   :root {
-    --nile: #14304F;
-    --nile-light: #3F6489;
-    --nile-container: #D9E4F0;
-    --nile-soft: #52779C;
-    --nile-soft-container: #E6EDF5;
-    --honey-gold: #C99A28;
-    --gold-container: #F6EBC9;
-    --cream-bg: #FAF7F0;
-    --cream-surface: #FFFDF8;
-    --cream-variant: #EDE7DA;
-    --ink: #14202E;
-    --ink-muted: #57616C;
-    --outline: #D8D2C4;
-    --acknowledged: #1B6B45;
-    --acknowledged-container: #DCEFE3;
-    --waiting: #8A5A00;
-    --waiting-container: #FBEBD0;
-    --info: #2A5B8A;
-    --info-container: #DEEAF6;
-    --danger: #B3261E;
-    --danger-container: #F9DEDC;
-    --night-bg: #0C1622;
-    --night-surface: #14202E;
-    --night-ink: #F3F1EA;
+    --nile: #14304F; --nile-light: #3F6489; --nile-container: #D9E4F0;
+    --gold: #C99A28; --gold-container: #F6EBC9;
+    --paper: #FAF7F0; --surface: #FFFDF8; --variant: #EDE7DA;
+    --ink: #14202E; --muted: #57616C; --outline: #D8D2C4;
+    --ok: #1B6B45; --ok-c: #DCEFE3; --wait: #8A5A00; --wait-c: #FBEBD0;
+    --info: #2A5B8A; --info-c: #DEEAF6; --danger: #B3261E; --danger-c: #F9DEDC;
+    --night-bg: #0C1622; --night-surface: #14202E; --night-ink: #F3F1EA;
   }
   * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: #EFEADF;
-    color: var(--ink);
-    font-family: "Noto Naskh Arabic", "Amiri", "Segoe UI", "Tahoma", system-ui, sans-serif;
-    line-height: 1.7;
-  }
-  .page { max-width: 1240px; margin: 0 auto; padding: 28px 18px 60px; }
-  header.top {
-    background: var(--cream-surface);
-    border: 1px solid var(--outline);
-    border-radius: 18px;
-    padding: 22px 24px;
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    flex-wrap: wrap;
-  }
-  .wordmark { display: flex; align-items: center; gap: 14px; }
-  .wordmark h1 { margin: 0; font-size: 30px; letter-spacing: 0; }
-  .tagline { color: var(--ink-muted); font-size: 15px; margin: 0; }
-  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin-inline-start: auto; }
-  .pill {
-    display: inline-flex; align-items: center; gap: 6px;
-    border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 600;
-  }
-  .pill.ok { background: var(--acknowledged-container); color: var(--acknowledged); }
-  .pill.wait { background: var(--waiting-container); color: var(--waiting); }
-  .pill.info { background: var(--info-container); color: var(--info); }
-  .pill.gold { background: var(--gold-container); color: #6A5405; }
-  .note {
-    background: var(--gold-container);
-    border: 1px solid #E3D08C;
-    border-radius: 14px;
-    padding: 14px 18px;
-    margin: 18px 0 26px;
-    font-size: 15px;
-  }
-  h2.section { font-size: 21px; margin: 34px 0 4px; }
-  p.section-sub { color: var(--ink-muted); margin: 0 0 14px; font-size: 14px; }
-  .palette { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
-  .swatch { width: 132px; border-radius: 12px; overflow: hidden; border: 1px solid var(--outline); background: #fff; }
-  .swatch .chip { height: 54px; }
-  .swatch .meta { padding: 6px 9px; font-size: 11.5px; color: var(--ink-muted); direction: ltr; text-align: left; }
-  .swatch .meta b { display: block; color: var(--ink); font-size: 12.5px; }
-  .frames { display: flex; gap: 26px; flex-wrap: wrap; }
-  .frame { width: 360px; }
-  .frame > .label { font-size: 14px; font-weight: 700; margin-bottom: 8px; color: var(--ink-muted); }
-  .phone {
-    width: 360px; height: 720px; border-radius: 26px; overflow: hidden;
-    background: var(--cream-bg); border: 1px solid var(--outline);
-    box-shadow: 0 16px 34px rgba(24, 20, 12, 0.12);
-    display: flex; flex-direction: column; position: relative;
-  }
-  .screen { flex: 1; overflow: hidden; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-  .screen.dim { filter: saturate(0.85); }
-  .topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
-  .topbar .title { font-size: 19px; font-weight: 800; }
-  .topbar .sub { font-size: 12px; color: var(--ink-muted); }
-  .icon-btn {
-    width: 32px; height: 32px; border-radius: 50%; background: var(--cream-variant);
-    display: grid; place-items: center; color: var(--ink-muted); font-size: 15px;
-  }
-  .spacer { flex: 1; }
-  .card {
-    background: var(--cream-surface); border: 1px solid var(--outline);
-    border-radius: 14px; padding: 13px;
-  }
-  .card.tight { padding: 10px 12px; }
-  .net {
-    background: var(--nile-container);
-    border: 1px solid #BFD2E5;
-    border-radius: 18px; padding: 16px;
-  }
-  .net .lbl { color: #123A5B; font-size: 13px; font-weight: 700; }
-  .net .amount { font-size: 30px; font-weight: 800; margin: 4px 0 8px; color: #0A2137; }
-  .net .row3 { display: flex; gap: 14px; font-size: 12.5px; color: #123A5B; flex-wrap: wrap; }
-  .net .row3 b { font-weight: 700; }
-  .sec-head { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; }
-  .sec-head .t { font-size: 15px; font-weight: 800; }
-  .sec-head .s { font-size: 11.5px; color: var(--ink-muted); }
-  .room { display: flex; align-items: center; gap: 10px; }
-  .room .info { flex: 1; }
-  .room .name { font-weight: 700; font-size: 14.5px; }
-  .room .meta { font-size: 11.5px; color: var(--ink-muted); }
-  .room .net-amt { font-weight: 800; font-size: 15px; }
-  .room .net-amt.neg { color: var(--danger); }
-  .room .net-amt.pos { color: var(--nile); }
-  .chips { display: flex; gap: 6px; align-items: center; margin-top: 5px; flex-wrap: wrap; }
-  .chip {
-    border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700;
-    display: inline-flex; align-items: center; gap: 4px;
-  }
-  .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-  .entry { border: 1px solid var(--outline); background: var(--cream-surface); border-radius: 12px; padding: 11px 12px; }
-  .entry.reversal { border-style: dashed; }
-  .entry .line1 { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-  .entry .amt { font-weight: 800; font-size: 16px; }
-  .entry .amt.pay { color: var(--nile); }
-  .entry .amt.void { color: var(--ink-muted); text-decoration: line-through; }
-  .entry .desc { font-size: 13px; margin-top: 2px; }
-  .entry .date { font-size: 11px; color: var(--ink-muted); }
-  .numbers { display: flex; justify-content: space-between; gap: 8px; text-align: center; padding: 4px 0; }
-  .numbers div { flex: 1; }
-  .numbers .k { font-size: 11.5px; color: var(--ink-muted); }
-  .numbers .v { font-size: 15px; font-weight: 700; }
-  .numbers .v.em { color: var(--nile); font-weight: 800; }
-  .btnrow { display: flex; gap: 8px; flex-wrap: wrap; }
-  .btn {
-    border-radius: 999px; padding: 8px 15px; font-size: 13.5px; font-weight: 700;
-    background: var(--nile); color: #fff; border: none;
-  }
-  .btn.ghost { background: transparent; color: var(--nile); border: 1.5px solid var(--nile); }
-  .btn.small { padding: 5px 12px; font-size: 11.5px; }
-  .btn.muted { background: var(--cream-variant); color: var(--ink-muted); }
-  .sync {
-    background: var(--cream-variant); color: var(--ink-muted);
-    border-radius: 10px; padding: 7px 11px; font-size: 11.5px;
-  }
-  .sync.warn { background: var(--waiting-container); color: var(--waiting); }
-  .tabbar {
-    border-top: 1px solid var(--outline); background: var(--cream-surface);
-    display: flex; padding: 6px 4px 8px;
-  }
-  .tab { flex: 1; text-align: center; font-size: 11px; color: var(--ink-muted); }
-  .tab .ic { display: block; font-size: 17px; }
-  .tab.active { color: var(--nile); font-weight: 800; }
-  .tab.active .ic { color: var(--nile); }
-  .menu-item { display: flex; align-items: center; gap: 11px; }
-  .menu-item .ic {
-    width: 34px; height: 34px; border-radius: 10px; background: var(--nile-container);
-    display: grid; place-items: center; color: var(--nile);
-  }
-  .menu-item .tt { font-weight: 700; font-size: 14px; }
-  .menu-item .ss { font-size: 11.5px; color: var(--ink-muted); }
-  .overlay {
-    position: absolute; inset: 0; background: rgba(27, 26, 23, 0.45);
-    display: grid; place-items: center; padding: 18px;
-  }
-  .dialog {
-    background: var(--cream-surface); border-radius: 20px; padding: 16px; width: 100%;
-    max-height: 84%; overflow: auto;
-  }
-  .dialog h3 { margin: 0 0 6px; font-size: 17px; }
-  .dialog p { margin: 0 0 10px; font-size: 12.5px; color: var(--ink-muted); }
-  .recon { border-top: 1px dashed var(--outline); padding-top: 8px; margin-top: 8px; }
-  .recon .nm { font-weight: 700; font-size: 13.5px; display: flex; gap: 8px; align-items: center; }
-  .recon .ln { font-size: 11.5px; color: var(--ink-muted); }
-  .recon .ln.bad { color: var(--danger); }
-  .dark .phone-note { color: #C2C9C3; }
+  body { margin: 0; background: #EFEADF; color: var(--ink);
+    font-family: "Noto Naskh Arabic", "Amiri", "Segoe UI", Tahoma, system-ui, sans-serif; line-height: 1.75; }
+  .page { max-width: 1280px; margin: 0 auto; padding: 26px 16px 70px; }
+  header.top { background: var(--surface); border: 1px solid var(--outline); border-radius: 18px;
+    padding: 20px 22px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .wordmark { display: flex; align-items: center; gap: 12px; }
+  .mark { width: 46px; height: 46px; border-radius: 12px; background: var(--nile); position: relative; flex: 0 0 auto; }
+  .mark::before, .mark::after { content: ""; position: absolute; inset-inline-start: 10px; width: 26px; height: 12px;
+    border: 3px solid var(--gold); border-bottom: none; border-radius: 14px 14px 0 0; }
+  .mark::before { top: 11px; }
+  .mark::after { top: 20px; transform: rotate(180deg); border-radius: 0 0 14px 14px; border-top: none; border-bottom: 3px solid var(--gold); }
+  h1 { margin: 0; font-size: 27px; }
+  .tagline { margin: 0; color: var(--muted); font-size: 14px; }
+  .pills { display: flex; gap: 8px; flex-wrap: wrap; margin-inline-start: auto; }
+  .pill { display: inline-flex; gap: 6px; align-items: center; border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 700; }
+  .pill.ok { background: var(--ok-c); color: var(--ok); }
+  .pill.wait { background: var(--wait-c); color: var(--wait); }
+  .pill.info { background: var(--info-c); color: var(--info); }
+  .pill.danger { background: var(--danger-c); color: var(--danger); }
+  .pill.plain { background: var(--variant); color: var(--ink); }
+  h2.section { margin: 34px 0 12px; font-size: 21px; }
+  h2.section small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
+  .grid { display: flex; flex-wrap: wrap; gap: 18px; }
+  .phone { width: 340px; flex: 0 0 auto; background: var(--paper); border: 1px solid var(--outline);
+    border-radius: 26px; padding: 10px; box-shadow: 0 6px 18px rgba(20,48,79,.08); }
   .phone.dark { background: var(--night-bg); border-color: #33434F; }
-  .phone.dark .card, .phone.dark .entry, .phone.dark .tabbar, .phone.dark .dialog { background: var(--night-surface); border-color: #33434F; color: var(--night-ink); }
-  .phone.dark .topbar .title, .phone.dark .room .name, .phone.dark .entry .desc { color: var(--night-ink); }
-  .phone.dark .room .meta, .phone.dark .entry .date, .phone.dark .numbers .k, .phone.dark .sec-head .s { color: #C2C9C3; }
+  .screen { background: var(--surface); border-radius: 18px; overflow: hidden; border: 1px solid var(--variant); }
+  .phone.dark .screen { background: var(--night-surface); border-color: #33434F; color: var(--night-ink); }
+  .label { text-align: center; font-size: 12.5px; color: var(--muted); margin: 8px 0 2px; font-weight: 600; }
+  .phone.dark .label { color: #C2C9C3; }
+  .topbar { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--variant); }
+  .phone.dark .topbar { border-color: #33434F; }
+  .topbar .title { font-weight: 800; font-size: 16px; }
+  .topbar .spacer { margin-inline-start: auto; color: var(--muted); font-size: 12px; }
+  .body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .card { border: 1px solid var(--variant); border-radius: 14px; padding: 12px; background: #fff; }
+  .phone.dark .card { background: #182433; border-color: #33434F; }
+  .card.hero { background: var(--nile); color: #fff; border: none; }
+  .card.hero .k { color: #CFE0F0; }
+  .k { font-size: 12px; color: var(--muted); }
+  .big { font-size: 26px; font-weight: 800; letter-spacing: 0; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .row .name { font-weight: 700; font-size: 14.5px; }
+  .row .meta { color: var(--muted); font-size: 12px; }
+  .row .amt { margin-inline-start: auto; font-weight: 800; font-size: 14px; }
+  .amt.neg { color: var(--ok); }
+  .amt.pos { color: var(--danger); }
+  .chip { font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 9px; }
+  .chip.ok { background: var(--ok-c); color: var(--ok); }
+  .chip.wait { background: var(--wait-c); color: var(--wait); }
+  .chip.info { background: var(--info-c); color: var(--info); }
+  .chip.danger { background: var(--danger-c); color: var(--danger); }
+  .chip.gold { background: var(--gold-container); color: #6B4E06; }
+  .sec { font-size: 12.5px; font-weight: 800; color: var(--nile); }
+  .phone.dark .sec { color: #AFC7DE; }
+  .entries { display: flex; flex-direction: column; gap: 8px; }
+  .entry { border: 1px solid var(--variant); border-radius: 12px; padding: 9px 11px; }
+  .phone.dark .entry { border-color: #33434F; }
+  .entry .desc { font-size: 13.5px; font-weight: 700; }
+  .entry .date { font-size: 11.5px; color: var(--muted); }
+  .tabbar { display: flex; border-top: 1px solid var(--variant); background: #fff; }
+  .phone.dark .tabbar { background: #182433; border-color: #33434F; }
+  .tabbar div { flex: 1; text-align: center; font-size: 11px; padding: 9px 2px; color: var(--muted); font-weight: 700; }
+  .tabbar div.on { color: var(--nile); box-shadow: inset 0 3px 0 var(--gold); }
+  .phone.dark .tabbar div.on { color: #BFD6EA; }
+  .sync { background: var(--variant); color: var(--ink); font-size: 12px; border-radius: 10px; padding: 7px 10px; }
   .phone.dark .sync { background: #1E2C3A; color: #C2C9C3; }
-  table.changes { width: 100%; border-collapse: collapse; background: var(--cream-surface); border-radius: 14px; overflow: hidden; }
-  table.changes th, table.changes td { padding: 9px 12px; border-bottom: 1px solid var(--outline); font-size: 13.5px; text-align: right; }
-  table.changes th { background: var(--cream-variant); font-size: 13px; }
-  footer { margin-top: 40px; color: var(--ink-muted); font-size: 13px; }
-  code { direction: ltr; display: inline-block; background: var(--cream-variant); border-radius: 6px; padding: 1px 6px; font-size: 12.5px; }
+  .banner { border-radius: 12px; padding: 9px 11px; font-size: 12.5px; font-weight: 700; }
+  .banner.ok { background: var(--ok-c); color: var(--ok); }
+  .banner.bad { background: var(--danger-c); color: var(--danger); }
+  .banner.warn { background: var(--wait-c); color: var(--wait); }
+  .banner.dark { background: var(--nile); color: #fff; }
+  button.btn { border: none; border-radius: 12px; padding: 9px 14px; font: inherit; font-weight: 700; font-size: 13px;
+    background: var(--nile); color: #fff; cursor: default; }
+  button.btn.ghost { background: transparent; border: 1px solid var(--nile); color: var(--nile); }
+  button.btn.gold { background: var(--gold); color: #241A00; }
+  button.btn:disabled { opacity: .45; }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--outline);
+    border-radius: 14px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: start; padding: 9px 12px; border-bottom: 1px solid var(--variant); vertical-align: top; }
+  th { background: var(--nile-container); color: #0E2438; font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  .note { background: var(--surface); border: 1px solid var(--outline); border-radius: 14px; padding: 14px 16px; font-size: 14px; }
+  .note b { color: var(--nile); }
+  code { background: var(--variant); border-radius: 6px; padding: 1px 6px; font-size: 12.5px; direction: ltr; display: inline-block; }
+  a { color: var(--info); }
+  footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -199,457 +109,221 @@
 
   <header class="top">
     <div class="wordmark">
-      <img src="data:image/png;base64,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" width="62" height="62" alt="شعار بيننا" style="border-radius:14px" />
+      <div class="mark" aria-hidden="true"></div>
       <div>
         <h1>بيننا</h1>
-        <p class="tagline">مستودع حساباتك ومعاملاتك</p>
+        <p class="tagline">مستودع حساباتك ومعاملاتك — معاينة ما هو <b>منفَّذ فعلًا</b> على الفرع</p>
       </div>
     </div>
-    <div class="pill-row">
-      <span class="pill ok">د١ الهوية ✓</span>
-      <span class="pill ok">د٢ الصدفة والشاشات ✓</span>
-      <span class="pill gold">معاينة تصميم</span>
+    <div class="pills">
+      <span class="pill ok">CI أخضر ✓</span>
+      <span class="pill info">ح٢٤ + د٦/١ مكتملان</span>
+      <span class="pill wait">د٦ جارية</span>
+      <span class="pill plain">الفرع: arena/01a0fe73-mosarib</span>
     </div>
   </header>
 
-  <div class="note">
-    هذه <b>معاينة تصميم مطابقة للشيفرة المنفَّذة</b> (نفس المصطلحات والمبالغ وحالات الأزرار) لعرضها في المتصفح.
-    النسخة الحقيقية على الجهاز تُبنى من نفس الملفات: <code>MainScreen.kt</code>، <code>features/home</code>،
-    <code>features/rooms</code>، <code>features/movements</code>، <code>features/more</code>،
-    <code>ui/theme</code>، <code>ui/components</code>. حسابٌ رقميّ واحد يغذّي كل شاشة: <code>LedgerSnapshot</code>.
-  </div>
-
-  <h2 class="section">لوحة «نيلة وذهب»</h2>
-  <p class="section-sub">النيلة (أزرق حبر الدفتر) هي الأساسي، والذهبي لمسة واحدة لا تزيد عن 5% من الشاشة — وهي نقطة الشعار نفسها.</p>
-  <div class="palette">
-    <div class="swatch"><div class="chip" style="background:#14304F"></div><div class="meta"><b>NavyNile</b>#14304F</div></div>
-    <div class="swatch"><div class="chip" style="background:#52779C"></div><div class="meta"><b>NileSoft</b>#52779C</div></div>
-    <div class="swatch"><div class="chip" style="background:#C99A28"></div><div class="meta"><b>HoneyGold</b>#C99A28</div></div>
-    <div class="swatch"><div class="chip" style="background:#FAF7F0"></div><div class="meta"><b>PaperBackground</b>#FAF7F0</div></div>
-    <div class="swatch"><div class="chip" style="background:#FFFDF8"></div><div class="meta"><b>CreamSurface</b>#FFFDF8</div></div>
-    <div class="swatch"><div class="chip" style="background:#1B6B45"></div><div class="meta"><b>Acknowledged</b>#1B6B45</div></div>
-    <div class="swatch"><div class="chip" style="background:#8A5A00"></div><div class="meta"><b>Waiting</b>#8A5A00</div></div>
-    <div class="swatch"><div class="chip" style="background:#B3261E"></div><div class="meta"><b>Danger</b>#B3261E</div></div>
-    <div class="swatch"><div class="chip" style="background:#0C1622"></div><div class="meta"><b>NightBackground</b>#0C1622</div></div>
-  </div>
-
-  <h2 class="section">الشاشات الخمس + كشف الغرفة (فاتح)</h2>
-  <p class="section-sub">تبويبان ثابتان لكل قالب، والمحتوى نفسه يختلف بحسب الدور. الشريط: الرئيسية · غرفي · الحركات · السوق · المزيد.</p>
-
-  <div class="frames">
-
-    <!-- الرئيسية -->
-    <div class="frame">
-      <div class="label">١ — الرئيسية: «كم لي وكم عليّ؟» و«ما الذي ينتظرني؟»</div>
-      <div class="phone">
-        <div class="screen">
-          <div class="topbar">
-            <span class="title">دفترك</span>
-            <span class="spacer"></span>
-            <span class="icon-btn">⟳</span>
-          </div>
-
-          <div class="net">
-            <div class="lbl">لك عند الناس</div>
-            <div class="amount">125,500 ر.ي</div>
-            <div class="row3">
-              <span>المبلغ: <b>310,000 ر.ي</b></span>
-              <span>المسدَّد: <b>184,500 ر.ي</b></span>
-              <span>الباقي: <b>125,500 ر.ي</b></span>
-            </div>
-          </div>
-
-          <div class="sec-head"><span class="t">ينتظر إقرارك (2)</span></div>
-          <div class="card tight room">
-            <div class="info">
-              <div class="name">مسرب الوادي</div>
-              <div class="meta">بانتظار إقرارك: 2 قيدًا</div>
-              <div class="chips">
-                <span class="chip" style="background:#DCEFE3;color:#1B6B45"><span class="dot"></span>قائمة</span>
-              </div>
-            </div>
-            <div class="net-amt pos">+ 60,000 ر.ي</div>
-          </div>
-
-          <div class="card" style="background:#DEEAF6;border-color:#BFD5EC">
-            <div style="font-weight:700;font-size:13.5px;color:#20496F">دفترك القديم فيه 3 عملاء و5 قيود</div>
-            <div style="font-size:11.5px;color:#20496F;margin-top:4px">
-              المجموع: 148,000 ر.ي. الترحيل ينقل المتبقي كما كان بتاريخ كل سقية، ولا يحذف شيئًا من الدفتر القديم.
-            </div>
-            <div class="btnrow" style="margin-top:10px">
-              <button class="btn small">رحّل الآن</button>
-              <button class="btn small ghost">أرني الجرد أولًا</button>
-            </div>
-          </div>
-
-          <div class="sec-head"><span class="t">غرفي (3)</span><span class="s">اضغط أي غرفة لترى كشفها كاملًا</span></div>
-
-          <div class="card tight room">
-            <div class="info">
-              <div class="name">بقالة الأمانة</div>
-              <div class="meta">أبو أحمد • آخر حركة في دفترك</div>
-              <div class="chips"><span class="chip" style="background:#DCEFE3;color:#1B6B45"><span class="dot"></span>قائمة</span></div>
-            </div>
-            <div class="net-amt neg">− 18,500 ر.ي</div>
-          </div>
-
-          <div class="card tight room">
-            <div class="info">
-              <div class="name">دلال الرمان</div>
-              <div class="meta">سالم الدلال • كود الربط: K7X2M</div>
-              <div class="chips"><span class="chip" style="background:#FBEBD0;color:#8A5A00"><span class="dot"></span>بانتظار قبول الربط</span></div>
-            </div>
-            <div class="net-amt pos">+ 84,000 ر.ي</div>
-          </div>
-
-          <div class="spacer"></div>
-          <div class="sync">كل ما تكتبه محفوظ في دفترك على هذا الجهاز</div>
-        </div>
-        <div class="tabbar">
-          <div class="tab active"><span class="ic">⌂</span>الرئيسية</div>
-          <div class="tab"><span class="ic">☰</span>غرفي</div>
-          <div class="tab"><span class="ic">≡</span>الحركات</div>
-          <div class="tab"><span class="ic">🛒</span>السوق</div>
-          <div class="tab"><span class="ic">⋯</span>المزيد</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- كشف الغرفة -->
-    <div class="frame">
-      <div class="label">٢ — كشف الغرفة: الأرقام، ثم ما ينتظر إقراري، ثم الحركات</div>
-      <div class="phone">
-        <div class="screen">
-          <div class="topbar">
-            <span class="icon-btn">›</span>
-            <div>
-              <div class="title" style="font-size:17px">مسرب الوادي</div>
-              <div class="sub">أحمد بن ناصر</div>
-            </div>
-            <span class="spacer"></span>
-            <span class="icon-btn">⤴</span>
-          </div>
-
-          <div class="card">
-            <div class="chips" style="margin:0 0 8px">
-              <span class="chip" style="background:#DCEFE3;color:#1B6B45"><span class="dot"></span>قائمة</span>
-              <span class="chip" style="background:#EDE7DA;color:#5C5850">كود الربط: K7X2M</span>
-            </div>
-            <div class="numbers">
-              <div><div class="k">المبلغ</div><div class="v">180,000 ر.ي</div></div>
-              <div><div class="k">المسدَّد</div><div class="v">120,000 ر.ي</div></div>
-              <div><div class="k">الباقي</div><div class="v em">60,000 ر.ي</div></div>
-            </div>
-            <div style="margin-top:8px;font-size:13.5px;font-weight:800;color:#14304F">الصافي: لك 60,000 ر.ي</div>
-            <div style="margin-top:6px;font-size:11.5px;color:#20496F">
-              رصيد دائن معلّق: 10,000 ر.ي — لم يُخصَّص على دَين بعد
-            </div>
-          </div>
-
-          <div class="btnrow">
-            <button class="btn small">قيد جديد</button>
-            <button class="btn small ghost">💵 سداد/قبض</button>
-          </div>
-
-          <div class="sec-head"><span class="t">ينتظر إقرارك (1)</span><span class="s">الإقرار يغيّر الحالة فقط، ولا يمسح القيد</span></div>
-          <div class="entry">
-            <div class="line1">
-              <span class="amt">45,000 ر.ي</span>
-              <span class="chip" style="background:#FBEBD0;color:#8A5A00"><span class="dot"></span>بانتظار الإقرار</span>
-            </div>
-            <div class="desc">سقية 5 ساعات — البئر الشرقي</div>
-            <div class="date">2026-10-02</div>
-            <div class="btnrow" style="margin-top:8px">
-              <button class="btn small">أقرّ</button>
-              <button class="btn small ghost">اعتراض</button>
-            </div>
-          </div>
-
-          <div class="sec-head"><span class="t">الحركات (4)</span></div>
-          <div class="entry">
-            <div class="line1">
-              <span class="amt">45,000 ر.ي</span>
-              <span class="chip" style="background:#DCEFE3;color:#1B6B45"><span class="dot"></span>مُقرّ</span>
-            </div>
-            <div class="desc">سقية 6 ساعات — البئر الشرقي</div>
-            <div class="date">2026-09-28</div>
-          </div>
-          <div class="entry">
-            <div class="line1">
-              <span class="amt pay">− 40,000 ر.ي</span>
-              <span class="chip" style="background:#DCEFE3;color:#1B6B45"><span class="dot"></span>مُقرّ</span>
-            </div>
-            <div class="desc">قبض عام — بقي غير مخصَّص</div>
-            <div class="date">2026-09-25</div>
-          </div>
-          <div class="entry reversal">
-            <div class="line1">
-              <span class="amt void">30,000 ر.ي</span>
-              <span class="chip" style="background:#EDE7DA;color:#5C5850"><span class="dot"></span>ملغى بقيد عكسي</span>
-            </div>
-            <div class="desc">قيد عكسي: تصحيح سقية مكرّرة</div>
-            <div class="date">2026-09-21</div>
-          </div>
-        </div>
-        <div class="tabbar">
-          <div class="tab"><span class="ic">⌂</span>الرئيسية</div>
-          <div class="tab active"><span class="ic">☰</span>غرفي</div>
-          <div class="tab"><span class="ic">≡</span>الحركات</div>
-          <div class="tab"><span class="ic">🛒</span>السوق</div>
-          <div class="tab"><span class="ic">⋯</span>المزيد</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- الحركات -->
-    <div class="frame">
-      <div class="label">٣ — الحركات: تدفّق واحد لكل الغرف، والغرفة مكتوبة على كل سطر</div>
-      <div class="phone">
-        <div class="screen">
-          <div class="topbar"><span class="title">الحركات</span></div>
-          <div style="font-size:11.5px;color:#5C5850;margin-top:-6px">
-            كل ما جرى في غرفك، الأحدث أولًا. الغرفة مكتوبة على كل سطر حتى لا تختلط الحسابات.
-          </div>
-
-          <div class="btnrow">
-            <button class="btn small">الكل</button>
-            <button class="btn small ghost">عليّ</button>
-            <button class="btn small ghost">لي</button>
-            <button class="btn small ghost">بانتظار الإقرار</button>
-          </div>
-
-          <div style="font-size:12px;color:#14304F;font-weight:700;margin-top:6px">
-            مسرب الوادي <span class="chip" style="background:#FBEBD0;color:#8A5A00;margin-inline-start:6px">ينتظر إقرارك: 2</span>
-          </div>
-          <div class="entry">
-            <div class="line1">
-              <span class="amt">45,000 ر.ي</span>
-              <span class="chip" style="background:#FBEBD0;color:#8A5A00"><span class="dot"></span>بانتظار الإقرار</span>
-            </div>
-            <div class="desc">سقية 5 ساعات — البئر الشرقي</div>
-            <div class="date">2026-10-02</div>
-          </div>
-
-          <div style="font-size:12px;color:#14304F;font-weight:700;margin-top:6px">بقالة الأمانة</div>
-          <div class="entry">
-            <div class="line1">
-              <span class="amt pay">− 12,000 ر.ي</span>
-              <span class="chip" style="background:#DCEFE3;color:#1B6B45"><span class="dot"></span>مُقرّ</span>
-            </div>
-            <div class="desc">سداد — الأقدم فالأقدم</div>
-            <div class="date">2026-10-01</div>
-          </div>
-
-          <div style="font-size:12px;color:#14304F;font-weight:700;margin-top:6px">دلال الرمان</div>
-          <div class="entry">
-            <div class="line1">
-              <span class="amt">84,000 ر.ي</span>
-              <span class="chip" style="background:#DEEAF6;color:#2A5B8A"><span class="dot"></span>مسودة لم تُرسل</span>
-            </div>
-            <div class="desc">دَين سلعة — 4 كراتين رمان</div>
-            <div class="date">2026-09-30</div>
-          </div>
-
-          <div class="spacer"></div>
-          <div class="sync">الحفظ محلي أولًا: القيد يظهر في دفترك قبل إقرار الطرف</div>
-        </div>
-        <div class="tabbar">
-          <div class="tab"><span class="ic">⌂</span>الرئيسية</div>
-          <div class="tab"><span class="ic">☰</span>غرفي</div>
-          <div class="tab active"><span class="ic">≡</span>الحركات</div>
-          <div class="tab"><span class="ic">🛒</span>السوق</div>
-          <div class="tab"><span class="ic">⋯</span>المزيد</div>
-        </div>
-      </div>
-    </div>
-
-  </div>
-
-  <h2 class="section">«المزيد» وحوار جرد الترحيل</h2>
-  <p class="section-sub">ما لم يُبنَ بعد يُعلن «قريبًا» صراحةً — لا زرّ فارغ ولا وعد بميزة غير موجودة.</p>
-
-  <div class="frames">
-    <div class="frame">
-      <div class="label">٤ — المزيد (فاتح)</div>
-      <div class="phone">
-        <div class="screen">
-          <div class="topbar"><span class="title">المزيد</span></div>
-          <div style="font-size:11.5px;color:#5C5850;margin-top:-6px">
-            «بيننا» دفتر حسابات محلي أولًا. لا نطلب مالًا، ولا نحجب بياناتك عند أي إيقاف، ولا نعرض ديونك لأحد.
-          </div>
-
-          <div class="card tight menu-item">
-            <div class="ic">⚖</div>
-            <div><div class="tt">الصلح والأقساط</div><div class="ss">بيان الصلح، الأقساط، وسعاية الدلال</div></div>
-          </div>
-          <div class="card tight menu-item">
-            <div class="ic">🌾</div>
-            <div><div class="tt">مزرعتي</div><div class="ss">مصروفات المزرعة في دفترك الخاص</div></div>
-          </div>
-          <div class="card tight menu-item">
-            <div class="ic">📊</div>
-            <div><div class="tt">التقارير</div><div class="ss">خلاصات وطباعة الكشوف</div></div>
-          </div>
-          <div class="card tight menu-item">
-            <div class="ic">🗄</div>
-            <div style="flex:1"><div class="tt">النسخ الاحتياطي</div><div class="ss">النسخ يعمل من الإعدادات؛ ومعاينة الاستعادة تُبنى في حزمة قادمة</div></div>
-            <span class="chip" style="background:#EDE7DA;color:#5C5850">قريبًا</span>
-          </div>
-          <div class="card tight menu-item">
-            <div class="ic">📒</div>
-            <div><div class="tt">الترحيل من الدفتر القديم</div><div class="ss">الجرد والقرار قبل أي نقل</div></div>
-          </div>
-          <div class="card tight menu-item">
-            <div class="ic">⚙</div>
-            <div><div class="tt">الإعدادات</div><div class="ss">الاسم، الحماية، الوضع الليلي</div></div>
-          </div>
-          <div class="card tight menu-item">
-            <div class="ic">ℹ</div>
-            <div><div class="tt">حول «بيننا»</div><div class="ss">ما التطبيق وما لا يفعله</div></div>
-          </div>
-        </div>
-        <div class="tabbar">
-          <div class="tab"><span class="ic">⌂</span>الرئيسية</div>
-          <div class="tab"><span class="ic">☰</span>غرفي</div>
-          <div class="tab"><span class="ic">≡</span>الحركات</div>
-          <div class="tab"><span class="ic">🛒</span>السوق</div>
-          <div class="tab active"><span class="ic">⋯</span>المزيد</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="frame">
-      <div class="label">٥ — حوار «أرني الجرد أولًا»: لا ترحيل صامت</div>
-      <div class="phone">
-        <div class="screen dim" style="padding:0">
-          <div class="screen" style="padding:14px">
-            <div class="topbar"><span class="title">دفترك</span></div>
-            <div class="net"><div class="lbl">لك عند الناس</div><div class="amount">125,500 ر.ي</div></div>
-            <div class="card tight room"><div class="info"><div class="name">مسرب الوادي</div><div class="meta">بانتظار إقرارك: 2 قيدًا</div></div><div class="net-amt pos">+ 60,000 ر.ي</div></div>
-            <div class="card tight room"><div class="info"><div class="name">بقالة الأمانة</div><div class="meta">أبو أحمد</div></div><div class="net-amt neg">− 18,500 ر.ي</div></div>
-          </div>
-          <div class="overlay">
-            <div class="dialog">
-              <h3>الترحيل من الدفتر القديم</h3>
-              <p>
-                المصدر: دفتر المسرب القديم. والترحيل ينقل <b>المتبقي</b> فقط، وبتاريخ آخر سقية مسجّل،
-                ولا يحذف شيئًا من الدفتر القديم.
-              </p>
-              <div class="chips" style="margin-bottom:8px">
-                <span class="chip" style="background:#DEEAF6;color:#2A5B8A">عملاء: 3</span>
-                <span class="chip" style="background:#DEEAF6;color:#2A5B8A">قيود: 5</span>
-              </div>
-              <div style="font-weight:800;font-size:13.5px">الإجمالي القديم: 148,000 ر.ي ← المرحَّل: 148,000 ر.ي</div>
-
-              <div class="recon">
-                <div class="nm">أحمد بن ناصر <span class="chip" style="background:#DCEFE3;color:#1B6B45">يطابق</span></div>
-                <div class="ln">قديم: 60,000 ر.ي • مرحَّل: 60,000 ر.ي</div>
-              </div>
-              <div class="recon">
-                <div class="nm">أبو أحمد <span class="chip" style="background:#DCEFE3;color:#1B6B45">يطابق</span></div>
-                <div class="ln">قديم: 18,500 ر.ي • مرحَّل: 18,500 ر.ي</div>
-              </div>
-              <div class="recon">
-                <div class="nm">سالم الدلال <span class="chip" style="background:#F9DEDC;color:#B3261E">لا يطابق</span></div>
-                <div class="ln bad">قديم: 69,500 ر.ي • مرحَّل: 84,000 ر.ي • فرق لا يُرحَّل حتى يُحلّ</div>
-              </div>
-
-              <div class="btnrow" style="margin-top:12px">
-                <button class="btn small muted">رحّل الآن</button>
-                <button class="btn small ghost">لاحقًا</button>
-              </div>
-              <div style="font-size:11px;color:#5C5850;margin-top:8px">
-                زرّ «رحّل الآن» معطَّل لأن هناك فرقًا في الجرد: القاعدة أن الترحيل لا يبدأ بفرق غير مفسَّر.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="frame">
-      <div class="label">٦ — الوضع الليلي: نفس الشاشة بلوحة الليل (نموذج)</div>
-      <div class="phone dark">
-        <div class="screen">
-          <div class="topbar"><span class="title">دفترك</span><span class="spacer"></span><span class="icon-btn" style="background:#1E2C3A;color:#C2C9C3">⟳</span></div>
-          <div class="net" style="background:#17334F;border-color:#1F4266">
-            <div class="lbl" style="color:#A9C2DA">لك عند الناس</div>
-            <div class="amount" style="color:#D9E4F0">125,500 ر.ي</div>
-            <div class="row3" style="color:#B9CBDF">
-              <span>المبلغ: <b>310,000 ر.ي</b></span>
-              <span>المسدَّد: <b>184,500 ر.ي</b></span>
-            </div>
-          </div>
-          <div class="card tight room">
-            <div class="info">
-              <div class="name">مسرب الوادي</div>
-              <div class="meta">بانتظار إقرارك: 2 قيدًا</div>
-            </div>
-            <div class="net-amt pos" style="color:#A9C2DA">+ 60,000 ر.ي</div>
-          </div>
-          <div class="card tight room">
-            <div class="info">
-              <div class="name">بقالة الأمانة</div>
-              <div class="meta">أبو أحمد</div>
-            </div>
-            <div class="net-amt neg" style="color:#FFB4AB">− 18,500 ر.ي</div>
-          </div>
-          <div class="spacer"></div>
-          <div class="sync">كل ما تكتبه محفوظ في دفترك على هذا الجهاز</div>
-        </div>
-        <div class="tabbar" style="background:#14202E;border-color:#33434F">
-          <div class="tab active" style="color:#A9C2DA"><span class="ic">⌂</span>الرئيسية</div>
-          <div class="tab" style="color:#C2C9C3"><span class="ic">☰</span>غرفي</div>
-          <div class="tab" style="color:#C2C9C3"><span class="ic">≡</span>الحركات</div>
-          <div class="tab" style="color:#C2C9C3"><span class="ic">🛒</span>السوق</div>
-          <div class="tab" style="color:#C2C9C3"><span class="ic">⋯</span>المزيد</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <h2 class="section">ما الذي تغيّر فعلًا عن النسخة القديمة</h2>
-  <table class="changes">
-    <tr><th>قبل</th><th>بعد (د١+د٢)</th></tr>
-    <tr>
-      <td>أيقونة أندرويد الافتراضية (روبوت)</td>
-      <td>أيقونة «بيننا»: مصافحة قلبية داخل قلب، بلمسة ذهبية عند ملتقى اليدين + أيقونة أحادية اللون + خلفية نافذة بلون الورق</td>
-    </tr>
-    <tr>
-      <td>لوحة فيروزية «تطبيق مضخة ماء»</td>
-      <td>لوحة «نيلة وذهب»: أخضر حصاد، أرضي دافئ، ذهبي محدود، ورق/ليل</td>
-    </tr>
-    <tr>
-      <td>تبويبات: سجلات السقي · العملاء · الرئيسية · سجل العمليات · الإعدادات</td>
-      <td>الرئيسية · غرفي · الحركات · السوق · المزيد — والمستخدم يبدأ من الرصيد لا من النموذج</td>
-    </tr>
-    <tr>
-      <td>الشاشة الرئيسية عن السقي والمضخات والساعات</td>
-      <td>الشاشة الرئيسية تجيب: كم لي وكم عليّ؟ وما الذي ينتظر إقراري؟ (الأرقام من <code>LedgerSnapshot</code>)</td>
-    </tr>
-    <tr>
-      <td>لا مكان للإقرار أو الاعتراض في الواجهة</td>
-      <td>كشف الغرفة فيه «أقرّ» و«اعتراض» مع سبب مكتوب؛ الإقرار يغيّر الحالة فقط ولا يمسح القيد</td>
-    </tr>
-    <tr>
-      <td>الواجهة تحسب بالـ<code>Double</code> (25 ملفًا)</td>
-      <td>ملفات الواجهة الجديدة بصفر <code>Double</code>، وكل مبلغ يمرّ من <code>MoneyFormat</code>/<code>StatementText</code> — وحاجز CI يمنع العودة</td>
-    </tr>
-    <tr>
-      <td>لا مكان لرصيد دائن معلّق أو قبض عام</td>
-      <td>«قبض عام» ظاهر مع إعلان ما بقي غير مخصَّص، ولا يُغلق دَينًا بعينه</td>
-    </tr>
-    <tr>
-      <td>الترحيل من الدفتر القديم بلا واجهة</td>
-      <td>حوار جرد يعرض كل عميل وما سيُرحَّل، ويرفض الترحيل عند أي فرق غير مفسَّر</td>
-    </tr>
+  <h2 class="section">١) خريطة الحزم — الحالة الصادقة<small>✓ منفَّذ ومختبَر في CI • ⏳ قيد العمل • ✗ لم يبدأ</small></h2>
+  <table>
+    <tr><th style="width:74px">الحزمة</th><th>الاسم</th><th style="width:110px">الحالة</th><th>ما يُثبته فعلًا</th></tr>
+    <tr><td>ح٦/ح٧</td><td>الموثوقية: حفظ محلي، منع ازدواج، فشل دائم بسببه</td><td><span class="chip ok">✓ منفَّذ</span></td><td>لا فقد ولا تكرار عند القطع وإعادة التشغيل</td></tr>
+    <tr><td>ح٨</td><td>الصلح والأقساط (محرّك)</td><td><span class="chip ok">✓ محرّك</span></td><td>مجموع الأقساط = المتبقي، ولا بيع مزدوج</td></tr>
+    <tr><td>ح٩</td><td>السوق (محرّك + خصوصية)</td><td><span class="chip ok">✓ محرّك</span></td><td>لا هاتف مزارع في أي عرض</td></tr>
+    <tr><td>ح١٢/ح١٣/ح١٥</td><td>الهوية، الأمان، قواعد deny-by-default</td><td><span class="chip ok">✓ منفَّذ</span></td><td>كل حالات الاختراق ترفض</td></tr>
+    <tr><td>ح١٩</td><td>التسليم بلا إنترنت (ملفّ/رمز)</td><td><span class="chip ok">✓ منفَّذ</span></td><td>رحلة كاملة بلا حساب ولا خادم، وإعادة الإرسال لا تُضاعف — <b>QR مؤجّل مُعلنًا</b></td></tr>
+    <tr><td>ح٢٠</td><td>قناة التحديث الموقّعة</td><td><span class="chip ok">✓ منفَّذ</span></td><td>لا تحديث صامت: زرّ + شاشة النظام + حد أدنى مدعوم</td></tr>
+    <tr><td>ح٢١</td><td>بناء موقّع وإصدار محدود</td><td><span class="chip ok">✓ منفَّذ</span></td><td>لا نشر بلا توقيع، والمفتاح خارج المستودع</td></tr>
+    <tr><td>ح٢٢</td><td>الخادم الخاص + عميل العقد</td><td><span class="chip ok">✓ منفَّذ</span></td><td>نسخة قديمة تتكلّم العقد نفسه، و401/409 تُشرح بالعربية</td></tr>
+    <tr><td>ح٢٣</td><td>نقل الدفتر بجرد مطابق</td><td><span class="chip ok">✓ منفَّذ</span></td><td>«صفر فرق» أو قائمة فروق بالعربية — والملفّ المُعدَّل يُكتشف</td></tr>
+    <tr><td>ح٢٤</td><td>الإطلاق المراقب</td><td><span class="chip ok">✓ منفَّذ</span></td><td>ستّ بوابات معلنة على الجهاز، بلا تتبّع، والمجهول ليس «سليمًا»</td></tr>
+    <tr><td>د١–د٥</td><td>الهوية، التنقّل، المكوّنات، شاشات الدفتر، التقارير</td><td><span class="chip ok">✓ منفَّذ</span></td><td>نصّ الشاشة = نصّ PDF حرفيًّا (بوابة ذهبية بعشرة سيناريوهات)</td></tr>
+    <tr><td>د٦</td><td>الصلح والسوق والترحيل</td><td><span class="chip wait">⏳ جارية</span></td><td>لوحة الترحيل ✓ — والباقي: شاشتا الصلح والسوق، وحذف القديم وملفّ الجسر</td></tr>
+    <tr><td>د٧</td><td>الصقل: ٢٠٠٪، ليلي، RTL، لقطات</td><td><span class="chip wait">⏳ التالي</span></td><td>تقرير وصول موثّق على جهازين</td></tr>
+    <tr><td>ح٢٢ب</td><td>شاشة إدخال رمز الجهاز</td><td><span class="chip info">قيد الإنجاز الآن</span></td><td>بلاها لا يمكن ضبط القناة على جهاز حقيقي من الواجهة</td></tr>
+    <tr><td>ح١٦</td><td>الأدمن والصلاحيات (claims/MFA/تدقيق)</td><td><span class="chip danger">✗ لم يبدأ</span></td><td>خارج ترتيب هذا الفرع حاليًّا (P0 لاحقًا)</td></tr>
   </table>
 
-  <footer>
-    ملف المعاينة: <code>docs/design/preview/index.html</code> — يُفتح بلا إنترنت. والنسخة القابلة للتثبيت تُنشر كإصدار
-    <code>preview-d2</code> من CI (بناء تصحيح للمعاينة فقط).
-  </footer>
+  <h2 class="section">٢) الشاشات كما تُبنى الآن<small>هذه صور تصميمية (HTML) تحاكي الشاشات الحقيقية: كل رقم يقرأ من محرّك، وكل حالة لها كلمة ولون</small></h2>
+  <div class="grid">
 
+    <div>
+      <div class="phone"><div class="screen">
+        <div class="topbar"><span class="title">الرئيسية</span><span class="spacer">أحمد اليماني</span></div>
+        <div class="body">
+          <div class="card hero">
+            <div class="k">صافي حسابك</div>
+            <div class="big">١٥٬٠٠٠ ر.ي <span style="font-size:13px;font-weight:600">لَك</span></div>
+            <div class="k">غرفة: «مضخة الوادي» • حساب واحد بالريال</div>
+          </div>
+          <div class="banner warn">ينتظر إقرارك: ٢ حركتان</div>
+          <div class="sec">آخر الحركات</div>
+          <div class="entries">
+            <div class="entry"><div class="desc">سقية — ٥ ساعات</div><div class="date">اليوم ٠٩:١٥</div></div>
+            <div class="entry"><div class="desc">قبض نقدي</div><div class="date">أمس</div></div>
+          </div>
+          <div class="sync">محفوظ على جهازك ✓ • سيُرسل عند وجود شبكة</div>
+        </div>
+        <div class="tabbar"><div class="on">الرئيسية</div><div>غرفي</div><div>الحركات</div><div>السوق</div><div>المزيد</div></div>
+      </div></div>
+      <div class="label">١ — الرئيسية: «عليّ/لي» في نصف ثانية</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="screen">
+        <div class="topbar"><span class="title">غرفي</span><span class="spacer">٣ غرف</span></div>
+        <div class="body">
+          <div class="card">
+            <div class="row"><span class="name">مضخة الوادي</span><span class="chip ok">مُقرّ</span><span class="amt neg">+١٥٬٠٠٠</span></div>
+            <div class="meta">آخر حركة: اليوم • رمز الربط <b>WD-4821</b></div>
+          </div>
+          <div class="card">
+            <div class="row"><span class="name">بقالة الحارة</span><span class="chip wait">ينتظر إقرارًا</span><span class="amt pos">−٣٬٢٠٠</span></div>
+            <div class="meta">آخر حركة: أمس</div>
+          </div>
+          <div class="card">
+            <div class="row"><span class="name">دلال المحصول</span><span class="chip gold">على السوم</span><span class="amt neg">٠</span></div>
+            <div class="meta">لا مبالغ ديون هنا — السعاية بيانها مستقل</div>
+          </div>
+          <div class="banner dark">إن كانت الغرفة بلا اسم صاحب، فلن يُعرف القيد عند الطرف الآخر</div>
+        </div>
+        <div class="tabbar"><div>الرئيسية</div><div class="on">غرفي</div><div>الحركات</div><div>السوق</div><div>المزيد</div></div>
+      </div></div>
+      <div class="label">٢ — غرفي: كل طرف بغرفته، وبلا خلط عملتين</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="screen">
+        <div class="topbar"><span class="title">كشف الطرف</span><span class="spacer">مشاركة</span></div>
+        <div class="body">
+          <div class="row"><span class="name">مضخة الوادي</span><span class="chip info">رصيد جارٍ تحت كل سطر</span></div>
+          <div class="entries">
+            <div class="entry"><div class="desc">سقية ٥ ساعات</div><div class="date">١ رمضان • مدين ١٢٬٠٠٠</div></div>
+            <div class="entry"><div class="desc">سقية ٣ ساعات</div><div class="date">٣ رمضان • مدين ١٥٬٠٠٠</div></div>
+            <div class="entry"><div class="desc">قبض نقدي</div><div class="date">٧ رمضان • مدين ١٠٬٥٠٠</div></div>
+            <div class="entry"><div class="desc">إلغاء بقيد عكسي (لا حذف)</div><div class="date">٨ رمضان • مدين ١٠٬٥٠٠</div></div>
+          </div>
+          <div class="banner ok">نصّ هذا الكشف هو نفس نصّ الورق والمشاركة — لا نسختين</div>
+        </div>
+        <div class="tabbar"><div>الرئيسية</div><div>غرفي</div><div class="on">الحركات</div><div>السوق</div><div>المزيد</div></div>
+      </div></div>
+      <div class="label">٣ — كشف الطرف (د٤): الرصيد الجاري وتحته كل مبلغ</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="screen">
+        <div class="topbar"><span class="title">حالة المزامنة</span><span class="spacer">قناة مضبوطة</span></div>
+        <div class="body">
+          <div class="entries">
+            <div class="entry"><div class="desc">سقية اليوم</div><div class="date">محفوظ على جهازك → أُرسل ✓</div></div>
+            <div class="entry"><div class="desc">قبض نقدي</div><div class="date">وصل ولم يُقرّ بعد</div></div>
+            <div class="entry"><div class="desc">تعديل وصف</div><div class="date" style="color:#B3261E">يحتاج نظرك: «رمز الجهاز مرفوض» <span class="chip danger">أعد المحاولة</span></div></div>
+          </div>
+          <div class="banner bad">لا «تمّ» بلا دليل: كل حركة تُعرض بحقيقتها وسبب فشلها</div>
+        </div>
+        <div class="tabbar"><div>الرئيسية</div><div>غرفي</div><div>الحركات</div><div>السوق</div><div class="on">المزيد</div></div>
+      </div></div>
+      <div class="label">٤ — حالة المزامنة (ح٢٢/د٤): لكل حركة حقيقتها وسبب فشلها</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="screen">
+        <div class="topbar"><span class="title">نقل الدفتر بجرد مطابق</span></div>
+        <div class="body">
+          <div class="card"><div class="k">الملفّ جاهز: ٤ أحداث — غرفة واحدة • قيدان نشطان</div>
+            <div class="row" style="margin-top:8px"><button class="btn">تصدير ومشاركة</button><button class="btn ghost">استيراد</button></div></div>
+          <div class="banner ok">الجرد مطابق ✓ — صفر فرق</div>
+          <div class="banner bad">ملفّ أُسقط منه حدث: «غير متّسق مع ترويسته — قيود ناقصة: op-payment-1»</div>
+          <div class="sync">مسودات محلية لم تُنقل: ١ (تبقى على جهازك)</div>
+        </div>
+      </div></div>
+      <div class="label">٥ — ح٢٣: الملفّ يُفحص على نفسه، والفرق يُسمّى</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="screen">
+        <div class="topbar"><span class="title">صحّة النسخة</span><span class="spacer">بلا تتبّع</span></div>
+        <div class="body">
+          <div class="banner ok">كل البوابات سليمة ✓</div>
+          <div class="entries">
+            <div class="entry"><div class="desc">G2 لا فشل صامت</div><div class="date" style="color:#B3261E">✗ يحتاج تدخلًا: ١ • السبب: رمز الجهاز مرفوض</div></div>
+            <div class="entry"><div class="desc">G3 الدفتر يُشارَك</div><div class="date">✓ آخر مزامنة قبل ٣ ساعات</div></div>
+            <div class="entry"><div class="desc">G5 نسخة احتياطية</div><div class="date">✓ آخر نسخة قبل يوم</div></div>
+            <div class="entry"><div class="desc">G6 قناة التحديث</div><div class="date">؟ لم تُقس بعد — افحص الآن</div></div>
+          </div>
+          <div class="sync">المجهول 「؟」 ليس نجاحًا ولا فشلًا — يُقال بصراحة</div>
+        </div>
+      </div></div>
+      <div class="label">٦ — ح٢٤: ستّ بوابات، وثلاث حالات</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="screen">
+        <div class="topbar"><span class="title">الترحيل من الدفتر القديم</span></div>
+        <div class="body">
+          <div class="row"><span class="chip info">عملاء: ٤</span><span class="chip info">قيود: ٩</span></div>
+          <div class="card"><div class="k">الإجمالي القديم ← المرحَّل</div><div class="big" style="font-size:19px">٤٢٬٥٠٠ ← ٤٢٬٥٠٠ ر.ي</div></div>
+          <div class="entries">
+            <div class="entry"><div class="desc">أحمد — <span class="chip ok">يطابق</span></div><div class="date">سقيات: ٣ • مُرحَّلة: ٢ • مُسوَّاة: ١</div></div>
+            <div class="entry"><div class="desc">سالم — <span class="chip danger">لا يطابق</span></div><div class="date" style="color:#B3261E">فرق ٥٠٠: لا يُنقل رقم نصف صحيح</div></div>
+          </div>
+          <button class="btn" disabled>رحّل الآن (معطَّل حتى يطابق الجرد)</button>
+        </div>
+      </div></div>
+      <div class="label">٧ — لوحة الترحيل (د٦/١): البوابة في المنطق لا في الزرّ</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="screen">
+        <div class="topbar"><span class="title">التسليم بلا إنترنت</span></div>
+        <div class="body">
+          <div class="banner dark">ملفّ أو رمز يمرّ في واتساب — بلا حساب ولا خادم</div>
+          <div class="card"><div class="k">الملفّ</div><div class="row"><button class="btn">مشاركة ملفّ التسليم</button></div></div>
+          <div class="card"><div class="k">الرمز</div><div class="sync" style="direction:ltr;text-align:center">BAYNANA-1-7F3K-…</div>
+            <div class="row"><button class="btn ghost">نسخ</button><button class="btn ghost">لصق</button></div></div>
+          <div class="banner ok">إعادة الإرسال لا تُخصم مرتين — والقبول صريح لا تلقائي</div>
+        </div>
+      </div></div>
+      <div class="label">٨ — ح١٩: الغرفة لا تُفتح إلا بقبول صريح</div>
+    </div>
+
+    <div>
+      <div class="phone dark"><div class="screen">
+        <div class="topbar"><span class="title" style="color:#F3F1EA">الوضع الليلي</span></div>
+        <div class="body">
+          <div class="card hero" style="background:#1B3A5C"><div class="k" style="color:#CFE0F0">صافي حسابك</div><div class="big" style="color:#fff">١٥٬٠٠٠ ر.ي</div></div>
+          <div class="entry"><div class="desc" style="color:#F3F1EA">سقية — ٥ ساعات</div><div class="date">اليوم ٠٩:١٥</div></div>
+          <div class="sync">التباين مقيس آليًّا: لا زوج أقل من ٤٫٥:١</div>
+          <div class="banner" style="background:#F6EBC9;color:#4A3700">الذهب يبقى ذهبًا في الليل</div>
+        </div>
+        <div class="tabbar"><div class="on">الرئيسية</div><div>غرفي</div><div>الحركات</div><div>السوق</div><div>المزيد</div></div>
+      </div></div>
+      <div class="label">٩ — الوضع الليلي (د٥/د٧): كشف الاختبار الآلي ثلاثة أزواج فاشلة فأُصلحت</div>
+    </div>
+
+  </div>
+
+  <h2 class="section">٣) ما لم يُنفَّذ بعد — بصراحة<small>لا يُقال «مكتمل» لأن محرّكه يعمل: يكمُل حين يراه المزارع في جيبه</small></h2>
+  <div class="note">
+    <p><b>١. شاشتا الصلح والسوق (د٦/٢ و د٦/٣):</b> المحرّكان جاهزان (ح٨ و ح٩) وبوّاباتهما مختبَرة، لكن الشاشتين الجديدتين على نمط د٢–د٥ لم تُبنَيا بعد.</p>
+    <p><b>٢. حذف الشاشات القديمة وملفّ الجسر (د٦/٤):</b> ٢٦ ملفّ واجهة قديمة تنتظر الحذف، وبعدها يصير حاجز المفردات على المستودع كله لا على مساحات مختارة.</p>
+    <p><b>٣. شاشة رمز الجهاز (ح٢٢ب):</b> القناة تعمل من الطبقة الدنيا، لكن إدخال الرمز على جهاز حقيقي يحتاج واجهة — وهي قيد الإنجاز الآن.</p>
+    <p><b>٤. QR (ح١٩) ورمز «التسليم بلا إنترنت»</b> مؤجّل بإعلان مكتوب في الدليل، لا منسيًّا.</p>
+    <p><b>٥. ح١٦ (الأدمن: claims/MFA/تدقيق/حظر ونقل)</b> لم يبدأ، وهو P0 قبل أي توسّع إلى «السوق» حسب الخطة.</p>
+    <p><b>٦. لا توزيع حتى الآن:</b> سجلّ الإصدارات فارغ عن قصد — أول سطر يُكتب بـ<code>release_check.mjs --stamp</code> بعد تثبيت حزمة على أجهزة حقيقية.</p>
+  </div>
+
+  <h2 class="section">٤) طلب الدمج والفرع<small>حالة PR #3 وخطة تنظيفه</small></h2>
+  <div class="note">
+    <p><b>الفرع:</b> <code>arena/01a0fe73-mosarib</code> — ٩٦ التزامًا، وكل الالتزامات مدفوعة.</p>
+    <p><b>PR #3:</b> مفتوح من الفرع إلى <code>master</code>، لكن <code>master</code> هنا <b>التزام جذري واحد</b> (نسخة قديمة مضغوطة قبل إعادة التسمية)، فتاريخاهما غير مترابطين وGitHub يرى تعارضًا. الحلّ المنفَّذ: دمج تاريخَي <code>master</code> بالسماح بالتاريخين غير المترابطين مع تفضيل شجرة الفرع، ثم حذف الملفّات القديمة التي لا تخصّ هذا المشروع في الالتزام نفسه — فيصير PR #3 قابلًا للدمج، ويكون ناتج الدمج مساويًا لشجرة الفرع تمامًا.</p>
+    <p><b>فرع آخر (Flutter):</b> لا يُنشأ من هذه الجلسة (الجلسة مثبَّتة على فرع واحد). والخطّة الجاهزة للتسليم إلى وكيل: <code>docs/FLUTTER_BUILD_PLAN_AR.md</code> — تُنسخ إلى مستودع جديد <code>baynana_flutter</code> ويُنشئ الوكيل فرعه الخاص.</p>
+  </div>
+
+  <footer>
+    هذه الصفحة تُبنى في المستودع: <code>docs/design/preview/index.html</code>، والنسخة السابقة (د١+د٢) محفوظة في
+    <a href="d1-d2-archive.html">d1-d2-archive.html</a>. وهي محاكاة تصميمية (HTML) لا لقطات شاشة من الجهاز؛
+    والمرجع النهائي هو الكود في <code>app/src/main/java/com/baynana</code>.
+  </footer>
 </div>
 </body>
 </html>

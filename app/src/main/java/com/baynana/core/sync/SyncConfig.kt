@@ -83,6 +83,27 @@ object SyncConfig {
         return if (value.isNullOrBlank()) null else value
     }
 
+    /**
+     * يحفظ رمز الجهاز (ح٢٢ب). **المكان الوحيد في التطبيق الذي يكتب الرمز.**
+     *
+     * ويُستدعى بعد إثبات القبول فقط (انظر `SyncTokenSetup`): الرمز الخاطئ لا يبقى في الجهاز يظنّ
+     * صاحبه أن قناته مضبوطة. ولا يُطبع في أي سجلّ، ولا تُوجد دالّة تقرؤه للعرض.
+     */
+    fun saveDeviceToken(context: Context, token: String) {
+        val clean = token.trim()
+        if (clean.isEmpty()) return
+        context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE).edit()
+            .putString(KEY_DEVICE_TOKEN, clean)
+            .apply()
+    }
+
+    /** يحذف الرمز المحفوظ: يعود الجهاز «محليًّا» بلا قناة، ولا يُرسل شيئًا. */
+    fun clearDeviceToken(context: Context) {
+        context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE).edit()
+            .remove(KEY_DEVICE_TOKEN)
+            .apply()
+    }
+
     fun isConfigured(context: Context): Boolean =
         changesUrl(context) != null && deviceToken(context) != null
 
