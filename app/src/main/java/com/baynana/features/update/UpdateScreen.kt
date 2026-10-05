@@ -74,6 +74,7 @@ fun UpdateScreen(
 
     var state by remember { mutableStateOf<UpdateDecision.UpdateState>(UpdateDecision.UpdateState.Unknown("جارٍ الفحص")) }
     var checkedAt by remember { mutableStateOf<Long?>(null) }
+    var failedReason by remember { mutableStateOf<String?>(null) }
     var fromCache by remember { mutableStateOf(true) }
     var checking by remember { mutableStateOf(false) }
     var downloading by remember { mutableStateOf(false) }
@@ -98,6 +99,7 @@ fun UpdateScreen(
             state = result.state
             checkedAt = result.checkedAt
             fromCache = result.fromCache
+            failedReason = result.failureReasonArabic
             checking = false
         }
     }
@@ -135,6 +137,16 @@ fun UpdateScreen(
         Spacer(Modifier.height(12.dp))
         StateCard(state = state, checking = checking, checkedAt = checkedAt, fromCache = fromCache)
 
+        // تعذّر الفحص لا يُخفي ما نعرفه: يُقال السبب في سطر مستقل تحت الحالة.
+        failedReason?.takeIf { it.isNotBlank() }?.let { reason ->
+            Text(
+                "تعذّر آخر فحص: $reason",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
+
         Spacer(Modifier.height(12.dp))
         when (val current = state) {
             is UpdateDecision.UpdateState.Optional -> ReleaseActions(
@@ -156,16 +168,7 @@ fun UpdateScreen(
                         }
                     }
                 },
-                onInstall = {
-                    val path = installedFile ?: return@ReleaseActions
-                    val intent = repository.installerIntent(java.io.File(path))
-                    if (intent == null) {
-                        notice = "تعذّر فتح مُثبِّت النظام. افتح الملفّ من مدير الملفّات."
-                    } else {
-                        runCatching { context.startActivity(intent) }
-                            .onFailure { notice = "لم يسمح النظام بالتثبيت. فعّل «تثبيت تطبيقات من مصادر أخرى» لهذا التطبيق." }
-                    }
-                },
+                onInstall = { installDownloaded(context, repository, installedFile) { notice = it } },
                 canInstall = installedFile != null,
                 installNote = repository.installSummary(current.release),
                 onSkip = {
@@ -197,13 +200,7 @@ fun UpdateScreen(
                         }
                     }
                 },
-                onInstall = {
-                    val path = installedFile ?: return@ReleaseActions
-                    val intent = repository.installerIntent(java.io.File(path))
-                    if (intent == null) notice = "تعذّر فتح مُثبِّت النظام."
-                    else runCatching { context.startActivity(intent) }
-                        .onFailure { notice = "لم يسمح النظام بالتثبيت. فعّل «تثبيت تطبيقات من مصادر أخرى» لهذا التطبيق." }
-                },
+                onInstall = { installDownloaded(context, repository, installedFile) { notice = it } },
                 canInstall = installedFile != null,
                 installNote = repository.installSummary(current.release),
                 onSkip = null
@@ -239,6 +236,26 @@ fun UpdateScreen(
 
         Spacer(Modifier.height(20.dp))
     }
+}
+
+/**
+ * التثبيت يمرّ من مُثبِّت النظام: التطبيق لا يثبّت نفسه. وإن مُنع، فالرسالة تقول ما يفعله المستخدم
+ * بالضبط — لا «فشل التثبيت» الصامتة.
+ */
+private fun installDownloaded(
+    context: android.content.Context,
+    repository: ReleaseRepository,
+    path: String?,
+    report: (String) -> Unit
+) {
+    if (path == null) return
+    val intent = repository.installerIntent(java.io.File(path))
+    if (intent == null) {
+        report("تعذّر فتح مُثبِّت النظام. افتح الملفّ من مدير الملفّات.")
+        return
+    }
+    runCatching { context.startActivity(intent) }
+        .onFailure { report("لم يسمح النظام بالتثبيت. فعّل «تثبيت تطبيقات من مصادر أخرى» لهذا التطبيق.") }
 }
 
 @Composable

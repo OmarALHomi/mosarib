@@ -68,7 +68,7 @@ class ReleaseRepositoryTest {
         db = db,
         currentVersionCode = versionCode,
         currentVersionName = "1.0",
-        sourceFactory = { source },
+        sourceOverride = source,
         downloader = downloader,
         verifierOverride = verify,
         now = { now },
@@ -86,7 +86,11 @@ class ReleaseRepositoryTest {
         assertTrue(checked.state is UpdateDecision.UpdateState.Optional)
         assertFalse(checked.fromCache)
         assertEquals(now, checked.checkedAt)
-        assertEquals("release_last_token", ReleaseRepository.KEY_LAST_TOKEN)
+        // ويُخزَّن الملفّ نفسه كما وصل: الدليل بعد انقطاع الشبكة يُبنى على ما وُقّع فعلًا.
+        assertEquals(
+            ReleaseSignatureVectors.OPTIONAL_TOKEN,
+            db.appSettingDao().getSettingValue(ReleaseRepository.KEY_LAST_TOKEN)
+        )
 
         // الآن بلا إنترنت: الحكم نفسه يبقى، ويُقال إنه من ملفّ محفوظ.
         val offline = repository(3, body(ReleaseSignatureVectors.OPTIONAL_TOKEN), online = { false }).check()
@@ -99,13 +103,19 @@ class ReleaseRepositoryTest {
     fun aRejectedManifestNeverErasesAKnownGoodOne() = runBlocking {
         repository(3, body(ReleaseSignatureVectors.OPTIONAL_TOKEN)).check()
         val tampered = repository(3, body(ReleaseSignatureVectors.TAMPERED_PAYLOAD_TOKEN)).check()
-        // الرفض لا يمحو المعرفة السابقة: الحالة تبقى «إصدار أحدث متاح» ولا تُقال رسالة الرفض وحدها.
+        // الرفض لا يمحو المعرفة السابقة: الحالة تبقى «إصدار أحدث متاح»…
         assertTrue(tampered.state is UpdateDecision.UpdateState.Optional)
+        // …وسببُ الرفض يُقال إلى جانبها لا بدلًا منها.
+        assertTrue(
+            "سبب رفض الملفّ يجب أن يُعرض للمستخدم",
+            tampered.failureReasonArabic?.contains("توقيع") == true
+        )
 
-        // وجهاز جديد لم يفحص شيئًا: الرفض يُعلن بصراحة، لا صمتًا.
+        // وجهاز جديد لم يفحص شيئًا: الرفض يُعلن بصراحة لا صمتًا.
         db.appSettingDao().saveSetting(com.baynana.features.settings.AppSetting(ReleaseRepository.KEY_LAST_TOKEN, ""))
         val fresh = repository(3, body(ReleaseSignatureVectors.TAMPERED_PAYLOAD_TOKEN)).check()
         assertTrue(fresh.state is UpdateDecision.UpdateState.Unknown)
+        assertTrue(fresh.failureReasonArabic?.contains("توقيع") == true)
     }
 
     @Test
@@ -113,9 +123,11 @@ class ReleaseRepositoryTest {
         val noNetwork = repository(3, body(ReleaseSignatureVectors.OPTIONAL_TOKEN), online = { false }).check()
         assertTrue(noNetwork.state is UpdateDecision.UpdateState.Unknown)
         assertEquals("لا إنترنت الآن", (noNetwork.state as UpdateDecision.UpdateState.Unknown).reasonArabic)
+        assertEquals("لا إنترنت الآن", noNetwork.failureReasonArabic)
 
         val failed = repository(3, ReleaseSource { ReleaseFetch.Failed("قناة التحديث ردّت بحالة 404") }).check()
         assertEquals("قناة التحديث ردّت بحالة 404", (failed.state as UpdateDecision.UpdateState.Unknown).reasonArabic)
+        assertEquals("قناة التحديث ردّت بحالة 404", failed.failureReasonArabic)
     }
 
     // ------------------------------------------------------------------ ٢) التخطّي والإجبار

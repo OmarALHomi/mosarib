@@ -94,10 +94,16 @@ class ReleaseRepository(
     private val db: AppDatabase,
     private val currentVersionCode: Int,
     private val currentVersionName: String,
-    private val sourceFactory: (String) -> ReleaseSource = { url ->
-        HttpReleaseSource(url) { NetworkStatus.isOnline(context) }
-    },
     private val downloader: ApkDownloader = HttpApkDownloader(),
+    /**
+     * منفذان للفحص والمعاينة، **والإنتاج لا يمرّر شيئًا**:
+     * - `sourceOverride`: مصدر جاهز (اختبار، أو أصل محلي بلا شبكة) بدل القراءة من قناة الشبكة.
+     * - `verifierOverride`: فاحص بديل بدل المفتاح العام في الأصول.
+     *
+     * وهذا ليس ترفًا: الفحص يجب أن يقع على القرار والتخزين والبصمة، لا على وجود ملفّات أصول
+     * في بيئة الاختبار. أما الإنتاج فمسار واحد: عنوان من الأصول، ومفتاح من الأصول.
+     */
+    private val sourceOverride: ReleaseSource? = null,
     private val verifierOverride: ((ByteArray, ByteArray) -> Boolean)? = null,
     private val now: () -> Long = { System.currentTimeMillis() },
     private val onlineOverride: (() -> Boolean)? = null
@@ -121,7 +127,12 @@ class ReleaseRepository(
         /** هل الحالة من آخر ملفّ محفوظ لا من فحص الآن؟ الشاشة تقول ذلك صراحةً. */
         val fromCache: Boolean,
         /** أحدث إصدار معروف (من فحص أو من ملفّ محفوظ)، للعرض في «حول». */
-        val knownLatestVersionName: String?
+        val knownLatestVersionName: String?,
+        /**
+         * سبب تعذّر آخر فحص، إن تعذّر. يُعرض **إلى جانب** الحالة لا بدلًا منها: جهاز يعرف أمس أن
+         * هناك إصدارًا أحدث لا يجوز أن «ينسى» ذلك لأن شبكة اليوم مقطوعة.
+         */
+        val failureReasonArabic: String? = null
     )
 
     /** حالة معروفة الآن من الملفّ المحفوظ وحده — بلا شبكة وبلا انتظار. */
@@ -143,44 +154,31 @@ class ReleaseRepository(
      */
     suspend fun check(): CheckResult = withContext(Dispatchers.IO) {
         val cached = cachedState()
-        val endpoint = ReleaseChannel.endpoint(context)
-            ?: return@withContext cached.copy(
-                state = if (cached.state is UpdateDecision.UpdateState.Unknown) {
-                    UpdateDecision.UpdateState.Unknown(
-                        "لم يُضبط عنوان قناة التحديث في هذه النسخة (release_endpoint.txt)"
-                    )
-                } else {
-                    cached.state
-                }
-            )
+        val source = sourceOverride ?: run {
+            val endpoint = ReleaseChannel.endpoint(context)
+                ?: return@withContext cached.copy(
+                    state = unknownOr(cached, "لم يُضبط عنوان قناة التحديث في هذه النسخة (release_endpoint.txt)"),
+                    failureReasonArabic = "لم يُضبط عنوان قناة التحديث في هذه النسخة (release_endpoint.txt)"
+                )
+            HttpReleaseSource(endpoint) { NetworkStatus.isOnline(context) }
+        }
         val verify = verifierOverride ?: ReleaseSignatures.check(context)
             ?: return@withContext cached.copy(
-                state = if (cached.state is UpdateDecision.UpdateState.Unknown) {
-                    UpdateDecision.UpdateState.Unknown(
-                        "مفتاح التحقق من التحديث غير مُسلَّم في هذه النسخة (release_public_key.txt)"
-                    )
-                } else {
-                    cached.state
-                }
+                state = unknownOr(cached, "مفتاح التحقق من التحديث غير مُسلَّم في هذه النسخة (release_public_key.txt)"),
+                failureReasonArabic = "مفتاح التحقق من التحديث غير مُسلَّم في هذه النسخة (release_public_key.txt)"
             )
         val online = onlineOverride?.invoke() ?: NetworkStatus.isOnline(context)
         if (!online) {
             return@withContext cached.copy(
-                state = if (cached.state is UpdateDecision.UpdateState.Unknown) {
-                    UpdateDecision.UpdateState.Unknown("لا إنترنت الآن")
-                } else {
-                    cached.state
-                }
+                state = unknownOr(cached, "لا إنترنت الآن"),
+                failureReasonArabic = "لا إنترنت الآن"
             )
         }
 
-        when (val fetch = sourceFactory(endpoint).fetch()) {
+        when (val fetch = source.fetch()) {
             is ReleaseFetch.Failed -> cached.copy(
-                state = if (cached.state is UpdateDecision.UpdateState.Unknown) {
-                    UpdateDecision.UpdateState.Unknown(fetch.reasonArabic)
-                } else {
-                    cached.state
-                }
+                state = unknownOr(cached, fetch.reasonArabic),
+                failureReasonArabic = fetch.reasonArabic
             )
 
             is ReleaseFetch.Body -> {
@@ -196,20 +194,35 @@ class ReleaseRepository(
                             state = UpdateDecision.decide(currentVersionCode, readout, skipped),
                             checkedAt = at,
                             fromCache = false,
-                            knownLatestVersionName = readout.release.versionName
+                            knownLatestVersionName = readout.release.versionName,
+                            failureReasonArabic = null
                         )
                     }
-                    // الملفّ المرفوض لا يمحو حالة سليمة محفوظة، ويُقال سببه بصراحة.
-                    is ReleaseManifest.Readout.NotARelease ->
-                        cached.copy(state = UpdateDecision.UpdateState.Unknown(readout.reasonArabic))
-                    is ReleaseManifest.Readout.Malformed ->
-                        cached.copy(state = UpdateDecision.UpdateState.Unknown(readout.reasonArabic))
-                    is ReleaseManifest.Readout.SignatureRejected ->
-                        cached.copy(state = UpdateDecision.UpdateState.Unknown(readout.reasonArabic))
+                    // الملفّ المرفوض لا يمحو حالة سليمة محفوظة، ويُقال سببه بصراحة إلى جانبها.
+                    is ReleaseManifest.Readout.NotARelease -> cached.copy(
+                        state = unknownOr(cached, readout.reasonArabic),
+                        failureReasonArabic = readout.reasonArabic
+                    )
+                    is ReleaseManifest.Readout.Malformed -> cached.copy(
+                        state = unknownOr(cached, readout.reasonArabic),
+                        failureReasonArabic = readout.reasonArabic
+                    )
+                    is ReleaseManifest.Readout.SignatureRejected -> cached.copy(
+                        state = unknownOr(cached, readout.reasonArabic),
+                        failureReasonArabic = readout.reasonArabic
+                    )
                 }
             }
         }
     }
+
+    /**
+     * تعذّر الفحص: إن كانت الحالة السابقة «تعذّر» فالأحدث أصدق (سبب اليوم)، وإن كانت حالة معروفة
+     * (إصدار أحدث أو إجباري أو أحدث نسخة) فلا تُمحى — المستخدم لا يفقد ما يعرفه بسبب لحظة شبكة.
+     */
+    private fun unknownOr(cached: CheckResult, reasonArabic: String): UpdateDecision.UpdateState =
+        if (cached.state is UpdateDecision.UpdateState.Unknown) UpdateDecision.UpdateState.Unknown(reasonArabic)
+        else cached.state
 
     /** «تخطّي هذا الإصدار»: لا يُسقط الإصدارات الإجبارية، ولا يُخفي إصدارًا أحدث لاحقًا. */
     suspend fun skip(versionCode: Int): Boolean = withContext(Dispatchers.IO) {
