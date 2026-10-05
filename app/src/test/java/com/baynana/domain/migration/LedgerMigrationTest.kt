@@ -77,9 +77,9 @@ class LedgerMigrationTest {
         assertEquals("room-water-1", room.roomId)
         assertEquals("YER_NEW", room.currency)
         assertEquals(2, room.active)
-        assertEquals("1500000", room.byType.getValue("WATER_SESSION").sumMinor)
+        assertEquals(1_500_000L, room.byType.getValue("WATER_SESSION").sumMinor)
         assertEquals(1, room.byType.getValue("WATER_SESSION").count)
-        assertEquals("1000000", room.byType.getValue("PAYMENT").sumMinor)
+        assertEquals(1_000_000L, room.byType.getValue("PAYMENT").sumMinor)
         // صافي المزارع: −1,500,000 (سقية) +1,000,000 (سداد) = −500,000، والموزّع +500,000.
         assertEquals(-500_000L, room.netByMember.getValue("farmer"))
         assertEquals(500_000L, room.netByMember.getValue("distributor"))

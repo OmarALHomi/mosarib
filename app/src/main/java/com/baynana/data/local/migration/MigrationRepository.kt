@@ -56,9 +56,23 @@ class MigrationRepository(
         }
     }
 
-    /** ملفّ تصدير جاهز للكتابة في ملفّ ومشاركته. */
-    data class Export(val fileName: String, val text: String, val inventory: LedgerMigration.Inventory) {
+    /**
+     * ملفّ تصدير جاهز للكتابة في ملفّ ومشاركته.
+     *
+     * و`drafts` تُقرأ من **القاعدة** لا من الملفّ: المسودة لا تُصدَّر أصلًا (لم تُشارك)، فلو حُسبت من
+     * الملفّ لظهر صفرًا دائمًا وضاع تنبيه مهم للمستخدم: «عندك N مسودة لم تُنقل».
+     */
+    data class Export(
+        val fileName: String,
+        val text: String,
+        val inventory: LedgerMigration.Inventory,
+        val drafts: Int = 0
+    ) {
         val events: Int get() = text.lineSequence().count { it.isNotBlank() } - 1
+
+        /** سطر يُعرض للمستخدم حين توجد مسودات: تُعدّ ولا تُنقل ولا تُفشل الترحيل. */
+        val draftNote: String get() =
+            if (drafts > 0) "مسودات محلية لم تُنقل ولم تُقارن: $drafts (تبقى على جهازك حتى تقرّر)" else ""
     }
 
     // ------------------------------------------------------------------ التصدير
@@ -73,6 +87,25 @@ class MigrationRepository(
         val seen = HashSet<String>()
         val events = ArrayList<LedgerMigration.Event>()
 
+        // ١) **جدول القيود أولًا**: هو الحقيقة الحالية للقيد (قد يكون أُلغي بقيد عكسي بعد أن أُرسل،
+        //    أو تغيّرت حالته بإقرار). أما حمولة الصندوق فهي صورة لحظة الإرسال، ولو صدّرناها وحدها
+        //    لظهر في الجرد قيد ملغى على أنه نشط — وهو فرق كاذب في ترحيل سليم (كشفه CI فعلًا).
+        dao.getAllEntries().forEach { entry ->
+            if (entry.operationId.isBlank() || !seen.add(entry.operationId)) return@forEach
+            // المسودة لم تُشارك: لا تُصدَّر ولا تُقارن (تبقى على جهاز صاحبها).
+            if (entry.status == com.baynana.domain.ledger.EntryStatus.DRAFT) return@forEach
+            events += LedgerMigration.Event(
+                operationId = entry.operationId,
+                entityType = "entry",
+                entityId = entry.id,
+                action = if (entry.reversesEntryId != null) "VOID" else "UPSERT",
+                payload = payloadFor(entry),
+                createdAt = entry.createdAt
+            )
+        }
+
+        // ٢) ثم صندوق الصادر لما لم يُغطَّ: أحداث بلا صفّ قيد (تخصيص لاحق، إقرار، دعوة غرفة…) — تبقى
+        //    في الملفّ لأنها تاريخ الدفتر، وليس لها أثر حسابي في الجرد.
         dao.getAllOutboxItems().forEach { item ->
             if (item.operationId.isBlank() || !seen.add(item.operationId)) return@forEach
             events += LedgerMigration.Event(
@@ -85,25 +118,12 @@ class MigrationRepository(
             )
         }
 
-        dao.getAllEntries().forEach { entry ->
-            if (entry.operationId.isBlank() || !seen.add(entry.operationId)) return@forEach
-            val action = if (entry.reversesEntryId != null) "VOID" else "UPSERT"
-            events += LedgerMigration.Event(
-                operationId = entry.operationId,
-                entityType = "entry",
-                entityId = entry.id,
-                action = action,
-                payload = payloadFor(entry),
-                createdAt = entry.createdAt
-            )
-        }
-
         return events
     }
 
     /**
-     * حمولة صفّ وصل من الطرف الآخر (لا صفّ صادر لنا). تُبنى `decodeWire` يوافقها: كائن `entry`
-     * والاختصارات، والإسقاطات من جدول الإسقاطات الحقيقي (لا من حساب مُعاد).
+     * حمولة القيد بصورته **الحالية**: تُبنى بحيث يوافقها `decodeWire`: كائن `entry`، والمبالغ نصًّا،
+     * والإسقاطات من جدول الإسقاطات الحقيقي (لا من حساب مُعاد).
      */
     private suspend fun payloadFor(entry: LedgerEntry): String {
         val json = JSONObject(OutboxPayloads.entry(entry)).getJSONObject("entry")
@@ -138,9 +158,14 @@ class MigrationRepository(
         return Export(
             fileName = "baynana-migration-$stamp.jsonl",
             text = LedgerMigration.exportText(events, exportedAt = stamp, deviceId = newId().take(8)),
-            inventory = LedgerMigration.inventory(events)
+            inventory = LedgerMigration.inventory(events),
+            drafts = countDrafts()
         )
     }
+
+    /** عدد المسودات المحلية: تُعرض للمستخدم ولا تُنقل ولا تدخل الجرد. */
+    suspend fun countDrafts(): Int =
+        dao.getAllEntries().count { it.status == com.baynana.domain.ledger.EntryStatus.DRAFT }
 
     // ------------------------------------------------------------------ الاستيراد
 
@@ -189,7 +214,7 @@ class MigrationRepository(
             rejections = rejections.distinct().take(10),
             pulled = pulled,
             diff = diff,
-            localInventoryLine = inventoryLine(localInventory())
+            localInventoryLine = inventoryLine(localInventory(), countDrafts())
         )
     }
 
@@ -200,12 +225,13 @@ class MigrationRepository(
     }
 
     /** سطر عربي يلخّص الجرد: يُعرض للمالك فيقارنه بما يعرفه بدل أن يثق برقم غامض. */
-    fun inventoryLine(inventory: LedgerMigration.Inventory): String = buildString {
+    fun inventoryLine(inventory: LedgerMigration.Inventory, drafts: Int = 0): String = buildString {
         append("${inventory.rooms.size} غرفة")
         append(" • ${inventory.activeTotal} قيدًا نشطًا")
         if (inventory.voidedTotal > 0) append(" • ${inventory.voidedTotal} ملغى")
         if (inventory.reversalsTotal > 0) append(" • ${inventory.reversalsTotal} عكسي")
-        if (inventory.drafts > 0) append(" • ${inventory.drafts} مسودة محلية")
+        val draftCount = maxOf(drafts, inventory.drafts)
+        if (draftCount > 0) append(" • $draftCount مسودة محلية")
         val members = inventory.rooms.sumOf { it.netByMember.size }
         if (members > 0) append(" • $members طرفًا بأرصدة")
     }

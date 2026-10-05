@@ -162,7 +162,9 @@ class MigrationRepositoryTest {
         buildSourceLedger()
         val file = sourceMigration.export()
         val snapshotBefore = sourceMigration.localInventory()
-        assertEquals("المسودة تُعدّ وتبقى على جهاز صاحبها", 1, snapshotBefore.drafts)
+        assertEquals("المسودة لا تُصدَّر فلا تدخل جرد الملفّ", 0, snapshotBefore.drafts)
+        assertEquals("لكنها تُعدّ من القاعدة وتُعرض لصاحبها", 1, file.drafts)
+        assertTrue("وسطرها موجود", file.draftNote.contains("مسودات محلية"))
 
         val report = targetMigration.import(file.text, server)
 
@@ -171,6 +173,7 @@ class MigrationRepositoryTest {
         assertTrue("الجرد يجب أن يطابق: ${report.diff.differences}", report.isClean)
         val local = targetMigration.localInventory()
         assertEquals("غياب المسودة عن الوجهة مقصود: لم تشارك", 0, local.drafts)
+        assertEquals("والوجهة لا مسودات فيها", 0, targetMigration.countDrafts())
         assertEquals(snapshotBefore.activeTotal, local.activeTotal)
         assertEquals(snapshotBefore.voidedTotal, local.voidedTotal)
         assertEquals(snapshotBefore.reversalsTotal, local.reversalsTotal)
@@ -202,8 +205,10 @@ class MigrationRepositoryTest {
     fun `ملفّ ناقص يُكتشف فيرتفع الفرق ولا يُعلن نجاحًا`() = runBlocking {
         buildSourceLedger()
         val file = sourceMigration.export()
+        // إسقاط **سطر الحدث** وحده: الترويسة تذكر op-payment-1 في جردها، وإسقاطها معه يجعل الملفّ
+        // بلا ترويسة (وهذا خطأ في الاختبار نفسه، كشفه CI أول مرة ثم صُوّب).
         val dropped = file.text.lineSequence()
-            .filterNot { it.contains("op-payment-1") }
+            .filterNot { it.startsWith("{\"kind\":\"event\"") && it.contains("op-payment-1") }
             .joinToString("\n")
 
         val report = targetMigration.import(dropped, server)
@@ -253,14 +258,15 @@ class MigrationRepositoryTest {
         )
         val file = sourceMigration.export()
         assertEquals("المسودة ليست حدثًا فلا تُصدَّر", 0, file.events)
+        assertEquals("وتُعدّ من القاعدة ليُعلَن لصاحبها", 1, file.drafts)
+        assertTrue(file.draftNote.contains("تبقى على جهازك"))
 
-        val report = targetMigration.import(file.text, server)
+        // ملفّ بلا أحداث لا يُستورد (لا شيء يُنقل)، والإعلان عن المسودة يقع على جهاز صاحبها.
+        val error = runCatching { targetMigration.import(file.text, server) }.exceptionOrNull()
+        assertTrue("لا استيراد بلا أحداث: ${error?.message}", error is IllegalArgumentException)
 
-        assertTrue(report.isClean)
-        assertTrue(
-            "المسودة تُعلن للمستخدم ولا تُفشل: ${report.diff.notes}",
-            report.diff.notes.any { it.contains("مسودات محلية") }
-        )
+        // ودفتر بلا قيود يُطابق ملفًّا بلا أحداث: الجرد هنا صادق لأنه لا يدّعي شيئًا.
+        assertTrue(targetMigration.verify(file.text).isClean)
     }
 
     @Test

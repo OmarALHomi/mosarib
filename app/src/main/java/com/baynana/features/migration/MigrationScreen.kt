@@ -161,8 +161,9 @@ fun MigrationScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         val export = withContext(Dispatchers.IO) { repository.export() }
                         val file = withContext(Dispatchers.IO) { writeMigrationFile(context, export) }
                         busy = ""
-                        localLine = repository.inventoryLine(export.inventory)
-                        headline = "الملفّ جاهز: ${export.events} حركة — ${repository.inventoryLine(export.inventory)}"
+                        localLine = repository.inventoryLine(export.inventory, export.drafts)
+                        headline = "الملفّ جاهز: ${export.events} حركة — ${repository.inventoryLine(export.inventory, export.drafts)}"
+                        notes = if (export.draftNote.isBlank()) emptyList() else listOf(export.draftNote)
                         FileSharingHelper.shareTextFile(context, file, title = "ملفّ ترحيل دفتر بيننا")
                     }
                 },
