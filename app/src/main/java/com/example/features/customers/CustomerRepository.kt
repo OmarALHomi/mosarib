@@ -6,6 +6,9 @@ import com.example.features.vouchers.VoucherType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
+import com.example.features.pumps.PumpSource
+import kotlinx.coroutines.flow.flowOf
+
 data class CustomerWithBalance(
     val customer: Customer,
     val totalSessionsCount: Int = 0,
@@ -13,15 +16,49 @@ data class CustomerWithBalance(
     val totalBilledAmount: Double = 0.0,
     val totalPaidAmount: Double = 0.0,
     val totalDisbursedAmount: Double = 0.0,
-    val balance: Double = 0.0 // > 0 => Customer owes money (مدين), < 0 => Customer has surplus credit (دائن)
+    val balance: Double = 0.0 // > 0 => Customer owes money (مدين) للمزارع، أو المسرب مدين لصاحب البئر (عليك)
 )
 
 internal fun calculateCustomerBalance(
     customer: Customer,
     sessions: List<WaterSession>,
-    vouchers: List<Voucher>
+    vouchers: List<Voucher>,
+    pumps: List<PumpSource> = emptyList()
 ): CustomerWithBalance {
-    // دورات السقي الخاصة بالعميل (سواء المسجلة له مباشرة، أو المسجلة على حسابه كمستفيد)
+    if (customer.isWellOwner) {
+        // حساب صاحب البئر المستقل (دائن بساعات الماء المستهلكة من بئره، ومدين بالدفعات المصروفة له)
+        val ownedPumpIds = pumps.filter { it.ownerCustomerId == customer.id }.map { it.id }.toSet()
+        val wellSessions = sessions.filter {
+            (it.pumpSourceId != null && ownedPumpIds.contains(it.pumpSourceId)) ||
+            (pumps.any { p -> p.ownerCustomerId == customer.id && p.name == it.pumpName })
+        }
+        val wellMinutes = wellSessions.sumOf { Math.max(0, it.durationMinutes - it.wastedMinutes) }
+        val totalOwedToOwner = wellSessions.sumOf { s ->
+            val netMin = Math.max(0, s.durationMinutes - s.wastedMinutes)
+            val costRate = if (s.costPricePerHour > 0) s.costPricePerHour else {
+                pumps.find { it.id == s.pumpSourceId }?.costPricePerHour ?: 0.0
+            }
+            (netMin / 60.0) * costRate
+        }
+        val totalDisbursed = vouchers
+            .filter { it.customerId == customer.id && it.type == VoucherType.EXPENSE }
+            .sumOf { it.amount }
+
+        // موجب = عليك لصاحب البئر
+        val netBalance = totalOwedToOwner - totalDisbursed
+
+        return CustomerWithBalance(
+            customer = customer,
+            totalSessionsCount = wellSessions.size,
+            totalMinutes = wellMinutes,
+            totalBilledAmount = totalOwedToOwner,
+            totalPaidAmount = totalDisbursed,
+            totalDisbursedAmount = totalDisbursed,
+            balance = netBalance
+        )
+    }
+
+    // دورات السقي الخاصة بالمزارع (سواء المسجلة له مباشرة، أو المسجلة على حسابه كمستفيد)
     val customerSessions = sessions.filter {
         (it.billedToCustomerId == customer.id) || (it.customerId == customer.id && it.billedToCustomerId == null)
     }
@@ -57,7 +94,8 @@ internal fun calculateCustomerBalance(
 class CustomerRepository(
     private val customerDao: CustomerDao,
     private val sessionFlow: Flow<List<WaterSession>>,
-    private val voucherFlow: Flow<List<Voucher>>
+    private val voucherFlow: Flow<List<Voucher>>,
+    private val pumpFlow: Flow<List<PumpSource>> = flowOf(emptyList())
 ) {
     val allCustomers: Flow<List<Customer>> = customerDao.getAllCustomers()
 
@@ -66,8 +104,8 @@ class CustomerRepository(
     suspend fun getCustomerByIdDirect(id: Long): Customer? = customerDao.getCustomerByIdDirect(id)
 
     val customersWithBalance: Flow<List<CustomerWithBalance>> =
-        combine(customerDao.getAllCustomers(), sessionFlow, voucherFlow) { customers, sessions, vouchers ->
-            customers.map { customer -> calculateCustomerBalance(customer, sessions, vouchers) }
+        combine(customerDao.getAllCustomers(), sessionFlow, voucherFlow, pumpFlow) { customers, sessions, vouchers, pumps ->
+            customers.map { customer -> calculateCustomerBalance(customer, sessions, vouchers, pumps) }
         }
 
     suspend fun insertCustomer(customer: Customer): Long = customerDao.insertCustomer(customer)

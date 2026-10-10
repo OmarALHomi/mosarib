@@ -365,8 +365,25 @@ fun SessionsScreen(
                 showAddManualSheet = false
                 sessionToEdit = null
             },
-            onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes ->
-                viewModel.saveManualSession(id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes)
+            onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes, billedTo, wastedMins, wastedReason, discount, costRate, pumpId ->
+                viewModel.saveManualSession(
+                    id = id,
+                    customerId = custId,
+                    pumpName = pumpName,
+                    startTime = startTime,
+                    endTime = endTime,
+                    hours = hrs,
+                    minutes = mins,
+                    pricePerHour = rate,
+                    amountPaid = paid,
+                    notes = notes,
+                    billedToCustomerId = billedTo,
+                    wastedMinutes = wastedMins,
+                    wastedReason = wastedReason,
+                    discountAmount = discount,
+                    costPricePerHour = costRate,
+                    pumpSourceId = pumpId
+                )
             }
         )
     }

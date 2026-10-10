@@ -127,6 +127,13 @@ fun SettingsScreen(
         uri?.let { viewModel.restoreBackup(it) }
     }
 
+    // SAF Document Creator for saving backup anywhere on device
+    val createBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri: Uri? ->
+        uri?.let { viewModel.exportBackupToUri(it) }
+    }
+
     val context = androidx.compose.ui.platform.LocalContext.current
     val isBiometricAvailable = remember { BiometricHelper.isAvailable(context) }
     val deviceCode = remember { LicenseManager.getDeviceCode(context) }
@@ -154,6 +161,23 @@ fun SettingsScreen(
             }
         } catch (e: Exception) {
             viewModel.showToast("فشل تسجيل الدخول بحساب Google: ${e.localizedMessage}", ToastType.ERROR)
+        }
+    }
+
+    val driveRecoveryIntent by viewModel.driveRecoveryIntent.collectAsStateWithLifecycle()
+    val driveRecoveryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            viewModel.onDriveConsentGranted()
+        } else {
+            viewModel.clearDriveRecoveryIntent()
+        }
+    }
+
+    androidx.compose.runtime.LaunchedEffect(driveRecoveryIntent) {
+        driveRecoveryIntent?.let {
+            driveRecoveryLauncher.launch(it)
         }
     }
 
@@ -502,16 +526,19 @@ fun SettingsScreen(
                             }
                         }
 
-                        // زر إنشاء نسخة محلية جديدة
+                        // زر إنشاء وحفظ نسخة احتياطية جديدة بنظام SAF
                         Button(
-                            onClick = { viewModel.backupToPhoneStorage() },
+                            onClick = {
+                                val dateStr = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
+                                createBackupLauncher.launch("mosarib_backup_$dateStr.back")
+                            },
                             colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("نسخة جديدة", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                            Text("حفظ نسخة جديدة", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                         }
                     }
 

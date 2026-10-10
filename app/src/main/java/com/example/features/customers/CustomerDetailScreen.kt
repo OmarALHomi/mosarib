@@ -146,7 +146,7 @@ fun CustomerDetailScreen(
     BackHandler { onBack() }
 
     val config by viewModel.appConfig.collectAsStateWithLifecycle()
-    val allCustomersWithBalance by viewModel.customersWithBalance.collectAsStateWithLifecycle()
+    val allCustomersWithBalance by viewModel.rawCustomersWithBalance.collectAsStateWithLifecycle()
     val customerWithBalance = allCustomersWithBalance.find { it.customer.id == customerId }
     val allCustomers: List<Customer> by viewModel.allCustomers.collectAsStateWithLifecycle(initialValue = emptyList())
     val sessions by remember(customerId) { viewModel.getCustomerSessions(customerId) }.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -551,8 +551,13 @@ fun CustomerDetailScreen(
                             // Balance label
                             Text(
                                 text = when {
-                                    isDebt -> "صافي الدين المتبقي بذمة العميل"
-                                    isCredit -> "رصيد دائن لصالح العميل"
+                                    customer.isWellOwner -> when {
+                                        isDebt -> "المستحق لصاحب البئر بذمتك (عليك)"
+                                        isCredit -> "مسدد بالزيادة لصاحب البئر (لك)"
+                                        else -> "حساب البئر مسدد بالكامل"
+                                    }
+                                    isDebt -> "صافي الدين المتبقي بذمة العميل (لك)"
+                                    isCredit -> "رصيد دائن لصالح العميل (عليك)"
                                     else -> "الحساب مسدد بالكامل (لا توجد مطالبات)"
                                 },
                                 style = MaterialTheme.typography.labelMedium.copy(
@@ -892,8 +897,8 @@ fun CustomerDetailScreen(
             initialCustomer = customer,
             currencySymbol = config.currencySymbol,
             onDismiss = { showEditCustomerSheet = false },
-            onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary ->
-                viewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary)
+            onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner ->
+                viewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner)
                 showEditCustomerSheet = false
             }
         )

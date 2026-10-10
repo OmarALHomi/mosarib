@@ -40,6 +40,7 @@ data class GeneralReportStats(
     val totalRevenue: Double = 0.0,
     val totalCollectedCash: Double = 0.0,
     val totalOutstandingDebt: Double = 0.0,
+    val totalWellCost: Double = 0.0,
     val totalPumpExpenses: Double = 0.0,
     val netOperatingProfit: Double = 0.0,
     val topCustomers: List<TopCustomerStat> = emptyList()
@@ -57,7 +58,12 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     private val db = AppDatabase.getDatabase(application)
     private val sessionRepo = WaterSessionRepository(db.waterSessionDao(), db.customerDao())
     private val voucherRepo = VoucherRepository(db.voucherDao(), db.customerDao())
-    private val customerRepo = CustomerRepository(db.customerDao(), sessionRepo.allSessions, voucherRepo.allVouchers)
+    private val customerRepo = CustomerRepository(
+        db.customerDao(),
+        sessionRepo.allSessions,
+        voucherRepo.allVouchers,
+        db.pumpSourceDao().getAllPumps()
+    )
     private val settingsRepo = SettingsRepository(db.appSettingDao())
 
     val appConfig: StateFlow<AppConfig> = settingsRepo.appConfig
@@ -90,8 +96,16 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             val discountVouchers = filteredVouchers.filter { it.type == VoucherType.DISCOUNT }.sumOf { it.amount }
             val totalCollected = sessionPaid + receiptVouchers
             val totalDebts = Math.max(0.0, totalRevenue - (totalCollected + discountVouchers))
+            
+            // تكلفة الشراء من أصحاب الآبار
+            val totalWellCosts = filteredSessions.sumOf { s ->
+                val netMin = Math.max(0, s.durationMinutes - s.wastedMinutes)
+                (netMin / 60.0) * s.costPricePerHour
+            }
+            // مصاريف المسرب التشغيلية (ديزل، صيانة، قطع غيار...)
             val totalExpenses = filteredVouchers.filter { it.type == VoucherType.EXPENSE }.sumOf { it.amount }
-            val netProfit = totalRevenue - totalExpenses
+            // صافي أرباح المسرب = الإيرادات من المزارعين - تكلفة الآبار - المصاريف التشغيلية
+            val netProfit = totalRevenue - totalWellCosts - totalExpenses
 
             // Top Customers by Minutes
             val custMap = customers.associateBy { it.id }
@@ -122,6 +136,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 totalRevenue = totalRevenue,
                 totalCollectedCash = totalCollected,
                 totalOutstandingDebt = totalDebts,
+                totalWellCost = totalWellCosts,
                 totalPumpExpenses = totalExpenses,
                 netOperatingProfit = netProfit,
                 topCustomers = topList

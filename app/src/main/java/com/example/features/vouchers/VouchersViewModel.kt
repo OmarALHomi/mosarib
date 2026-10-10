@@ -57,7 +57,12 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
     private val db = AppDatabase.getDatabase(application)
     private val sessionRepo = WaterSessionRepository(db.waterSessionDao(), db.customerDao())
     private val voucherRepo = VoucherRepository(db.voucherDao(), db.customerDao())
-    private val customerRepo = CustomerRepository(db.customerDao(), sessionRepo.allSessions, voucherRepo.allVouchers)
+    private val customerRepo = CustomerRepository(
+        db.customerDao(),
+        sessionRepo.allSessions,
+        voucherRepo.allVouchers,
+        db.pumpSourceDao().getAllPumps()
+    )
     private val settingsRepo = SettingsRepository(db.appSettingDao())
 
     val operationsCount: StateFlow<Int> = combine(
@@ -305,6 +310,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                     currencySymbol = appConfig.value.currencySymbol
                 )
 
+                LicenseManager.recordOperationPerformed(getApplication(), totalOps)
                 showToast("تم سداد السند وتوزيع المبلغ بنجاح", ToastType.SUCCESS)
             } else {
                 val prefix = if (type == VoucherType.RECEIPT) "REC" else "EXP"
@@ -321,6 +327,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                     notes = notes
                 )
                 voucherRepo.insertVoucher(voucher)
+                LicenseManager.recordOperationPerformed(getApplication(), totalOps)
 
                 val title = if (type == VoucherType.RECEIPT) "سند القبض" else "سند الصرف"
                 showToast("تم حفظ $title بنجاح", ToastType.SUCCESS)

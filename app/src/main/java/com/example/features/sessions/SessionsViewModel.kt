@@ -45,7 +45,12 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
 
     private val db = AppDatabase.getDatabase(application)
     private val sessionRepo = WaterSessionRepository(db.waterSessionDao(), db.customerDao())
-    private val customerRepo = CustomerRepository(db.customerDao(), sessionRepo.allSessions, db.voucherDao().getAllVouchers())
+    private val customerRepo = CustomerRepository(
+        db.customerDao(),
+        sessionRepo.allSessions,
+        db.voucherDao().getAllVouchers(),
+        db.pumpSourceDao().getAllPumps()
+    )
     private val pumpRepo = PumpSourceRepository(db.pumpSourceDao())
     private val settingsRepo = SettingsRepository(db.appSettingDao())
     private val voucherRepo = VoucherRepository(db.voucherDao(), db.customerDao())
@@ -184,13 +189,20 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
         pricePerHour: Double,
         amountPaid: Double,
         notes: String,
-        billedToCustomerId: Long? = null
+        billedToCustomerId: Long? = null,
+        wastedMinutes: Int = 0,
+        wastedReason: String = "",
+        discountAmount: Double = 0.0,
+        costPricePerHour: Double = 0.0,
+        pumpSourceId: Long? = null
     ) {
         viewModelScope.launch {
             val totalMinutes = (hours * 60) + minutes
-            val totalCost = Formatters.calculateWaterCost(totalMinutes, pricePerHour)
+            val netMinutes = maxOf(0, totalMinutes - wastedMinutes)
+            val grossCost = Formatters.calculateWaterCost(netMinutes, pricePerHour)
+            val totalCost = Formatters.roundMoney(maxOf(0.0, grossCost - discountAmount))
             val roundedPaid = Formatters.roundMoney(amountPaid)
-            val debt = Formatters.roundMoney(Math.max(0.0, totalCost - roundedPaid))
+            val debt = Formatters.roundMoney(maxOf(0.0, totalCost - roundedPaid))
 
             val session = WaterSession(
                 id = id,
@@ -205,7 +217,12 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                 remainingDebt = debt,
                 notes = notes,
                 isLive = false,
-                billedToCustomerId = billedToCustomerId
+                billedToCustomerId = billedToCustomerId,
+                wastedMinutes = wastedMinutes,
+                wastedReason = wastedReason,
+                discountAmount = discountAmount,
+                costPricePerHour = costPricePerHour,
+                pumpSourceId = pumpSourceId
             )
 
             if (id == 0L) {
@@ -215,10 +232,11 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                     return@launch
                 }
                 sessionRepo.insertSession(session)
-                showToast("تم تسجيل دورة الماء وحساب التكلفة بنجاح", ToastType.SUCCESS)
+                LicenseManager.recordOperationPerformed(getApplication(), totalOps)
+                showToast("تم تسجيل دورة السقي وحساب التكلفة بنجاح", ToastType.SUCCESS)
             } else {
                 sessionRepo.updateSession(session)
-                showToast("تم تحديث بيانات دورة الماء بنجاح", ToastType.SUCCESS)
+                showToast("تم تحديث بيانات دورة السقي بنجاح", ToastType.SUCCESS)
             }
         }
     }
@@ -262,6 +280,7 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                 notes = notes.ifBlank { "سداد دورة سقي #${session.id}" }
             )
             voucherRepo.insertVoucher(voucher)
+            LicenseManager.recordOperationPerformed(getApplication(), totalOps)
             showToast("تم سداد المبلغ بنجاح وإصدار سند القبض المرتبط", ToastType.SUCCESS)
         }
     }

@@ -12,5 +12,9 @@ data class PumpSource(
     val powerType: String = "ديزل", // ديزل, كهرباء, طاقة شمسية
     val notes: String = "",
     val isPrimary: Boolean = false,
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    val ownerName: String = "", // اسم صاحب البئر
+    val ownerPhone: String = "", // رقم هاتف صاحب البئر
+    val costPricePerHour: Double = 0.0, // سعر الشراء بالساعة من صاحب البئر
+    val ownerCustomerId: Long? = null // ربط مباشر بحساب صاحب البئر المستقل
 )

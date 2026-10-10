@@ -31,12 +31,21 @@ enum class CustomerSort {
     NAME, HIGHEST_DEBT, MOST_WATER_HOURS
 }
 
+enum class AccountFilter {
+    ALL, FARMERS, WELL_OWNERS
+}
+
 class CustomersViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getDatabase(application)
     private val sessionRepo = WaterSessionRepository(db.waterSessionDao(), db.customerDao())
     private val voucherRepo = VoucherRepository(db.voucherDao(), db.customerDao())
-    private val customerRepo = CustomerRepository(db.customerDao(), sessionRepo.allSessions, voucherRepo.allVouchers)
+    private val customerRepo = CustomerRepository(
+        db.customerDao(),
+        sessionRepo.allSessions,
+        voucherRepo.allVouchers,
+        db.pumpSourceDao().getAllPumps()
+    )
     private val settingsRepo = SettingsRepository(db.appSettingDao())
 
     val appConfig: StateFlow<AppConfig> = settingsRepo.appConfig
@@ -48,6 +57,13 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
     private val _sortType = MutableStateFlow(CustomerSort.NAME)
     val sortType: StateFlow<CustomerSort> = _sortType.asStateFlow()
 
+    private val _accountFilter = MutableStateFlow(AccountFilter.ALL)
+    val accountFilter: StateFlow<AccountFilter> = _accountFilter.asStateFlow()
+
+    fun setAccountFilter(filter: AccountFilter) {
+        _accountFilter.value = filter
+    }
+
     private val _toast = MutableStateFlow<ToastMessage?>(null)
     val toast: StateFlow<ToastMessage?> = _toast.asStateFlow()
 
@@ -56,10 +72,19 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
     val pdfReadyFile: StateFlow<Pair<File, String>?> = _pdfReadyFile.asStateFlow()
     fun clearPdfReady() { _pdfReadyFile.value = null }
 
+    val rawCustomersWithBalance: StateFlow<List<CustomerWithBalance>> =
+        customerRepo.customersWithBalance
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val customersWithBalance: StateFlow<List<CustomerWithBalance>> =
-        combine(customerRepo.customersWithBalance, _searchQuery, _sortType) { list, query, sort ->
-            val filtered = if (query.isBlank()) list else {
-                list.filter {
+        combine(customerRepo.customersWithBalance, _searchQuery, _sortType, _accountFilter) { list, query, sort, filter ->
+            val byFilter = when (filter) {
+                AccountFilter.ALL -> list
+                AccountFilter.FARMERS -> list.filter { !it.customer.isWellOwner }
+                AccountFilter.WELL_OWNERS -> list.filter { it.customer.isWellOwner }
+            }
+            val filtered = if (query.isBlank()) byFilter else {
+                byFilter.filter {
                     it.customer.name.contains(query, ignoreCase = true) ||
                     it.customer.phone.contains(query, ignoreCase = true) ||
                     it.customer.farmName.contains(query, ignoreCase = true) ||
@@ -101,7 +126,8 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         location: String,
         notes: String,
         customPricePerHour: Double?,
-        isBeneficiary: Boolean = false
+        isBeneficiary: Boolean = false,
+        isWellOwner: Boolean = false
     ) {
         viewModelScope.launch {
             val customer = Customer(
@@ -112,14 +138,15 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 location = location.trim(),
                 notes = notes.trim(),
                 customPricePerHour = customPricePerHour,
-                isBeneficiary = isBeneficiary
+                isBeneficiary = isBeneficiary,
+                isWellOwner = isWellOwner
             )
             if (id == 0L) {
                 customerRepo.insertCustomer(customer)
-                showToast("تمت إضافة العميل بنجاح", ToastType.SUCCESS)
+                showToast(if (isWellOwner) "تمت إضافة حساب صاحب البئر بنجاح" else "تمت إضافة العميل بنجاح", ToastType.SUCCESS)
             } else {
                 customerRepo.updateCustomer(customer)
-                showToast("تم تعديل بيانات العميل بنجاح", ToastType.SUCCESS)
+                showToast("تم تعديل بيانات الحساب بنجاح", ToastType.SUCCESS)
             }
         }
     }
@@ -132,7 +159,19 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun getCustomerSessions(customerId: Long): Flow<List<WaterSession>> =
-        sessionRepo.getSessionsForCustomer(customerId)
+        combine(sessionRepo.allSessions, db.customerDao().getCustomerById(customerId), db.pumpSourceDao().getAllPumps()) { sessions, cust, pumps ->
+            if (cust != null && cust.isWellOwner) {
+                val ownedPumpIds = pumps.filter { it.ownerCustomerId == cust.id }.map { it.id }.toSet()
+                sessions.filter {
+                    (it.pumpSourceId != null && ownedPumpIds.contains(it.pumpSourceId)) ||
+                    (pumps.any { p -> p.ownerCustomerId == cust.id && p.name == it.pumpName })
+                }
+            } else {
+                sessions.filter {
+                    (it.billedToCustomerId == customerId) || (it.customerId == customerId && it.billedToCustomerId == null)
+                }
+            }
+        }
 
     fun getCustomerVouchers(customerId: Long): Flow<List<Voucher>> =
         voucherRepo.getVouchersForCustomer(customerId)
@@ -240,7 +279,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
     fun generateCustomerStatementPdf(customer: Customer) {
         viewModelScope.launch {
             try {
-                val sessions = sessionRepo.getSessionsForCustomer(customer.id).first()
+                val sessions = getCustomerSessions(customer.id).first()
                 val vouchers = voucherRepo.getVouchersForCustomer(customer.id).first()
                 val config = appConfig.value
                 val file: File = PdfReportGenerator.generateCustomerStatementPdf(
@@ -259,25 +298,49 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun buildCustomerStatementMessage(customer: Customer, item: CustomerWithBalance): String {
         val config = appConfig.value
-        val debtStatus = if (item.balance > 0) {
-            "⚠️ المطلوب بذمتكم: ${com.example.core.util.Formatters.formatCurrency(item.balance, config.currencySymbol)}"
-        } else if (item.balance < 0) {
-            "✅ لديكم رصيد دائن: ${com.example.core.util.Formatters.formatCurrency(Math.abs(item.balance), config.currencySymbol)}"
+        val debtStatus = if (customer.isWellOwner) {
+            if (item.balance > 0) {
+                "⚠️ المستحق لكم بذمتنا (عليك): ${com.example.core.util.Formatters.formatCurrency(item.balance, config.currencySymbol)}"
+            } else if (item.balance < 0) {
+                "✅ مسدد بالزيادة (لك): ${com.example.core.util.Formatters.formatCurrency(Math.abs(item.balance), config.currencySymbol)}"
+            } else {
+                "✅ الحساب مسدد بالكامل"
+            }
         } else {
-            "✅ الحساب خالص ومسدد بالكامل"
+            if (item.balance > 0) {
+                "⚠️ المطلوب بذمتكم: ${com.example.core.util.Formatters.formatCurrency(item.balance, config.currencySymbol)}"
+            } else if (item.balance < 0) {
+                "✅ لديكم رصيد دائن: ${com.example.core.util.Formatters.formatCurrency(Math.abs(item.balance), config.currencySymbol)}"
+            } else {
+                "✅ الحساب خالص ومسدد بالكامل"
+            }
         }
 
-        return """
-            *كشف حساب مياه - ${config.distributorName}*
-            👤 العميل: ${customer.name}
-            📍 المزرعة: ${customer.farmName.ifEmpty { "عام" }}
-            ⏱️ إجمالي ساعات الري: ${com.example.core.util.Formatters.formatDurationArabic(item.totalMinutes)}
-            💰 إجمالي قيمة المسارب: ${com.example.core.util.Formatters.formatCurrency(item.totalBilledAmount, config.currencySymbol)}
-            💵 إجمالي المسدد: ${com.example.core.util.Formatters.formatCurrency(item.totalPaidAmount, config.currencySymbol)}
-            ------------------------
-            $debtStatus
-            ------------------------${com.example.core.util.FileSharingHelper.MESSAGE_FOOTER}
-        """.trimIndent()
+        return if (customer.isWellOwner) {
+            """
+                *كشف حساب صاحب البئر - ${config.distributorName.ifEmpty { "المسرب" }}*
+                💧 صاحب البئر: ${customer.name}
+                📍 البئر / الموقع: ${customer.farmName.ifEmpty { customer.location.ifEmpty { "عام" } }}
+                ⏱️ إجمالي ساعات الضخ: ${com.example.core.util.Formatters.formatDurationArabic(item.totalMinutes)}
+                💰 إجمالي قيمة ساعات الضخ: ${com.example.core.util.Formatters.formatCurrency(item.totalBilledAmount, config.currencySymbol)}
+                💵 إجمالي المبالغ المصروفة لكم: ${com.example.core.util.Formatters.formatCurrency(item.totalPaidAmount, config.currencySymbol)}
+                ------------------------
+                $debtStatus
+                ------------------------${com.example.core.util.FileSharingHelper.MESSAGE_FOOTER}
+            """.trimIndent()
+        } else {
+            """
+                *كشف حساب مياه - ${config.distributorName.ifEmpty { "المسرب" }}*
+                👤 العميل: ${customer.name}
+                📍 المزرعة: ${customer.farmName.ifEmpty { "عام" }}
+                ⏱️ إجمالي ساعات الري: ${com.example.core.util.Formatters.formatDurationArabic(item.totalMinutes)}
+                💰 إجمالي قيمة المسارب: ${com.example.core.util.Formatters.formatCurrency(item.totalBilledAmount, config.currencySymbol)}
+                💵 إجمالي المسدد: ${com.example.core.util.Formatters.formatCurrency(item.totalPaidAmount, config.currencySymbol)}
+                ------------------------
+                $debtStatus
+                ------------------------${com.example.core.util.FileSharingHelper.MESSAGE_FOOTER}
+            """.trimIndent()
+        }
     }
 
     fun sendCustomerStatementWhatsApp(customer: Customer, item: CustomerWithBalance) {

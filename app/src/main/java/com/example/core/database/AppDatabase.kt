@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
         Voucher::class,
         AppSetting::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -54,6 +54,21 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE water_sessions ADD COLUMN wastedMinutes INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE water_sessions ADD COLUMN wastedReason TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE water_sessions ADD COLUMN discountAmount REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE water_sessions ADD COLUMN costPricePerHour REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE water_sessions ADD COLUMN pumpSourceId INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE pump_sources ADD COLUMN ownerName TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE pump_sources ADD COLUMN ownerPhone TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE pump_sources ADD COLUMN costPricePerHour REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE pump_sources ADD COLUMN ownerCustomerId INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE customers ADD COLUMN isWellOwner INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -61,7 +76,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "water_distributor_db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance

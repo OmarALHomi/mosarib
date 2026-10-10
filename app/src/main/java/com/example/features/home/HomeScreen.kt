@@ -571,8 +571,25 @@ fun HomeScreen(
             currencySymbol = config.currencySymbol,
             onCreateCustomer = { customer -> sessionsViewModel.createCustomer(customer) },
             onDismiss = { showAddManualSheet = false },
-            onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes ->
-                sessionsViewModel.saveManualSession(id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes)
+            onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes, billedTo, wastedMins, wastedReason, discount, costRate, pumpId ->
+                sessionsViewModel.saveManualSession(
+                    id = id,
+                    customerId = custId,
+                    pumpName = pumpName,
+                    startTime = startTime,
+                    endTime = endTime,
+                    hours = hrs,
+                    minutes = mins,
+                    pricePerHour = rate,
+                    amountPaid = paid,
+                    notes = notes,
+                    billedToCustomerId = billedTo,
+                    wastedMinutes = wastedMins,
+                    wastedReason = wastedReason,
+                    discountAmount = discount,
+                    costPricePerHour = costRate,
+                    pumpSourceId = pumpId
+                )
             }
         )
     }
@@ -612,8 +629,8 @@ fun HomeScreen(
             initialCustomer = null,
             currencySymbol = config.currencySymbol,
             onDismiss = { showAddCustomerSheet = false },
-            onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary ->
-                customersViewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary)
+            onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner ->
+                customersViewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner)
             }
         )
     }

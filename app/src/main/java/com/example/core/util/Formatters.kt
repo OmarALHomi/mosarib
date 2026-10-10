@@ -225,6 +225,16 @@ object Formatters {
         return sdf.format(Date(timestamp))
     }
 
+    fun formatClockTimeArabic(hour: Int, minute: Int): String {
+        val period = if (hour < 12) "ص" else "م"
+        val displayHour = when {
+            hour == 0 -> 12
+            hour > 12 -> hour - 12
+            else -> hour
+        }
+        return String.format(Locale.US, "%02d:%02d %s", displayHour, minute, period)
+    }
+
     fun formatDateTime(timestamp: Long): String {
         val sdf = SimpleDateFormat("yyyy/MM/dd - hh:mm a", Locale.forLanguageTag("ar"))
         return sdf.format(Date(timestamp))

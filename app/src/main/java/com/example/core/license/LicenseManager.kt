@@ -144,12 +144,97 @@ object LicenseManager {
         return ((remainingMs + 86399999L) / (24L * 3600L * 1000L)).toInt()
     }
 
+    private const val KEY_TRIAL_CONSUMED = "is_trial_consumed_permanently"
+    private const val KEY_CUMULATIVE_OPS = "cumulative_ops_count"
+    private const val TRIAL_WATERMARK_SALT = "msrb_trial_permanent_lock_salt_2026_alhomi"
+
+    /**
+     * Checks whether the trial period or free operations have already been consumed on this phone.
+     * Checks multiple persistent layers: internal prefs, external app dir, and public media watermark.
+     * Survives "Clear App Data" and app reinstalls on the same physical device.
+     */
+    fun isTrialConsumed(context: Context): Boolean {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        if (sp.getBoolean(KEY_TRIAL_CONSUMED, false)) return true
+
+        val deviceCode = getDeviceCode(context)
+        val expectedWatermark = sha256(deviceCode + TRIAL_WATERMARK_SALT)
+
+        // Layer 2: Check persistent file in external documents/downloads directory
+        val externalDirs = listOfNotNull(
+            context.getExternalFilesDir(null),
+            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS)
+        )
+
+        for (dir in externalDirs) {
+            runCatching {
+                val tokenFile = java.io.File(dir, ".msrb_trial_signature")
+                if (tokenFile.exists() && tokenFile.readText(Charsets.UTF_8).trim() == expectedWatermark) {
+                    // Sync back to preferences
+                    sp.edit().putBoolean(KEY_TRIAL_CONSUMED, true).apply()
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    /**
+     * Permanently marks this physical device as having consumed its free trial.
+     * Writes cryptographic hardware-bound watermark across multiple persistent layers.
+     */
+    fun markTrialAsConsumed(context: Context) {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        sp.edit().putBoolean(KEY_TRIAL_CONSUMED, true).apply()
+
+        val deviceCode = getDeviceCode(context)
+        val expectedWatermark = sha256(deviceCode + TRIAL_WATERMARK_SALT)
+
+        val externalDirs = listOfNotNull(
+            context.getExternalFilesDir(null),
+            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS)
+        )
+
+        for (dir in externalDirs) {
+            runCatching {
+                if (!dir.exists()) dir.mkdirs()
+                val tokenFile = java.io.File(dir, ".msrb_trial_signature")
+                tokenFile.writeText(expectedWatermark, Charsets.UTF_8)
+            }
+        }
+    }
+
+    /**
+     * Records operation count monotonically so deleting database rows doesn't reset the counter.
+     */
+    fun recordOperationPerformed(context: Context, currentDbCount: Int) {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        val storedCumulative = sp.getInt(KEY_CUMULATIVE_OPS, 0)
+        val newCumulative = maxOf(storedCumulative + 1, currentDbCount)
+        sp.edit().putInt(KEY_CUMULATIVE_OPS, newCumulative).apply()
+
+        if (newCumulative >= FREE_OPERATIONS_LIMIT) {
+            markTrialAsConsumed(context)
+        }
+    }
+
     /**
      * Checks whether an operation (session or voucher) can be performed.
-     * True if active subscription or if current total operations is below [FREE_OPERATIONS_LIMIT].
+     * True if active subscription, or if device has not consumed trial and operations count < limit.
      */
     fun canPerformOperation(context: Context, currentOperationsCount: Int): Boolean {
-        return isActivated(context) || currentOperationsCount < FREE_OPERATIONS_LIMIT
+        if (isActivated(context)) return true
+        if (isTrialConsumed(context)) return false
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        val storedOps = sp.getInt(KEY_CUMULATIVE_OPS, 0)
+        val effectiveCount = maxOf(storedOps, currentOperationsCount)
+        if (effectiveCount >= FREE_OPERATIONS_LIMIT) {
+            markTrialAsConsumed(context)
+            return false
+        }
+        return true
     }
 
     /**
@@ -157,7 +242,11 @@ object LicenseManager {
      */
     fun getRemainingOperations(context: Context, currentOperationsCount: Int): Int {
         if (isActivated(context)) return Int.MAX_VALUE
-        return (FREE_OPERATIONS_LIMIT - currentOperationsCount).coerceAtLeast(0)
+        if (isTrialConsumed(context)) return 0
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        val storedOps = sp.getInt(KEY_CUMULATIVE_OPS, 0)
+        val effectiveCount = maxOf(storedOps, currentOperationsCount)
+        return (FREE_OPERATIONS_LIMIT - effectiveCount).coerceAtLeast(0)
     }
 
     /**

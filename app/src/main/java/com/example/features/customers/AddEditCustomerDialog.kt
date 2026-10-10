@@ -52,12 +52,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
+import com.example.ui.theme.SecondaryAqua
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,7 +75,8 @@ fun AddEditCustomerBottomSheet(
         location: String,
         notes: String,
         customPricePerHour: Double?,
-        isBeneficiary: Boolean
+        isBeneficiary: Boolean,
+        isWellOwner: Boolean
     ) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(
@@ -87,6 +90,7 @@ fun AddEditCustomerBottomSheet(
     var farmName by remember { mutableStateOf(initialCustomer?.farmName ?: "") }
     var location by remember { mutableStateOf(initialCustomer?.location ?: "") }
     var notes by remember { mutableStateOf(initialCustomer?.notes ?: "") }
+    var isWellOwner by remember { mutableStateOf(initialCustomer?.isWellOwner ?: false) }
     var customPriceStr by remember {
         mutableStateOf(initialCustomer?.customPricePerHour?.let { it.toString() } ?: "")
     }
@@ -202,6 +206,35 @@ fun AddEditCustomerBottomSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
+            // تحديد نوع الحساب (مزارع أو صاحب بئر)
+            Text(
+                text = "نوع الحساب:",
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = !isWellOwner,
+                    onClick = { isWellOwner = false },
+                    label = { Text("👨‍🌾 مزارع (عميل سقي)", fontWeight = FontWeight.Bold) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = PrimaryTeal,
+                        selectedLabelColor = androidx.compose.ui.graphics.Color.White
+                    )
+                )
+                FilterChip(
+                    selected = isWellOwner,
+                    onClick = { isWellOwner = true },
+                    label = { Text("💧 صاحب بئر (مورد ماء)", fontWeight = FontWeight.Bold) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = SecondaryAqua,
+                        selectedLabelColor = androidx.compose.ui.graphics.Color.White
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
             // Contact Picker Button (Clean borderless surface, direct Phone picker)
             Button(
                 onClick = {
@@ -226,8 +259,8 @@ fun AddEditCustomerBottomSheet(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("اسم العميل *") },
-                placeholder = { Text("مثال: أبو صالح العامري") },
+                label = { Text(if (isWellOwner) "اسم صاحب البئر *" else "اسم العميل / المزارع *") },
+                placeholder = { Text(if (isWellOwner) "مثال: الحاج علي ناصر (مالك بئر الوادي)" else "مثال: أبو صالح العامري") },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -332,7 +365,8 @@ fun AddEditCustomerBottomSheet(
                             location,
                             notes,
                             customRate,
-                            false
+                            false,
+                            isWellOwner
                         )
                         onDismiss()
                     }
