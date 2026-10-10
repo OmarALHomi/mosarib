@@ -111,7 +111,7 @@ fun CustomersScreen(
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 90.dp)
+            contentPadding = PaddingValues(bottom = 120.dp)
         ) {
             // 1. شريط تبويبات التصنيف الرئيسي (الكل / المزارعون / أصحاب الآبار) + البحث والفرز
             item {
@@ -247,9 +247,10 @@ fun CustomersScreen(
         Card(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .padding(horizontal = 14.dp, vertical = 8.dp)
                 .fillMaxWidth()
-                .shadow(12.dp, RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)),
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+                .shadow(8.dp, RoundedCornerShape(20.dp)),
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Row(

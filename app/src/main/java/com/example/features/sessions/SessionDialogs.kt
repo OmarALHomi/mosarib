@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -628,14 +629,23 @@ fun AddEditSessionBottomSheet(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "⏱️ الوقت المهدور والتوقفات (يُخصم)",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (wastedTotalMinutes > 0) Color(0xFFC2410C) else MaterialTheme.colorScheme.onSurface
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        TextButton(
+                            onClick = { showWastedDetails = !showWastedDetails },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
                             Text(
-                                text = "⏱️ الوقت المهدور والتوقفات (يُخصم من الساعات)",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = if (wastedTotalMinutes > 0) Color(0xFFC2410C) else MaterialTheme.colorScheme.onSurface)
+                                text = if (showWastedDetails) "إخفاء" else "تحديد هدر",
+                                fontWeight = FontWeight.Bold
                             )
-                        }
-                        TextButton(onClick = { showWastedDetails = !showWastedDetails }) {
-                            Text(if (showWastedDetails) "إخفاء" else "تحديد هدر")
                         }
                     }
 
@@ -684,7 +694,7 @@ fun AddEditSessionBottomSheet(
                 OutlinedTextField(
                     value = pricePerHourStr,
                     onValueChange = { pricePerHourStr = Formatters.formatAmountInput(it) },
-                    label = { Text("سعر بيع الساعة للمزارع ($currencySymbol)") },
+                    label = { Text("سعر البيع ($currencySymbol)") },
                     leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = AccentGold) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f),
@@ -694,7 +704,7 @@ fun AddEditSessionBottomSheet(
                 OutlinedTextField(
                     value = wellCostPriceStr,
                     onValueChange = { wellCostPriceStr = Formatters.formatAmountInput(it) },
-                    label = { Text("سعر شراء الساعة من البئر ($currencySymbol)") },
+                    label = { Text("سعر الشراء ($currencySymbol)") },
                     leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null, tint = Color(0xFF0284C7)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f),

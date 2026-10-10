@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Yard
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -193,7 +194,11 @@ fun AddEditCustomerBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (initialCustomer == null) "إضافة عميل / مزارع جديد" else "تعديل بيانات العميل",
+                    text = when {
+                        initialCustomer != null -> if (isWellOwner) "تعديل حساب صاحب البئر" else "تعديل بيانات العميل"
+                        isWellOwner -> "إضافة صاحب بئر جديد"
+                        else -> "إضافة عميل / مزارع جديد"
+                    },
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -286,13 +291,13 @@ fun AddEditCustomerBottomSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Farm Name
+            // Farm or Well Name
             OutlinedTextField(
                 value = farmName,
                 onValueChange = { farmName = it },
-                label = { Text("اسم المزرعة أو الأرض (اختياري)") },
-                placeholder = { Text("مثال: بستان النخيل، أرض السد") },
-                leadingIcon = { Icon(Icons.Default.Yard, contentDescription = null, tint = PrimaryTeal) },
+                label = { Text(if (isWellOwner) "اسم البئر أو المنطقة (اختياري)" else "اسم المزرعة أو الأرض (اختياري)") },
+                placeholder = { Text(if (isWellOwner) "مثال: بئر الخير، بئر الصافية" else "مثال: بستان النخيل، أرض السد") },
+                leadingIcon = { Icon(if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Yard, contentDescription = null, tint = PrimaryTeal) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             )
@@ -303,8 +308,8 @@ fun AddEditCustomerBottomSheet(
             OutlinedTextField(
                 value = location,
                 onValueChange = { location = it },
-                label = { Text("الموقع أو المنطقة (اختياري)") },
-                placeholder = { Text("مثال: القطاع الغربي، وادي الخير") },
+                label = { Text(if (isWellOwner) "موقع البئر (اختياري)" else "الموقع أو المنطقة (اختياري)") },
+                placeholder = { Text(if (isWellOwner) "مثال: وادي ضهر، المزرعة الشمالية" else "مثال: القطاع الغربي، وادي الخير") },
                 leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = PrimaryTeal) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
@@ -312,12 +317,12 @@ fun AddEditCustomerBottomSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Custom Price Per Hour
+            // Custom Price / Cost Price Per Hour
             OutlinedTextField(
                 value = customPriceStr,
                 onValueChange = { customPriceStr = Formatters.formatAmountInput(it) },
-                label = { Text("سعر خاص ومخصص لهذا العميل ($currencySymbol/ساعة) - اختياري") },
-                placeholder = { Text("اتركه فارغاً لاستخدام سعر الساعة الافتراضي") },
+                label = { Text(if (isWellOwner) "تكلفة شراء ساعة الضخ من هذا البئر ($currencySymbol/ساعة) - اختياري" else "سعر خاص ومخصص لهذا العميل ($currencySymbol/ساعة) - اختياري") },
+                placeholder = { Text(if (isWellOwner) "تكلفة شراء ساعة الضخ الافتراضية من صاحب هذا البئر" else "اتركه فارغاً لاستخدام سعر الساعة الافتراضي") },
                 leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = AccentGold) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
@@ -338,8 +343,6 @@ fun AddEditCustomerBottomSheet(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-
-
 
             // Notes
             OutlinedTextField(
@@ -380,7 +383,11 @@ fun AddEditCustomerBottomSheet(
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
             ) {
                 Text(
-                    text = if (initialCustomer == null) "حفظ وإضافة العميل" else "تحديث البيانات",
+                    text = when {
+                        initialCustomer != null -> "تحديث البيانات"
+                        isWellOwner -> "حفظ وإضافة صاحب البئر"
+                        else -> "حفظ وإضافة العميل"
+                    },
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )

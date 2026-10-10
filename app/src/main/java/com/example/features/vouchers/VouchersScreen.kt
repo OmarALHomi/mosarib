@@ -125,7 +125,7 @@ fun VouchersScreen(
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 90.dp)
+            contentPadding = PaddingValues(bottom = 110.dp)
         ) {
 
             // Financial Balance Metric Cards (المقبوضات vs المصاريف)
