@@ -352,7 +352,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             try {
                 val sessions = getCustomerSessions(customer.id).first()
-                val purchases = ownerPurchaseRepository.getPurchasesForOwner(customer.id).first()
+                val purchases = ownerPurchaseRepo.getPurchasesForOwner(customer.id).first()
                 val vouchers = voucherRepo.getVouchersForCustomer(customer.id).first()
                 val config = appConfig.value
                 val file: File = PdfReportGenerator.generateCustomerStatementPdf(
