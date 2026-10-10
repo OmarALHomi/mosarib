@@ -30,7 +30,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
@@ -112,17 +111,12 @@ fun HomeScreen(
     onNavigateToTab: (AppTab) -> Unit,
     onNavigateToCustomer: (Long) -> Unit,
     onOpenReports: () -> Unit,
-    onOpenFarmer: () -> Unit = {},
-    onOpenMarket: () -> Unit = {},
-    onOpenDeals: () -> Unit = {},
-    onOpenAccounting: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val config by settingsViewModel.appConfig.collectAsStateWithLifecycle()
     val homeStats by sessionsViewModel.homeStats.collectAsStateWithLifecycle()
     val sessions by sessionsViewModel.filteredSessions.collectAsStateWithLifecycle()
     val customers by sessionsViewModel.customers.collectAsStateWithLifecycle()
-    val pumps by sessionsViewModel.pumps.collectAsStateWithLifecycle()
     val toast by sessionsViewModel.toast.collectAsStateWithLifecycle()
     val operationsCount by settingsViewModel.operationsCount.collectAsStateWithLifecycle()
     val isActivated by settingsViewModel.isActivated.collectAsStateWithLifecycle()
@@ -190,7 +184,7 @@ fun HomeScreen(
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "جِربة",
+                                    text = "المُسَرِّبْ",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.ExtraBold,
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -199,7 +193,7 @@ fun HomeScreen(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "• Jerba",
+                                    text = "• Mosarib",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = AccentGold,
                                         fontWeight = FontWeight.Bold
@@ -207,7 +201,7 @@ fun HomeScreen(
                                 )
                             }
                             Text(
-                                text = "المنظومة الزراعية الشاملة وإدارة الري والوساطة",
+                                text = "لوحة التحكم وإدارة مياه الآبار والسقي",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 11.sp
@@ -374,208 +368,6 @@ fun HomeScreen(
                             fontSize = 16.sp
                         )
                     )
-                }
-            }
-
-            item {
-                Card(
-                    onClick = onOpenFarmer,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 4.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(PrimaryTeal.copy(alpha = 0.15f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("🌾", fontSize = 18.sp)
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "بوابة المزارع — كشوفات مسربي الماء",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                                )
-                                Text(
-                                    text = "تابع سقياتك ورصيدك مع مسربك مباشرة",
-                                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                )
-                            }
-                        }
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            tint = PrimaryTeal
-                        )
-                    }
-                }
-            }
-
-            item {
-                Card(
-                    onClick = onOpenMarket,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 4.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(AccentGold.copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("🤝", fontSize = 18.sp)
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = "سوق وبورصة المحاصيل الزراعية",
-                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(AccentEmerald)
-                                            .padding(horizontal = 6.dp, vertical = 1.dp)
-                                    ) {
-                                        Text(
-                                            text = "جديد",
-                                            style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.Bold, fontSize = 9.sp)
-                                        )
-                                    }
-                                }
-                                Text(
-                                    text = "عروض الثمار، وساطة الدلالين، وحفظ السعايات",
-                                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                )
-                            }
-                        }
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            tint = AccentGold
-                        )
-                    }
-                }
-            }
-
-            item {
-                Card(
-                    onClick = onOpenDeals,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 4.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(PrimaryTeal.copy(alpha = 0.15f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("📜", fontSize = 18.sp)
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "عقود الصلح والأقساط الزراعية",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                                )
-                                Text(
-                                    text = "توثيق البيع والشراء، تتبع الأقساط، وسعايات الدلالين",
-                                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                )
-                            }
-                        }
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            tint = PrimaryTeal
-                        )
-                    }
-                }
-            }
-
-            item {
-                Card(
-                    onClick = onOpenAccounting,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 4.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(AccentEmerald.copy(alpha = 0.15f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("📊", fontSize = 18.sp)
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "محاسبة المزرعة والمصروفات والأرباح",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                                )
-                                Text(
-                                    text = "سجل مصروفات الرش، السماد، العمال، وحساب الأرباح",
-                                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                )
-                            }
-                        }
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            tint = AccentEmerald
-                        )
-                    }
                 }
             }
 
@@ -773,13 +565,29 @@ fun HomeScreen(
         AddEditSessionBottomSheet(
             initialSession = null,
             customers = customers,
-            pumps = pumps,
             defaultPricePerHour = config.defaultPricePerHour,
             currencySymbol = config.currencySymbol,
             onCreateCustomer = { customer -> sessionsViewModel.createCustomer(customer) },
             onDismiss = { showAddManualSheet = false },
-            onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes ->
-                sessionsViewModel.saveManualSession(id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes)
+            onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes, billedTo, wastedMins, wastedReason, discount, costRate, pumpId ->
+                sessionsViewModel.saveManualSession(
+                    id = id,
+                    customerId = custId,
+                    pumpName = pumpName,
+                    startTime = startTime,
+                    endTime = endTime,
+                    hours = hrs,
+                    minutes = mins,
+                    pricePerHour = rate,
+                    amountPaid = paid,
+                    notes = notes,
+                    billedToCustomerId = billedTo,
+                    wastedMinutes = wastedMins,
+                    wastedReason = wastedReason,
+                    discountAmount = discount,
+                    costPricePerHour = costRate,
+                    pumpSourceId = pumpId
+                )
             }
         )
     }
@@ -819,8 +627,8 @@ fun HomeScreen(
             initialCustomer = null,
             currencySymbol = config.currencySymbol,
             onDismiss = { showAddCustomerSheet = false },
-            onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary ->
-                customersViewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary)
+            onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner ->
+                customersViewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner)
             }
         )
     }

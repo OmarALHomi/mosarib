@@ -13,7 +13,7 @@ data class Customer(
     val notes: String = "",
     val customPricePerHour: Double? = null, // Optional special hourly price override for this customer
     val isBeneficiary: Boolean = false, // حساب مستفيد (يقبل الصرف، أو تسجيل سقي له أو لعملاء على حسابه)
+    val isWellOwner: Boolean = false, // حساب صاحب بئر مستقل (تسجل له مستحقات الساعات وتصرف له دفعات)
     val createdAt: Long = System.currentTimeMillis(),
-    val isArchived: Boolean = false,
-    val linkCode: String = "" // كود الربط لمشاركة الحساب مع المزارع
+    val isArchived: Boolean = false
 )

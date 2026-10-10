@@ -7,8 +7,6 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -129,6 +127,13 @@ fun SettingsScreen(
         uri?.let { viewModel.restoreBackup(it) }
     }
 
+    // SAF Document Creator for saving backup anywhere on device
+    val createBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri: Uri? ->
+        uri?.let { viewModel.exportBackupToUri(it) }
+    }
+
     val context = androidx.compose.ui.platform.LocalContext.current
     val isBiometricAvailable = remember { BiometricHelper.isAvailable(context) }
     val deviceCode = remember { LicenseManager.getDeviceCode(context) }
@@ -156,6 +161,23 @@ fun SettingsScreen(
             }
         } catch (e: Exception) {
             viewModel.showToast("فشل تسجيل الدخول بحساب Google: ${e.localizedMessage}", ToastType.ERROR)
+        }
+    }
+
+    val driveRecoveryIntent by viewModel.driveRecoveryIntent.collectAsStateWithLifecycle()
+    val driveRecoveryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            viewModel.onDriveConsentGranted()
+        } else {
+            viewModel.clearDriveRecoveryIntent()
+        }
+    }
+
+    androidx.compose.runtime.LaunchedEffect(driveRecoveryIntent) {
+        driveRecoveryIntent?.let {
+            driveRecoveryLauncher.launch(it)
         }
     }
 
@@ -394,98 +416,6 @@ fun SettingsScreen(
             }
         }
 
-        // Section: Roles Management (أدواري في منظومة جِربة)
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .shadow(2.dp, RoundedCornerShape(18.dp)),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(PrimaryTeal.copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("🌾", fontSize = 18.sp)
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text("أدواري في منظومة جِربة", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                            Text("فعّل الأدوار التي تمارسها لتظهر لك أقسامها مباشرة", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    val rolesList = listOf(
-                        Triple("MUSRIB", "💧 مسرب ماء", "إدارة جلسات السقي وتوزيع الماء وحسابات المزارعين"),
-                        Triple("FARMER", "🌾 مزارع (صاحب أرض)", "متابعة كشوفات السقي، طلب دلالين، وتسجيل مصروفات المزرعة"),
-                        Triple("DALLAL", "🤝 دلال ووسيط زراعي", "نشر عروض المحاصيل في البورصة وإبرام عقود الصلح"),
-                        Triple("BUYER", "📦 مشتري / مجبري", "تصفح السوق، طلب معاينات، ومتابعة الأقساط والدفعات")
-                    )
-
-                    val activeSet = config.activeRoles.split(",").toSet()
-
-                    rolesList.forEach { (code, title, desc) ->
-                        val isChecked = activeSet.contains(code)
-                        val isPrimary = config.primaryRole == code
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    val newSet = if (isChecked) {
-                                        if (activeSet.size > 1) activeSet - code else activeSet
-                                    } else {
-                                        activeSet + code
-                                    }
-                                    val newPrimary = if (isPrimary && !newSet.contains(code)) newSet.first() else config.primaryRole
-                                    viewModel.updateRoles(newPrimary, newSet.joinToString(","))
-                                }
-                                .padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(text = title, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                                    if (isPrimary) {
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(PrimaryTeal.copy(alpha = 0.15f))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                        ) {
-                                            Text("الأساسي", style = MaterialTheme.typography.labelSmall.copy(color = PrimaryTeal, fontSize = 9.sp, fontWeight = FontWeight.Bold))
-                                        }
-                                    }
-                                }
-                                Text(text = desc, style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
-                            }
-                            Checkbox(
-                                checked = isChecked,
-                                onCheckedChange = { checked ->
-                                    val newSet = if (checked) activeSet + code else {
-                                        if (activeSet.size > 1) activeSet - code else activeSet
-                                    }
-                                    val newPrimary = if (isPrimary && !newSet.contains(code)) newSet.first() else config.primaryRole
-                                    viewModel.updateRoles(newPrimary, newSet.joinToString(","))
-                                },
-                                colors = CheckboxDefaults.colors(checkedColor = PrimaryTeal)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
         // Section 3.5: Security & Biometric Lock (البصمة والحماية)
         item {
             Card(
@@ -542,7 +472,6 @@ fun SettingsScreen(
 
                         Switch(
                             checked = config.biometricEnabled,
-                            enabled = isBiometricAvailable || config.biometricEnabled,
                             onCheckedChange = { viewModel.updateBiometricEnabled(it) },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
@@ -597,16 +526,19 @@ fun SettingsScreen(
                             }
                         }
 
-                        // زر إنشاء نسخة محلية جديدة
+                        // زر إنشاء وحفظ نسخة احتياطية جديدة بنظام SAF
                         Button(
-                            onClick = { viewModel.backupToPhoneStorage() },
+                            onClick = {
+                                val dateStr = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
+                                createBackupLauncher.launch("mosarib_backup_$dateStr.back")
+                            },
                             colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("نسخة جديدة", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                            Text("حفظ نسخة جديدة", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                         }
                     }
 

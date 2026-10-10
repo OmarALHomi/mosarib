@@ -63,12 +63,19 @@ object GoogleDriveBackupHelper {
         }
     }
 
+    class DriveUserRecoverableException(val recoveryIntent: Intent) : Exception("يلزم تأكيد صلاحيات Google Drive")
+
     /**
      * Obtains an OAuth2 bearer token for the drive.appdata scope
      */
     suspend fun getAccessToken(context: Context, account: Account): String = withContext(Dispatchers.IO) {
         val scopeStr = "oauth2:$DRIVE_APPDATA_SCOPE"
-        GoogleAuthUtil.getToken(context, account, scopeStr)
+        try {
+            GoogleAuthUtil.getToken(context, account, scopeStr)
+        } catch (e: com.google.android.gms.auth.UserRecoverableAuthException) {
+            val intent = e.intent ?: throw e
+            throw DriveUserRecoverableException(intent)
+        }
     }
 
     /**

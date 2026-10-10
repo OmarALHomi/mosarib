@@ -93,6 +93,7 @@ fun AddReceiptBottomSheet(
     customer: Customer,
     currentBalance: Double,
     currencySymbol: String,
+    isWellOwner: Boolean = false,
     onDismiss: () -> Unit,
     onConfirm: (amount: Double, method: String, notes: String) -> Unit
 ) {
@@ -117,7 +118,7 @@ fun AddReceiptBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "تسجيل سند قبض وسداد من العميل",
+                    text = if (isWellOwner) "تحصيل من صاحب البئر عن السقي" else "تسجيل سند قبض من العميل",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
                 IconButton(onClick = onDismiss) {
@@ -127,9 +128,16 @@ fun AddReceiptBottomSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Text("العميل: ${customer.name}", fontWeight = FontWeight.SemiBold)
+            Text("${if (isWellOwner) "صاحب البئر" else "العميل"}: ${customer.name}", fontWeight = FontWeight.SemiBold)
             Text(
-                text = "الرصيد المستحق حالياً: ${Formatters.formatCurrency(currentBalance, currencySymbol)}",
+                text = "${when {
+                    isWellOwner && currentBalance > 0 -> "المستحق منه عن السقي"
+                    isWellOwner && currentBalance < 0 -> "رصيد له عن السقي"
+                    isWellOwner -> "رصيد السقي"
+                    currentBalance > 0 -> "الرصيد المستحق حالياً"
+                    currentBalance < 0 -> "رصيد دائن للعميل"
+                    else -> "الرصيد المستحق حالياً"
+                }}: ${Formatters.formatCurrency(kotlin.math.abs(currentBalance), currencySymbol)}",
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = if (currentBalance > 0) Color(0xFFE53935) else AccentEmerald
                 )
@@ -140,7 +148,7 @@ fun AddReceiptBottomSheet(
             OutlinedTextField(
                 value = amountStr,
                 onValueChange = { amountStr = Formatters.formatAmountInput(it) },
-                label = { Text("المبلغ المقبوض ($currencySymbol) *") },
+                label = { Text("${if (isWellOwner) "المبلغ المحصل منه" else "المبلغ المقبوض"} ($currencySymbol) *") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -199,7 +207,7 @@ fun AddReceiptBottomSheet(
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald)
             ) {
-                Text("حفظ وترحيل سند القبض", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(if (isWellOwner) "تسجيل التحصيل" else "حفظ وترحيل سند القبض", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
         }
     }
@@ -210,11 +218,13 @@ fun AddReceiptBottomSheet(
 fun AddDisbursementBottomSheet(
     customer: Customer,
     currencySymbol: String,
+    isWellOwner: Boolean = false,
+    currentBalance: Double = 0.0,
     onDismiss: () -> Unit,
     onConfirm: (amount: Double, method: String, description: String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var amountStr by remember { mutableStateOf("") }
+    var amountStr by remember { mutableStateOf(if (isWellOwner && currentBalance > 0) currentBalance.toString() else "") }
     var paymentMethod by remember { mutableStateOf("نقداً") }
     var description by remember { mutableStateOf("") }
 
@@ -234,7 +244,7 @@ fun AddDisbursementBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "تسجيل سند صرف مالي",
+                    text = if (isWellOwner) "سداد مستحقات صاحب البئر" else "تسجيل سند صرف مالي",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
                 IconButton(onClick = onDismiss) {
@@ -244,9 +254,22 @@ fun AddDisbursementBottomSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Text("يُصرف للعميل: ${customer.name}", fontWeight = FontWeight.SemiBold)
+            Text("${if (isWellOwner) "يُسدد لصاحب البئر" else "يُصرف للعميل"}: ${customer.name}", fontWeight = FontWeight.SemiBold)
+            if (isWellOwner) {
+                Text(
+                    "${when {
+                        currentBalance > 0 -> "مستحقات الشراء المتبقية"
+                        currentBalance < 0 -> "رصيد لك عند صاحب البئر"
+                        else -> "مستحقات الشراء مسددة"
+                    }}: ${Formatters.formatCurrency(kotlin.math.abs(currentBalance), currencySymbol)}",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = if (currentBalance > 0) Color(0xFFC62828) else AccentEmerald,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+            }
             Text(
-                text = "سيتم قيد هذا المبلغ في كشف الحساب ويحدث تغييراً في رصيد العميل",
+                text = if (isWellOwner) "سيُخصم هذا السداد من مستحقات الشراء لصاحب البئر فقط، دون مقاصته مع رصيد السقي." else "سيتم قيد هذا المبلغ في كشف الحساب ويحدث تغييراً في رصيد العميل",
                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
             )
 
@@ -255,7 +278,7 @@ fun AddDisbursementBottomSheet(
             OutlinedTextField(
                 value = amountStr,
                 onValueChange = { amountStr = Formatters.formatAmountInput(it) },
-                label = { Text("المبلغ المصروف ($currencySymbol) *") },
+                label = { Text("${if (isWellOwner) "المبلغ المسدد لصاحب البئر" else "المبلغ المصروف"} ($currencySymbol) *") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -282,7 +305,7 @@ fun AddDisbursementBottomSheet(
                 value = description,
                 onValueChange = { description = it },
                 label = { Text("البيان / سبب الصرف *") },
-                placeholder = { Text("مثال: دفعة نقدية، سلفة، تسوية أرباح...") },
+                placeholder = { Text(if (isWellOwner) "مثال: دفعة من مستحقات شراء الساعات..." else "مثال: دفعة نقدية، سلفة، تسوية أرباح...") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             )
@@ -315,7 +338,7 @@ fun AddDisbursementBottomSheet(
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828))
             ) {
-                Text("حفظ وترحيل سند الصرف", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(if (isWellOwner) "تسجيل السداد لصاحب البئر" else "حفظ وترحيل سند الصرف", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
         }
     }

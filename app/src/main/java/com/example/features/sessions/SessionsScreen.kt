@@ -68,6 +68,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -109,7 +110,6 @@ fun SessionsScreen(
     val config by viewModel.appConfig.collectAsStateWithLifecycle()
     val sessions by viewModel.filteredSessions.collectAsStateWithLifecycle()
     val customers by viewModel.customers.collectAsStateWithLifecycle()
-    val pumps by viewModel.pumps.collectAsStateWithLifecycle()
     val filter by viewModel.filter.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
@@ -117,6 +117,7 @@ fun SessionsScreen(
     val allVouchers by viewModel.allVouchers.collectAsStateWithLifecycle()
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     val operationsCount by viewModel.operationsCount.collectAsStateWithLifecycle()
+    val requestedCustomerForNewSession by viewModel.requestedCustomerForNewSession.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var showActivationDialog by remember { mutableStateOf(false) }
@@ -124,8 +125,17 @@ fun SessionsScreen(
     var sessionToEdit by remember { mutableStateOf<WaterSession?>(null) }
     var sessionToDelete by remember { mutableStateOf<WaterSession?>(null) }
     var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
+    var defaultCustomerIdForForm by remember { mutableStateOf<Long?>(null) }
     var messageTargetSession by remember { mutableStateOf<Pair<WaterSession, Customer>?>(null) }
     var messageTargetCustom by remember { mutableStateOf<Pair<Customer, String>?>(null) }
+
+    LaunchedEffect(requestedCustomerForNewSession) {
+        requestedCustomerForNewSession?.let { customerId ->
+            defaultCustomerIdForForm = customerId
+            showAddManualSheet = true
+            viewModel.clearNewSessionCustomerRequest()
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -357,16 +367,34 @@ fun SessionsScreen(
         AddEditSessionBottomSheet(
             initialSession = sessionToEdit,
             customers = customers,
-            pumps = pumps,
+            defaultCustomerId = if (sessionToEdit == null) defaultCustomerIdForForm else null,
             defaultPricePerHour = config.defaultPricePerHour,
             currencySymbol = config.currencySymbol,
             onCreateCustomer = { customer -> viewModel.createCustomer(customer) },
             onDismiss = {
                 showAddManualSheet = false
                 sessionToEdit = null
+                defaultCustomerIdForForm = null
             },
-            onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes ->
-                viewModel.saveManualSession(id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes)
+            onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes, billedTo, wastedMins, wastedReason, discount, costRate, pumpId ->
+                viewModel.saveManualSession(
+                    id = id,
+                    customerId = custId,
+                    pumpName = pumpName,
+                    startTime = startTime,
+                    endTime = endTime,
+                    hours = hrs,
+                    minutes = mins,
+                    pricePerHour = rate,
+                    amountPaid = paid,
+                    notes = notes,
+                    billedToCustomerId = billedTo,
+                    wastedMinutes = wastedMins,
+                    wastedReason = wastedReason,
+                    discountAmount = discount,
+                    costPricePerHour = costRate,
+                    pumpSourceId = pumpId
+                )
             }
         )
     }

@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.WaterDrop
@@ -198,9 +199,9 @@ fun ReportsScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 StatBoxCard(
-                    title = "إجمالي قيمة المبيعات",
+                    title = "إجمالي قيمة السقي",
                     value = Formatters.formatCurrency(stats.totalRevenue, config.currencySymbol),
-                    subtitle = "${stats.totalSessionsCount} دورة ري",
+                    subtitle = "${stats.totalSessionsCount} دورة (بعد الهدر والخصومات)",
                     icon = Icons.Default.AttachMoney,
                     accentColor = PrimaryTeal,
                     modifier = Modifier.weight(1f)
@@ -208,7 +209,7 @@ fun ReportsScreen(
                 StatBoxCard(
                     title = "صافي الأرباح التشغيلية",
                     value = Formatters.formatCurrency(stats.netOperatingProfit, config.currencySymbol),
-                    subtitle = "بعد خصم المصاريف",
+                    subtitle = "بعد مشتريات الآبار والتشغيل",
                     icon = Icons.AutoMirrored.Filled.TrendingUp,
                     accentColor = if (stats.netOperatingProfit >= 0) AccentEmerald else Color(0xFFE53935),
                     modifier = Modifier.weight(1f)
@@ -233,9 +234,9 @@ fun ReportsScreen(
                     modifier = Modifier.weight(1f)
                 )
                 StatBoxCard(
-                    title = "إجمالي المصاريف",
+                    title = "مصاريف التشغيل",
                     value = Formatters.formatCurrency(stats.totalPumpExpenses, config.currencySymbol),
-                    subtitle = "تكاليف التشغيل",
+                    subtitle = "باستثناء سداد مستحقات الآبار",
                     icon = Icons.Default.ArrowUpward,
                     accentColor = Color(0xFFFF5252),
                     modifier = Modifier.weight(1f)
@@ -252,19 +253,72 @@ fun ReportsScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 StatBoxCard(
-                    title = "ساعات الري",
+                    title = "ساعات البيع بعد هدر المسرب",
                     value = Formatters.formatDurationArabic(stats.totalWaterMinutes),
-                    subtitle = Formatters.formatDurationShort(stats.totalWaterMinutes),
+                    subtitle = "هدر المسرب: ${Formatters.formatDurationShort(stats.totalDistributorWasteMinutes)}",
                     icon = Icons.Default.AccessTime,
                     accentColor = SecondaryAqua,
                     modifier = Modifier.weight(1f)
                 )
                 StatBoxCard(
-                    title = "ديون العملاء",
+                    title = "ديون السقي للفترة",
                     value = Formatters.formatCurrency(stats.totalOutstandingDebt, config.currencySymbol),
-                    subtitle = "ديون متبقية",
+                    subtitle = "منفصلة عن مستحقات شراء الآبار",
                     icon = Icons.Default.WaterDrop,
                     accentColor = Color(0xFFFF8A80),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        // Well-owner purchases and owner-side waste are reported separately from irrigation sales.
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                StatBoxCard(
+                    title = "ساعات الشراء المحتسبة",
+                    value = Formatters.formatDurationArabic(stats.totalChargeablePurchasedMinutes),
+                    subtitle = "المسجلة: ${Formatters.formatDurationShort(stats.totalPurchasedMinutes)}",
+                    icon = Icons.Default.AccessTime,
+                    accentColor = PrimaryTeal,
+                    modifier = Modifier.weight(1f)
+                )
+                StatBoxCard(
+                    title = "هدر على صاحب البئر",
+                    value = Formatters.formatDurationArabic(stats.totalOwnerWasteMinutes),
+                    subtitle = "قيمة الخصم: ${Formatters.formatCurrency(stats.totalOwnerWasteCredit, config.currencySymbol)}",
+                    icon = Icons.Default.ArrowDownward,
+                    accentColor = Color(0xFFD32F2F),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                StatBoxCard(
+                    title = "صافي قيمة مشتريات الآبار",
+                    value = Formatters.formatCurrency(stats.totalOwnerPurchaseAmount, config.currencySymbol),
+                    subtitle = "السداد لأصحاب الآبار: ${Formatters.formatCurrency(stats.totalOwnerPayments, config.currencySymbol)}",
+                    icon = Icons.Default.Payments,
+                    accentColor = AccentGold,
+                    modifier = Modifier.weight(1f)
+                )
+                StatBoxCard(
+                    title = "مستحقات شراء الآبار",
+                    value = Formatters.formatCurrency(stats.totalOwnerPayable, config.currencySymbol),
+                    subtitle = if (stats.totalOwnerPayable >= 0) "المشتريات ناقص ما سُدد" else "السداد تجاوز شراء هذه الفترة",
+                    icon = Icons.Default.ArrowUpward,
+                    accentColor = if (stats.totalOwnerPayable > 0) Color(0xFFE53935) else AccentEmerald,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -334,7 +388,7 @@ fun ReportsScreen(
         // Top Consuming Customers Section
         item {
             Text(
-                text = "أكثر العملاء استهلاكاً",
+                text = "أكثر الحسابات سقيًا",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
             )
@@ -376,7 +430,10 @@ fun ReportsScreen(
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
-                                Text(top.customer.name, fontWeight = FontWeight.Bold)
+                                Text(
+                                    if (top.customer.isWellOwner) "${top.customer.name} • صاحب بئر" else top.customer.name,
+                                    fontWeight = FontWeight.Bold
+                                )
                                 if (top.customer.farmName.isNotEmpty()) {
                                     Text(top.customer.farmName, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                                 }

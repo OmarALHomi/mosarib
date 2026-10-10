@@ -1,6 +1,7 @@
 package com.example.features.settings
 
 import android.app.Application
+import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,7 +9,6 @@ import com.example.core.database.AppDatabase
 import com.example.core.ui.ToastMessage
 import com.example.core.ui.ToastType
 import com.example.core.license.LicenseManager
-import com.example.core.security.BiometricHelper
 import com.example.core.util.BackupManager
 import com.example.core.util.GoogleDriveBackupHelper
 import com.example.features.pumps.PumpSource
@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -34,19 +33,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val appConfig: StateFlow<AppConfig> = settingsRepo.appConfig
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppConfig())
 
-    // null means the persisted authentication policy has not loaded yet.
-    val biometricLockEnabled: StateFlow<Boolean?> = settingsRepo.appConfig
-        .map { it.biometricEnabled }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
     val pumps: StateFlow<List<PumpSource>> = pumpRepo.allPumps
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val operationsCount: StateFlow<Int> = combine(
         db.waterSessionDao().getSessionsCount(),
-        db.voucherDao().getVouchersCount()
-    ) { sessions, vouchers ->
-        sessions + vouchers
+        db.voucherDao().getVouchersCount(),
+        db.wellOwnerPurchaseDao().getPurchasesCount()
+    ) { sessions, vouchers, purchases ->
+        sessions + vouchers + purchases
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     private val _isActivated = MutableStateFlow(LicenseManager.isActivated(application))
@@ -97,35 +92,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun updateBiometricEnabled(enabled: Boolean) {
-        if (enabled && !BiometricHelper.isAvailable(getApplication())) {
-            showToast("سجّل بصمة في إعدادات الهاتف أولاً؛ لم يتم تفعيل القفل", ToastType.ERROR)
-            return
-        }
         viewModelScope.launch {
             settingsRepo.updateBiometricEnabled(enabled)
             showToast(if (enabled) "تم تفعيل القفل بالبصمة بنجاح" else "تم إلغاء قفل البصمة", ToastType.INFO)
-        }
-    }
-
-    fun updateRoles(primaryRole: String, activeRoles: String) {
-        viewModelScope.launch {
-            settingsRepo.updateRoles(primaryRole, activeRoles)
-            showToast("تم تحديث أدواري في المنظومة بنجاح 🌾", ToastType.SUCCESS)
-        }
-    }
-
-    fun completeOnboarding(
-        name: String,
-        phone: String,
-        village: String,
-        primaryRole: String,
-        activeRoles: String,
-        onDone: () -> Unit
-    ) {
-        viewModelScope.launch {
-            settingsRepo.completeOnboarding(name, phone, village, primaryRole, activeRoles)
-            showToast("مرحباً بك في منظومة جِربة! 🌾", ToastType.SUCCESS)
-            onDone()
         }
     }
 
@@ -175,6 +144,21 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private val _isDriveLoading = MutableStateFlow(false)
     val isDriveLoading: StateFlow<Boolean> = _isDriveLoading.asStateFlow()
+
+    private val _driveRecoveryIntent = MutableStateFlow<Intent?>(null)
+    val driveRecoveryIntent: StateFlow<Intent?> = _driveRecoveryIntent.asStateFlow()
+
+    private var pendingDriveAction: (() -> Unit)? = null
+
+    fun clearDriveRecoveryIntent() {
+        _driveRecoveryIntent.value = null
+    }
+
+    fun onDriveConsentGranted() {
+        _driveRecoveryIntent.value = null
+        pendingDriveAction?.invoke()
+        pendingDriveAction = null
+    }
 
     init {
         loadBackups()
@@ -230,6 +214,21 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 showToast("تم حفظ النسخة بنجاح في مجلد التنزيلات بالهاتف", ToastType.SUCCESS)
             }.onFailure { e ->
                 showToast("فشل في حفظ النسخة بالهاتف: ${e.localizedMessage}", ToastType.ERROR)
+            }
+        }
+    }
+
+    /**
+     * Export backup directly to user-selected SAF Uri
+     */
+    fun exportBackupToUri(uri: Uri) {
+        viewModelScope.launch {
+            val result = BackupManager.exportBackupToUri(getApplication(), db, uri)
+            result.onSuccess {
+                loadBackups()
+                showToast("تم حفظ وتصدير النسخة الاحتياطية بنجاح في المكان المختار", ToastType.SUCCESS)
+            }.onFailure { e ->
+                showToast("فشل في تصدير النسخة: ${e.localizedMessage}", ToastType.ERROR)
             }
         }
     }
@@ -307,7 +306,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             result.onSuccess { list ->
                 _driveBackups.value = list
             }.onFailure { e ->
-                showToast("تعذر جلب النسخ من Google Drive: ${e.localizedMessage}", ToastType.ERROR)
+                if (e is GoogleDriveBackupHelper.DriveUserRecoverableException) {
+                    pendingDriveAction = { loadDriveBackups() }
+                    _driveRecoveryIntent.value = e.recoveryIntent
+                } else {
+                    showToast("تعذر جلب النسخ من Google Drive: ${e.localizedMessage}", ToastType.ERROR)
+                }
             }
             _isDriveLoading.value = false
         }
@@ -329,10 +333,20 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     loadDriveBackups()
                     showToast("تم رفع النسخة (.back) بنجاح إلى مجلد Google Drive السحابي المحمي", ToastType.SUCCESS)
                 }.onFailure { e ->
-                    showToast("فشل رفع النسخة إلى Drive: ${e.localizedMessage}", ToastType.ERROR)
+                    if (e is GoogleDriveBackupHelper.DriveUserRecoverableException) {
+                        pendingDriveAction = { backupToGoogleDriveAppData() }
+                        _driveRecoveryIntent.value = e.recoveryIntent
+                    } else {
+                        showToast("فشل رفع النسخة إلى Drive: ${e.localizedMessage}", ToastType.ERROR)
+                    }
                 }
             } catch (e: Exception) {
-                showToast("حدث خطأ أثناء إعداد النسخة: ${e.localizedMessage}", ToastType.ERROR)
+                if (e is GoogleDriveBackupHelper.DriveUserRecoverableException) {
+                    pendingDriveAction = { backupToGoogleDriveAppData() }
+                    _driveRecoveryIntent.value = e.recoveryIntent
+                } else {
+                    showToast("حدث خطأ أثناء إعداد النسخة: ${e.localizedMessage}", ToastType.ERROR)
+                }
             } finally {
                 _isDriveLoading.value = false
             }
@@ -347,11 +361,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
         viewModelScope.launch {
             _isDriveLoading.value = true
-            var temporaryFile: File? = null
             try {
-                // Cloud names are untrusted metadata, never local filesystem paths.
-                val tempFile = File.createTempFile("drive_restore_", ".back", getApplication<Application>().cacheDir)
-                temporaryFile = tempFile
+                val tempFile = File(getApplication<Application>().cacheDir, driveFile.name)
                 val dlResult = GoogleDriveBackupHelper.downloadAppDataBackup(getApplication(), account, driveFile.id, tempFile)
                 dlResult.onSuccess { file ->
                     val restoreResult = BackupManager.restoreFromFile(getApplication(), db, file)
@@ -361,13 +372,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     }.onFailure { e ->
                         showToast("فشل في تطبيق النسخة المستعادة: ${e.localizedMessage}", ToastType.ERROR)
                     }
+                    file.delete()
                 }.onFailure { e ->
-                    showToast("فشل تنزيل النسخة من Google Drive: ${e.localizedMessage}", ToastType.ERROR)
+                    if (e is GoogleDriveBackupHelper.DriveUserRecoverableException) {
+                        pendingDriveAction = { restoreFromGoogleDriveAppData(driveFile) }
+                        _driveRecoveryIntent.value = e.recoveryIntent
+                    } else {
+                        showToast("فشل تنزيل النسخة من Google Drive: ${e.localizedMessage}", ToastType.ERROR)
+                    }
                 }
             } catch (e: Exception) {
-                showToast("حدث خطأ أثناء الاستعادة من Drive: ${e.localizedMessage}", ToastType.ERROR)
+                if (e is GoogleDriveBackupHelper.DriveUserRecoverableException) {
+                    pendingDriveAction = { restoreFromGoogleDriveAppData(driveFile) }
+                    _driveRecoveryIntent.value = e.recoveryIntent
+                } else {
+                    showToast("حدث خطأ أثناء الاستعادة من Drive: ${e.localizedMessage}", ToastType.ERROR)
+                }
             } finally {
-                temporaryFile?.delete()
                 _isDriveLoading.value = false
             }
         }

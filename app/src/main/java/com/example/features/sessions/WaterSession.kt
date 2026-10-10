@@ -35,5 +35,10 @@ data class WaterSession(
     val notes: String = "",
     val isLive: Boolean = false,
     val billedToCustomerId: Long? = null, // إذا كان السقي مسجلاً ومحسوباً على حساب مستفيد آخر
+    val wastedMinutes: Int = 0, // الوقت المهدور (التوقفات) بالدقائق
+    val wastedReason: String = "", // سبب التوقف (عطل مضخة، نقص وقود...)
+    val discountAmount: Double = 0.0, // مبلغ الخصم والمسامحة
+    val costPricePerHour: Double = 0.0, // سعر شراء الساعة من صاحب البئر
+    val pumpSourceId: Long? = null, // معرّف البئر / صاحب البئر
     val createdAt: Long = System.currentTimeMillis()
 )

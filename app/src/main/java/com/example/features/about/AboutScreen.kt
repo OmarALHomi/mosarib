@@ -167,7 +167,7 @@ fun AboutScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = "جِربة • Jerba",
+                            text = "المُسَرِّبْ • Mosarib",
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -175,7 +175,7 @@ fun AboutScreen(
                         )
 
                         Text(
-                            text = "المنظومة الزراعية الشاملة وإدارة الري والوساطة",
+                            text = "نظام إدارة وتوزيع مياه الآبار والري الزراعي",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Medium

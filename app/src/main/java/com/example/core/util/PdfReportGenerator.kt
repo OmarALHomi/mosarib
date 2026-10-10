@@ -13,6 +13,8 @@ import com.example.features.sessions.WaterSession
 import com.example.features.settings.AppConfig
 import com.example.features.vouchers.Voucher
 import com.example.features.vouchers.VoucherType
+import com.example.features.wellowners.WellOwnerPurchase
+import com.example.features.wellowners.WellOwnerPurchaseMath
 import java.io.File
 import java.io.FileOutputStream
 
@@ -27,7 +29,15 @@ data class ComprehensiveReportTotals(
     val totalCollected: Double,
     val totalOutstandingDebt: Double,
     val totalExpenses: Double,
-    val netProfit: Double
+    val netProfit: Double,
+    val distributorWasteMinutes: Int = 0,
+    val purchasedMinutes: Int = 0,
+    val chargeablePurchasedMinutes: Int = 0,
+    val ownerWasteMinutes: Int = 0,
+    val ownerPurchaseAmount: Double = 0.0,
+    val ownerWasteCredit: Double = 0.0,
+    val ownerPayments: Double = 0.0,
+    val ownerPayable: Double = 0.0
 )
 
 /**
@@ -42,7 +52,16 @@ data class ComprehensiveCustomerRow(
     val waterMinutes: Int,
     val billed: Double,
     val paid: Double,
-    val balance: Double
+    val balance: Double,
+    val isWellOwner: Boolean = false,
+    val purchasedMinutes: Int = 0,
+    val chargeablePurchasedMinutes: Int = 0,
+    val ownerWasteMinutes: Int = 0,
+    val ownerWasteCredit: Double = 0.0,
+    val purchaseAmount: Double = 0.0,
+    val ownerPayments: Double = 0.0,
+    val payableBalance: Double = 0.0,
+    val receivableBalance: Double = balance
 )
 
 object PdfReportGenerator {
@@ -55,7 +74,8 @@ object PdfReportGenerator {
         config: AppConfig,
         customer: Customer,
         sessions: List<WaterSession>,
-        vouchers: List<Voucher>
+        vouchers: List<Voucher>,
+        purchases: List<WellOwnerPurchase> = emptyList()
     ): File {
         val document = PdfDocument()
         val pageWidth = 595 // A4 standard point width
@@ -84,7 +104,7 @@ object PdfReportGenerator {
         paint.textSize = 20f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textAlign = Paint.Align.CENTER
-        canvas.drawText("كشف حساب عميل - توزيع مياه", pageWidth / 2f, 40f, paint)
+        canvas.drawText(if (customer.isWellOwner) "كشف حساب صاحب بئر - حسابات مستقلة" else "كشف حساب عميل - توزيع مياه", pageWidth / 2f, 40f, paint)
 
         // Distributor Name & Phone
         paint.textSize = 12f
@@ -101,7 +121,7 @@ object PdfReportGenerator {
         paint.textAlign = Paint.Align.RIGHT
         paint.textSize = 13f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        canvas.drawText("العميل: ${customer.name}", pageWidth - 45f, 135f, paint)
+        canvas.drawText("${if (customer.isWellOwner) "صاحب البئر" else "العميل"}: ${customer.name}", pageWidth - 45f, 135f, paint)
 
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         paint.textSize = 11f
@@ -113,126 +133,186 @@ object PdfReportGenerator {
         canvas.drawText("تاريخ التقرير: ${Formatters.formatDate(System.currentTimeMillis())}", 45f, 135f, paint)
         canvas.drawText("العملة: ${config.currencySymbol}", 45f, 155f, paint)
 
-        // Financial Summary Badges
-        val totalWaterCost = sessions.sumOf { it.totalAmount }
-        val totalSessionPaid = sessions.sumOf { it.amountPaid }
-        val totalReceiptVouchers = vouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount }
-        val totalDiscount = vouchers.filter { it.type == VoucherType.DISCOUNT }.sumOf { it.amount }
-        val totalPaidOverall = totalSessionPaid + totalReceiptVouchers + totalDiscount
-        val finalBalance = totalWaterCost - totalPaidOverall
-        val totalMinutes = sessions.sumOf { it.durationMinutes }
+        // Financial summary: owners keep supplier payables separate from irrigation receivables.
+        val ownerPurchases = if (customer.isWellOwner) purchases.filter { it.ownerCustomerId == customer.id } else emptyList()
+        val totalPurchasePayable = ownerPurchases.sumOf(WellOwnerPurchaseMath::payableAmount)
+        val totalPurchasedMinutes = ownerPurchases.sumOf { it.durationMinutes.coerceAtLeast(0) }
+        val chargeablePurchasedMinutes = ownerPurchases.sumOf(WellOwnerPurchaseMath::chargeableMinutes)
+        val ownerWasteMinutes = (totalPurchasedMinutes - chargeablePurchasedMinutes).coerceAtLeast(0)
+        val totalOwnerWasteCredit = ownerPurchases.sumOf(WellOwnerPurchaseMath::ownerWasteCredit)
+        val totalWaterCost = sessions.sumOf { it.totalAmount.coerceAtLeast(0.0) }
+        val totalSessionPaid = sessions.sumOf { it.amountPaid.coerceAtLeast(0.0) }
+        // Linked receipts are already reflected in WaterSession.amountPaid; count only standalone receipts.
+        val totalReceiptVouchers = vouchers
+            .filter { it.type == VoucherType.RECEIPT && it.sessionId == null }
+            .sumOf { it.amount.coerceAtLeast(0.0) }
+        val totalPaidOverall = totalSessionPaid + totalReceiptVouchers
+        val totalDiscount = vouchers
+            .filter { it.type == VoucherType.DISCOUNT && it.sessionId == null }
+            .sumOf { it.amount.coerceAtLeast(0.0) }
+        val totalExpenses = vouchers.filter { it.type == VoucherType.EXPENSE }.sumOf { it.amount.coerceAtLeast(0.0) }
+        val receivableBalance = totalWaterCost + (if (customer.isWellOwner) 0.0 else totalExpenses) - totalPaidOverall - totalDiscount
+        val payableBalance = if (customer.isWellOwner) totalPurchasePayable - totalExpenses else 0.0
+        val totalMinutes = sessions.sumOf { session ->
+            val duration = session.durationMinutes.coerceAtLeast(0)
+            duration - session.wastedMinutes.coerceIn(0, duration)
+        }
 
-        // Draw 3 Summary Boxes
+        // Summary badges
         val boxWidth = (pageWidth - 70f) / 3f
-        val boxY = 210f
-        val boxH = 55f
+        val boxH = 52f
+        if (customer.isWellOwner) {
+            val payableLabel = if (payableBalance > 0) "متبقي لصاحب البئر" else if (payableBalance < 0) "رصيد لنا عنده" else "شراء مسدد"
+            val receivableLabel = if (receivableBalance > 0) "متبقي على السقي" else if (receivableBalance < 0) "رصيد له عن السقي" else "سقي مسدد"
+            drawSummaryBox(canvas, 25f, 210f, boxWidth, boxH, "قيمة الشراء بعد الهدر", Formatters.formatCurrency(totalPurchasePayable, config.currencySymbol), primaryColor)
+            drawSummaryBox(canvas, 25f + boxWidth + 10f, 210f, boxWidth, boxH, "المسدد له", Formatters.formatCurrency(totalExpenses, config.currencySymbol), debtRed)
+            drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 210f, boxWidth, boxH, payableLabel, Formatters.formatCurrency(kotlin.math.abs(payableBalance), config.currencySymbol), if (payableBalance > 0) debtRed else paidGreen)
+            drawSummaryBox(canvas, 25f, 268f, boxWidth, boxH, "سقي / بيع له", "${Formatters.formatCurrency(totalWaterCost, config.currencySymbol)} (${Formatters.formatDurationArabic(sessions.sumOf { (it.durationMinutes - it.wastedMinutes.coerceAtLeast(0)).coerceAtLeast(0) })})", primaryColor)
+            drawSummaryBox(canvas, 25f + boxWidth + 10f, 268f, boxWidth, boxH, "المحصل منه", Formatters.formatCurrency(totalPaidOverall, config.currencySymbol), paidGreen)
+            drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 268f, boxWidth, boxH, receivableLabel, Formatters.formatCurrency(kotlin.math.abs(receivableBalance), config.currencySymbol), if (receivableBalance > 0) debtRed else paidGreen)
+            drawSummaryBox(canvas, 25f, 326f, boxWidth, boxH, "ساعات الشراء المحتسبة", Formatters.formatDurationArabic(chargeablePurchasedMinutes), primaryColor)
+            drawSummaryBox(canvas, 25f + boxWidth + 10f, 326f, boxWidth, boxH, "هدر صاحب البئر", Formatters.formatDurationArabic(ownerWasteMinutes), debtRed)
+            drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 326f, boxWidth, boxH, "خصم قيمة الهدر", Formatters.formatCurrency(totalOwnerWasteCredit, config.currencySymbol), debtRed)
+        } else {
+            val finalBalance = receivableBalance
+            drawSummaryBox(canvas, 25f, 210f, boxWidth, boxH, "السقي بعد هدر المسرب", "${Formatters.formatCurrency(totalWaterCost, config.currencySymbol)} (${Formatters.formatDurationArabic(totalMinutes)})", primaryColor)
+            drawSummaryBox(canvas, 25f + boxWidth + 10f, 210f, boxWidth, boxH, "إجمالي المسدد", Formatters.formatCurrency(totalPaidOverall, config.currencySymbol), paidGreen)
+            val balanceLabel = if (finalBalance > 0) "المبلغ المتبقي بذمته" else if (finalBalance < 0) "رصيد دائن للعميل" else "الحساب خالص"
+            val balanceColor = if (finalBalance > 0) debtRed else paidGreen
+            drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 210f, boxWidth, boxH, balanceLabel, Formatters.formatCurrency(kotlin.math.abs(finalBalance), config.currencySymbol), balanceColor)
+        }
 
-        // Box 1: Total Water Duration & Cost
-        drawSummaryBox(canvas, 25f, boxY, boxWidth, boxH, "إجمالي مبيعات الماء", "${Formatters.formatCurrency(totalWaterCost, config.currencySymbol)} (${Formatters.formatDurationArabic(totalMinutes)})", primaryColor)
-
-        // Box 2: Total Paid
-        drawSummaryBox(canvas, 25f + boxWidth + 10f, boxY, boxWidth, boxH, "إجمالي المسدد", Formatters.formatCurrency(totalPaidOverall, config.currencySymbol), paidGreen)
-
-        // Box 3: Net Balance
-        val balanceLabel = if (finalBalance > 0) "المبلغ المتبقي بذمته" else if (finalBalance < 0) "رصيد دائن للعميل" else "الحساب خالص"
-        val balanceColor = if (finalBalance > 0) debtRed else paidGreen
-        drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, boxY, boxWidth, boxH, balanceLabel, Formatters.formatCurrency(Math.abs(finalBalance), config.currencySymbol), balanceColor)
-
-        // Statement Entries Table
-        var curY = 290f
+        // Owner statements show the payable and receivable ledgers in separate columns.
+        var curY = if (customer.isWellOwner) 386f else 290f
         paint.color = primaryColor
         canvas.drawRect(25f, curY, pageWidth - 25f, curY + 25f, paint)
-
         paint.color = Color.WHITE
-        paint.textSize = 10.5f
+        paint.textSize = if (customer.isWellOwner) 8.5f else 10f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-
-        // Headers: التاريخ | البيان / تفاصيل الري | المدة | السعر/ساعة | المبلغ | المسدد | المتبقي
         paint.textAlign = Paint.Align.RIGHT
         canvas.drawText("التاريخ", pageWidth - 35f, curY + 16f, paint)
         canvas.drawText("البيان والنشاط", pageWidth - 105f, curY + 16f, paint)
-        canvas.drawText("المدة والسعر", pageWidth - 260f, curY + 16f, paint)
-        canvas.drawText("المبلغ المطلوب", pageWidth - 370f, curY + 16f, paint)
-        canvas.drawText("المدفوع", pageWidth - 450f, curY + 16f, paint)
-        canvas.drawText("الرصيد المتبقي", 40f + 50f, curY + 16f, paint)
-
+        canvas.drawText("المدة والسعر", pageWidth - 205f, curY + 16f, paint)
+        canvas.drawText("المبلغ", pageWidth - 300f, curY + 16f, paint)
+        canvas.drawText("المدفوع / التسوية", pageWidth - 380f, curY + 16f, paint)
+        if (customer.isWellOwner) {
+            canvas.drawText("رصيد الشراء علينا", 145f, curY + 16f, paint)
+            canvas.drawText("رصيد السقي له", 55f, curY + 16f, paint)
+        } else {
+            canvas.drawText("الرصيد المتبقي", 90f, curY + 16f, paint)
+        }
         curY += 25f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
 
-        // Combine and sort events
         data class StatementRow(
             val date: Long,
             val title: String,
             val subtitle: String,
             val amount: Double,
             val paid: Double,
-            val isSession: Boolean
+            val receivableDelta: Double = 0.0,
+            val payableDelta: Double = 0.0
         )
 
         val rows = mutableListOf<StatementRow>()
-        sessions.forEach { s ->
+        sessions.forEach { session ->
+            val linkedReceipts = vouchers
+                .filter { it.type == VoucherType.RECEIPT && it.sessionId == session.id }
+                .sumOf { it.amount.coerceAtLeast(0.0) }
+            val paidOutsideVouchers = (session.amountPaid - linkedReceipts).coerceAtLeast(0.0)
+            val sessionDurationMinutes = session.durationMinutes.coerceAtLeast(0)
+            val recordedWasteMinutes = session.wastedMinutes.coerceIn(0, sessionDurationMinutes)
+            val netMinutes = sessionDurationMinutes - recordedWasteMinutes
+            val wasteText = if (recordedWasteMinutes > 0) "، هدر ${Formatters.formatDurationArabic(recordedWasteMinutes)}" else ""
             rows.add(
                 StatementRow(
-                    date = s.startTime,
-                    title = "ساقية ماء",
-                    subtitle = "${Formatters.formatDurationArabic(s.durationMinutes)} @ ${Formatters.formatNumber(s.pricePerHour)}",
-                    amount = s.totalAmount,
-                    paid = s.amountPaid,
-                    isSession = true
+                    date = session.startTime,
+                    title = if (customer.isWellOwner) "سقي لصاحب البئر" else "ساقية ماء",
+                    subtitle = "${Formatters.formatDurationArabic(netMinutes)}$wasteText @ ${Formatters.formatNumber(session.pricePerHour)}",
+                    amount = session.totalAmount.coerceAtLeast(0.0),
+                    paid = paidOutsideVouchers,
+                    receivableDelta = (session.totalAmount - paidOutsideVouchers).coerceAtLeast(-session.totalAmount)
                 )
             )
         }
-        vouchers.forEach { v ->
-            val label = when (v.type) {
-                VoucherType.RECEIPT -> "سند قبض نقدي (${v.voucherNumber})"
-                VoucherType.DISCOUNT -> "سند تسوية / خصم"
-                VoucherType.EXPENSE -> "سند صرف"
-            }
+        ownerPurchases.forEach { purchase ->
+            val payableAmount = WellOwnerPurchaseMath.payableAmount(purchase)
             rows.add(
                 StatementRow(
-                    date = v.date,
+                    date = purchase.date,
+                    title = "شراء ساعات",
+                    subtitle = "${Formatters.formatDurationArabic(purchase.durationMinutes)} - هدر ${Formatters.formatDurationArabic(purchase.wastedMinutesOnOwner)} @ ${Formatters.formatNumber(purchase.purchaseRatePerHour)}",
+                    amount = payableAmount,
+                    paid = 0.0,
+                    payableDelta = payableAmount
+                )
+            )
+        }
+        vouchers.forEach { voucher ->
+            val label = when (voucher.type) {
+                VoucherType.RECEIPT -> if (customer.isWellOwner) "تحصيل عن السقي" else "سند قبض (${voucher.voucherNumber})"
+                VoucherType.DISCOUNT -> "سند تسوية / خصم"
+                VoucherType.EXPENSE -> if (customer.isWellOwner) "سداد لصاحب البئر" else "سند صرف"
+            }
+            val linkedToSession = voucher.sessionId != null && voucher.sessionId > 0
+            val receivableChange = when (voucher.type) {
+                VoucherType.RECEIPT -> -voucher.amount
+                VoucherType.DISCOUNT -> if (linkedToSession) 0.0 else -voucher.amount
+                VoucherType.EXPENSE -> if (customer.isWellOwner) 0.0 else voucher.amount
+            }
+            val payableChange = if (customer.isWellOwner && voucher.type == VoucherType.EXPENSE) -voucher.amount else 0.0
+            rows.add(
+                StatementRow(
+                    date = voucher.date,
                     title = label,
-                    subtitle = v.notes.ifEmpty { v.paymentMethod },
+                    subtitle = voucher.notes.ifEmpty { voucher.paymentMethod },
                     amount = 0.0,
-                    paid = v.amount,
-                    isSession = false
+                    paid = voucher.amount,
+                    receivableDelta = receivableChange,
+                    payableDelta = payableChange
                 )
             )
         }
         rows.sortBy { it.date }
 
-        var runningDebt = 0.0
-
-        rows.take(22).forEachIndexed { index, row ->
-            if (row.isSession) {
-                runningDebt += (row.amount - row.paid)
-            } else {
-                runningDebt -= row.paid
-            }
+        var runningReceivable = 0.0
+        var runningPayable = 0.0
+        val maxRows = if (customer.isWellOwner) 16 else 20
+        val rowHeight = 22f
+        rows.take(maxRows).forEachIndexed { index, row ->
+            runningReceivable += row.receivableDelta
+            runningPayable += row.payableDelta
 
             paint.color = if (index % 2 == 0) Color.WHITE else lightGray
-            canvas.drawRect(25f, curY, pageWidth - 25f, curY + 22f, paint)
-
+            canvas.drawRect(25f, curY, pageWidth - 25f, curY + rowHeight, paint)
             paint.color = dividerGray
             paint.strokeWidth = 0.5f
-            canvas.drawLine(25f, curY + 22f, pageWidth - 25f, curY + 22f, paint)
-
+            canvas.drawLine(25f, curY + rowHeight, pageWidth - 25f, curY + rowHeight, paint)
             paint.color = darkTextColor
-            paint.textSize = 9.5f
+            paint.textSize = if (customer.isWellOwner) 8f else 9f
             paint.textAlign = Paint.Align.RIGHT
-
             canvas.drawText(Formatters.formatDate(row.date), pageWidth - 35f, curY + 15f, paint)
-            canvas.drawText(row.title, pageWidth - 105f, curY + 15f, paint)
-            canvas.drawText(row.subtitle, pageWidth - 260f, curY + 15f, paint)
-            canvas.drawText(if (row.amount > 0) Formatters.formatNumber(row.amount) else "-", pageWidth - 370f, curY + 15f, paint)
-
-            paint.color = paidGreen
-            canvas.drawText(if (row.paid > 0) Formatters.formatNumber(row.paid) else "-", pageWidth - 450f, curY + 15f, paint)
-
-            paint.color = if (runningDebt > 0) debtRed else paidGreen
-            canvas.drawText(Formatters.formatNumber(runningDebt), 40f + 50f, curY + 15f, paint)
-
-            curY += 22f
+            canvas.drawText(truncate(row.title, 16), pageWidth - 105f, curY + 15f, paint)
+            canvas.drawText(truncate(row.subtitle, 25), pageWidth - 205f, curY + 15f, paint)
+            canvas.drawText(if (row.amount > 0) Formatters.formatNumber(row.amount) else "-", pageWidth - 300f, curY + 15f, paint)
+            paint.color = if (row.paid > 0) paidGreen else darkTextColor
+            canvas.drawText(if (row.paid > 0) Formatters.formatNumber(row.paid) else "-", pageWidth - 380f, curY + 15f, paint)
+            if (customer.isWellOwner) {
+                paint.color = if (runningPayable > 0) debtRed else paidGreen
+                canvas.drawText(Formatters.formatNumber(runningPayable), 145f, curY + 15f, paint)
+                paint.color = if (runningReceivable > 0) debtRed else paidGreen
+                canvas.drawText(Formatters.formatNumber(runningReceivable), 55f, curY + 15f, paint)
+            } else {
+                paint.color = if (runningReceivable > 0) debtRed else paidGreen
+                canvas.drawText(Formatters.formatNumber(runningReceivable), 90f, curY + 15f, paint)
+            }
+            curY += rowHeight
+        }
+        if (rows.size > maxRows) {
+            paint.color = darkTextColor
+            paint.textSize = 9f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("يعرض هذا الكشف ${maxRows} حركة من أصل ${rows.size} حركة", pageWidth / 2f, curY + 12f, paint)
         }
 
         // Footer & Signatures
@@ -451,7 +531,7 @@ object PdfReportGenerator {
         paint.textSize = 22f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textAlign = Paint.Align.CENTER
-        canvas.drawText("سند قبض وتحصيل نقدي", pageWidth / 2f, 38f, paint)
+        canvas.drawText(if (customer.isWellOwner) "تحصيل عن سقي صاحب البئر" else "سند قبض وتحصيل نقدي", pageWidth / 2f, 38f, paint)
 
         paint.textSize = 12f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
@@ -466,7 +546,7 @@ object PdfReportGenerator {
 
         paint.textAlign = Paint.Align.LEFT
         canvas.drawText("طريقة الدفع: ${voucher.paymentMethod}", 35f, 115f, paint)
-        canvas.drawText("نوع المعاملة: سداد حساب ري", 35f, 135f, paint)
+        canvas.drawText(if (customer.isWellOwner) "نوع المعاملة: تحصيل عن السقي" else "نوع المعاملة: سداد حساب ري", 35f, 135f, paint)
 
         // Customer details block
         val rectCustomer = RectF(30f, 155f, pageWidth - 30f, 215f)
@@ -477,7 +557,7 @@ object PdfReportGenerator {
         paint.textAlign = Paint.Align.RIGHT
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textSize = 13f
-        canvas.drawText("وصلنا من العميل: ${customer.name}", pageWidth - 45f, 180f, paint)
+        canvas.drawText("${if (customer.isWellOwner) "وصلنا من صاحب البئر عن السقي" else "وصلنا من العميل"}: ${customer.name}", pageWidth - 45f, 180f, paint)
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         paint.textSize = 11f
         canvas.drawText("المزرعة: ${customer.farmName.ifEmpty { "غير محدد" }}  |  الهاتف: ${customer.phone}", pageWidth - 45f, 202f, paint)
@@ -569,7 +649,7 @@ object PdfReportGenerator {
         paint.textSize = 22f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textAlign = Paint.Align.CENTER
-        canvas.drawText("سند صرف نقدي", pageWidth / 2f, 38f, paint)
+        canvas.drawText(if (customer?.isWellOwner == true) "سداد مستحقات صاحب البئر" else "سند صرف نقدي", pageWidth / 2f, 38f, paint)
 
         paint.textSize = 12f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
@@ -596,7 +676,7 @@ object PdfReportGenerator {
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textSize = 13f
         val beneficiaryName = customer?.name ?: "مصروف عام / جهة غير محددة"
-        canvas.drawText("يُصرف للمستفيد / السيد: $beneficiaryName", pageWidth - 45f, 180f, paint)
+        canvas.drawText("${if (customer?.isWellOwner == true) "يُسدد لصاحب البئر" else "يُصرف للمستفيد / السيد"}: $beneficiaryName", pageWidth - 45f, 180f, paint)
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         paint.textSize = 11f
         val farmOrDesc = if (customer != null) "المزرعة: ${customer.farmName.ifEmpty { "عام" }}  |  الهاتف: ${customer.phone}" else "بيان الصرف: ${voucher.notes.ifBlank { voucher.category }}"
@@ -706,7 +786,7 @@ object PdfReportGenerator {
         }
 
         val rowHeight = 22f
-        var curY = 320f
+        var curY = 480f
 
         fun drawTableHeader() {
             paint.color = primaryColor
@@ -718,10 +798,10 @@ object PdfReportGenerator {
             paint.textAlign = Paint.Align.RIGHT
             canvas.drawText("العميل", pageWidth - 30f, curY + 16f, paint)
             canvas.drawText("المزرعة / الموقع", pageWidth - 150f, curY + 16f, paint)
-            canvas.drawText("السقايات / الدقائق", pageWidth - 265f, curY + 16f, paint)
+            canvas.drawText("السقي / دقائق صافية", pageWidth - 265f, curY + 16f, paint)
             canvas.drawText("المبلغ المطلوب", pageWidth - 375f, curY + 16f, paint)
             canvas.drawText("المدفوع", pageWidth - 455f, curY + 16f, paint)
-            canvas.drawText("المتبقي", 30f, curY + 16f, paint)
+            canvas.drawText("دين السقي", 30f, curY + 16f, paint)
 
             curY += 25f
             paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
@@ -757,15 +837,27 @@ object PdfReportGenerator {
         val boxWidth = (pageWidth - 70f) / 3f
         val boxHeight = 55f
 
-        drawSummaryBox(canvas, 25f, 170f, boxWidth, boxHeight, "إجمالي مبيعات الماء", Formatters.formatCurrency(totals.totalRevenue, config.currencySymbol), primaryColor)
-        drawSummaryBox(canvas, 25f + boxWidth + 10f, 170f, boxWidth, boxHeight, "إجمالي ما تم تحصيله", Formatters.formatCurrency(totals.totalCollected, config.currencySymbol), paidGreen)
-        drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 170f, boxWidth, boxHeight, "إجمالي الديون المتبقية", Formatters.formatCurrency(totals.totalOutstandingDebt, config.currencySymbol), debtRed)
+        drawSummaryBox(canvas, 25f, 170f, boxWidth, boxHeight, "إجمالي قيمة السقي / البيع", Formatters.formatCurrency(totals.totalRevenue, config.currencySymbol), primaryColor)
+        drawSummaryBox(canvas, 25f + boxWidth + 10f, 170f, boxWidth, boxHeight, "التحصيل النقدي", Formatters.formatCurrency(totals.totalCollected, config.currencySymbol), paidGreen)
+        drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 170f, boxWidth, boxHeight, "دين السقي على العملاء", Formatters.formatCurrency(totals.totalOutstandingDebt, config.currencySymbol), debtRed)
 
-        drawSummaryBox(canvas, 25f, 232f, boxWidth, boxHeight, "إجمالي المصروفات", Formatters.formatCurrency(totals.totalExpenses, config.currencySymbol), 0xFFE65100.toInt())
-        drawSummaryBox(canvas, 25f + boxWidth + 10f, 232f, boxWidth, boxHeight, "صافي الربح التشغيلي", Formatters.formatCurrency(totals.netProfit, config.currencySymbol), if (totals.netProfit >= 0) paidGreen else debtRed)
-        drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 232f, boxWidth, boxHeight, "إجمالي الري", "${Formatters.formatDurationArabic(totals.waterMinutes)} (${totals.sessionsCount} ساقية)", darkTextColor)
+        drawSummaryBox(canvas, 25f, 232f, boxWidth, boxHeight, "ساعات البيع بعد هدر المسرب", Formatters.formatDurationArabic(totals.waterMinutes), primaryColor)
+        drawSummaryBox(canvas, 25f + boxWidth + 10f, 232f, boxWidth, boxHeight, "هدر المسرب", Formatters.formatDurationArabic(totals.distributorWasteMinutes), debtRed)
+        drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 232f, boxWidth, boxHeight, "عدد دورات السقي", "${totals.sessionsCount} دورة", darkTextColor)
 
-        // ---------- Customers table (paginated) ----------
+        drawSummaryBox(canvas, 25f, 294f, boxWidth, boxHeight, "صافي مشتريات الآبار", Formatters.formatCurrency(totals.ownerPurchaseAmount, config.currencySymbol), primaryColor)
+        drawSummaryBox(canvas, 25f + boxWidth + 10f, 294f, boxWidth, boxHeight, "المسدد لأصحاب الآبار", Formatters.formatCurrency(totals.ownerPayments, config.currencySymbol), paidGreen)
+        drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 294f, boxWidth, boxHeight, "مستحقات شراء الآبار", Formatters.formatCurrency(totals.ownerPayable, config.currencySymbol), if (totals.ownerPayable > 0) debtRed else paidGreen)
+
+        drawSummaryBox(canvas, 25f, 356f, boxWidth, boxHeight, "ساعات الشراء المسجلة", Formatters.formatDurationArabic(totals.purchasedMinutes), primaryColor)
+        drawSummaryBox(canvas, 25f + boxWidth + 10f, 356f, boxWidth, boxHeight, "المحتسب بعد هدر المالك", Formatters.formatDurationArabic(totals.chargeablePurchasedMinutes), primaryColor)
+        drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 356f, boxWidth, boxHeight, "هدر صاحب البئر", Formatters.formatDurationArabic(totals.ownerWasteMinutes), debtRed)
+
+        drawSummaryBox(canvas, 25f, 418f, boxWidth, boxHeight, "قيمة خصم هدر صاحب البئر", Formatters.formatCurrency(totals.ownerWasteCredit, config.currencySymbol), debtRed)
+        drawSummaryBox(canvas, 25f + boxWidth + 10f, 418f, boxWidth, boxHeight, "مصروفات التشغيل", Formatters.formatCurrency(totals.totalExpenses, config.currencySymbol), 0xFFE65100.toInt())
+        drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 418f, boxWidth, boxHeight, "صافي الربح التشغيلي", Formatters.formatCurrency(totals.netProfit, config.currencySymbol), if (totals.netProfit >= 0) paidGreen else debtRed)
+
+        // ---------- Customers table (paginated)
         drawTableHeader()
 
         if (customerRows.isEmpty()) {
@@ -830,6 +922,76 @@ object PdfReportGenerator {
 
             paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
             curY += rowHeight + 3f
+        }
+
+        // Separate supplier-ledger table: owner purchases and owner irrigation are never netted.
+        val ownerRows = customerRows.filter {
+            it.isWellOwner && (
+                it.purchasedMinutes > 0 || it.sessionsCount > 0 || it.ownerPayments > 0.0 ||
+                    it.billed > 0.0 || it.paid > 0.0 || it.receivableBalance != 0.0
+                )
+        }
+        if (ownerRows.isNotEmpty()) {
+            finishCurrentPage()
+
+            fun drawOwnerTableHeader() {
+                paint.color = primaryColor
+                canvas.drawRect(20f, curY, pageWidth - 20f, curY + 25f, paint)
+                paint.color = Color.WHITE
+                paint.textSize = 8.3f
+                paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                paint.textAlign = Paint.Align.RIGHT
+                canvas.drawText("صاحب البئر", pageWidth - 30f, curY + 16f, paint)
+                canvas.drawText("شراء: مسجل / محتسب / هدر", 420f, curY + 16f, paint)
+                canvas.drawText("صافي الشراء", 300f, curY + 16f, paint)
+                canvas.drawText("المسدد له", 220f, curY + 16f, paint)
+                canvas.drawText("متبقي له علينا", 120f, curY + 16f, paint)
+                canvas.drawText("دين السقي عليه", 35f, curY + 16f, paint)
+                curY += 25f
+            }
+
+            fun startOwnerPage(subtitle: String) {
+                pageNumber++
+                page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+                canvas = page.canvas
+                drawHeader(subtitle)
+                curY = 130f
+                drawOwnerTableHeader()
+            }
+
+            startOwnerPage("${config.distributorName} | $periodTitle | حسابا صاحب البئر مستقلان")
+            val ownerRowHeight = 42f
+            ownerRows.forEachIndexed { index, row ->
+                if (curY + ownerRowHeight > pageHeight - 90f) {
+                    finishCurrentPage()
+                    startOwnerPage("${config.distributorName} | $periodTitle | متابعة أصحاب الآبار")
+                }
+                paint.color = if (index % 2 == 0) Color.WHITE else lightGray
+                canvas.drawRect(20f, curY, pageWidth - 20f, curY + ownerRowHeight, paint)
+                paint.color = dividerGray
+                paint.strokeWidth = 0.5f
+                canvas.drawLine(20f, curY + ownerRowHeight, pageWidth - 20f, curY + ownerRowHeight, paint)
+                paint.textAlign = Paint.Align.RIGHT
+                paint.textSize = 8.2f
+                paint.color = darkTextColor
+                canvas.drawText(truncate(row.customerName, 16), pageWidth - 30f, curY + 14f, paint)
+                val hoursText = "${Formatters.formatDurationShort(row.purchasedMinutes)} / ${Formatters.formatDurationShort(row.chargeablePurchasedMinutes)} / ${Formatters.formatDurationShort(row.ownerWasteMinutes)}"
+                canvas.drawText(truncate(hoursText, 25), 420f, curY + 14f, paint)
+                canvas.drawText(Formatters.formatNumber(row.purchaseAmount), 300f, curY + 14f, paint)
+                paint.color = paidGreen
+                canvas.drawText(Formatters.formatNumber(row.ownerPayments), 220f, curY + 14f, paint)
+                paint.color = if (row.payableBalance > 0) debtRed else paidGreen
+                canvas.drawText(Formatters.formatNumber(row.payableBalance), 120f, curY + 14f, paint)
+                paint.color = if (row.receivableBalance > 0) debtRed else paidGreen
+                canvas.drawText(Formatters.formatNumber(row.receivableBalance), 35f, curY + 14f, paint)
+
+                paint.color = darkTextColor
+                paint.textSize = 8f
+                paint.textAlign = Paint.Align.RIGHT
+                val detail = "هدر صاحب البئر: ${Formatters.formatDurationShort(row.ownerWasteMinutes)} / خصمه ${Formatters.formatNumber(row.ownerWasteCredit)}  •  سقي له بعد هدر المسرب: ${Formatters.formatDurationShort(row.waterMinutes)} / بيع ${Formatters.formatNumber(row.billed)} / تحصيل ${Formatters.formatNumber(row.paid)}"
+                canvas.drawText(truncate(detail, 100), pageWidth - 30f, curY + 32f, paint)
+                curY += ownerRowHeight
+            }
         }
 
         // ---------- Signatures ----------

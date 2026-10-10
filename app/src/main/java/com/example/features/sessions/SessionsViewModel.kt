@@ -11,8 +11,6 @@ import com.example.core.util.Formatters
 import com.example.core.util.PdfReportGenerator
 import com.example.features.customers.Customer
 import com.example.features.customers.CustomerRepository
-import com.example.features.pumps.PumpSource
-import com.example.features.pumps.PumpSourceRepository
 import com.example.features.settings.AppConfig
 import com.example.features.settings.SettingsRepository
 import com.example.features.vouchers.Voucher
@@ -45,23 +43,27 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
 
     private val db = AppDatabase.getDatabase(application)
     private val sessionRepo = WaterSessionRepository(db.waterSessionDao(), db.customerDao())
-    private val customerRepo = CustomerRepository(db.customerDao(), sessionRepo.allSessions, db.voucherDao().getAllVouchers())
-    private val pumpRepo = PumpSourceRepository(db.pumpSourceDao())
+    private val customerRepo = CustomerRepository(
+        db.customerDao(),
+        sessionRepo.allSessions,
+        db.voucherDao().getAllVouchers(),
+        db.pumpSourceDao().getAllPumps(),
+        db.wellOwnerPurchaseDao().getAllPurchases()
+    )
     private val settingsRepo = SettingsRepository(db.appSettingDao())
     private val voucherRepo = VoucherRepository(db.voucherDao(), db.customerDao())
 
     val operationsCount: StateFlow<Int> = combine(
         db.waterSessionDao().getSessionsCount(),
-        db.voucherDao().getVouchersCount()
-    ) { s, v -> s + v }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+        db.voucherDao().getVouchersCount(),
+        db.wellOwnerPurchaseDao().getPurchasesCount()
+    ) { sessions, vouchers, purchases -> sessions + vouchers + purchases }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val appConfig: StateFlow<AppConfig> = settingsRepo.appConfig
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppConfig())
 
     val customers: StateFlow<List<Customer>> = customerRepo.allCustomers
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val pumps: StateFlow<List<PumpSource>> = pumpRepo.allPumps
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _filter = MutableStateFlow(SessionFilter.ALL)
@@ -72,6 +74,17 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
 
     private val _toast = MutableStateFlow<ToastMessage?>(null)
     val toast: StateFlow<ToastMessage?> = _toast.asStateFlow()
+
+    private val _requestedCustomerForNewSession = MutableStateFlow<Long?>(null)
+    val requestedCustomerForNewSession: StateFlow<Long?> = _requestedCustomerForNewSession.asStateFlow()
+
+    fun requestNewSessionForCustomer(customerId: Long) {
+        _requestedCustomerForNewSession.value = customerId
+    }
+
+    fun clearNewSessionCustomerRequest() {
+        _requestedCustomerForNewSession.value = null
+    }
 
     /** ملف PDF جاهز — يُعرض dialog للمستخدم يختار فيه فتح أو مشاركة */
     private val _pdfReadyFile = MutableStateFlow<Pair<File, String>?>(null)
@@ -184,13 +197,20 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
         pricePerHour: Double,
         amountPaid: Double,
         notes: String,
-        billedToCustomerId: Long? = null
+        billedToCustomerId: Long? = null,
+        wastedMinutes: Int = 0,
+        wastedReason: String = "",
+        discountAmount: Double = 0.0,
+        costPricePerHour: Double = 0.0,
+        pumpSourceId: Long? = null
     ) {
         viewModelScope.launch {
             val totalMinutes = (hours * 60) + minutes
-            val totalCost = Formatters.calculateWaterCost(totalMinutes, pricePerHour)
+            val netMinutes = maxOf(0, totalMinutes - wastedMinutes)
+            val grossCost = Formatters.calculateWaterCost(netMinutes, pricePerHour)
+            val totalCost = Formatters.roundMoney(maxOf(0.0, grossCost - discountAmount))
             val roundedPaid = Formatters.roundMoney(amountPaid)
-            val debt = Formatters.roundMoney(Math.max(0.0, totalCost - roundedPaid))
+            val debt = Formatters.roundMoney(maxOf(0.0, totalCost - roundedPaid))
 
             val session = WaterSession(
                 id = id,
@@ -205,27 +225,27 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                 remainingDebt = debt,
                 notes = notes,
                 isLive = false,
-                billedToCustomerId = billedToCustomerId
+                billedToCustomerId = billedToCustomerId,
+                wastedMinutes = wastedMinutes,
+                wastedReason = wastedReason,
+                discountAmount = discountAmount,
+                costPricePerHour = costPricePerHour,
+                pumpSourceId = pumpSourceId
             )
 
-            val cust = db.customerDao().getCustomerByIdDirect(session.customerId)
             if (id == 0L) {
-                val totalOps = db.waterSessionDao().getSessionsCountDirect() + db.voucherDao().getVouchersCountDirect()
+                val totalOps = db.waterSessionDao().getSessionsCountDirect() +
+                    db.voucherDao().getVouchersCountDirect() + db.wellOwnerPurchaseDao().getPurchasesCountDirect()
                 if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
                     showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
                     return@launch
                 }
-                val newId = sessionRepo.insertSession(session)
-                if (cust != null && cust.linkCode.isNotBlank()) {
-                    com.example.core.sync.MusribSyncManager.syncSession(cust.linkCode, session.copy(id = newId))
-                }
-                showToast("تم تسجيل دورة الماء وحساب التكلفة بنجاح", ToastType.SUCCESS)
+                sessionRepo.insertSession(session)
+                LicenseManager.recordOperationPerformed(getApplication(), totalOps)
+                showToast("تم تسجيل دورة السقي وحساب التكلفة بنجاح", ToastType.SUCCESS)
             } else {
                 sessionRepo.updateSession(session)
-                if (cust != null && cust.linkCode.isNotBlank()) {
-                    com.example.core.sync.MusribSyncManager.syncSession(cust.linkCode, session)
-                }
-                showToast("تم تحديث بيانات دورة الماء بنجاح", ToastType.SUCCESS)
+                showToast("تم تحديث بيانات دورة السقي بنجاح", ToastType.SUCCESS)
             }
         }
     }
@@ -240,7 +260,8 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
         notes: String = ""
     ) {
         viewModelScope.launch {
-            val totalOps = db.waterSessionDao().getSessionsCountDirect() + db.voucherDao().getVouchersCountDirect()
+            val totalOps = db.waterSessionDao().getSessionsCountDirect() +
+                    db.voucherDao().getVouchersCountDirect() + db.wellOwnerPurchaseDao().getPurchasesCountDirect()
             if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
                 showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
                 return@launch
@@ -269,17 +290,14 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                 notes = notes.ifBlank { "سداد دورة سقي #${session.id}" }
             )
             voucherRepo.insertVoucher(voucher)
+            LicenseManager.recordOperationPerformed(getApplication(), totalOps)
             showToast("تم سداد المبلغ بنجاح وإصدار سند القبض المرتبط", ToastType.SUCCESS)
         }
     }
 
     fun deleteSession(session: WaterSession) {
         viewModelScope.launch {
-            val cust = db.customerDao().getCustomerByIdDirect(session.customerId)
             sessionRepo.deleteSession(session)
-            if (cust != null && cust.linkCode.isNotBlank()) {
-                com.example.core.sync.MusribSyncManager.deleteEntry(cust.linkCode, "session_${session.id}")
-            }
             showToast("تم حذف الجلسة بنجاح", ToastType.INFO)
         }
     }

@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Call
@@ -96,6 +97,9 @@ import com.example.features.sessions.SettleSessionDialog
 import com.example.features.sessions.WaterSession
 import com.example.features.vouchers.Voucher
 import com.example.features.vouchers.VoucherType
+import com.example.features.wellowners.WellOwnerPurchase
+import com.example.features.wellowners.WellOwnerPurchaseMath
+import com.example.features.wellowners.WellOwnerPurchaseBottomSheet
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
@@ -105,9 +109,10 @@ import java.io.File
 
 enum class CustomerOpFilter(val title: String) {
     ALL("الكل"),
-    SESSIONS("دورات السقي"),
-    RECEIPTS("سندات القبض"),
-    DISBURSEMENTS("سندات الصرف"),
+    PURCHASES("شراء ساعات"),
+    SESSIONS("السقي / البيع"),
+    RECEIPTS("التحصيل"),
+    DISBURSEMENTS("السداد"),
     DEBT_ONLY("المؤخر")
 }
 
@@ -120,6 +125,12 @@ sealed class CustomerLedgerItem {
         val linkedVouchers: List<Voucher> = emptyList()
     ) : CustomerLedgerItem() {
         override val timestamp: Long get() = session.startTime
+    }
+
+    data class PurchaseItem(
+        val purchase: WellOwnerPurchase
+    ) : CustomerLedgerItem() {
+        override val timestamp: Long get() = purchase.date
     }
 
     data class ReceiptItem(
@@ -146,10 +157,11 @@ fun CustomerDetailScreen(
     BackHandler { onBack() }
 
     val config by viewModel.appConfig.collectAsStateWithLifecycle()
-    val allCustomersWithBalance by viewModel.customersWithBalance.collectAsStateWithLifecycle()
+    val allCustomersWithBalance by viewModel.rawCustomersWithBalance.collectAsStateWithLifecycle()
     val customerWithBalance = allCustomersWithBalance.find { it.customer.id == customerId }
     val allCustomers: List<Customer> by viewModel.allCustomers.collectAsStateWithLifecycle(initialValue = emptyList())
     val sessions by remember(customerId) { viewModel.getCustomerSessions(customerId) }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val purchases by remember(customerId) { viewModel.getCustomerPurchases(customerId) }.collectAsStateWithLifecycle(initialValue = emptyList())
     val vouchers by remember(customerId) { viewModel.getCustomerVouchers(customerId) }.collectAsStateWithLifecycle(initialValue = emptyList())
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -157,9 +169,11 @@ fun CustomerDetailScreen(
     var selectedFilter by remember { mutableStateOf(CustomerOpFilter.ALL) }
     var showAddReceiptSheet by remember { mutableStateOf(false) }
     var showAddDisbursementSheet by remember { mutableStateOf(false) }
+    var showOwnerPurchaseSheet by remember { mutableStateOf(false) }
     var showEditCustomerSheet by remember { mutableStateOf(false) }
     var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
     var sessionToDelete by remember { mutableStateOf<WaterSession?>(null) }
+    var purchaseToDelete by remember { mutableStateOf<WellOwnerPurchase?>(null) }
     var voucherToDelete by remember { mutableStateOf<Voucher?>(null) }
 
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
@@ -216,21 +230,6 @@ fun CustomerDetailScreen(
 
     val customer = customerWithBalance.customer
 
-    androidx.compose.runtime.LaunchedEffect(customerWithBalance) {
-        if (customer.linkCode.isBlank()) {
-            val generated = com.example.core.util.LinkCodeGenerator.generate()
-            viewModel.updateCustomer(customer.copy(linkCode = generated))
-        } else {
-            com.example.core.sync.MusribSyncManager.syncCustomerSummary(
-                customer = customer,
-                distributorName = config.distributorName.ifBlank { "المسرب" },
-                distributorPhone = config.distributorPhone,
-                totalBilled = customerWithBalance.totalBilledAmount,
-                totalPaid = customerWithBalance.totalPaidAmount,
-                currentBalance = customerWithBalance.balance
-            )
-        }
-    }
     // Message Choice Dialog (WhatsApp / SMS)
     messageSessionTarget?.let { s ->
         val timeRange = "من ${Formatters.formatTime(s.startTime)} إلى ${Formatters.formatTime(s.endTime)}"
@@ -287,16 +286,21 @@ fun CustomerDetailScreen(
             CustomerLedgerItem.SessionItem(s, origCust, linked)
         }
     }
+    val purchaseItems = remember(purchases) { purchases.map { CustomerLedgerItem.PurchaseItem(it) } }
     val receiptItems = remember(vouchers) {
         vouchers.filter { it.type == VoucherType.RECEIPT }.map { CustomerLedgerItem.ReceiptItem(it) }
+    }
+    val standaloneReceiptItems = remember(receiptItems) {
+        receiptItems.filter { it.voucher.sessionId == null }
     }
     val disbursementItems = remember(vouchers) {
         vouchers.filter { it.type == VoucherType.EXPENSE }.map { CustomerLedgerItem.DisbursementItem(it) }
     }
 
-    val filteredItems = remember(selectedFilter, sessionItems, receiptItems, disbursementItems) {
+    val filteredItems = remember(selectedFilter, sessionItems, purchaseItems, receiptItems, disbursementItems) {
         when (selectedFilter) {
-            CustomerOpFilter.ALL -> (sessionItems + receiptItems + disbursementItems).sortedByDescending { it.timestamp }
+            CustomerOpFilter.ALL -> (sessionItems + purchaseItems + standaloneReceiptItems + disbursementItems).sortedByDescending { it.timestamp }
+            CustomerOpFilter.PURCHASES -> purchaseItems.sortedByDescending { it.timestamp }
             CustomerOpFilter.SESSIONS -> sessionItems.sortedByDescending { it.timestamp }
             CustomerOpFilter.RECEIPTS -> receiptItems.sortedByDescending { it.timestamp }
             CustomerOpFilter.DISBURSEMENTS -> disbursementItems.sortedByDescending { it.timestamp }
@@ -320,7 +324,7 @@ fun CustomerDetailScreen(
                     },
                     text = {
                         Text(
-                            text = "تسجيل دورة سقي",
+                            text = if (cwb.customer.isWellOwner) "تسجيل سقي له" else "تسجيل سقي للمزارع",
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.5.sp
                         )
@@ -474,7 +478,10 @@ fun CustomerDetailScreen(
                                 val metaChips = buildList {
                                     if (customer.phone.isNotBlank()) add(customer.phone)
                                     if (customer.location.isNotBlank()) add(customer.location)
-                                    if ((customer.customPricePerHour ?: 0.0) > 0) add("سعر خاص: ${Formatters.formatNumber(customer.customPricePerHour!!)} ${config.currencySymbol}/س")
+                                    if ((customer.customPricePerHour ?: 0.0) > 0) {
+                                        val priceLabel = if (customer.isWellOwner) "تكلفة الشراء" else "سعر خاص"
+                                        add("$priceLabel: ${Formatters.formatNumber(customer.customPricePerHour!!)} ${config.currencySymbol}/س")
+                                    }
                                 }
                                 if (metaChips.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(4.dp))
@@ -500,72 +507,67 @@ fun CustomerDetailScreen(
                                     )
                                 }
 
-                                if (customer.linkCode.isNotBlank()) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(20.dp))
-                                            .background(Color.Black.copy(alpha = 0.28f))
-                                            .clickable {
-                                                val msg = "مرحباً يا ${customer.name}، كود ربط حسابك في تطبيق جِربة الزراعي مع المسرب (${config.distributorName.ifBlank { "المسرب" }}):\n#${customer.linkCode}\nأدخل هذا الكود في التطبيق لمتابعة دورات السقي ورصيدك مباشرة."
-                                                FileSharingHelper.copyToClipboard(context, customer.linkCode)
-                                                FileSharingHelper.shareText(context, msg, "مشاركة كود الربط")
-                                            }
-                                            .padding(horizontal = 14.dp, vertical = 6.dp)
-                                    ) {
-                                        Text(
-                                            text = "كود ربط المزارع: #${customer.linkCode}",
-                                            style = MaterialTheme.typography.labelMedium.copy(
-                                                color = AccentGold,
-                                                fontWeight = FontWeight.Bold,
-                                                letterSpacing = 1.sp
-                                            )
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Icon(
-                                            Icons.Default.Share,
-                                            contentDescription = "مشاركة",
-                                            tint = AccentGold,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
-                                }
-
                                 Spacer(modifier = Modifier.height(12.dp))
 
                                 // ── Quick Action Buttons ──
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 20.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    if (customer.phone.isNotEmpty()) {
+                                    if (customer.isWellOwner) {
                                         QuickActionButton(
-                                            icon = Icons.Default.Call,
-                                            label = "اتصال",
-                                            onClick = { FileSharingHelper.makePhoneCall(context, customer.phone) }
+                                            icon = Icons.Default.Add,
+                                            label = "شراء ساعات",
+                                            accentColor = AccentGold,
+                                            onClick = { showOwnerPurchaseSheet = true }
                                         )
                                         QuickActionButton(
-                                            icon = Icons.AutoMirrored.Filled.Send,
-                                            label = "إرسال كشف",
-                                            accentColor = Color(0xFF69F0AE),
-                                            onClick = {
-                                                messageCustomTarget = viewModel.buildCustomerStatementMessage(customer, customerWithBalance)
-                                            }
+                                            icon = Icons.Default.WaterDrop,
+                                            label = "سقي له",
+                                            accentColor = SecondaryAquaDark,
+                                            onClick = { onAddSessionForCustomer(customer) }
+                                        )
+                                        QuickActionButton(
+                                            icon = Icons.Default.ArrowDownward,
+                                            label = "سداد له",
+                                            accentColor = Color(0xFFFF8A80),
+                                            onClick = { showAddDisbursementSheet = true }
+                                        )
+                                        QuickActionButton(
+                                            icon = Icons.Default.Payments,
+                                            label = "تحصيل منه",
+                                            accentColor = AccentEmerald,
+                                            onClick = { showAddReceiptSheet = true }
+                                        )
+                                    } else {
+                                        if (customer.phone.isNotEmpty()) {
+                                            QuickActionButton(
+                                                icon = Icons.Default.Call,
+                                                label = "اتصال",
+                                                onClick = { FileSharingHelper.makePhoneCall(context, customer.phone) }
+                                            )
+                                            QuickActionButton(
+                                                icon = Icons.AutoMirrored.Filled.Send,
+                                                label = "إرسال كشف",
+                                                accentColor = Color(0xFF69F0AE),
+                                                onClick = {
+                                                    messageCustomTarget = viewModel.buildCustomerStatementMessage(customer, customerWithBalance)
+                                                }
+                                            )
+                                        }
+                                        QuickActionButton(
+                                            icon = Icons.Default.Payments,
+                                            label = "تحصيل",
+                                            accentColor = AccentEmerald,
+                                            onClick = { showAddReceiptSheet = true }
+                                        )
+                                        QuickActionButton(
+                                            icon = Icons.Default.ArrowDownward,
+                                            label = "سند صرف",
+                                            accentColor = Color(0xFFFF8A80),
+                                            onClick = { showAddDisbursementSheet = true }
                                         )
                                     }
-                                    QuickActionButton(
-                                        icon = Icons.Default.Payments,
-                                        label = "سند قبض",
-                                        accentColor = AccentEmerald,
-                                        onClick = { showAddReceiptSheet = true }
-                                    )
-                                    QuickActionButton(
-                                        icon = Icons.Default.ArrowDownward,
-                                        label = "سند صرف",
-                                        accentColor = Color(0xFFFF8A80),
-                                        onClick = { showAddDisbursementSheet = true }
-                                    )
                                 }
                             }
                         }
@@ -595,50 +597,109 @@ fun CustomerDetailScreen(
                                 .padding(horizontal = 14.dp, vertical = 12.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // Balance label
-                            Text(
-                                text = when {
-                                    isDebt -> "صافي الدين المتبقي بذمة العميل"
-                                    isCredit -> "رصيد دائن لصالح العميل"
-                                    else -> "الحساب مسدد بالكامل (لا توجد مطالبات)"
-                                },
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontWeight = FontWeight.SemiBold
+                            if (customer.isWellOwner) {
+                                val payableColor = if (customerWithBalance.payableBalance > 0) Color(0xFFD32F2F) else AccentEmerald
+                                val receivableColor = if (customerWithBalance.receivableBalance > 0) Color(0xFFD32F2F) else AccentEmerald
+                                Text(
+                                    "أرصدة مستقلة — لا تتم المقاصة تلقائياً",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
                                 )
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            // Big balance amount
-                            val balanceColor = when {
-                                isDebt -> Color(0xFFE53935)
-                                isCredit -> AccentEmerald
-                                else -> PrimaryTeal
-                            }
-                            Text(
-                                text = if (customerWithBalance.balance == 0.0)
-                                    "0 ${config.currencySymbol}"
-                                else
-                                    Formatters.formatCurrency(Math.abs(customerWithBalance.balance), config.currencySymbol),
-                                style = MaterialTheme.typography.displaySmall.copy(
-                                    color = balanceColor,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 30.sp
-                                )
-                            )
-
-                            if (customerWithBalance.balance == 0.0) {
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(20.dp))
-                                        .background(AccentEmerald.copy(alpha = 0.12f))
-                                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Icon(Icons.Default.Check, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("خالص ومسدد بالكامل", style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold))
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(payableColor.copy(alpha = 0.08f))
+                                            .padding(10.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            when {
+                                                customerWithBalance.payableBalance > 0 -> "عليك لصاحب البئر"
+                                                customerWithBalance.payableBalance < 0 -> "لك رصيد عند صاحب البئر"
+                                                else -> "مستحقات الشراء مسددة"
+                                            },
+                                            style = MaterialTheme.typography.labelSmall.copy(color = payableColor, fontWeight = FontWeight.Bold),
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Text(
+                                            Formatters.formatCurrency(kotlin.math.abs(customerWithBalance.payableBalance), config.currencySymbol),
+                                            style = MaterialTheme.typography.titleMedium.copy(color = payableColor, fontWeight = FontWeight.ExtraBold),
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(receivableColor.copy(alpha = 0.08f))
+                                            .padding(10.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            when {
+                                                customerWithBalance.receivableBalance > 0 -> "لك على صاحب البئر"
+                                                customerWithBalance.receivableBalance < 0 -> "عليك له (رصيد)"
+                                                else -> "سقي مسدد"
+                                            },
+                                            style = MaterialTheme.typography.labelSmall.copy(color = receivableColor, fontWeight = FontWeight.Bold),
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Text(
+                                            Formatters.formatCurrency(kotlin.math.abs(customerWithBalance.receivableBalance), config.currencySymbol),
+                                            style = MaterialTheme.typography.titleMedium.copy(color = receivableColor, fontWeight = FontWeight.ExtraBold),
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            } else {
+                                val isDebt = customerWithBalance.receivableBalance > 0
+                                val isCredit = customerWithBalance.receivableBalance < 0
+                                Text(
+                                    text = when {
+                                        isDebt -> "صافي الدين المتبقي بذمة العميل (لك)"
+                                        isCredit -> "رصيد دائن لصالح العميل (عليك)"
+                                        else -> "الحساب مسدد بالكامل (لا توجد مطالبات)"
+                                    },
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                val balanceColor = when {
+                                    isDebt -> Color(0xFFE53935)
+                                    isCredit -> AccentEmerald
+                                    else -> PrimaryTeal
+                                }
+                                Text(
+                                    text = Formatters.formatCurrency(kotlin.math.abs(customerWithBalance.receivableBalance), config.currencySymbol),
+                                    style = MaterialTheme.typography.displaySmall.copy(
+                                        color = balanceColor,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 30.sp
+                                    )
+                                )
+                                if (customerWithBalance.receivableBalance == 0.0) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(AccentEmerald.copy(alpha = 0.12f))
+                                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                                    ) {
+                                        Icon(Icons.Default.Check, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("خالص ومسدد بالكامل", style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold))
+                                    }
                                 }
                             }
 
@@ -655,15 +716,20 @@ fun CustomerDetailScreen(
                                 ) {
                                     StatCellBox(
                                         modifier = Modifier.weight(1f),
-                                        label = "إجمالي السقي",
-                                        value = Formatters.formatCurrency(customerWithBalance.totalBilledAmount, config.currencySymbol),
+                                        label = if (customer.isWellOwner) "قيمة الشراء الصافية" else "إجمالي السقي",
+                                        value = Formatters.formatCurrency(
+                                            if (customer.isWellOwner) customerWithBalance.totalPurchaseAmount else customerWithBalance.totalBilledAmount,
+                                            config.currencySymbol
+                                        ),
                                         color = MaterialTheme.colorScheme.onSurface,
                                         icon = Icons.Default.WaterDrop
                                     )
                                     StatCellBox(
                                         modifier = Modifier.weight(1f),
-                                        label = "مدة الري الكلية",
-                                        value = Formatters.formatDurationArabic(customerWithBalance.totalMinutes),
+                                        label = if (customer.isWellOwner) "الساعات المشتراة" else "ساعات البيع",
+                                        value = Formatters.formatDurationArabic(
+                                            if (customer.isWellOwner) customerWithBalance.totalPurchasedMinutes else customerWithBalance.totalSoldMinutes
+                                        ),
                                         color = PrimaryTeal,
                                         icon = Icons.Default.AccessTime
                                     )
@@ -674,17 +740,23 @@ fun CustomerDetailScreen(
                                 ) {
                                     StatCellBox(
                                         modifier = Modifier.weight(1f),
-                                        label = "إجمالي المقبوض",
-                                        value = Formatters.formatCurrency(customerWithBalance.totalPaidAmount, config.currencySymbol),
-                                        color = AccentEmerald,
+                                        label = if (customer.isWellOwner) "المسدد له" else "المحصل نقداً",
+                                        value = Formatters.formatCurrency(
+                                            if (customer.isWellOwner) customerWithBalance.totalDisbursedAmount else customerWithBalance.totalPaidAmount,
+                                            config.currencySymbol
+                                        ),
+                                        color = if (customer.isWellOwner) Color(0xFFEF5350) else AccentEmerald,
                                         icon = Icons.Default.Payments
                                     )
-                                    if (customerWithBalance.totalDisbursedAmount > 0) {
+                                    if (customer.isWellOwner || customerWithBalance.totalDisbursedAmount > 0) {
                                         StatCellBox(
                                             modifier = Modifier.weight(1f),
-                                            label = "إجمالي المنصرف",
-                                            value = Formatters.formatCurrency(customerWithBalance.totalDisbursedAmount, config.currencySymbol),
-                                            color = Color(0xFFEF5350),
+                                            label = if (customer.isWellOwner) "المحصل منه" else "إجمالي المنصرف",
+                                            value = Formatters.formatCurrency(
+                                                if (customer.isWellOwner) customerWithBalance.totalPaidAmount else customerWithBalance.totalDisbursedAmount,
+                                                config.currencySymbol
+                                            ),
+                                            color = if (customer.isWellOwner) AccentEmerald else Color(0xFFEF5350),
                                             icon = Icons.Default.ArrowDownward
                                         )
                                     } else {
@@ -694,6 +766,48 @@ fun CustomerDetailScreen(
                                             value = "${sessions.size} دورة",
                                             color = MaterialTheme.colorScheme.onSurface,
                                             icon = Icons.Default.Receipt
+                                        )
+                                    }
+                                }
+                                if (customer.isWellOwner) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        StatCellBox(
+                                            modifier = Modifier.weight(1f),
+                                            label = "سقي / بيع له",
+                                            value = Formatters.formatCurrency(customerWithBalance.totalBilledAmount, config.currencySymbol),
+                                            color = PrimaryTeal,
+                                            icon = Icons.Default.WaterDrop
+                                        )
+                                        StatCellBox(
+                                            modifier = Modifier.weight(1f),
+                                            label = "ساعات السقي له",
+                                            value = Formatters.formatDurationArabic(customerWithBalance.totalSoldMinutes),
+                                            color = PrimaryTeal,
+                                            icon = Icons.Default.AccessTime
+                                        )
+                                    }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        StatCellBox(
+                                            modifier = Modifier.weight(1f),
+                                            label = "هدر على صاحب البئر",
+                                            value = Formatters.formatDurationArabic(
+                                                (customerWithBalance.totalPurchasedMinutes - customerWithBalance.totalChargeablePurchasedMinutes).coerceAtLeast(0)
+                                            ),
+                                            color = Color(0xFFD32F2F),
+                                            icon = Icons.Default.AccessTime
+                                        )
+                                        StatCellBox(
+                                            modifier = Modifier.weight(1f),
+                                            label = "خصم الهدر عليه",
+                                            value = Formatters.formatCurrency(customerWithBalance.totalOwnerWasteCredit, config.currencySymbol),
+                                            color = Color(0xFFD32F2F),
+                                            icon = Icons.Default.ArrowDownward
                                         )
                                     }
                                 }
@@ -711,9 +825,12 @@ fun CustomerDetailScreen(
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        CustomerOpFilter.entries.forEach { filter ->
+                        CustomerOpFilter.entries
+                            .filter { customer.isWellOwner || it != CustomerOpFilter.PURCHASES }
+                            .forEach { filter ->
                             val count = when (filter) {
-                                CustomerOpFilter.ALL -> sessions.size + vouchers.size
+                                CustomerOpFilter.ALL -> filteredItems.size
+                                CustomerOpFilter.PURCHASES -> purchaseItems.size
                                 CustomerOpFilter.SESSIONS -> sessions.size
                                 CustomerOpFilter.RECEIPTS -> receiptItems.size
                                 CustomerOpFilter.DISBURSEMENTS -> disbursementItems.size
@@ -752,12 +869,20 @@ fun CustomerDetailScreen(
                 } else {
                     items(filteredItems, key = { item ->
                         when (item) {
+                            is CustomerLedgerItem.PurchaseItem -> "purchase_${item.purchase.id}"
                             is CustomerLedgerItem.SessionItem -> "sess_${item.session.id}"
                             is CustomerLedgerItem.ReceiptItem -> "rec_${item.voucher.id}"
                             is CustomerLedgerItem.DisbursementItem -> "disb_${item.voucher.id}"
                         }
                     }) { ledgerItem ->
                         when (ledgerItem) {
+                            is CustomerLedgerItem.PurchaseItem -> {
+                                CustomerPurchaseCardItem(
+                                    purchase = ledgerItem.purchase,
+                                    currencySymbol = config.currencySymbol,
+                                    onDeleteClick = { purchaseToDelete = ledgerItem.purchase }
+                                )
+                            }
                             is CustomerLedgerItem.SessionItem -> {
                                 CustomerSessionCardItem(
                                     session = ledgerItem.session,
@@ -769,7 +894,8 @@ fun CustomerDetailScreen(
                                         val file = PdfReportGenerator.generateSessionInvoicePdf(
                                             context = context,
                                             config = config,
-                                            customer = ledgerItem.originalCustomer ?: customer,
+                                            // This detail screen represents the billed account (including a well owner).
+                                            customer = customer,
                                             session = ledgerItem.session
                                         )
                                         localPdfReady = Pair(file, "فاتورة ري #${ledgerItem.session.id}")
@@ -792,6 +918,7 @@ fun CustomerDetailScreen(
                                 CustomerReceiptCardItem(
                                     voucher = ledgerItem.voucher,
                                     currencySymbol = config.currencySymbol,
+                                    isWellOwner = customer.isWellOwner,
                                     onPdfClick = {
                                         val file = PdfReportGenerator.generateReceiptVoucherPdf(
                                             context = context,
@@ -813,6 +940,7 @@ fun CustomerDetailScreen(
                                 CustomerDisbursementCardItem(
                                     voucher = ledgerItem.voucher,
                                     currencySymbol = config.currencySymbol,
+                                    isWellOwner = customer.isWellOwner,
                                     onPdfClick = {
                                         val file = PdfReportGenerator.generateExpenseVoucherPdf(
                                             context = context,
@@ -883,6 +1011,25 @@ fun CustomerDetailScreen(
         )
     }
 
+    // Delete owner-purchase confirmation
+    purchaseToDelete?.let { purchase ->
+        AlertDialog(
+            onDismissRequest = { purchaseToDelete = null },
+            title = { Text("حذف عملية شراء الساعات", fontWeight = FontWeight.Bold) },
+            text = { Text("سيُعاد احتساب مستحق صاحب البئر بعد حذف هذه الحركة. هل تريد المتابعة؟") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteOwnerPurchase(purchase)
+                        purchaseToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
+                ) { Text("حذف الحركة", fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = { TextButton(onClick = { purchaseToDelete = null }) { Text("إلغاء") } }
+        )
+    }
+
     // Delete Voucher Confirmation
     voucherToDelete?.let { v ->
         AlertDialog(
@@ -912,8 +1059,9 @@ fun CustomerDetailScreen(
     if (showAddReceiptSheet) {
         AddReceiptBottomSheet(
             customer = customer,
-            currentBalance = customerWithBalance.balance,
+            currentBalance = customerWithBalance.receivableBalance,
             currencySymbol = config.currencySymbol,
+            isWellOwner = customer.isWellOwner,
             onDismiss = { showAddReceiptSheet = false },
             onConfirm = { amount, method, notes ->
                 viewModel.addReceiptVoucher(customer.id, amount, method, notes)
@@ -926,9 +1074,30 @@ fun CustomerDetailScreen(
         AddDisbursementBottomSheet(
             customer = customer,
             currencySymbol = config.currencySymbol,
+            isWellOwner = customer.isWellOwner,
+            currentBalance = customerWithBalance.payableBalance,
             onDismiss = { showAddDisbursementSheet = false },
             onConfirm = { amount, method, description ->
                 viewModel.addExpenseVoucher(customer.id, amount, method, description)
+            }
+        )
+    }
+
+    if (showOwnerPurchaseSheet && customer.isWellOwner) {
+        WellOwnerPurchaseBottomSheet(
+            owner = customer,
+            currencySymbol = config.currencySymbol,
+            onDismiss = { showOwnerPurchaseSheet = false },
+            onSave = { date, durationMinutes, wastedMinutes, purchaseRate, notes ->
+                viewModel.addOwnerPurchase(
+                    ownerCustomerId = customer.id,
+                    date = date,
+                    durationMinutes = durationMinutes,
+                    wastedMinutesOnOwner = wastedMinutes,
+                    purchaseRatePerHour = purchaseRate,
+                    notes = notes
+                )
+                showOwnerPurchaseSheet = false
             }
         )
     }
@@ -939,11 +1108,63 @@ fun CustomerDetailScreen(
             initialCustomer = customer,
             currencySymbol = config.currencySymbol,
             onDismiss = { showEditCustomerSheet = false },
-            onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary ->
-                viewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary)
+            onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner ->
+                viewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner)
                 showEditCustomerSheet = false
             }
         )
+    }
+}
+
+@Composable
+private fun CustomerPurchaseCardItem(
+    purchase: WellOwnerPurchase,
+    currencySymbol: String,
+    onDeleteClick: () -> Unit
+) {
+    val chargeableMinutes = WellOwnerPurchaseMath.chargeableMinutes(purchase)
+    val payableAmount = WellOwnerPurchaseMath.payableAmount(purchase)
+    val wasteCredit = WellOwnerPurchaseMath.ownerWasteCredit(purchase)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("شراء ساعات من صاحب البئر", fontWeight = FontWeight.Bold, color = PrimaryTeal)
+                    Text(Formatters.formatDateTime(purchase.date), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = onDeleteClick) {
+                    Icon(Icons.Default.Delete, contentDescription = "حذف عملية الشراء", tint = Color(0xFFE53935))
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("المدة المسجلة: ${Formatters.formatDurationArabic(purchase.durationMinutes)}", style = MaterialTheme.typography.bodySmall)
+                Text("سعر الساعة: ${Formatters.formatCurrency(purchase.purchaseRatePerHour, currencySymbol)}", style = MaterialTheme.typography.bodySmall)
+            }
+            if (purchase.wastedMinutesOnOwner > 0) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("هدر على صاحب البئر: ${Formatters.formatDurationArabic(purchase.wastedMinutesOnOwner)}", color = Color(0xFFD32F2F), style = MaterialTheme.typography.bodySmall)
+                    Text("خصم ${Formatters.formatCurrency(wasteCredit, currencySymbol)}", color = Color(0xFFD32F2F), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("الساعات المحتسبة: ${Formatters.formatDurationArabic(chargeableMinutes)}", fontWeight = FontWeight.SemiBold)
+                Text("المستحق: ${Formatters.formatCurrency(payableAmount, currencySymbol)}", color = PrimaryTeal, fontWeight = FontWeight.ExtraBold)
+            }
+            if (purchase.notes.isNotBlank()) {
+                Text(purchase.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }
 
@@ -1227,6 +1448,7 @@ private fun CustomerSessionCardItem(
 private fun CustomerReceiptCardItem(
     voucher: Voucher,
     currencySymbol: String,
+    isWellOwner: Boolean = false,
     onPdfClick: () -> Unit,
     onShareWhatsApp: () -> Unit,
     onDeleteClick: () -> Unit
@@ -1271,7 +1493,7 @@ private fun CustomerReceiptCardItem(
                         modifier = Modifier.weight(1f, fill = false)
                     ) {
                         Text(
-                            text = "سند قبض نقدي (${voucher.voucherNumber})",
+                            text = "${if (isWellOwner) "تحصيل من صاحب البئر" else "سند قبض نقدي"} (${voucher.voucherNumber})",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -1362,6 +1584,7 @@ private fun CustomerReceiptCardItem(
 private fun CustomerDisbursementCardItem(
     voucher: Voucher,
     currencySymbol: String,
+    isWellOwner: Boolean = false,
     onPdfClick: () -> Unit,
     onShareWhatsApp: () -> Unit,
     onDeleteClick: () -> Unit
@@ -1402,7 +1625,7 @@ private fun CustomerDisbursementCardItem(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "سند صرف مالي (${voucher.voucherNumber})",
+                        text = "${if (isWellOwner) "سداد لصاحب البئر" else "سند صرف مالي"} (${voucher.voucherNumber})",
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis

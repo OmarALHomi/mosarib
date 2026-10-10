@@ -57,13 +57,21 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
     private val db = AppDatabase.getDatabase(application)
     private val sessionRepo = WaterSessionRepository(db.waterSessionDao(), db.customerDao())
     private val voucherRepo = VoucherRepository(db.voucherDao(), db.customerDao())
-    private val customerRepo = CustomerRepository(db.customerDao(), sessionRepo.allSessions, voucherRepo.allVouchers)
+    private val customerRepo = CustomerRepository(
+        db.customerDao(),
+        sessionRepo.allSessions,
+        voucherRepo.allVouchers,
+        db.pumpSourceDao().getAllPumps(),
+        db.wellOwnerPurchaseDao().getAllPurchases()
+    )
     private val settingsRepo = SettingsRepository(db.appSettingDao())
 
     val operationsCount: StateFlow<Int> = combine(
         db.waterSessionDao().getSessionsCount(),
-        db.voucherDao().getVouchersCount()
-    ) { s, v -> s + v }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+        db.voucherDao().getVouchersCount(),
+        db.wellOwnerPurchaseDao().getPurchasesCount()
+    ) { sessions, vouchers, purchases -> sessions + vouchers + purchases }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val appConfig: StateFlow<AppConfig> = settingsRepo.appConfig
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppConfig())
@@ -210,7 +218,8 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         selectedSessionIds: List<Long> = emptyList()
     ) {
         viewModelScope.launch {
-            val totalOps = db.waterSessionDao().getSessionsCountDirect() + db.voucherDao().getVouchersCountDirect()
+            val totalOps = db.waterSessionDao().getSessionsCountDirect() +
+                db.voucherDao().getVouchersCountDirect() + db.wellOwnerPurchaseDao().getPurchasesCountDirect()
             if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
                 showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
                 return@launch
@@ -305,6 +314,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                     currencySymbol = appConfig.value.currencySymbol
                 )
 
+                LicenseManager.recordOperationPerformed(getApplication(), totalOps)
                 showToast("تم سداد السند وتوزيع المبلغ بنجاح", ToastType.SUCCESS)
             } else {
                 val prefix = if (type == VoucherType.RECEIPT) "REC" else "EXP"
@@ -320,11 +330,8 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                     date = System.currentTimeMillis(),
                     notes = notes
                 )
-                val newId = voucherRepo.insertVoucher(voucher)
-                val cust = customers.value.find { it.id == customerId }
-                if (cust != null && cust.linkCode.isNotBlank()) {
-                    com.example.core.sync.MusribSyncManager.syncVoucher(cust.linkCode, voucher.copy(id = newId))
-                }
+                voucherRepo.insertVoucher(voucher)
+                LicenseManager.recordOperationPerformed(getApplication(), totalOps)
 
                 val title = if (type == VoucherType.RECEIPT) "سند القبض" else "سند الصرف"
                 showToast("تم حفظ $title بنجاح", ToastType.SUCCESS)
@@ -334,11 +341,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
 
     fun deleteVoucher(voucher: Voucher) {
         viewModelScope.launch {
-            val cust = customers.value.find { it.id == voucher.customerId }
             voucherRepo.deleteVoucher(voucher)
-            if (cust != null && cust.linkCode.isNotBlank()) {
-                com.example.core.sync.MusribSyncManager.deleteEntry(cust.linkCode, "voucher_${voucher.id}")
-            }
             showToast("تم حذف السند بنجاح", ToastType.INFO)
         }
     }

@@ -2,15 +2,19 @@ package com.example.features.customers
 
 import androidx.room.Dao
 import androidx.room.Delete
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
-import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CustomerDao {
     @Query("SELECT * FROM customers WHERE isArchived = 0 ORDER BY name ASC")
     fun getAllCustomers(): Flow<List<Customer>>
+
+    @Query("SELECT * FROM customers ORDER BY name ASC")
+    fun getAllCustomersIncludingArchived(): Flow<List<Customer>>
 
     @Query("SELECT * FROM customers WHERE id = :id")
     fun getCustomerById(id: Long): Flow<Customer?>
@@ -21,8 +25,7 @@ interface CustomerDao {
     @Query("SELECT * FROM customers WHERE isArchived = 0 AND (name LIKE '%' || :query || '%' OR phone LIKE '%' || :query || '%' OR farmName LIKE '%' || :query || '%') ORDER BY name ASC")
     fun searchCustomers(query: String): Flow<List<Customer>>
 
-    // A restore/update must not DELETE its parent row and cascade into financial history.
-    @Upsert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCustomer(customer: Customer): Long
 
     @Update

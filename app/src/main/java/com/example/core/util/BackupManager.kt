@@ -12,6 +12,7 @@ import com.example.features.sessions.WaterSession
 import com.example.features.settings.AppSetting
 import com.example.features.vouchers.Voucher
 import com.example.features.vouchers.VoucherType
+import com.example.features.wellowners.WellOwnerPurchase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -30,12 +31,12 @@ object BackupManager {
     suspend fun createBackupJson(context: Context, database: AppDatabase): File = withContext(Dispatchers.IO) {
         val root = JSONObject()
         root.put("app", "Mosarib")
-        root.put("version", 1)
+        root.put("version", 2)
         root.put("createdAt", System.currentTimeMillis())
         root.put("formattedDate", SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date()))
 
-        // Customers
-        val customers = database.customerDao().getAllCustomers().first()
+        // Customers (include all customers including archived to maintain referential integrity)
+        val customers = database.customerDao().getAllCustomersIncludingArchived().first()
         val customersArray = JSONArray()
         customers.forEach { c ->
             val obj = JSONObject().apply {
@@ -46,6 +47,8 @@ object BackupManager {
                 put("location", c.location)
                 put("notes", c.notes)
                 c.customPricePerHour?.let { put("customPricePerHour", it) }
+                put("isBeneficiary", c.isBeneficiary)
+                put("isWellOwner", c.isWellOwner)
                 put("createdAt", c.createdAt)
                 put("isArchived", c.isArchived)
             }
@@ -70,6 +73,12 @@ object BackupManager {
                 put("remainingDebt", s.remainingDebt)
                 put("notes", s.notes)
                 put("isLive", s.isLive)
+                s.billedToCustomerId?.let { put("billedToCustomerId", it) }
+                put("wastedMinutes", s.wastedMinutes)
+                put("wastedReason", s.wastedReason)
+                put("discountAmount", s.discountAmount)
+                put("costPricePerHour", s.costPricePerHour)
+                s.pumpSourceId?.let { put("pumpSourceId", it) }
                 put("createdAt", s.createdAt)
             }
             sessionsArray.put(obj)
@@ -85,6 +94,7 @@ object BackupManager {
                 put("voucherNumber", v.voucherNumber)
                 put("type", v.type.name)
                 v.customerId?.let { put("customerId", it) }
+                v.sessionId?.let { put("sessionId", it) }
                 put("amount", v.amount)
                 put("category", v.category)
                 put("paymentMethod", v.paymentMethod)
@@ -95,6 +105,23 @@ object BackupManager {
             vouchersArray.put(obj)
         }
         root.put("vouchers", vouchersArray)
+
+        // Independent purchases from well owners (not linked to customer irrigation sessions)
+        val ownerPurchases = database.wellOwnerPurchaseDao().getAllPurchases().first()
+        val ownerPurchasesArray = JSONArray()
+        ownerPurchases.forEach { purchase ->
+            ownerPurchasesArray.put(JSONObject().apply {
+                put("id", purchase.id)
+                put("ownerCustomerId", purchase.ownerCustomerId)
+                put("date", purchase.date)
+                put("durationMinutes", purchase.durationMinutes)
+                put("wastedMinutesOnOwner", purchase.wastedMinutesOnOwner)
+                put("purchaseRatePerHour", purchase.purchaseRatePerHour)
+                put("notes", purchase.notes)
+                put("createdAt", purchase.createdAt)
+            })
+        }
+        root.put("wellOwnerPurchases", ownerPurchasesArray)
 
         // Pumps
         val pumps = database.pumpSourceDao().getAllPumps().first()
@@ -109,6 +136,10 @@ object BackupManager {
                 put("notes", p.notes)
                 put("isPrimary", p.isPrimary)
                 put("isActive", p.isActive)
+                put("ownerName", p.ownerName)
+                put("ownerPhone", p.ownerPhone)
+                put("costPricePerHour", p.costPricePerHour)
+                p.ownerCustomerId?.let { put("ownerCustomerId", it) }
             }
             pumpsArray.put(obj)
         }
@@ -209,10 +240,18 @@ object BackupManager {
                     location = obj.optString("location", ""),
                     notes = obj.optString("notes", ""),
                     customPricePerHour = if (obj.has("customPricePerHour")) obj.getDouble("customPricePerHour") else null,
+                    isBeneficiary = obj.optBoolean("isBeneficiary", false),
+                    isWellOwner = obj.optBoolean("isWellOwner", false),
                     createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
                     isArchived = obj.optBoolean("isArchived", false)
                 )
-                database.customerDao().insertCustomer(customer)
+                if (customer.id > 0 && database.customerDao().getCustomerByIdDirect(customer.id) != null) {
+                    // Update in place rather than REPLACE: replacing a parent row can fail when
+                    // owner-purchase rows reference it with ON DELETE RESTRICT.
+                    database.customerDao().updateCustomer(customer)
+                } else {
+                    database.customerDao().insertCustomer(customer)
+                }
                 count++
             }
         }
@@ -230,7 +269,11 @@ object BackupManager {
                     powerType = obj.optString("powerType", "ديزل"),
                     notes = obj.optString("notes", ""),
                     isPrimary = obj.optBoolean("isPrimary", false),
-                    isActive = obj.optBoolean("isActive", true)
+                    isActive = obj.optBoolean("isActive", true),
+                    ownerName = obj.optString("ownerName", ""),
+                    ownerPhone = obj.optString("ownerPhone", ""),
+                    costPricePerHour = obj.optDouble("costPricePerHour", 0.0),
+                    ownerCustomerId = if (obj.has("ownerCustomerId") && !obj.isNull("ownerCustomerId")) obj.getLong("ownerCustomerId") else null
                 )
                 database.pumpSourceDao().insertPump(pump)
                 count++
@@ -255,6 +298,12 @@ object BackupManager {
                     remainingDebt = obj.optDouble("remainingDebt", 0.0),
                     notes = obj.optString("notes", ""),
                     isLive = obj.optBoolean("isLive", false),
+                    billedToCustomerId = if (obj.has("billedToCustomerId") && !obj.isNull("billedToCustomerId")) obj.getLong("billedToCustomerId") else null,
+                    wastedMinutes = obj.optInt("wastedMinutes", 0),
+                    wastedReason = obj.optString("wastedReason", ""),
+                    discountAmount = obj.optDouble("discountAmount", 0.0),
+                    costPricePerHour = obj.optDouble("costPricePerHour", 0.0),
+                    pumpSourceId = if (obj.has("pumpSourceId") && !obj.isNull("pumpSourceId")) obj.getLong("pumpSourceId") else null,
                     createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                 )
                 database.waterSessionDao().insertSession(session)
@@ -279,9 +328,31 @@ object BackupManager {
                     paymentMethod = obj.optString("paymentMethod", "نقداً"),
                     date = obj.optLong("date", System.currentTimeMillis()),
                     notes = obj.optString("notes", ""),
+                    sessionId = if (obj.has("sessionId") && !obj.isNull("sessionId")) obj.getLong("sessionId") else null,
                     createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                 )
                 database.voucherDao().insertVoucher(voucher)
+                count++
+            }
+        }
+
+        // Restore independent well-owner purchases (older version-1 backups may not have this key)
+        if (root.has("wellOwnerPurchases")) {
+            val array = root.getJSONArray("wellOwnerPurchases")
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                database.wellOwnerPurchaseDao().insertPurchase(
+                    WellOwnerPurchase(
+                        id = obj.optLong("id", 0),
+                        ownerCustomerId = obj.getLong("ownerCustomerId"),
+                        date = obj.optLong("date", System.currentTimeMillis()),
+                        durationMinutes = obj.optInt("durationMinutes", 0),
+                        wastedMinutesOnOwner = obj.optInt("wastedMinutesOnOwner", 0),
+                        purchaseRatePerHour = obj.optDouble("purchaseRatePerHour", 0.0),
+                        notes = obj.optString("notes", ""),
+                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                    )
+                )
                 count++
             }
         }
@@ -308,13 +379,12 @@ object BackupManager {
         )
 
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "application/json"
+            type = "application/octet-stream"
             putExtra(Intent.EXTRA_STREAM, uri)
             putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية - تطبيق المُسَرِّب")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        val chooser = Intent.createChooser(intent, "حفظ في Google Drive أو مشاركة النسخة الاحتياطية").apply {
+        val chooser = Intent.createChooser(intent, "حفظ أو إرسال النسخة الاحتياطية (واتساب / درايف / البريد)").apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(chooser)
@@ -372,6 +442,19 @@ object BackupManager {
                 backupFile.copyTo(targetFile, overwrite = true)
             }
             backupFile
+        }
+    }
+
+    /**
+     * Exports backup file directly to a user-selected SAF Uri (Storage Access Framework)
+     */
+    suspend fun exportBackupToUri(context: Context, database: AppDatabase, uri: Uri): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val backupFile = createBackupJson(context, database)
+            context.contentResolver.openOutputStream(uri)?.use { os ->
+                backupFile.inputStream().use { it.copyTo(os) }
+            } ?: throw IllegalStateException("تعذر فتح مسار الملف المختار")
+            Unit
         }
     }
 }

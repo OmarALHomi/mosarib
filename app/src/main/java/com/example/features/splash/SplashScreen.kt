@@ -283,22 +283,22 @@ fun SplashScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Arabic Title: جِربة
+                // Arabic Title: المُسَرِّبْ
                 Text(
-                    text = "جِربة",
+                    text = "المُسَرِّبْ",
                     style = MaterialTheme.typography.headlineLarge.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White,
-                        fontSize = 38.sp,
+                        fontSize = 34.sp,
                         letterSpacing = 1.sp
                     )
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // English Title: Jerba
+                // English Title: Mosarib
                 Text(
-                    text = "Jerba",
+                    text = "Mosarib",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = AccentGold,
@@ -317,7 +317,7 @@ fun SplashScreen(
                         .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = "المنظومة الزراعية الشاملة وإدارة الري والوساطة",
+                        text = "نظام إدارة وتوزيع مياه الآبار والري",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = Color(0xFFB0C9D4),
                             fontWeight = FontWeight.Medium,

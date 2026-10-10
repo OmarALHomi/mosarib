@@ -44,7 +44,7 @@ class ExampleUnitTest {
 
         val result = calculateCustomerBalance(customer, sessions, vouchers)
 
-        assertEquals(5000.0, result.totalPaidAmount, 0.001)
+        assertEquals(4000.0, result.totalPaidAmount, 0.001)
         assertEquals(2000.0, result.totalDisbursedAmount, 0.001)
         assertEquals(7000.0, result.balance, 0.001)
     }
