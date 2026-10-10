@@ -310,7 +310,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     pendingDriveAction = { loadDriveBackups() }
                     _driveRecoveryIntent.value = e.recoveryIntent
                 } else {
-                    showToast("تعذر جلب النسخ من Google Drive: ${e.localizedMessage}", ToastType.ERROR)
+                    showToast("تعذر جلب النسخ من Google Drive: ${GoogleDriveBackupHelper.getReadableErrorMessage(e)}", ToastType.ERROR)
                 }
             }
             _isDriveLoading.value = false
@@ -337,7 +337,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                         pendingDriveAction = { backupToGoogleDriveAppData() }
                         _driveRecoveryIntent.value = e.recoveryIntent
                     } else {
-                        showToast("فشل رفع النسخة إلى Drive: ${e.localizedMessage}", ToastType.ERROR)
+                        showToast("فشل رفع النسخة إلى Drive: ${GoogleDriveBackupHelper.getReadableErrorMessage(e)}", ToastType.ERROR)
                     }
                 }
             } catch (e: Exception) {
@@ -345,7 +345,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     pendingDriveAction = { backupToGoogleDriveAppData() }
                     _driveRecoveryIntent.value = e.recoveryIntent
                 } else {
-                    showToast("حدث خطأ أثناء إعداد النسخة: ${e.localizedMessage}", ToastType.ERROR)
+                    showToast("حدث خطأ أثناء إعداد النسخة: ${GoogleDriveBackupHelper.getReadableErrorMessage(e)}", ToastType.ERROR)
                 }
             } finally {
                 _isDriveLoading.value = false
@@ -378,7 +378,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                         pendingDriveAction = { restoreFromGoogleDriveAppData(driveFile) }
                         _driveRecoveryIntent.value = e.recoveryIntent
                     } else {
-                        showToast("فشل تنزيل النسخة من Google Drive: ${e.localizedMessage}", ToastType.ERROR)
+                        showToast("فشل تنزيل النسخة من Google Drive: ${GoogleDriveBackupHelper.getReadableErrorMessage(e)}", ToastType.ERROR)
                     }
                 }
             } catch (e: Exception) {
@@ -386,7 +386,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     pendingDriveAction = { restoreFromGoogleDriveAppData(driveFile) }
                     _driveRecoveryIntent.value = e.recoveryIntent
                 } else {
-                    showToast("حدث خطأ أثناء الاستعادة من Drive: ${e.localizedMessage}", ToastType.ERROR)
+                    showToast("حدث خطأ أثناء الاستعادة من Drive: ${GoogleDriveBackupHelper.getReadableErrorMessage(e)}", ToastType.ERROR)
                 }
             } finally {
                 _isDriveLoading.value = false
@@ -403,7 +403,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 loadDriveBackups()
                 showToast("تم حذف النسخة السحابية من Google Drive", ToastType.INFO)
             }.onFailure { e ->
-                showToast("فشل حذف النسخة السحابية: ${e.localizedMessage}", ToastType.ERROR)
+                showToast("فشل حذف النسخة السحابية: ${GoogleDriveBackupHelper.getReadableErrorMessage(e)}", ToastType.ERROR)
             }
             _isDriveLoading.value = false
         }

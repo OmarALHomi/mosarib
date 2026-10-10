@@ -305,4 +305,55 @@ object GoogleDriveBackupHelper {
         } catch (_: Exception) {}
         return "فشل الاتصال بالسحابة (رمز الخطأ $responseCode)"
     }
+
+    /**
+     * Translates technical exceptions (network loss, timeouts, DNS/host errors, OAuth failures)
+     * into clear, friendly Arabic diagnostic messages for the user.
+     */
+    fun getReadableErrorMessage(e: Throwable): String {
+        var cause: Throwable? = e
+        while (cause != null) {
+            when (cause) {
+                is java.net.UnknownHostException -> {
+                    return "لا يوجد اتصال بالإنترنت: يرجى التأكد من تشغيل الواي فاي أو بيانات الهاتف ومحاولة الرفع مجدداً."
+                }
+                is java.net.SocketTimeoutException -> {
+                    return "انتهت مهلة الاتصال: شبكة الإنترنت ضعيفة جداً أو انقطع الاتصال أثناء الرفع."
+                }
+                is java.net.ConnectException -> {
+                    return "تعذر الاتصال بخوادم Google: تأكد من توفر اتصال بالإنترنت أو تجربة تفعيل تطبيق VPN."
+                }
+                is javax.net.ssl.SSLException -> {
+                    return "فشل الاتصال المشفر بخوادم Google: تأكد من صحة تاريخ ووقت الهاتف أو جرب تفعيل VPN."
+                }
+                is com.google.android.gms.common.api.ApiException -> {
+                    return when (cause.statusCode) {
+                        7 -> "لا يوجد اتصال بالإنترنت (خطأ شبكة 7)."
+                        12500 -> "فشل تسجيل الدخول بحساب Google. تأكد من تحديث خدمات Google Play."
+                        12501 -> "تم إلغاء تسجيل الدخول بحساب Google من قبلك."
+                        12502 -> "عملية تسجيل الدخول جارية حالياً، يرجى الانتظار."
+                        else -> "خطأ في خدمات Google (${cause.statusCode}): ${cause.localizedMessage}"
+                    }
+                }
+            }
+            cause = cause.cause
+        }
+
+        val msg = e.localizedMessage ?: e.message ?: ""
+        if (msg.contains("No address associated with hostname", ignoreCase = true) ||
+            msg.contains("Unable to resolve host", ignoreCase = true) ||
+            msg.contains("Network is unreachable", ignoreCase = true) ||
+            msg.contains("www.googleapis.com", ignoreCase = true)
+        ) {
+            return "لا يوجد اتصال بالإنترنت: يرجى التأكد من تشغيل الإنترنت في الهاتف والمحاولة مجدداً."
+        }
+        if (msg.contains("timeout", ignoreCase = true) || msg.contains("timed out", ignoreCase = true)) {
+            return "انتهت مهلة الاتصال بالإنترنت: الشبكة ضعيفة جداً."
+        }
+        if (msg.contains("Connection refused", ignoreCase = true) || msg.contains("Connection reset", ignoreCase = true)) {
+            return "انقطع الاتصال بالخادم: يرجى التأكد من تشغيل الإنترنت أو تفعيل VPN."
+        }
+
+        return msg.ifBlank { "حدث خطأ غير متوقع أثناء الاتصال بالسحابة" }
+    }
 }

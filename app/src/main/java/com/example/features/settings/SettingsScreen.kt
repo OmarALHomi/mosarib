@@ -160,7 +160,7 @@ fun SettingsScreen(
                 viewModel.onGoogleSignInSuccess(account)
             }
         } catch (e: Exception) {
-            viewModel.showToast("فشل تسجيل الدخول بحساب Google: ${e.localizedMessage}", ToastType.ERROR)
+            viewModel.showToast("فشل تسجيل الدخول بحساب Google: ${com.example.core.util.GoogleDriveBackupHelper.getReadableErrorMessage(e)}", ToastType.ERROR)
         }
     }
 
