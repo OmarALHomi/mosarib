@@ -112,6 +112,7 @@ import com.example.features.sessions.SessionCardItem
 import com.example.features.sessions.SessionsViewModel
 import com.example.features.sessions.SettleSessionDialog
 import com.example.features.sessions.WaterSession
+import com.example.features.wellowners.WellOwnerPurchaseMath
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
@@ -441,11 +442,25 @@ fun VouchersScreen(
                                 border = null
                             )
                         }
+                        item {
+                            FilterChip(
+                                selected = operationsFilter == OperationsFilter.PURCHASES,
+                                onClick = { viewModel.setOperationsFilter(OperationsFilter.PURCHASES) },
+                                label = { Text("شراء ساعات", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Color(0xFF0288D1),
+                                    selectedLabelColor = Color.White,
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                ),
+                                border = null
+                            )
+                        }
                     }
                 }
             }
 
-            // Operations List (Combined: Sessions + Vouchers)
+            // Operations List (Combined: Sessions + Vouchers + Purchases)
             if (operations.isEmpty()) {
                 item {
                     EmptyStateView(
@@ -459,6 +474,7 @@ fun VouchersScreen(
                     when (op) {
                         is UnifiedOperation.SessionOp -> "s_${op.sessionWithCustomer.session.id}"
                         is UnifiedOperation.VoucherOp -> "v_${op.voucherWithCustomer.voucher.id}"
+                        is UnifiedOperation.PurchaseOp -> "p_${op.purchase.id}"
                     }
                 }) { op ->
                     when (op) {
@@ -490,7 +506,7 @@ fun VouchersScreen(
                             val customer = op.voucherWithCustomer.customer
                             val titleText = when {
                                 isReceipt -> customer?.name ?: "عميل نقدي"
-                                customer != null -> customer.name
+                                customer != null -> if (customer.isWellOwner) "تسديد لصاحب البئر: ${customer.name}" else customer.name
                                 voucher.notes.isNotBlank() && voucher.notes != "عام" -> voucher.notes
                                 voucher.category.isNotBlank() -> voucher.category
                                 else -> "مصروف عام"
@@ -761,6 +777,211 @@ fun VouchersScreen(
                                                 )
                                             }
                                         }
+                                    }
+                                }
+                            }
+                        }
+                        is UnifiedOperation.PurchaseOp -> {
+                            val purchase = op.purchase
+                            val owner = op.owner
+                            val payable = WellOwnerPurchaseMath.payableAmount(purchase)
+                            val chargeable = WellOwnerPurchaseMath.chargeableMinutes(purchase)
+                            val waste = purchase.wastedMinutesOnOwner
+
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                                    .shadow(1.dp, RoundedCornerShape(12.dp)),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 10.dp, vertical = 7.dp)
+                                ) {
+                                    // 1. الصف العلوي: أيقونة شراء + اسم صاحب البئر + المبلغ الإجمالي المستحق
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f, fill = false)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(28.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0xFF0288D1).copy(alpha = 0.12f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.WaterDrop,
+                                                    contentDescription = "شراء ساعات",
+                                                    tint = Color(0xFF0288D1),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+
+                                            Spacer(modifier = Modifier.width(7.dp))
+
+                                            Column(
+                                                modifier = Modifier.clickable {
+                                                    onNavigateToCustomer(purchase.ownerCustomerId)
+                                                }
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(
+                                                        text = owner?.name ?: "صاحب بئر #${purchase.ownerCustomerId}",
+                                                        style = MaterialTheme.typography.titleSmall.copy(
+                                                            fontWeight = FontWeight.ExtraBold,
+                                                            color = MaterialTheme.colorScheme.onSurface
+                                                        ),
+                                                        maxLines = 1
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Surface(
+                                                        color = Color(0xFF0288D1).copy(alpha = 0.1f),
+                                                        shape = RoundedCornerShape(4.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "شراء ساعات #${purchase.id}",
+                                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                                color = Color(0xFF0288D1),
+                                                                fontWeight = FontWeight.Bold,
+                                                                fontSize = 9.sp
+                                                            ),
+                                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.width(8.dp))
+
+                                        // اليسار: المبلغ المستحق للمالك
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text(
+                                                text = Formatters.formatCurrency(payable, config.currencySymbol),
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = Color(0xFF0288D1),
+                                                    fontSize = 16.sp
+                                                )
+                                            )
+                                            Text(
+                                                text = Formatters.amountToArabicWords(payable, config.currencySymbol),
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    color = Color(0xFF64748B),
+                                                    fontSize = 9.5.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                ),
+                                                maxLines = 1,
+                                                textAlign = TextAlign.End
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    // 2. الصف الأوسط: تفاصيل الساعات (إجمالي، هدر إن وجد، صافي، وسعر الساعة)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text(
+                                                text = "⏱️ المدة: ${Formatters.formatDurationArabic(purchase.durationMinutes)}",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontWeight = FontWeight.Medium,
+                                                    fontSize = 10.sp
+                                                ),
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+
+                                        if (waste > 0) {
+                                            Surface(
+                                                color = Color(0xFFFFEBEE),
+                                                shape = RoundedCornerShape(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = "⚠️ هدر: ${Formatters.formatDurationArabic(waste)}",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = Color(0xFFD32F2F),
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 10.sp
+                                                    ),
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+
+                                            Surface(
+                                                color = Color(0xFFE8F5E9),
+                                                shape = RoundedCornerShape(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = "صافي: ${Formatters.formatDurationArabic(chargeable)}",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = Color(0xFF2E7D32),
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 10.sp
+                                                    ),
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text(
+                                                text = "السعر: ${Formatters.formatCurrency(purchase.purchaseRatePerHour, config.currencySymbol)}/س",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontWeight = FontWeight.Medium,
+                                                    fontSize = 10.sp
+                                                ),
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+
+                                    if (purchase.notes.isNotBlank()) {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "ملاحظات: ${purchase.notes}",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = Color(0xFF64748B),
+                                                fontSize = 9.5.sp
+                                            ),
+                                            maxLines = 1
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    // 3. الصف السفلي: التاريخ
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = Formatters.formatDateTime(purchase.date),
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = Color(0xFF64748B),
+                                                fontSize = 9.5.sp
+                                            )
+                                        )
                                     }
                                 }
                             }

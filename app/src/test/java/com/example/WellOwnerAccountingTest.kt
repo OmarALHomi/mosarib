@@ -84,4 +84,35 @@ class WellOwnerAccountingTest {
         assertEquals(8500.0, result.totalPaidAmount, 0.001)
         assertEquals(1500.0, result.receivableBalance, 0.001)
     }
+
+    @Test
+    fun `waste cannot exceed purchase duration and chargeable minutes never drops below zero`() {
+        val purchaseWithExcessiveWaste = WellOwnerPurchase(
+            ownerCustomerId = 9,
+            durationMinutes = 180,
+            wastedMinutesOnOwner = 240, // Greater than duration
+            purchaseRatePerHour = 4000.0
+        )
+        // WellOwnerPurchaseMath clamps chargeable minutes between 0 and duration
+        val chargeable = WellOwnerPurchaseMath.chargeableMinutes(purchaseWithExcessiveWaste)
+        assertEquals(0, chargeable)
+        assertEquals(0.0, WellOwnerPurchaseMath.payableAmount(purchaseWithExcessiveWaste), 0.001)
+        assertEquals(12000.0, WellOwnerPurchaseMath.grossAmount(purchaseWithExcessiveWaste), 0.001)
+    }
+
+    @Test
+    fun `well owner purchase remaining due calculation handles immediate cash settlement`() {
+        val purchase = WellOwnerPurchase(
+            ownerCustomerId = 9,
+            durationMinutes = 300, // 5 hours
+            wastedMinutesOnOwner = 60, // 1 hour waste -> 4 hours chargeable
+            purchaseRatePerHour = 5000.0 // 4 * 5000 = 20,000 payable
+        )
+        val payable = WellOwnerPurchaseMath.payableAmount(purchase)
+        assertEquals(20000.0, payable, 0.001)
+
+        val amountPaid = 15000.0
+        val remainingDueToOwner = maxOf(0.0, payable - amountPaid)
+        assertEquals(5000.0, remainingDueToOwner, 0.001)
+    }
 }

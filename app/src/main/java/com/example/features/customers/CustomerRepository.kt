@@ -80,7 +80,7 @@ internal fun calculateCustomerBalance(
     val netPurchaseAmount = ownerPurchases.sumOf(WellOwnerPurchaseMath::payableAmount)
     val chargeablePurchasedMinutes = ownerPurchases.sumOf(WellOwnerPurchaseMath::chargeableMinutes)
     val purchasedMinutes = ownerPurchases.sumOf { it.durationMinutes.coerceAtLeast(0) }
-    val payable = if (customer.isWellOwner) netPurchaseAmount - totalDisbursed else 0.0
+    val payable = if (customer.isWellOwner) (netPurchaseAmount - totalDisbursed) else 0.0
 
     return CustomerWithBalance(
         customer = customer,

@@ -62,6 +62,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -313,13 +314,28 @@ fun AddEditSessionBottomSheet(
         }
     }
 
-    // حساب المدة الإجمالية بالدقائق بين تاريخين ووقتين مهما بلغت الأيام
+    // حساب المدة الإجمالية بالدقائق بين تاريخين ووقتين (الحد الأقصى المسموح به 24 ساعة)
+    val MAX_SESSION_MINUTES = 24 * 60
     val grossMinutes by remember(startCal.timeInMillis, endCal.timeInMillis) {
         derivedStateOf {
             val diffMs = endCal.timeInMillis - startCal.timeInMillis
             if (diffMs > 0) (diffMs / 60000L).toInt() else 60
         }
     }
+
+    val isDurationExceeded by remember(grossMinutes) {
+        derivedStateOf { grossMinutes > MAX_SESSION_MINUTES }
+    }
+    val isWasteExceeded by remember(grossMinutes, wastedTotalMinutes) {
+        derivedStateOf { wastedTotalMinutes > grossMinutes && grossMinutes > 0 }
+    }
+
+    // جهة الفوترة: سقي على حساب صاحب البئر (مقاصة من مستحقاته)
+    var billedToCustomerId by remember(initialSession?.billedToCustomerId) {
+        mutableStateOf<Long?>(initialSession?.billedToCustomerId)
+    }
+    var billedToOwnerDropdownExpanded by remember { mutableStateOf(false) }
+    val wellOwners = remember(customers) { customers.filter { it.isWellOwner } }
 
     // المدة الصافية المفوترة بعد خصم الوقت المهدور
     val netBillableMinutes by remember(grossMinutes, wastedTotalMinutes) {
@@ -339,13 +355,22 @@ fun AddEditSessionBottomSheet(
         derivedStateOf { Formatters.roundMoney(maxOf(0.0, grossWaterAmount - discountAmount)) }
     }
 
+    val isBilledToWellOwner by remember(billedToCustomerId) {
+        derivedStateOf { billedToCustomerId != null }
+    }
+    val effectiveFarmerCharge by remember(finalFarmerCharge, isBilledToWellOwner) {
+        derivedStateOf { if (isBilledToWellOwner) 0.0 else finalFarmerCharge }
+    }
+
     var amountPaidStr by remember {
         mutableStateOf(initialSession?.amountPaid?.let { if (it > 0) Formatters.formatAmountInput(it.toString()) else "" } ?: "")
     }
     var notes by remember { mutableStateOf(initialSession?.notes ?: "") }
     val amountPaid by remember { derivedStateOf { Formatters.parseAmountInput(amountPaidStr) } }
-    val remainingDebt by remember(finalFarmerCharge, amountPaid) {
-        derivedStateOf { Formatters.roundMoney(maxOf(0.0, finalFarmerCharge - amountPaid)) }
+    val remainingDebt by remember(effectiveFarmerCharge, amountPaid, isBilledToWellOwner) {
+        derivedStateOf {
+            if (isBilledToWellOwner) 0.0 else Formatters.roundMoney(maxOf(0.0, effectiveFarmerCharge - amountPaid))
+        }
     }
 
     var customerDropdownExpanded by remember { mutableStateOf(false) }
@@ -449,6 +474,80 @@ fun AddEditSessionBottomSheet(
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(Icons.Default.PersonAdd, contentDescription = "إضافة عميل", tint = PrimaryTeal)
+                }
+            }
+
+            // خيار احتساب السقي على صاحب بئر (مقاصة من مستحقاته)
+            if (wellOwners.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp)),
+                    color = if (billedToCustomerId != null) Color(0xFFE0F2FE) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "💧 احتساب السقي على صاحب بئر",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (billedToCustomerId != null) Color(0xFF0284C7) else MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                                Text(
+                                    text = "تُخصم القيمة كتسديد من مستحقات صاحب البئر لدى المسرب",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontSize = 11.sp)
+                                )
+                            }
+                            Switch(
+                                checked = billedToCustomerId != null,
+                                onCheckedChange = { checked ->
+                                    billedToCustomerId = if (checked) wellOwners.firstOrNull()?.id else null
+                                }
+                            )
+                        }
+                        if (billedToCustomerId != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                val currentOwner = wellOwners.find { it.id == billedToCustomerId }
+                                OutlinedTextField(
+                                    value = currentOwner?.name ?: "اختر صاحب البئر...",
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
+                                    label = { Text("صاحب البئر المحتسب عليه السقي") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .clickable { billedToOwnerDropdownExpanded = true }
+                                )
+                                DropdownMenu(
+                                    expanded = billedToOwnerDropdownExpanded,
+                                    onDismissRequest = { billedToOwnerDropdownExpanded = false }
+                                ) {
+                                    wellOwners.forEach { owner ->
+                                        DropdownMenuItem(
+                                            text = { Text(owner.name, fontWeight = FontWeight.Bold) },
+                                            onClick = {
+                                                billedToCustomerId = owner.id
+                                                billedToOwnerDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -635,10 +734,10 @@ fun AddEditSessionBottomSheet(
                                 OutlinedTextField(
                                     value = manualHoursStr,
                                     onValueChange = {
-                                        manualHoursStr = it.filter { c -> c.isDigit() }
+                                        manualHoursStr = it.filter { c -> c.isDigit() }.take(2)
                                         applyManualDuration(manualHoursStr, manualMinutesStr)
                                     },
-                                    label = { Text("عدد الساعات *") },
+                                    label = { Text("عدد الساعات (أقصى حد 24) *") },
                                     placeholder = { Text("مثلاً: 3") },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, tint = PrimaryTeal) },
@@ -922,9 +1021,8 @@ fun AddEditSessionBottomSheet(
                             Pair("6 ساعات", 360),
                             Pair("8 ساعات", 480),
                             Pair("12 ساعة", 720),
-                            Pair("24 ساعة", 1440),
-                            Pair("30 ساعة", 1800),
-                            Pair("48 ساعة", 2880)
+                            Pair("16 ساعة", 960),
+                            Pair("24 ساعة", 1440)
                         )
                         items(quickDurations) { (label, qMins) ->
                             val isSelected = grossMinutes == qMins
@@ -954,6 +1052,28 @@ fun AddEditSessionBottomSheet(
                                     selectedLabelColor = Color.White
                                 )
                             )
+                        }
+                    }
+
+                    if (isDurationExceeded) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+                            border = BorderStroke(1.dp, Color(0xFFF87171)),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "⚠️ لا يمكن تسجيل سقي بساعات خيالية! الحد الأقصى المسموح به للدورة الواحدة هو 24 ساعة (1440 دقيقة).",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB91C1C), fontWeight = FontWeight.Bold)
+                                )
+                            }
                         }
                     }
                 }
@@ -1026,10 +1146,11 @@ fun AddEditSessionBottomSheet(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp)
                         )
-                        if (wastedTotalMinutes > grossMinutes) {
+                        if (wastedTotalMinutes > grossMinutes && grossMinutes > 0) {
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                "لا يمكن أن يتجاوز الهدر مدة السقي المسجلة.",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFD32F2F))
+                                "❌ لا يمكن أن يكون الهدر أكبر من مدة السقي بتاتاً!",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
                             )
                         }
                     }
@@ -1133,14 +1254,47 @@ fun AddEditSessionBottomSheet(
                     HorizontalDivider(color = PrimaryTeal.copy(alpha = 0.2f))
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // المبلغ المطلوب من المزارع
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("المطلوب الصافي من العميل:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                        Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.titleLarge.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold))
+                    if (isBilledToWellOwner) {
+                        val ownerName = wellOwners.find { it.id == billedToCustomerId }?.name ?: "صاحب البئر"
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFFE0F2FE), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("💧 مسجل على حساب صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                            Text(ownerName, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("المطلوب من المزارع:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                            Text("0.00 $currencySymbol (مدفوع من المالك)", style = MaterialTheme.typography.titleMedium.copy(color = AccentEmerald, fontWeight = FontWeight.ExtraBold))
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("المحتسب على صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1)))
+                            Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                        }
+                    } else {
+                        // المبلغ المطلوب من المزارع
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("المطلوب الصافي من العميل:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                            Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.titleLarge.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold))
+                        }
                     }
 
                 }
@@ -1195,7 +1349,7 @@ fun AddEditSessionBottomSheet(
             // Save Button
             Button(
                 onClick = {
-                    if (selectedCustomerId > 0 && grossMinutes > 0 && wastedTotalMinutes <= grossMinutes) {
+                    if (selectedCustomerId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes) {
                         onSave(
                             initialSession?.id ?: 0L,
                             selectedCustomerId,
@@ -1207,7 +1361,7 @@ fun AddEditSessionBottomSheet(
                             pricePerHour,
                             amountPaid,
                             notes,
-                            initialSession?.billedToCustomerId,
+                            billedToCustomerId,
                             wastedTotalMinutes,
                             wastedReason,
                             discountAmount,
@@ -1217,7 +1371,7 @@ fun AddEditSessionBottomSheet(
                         onDismiss()
                     }
                 },
-                enabled = selectedCustomerId > 0 && grossMinutes > 0 && wastedTotalMinutes <= grossMinutes,
+                enabled = selectedCustomerId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp)

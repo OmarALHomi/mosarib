@@ -62,16 +62,21 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -97,6 +102,7 @@ import com.example.features.sessions.SettleSessionDialog
 import com.example.features.sessions.WaterSession
 import com.example.features.vouchers.Voucher
 import com.example.features.vouchers.VoucherType
+import com.example.features.sessions.AddEditSessionBottomSheet
 import com.example.features.wellowners.WellOwnerPurchase
 import com.example.features.wellowners.WellOwnerPurchaseMath
 import com.example.features.wellowners.WellOwnerPurchaseBottomSheet
@@ -170,6 +176,8 @@ fun CustomerDetailScreen(
     var showAddReceiptSheet by remember { mutableStateOf(false) }
     var showAddDisbursementSheet by remember { mutableStateOf(false) }
     var showOwnerPurchaseSheet by remember { mutableStateOf(false) }
+    var showAddSessionSheet by remember { mutableStateOf(false) }
+    var showOwnerWasteDialog by remember { mutableStateOf(false) }
     var showEditCustomerSheet by remember { mutableStateOf(false) }
     var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
     var sessionToDelete by remember { mutableStateOf<WaterSession?>(null) }
@@ -314,7 +322,7 @@ fun CustomerDetailScreen(
         floatingActionButton = {
             customerWithBalance?.let { cwb ->
                 ExtendedFloatingActionButton(
-                    onClick = { onAddSessionForCustomer(cwb.customer) },
+                    onClick = { showAddSessionSheet = true },
                     icon = {
                         Icon(
                             Icons.Default.WaterDrop,
@@ -525,7 +533,13 @@ fun CustomerDetailScreen(
                                             icon = Icons.Default.WaterDrop,
                                             label = "سقي له",
                                             accentColor = SecondaryAquaDark,
-                                            onClick = { onAddSessionForCustomer(customer) }
+                                            onClick = { showAddSessionSheet = true }
+                                        )
+                                        QuickActionButton(
+                                            icon = Icons.Default.AccessTime,
+                                            label = "تسجيل هدر",
+                                            accentColor = Color(0xFFFFB74D),
+                                            onClick = { showOwnerWasteDialog = true }
                                         )
                                         QuickActionButton(
                                             icon = Icons.Default.ArrowDownward,
@@ -1088,18 +1102,189 @@ fun CustomerDetailScreen(
             owner = customer,
             currencySymbol = config.currencySymbol,
             onDismiss = { showOwnerPurchaseSheet = false },
-            onSave = { date, durationMinutes, wastedMinutes, purchaseRate, notes ->
+            onSave = { date, durationMinutes, wastedMinutes, purchaseRate, amountPaid, notes ->
                 viewModel.addOwnerPurchase(
                     ownerCustomerId = customer.id,
                     date = date,
                     durationMinutes = durationMinutes,
                     wastedMinutesOnOwner = wastedMinutes,
                     purchaseRatePerHour = purchaseRate,
-                    notes = notes
+                    notes = notes,
+                    amountPaid = amountPaid
                 )
                 showOwnerPurchaseSheet = false
             }
         )
+    }
+
+    // تسجيل دورة سقي مباشرة داخل صفحة العميل
+    if (showAddSessionSheet) {
+        AddEditSessionBottomSheet(
+            initialSession = null,
+            customers = allCustomers,
+            defaultCustomerId = customer.id,
+            defaultPricePerHour = config.defaultPricePerHour,
+            currencySymbol = config.currencySymbol,
+            onCreateCustomer = { viewModel.insertCustomerDirect(it) },
+            onDismiss = { showAddSessionSheet = false },
+            onSave = { _, custId, pumpName, startTime, endTime, hours, minutes, pricePerHour, amountPaid, notes, billedToCustomerId, wastedMinutes, wastedReason, discountAmount, costPricePerHour, pumpSourceId ->
+                viewModel.addSessionForCustomer(
+                    customerId = custId,
+                    pumpName = pumpName,
+                    startTime = startTime,
+                    endTime = endTime,
+                    hours = hours,
+                    minutes = minutes,
+                    pricePerHour = pricePerHour,
+                    amountPaid = amountPaid,
+                    notes = notes,
+                    billedToCustomerId = billedToCustomerId,
+                    wastedMinutes = wastedMinutes,
+                    wastedReason = wastedReason,
+                    discountAmount = discountAmount,
+                    costPricePerHour = costPricePerHour,
+                    pumpSourceId = pumpSourceId
+                )
+                showAddSessionSheet = false
+            }
+        )
+    }
+
+    // نافذة تسجيل هدر على صاحب البئر
+    if (showOwnerWasteDialog && customer.isWellOwner) {
+        val latestPurchase = purchases.maxByOrNull { it.date }
+        if (latestPurchase == null) {
+            AlertDialog(
+                onDismissRequest = { showOwnerWasteDialog = false },
+                title = { Text("لا توجد مشتريات سابقة", fontWeight = FontWeight.Bold) },
+                text = { Text("يجب تسجيل عملية شراء ساعات أولاً ليتم خصم الهدر منها لصالح المسرب.") },
+                confirmButton = {
+                    TextButton(onClick = { showOwnerWasteDialog = false }) {
+                        Text("حسناً")
+                    }
+                }
+            )
+        } else {
+            val availableMinutes = (latestPurchase.durationMinutes - latestPurchase.wastedMinutesOnOwner).coerceAtLeast(0)
+            var wasteHoursText by remember { mutableStateOf("") }
+            var wasteMinutesText by remember { mutableStateOf("") }
+            var wasteReason by remember { mutableStateOf("") }
+
+            val newWasteMinutes by remember(wasteHoursText, wasteMinutesText) {
+                derivedStateOf {
+                    (wasteHoursText.toIntOrNull()?.coerceAtLeast(0) ?: 0) * 60 +
+                        (wasteMinutesText.toIntOrNull()?.coerceIn(0, 59) ?: 0)
+                }
+            }
+            val isExceeded by remember(newWasteMinutes, availableMinutes) {
+                derivedStateOf { newWasteMinutes > availableMinutes }
+            }
+            val canConfirm = newWasteMinutes in 1..availableMinutes
+
+            AlertDialog(
+                onDismissRequest = { showOwnerWasteDialog = false },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.AccessTime, contentDescription = null, tint = Color(0xFFE65100))
+                        Spacer(Modifier.width(8.dp))
+                        Text("تسجيل هدر على صاحب البئر", fontWeight = FontWeight.Bold)
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "يُخصم الهدر من آخر عملية شراء (${Formatters.formatDate(latestPurchase.date)}) ويقلل المستحق له بسعر الشراء (${Formatters.formatCurrency(latestPurchase.purchaseRatePerHour, config.currencySymbol)}/ساعة).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("مدة آخر شراء:")
+                                    Text(Formatters.formatDurationArabic(latestPurchase.durationMinutes), fontWeight = FontWeight.Bold)
+                                }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("الهدر السابق المسجل:")
+                                    Text(Formatters.formatDurationArabic(latestPurchase.wastedMinutesOnOwner), color = Color(0xFFD32F2F))
+                                }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("أقصى هدر متاح للخصم:", fontWeight = FontWeight.Bold)
+                                    Text(Formatters.formatDurationArabic(availableMinutes), color = PrimaryTeal, fontWeight = FontWeight.ExtraBold)
+                                }
+                            }
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = wasteHoursText,
+                                onValueChange = { wasteHoursText = it.filter(Char::isDigit).take(2) },
+                                label = { Text("ساعات الهدر") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            OutlinedTextField(
+                                value = wasteMinutesText,
+                                onValueChange = { wasteMinutesText = it.filter(Char::isDigit).take(2) },
+                                label = { Text("دقائق الهدر") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
+
+                        if (isExceeded) {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+                                border = BorderStroke(1.dp, Color(0xFFF87171)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "❌ لا يمكن أن يكون الهدر أكبر من عملية الشراء بتاتاً! الحد المتاح: ${Formatters.formatDurationArabic(availableMinutes)}",
+                                    color = Color(0xFFB91C1C),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(8.dp)
+                                )
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = wasteReason,
+                            onValueChange = { wasteReason = it },
+                            label = { Text("سبب الهدر (انقطاع ماء، عطل بئر...)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (canConfirm) {
+                                viewModel.recordWasteOnOwner(customer.id, newWasteMinutes, wasteReason)
+                                showOwnerWasteDialog = false
+                            }
+                        },
+                        enabled = canConfirm,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100))
+                    ) {
+                        Text("خصم الهدر من المستحق", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showOwnerWasteDialog = false }) {
+                        Text("إلغاء")
+                    }
+                }
+            )
+        }
     }
 
     // Edit Customer Sheet
@@ -1266,8 +1451,20 @@ private fun CustomerSessionCardItem(
                 }
             }
 
-            // إذا كان السقي مقيداً على حساب المستفيد نيابة عن عميل آخر
-            if (isBeneficiaryView && originalCustomer != null) {
+            if (session.billedToCustomerId != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFE0F2FE))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = "💧 على حساب صاحب البئر (مدفوع / مقاصة)",
+                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold)
+                    )
+                }
+            } else if (isBeneficiaryView && originalCustomer != null) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Box(
                     modifier = Modifier
