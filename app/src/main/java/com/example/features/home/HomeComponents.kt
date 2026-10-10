@@ -47,8 +47,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -301,23 +303,14 @@ fun WeeklyIrrigationBarChartCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "مخطط سقي الأسبوع (بالساعات)",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 14.sp
-                        )
+                Text(
+                    text = "إجمالي السقي: ${Formatters.formatDurationArabic(totalWeekMinutes)}",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        color = PrimaryTeal,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 13.5.sp
                     )
-                    Text(
-                        text = "إجمالي السقي: ${Formatters.formatDurationArabic(totalWeekMinutes)}",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = PrimaryTeal,
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-                }
+                )
 
                 Box(
                     modifier = Modifier
@@ -336,7 +329,7 @@ fun WeeklyIrrigationBarChartCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Bars Row
             Row(
@@ -364,11 +357,11 @@ fun WeeklyIrrigationBarChartCard(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        // Animated Bar
+                        // Animated Bar with safe max height
                         Box(
                             modifier = Modifier
                                 .width(22.dp)
-                                .height((100 * fraction).dp)
+                                .height((65 * fraction).dp.coerceAtLeast(6.dp))
                                 .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                                 .background(
                                     if (stat.isToday) Brush.verticalGradient(listOf(AccentEmerald, PrimaryTeal))
@@ -377,16 +370,37 @@ fun WeeklyIrrigationBarChartCard(
                                 )
                         )
 
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(5.dp))
 
                         Text(
                             text = stat.dayName,
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 10.sp,
-                                fontWeight = if (stat.isToday) FontWeight.ExtraBold else FontWeight.Medium,
+                                fontSize = 9.5.sp,
+                                fontWeight = if (stat.isToday) FontWeight.ExtraBold else FontWeight.SemiBold,
                                 color = if (stat.isToday) PrimaryTeal else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            ),
+                            maxLines = 1
                         )
+
+                        if (stat.isToday) {
+                            Surface(
+                                color = AccentEmerald.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(4.dp),
+                                modifier = Modifier.padding(top = 2.dp)
+                            ) {
+                                Text(
+                                    text = "اليوم",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AccentEmerald
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
+                                )
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.height(13.dp))
+                        }
                     }
                 }
             }
@@ -395,7 +409,7 @@ fun WeeklyIrrigationBarChartCard(
 }
 
 /**
- * مؤشر رسومي للسيولة والتحصيل المالي (Financial Recovery & Debt Gauge)
+ * مؤشر تحصيل الديون والتدفق المالي (Debt Recovery & Cash Flow Progress Card)
  */
 @Composable
 fun FinancialRecoveryGaugeCard(
@@ -406,6 +420,10 @@ fun FinancialRecoveryGaugeCard(
     val totalTurnover = homeStats.totalCollectedCash + homeStats.totalOutstandingDebt
     val recoveryRatio = if (totalTurnover > 0) (homeStats.totalCollectedCash / totalTurnover).toFloat().coerceIn(0f, 1f) else 1f
     val percentInt = (recoveryRatio * 100).toInt()
+
+    val totalFlow = (homeStats.totalCollectedCash + homeStats.totalExpenses).coerceAtLeast(1.0)
+    val receiptsRatio = (homeStats.totalCollectedCash / totalFlow).toFloat().coerceIn(0.02f, 0.98f)
+    val netProfit = homeStats.totalCollectedCash - homeStats.totalExpenses
 
     Card(
         modifier = modifier
@@ -420,6 +438,7 @@ fun FinancialRecoveryGaugeCard(
                 .fillMaxWidth()
                 .padding(14.dp)
         ) {
+            // 1. مؤشر تحصيل الديون
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -427,7 +446,7 @@ fun FinancialRecoveryGaugeCard(
             ) {
                 Column {
                     Text(
-                        text = "مؤشر التحصيل والسيولة المالية",
+                        text = "مؤشر تحصيل الديون",
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -435,8 +454,11 @@ fun FinancialRecoveryGaugeCard(
                         )
                     )
                     Text(
-                        text = "نسبة الدفعات المستلمة مقارنة بالديون",
-                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        text = "نسبة الدفعات المستلمة من إجمالي الديون والمستحقات",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 10.sp
+                        )
                     )
                 }
 
@@ -457,21 +479,21 @@ fun FinancialRecoveryGaugeCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Graphical Segmented Progress Bar
+            // Debt Recovery Bar
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(14.dp)
-                    .clip(RoundedCornerShape(7.dp))
+                    .height(11.dp)
+                    .clip(RoundedCornerShape(6.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(recoveryRatio)
                         .fillMaxHeight()
-                        .clip(RoundedCornerShape(7.dp))
+                        .clip(RoundedCornerShape(6.dp))
                         .background(
                             Brush.horizontalGradient(
                                 listOf(AccentEmerald, PrimaryTeal)
@@ -480,7 +502,7 @@ fun FinancialRecoveryGaugeCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // 2 Stat Columns: Collected vs Debts
             Row(
@@ -488,49 +510,131 @@ fun FinancialRecoveryGaugeCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(AccentEmerald)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "المقبوض كاش",
-                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        )
-                    }
                     Text(
-                        text = Formatters.formatCurrency(homeStats.totalCollectedCash, currencySymbol),
-                        style = MaterialTheme.typography.titleMedium.copy(
+                        text = "المقبوض كاش: ${Formatters.formatCurrency(homeStats.totalCollectedCash, currencySymbol)}",
+                        style = MaterialTheme.typography.labelSmall.copy(
                             color = AccentEmerald,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 15.sp
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.5.sp
                         )
                     )
                 }
 
                 Column(horizontalAlignment = Alignment.End) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFE53935))
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "ديون متبقية بالذمة",
-                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        )
-                    }
                     Text(
-                        text = Formatters.formatCurrency(homeStats.totalOutstandingDebt, currencySymbol),
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            color = if (homeStats.totalOutstandingDebt > 0) Color(0xFFB71C1C) else AccentEmerald,
+                        text = "الديون القائمة: ${Formatters.formatCurrency(homeStats.totalOutstandingDebt, currencySymbol)}",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = if (homeStats.totalOutstandingDebt > 0) Color(0xFFD32F2F) else AccentEmerald,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.5.sp
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                thickness = 0.8.dp
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 2. بروجرس التدفق المالي: المقبوضات والمصروفات
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "التدفق المالي (المقبوضات والمصروفات)",
+                        style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 15.sp
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 13.5.sp
+                        )
+                    )
+                    Text(
+                        text = "مقارنة السيولة المحصلة بالنفقات التشغيلية",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 10.sp
+                        )
+                    )
+                }
+
+                val profitBadgeText = if (netProfit >= 0) "+ " + Formatters.formatCurrency(netProfit, currencySymbol)
+                else "- " + Formatters.formatCurrency(kotlin.math.abs(netProfit), currencySymbol)
+
+                Surface(
+                    color = if (netProfit >= 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = "الصافي: $profitBadgeText",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = if (netProfit >= 0) Color(0xFF2E7D32) else Color(0xFFD32F2F),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 10.5.sp
+                        ),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Two-tone Cash Flow Progress Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(11.dp)
+                    .clip(RoundedCornerShape(6.dp))
+            ) {
+                // Receipts share (Green/Teal)
+                Box(
+                    modifier = Modifier
+                        .weight(receiptsRatio.coerceAtLeast(0.01f))
+                        .fillMaxHeight()
+                        .background(AccentEmerald)
+                )
+                // Expenses share (Red)
+                Box(
+                    modifier = Modifier
+                        .weight((1f - receiptsRatio).coerceAtLeast(0.01f))
+                        .fillMaxHeight()
+                        .background(Color(0xFFE53935))
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(AccentEmerald))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "مقبوض: ${Formatters.formatCurrency(homeStats.totalCollectedCash, currencySymbol)}",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 10.5.sp
+                        )
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(Color(0xFFE53935)))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "مصروف: ${Formatters.formatCurrency(homeStats.totalExpenses, currencySymbol)}",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 10.5.sp
                         )
                     )
                 }

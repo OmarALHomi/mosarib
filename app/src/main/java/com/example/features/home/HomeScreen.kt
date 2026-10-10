@@ -31,6 +31,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.History
@@ -44,6 +46,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -210,147 +215,60 @@ fun HomeScreen(
                         }
                     }
 
-                    // Living Breathing Theme Toggle Button
-                    LivingThemeToggleButton(
-                        isDarkTheme = isDarkTheme,
-                        onToggle = {
-                            val nextMode = if (isDarkTheme) "LIGHT" else "DARK"
-                            settingsViewModel.updateThemeMode(nextMode)
-                        }
-                    )
-                }
-            }
-
-            // License Status Banner if not activated
-            if (!isActivated) {
-                item {
-                    val remaining = (LicenseManager.FREE_OPERATIONS_LIMIT - operationsCount).coerceAtLeast(0)
-                    val isExhausted = remaining == 0
-                    Card(
-                        onClick = { showActivationDialog = true },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 4.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isExhausted) Color(0xFFFFEBEE) else Color(0xFFFFF8E1)
-                        )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(
-                                    imageVector = if (isExhausted) Icons.Default.Warning else Icons.Default.Key,
-                                    contentDescription = null,
-                                    tint = if (isExhausted) Color(0xFFD32F2F) else Color(0xFFF57C00),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (isExhausted)
-                                        "انتهت العمليات المجانية (200/200) • انقر لتفعيل نسختك"
-                                    else
-                                        "النسخة التجريبية: متبقي $remaining عملية مجانية • تفعيل",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = if (isExhausted) Color(0xFFC62828) else Color(0xFFE65100),
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                )
+                        if (!isActivated) {
+                            val remaining = (LicenseManager.FREE_OPERATIONS_LIMIT - operationsCount).coerceAtLeast(0)
+                            val progress = (operationsCount.toFloat() / LicenseManager.FREE_OPERATIONS_LIMIT).coerceIn(0f, 1f)
+                            val indicatorColor = when {
+                                remaining <= 10 -> Color(0xFFE53935)
+                                remaining <= 40 -> Color(0xFFF57C00)
+                                else -> PrimaryTeal
                             }
 
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(if (isExhausted) Color(0xFFD32F2F) else Color(0xFFF57C00))
-                                    .padding(horizontal = 8.dp, vertical = 3.dp)
-                            ) {
-                                Text(
-                                    text = "تفعيل",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 11.sp
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
-                Card(
-                    onClick = { checkOperationAllowed { showAddManualSheet = true } },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                        .height(64.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Brush.horizontalGradient(listOf(PrimaryTealDark, PrimaryTeal)))
-                            .padding(horizontal = 16.dp, vertical = 10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
+                                    .size(36.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.16f)),
+                                    .clickable { showActivationDialog = true },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.WaterDrop,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(22.dp)
+                                CircularProgressIndicator(
+                                    progress = { 1f },
+                                    modifier = Modifier.size(32.dp),
+                                    color = indicatorColor.copy(alpha = 0.2f),
+                                    strokeWidth = 2.5.dp
                                 )
-                            }
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 12.dp)
-                            ) {
-                                Text(
-                                    text = "سجّل سقيًا جديدًا",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        color = Color.White,
-                                        fontWeight = FontWeight.ExtraBold
-                                    )
+                                CircularProgressIndicator(
+                                    progress = { 1f - progress },
+                                    modifier = Modifier.size(32.dp),
+                                    color = indicatorColor,
+                                    strokeWidth = 2.5.dp
                                 )
                                 Text(
-                                    text = "أدخل مدة السقي والمبلغ",
+                                    text = "$remaining",
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        color = Color.White.copy(alpha = 0.82f)
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 9.5.sp,
+                                        color = indicatorColor
                                     )
                                 )
                             }
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "بدء تسجيل السقي",
-                                tint = AccentGold,
-                                modifier = Modifier.size(24.dp)
-                            )
                         }
+
+                        // Living Breathing Theme Toggle Button
+                        LivingThemeToggleButton(
+                            isDarkTheme = isDarkTheme,
+                            onToggle = {
+                                val nextMode = if (isDarkTheme) "LIGHT" else "DARK"
+                                settingsViewModel.updateThemeMode(nextMode)
+                            }
+                        )
                     }
                 }
             }
-
 
             item {
                 Row(
@@ -361,11 +279,11 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "عمليات أخرى",
+                        text = "الوصول السريع",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 16.sp
+                            fontSize = 15.sp
                         )
                     )
                 }
@@ -384,7 +302,7 @@ fun HomeScreen(
                     ) {
                         QuickActionCard(
                             title = "قبض دفعة",
-                            subtitle = "تحصيل وسداد حساب",
+                            subtitle = "سند تحصيل كاش",
                             icon = Icons.Default.Payments,
                             iconBgColor = Color(0xFFE8F5E9),
                             iconTint = AccentEmerald,
@@ -398,33 +316,8 @@ fun HomeScreen(
                         )
 
                         QuickActionCard(
-                            title = "عميل جديد",
-                            subtitle = "تسجيل مزارع وأرض",
-                            icon = Icons.Default.PersonAdd,
-                            iconBgColor = Color(0xFFE0F2FE),
-                            iconTint = Color(0xFF0284C7),
-                            onClick = { showAddCustomerSheet = true },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        QuickActionCard(
-                            title = "سجل العمليات",
-                            subtitle = "مراجعة الدورات والسندات",
-                            icon = Icons.Default.History,
-                            iconBgColor = Color(0xFFFEF3C7),
-                            iconTint = Color(0xFFD97706),
-                            onClick = { onNavigateToTab(AppTab.VOUCHERS) },
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        QuickActionCard(
                             title = "مصروف تشغيلي",
-                            subtitle = "صيانة، عام، مصروفات",
+                            subtitle = "صيانة ونفقات",
                             icon = Icons.AutoMirrored.Filled.ReceiptLong,
                             iconBgColor = Color(0xFFFFEBEE),
                             iconTint = Color(0xFFE53935),
@@ -437,6 +330,56 @@ fun HomeScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        QuickActionCard(
+                            title = "عميل جديد",
+                            subtitle = "إضافة مزارع وأرض",
+                            icon = Icons.Default.PersonAdd,
+                            iconBgColor = Color(0xFFE0F2FE),
+                            iconTint = Color(0xFF0284C7),
+                            onClick = { showAddCustomerSheet = true },
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        QuickActionCard(
+                            title = "سجل العمليات",
+                            subtitle = "السندات والدورات",
+                            icon = Icons.Default.History,
+                            iconBgColor = Color(0xFFFEF3C7),
+                            iconTint = Color(0xFFD97706),
+                            onClick = { onNavigateToTab(AppTab.VOUCHERS) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        QuickActionCard(
+                            title = "التقارير الشاملة",
+                            subtitle = "كشف الحساب والـ PDF",
+                            icon = Icons.Default.Assessment,
+                            iconBgColor = Color(0xFFF3E8FF),
+                            iconTint = Color(0xFF7E22CE),
+                            onClick = onOpenReports,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        QuickActionCard(
+                            title = "الآبار والمصادر",
+                            subtitle = "إدارة مضخات المياه",
+                            icon = Icons.Default.LocalGasStation,
+                            iconBgColor = Color(0xFFE0F2FE),
+                            iconTint = PrimaryTeal,
+                            onClick = { onNavigateToTab(AppTab.SETTINGS) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
 
@@ -444,7 +387,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(14.dp))
             }
 
-            // 5. Recent Operations Section (آخر دورات السقي المسجلة)
+            // 5. Recent Operations Section (آخر التسجيلات)
             item {
                 Row(
                     modifier = Modifier
@@ -454,7 +397,7 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "آخر دورات السقي المسجلة",
+                        text = "آخر التسجيلات",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -520,11 +463,11 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "التقارير الرسومية والتحليلية",
+                        text = "سقي الأسبوع",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 16.sp
+                            fontSize = 15.sp
                         )
                     )
                     Text(
@@ -548,6 +491,24 @@ fun HomeScreen(
                     currencySymbol = config.currencySymbol
                 )
             }
+        }
+
+        // Floating Action Button لإضافة دورة سقي جديدة
+        FloatingActionButton(
+            onClick = { checkOperationAllowed { showAddManualSheet = true } },
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 16.dp, bottom = 16.dp),
+            shape = CircleShape,
+            containerColor = PrimaryTeal,
+            contentColor = Color.White,
+            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "سجل سقي جديد",
+                modifier = Modifier.size(24.dp)
+            )
         }
 
         // Floating Toast Notification
