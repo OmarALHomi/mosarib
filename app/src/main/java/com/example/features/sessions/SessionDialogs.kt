@@ -314,8 +314,8 @@ fun AddEditSessionBottomSheet(
         }
     }
 
-    // حساب المدة الإجمالية بالدقائق بين تاريخين ووقتين (الحد الأقصى المسموح به 24 ساعة)
-    val MAX_SESSION_MINUTES = 24 * 60
+    // حساب المدة الإجمالية بالدقائق بين تاريخين ووقتين (الحد الأقصى المسموح به 10 أيام = 240 ساعة)
+    val MAX_SESSION_MINUTES = 10 * 24 * 60
     val grossMinutes by remember(startCal.timeInMillis, endCal.timeInMillis) {
         derivedStateOf {
             val diffMs = endCal.timeInMillis - startCal.timeInMillis
@@ -734,10 +734,10 @@ fun AddEditSessionBottomSheet(
                                 OutlinedTextField(
                                     value = manualHoursStr,
                                     onValueChange = {
-                                        manualHoursStr = it.filter { c -> c.isDigit() }.take(2)
+                                        manualHoursStr = it.filter { c -> c.isDigit() }.take(3)
                                         applyManualDuration(manualHoursStr, manualMinutesStr)
                                     },
-                                    label = { Text("عدد الساعات (أقصى حد 24) *") },
+                                    label = { Text("عدد الساعات (أقصى حد 240 س / 10 أيام) *") },
                                     placeholder = { Text("مثلاً: 3") },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, tint = PrimaryTeal) },
@@ -1021,8 +1021,11 @@ fun AddEditSessionBottomSheet(
                             Pair("6 ساعات", 360),
                             Pair("8 ساعات", 480),
                             Pair("12 ساعة", 720),
-                            Pair("16 ساعة", 960),
-                            Pair("24 ساعة", 1440)
+                            Pair("24 ساعة (يوم)", 1440),
+                            Pair("يومان (48 س)", 2880),
+                            Pair("3 أيام (72 س)", 4320),
+                            Pair("5 أيام (120 س)", 7200),
+                            Pair("10 أيام (240 س)", 14400)
                         )
                         items(quickDurations) { (label, qMins) ->
                             val isSelected = grossMinutes == qMins
@@ -1070,7 +1073,7 @@ fun AddEditSessionBottomSheet(
                                 Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "⚠️ لا يمكن تسجيل سقي بساعات خيالية! الحد الأقصى المسموح به للدورة الواحدة هو 24 ساعة (1440 دقيقة).",
+                                    text = "⚠️ لا يمكن تسجيل سقي بساعات خيالية! الحد الأقصى المسموح به للدورة الواحدة هو 10 أيام (240 ساعة / 14,400 دقيقة).",
                                     style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB91C1C), fontWeight = FontWeight.Bold)
                                 )
                             }

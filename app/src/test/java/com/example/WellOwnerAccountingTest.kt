@@ -115,4 +115,20 @@ class WellOwnerAccountingTest {
         val remainingDueToOwner = maxOf(0.0, payable - amountPaid)
         assertEquals(5000.0, remainingDueToOwner, 0.001)
     }
+
+    @Test
+    fun `maximum allowed session duration supports up to 10 days`() {
+        val maxDays = 10
+        val maxHours = maxDays * 24
+        val maxMinutes = maxHours * 60
+        assertEquals(240, maxHours)
+        assertEquals(14400, maxMinutes)
+
+        val tenDaySession = WaterSession(
+            customerId = 1,
+            durationMinutes = maxMinutes,
+            totalAmount = 240000.0
+        )
+        assertEquals(14400, tenDaySession.durationMinutes)
+    }
 }

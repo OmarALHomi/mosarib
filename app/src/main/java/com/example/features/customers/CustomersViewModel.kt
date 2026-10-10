@@ -327,8 +327,9 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 showToast("يرجى تحديد مدة سقي صالحة", ToastType.ERROR)
                 return@launch
             }
-            if (totalMinutes > 1440) {
-                showToast("لا يمكن تسجيل سقي بساعات خيالية! الحد الأقصى للدورة الواحدة 24 ساعة", ToastType.ERROR)
+            val maxSessionMinutes = 10 * 24 * 60 // 10 days = 14,400 minutes
+            if (totalMinutes > maxSessionMinutes) {
+                showToast("لا يمكن تسجيل سقي بساعات خيالية! الحد الأقصى للدورة الواحدة 10 أيام (240 ساعة)", ToastType.ERROR)
                 return@launch
             }
             if (wastedMinutes > totalMinutes) {
