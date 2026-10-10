@@ -115,68 +115,25 @@ fun ReportsScreen(
         )
     }
 
+    val customDateRange by viewModel.customDateRange.collectAsStateWithLifecycle()
+
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 96.dp)
+            contentPadding = PaddingValues(top = 10.dp, bottom = 96.dp)
         ) {
-            // Header Action Bar
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Analytics,
-                                contentDescription = null,
-                                tint = PrimaryTeal,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "مؤشرات الأداء والتقارير",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                            )
-                        }
-                        Text(
-                            text = when (selectedPeriod) {
-                                ReportPeriod.ALL -> "إحصاءات شاملة لكافة الفترات"
-                                ReportPeriod.TODAY -> "حركة وإيرادات اليوم"
-                                ReportPeriod.THIS_WEEK -> "مؤشرات الأسبوع الجاري"
-                                ReportPeriod.THIS_MONTH -> "مؤشرات الشهر الجاري"
-                            },
-                            style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
-                        )
-                    }
-
-                    Button(
-                        onClick = { viewModel.exportComprehensiveReportPdf() },
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentGold),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
-                    ) {
-                        Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("تصدير PDF", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    }
-                }
-            }
-
-            // Period Filters Row
+            // Period Filters Row (Compact & Borderless)
             item {
                 LazyRow(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     item {
                         PeriodFilterChip(
-                            label = "كامل الفترة",
+                            label = "الكل",
                             selected = selectedPeriod == ReportPeriod.ALL,
                             onClick = { viewModel.setPeriod(ReportPeriod.ALL) }
                         )
@@ -202,8 +159,52 @@ fun ReportsScreen(
                             onClick = { viewModel.setPeriod(ReportPeriod.THIS_MONTH) }
                         )
                     }
+                    item {
+                        val customLabel = if (selectedPeriod == ReportPeriod.CUSTOM && customDateRange != null) {
+                            "${Formatters.formatDate(customDateRange!!.first)} ➔ ${Formatters.formatDate(customDateRange!!.second)}"
+                        } else {
+                            "تحديد فترة 📅"
+                        }
+
+                        PeriodFilterChip(
+                            label = customLabel,
+                            selected = selectedPeriod == ReportPeriod.CUSTOM,
+                            onClick = {
+                                val cal = java.util.Calendar.getInstance()
+                                android.app.DatePickerDialog(
+                                    context,
+                                    { _, sYear, sMonth, sDay ->
+                                        val startCal = java.util.Calendar.getInstance().apply {
+                                            set(sYear, sMonth, sDay, 0, 0, 0)
+                                            set(java.util.Calendar.MILLISECOND, 0)
+                                        }
+                                        android.app.DatePickerDialog(
+                                            context,
+                                            { _, eYear, eMonth, eDay ->
+                                                val endCal = java.util.Calendar.getInstance().apply {
+                                                    set(eYear, eMonth, eDay, 23, 59, 59)
+                                                    set(java.util.Calendar.MILLISECOND, 999)
+                                                }
+                                                viewModel.setCustomDateRange(startCal.timeInMillis, endCal.timeInMillis)
+                                            },
+                                            sYear, sMonth, sDay
+                                        ).apply {
+                                            setTitle("إلى تاريخ")
+                                            show()
+                                        }
+                                    },
+                                    cal.get(java.util.Calendar.YEAR),
+                                    cal.get(java.util.Calendar.MONTH),
+                                    cal.get(java.util.Calendar.DAY_OF_MONTH)
+                                ).apply {
+                                    setTitle("من تاريخ")
+                                    show()
+                                }
+                            }
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
             }
 
             // 1. Hero KPI Card: Net Operating Profit with 3-Way Ratio Bar
@@ -267,14 +268,21 @@ private fun PeriodFilterChip(
     FilterChip(
         selected = selected,
         onClick = onClick,
-        label = { Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, fontSize = 12.sp) },
-        shape = RoundedCornerShape(20.dp),
+        label = {
+            Text(
+                text = label,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                fontSize = 11.sp
+            )
+        },
+        shape = RoundedCornerShape(16.dp),
         colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = PrimaryTeal,
             selectedLabelColor = Color.White,
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
         ),
-        border = BorderStroke(1.dp, if (selected) PrimaryTeal else Color.LightGray.copy(alpha = 0.3f))
+        border = null
     )
 }
 

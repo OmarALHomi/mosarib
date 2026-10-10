@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.outlined.Home
@@ -76,7 +77,7 @@ enum class AppTab(
     val unselectedIcon: ImageVector,
     val testTag: String
 ) {
-    SESSIONS("سجلات السقي", Icons.Filled.WaterDrop, Icons.Outlined.WaterDrop, "tab_sessions"),
+    REPORTS("التقارير", Icons.Filled.Assessment, Icons.Default.Assessment, "tab_reports"),
     CUSTOMERS("العملاء", Icons.Filled.People, Icons.Outlined.People, "tab_customers"),
     HOME("الرئيسية", Icons.Filled.Home, Icons.Outlined.Home, "tab_home"),
     VOUCHERS("سجل العمليات", Icons.AutoMirrored.Filled.ReceiptLong, Icons.AutoMirrored.Outlined.ReceiptLong, "tab_vouchers"),
@@ -107,7 +108,6 @@ fun MainApp(
             var isBiometricUnlocked by remember { mutableStateOf(false) }
             var selectedTab by remember { mutableStateOf(AppTab.HOME) }
             var selectedCustomerId by remember { mutableLongStateOf(0L) }
-            var showReportsScreen by remember { mutableStateOf(false) }
             var showAboutScreen by remember { mutableStateOf(false) }
 
             if (showSplashScreen) {
@@ -124,36 +124,9 @@ fun MainApp(
                     onAddSessionForCustomer = { customer ->
                         sessionsViewModel.requestNewSessionForCustomer(customer.id)
                         selectedCustomerId = 0L
-                        selectedTab = AppTab.SESSIONS
+                        selectedTab = AppTab.VOUCHERS
                     }
                 )
-            } else if (showReportsScreen) {
-                Scaffold(
-                    topBar = {
-                        TopAppBar(
-                            title = { Text("التقارير والإحصائيات", fontWeight = FontWeight.Bold) },
-                            navigationIcon = {
-                                IconButton(onClick = { showReportsScreen = false }) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "رجوع"
-                                    )
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            )
-                        )
-                    }
-                ) { innerPadding ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    ) {
-                        ReportsScreen(viewModel = reportsViewModel)
-                    }
-                }
             } else {
                 Scaffold(
                     topBar = {
@@ -162,7 +135,7 @@ fun MainApp(
                                 title = {
                                     Text(
                                         text = when (selectedTab) {
-                                            AppTab.SESSIONS -> "سجلات السقي"
+                                            AppTab.REPORTS -> "التقارير والإحصائيات"
                                             AppTab.CUSTOMERS -> "إدارة العملاء والمزارع"
                                             AppTab.VOUCHERS -> "سجل العمليات"
                                             AppTab.SETTINGS -> "الإعدادات العامة"
@@ -178,16 +151,21 @@ fun MainApp(
                                     containerColor = MaterialTheme.colorScheme.surface
                                 ),
                                 actions = {
-                                    if (selectedTab == AppTab.SESSIONS || selectedTab == AppTab.VOUCHERS) {
-                                        IconButton(
-                                            onClick = { showReportsScreen = true },
-                                            modifier = Modifier.testTag("action_open_reports")
+                                    if (selectedTab == AppTab.REPORTS) {
+                                        androidx.compose.material3.Button(
+                                            onClick = { reportsViewModel.exportComprehensiveReportPdf() },
+                                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = AccentGold),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.Assessment,
-                                                contentDescription = "التقارير",
-                                                tint = PrimaryTeal
+                                                imageVector = Icons.Default.PictureAsPdf,
+                                                contentDescription = null,
+                                                tint = Color.Black,
+                                                modifier = Modifier.size(16.dp)
                                             )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("تصدير PDF", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                         }
                                     }
                                 }
@@ -196,7 +174,7 @@ fun MainApp(
                     },
                     bottomBar = {
                         val tabIndex = when (selectedTab) {
-                            AppTab.SESSIONS  -> 0
+                            AppTab.REPORTS   -> 0
                             AppTab.CUSTOMERS -> 1
                             AppTab.HOME      -> 2
                             AppTab.VOUCHERS  -> 3
@@ -206,7 +184,7 @@ fun MainApp(
                             selectedIndex = tabIndex,
                             onItemSelected = { idx ->
                                 selectedTab = when (idx) {
-                                    0 -> AppTab.SESSIONS
+                                    0 -> AppTab.REPORTS
                                     1 -> AppTab.CUSTOMERS
                                     3 -> AppTab.VOUCHERS
                                     4 -> AppTab.SETTINGS
@@ -232,16 +210,11 @@ fun MainApp(
                                     onNavigateToCustomer = { custId ->
                                         selectedCustomerId = custId
                                     },
-                                    onOpenReports = { showReportsScreen = true }
+                                    onOpenReports = { selectedTab = AppTab.REPORTS }
                                 )
                             }
-                            AppTab.SESSIONS -> {
-                                SessionsScreen(
-                                    viewModel = sessionsViewModel,
-                                    onNavigateToCustomer = { custId ->
-                                        selectedCustomerId = custId
-                                    }
-                                )
+                            AppTab.REPORTS -> {
+                                ReportsScreen(viewModel = reportsViewModel)
                             }
                             AppTab.CUSTOMERS -> {
                                 CustomersScreen(
@@ -254,6 +227,7 @@ fun MainApp(
                             AppTab.VOUCHERS -> {
                                 VouchersScreen(
                                     viewModel = vouchersViewModel,
+                                    sessionsViewModel = sessionsViewModel,
                                     onNavigateToCustomer = { custId ->
                                         selectedCustomerId = custId
                                     }

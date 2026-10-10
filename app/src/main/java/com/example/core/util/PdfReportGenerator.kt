@@ -763,6 +763,7 @@ object PdfReportGenerator {
         val dividerGray = 0xFFD2DFE5.toInt()
         val debtRed = 0xFFD32F2F.toInt()
         val paidGreen = 0xFF2E7D32.toInt()
+        val goldAccent = 0xFFB8860B.toInt()
 
         val paint = Paint().apply { isAntiAlias = true }
 
@@ -772,38 +773,42 @@ object PdfReportGenerator {
 
         fun drawHeader(subtitle: String) {
             paint.color = primaryColor
-            canvas.drawRect(0f, 0f, pageWidth.toFloat(), 95f, paint)
+            canvas.drawRect(0f, 0f, pageWidth.toFloat(), 88f, paint)
+
+            // Gold accent strip at bottom of header
+            paint.color = goldAccent
+            canvas.drawRect(0f, 85f, pageWidth.toFloat(), 88f, paint)
 
             paint.color = Color.WHITE
-            paint.textSize = 19f
+            paint.textSize = 18f
             paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("التقرير المحاسبي الشامل - توزيع المياه", pageWidth / 2f, 40f, paint)
+            canvas.drawText("التقرير المحاسبي والإحصائي الشامل", pageWidth / 2f, 38f, paint)
 
-            paint.textSize = 11.5f
+            paint.textSize = 11f
             paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-            canvas.drawText(subtitle, pageWidth / 2f, 66f, paint)
+            canvas.drawText(subtitle, pageWidth / 2f, 62f, paint)
         }
 
         val rowHeight = 22f
-        var curY = 480f
+        var curY = 320f
 
         fun drawTableHeader() {
             paint.color = primaryColor
-            canvas.drawRect(20f, curY, pageWidth - 20f, curY + 25f, paint)
+            canvas.drawRoundRect(RectF(20f, curY, pageWidth - 20f, curY + 24f), 4f, 4f, paint)
 
             paint.color = Color.WHITE
-            paint.textSize = 10f
+            paint.textSize = 9.5f
             paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             paint.textAlign = Paint.Align.RIGHT
             canvas.drawText("العميل", pageWidth - 30f, curY + 16f, paint)
-            canvas.drawText("المزرعة / الموقع", pageWidth - 150f, curY + 16f, paint)
-            canvas.drawText("السقي / دقائق صافية", pageWidth - 265f, curY + 16f, paint)
+            canvas.drawText("المزرعة / الهاتف", pageWidth - 145f, curY + 16f, paint)
+            canvas.drawText("السقي / صافي المدة", pageWidth - 265f, curY + 16f, paint)
             canvas.drawText("المبلغ المطلوب", pageWidth - 375f, curY + 16f, paint)
             canvas.drawText("المدفوع", pageWidth - 455f, curY + 16f, paint)
-            canvas.drawText("دين السقي", 30f, curY + 16f, paint)
+            canvas.drawText("المتبقي بذمته", 30f, curY + 16f, paint)
 
-            curY += 25f
+            curY += 26f
             paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         }
 
@@ -816,46 +821,73 @@ object PdfReportGenerator {
             pageNumber++
             page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
             canvas = page.canvas
-            drawHeader("${config.distributorName} - متابعة كشف العملاء")
-            curY = 130f
+            drawHeader("${config.distributorName} - كشف حسابات العملاء")
+            curY = 120f
             drawTableHeader()
         }
 
         // ---------- Page 1: distributor-wide summary ----------
         drawHeader("${config.distributorName}  |  هاتف: ${config.distributorPhone.ifEmpty { "غير محدد" }}")
 
+        // Metadata Bar
         paint.color = darkTextColor
-        paint.textSize = 11f
+        paint.textSize = 10.5f
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("الفترة: $periodTitle", pageWidth - 40f, 122f, paint)
-        canvas.drawText("تاريخ الإصدار: ${Formatters.formatDate(System.currentTimeMillis())}", pageWidth - 40f, 142f, paint)
+        canvas.drawText("الفترة: $periodTitle", pageWidth - 30f, 114f, paint)
+        canvas.drawText("تاريخ التقرير: ${Formatters.formatDate(System.currentTimeMillis())}", pageWidth - 30f, 130f, paint)
 
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("عدد العملاء: ${customerRows.size}", 40f, 122f, paint)
-        canvas.drawText("العملة: ${config.currencySymbol}", 40f, 142f, paint)
+        canvas.drawText("عدد العملاء: ${customerRows.size} عميل", 30f, 114f, paint)
+        canvas.drawText("العملة: ${config.currencySymbol}", 30f, 130f, paint)
 
-        val boxWidth = (pageWidth - 70f) / 3f
-        val boxHeight = 55f
+        // KPI Section 1: Financial Performance (4 clean columns)
+        val cardSpacing = 8f
+        val cardWidth4 = (pageWidth - 50f - (3 * cardSpacing)) / 4f
+        val cardH = 46f
 
-        drawSummaryBox(canvas, 25f, 170f, boxWidth, boxHeight, "إجمالي قيمة السقي / البيع", Formatters.formatCurrency(totals.totalRevenue, config.currencySymbol), primaryColor)
-        drawSummaryBox(canvas, 25f + boxWidth + 10f, 170f, boxWidth, boxHeight, "التحصيل النقدي", Formatters.formatCurrency(totals.totalCollected, config.currencySymbol), paidGreen)
-        drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 170f, boxWidth, boxHeight, "دين السقي على العملاء", Formatters.formatCurrency(totals.totalOutstandingDebt, config.currencySymbol), debtRed)
+        val hasOwnerPurchases = totals.purchasedMinutes > 0 || totals.ownerPurchaseAmount > 0.0
 
-        drawSummaryBox(canvas, 25f, 232f, boxWidth, boxHeight, "ساعات البيع بعد هدر المسرب", Formatters.formatDurationArabic(totals.waterMinutes), primaryColor)
-        drawSummaryBox(canvas, 25f + boxWidth + 10f, 232f, boxWidth, boxHeight, "هدر المسرب", Formatters.formatDurationArabic(totals.distributorWasteMinutes), debtRed)
-        drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 232f, boxWidth, boxHeight, "عدد دورات السقي", "${totals.sessionsCount} دورة", darkTextColor)
+        // Row 1: Financial KPIs (y = 146f)
+        var startX = 25f
+        drawSummaryBox(canvas, startX, 146f, cardWidth4, cardH, "صافي الأرباح", Formatters.formatCurrency(totals.netProfit, config.currencySymbol), if (totals.netProfit >= 0) paidGreen else debtRed)
+        startX += cardWidth4 + cardSpacing
+        drawSummaryBox(canvas, startX, 146f, cardWidth4, cardH, "إجمالي الإيرادات", Formatters.formatCurrency(totals.totalRevenue, config.currencySymbol), primaryColor)
+        startX += cardWidth4 + cardSpacing
+        drawSummaryBox(canvas, startX, 146f, cardWidth4, cardH, "المحصل الفعلي", Formatters.formatCurrency(totals.totalCollected, config.currencySymbol), paidGreen)
+        startX += cardWidth4 + cardSpacing
+        drawSummaryBox(canvas, startX, 146f, cardWidth4, cardH, "ديون العملاء", Formatters.formatCurrency(totals.totalOutstandingDebt, config.currencySymbol), debtRed)
 
-        drawSummaryBox(canvas, 25f, 294f, boxWidth, boxHeight, "صافي مشتريات الآبار", Formatters.formatCurrency(totals.ownerPurchaseAmount, config.currencySymbol), primaryColor)
-        drawSummaryBox(canvas, 25f + boxWidth + 10f, 294f, boxWidth, boxHeight, "المسدد لأصحاب الآبار", Formatters.formatCurrency(totals.ownerPayments, config.currencySymbol), paidGreen)
-        drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 294f, boxWidth, boxHeight, "مستحقات شراء الآبار", Formatters.formatCurrency(totals.ownerPayable, config.currencySymbol), if (totals.ownerPayable > 0) debtRed else paidGreen)
+        // Row 2: Operational KPIs (y = 198f)
+        startX = 25f
+        drawSummaryBox(canvas, startX, 198f, cardWidth4, cardH, "ساعات السقي المباعة", Formatters.formatDurationArabic(totals.waterMinutes), primaryColor)
+        startX += cardWidth4 + cardSpacing
+        drawSummaryBox(canvas, startX, 198f, cardWidth4, cardH, "فاقد شبكة السقي", Formatters.formatDurationArabic(totals.distributorWasteMinutes), debtRed)
+        startX += cardWidth4 + cardSpacing
+        drawSummaryBox(canvas, startX, 198f, cardWidth4, cardH, "مصروفات التشغيل", Formatters.formatCurrency(totals.totalExpenses, config.currencySymbol), 0xFFE65100.toInt())
+        startX += cardWidth4 + cardSpacing
+        drawSummaryBox(canvas, startX, 198f, cardWidth4, cardH, "دورات السقي", "${totals.sessionsCount} دورة", darkTextColor)
 
-        drawSummaryBox(canvas, 25f, 356f, boxWidth, boxHeight, "ساعات الشراء المسجلة", Formatters.formatDurationArabic(totals.purchasedMinutes), primaryColor)
-        drawSummaryBox(canvas, 25f + boxWidth + 10f, 356f, boxWidth, boxHeight, "المحتسب بعد هدر المالك", Formatters.formatDurationArabic(totals.chargeablePurchasedMinutes), primaryColor)
-        drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 356f, boxWidth, boxHeight, "هدر صاحب البئر", Formatters.formatDurationArabic(totals.ownerWasteMinutes), debtRed)
+        // Row 3: Well Owner Purchases (Only if well owner purchases exist)
+        if (hasOwnerPurchases) {
+            startX = 25f
+            drawSummaryBox(canvas, startX, 250f, cardWidth4, cardH, "مشتريات الآبار", Formatters.formatCurrency(totals.ownerPurchaseAmount, config.currencySymbol), primaryColor)
+            startX += cardWidth4 + cardSpacing
+            drawSummaryBox(canvas, startX, 250f, cardWidth4, cardH, "المسدد للمالكين", Formatters.formatCurrency(totals.ownerPayments, config.currencySymbol), paidGreen)
+            startX += cardWidth4 + cardSpacing
+            drawSummaryBox(canvas, startX, 250f, cardWidth4, cardH, "مستحقات أصحاب الآبار", Formatters.formatCurrency(totals.ownerPayable, config.currencySymbol), if (totals.ownerPayable > 0) debtRed else paidGreen)
+            startX += cardWidth4 + cardSpacing
+            drawSummaryBox(canvas, startX, 250f, cardWidth4, cardH, "هدر صاحب البئر", Formatters.formatDurationArabic(totals.ownerWasteMinutes), debtRed)
+            curY = 312f
+        } else {
+            curY = 260f
+        }
 
-        drawSummaryBox(canvas, 25f, 418f, boxWidth, boxHeight, "قيمة خصم هدر صاحب البئر", Formatters.formatCurrency(totals.ownerWasteCredit, config.currencySymbol), debtRed)
-        drawSummaryBox(canvas, 25f + boxWidth + 10f, 418f, boxWidth, boxHeight, "مصروفات التشغيل", Formatters.formatCurrency(totals.totalExpenses, config.currencySymbol), 0xFFE65100.toInt())
-        drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 418f, boxWidth, boxHeight, "صافي الربح التشغيلي", Formatters.formatCurrency(totals.netProfit, config.currencySymbol), if (totals.netProfit >= 0) paidGreen else debtRed)
+        // Section header for Customer Ledger
+        paint.color = darkTextColor
+        paint.textSize = 11f
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.textAlign = Paint.Align.RIGHT
+        canvas.drawText("جدول كشف حسابات العملاء وساعات التوزيع:", pageWidth - 25f, curY - 6f, paint)
 
         // ---------- Customers table (paginated)
         drawTableHeader()

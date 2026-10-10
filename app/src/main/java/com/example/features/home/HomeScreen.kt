@@ -413,12 +413,12 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         QuickActionCard(
-                            title = "سجلات السقي",
-                            subtitle = "مراجعة الدورات والفواتير",
+                            title = "سجل العمليات",
+                            subtitle = "مراجعة الدورات والسندات",
                             icon = Icons.Default.History,
                             iconBgColor = Color(0xFFFEF3C7),
                             iconTint = Color(0xFFD97706),
-                            onClick = { onNavigateToTab(AppTab.SESSIONS) },
+                            onClick = { onNavigateToTab(AppTab.VOUCHERS) },
                             modifier = Modifier.weight(1f)
                         )
 
@@ -467,7 +467,7 @@ fun HomeScreen(
                             color = PrimaryTeal,
                             fontWeight = FontWeight.Bold
                         ),
-                        modifier = Modifier.clickable { onNavigateToTab(AppTab.SESSIONS) }
+                        modifier = Modifier.clickable { onNavigateToTab(AppTab.VOUCHERS) }
                     )
                 }
             }
