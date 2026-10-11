@@ -1,8 +1,8 @@
 package com.example.features.customers
 
-import androidx.activity.compose.BackHandler
 import android.content.Intent
 import android.provider.ContactsContract
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -18,7 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import com.example.core.util.Formatters
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.AttachMoney
@@ -29,18 +28,12 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Yard
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -53,14 +46,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.core.ui.MosaribButton
+import com.example.core.ui.MosaribFilterChip
+import com.example.core.ui.MosaribOutlinedButton
+import com.example.core.ui.MosaribTextField
+import com.example.core.util.Formatters
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
-import com.example.ui.theme.SecondaryAqua
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -102,31 +98,42 @@ fun AddEditCustomerBottomSheet(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
-            result.data?.data?.let { phoneUri ->
+            val contactUri = result.data?.data
+            if (contactUri != null) {
                 try {
+                    val phoneUri = if (contactUri.toString().startsWith(ContactsContract.Contacts.CONTENT_URI.toString())) {
+                        val contactId = contactUri.lastPathSegment
+                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI.buildUpon()
+                            .appendQueryParameter(ContactsContract.CommonDataKinds.Phone.CONTACT_ID, contactId)
+                            .build()
+                    } else {
+                        contactUri
+                    }
+
                     var contactName: String? = null
                     var contactNumber: String? = null
                     var contactId: String? = null
 
-                    // 1. First attempt: Direct query on the returned URI
-                    context.contentResolver.query(phoneUri, null, null, null, null)?.use { cursor ->
+                    // 1. Direct query with DISPLAY_NAME and NUMBER
+                    context.contentResolver.query(
+                        phoneUri,
+                        arrayOf(
+                            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                            ContactsContract.CommonDataKinds.Phone.NUMBER,
+                            ContactsContract.CommonDataKinds.Phone.CONTACT_ID
+                        ),
+                        null,
+                        null,
+                        null
+                    )?.use { cursor ->
                         if (cursor.moveToFirst()) {
-                            val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                                .takeIf { it >= 0 } ?: cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)
-                            if (nameIndex >= 0) {
-                                contactName = cursor.getString(nameIndex)
-                            }
+                            val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                            val numIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                            val idIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
 
-                            val numIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                            if (numIndex >= 0) {
-                                contactNumber = cursor.getString(numIndex)
-                            }
-
-                            val idIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
-                                .takeIf { it >= 0 } ?: cursor.getColumnIndex(ContactsContract.Contacts._ID)
-                            if (idIndex >= 0) {
-                                contactId = cursor.getString(idIndex)
-                            }
+                            if (nameIdx >= 0) contactName = cursor.getString(nameIdx)
+                            if (numIdx >= 0) contactNumber = cursor.getString(numIdx)
+                            if (idIdx >= 0) contactId = cursor.getString(idIdx)
                         }
                     }
 
@@ -187,7 +194,8 @@ fun AddEditCustomerBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 20.dp)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -210,129 +218,92 @@ fun AddEditCustomerBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
             // تحديد نوع الحساب (مزارع أو صاحب بئر)
             Text(
                 text = "نوع الحساب:",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
             )
-            Spacer(modifier = Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
+                MosaribFilterChip(
                     selected = !isWellOwner,
                     onClick = { isWellOwner = false },
-                    label = { Text("👨‍🌾 مزارع (عميل سقي)", fontWeight = FontWeight.Bold) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = PrimaryTeal,
-                        selectedLabelColor = androidx.compose.ui.graphics.Color.White
-                    )
+                    label = "👨‍🌾 مزارع (عميل سقي)"
                 )
-                FilterChip(
+                MosaribFilterChip(
                     selected = isWellOwner,
                     onClick = { isWellOwner = true },
-                    label = { Text("💧 صاحب بئر (مورد ماء)", fontWeight = FontWeight.Bold) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = SecondaryAqua,
-                        selectedLabelColor = androidx.compose.ui.graphics.Color.White
-                    )
+                    label = "💧 صاحب بئر (مورد ماء)"
                 )
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Contact Picker Button (Clean borderless surface, direct Phone picker)
-            Button(
+            // زر استيراد من جهات الاتصال
+            MosaribOutlinedButton(
+                text = "استيراد من جهات الاتصال",
                 onClick = {
                     val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
                     contactPickerLauncher.launch(intent)
                 },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryTeal.copy(alpha = 0.12f),
-                    contentColor = PrimaryTeal
-                )
-            ) {
-                Icon(Icons.Default.Contacts, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("استيراد من جهات الاتصال", fontWeight = FontWeight.Bold)
-            }
+                leadingIcon = { Icon(Icons.Default.Contacts, contentDescription = null, tint = PrimaryTeal) }
+            )
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Name
-            OutlinedTextField(
+            // الاسم
+            MosaribTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text(if (isWellOwner) "اسم صاحب البئر *" else "اسم العميل / المزارع *") },
-                placeholder = { Text(if (isWellOwner) "مثال: الحاج علي ناصر (مالك بئر الوادي)" else "مثال: أبو صالح العامري") },
+                label = if (isWellOwner) "اسم صاحب البئر *" else "اسم العميل / المزارع *",
+                placeholder = if (isWellOwner) "مثال: الحاج علي ناصر (مالك بئر الوادي)" else "مثال: أبو صالح العامري",
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("customer_name_input"),
-                shape = RoundedCornerShape(12.dp)
+                    .testTag("customer_name_input")
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Phone
-            OutlinedTextField(
+            // رقم الهاتف
+            MosaribTextField(
                 value = phone,
                 onValueChange = { phone = it },
-                label = { Text("رقم الهاتف (للاتصال والواتساب)") },
-                placeholder = { Text("777123456") },
+                label = "رقم الهاتف (للاتصال والواتساب)",
+                placeholder = "777123456",
                 leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = PrimaryTeal) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("customer_phone_input"),
-                shape = RoundedCornerShape(12.dp)
+                    .testTag("customer_phone_input")
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Farm or Well Name
-            OutlinedTextField(
+            // اسم المزرعة أو البئر
+            MosaribTextField(
                 value = farmName,
                 onValueChange = { farmName = it },
-                label = { Text(if (isWellOwner) "اسم البئر أو المنطقة (اختياري)" else "اسم المزرعة أو الأرض (اختياري)") },
-                placeholder = { Text(if (isWellOwner) "مثال: بئر الخير، بئر الصافية" else "مثال: بستان النخيل، أرض السد") },
+                label = if (isWellOwner) "اسم البئر أو المنطقة (اختياري)" else "اسم المزرعة أو الأرض (اختياري)",
+                placeholder = if (isWellOwner) "مثال: بئر الخير، بئر الصافية" else "مثال: بستان النخيل، أرض السد",
                 leadingIcon = { Icon(if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Yard, contentDescription = null, tint = PrimaryTeal) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Location
-            OutlinedTextField(
+            // الموقع أو المنطقة
+            MosaribTextField(
                 value = location,
                 onValueChange = { location = it },
-                label = { Text(if (isWellOwner) "موقع البئر (اختياري)" else "الموقع أو المنطقة (اختياري)") },
-                placeholder = { Text(if (isWellOwner) "مثال: وادي ضهر، المزرعة الشمالية" else "مثال: القطاع الغربي، وادي الخير") },
+                label = if (isWellOwner) "موقع البئر (اختياري)" else "الموقع أو المنطقة (اختياري)",
+                placeholder = if (isWellOwner) "مثال: وادي ضهر، المزرعة الشمالية" else "مثال: القطاع الغربي، وادي الخير",
                 leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = PrimaryTeal) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Custom Price / Cost Price Per Hour
-            OutlinedTextField(
+            // السعر المخصص
+            MosaribTextField(
                 value = customPriceStr,
                 onValueChange = { customPriceStr = Formatters.formatAmountInput(it) },
-                label = { Text(if (isWellOwner) "تكلفة شراء ساعة الضخ من هذا البئر ($currencySymbol/ساعة) - اختياري" else "سعر خاص ومخصص لهذا العميل ($currencySymbol/ساعة) - اختياري") },
-                placeholder = { Text(if (isWellOwner) "تكلفة شراء ساعة الضخ الافتراضية من صاحب هذا البئر" else "اتركه فارغاً لاستخدام سعر الساعة الافتراضي") },
+                label = if (isWellOwner) "تكلفة شراء ساعة الضخ من هذا البئر ($currencySymbol/ساعة) - اختياري" else "سعر خاص ومخصص لهذا العميل ($currencySymbol/ساعة) - اختياري",
+                placeholder = if (isWellOwner) "تكلفة شراء ساعة الضخ الافتراضية من صاحب هذا البئر" else "اتركه فارغاً لاستخدام سعر الساعة الافتراضي",
                 leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = AccentGold) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                modifier = Modifier.fillMaxWidth()
             )
 
             val customPriceNum = Formatters.parseAmountInput(customPriceStr)
             if (customPriceNum > 0) {
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = Formatters.amountToArabicWords(customPriceNum, currencySymbol),
                     style = MaterialTheme.typography.bodySmall.copy(
@@ -343,21 +314,23 @@ fun AddEditCustomerBottomSheet(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Notes
-            OutlinedTextField(
+            // الملاحظات
+            MosaribTextField(
                 value = notes,
                 onValueChange = { notes = it },
-                label = { Text("ملاحظات إضافية") },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                label = "ملاحظات إضافية",
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null, tint = PrimaryTeal) },
+                modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Button(
+            MosaribButton(
+                text = when {
+                    initialCustomer != null -> "تحديث البيانات"
+                    isWellOwner -> "حفظ وإضافة صاحب البئر"
+                    else -> "حفظ وإضافة العميل"
+                },
                 onClick = {
                     if (name.isNotBlank()) {
                         val customRate = if (customPriceStr.isNotBlank()) Formatters.parseAmountInput(customPriceStr) else null
@@ -378,21 +351,8 @@ fun AddEditCustomerBottomSheet(
                 enabled = name.isNotBlank(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("save_customer_button"),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
-            ) {
-                Text(
-                    text = when {
-                        initialCustomer != null -> "تحديث البيانات"
-                        isWellOwner -> "حفظ وإضافة صاحب البئر"
-                        else -> "حفظ وإضافة العميل"
-                    },
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-            }
+                    .testTag("save_customer_button")
+            )
         }
     }
 }

@@ -66,6 +66,9 @@ import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import com.example.core.ui.MosaribButton
+import com.example.core.ui.MosaribFilterChip
+import com.example.core.ui.MosaribTextField
 import com.example.core.ui.SendMessageChoiceDialog
 import com.example.core.util.PdfReportGenerator
 import java.io.File
@@ -381,87 +384,45 @@ fun VouchersScreen(
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         item {
-                            FilterChip(
+                            MosaribFilterChip(
                                 selected = operationsFilter == OperationsFilter.ALL,
                                 onClick = { viewModel.setOperationsFilter(OperationsFilter.ALL) },
-                                label = { Text("الكل", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal,
-                                    selectedLabelColor = Color.White,
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                ),
-                                border = null
+                                label = "الكل"
                             )
                         }
                         item {
-                            FilterChip(
+                            MosaribFilterChip(
                                 selected = operationsFilter == OperationsFilter.SESSIONS,
                                 onClick = { viewModel.setOperationsFilter(OperationsFilter.SESSIONS) },
-                                label = { Text("سقي", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal,
-                                    selectedLabelColor = Color.White,
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                ),
-                                border = null
+                                label = "سقي"
                             )
                         }
                         item {
-                            FilterChip(
+                            MosaribFilterChip(
                                 selected = operationsFilter == OperationsFilter.RECEIPTS,
                                 onClick = { viewModel.setOperationsFilter(OperationsFilter.RECEIPTS) },
-                                label = { Text("مقبوضات", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AccentEmerald,
-                                    selectedLabelColor = Color.White,
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                ),
-                                border = null
+                                label = "مقبوضات"
                             )
                         }
                         item {
-                            FilterChip(
+                            MosaribFilterChip(
                                 selected = operationsFilter == OperationsFilter.EXPENSES,
                                 onClick = { viewModel.setOperationsFilter(OperationsFilter.EXPENSES) },
-                                label = { Text("مصروفات", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFFE53935),
-                                    selectedLabelColor = Color.White,
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                ),
-                                border = null
+                                label = "مصروفات"
                             )
                         }
                         item {
-                            FilterChip(
+                            MosaribFilterChip(
                                 selected = operationsFilter == OperationsFilter.DEFERRED,
                                 onClick = { viewModel.setOperationsFilter(OperationsFilter.DEFERRED) },
-                                label = { Text("آجل / ديون", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFFE65100),
-                                    selectedLabelColor = Color.White,
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                ),
-                                border = null
+                                label = "آجل / ديون"
                             )
                         }
                         item {
-                            FilterChip(
+                            MosaribFilterChip(
                                 selected = operationsFilter == OperationsFilter.PURCHASES,
                                 onClick = { viewModel.setOperationsFilter(OperationsFilter.PURCHASES) },
-                                label = { Text("شراء ساعات", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFF0288D1),
-                                    selectedLabelColor = Color.White,
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                ),
-                                border = null
+                                label = "شراء ساعات"
                             )
                         }
                     }
@@ -1871,29 +1832,21 @@ fun AddVoucherBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Button(
+                MosaribButton(
+                    text = "قبض من عميل",
                     onClick = { type = VoucherType.RECEIPT },
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (type == VoucherType.RECEIPT) AccentEmerald else MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = if (type == VoucherType.RECEIPT) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("قبض من عميل", fontWeight = FontWeight.Bold)
-                }
+                    containerColor = if (type == VoucherType.RECEIPT) AccentEmerald else MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = if (type == VoucherType.RECEIPT) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
-                Button(
+                MosaribButton(
+                    text = "مصروف",
                     onClick = { type = VoucherType.EXPENSE },
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (type == VoucherType.EXPENSE) Color(0xFFE53935) else MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = if (type == VoucherType.EXPENSE) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("مصروف", fontWeight = FontWeight.Bold)
-                }
+                    containerColor = if (type == VoucherType.EXPENSE) Color(0xFFE53935) else MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = if (type == VoucherType.EXPENSE) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -1902,13 +1855,12 @@ fun AddVoucherBottomSheet(
                 Text("العميل المستلم منه *", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                 Spacer(modifier = Modifier.height(6.dp))
                 Box {
-                    OutlinedTextField(
+                    MosaribTextField(
                         value = selectedCustomer?.name ?: "اختر العميل...",
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Box(
                         modifier = Modifier
@@ -2162,13 +2114,12 @@ fun AddVoucherBottomSheet(
                 Text("العميل / المستلم (اختياري):", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                 Spacer(modifier = Modifier.height(6.dp))
                 Box {
-                    OutlinedTextField(
+                    MosaribTextField(
                         value = selectedBeneficiary?.name ?: "مصروف عام (غير مقيد على عميل)",
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Box(
                         modifier = Modifier
@@ -2203,15 +2154,14 @@ fun AddVoucherBottomSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            OutlinedTextField(
+            MosaribTextField(
                 value = amountStr,
                 onValueChange = { amountStr = Formatters.formatAmountInput(it) },
-                label = { Text("المبلغ ($currencySymbol) *", fontWeight = FontWeight.Bold) },
+                label = "المبلغ ($currencySymbol) *",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("voucher_amount_input"),
-                shape = RoundedCornerShape(12.dp)
+                    .testTag("voucher_amount_input")
             )
 
             val parsedAmt = Formatters.parseAmountInput(amountStr)
@@ -2229,23 +2179,21 @@ fun AddVoucherBottomSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            OutlinedTextField(
+            MosaribTextField(
                 value = paymentMethod,
                 onValueChange = { paymentMethod = it },
-                label = { Text("طريقة الدفع", fontWeight = FontWeight.Bold) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                label = "طريقة الدفع",
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            OutlinedTextField(
+            MosaribTextField(
                 value = notes,
                 onValueChange = { notes = it },
-                label = { Text(if (type == VoucherType.RECEIPT) "البيان والملاحظات" else "بيان المصروف *", fontWeight = FontWeight.Bold) },
-                placeholder = { Text(if (type == VoucherType.RECEIPT) "مثال: دفعة ري أو سداد حساب" else "اكتب بيان المصروف...") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                label = if (type == VoucherType.RECEIPT) "البيان والملاحظات" else "بيان المصروف *",
+                placeholder = if (type == VoucherType.RECEIPT) "مثال: دفعة ري أو سداد حساب" else "اكتب بيان المصروف...",
+                modifier = Modifier.fillMaxWidth()
             )
 
             // مقترحات البيان التلقائية لسندات الصرف
@@ -2268,7 +2216,8 @@ fun AddVoucherBottomSheet(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Button(
+            MosaribButton(
+                text = if (initialVoucher != null) "حفظ التعديلات" else "حفظ وترحيل السند",
                 onClick = {
                     val amt = Formatters.parseAmountInput(amountStr)
                     if (amt > 0) {
@@ -2280,21 +2229,11 @@ fun AddVoucherBottomSheet(
                     }
                 },
                 enabled = Formatters.parseAmountInput(amountStr) > 0,
+                containerColor = if (type == VoucherType.RECEIPT) AccentEmerald else PrimaryTeal,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("save_voucher_button"),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (type == VoucherType.RECEIPT) AccentEmerald else PrimaryTeal
-                )
-            ) {
-                Text(
-                    text = if (initialVoucher != null) "حفظ التعديلات" else "حفظ وترحيل السند",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-            }
+                    .testTag("save_voucher_button")
+            )
         }
     }
 }

@@ -1,9 +1,13 @@
 package com.example.features.sessions
 
-import android.app.DatePickerDialog
-import android.app.TimePickerDialog
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import com.example.core.ui.MosaribButton
+import com.example.core.ui.MosaribDatePickerDialog
+import com.example.core.ui.MosaribFilterChip
+import com.example.core.ui.MosaribOutlinedButton
+import com.example.core.ui.MosaribTextField
+import com.example.core.ui.MosaribTimePickerDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -179,6 +183,10 @@ fun AddEditSessionBottomSheet(
     var endMinute by remember { mutableIntStateOf((defaultEndCal.get(Calendar.MINUTE) / 5) * 5) }
 
     var timeMode by remember { mutableStateOf(SessionTimeMode.MANUAL) }
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
 
     val initialDurationMins = remember {
         val diffMs = (initialSession?.endTime ?: now) - (initialSession?.startTime ?: (now - 3600000L))
@@ -421,7 +429,7 @@ fun AddEditSessionBottomSheet(
             Spacer(modifier = Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f)) {
-                    OutlinedTextField(
+                    MosaribTextField(
                         value = selectedCustomer?.name ?: "اختر العميل...",
                         onValueChange = {},
                         readOnly = true,
@@ -429,8 +437,7 @@ fun AddEditSessionBottomSheet(
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("session_customer_picker"),
-                        shape = RoundedCornerShape(12.dp)
+                            .testTag("session_customer_picker")
                     )
                     Box(
                         modifier = Modifier
@@ -542,14 +549,13 @@ fun AddEditSessionBottomSheet(
                             Spacer(modifier = Modifier.height(8.dp))
                             Box(modifier = Modifier.fillMaxWidth()) {
                                 val currentOwner = wellOwners.find { it.id == billedToCustomerId }
-                                OutlinedTextField(
+                                MosaribTextField(
                                     value = currentOwner?.name ?: "اختر صاحب البئر...",
                                     onValueChange = {},
                                     readOnly = true,
                                     trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                                    label = { Text("صاحب البئر المحتسب عليه السقي") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(10.dp)
+                                    label = "صاحب البئر المحتسب عليه السقي",
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                                 Box(
                                     modifier = Modifier
@@ -698,15 +704,7 @@ fun AddEditSessionBottomSheet(
                                     Row(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(8.dp))
-                                            .clickable {
-                                                TimePickerDialog(
-                                                    context,
-                                                    { _, h, min -> onStartTimeChanged(h, min) },
-                                                    startHour,
-                                                    startMinute,
-                                                    false
-                                                ).show()
-                                            }
+                                            .clickable { showStartTimePicker = true }
                                             .padding(horizontal = 8.dp, vertical = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -722,20 +720,7 @@ fun AddEditSessionBottomSheet(
                                     Row(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(8.dp))
-                                            .clickable {
-                                                val cal = Calendar.getInstance().apply { timeInMillis = startDateMillis }
-                                                DatePickerDialog(
-                                                    context,
-                                                    { _, y, m, d ->
-                                                        cal.set(y, m, d)
-                                                        startDateMillis = cal.timeInMillis
-                                                        applyManualDuration(manualHoursStr, manualMinutesStr)
-                                                    },
-                                                    cal.get(Calendar.YEAR),
-                                                    cal.get(Calendar.MONTH),
-                                                    cal.get(Calendar.DAY_OF_MONTH)
-                                                ).show()
-                                            }
+                                            .clickable { showStartDatePicker = true }
                                             .padding(horizontal = 8.dp, vertical = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -756,20 +741,19 @@ fun AddEditSessionBottomSheet(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                OutlinedTextField(
+                                MosaribTextField(
                                     value = manualHoursStr,
                                     onValueChange = {
                                         manualHoursStr = it.filter { c -> c.isDigit() }.take(3)
                                         applyManualDuration(manualHoursStr, manualMinutesStr)
                                     },
-                                    label = { Text("عدد الساعات (أقصى حد 240 س / 10 أيام) *") },
-                                    placeholder = { Text("مثلاً: 3") },
+                                    label = "عدد الساعات (أقصى حد 240 س / 10 أيام) *",
+                                    placeholder = "مثلاً: 3",
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, tint = PrimaryTeal) },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp)
+                                    modifier = Modifier.weight(1f)
                                 )
-                                OutlinedTextField(
+                                MosaribTextField(
                                     value = manualMinutesStr,
                                     onValueChange = {
                                         val filtered = it.filter { c -> c.isDigit() }
@@ -779,11 +763,10 @@ fun AddEditSessionBottomSheet(
                                             applyManualDuration(manualHoursStr, manualMinutesStr)
                                         }
                                     },
-                                    label = { Text("الدقائق (اختياري)") },
-                                    placeholder = { Text("0") },
+                                    label = "الدقائق (اختياري)",
+                                    placeholder = "0",
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp)
+                                    modifier = Modifier.weight(1f)
                                 )
                             }
 
@@ -857,15 +840,7 @@ fun AddEditSessionBottomSheet(
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .background(PrimaryTeal.copy(alpha = 0.08f))
-                                                .clickable {
-                                                    TimePickerDialog(
-                                                        context,
-                                                        { _, h, min -> onStartTimeChanged(h, min) },
-                                                        startHour,
-                                                        startMinute,
-                                                        false
-                                                    ).show()
-                                                }
+                                                .clickable { showStartTimePicker = true }
                                                 .padding(vertical = 6.dp, horizontal = 4.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
@@ -879,19 +854,7 @@ fun AddEditSessionBottomSheet(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .clickable {
-                                                    val cal = Calendar.getInstance().apply { timeInMillis = startDateMillis }
-                                                    DatePickerDialog(
-                                                        context,
-                                                        { _, y, m, d ->
-                                                            cal.set(y, m, d)
-                                                            startDateMillis = cal.timeInMillis
-                                                        },
-                                                        cal.get(Calendar.YEAR),
-                                                        cal.get(Calendar.MONTH),
-                                                        cal.get(Calendar.DAY_OF_MONTH)
-                                                    ).show()
-                                                }
+                                                .clickable { showStartDatePicker = true }
                                                 .padding(vertical = 2.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.Center
@@ -933,15 +896,7 @@ fun AddEditSessionBottomSheet(
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .background(AccentEmerald.copy(alpha = 0.08f))
-                                                .clickable {
-                                                    TimePickerDialog(
-                                                        context,
-                                                        { _, h, min -> onEndTimeChanged(h, min) },
-                                                        endHour,
-                                                        endMinute,
-                                                        false
-                                                    ).show()
-                                                }
+                                                .clickable { showEndTimePicker = true }
                                                 .padding(vertical = 6.dp, horizontal = 4.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
@@ -955,20 +910,7 @@ fun AddEditSessionBottomSheet(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .clickable {
-                                                    val cal = Calendar.getInstance().apply { timeInMillis = endDateMillis }
-                                                    DatePickerDialog(
-                                                        context,
-                                                        { _, y, m, d ->
-                                                            cal.set(y, m, d)
-                                                            endDateMillis = cal.timeInMillis
-                                                            overnightNotice = null
-                                                        },
-                                                        cal.get(Calendar.YEAR),
-                                                        cal.get(Calendar.MONTH),
-                                                        cal.get(Calendar.DAY_OF_MONTH)
-                                                    ).show()
-                                                }
+                                                .clickable { showEndDatePicker = true }
                                                 .padding(vertical = 2.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.Center
@@ -1054,7 +996,7 @@ fun AddEditSessionBottomSheet(
                         )
                         items(quickDurations) { (label, qMins) ->
                             val isSelected = grossMinutes == qMins
-                            FilterChip(
+                            MosaribFilterChip(
                                 selected = isSelected,
                                 onClick = {
                                     val newEndMs = startCal.timeInMillis + (qMins * 60000L)
@@ -1072,13 +1014,7 @@ fun AddEditSessionBottomSheet(
                                         overnightNotice = null
                                     }
                                 },
-                                label = {
-                                    Text(label, fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 11.sp)
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal,
-                                    selectedLabelColor = Color.White
-                                )
+                                label = label
                             )
                         }
                     }
@@ -1149,30 +1085,27 @@ fun AddEditSessionBottomSheet(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            OutlinedTextField(
+                            MosaribTextField(
                                 value = wastedHoursStr,
                                 onValueChange = { wastedHoursStr = it.filter { char -> char.isDigit() } },
-                                label = { Text("ساعات الهدر") },
+                                label = "ساعات الهدر",
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp)
+                                modifier = Modifier.weight(1f)
                             )
-                            OutlinedTextField(
+                            MosaribTextField(
                                 value = wastedMinutesStr,
                                 onValueChange = { wastedMinutesStr = it.filter { char -> char.isDigit() } },
-                                label = { Text("دقائق الهدر") },
+                                label = "دقائق الهدر",
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp)
+                                modifier = Modifier.weight(1f)
                             )
                         }
                         Spacer(modifier = Modifier.height(6.dp))
-                        OutlinedTextField(
+                        MosaribTextField(
                             value = wastedReason,
                             onValueChange = { wastedReason = it },
-                            label = { Text("سبب التوقف (عطل مضخة، نقص ديزل...)") },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp)
+                            label = "سبب التوقف (عطل مضخة، نقص ديزل...)",
+                            modifier = Modifier.fillMaxWidth()
                         )
                         if (wastedTotalMinutes > grossMinutes && grossMinutes > 0) {
                             Spacer(modifier = Modifier.height(4.dp))
@@ -1188,14 +1121,13 @@ fun AddEditSessionBottomSheet(
             Spacer(modifier = Modifier.height(12.dp))
 
             // Historical sale price for this session. Purchase rates are captured separately.
-            OutlinedTextField(
+            MosaribTextField(
                 value = pricePerHourStr,
                 onValueChange = { pricePerHourStr = Formatters.formatAmountInput(it) },
-                label = { Text("سعر البيع ($currencySymbol/ساعة)") },
+                label = "سعر البيع ($currencySymbol/ساعة)",
                 leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = AccentGold) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -1225,13 +1157,12 @@ fun AddEditSessionBottomSheet(
 
                     if (showDiscountDetails || discountAmount > 0) {
                         Spacer(modifier = Modifier.height(6.dp))
-                        OutlinedTextField(
+                        MosaribTextField(
                             value = discountAmountStr,
                             onValueChange = { discountAmountStr = Formatters.formatAmountInput(it) },
-                            label = { Text("مبلغ الخصم أو المسامحة ($currencySymbol)") },
+                            label = "مبلغ الخصم أو المسامحة ($currencySymbol)",
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp)
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
@@ -1331,17 +1262,16 @@ fun AddEditSessionBottomSheet(
             Spacer(modifier = Modifier.height(12.dp))
 
             // المبلغ المدفوع فوراً والمتبقي كدين
-            OutlinedTextField(
+            MosaribTextField(
                 value = amountPaidStr,
                 onValueChange = { amountPaidStr = Formatters.formatAmountInput(it) },
-                label = { Text("المبلغ المدفوع فوراً نقدياً (اختياري)") },
-                placeholder = { Text("0") },
+                label = "المبلغ المدفوع فوراً نقدياً (اختياري)",
+                placeholder = "0",
                 leadingIcon = { Icon(Icons.Default.Check, contentDescription = null, tint = AccentEmerald) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("session_paid_input"),
-                shape = RoundedCornerShape(12.dp)
+                    .testTag("session_paid_input")
             )
 
             if (isBilledToWellOwner) {
@@ -1376,19 +1306,19 @@ fun AddEditSessionBottomSheet(
                 Text(if (showNotes) "إخفاء الملاحظات" else "إضافة ملاحظات (اختياري)")
             }
             if (showNotes) {
-                OutlinedTextField(
+                MosaribTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("ملاحظات الجلسة") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    label = "ملاحظات الجلسة",
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
 
             // Save Button
-            Button(
+            MosaribButton(
+                text = if (initialSession == null) "حفظ وترحيل دورة السقي 💾" else "حفظ التعديلات 💾",
                 onClick = {
                     if (selectedCustomerId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes) {
                         onSave(
@@ -1415,18 +1345,68 @@ fun AddEditSessionBottomSheet(
                 enabled = selectedCustomerId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp)
-                    .testTag("save_session_button"),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
-            ) {
-                Text(
-                    text = if (initialSession == null) "حفظ وترحيل دورة السقي 💾" else "حفظ التعديلات 💾",
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 16.sp
-                )
-            }
+                    .testTag("save_session_button")
+            )
         }
+    }
+
+    // نوافذ اختيار الوقت والتاريخ المخصصة في التطبيق بدون استخدام نوافذ النظام
+    if (showStartTimePicker) {
+        MosaribTimePickerDialog(
+            initialHour24 = startHour,
+            initialMinute = startMinute,
+            title = "تحديد وقت بدء السقي",
+            onDismiss = { showStartTimePicker = false },
+            onTimeSelected = { h, m ->
+                onStartTimeChanged(h, m)
+                showStartTimePicker = false
+            }
+        )
+    }
+
+    if (showStartDatePicker) {
+        MosaribDatePickerDialog(
+            initialTimestamp = startDateMillis,
+            title = "تحديد تاريخ بدء السقي",
+            onDismiss = { showStartDatePicker = false },
+            onDateSelected = { newDate ->
+                val cal = Calendar.getInstance().apply { timeInMillis = newDate }
+                val startCalTemp = Calendar.getInstance().apply { timeInMillis = startDateMillis }
+                startCalTemp.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
+                startDateMillis = startCalTemp.timeInMillis
+                applyManualDuration(manualHoursStr, manualMinutesStr)
+                showStartDatePicker = false
+            }
+        )
+    }
+
+    if (showEndTimePicker) {
+        MosaribTimePickerDialog(
+            initialHour24 = endHour,
+            initialMinute = endMinute,
+            title = "تحديد وقت نهاية السقي",
+            onDismiss = { showEndTimePicker = false },
+            onTimeSelected = { h, m ->
+                onEndTimeChanged(h, m)
+                showEndTimePicker = false
+            }
+        )
+    }
+
+    if (showEndDatePicker) {
+        MosaribDatePickerDialog(
+            initialTimestamp = endDateMillis,
+            title = "تحديد تاريخ نهاية السقي",
+            onDismiss = { showEndDatePicker = false },
+            onDateSelected = { newDate ->
+                val cal = Calendar.getInstance().apply { timeInMillis = newDate }
+                val endCalTemp = Calendar.getInstance().apply { timeInMillis = endDateMillis }
+                endCalTemp.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
+                endDateMillis = endCalTemp.timeInMillis
+                overnightNotice = null
+                showEndDatePicker = false
+            }
+        )
     }
 
     if (showAddCustomerSheet) {
@@ -1507,13 +1487,12 @@ fun SettleSessionDialog(
                     }
                 }
 
-                OutlinedTextField(
+                MosaribTextField(
                     value = amountStr,
                     onValueChange = { amountStr = Formatters.formatAmountInput(it) },
-                    label = { Text("المبلغ المراد سداده ($currencySymbol) *", fontWeight = FontWeight.Bold) },
+                    label = "المبلغ المراد سداده ($currencySymbol) *",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 val parsed = Formatters.parseAmountInput(amountStr)
@@ -1527,25 +1506,25 @@ fun SettleSessionDialog(
                 // طرق الدفع
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("نقداً", "تحويل بنكي", "شبكة").forEach { method ->
-                        FilterChip(
+                        MosaribFilterChip(
                             selected = paymentMethod == method,
                             onClick = { paymentMethod = method },
-                            label = { Text(method, fontWeight = FontWeight.Bold) }
+                            label = method
                         )
                     }
                 }
 
-                OutlinedTextField(
+                MosaribTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("البيان والملاحظات", fontWeight = FontWeight.Bold) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
+                    label = "البيان والملاحظات",
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
-            Button(
+            MosaribButton(
+                text = "تأكيد السداد وإصدار السند",
                 onClick = {
                     val amt = Formatters.parseAmountInput(amountStr)
                     if (amt > 0) {
@@ -1554,11 +1533,9 @@ fun SettleSessionDialog(
                     }
                 },
                 enabled = Formatters.parseAmountInput(amountStr) > 0,
-                colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text("تأكيد السداد وإصدار السند", fontWeight = FontWeight.Bold)
-            }
+                containerColor = AccentEmerald,
+                modifier = Modifier.fillMaxWidth()
+            )
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {

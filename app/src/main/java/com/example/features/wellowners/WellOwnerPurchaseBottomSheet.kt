@@ -1,19 +1,16 @@
 package com.example.features.wellowners
 
-import android.app.DatePickerDialog
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -25,17 +22,14 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -48,15 +42,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.core.ui.MosaribButton
+import com.example.core.ui.MosaribDatePickerDialog
+import com.example.core.ui.MosaribOutlinedButton
+import com.example.core.ui.MosaribTextField
 import com.example.core.util.Formatters
 import com.example.features.customers.Customer
 import com.example.ui.theme.PrimaryTeal
-import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,10 +63,11 @@ fun WellOwnerPurchaseBottomSheet(
     onDismiss: () -> Unit,
     onSave: (date: Long, durationMinutes: Int, wastedMinutesOnOwner: Int, purchaseRatePerHour: Double, amountPaid: Double, notes: String) -> Unit
 ) {
-    val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val now = System.currentTimeMillis()
     var date by remember(initialPurchase) { mutableLongStateOf(initialPurchase?.date ?: now) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
     var hoursText by remember(initialPurchase) {
         mutableStateOf(initialPurchase?.let { (it.durationMinutes / 60).toString() } ?: "")
     }
@@ -131,7 +128,7 @@ fun WellOwnerPurchaseBottomSheet(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 18.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -156,76 +153,51 @@ fun WellOwnerPurchaseBottomSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            OutlinedButton(
-                onClick = {
-                    val calendar = Calendar.getInstance().apply { timeInMillis = date }
-                    DatePickerDialog(
-                        context,
-                        { _, year, month, day ->
-                            date = Calendar.getInstance().apply {
-                                set(Calendar.YEAR, year)
-                                set(Calendar.MONTH, month)
-                                set(Calendar.DAY_OF_MONTH, day)
-                                set(Calendar.HOUR_OF_DAY, 12)
-                                set(Calendar.MINUTE, 0)
-                                set(Calendar.SECOND, 0)
-                                set(Calendar.MILLISECOND, 0)
-                            }.timeInMillis
-                        },
-                        calendar.get(Calendar.YEAR),
-                        calendar.get(Calendar.MONTH),
-                        calendar.get(Calendar.DAY_OF_MONTH)
-                    ).show()
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.CalendarToday, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text("تاريخ الشراء: ${Formatters.formatDate(date)}")
-            }
+            // زر تحديد التاريخ باستخدام النافذة المخصصة
+            MosaribOutlinedButton(
+                text = "تاريخ الشراء: ${Formatters.formatDate(date)}",
+                onClick = { showDatePicker = true },
+                leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = null, tint = PrimaryTeal) }
+            )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
+                MosaribTextField(
                     value = hoursText,
                     onValueChange = { hoursText = it.filter(Char::isDigit).take(4) },
-                    label = { Text("الساعات المشتراة *") },
+                    label = "الساعات المشتراة *",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
                     singleLine = true
                 )
-                OutlinedTextField(
+                MosaribTextField(
                     value = minutesText,
                     onValueChange = { minutesText = it.filter(Char::isDigit).take(2) },
-                    label = { Text("الدقائق") },
+                    label = "الدقائق",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
                     singleLine = true
                 )
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
+                MosaribTextField(
                     value = wastedHoursText,
                     onValueChange = { wastedHoursText = it.filter(Char::isDigit).take(4) },
-                    label = { Text("هدر على صاحب البئر (ساعات)") },
+                    label = "هدر على صاحب البئر (ساعات)",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
                     singleLine = true
                 )
-                OutlinedTextField(
+                MosaribTextField(
                     value = wastedMinutesText,
                     onValueChange = { wastedMinutesText = it.filter(Char::isDigit).take(2) },
-                    label = { Text("الهدر (دقائق)") },
+                    label = "الهدر (دقائق)",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
                     singleLine = true
                 )
             }
+
             if (isWasteExceeded) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -247,26 +219,24 @@ fun WellOwnerPurchaseBottomSheet(
                 }
             }
 
-            OutlinedTextField(
+            MosaribTextField(
                 value = rateText,
                 onValueChange = { rateText = Formatters.formatAmountInput(it) },
-                label = { Text("سعر ساعة الشراء ($currencySymbol) *") },
-                leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true
-            )
-
-            OutlinedTextField(
-                value = amountPaidText,
-                onValueChange = { amountPaidText = Formatters.formatAmountInput(it) },
-                label = { Text("المبلغ المسلَّم نقدياً فوراً لصاحب البئر ($currencySymbol)") },
-                placeholder = { Text("0") },
+                label = "سعر ساعة الشراء ($currencySymbol) *",
                 leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null, tint = PrimaryTeal) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                singleLine = true
+            )
+
+            MosaribTextField(
+                value = amountPaidText,
+                onValueChange = { amountPaidText = Formatters.formatAmountInput(it) },
+                label = "المبلغ المسلَّم نقدياً فوراً لصاحب البئر ($currencySymbol)",
+                placeholder = "0",
+                leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null, tint = PrimaryTeal) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
@@ -314,32 +284,35 @@ fun WellOwnerPurchaseBottomSheet(
                 }
             }
 
-            OutlinedTextField(
+            MosaribTextField(
                 value = notes,
                 onValueChange = { notes = it },
-                label = { Text("ملاحظات (اختياري)") },
-                leadingIcon = { Icon(Icons.Default.WaterDrop, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                label = "ملاحظات (اختياري)",
+                leadingIcon = { Icon(Icons.Default.WaterDrop, contentDescription = null, tint = PrimaryTeal) },
+                modifier = Modifier.fillMaxWidth()
             )
 
-            Button(
+            MosaribButton(
+                text = if (initialPurchase != null) "حفظ التعديلات" else "حفظ عملية الشراء",
                 onClick = {
                     if (valid) onSave(date, durationMinutes, wastedMinutes, rate, amountPaid, notes)
                 },
                 enabled = valid,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
-            ) {
-                Icon(if (initialPurchase != null) Icons.Default.Check else Icons.Default.AccessTime, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    if (initialPurchase != null) "حفظ التعديلات" else "حفظ عملية الشراء",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-            }
+                leadingIcon = { Icon(if (initialPurchase != null) Icons.Default.Check else Icons.Default.AccessTime, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
+    }
+
+    if (showDatePicker) {
+        MosaribDatePickerDialog(
+            initialTimestamp = date,
+            title = "تحديد تاريخ الشراء",
+            onDismiss = { showDatePicker = false },
+            onDateSelected = { newDate ->
+                date = newDate
+                showDatePicker = false
+            }
+        )
     }
 }
