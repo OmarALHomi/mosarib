@@ -145,6 +145,9 @@ fun VouchersScreen(
     var showAddManualSheet by remember { mutableStateOf(false) }
     var speedDialOpen by remember { mutableStateOf(false) }
     var voucherToDelete by remember { mutableStateOf<Voucher?>(null) }
+    var voucherToEdit by remember { mutableStateOf<Voucher?>(null) }
+    var sessionToEdit by remember { mutableStateOf<WaterSession?>(null) }
+    var sessionToDelete by remember { mutableStateOf<WaterSession?>(null) }
     var purchaseToDelete by remember { mutableStateOf<WellOwnerPurchase?>(null) }
     var purchaseToEdit by remember { mutableStateOf<WellOwnerPurchase?>(null) }
     var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
@@ -489,10 +492,24 @@ fun VouchersScreen(
                                 currencySymbol = config.currencySymbol,
                                 linkedVouchers = op.linkedVouchers,
                                 onCustomerClick = { onNavigateToCustomer(op.sessionWithCustomer.session.customerId) },
-                                onEditClick = {},
-                                onDeleteClick = {},
-                                onPdfClick = {},
-                                onMessageClick = {},
+                                onEditClick = { sessionToEdit = op.sessionWithCustomer.session },
+                                onDeleteClick = { sessionToDelete = op.sessionWithCustomer.session },
+                                onPdfClick = {
+                                    val file = PdfReportGenerator.generateSessionInvoicePdf(
+                                        context = context,
+                                        config = config,
+                                        customer = op.sessionWithCustomer.customer ?: Customer(name = "عميل غير محدد"),
+                                        session = op.sessionWithCustomer.session
+                                    )
+                                    voucherPdfReady = Pair(file, "فاتورة ري #${op.sessionWithCustomer.session.id}")
+                                },
+                                onMessageClick = {
+                                    op.sessionWithCustomer.customer?.let { c ->
+                                        val s = op.sessionWithCustomer.session
+                                        val msg = "فاتورة دورة سقي #${s.id}\nالعميل: ${c.name}\nالمدة: ${Formatters.formatDurationArabic(s.durationMinutes)}\nإجمالي القيمة: ${Formatters.formatCurrency(s.totalAmount, config.currencySymbol)}\nالمسدد: ${Formatters.formatCurrency(s.amountPaid, config.currencySymbol)}\nالمتبقي: ${Formatters.formatCurrency(s.remainingDebt, config.currencySymbol)}\nالتاريخ: ${Formatters.formatDateTime(s.startTime)}"
+                                        voucherMessageTarget = Pair(c, FileSharingHelper.attachMessageFooter(msg))
+                                    }
+                                },
                                 onSettleClick = {
                                     sessionToSettle = op.sessionWithCustomer.session
                                 },
@@ -760,6 +777,23 @@ fun VouchersScreen(
                                                 Icon(
                                                     imageVector = Icons.Default.PictureAsPdf,
                                                     contentDescription = "طباعة PDF",
+                                                    tint = PrimaryTeal,
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                            }
+
+                                            // زر تعديل
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(26.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                                    .clickable { voucherToEdit = voucher },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Edit,
+                                                    contentDescription = "تعديل",
                                                     tint = PrimaryTeal,
                                                     modifier = Modifier.size(13.dp)
                                                 )
@@ -1326,6 +1360,112 @@ fun VouchersScreen(
         )
     }
 
+    // تعديل دورة سقي من سجل العمليات
+    sessionToEdit?.let { s ->
+        AddEditSessionBottomSheet(
+            initialSession = s,
+            customers = customers,
+            defaultCustomerId = s.customerId,
+            defaultPricePerHour = config.defaultPricePerHour,
+            currencySymbol = config.currencySymbol,
+            onCreateCustomer = { customer -> sessionsViewModel?.createCustomer(customer) ?: 0L },
+            onDismiss = { sessionToEdit = null },
+            onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes, billedTo, wastedMins, wastedReason, discount, costRate, pumpId ->
+                if (sessionsViewModel != null) {
+                    sessionsViewModel.saveManualSession(
+                        id = id,
+                        customerId = custId,
+                        pumpName = pumpName,
+                        startTime = startTime,
+                        endTime = endTime,
+                        hours = hrs,
+                        minutes = mins,
+                        pricePerHour = rate,
+                        amountPaid = paid,
+                        notes = notes,
+                        billedToCustomerId = billedTo,
+                        wastedMinutes = wastedMins,
+                        wastedReason = wastedReason,
+                        discountAmount = discount,
+                        costPricePerHour = costRate,
+                        pumpSourceId = pumpId
+                    )
+                } else {
+                    viewModel.updateSession(
+                        id = id,
+                        customerId = custId,
+                        pumpName = pumpName,
+                        startTime = startTime,
+                        endTime = endTime,
+                        durationMinutes = (hrs * 60) + mins,
+                        pricePerHour = rate,
+                        amountPaid = paid,
+                        notes = notes,
+                        billedToCustomerId = billedTo,
+                        wastedMinutes = wastedMins,
+                        wastedReason = wastedReason,
+                        discountAmount = discount,
+                        costPricePerHour = costRate,
+                        pumpSourceId = pumpId
+                    )
+                }
+                sessionToEdit = null
+            }
+        )
+    }
+
+    // حذف دورة سقي من سجل العمليات
+    sessionToDelete?.let { s ->
+        AlertDialog(
+            onDismissRequest = { sessionToDelete = null },
+            title = { Text("تأكيد حذف دورة السقي", fontWeight = FontWeight.Bold) },
+            text = { Text("هل تريد بالتأكيد حذف دورة السقي #${s.id}؟ سيتم فك ارتباط أي سندات قبض مسددة لها وتحويلها لدفعات على الحساب.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (sessionsViewModel != null) {
+                            sessionsViewModel.deleteSession(s)
+                        } else {
+                            viewModel.deleteSession(s)
+                        }
+                        sessionToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
+                ) {
+                    Text("حذف", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { sessionToDelete = null }) {
+                    Text("إلغاء", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    // تعديل سند قبض أو صرف من سجل العمليات
+    voucherToEdit?.let { v ->
+        AddVoucherBottomSheet(
+            initialVoucher = v,
+            customers = customers,
+            allSessions = allSessions,
+            frequentDescriptions = frequentDescriptions,
+            currencySymbol = config.currencySymbol,
+            onDismiss = { voucherToEdit = null },
+            onSave = { type, custId, amt, cat, method, notes, sessionId, _ ->
+                viewModel.updateVoucher(
+                    voucher = v,
+                    amount = amt,
+                    paymentMethod = method,
+                    notes = notes,
+                    category = cat,
+                    customerId = custId
+                )
+                voucherToEdit = null
+            }
+        )
+    }
+
     settlementResult?.let { res ->
         SettlementResultDialog(
             result = res,
@@ -1645,6 +1785,7 @@ fun VouchersScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddVoucherBottomSheet(
+    initialVoucher: Voucher? = null,
     customers: List<Customer>,
     allSessions: List<WaterSession> = emptyList(),
     frequentDescriptions: List<String> = emptyList(),
@@ -1663,13 +1804,22 @@ fun AddVoucherBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    var type by remember { mutableStateOf(VoucherType.RECEIPT) }
-    var selectedCustomerId by remember { mutableLongStateOf(customers.firstOrNull()?.id ?: 0L) }
-    var selectedBeneficiaryId by remember { mutableStateOf<Long?>(null) }
+    var type by remember { mutableStateOf(initialVoucher?.type ?: VoucherType.RECEIPT) }
+    var selectedCustomerId by remember {
+        mutableLongStateOf(
+            if (initialVoucher?.type == VoucherType.RECEIPT && initialVoucher.customerId != null) initialVoucher.customerId!!
+            else customers.firstOrNull()?.id ?: 0L
+        )
+    }
+    var selectedBeneficiaryId by remember {
+        mutableStateOf<Long?>(
+            if (initialVoucher?.type == VoucherType.EXPENSE) initialVoucher.customerId else null
+        )
+    }
     var selectedSessionIds by remember { mutableStateOf(setOf<Long>()) }
-    var amountStr by remember { mutableStateOf("") }
-    var paymentMethod by remember { mutableStateOf("نقداً") }
-    var notes by remember { mutableStateOf("") }
+    var amountStr by remember { mutableStateOf(if (initialVoucher != null && initialVoucher.amount > 0) initialVoucher.amount.toString() else "") }
+    var paymentMethod by remember { mutableStateOf(initialVoucher?.paymentMethod ?: "نقداً") }
+    var notes by remember { mutableStateOf(initialVoucher?.notes ?: "") }
 
     var custDropdownExpanded by remember { mutableStateOf(false) }
     var beneficiaryDropdownExpanded by remember { mutableStateOf(false) }
@@ -1699,8 +1849,14 @@ fun AddVoucherBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val headerTitle = when {
+                    initialVoucher != null && type == VoucherType.RECEIPT -> "تعديل سند قبض #${initialVoucher.voucherNumber.ifEmpty { initialVoucher.id.toString() }}"
+                    initialVoucher != null -> "تعديل سند صرف #${initialVoucher.voucherNumber.ifEmpty { initialVoucher.id.toString() }}"
+                    type == VoucherType.RECEIPT -> "سند قبض"
+                    else -> "تسجيل مصروف"
+                }
                 Text(
-                    text = if (type == VoucherType.RECEIPT) "سند قبض" else "تسجيل مصروف",
+                    text = headerTitle,
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
                 IconButton(onClick = onDismiss) {
@@ -2133,7 +2289,11 @@ fun AddVoucherBottomSheet(
                     containerColor = if (type == VoucherType.RECEIPT) AccentEmerald else PrimaryTeal
                 )
             ) {
-                Text("حفظ وترحيل السند", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(
+                    text = if (initialVoucher != null) "حفظ التعديلات" else "حفظ وترحيل السند",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
             }
         }
     }

@@ -393,6 +393,113 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun updateVoucher(
+        voucher: Voucher,
+        amount: Double,
+        paymentMethod: String,
+        notes: String,
+        category: String = voucher.category,
+        customerId: Long? = voucher.customerId,
+        date: Long = voucher.date
+    ) {
+        viewModelScope.launch {
+            val roundedAmount = Formatters.roundMoney(amount)
+            if (roundedAmount <= 0.0) {
+                showToast("يرجى إدخال مبلغ صالح أكبر من صفر", ToastType.ERROR)
+                return@launch
+            }
+            if (voucher.sessionId != null) {
+                val session = sessionRepo.getSessionById(voucher.sessionId)
+                if (session != null) {
+                    val amountDiff = roundedAmount - voucher.amount
+                    val newPaid = (session.amountPaid + amountDiff).coerceAtLeast(0.0)
+                    val newDebt = (session.totalAmount - newPaid).coerceAtLeast(0.0)
+                    sessionRepo.updateSession(
+                        session.copy(
+                            amountPaid = Formatters.roundMoney(newPaid),
+                            remainingDebt = Formatters.roundMoney(newDebt)
+                        )
+                    )
+                }
+            }
+            voucherRepo.updateVoucher(
+                voucher.copy(
+                    amount = roundedAmount,
+                    paymentMethod = paymentMethod,
+                    notes = notes.trim(),
+                    category = category.trim(),
+                    customerId = customerId,
+                    date = date
+                )
+            )
+            showToast("تم تعديل السند بنجاح", ToastType.SUCCESS)
+        }
+    }
+
+    fun deleteSession(session: WaterSession) {
+        viewModelScope.launch {
+            val sessionVouchers = voucherRepo.getVouchersForSessionDirect(session.id)
+            for (v in sessionVouchers) {
+                voucherRepo.updateVoucher(
+                    v.copy(sessionId = null, notes = "${v.notes} (دفعة على الحساب بعد حذف دورة #${session.id})".trim())
+                )
+            }
+            sessionRepo.deleteSession(session)
+            showToast("تم حذف دورة السقي وتحديث الحساب", ToastType.INFO)
+        }
+    }
+
+    fun updateSession(
+        id: Long,
+        customerId: Long,
+        pumpName: String,
+        startTime: Long,
+        endTime: Long,
+        durationMinutes: Int,
+        pricePerHour: Double,
+        amountPaid: Double,
+        notes: String,
+        billedToCustomerId: Long? = null,
+        wastedMinutes: Int = 0,
+        wastedReason: String = "",
+        discountAmount: Double = 0.0,
+        costPricePerHour: Double = 0.0,
+        pumpSourceId: Long? = null
+    ) {
+        viewModelScope.launch {
+            val targetCust = customerRepo.getCustomerByIdDirect(customerId)
+            val isWellOwnerAccount = billedToCustomerId != null || targetCust?.isWellOwner == true
+            val chargeableMinutes = (durationMinutes - wastedMinutes).coerceAtLeast(0)
+            val baseAmount = (chargeableMinutes / 60.0) * pricePerHour
+            val totalAmount = Formatters.roundMoney((baseAmount - discountAmount).coerceAtLeast(0.0))
+            val roundedPaid = Formatters.roundMoney(amountPaid)
+            val remainingDebt = if (isWellOwnerAccount) 0.0 else Formatters.roundMoney((totalAmount - roundedPaid).coerceAtLeast(0.0))
+
+            val session = WaterSession(
+                id = id,
+                customerId = customerId,
+                pumpName = pumpName,
+                startTime = startTime,
+                endTime = endTime,
+                durationMinutes = durationMinutes,
+                pricePerHour = pricePerHour,
+                totalAmount = totalAmount,
+                amountPaid = roundedPaid,
+                remainingDebt = remainingDebt,
+                notes = notes,
+                isLive = false,
+                billedToCustomerId = billedToCustomerId,
+                wastedMinutes = wastedMinutes,
+                wastedReason = wastedReason,
+                discountAmount = discountAmount,
+                costPricePerHour = costPricePerHour,
+                pumpSourceId = pumpSourceId
+            )
+            sessionRepo.updateSession(session)
+            showToast("تم تحديث بيانات دورة السقي بنجاح", ToastType.SUCCESS)
+        }
+    }
+
     fun deleteOwnerPurchase(purchase: WellOwnerPurchase) {
         viewModelScope.launch {
             val existingVouchers = voucherRepo.getVouchersForCustomerDirect(purchase.ownerCustomerId)
