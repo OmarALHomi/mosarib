@@ -50,6 +50,7 @@ import com.example.core.ui.MosaribButton
 import com.example.core.ui.MosaribDatePickerDialog
 import com.example.core.ui.MosaribOutlinedButton
 import com.example.core.ui.MosaribTextField
+import com.example.core.ui.isAppDark
 import com.example.core.util.Formatters
 import com.example.features.customers.Customer
 import com.example.ui.theme.PrimaryTeal
@@ -64,6 +65,7 @@ fun WellOwnerPurchaseBottomSheet(
     onSave: (date: Long, durationMinutes: Int, wastedMinutesOnOwner: Int, purchaseRatePerHour: Double, amountPaid: Double, notes: String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val isDark = isAppDark()
     val now = System.currentTimeMillis()
     var date by remember(initialPurchase) { mutableLongStateOf(initialPurchase?.date ?: now) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -201,19 +203,29 @@ fun WellOwnerPurchaseBottomSheet(
             if (isWasteExceeded) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-                    border = BorderStroke(1.dp, Color(0xFFF87171)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isDark) Color(0xFF2B1313) else Color(0xFFFEF2F2)
+                    ),
+                    border = BorderStroke(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFF87171)),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = null,
+                            tint = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
+                            modifier = Modifier.size(18.dp)
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "❌ لا يمكن أن يكون الهدر أكبر من عملية الشراء بتاتاً! (المدة المشتراة: ${Formatters.formatDurationArabic(durationMinutes)})",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB91C1C), fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
+                                fontWeight = FontWeight.Bold
+                            )
                         )
                     }
                 }
@@ -243,7 +255,10 @@ fun WellOwnerPurchaseBottomSheet(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = PrimaryTeal.copy(alpha = 0.08f))
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isDark) Color(0xFF141F25) else PrimaryTeal.copy(alpha = 0.08f)
+                ),
+                border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else PrimaryTeal.copy(alpha = 0.2f))
             ) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -251,8 +266,8 @@ fun WellOwnerPurchaseBottomSheet(
                         Text(Formatters.formatDurationArabic(durationMinutes), fontWeight = FontWeight.SemiBold)
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("هدر محسوب لصاحب البئر", color = Color(0xFFD32F2F))
-                        Text("− ${Formatters.formatDurationArabic(wastedMinutes)}", color = Color(0xFFD32F2F), fontWeight = FontWeight.SemiBold)
+                        Text("هدر محسوب لصاحب البئر", color = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F))
+                        Text("− ${Formatters.formatDurationArabic(wastedMinutes)}", color = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F), fontWeight = FontWeight.SemiBold)
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("الساعات المحتسبة عليه", fontWeight = FontWeight.Bold)
@@ -260,7 +275,7 @@ fun WellOwnerPurchaseBottomSheet(
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("قيمة الهدر المخصومة")
-                        Text(Formatters.formatCurrency(wasteCredit, currencySymbol), color = Color(0xFFD32F2F))
+                        Text(Formatters.formatCurrency(wasteCredit, currencySymbol), color = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F))
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("المستحق الإجمالي لصاحب البئر", fontWeight = FontWeight.Bold)
@@ -268,8 +283,8 @@ fun WellOwnerPurchaseBottomSheet(
                     }
                     if (amountPaid > 0) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("المبلغ المسلَّم نقدياً", color = Color(0xFF15803D), fontWeight = FontWeight.SemiBold)
-                            Text(Formatters.formatCurrency(amountPaid, currencySymbol), color = Color(0xFF15803D), fontWeight = FontWeight.SemiBold)
+                            Text("المبلغ المسلَّم نقدياً", color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D), fontWeight = FontWeight.SemiBold)
+                            Text(Formatters.formatCurrency(amountPaid, currencySymbol), color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D), fontWeight = FontWeight.SemiBold)
                         }
                     }
                     HorizontalDivider(color = PrimaryTeal.copy(alpha = 0.2f), modifier = Modifier.padding(vertical = 2.dp))
@@ -277,7 +292,11 @@ fun WellOwnerPurchaseBottomSheet(
                         Text("الباقي لصالح صاحب البئر", fontWeight = FontWeight.ExtraBold)
                         Text(
                             Formatters.formatCurrency(remainingDueToOwner, currencySymbol),
-                            color = if (remainingDueToOwner > 0) Color(0xFFB91C1C) else Color(0xFF15803D),
+                            color = if (remainingDueToOwner > 0) {
+                                if (isDark) Color(0xFFF87171) else Color(0xFFB91C1C)
+                            } else {
+                                if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D)
+                            },
                             fontWeight = FontWeight.ExtraBold
                         )
                     }

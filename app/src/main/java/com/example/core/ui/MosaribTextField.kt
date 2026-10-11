@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -26,13 +25,13 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.PrimaryTeal
+import com.example.ui.theme.PrimaryTealLight
 
 /**
- * حقل إدخال موحد وعصري لكافة شاشات ونماذج تطبيق مُسَرِب.
- * - زوايا ناعمة 14dp
- * - دعم كامل ودقيق للوضع المظلم (Dark Mode) والفاتح (Light Mode)
- * - حدود تركوازية جذابة عند التركيز
- * - دعم الأيقونات، رسائل الأخطاء، والنصوص التوضيحية
+ * حقل إدخال موحد وفائق التباين لكافة شاشات ونماذج تطبيق مُسَرِب.
+ * - يدعم الوضعين المظلم والفاتح بدقة تامة اعتماداً على ثيم التطبيق النشط.
+ * - خلفية بيضاء نقية في الوضع الفاتح، وخلفية بترولية داكنة فخمة في الوضع المظلم.
+ * - حدود واضحة ومتباينة وألوان خطوط مقروءة وواضحة جداً.
  */
 @Composable
 fun MosaribTextField(
@@ -55,8 +54,20 @@ fun MosaribTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() }
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppDark()
     val isError = !errorText.isNullOrBlank()
+
+    val labelColor = when {
+        isError -> Color(0xFFE53935)
+        isDark -> Color(0xFFE2E8F0)
+        else -> Color(0xFF1E293B)
+    }
+
+    val containerColor = if (isDark) Color(0xFF141F25) else Color.White
+    val textColor = if (isDark) Color(0xFFF0F6F8) else Color(0xFF0F172A)
+    val placeholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
+    val borderColor = if (isDark) Color(0xFF2A3F4D) else Color(0xFFCBD5E1)
+    val activeTeal = if (isDark) PrimaryTealLight else PrimaryTeal
 
     Column(modifier = modifier) {
         if (!label.isNullOrBlank()) {
@@ -65,7 +76,7 @@ fun MosaribTextField(
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
-                    color = if (isError) Color(0xFFE53935) else MaterialTheme.colorScheme.onSurface
+                    color = labelColor
                 ),
                 modifier = Modifier.padding(bottom = 6.dp, start = 2.dp)
             )
@@ -83,14 +94,14 @@ fun MosaribTextField(
             textStyle = TextStyle(
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = textColor
             ),
             placeholder = if (!placeholder.isNullOrBlank()) {
                 {
                     Text(
                         text = placeholder,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF9E9E9E),
+                            color = placeholderColor,
                             fontSize = 14.sp
                         )
                     )
@@ -104,22 +115,29 @@ fun MosaribTextField(
             keyboardActions = keyboardActions,
             interactionSource = interactionSource,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = if (isDark) Color(0xFF1E293B).copy(alpha = 0.7f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                unfocusedContainerColor = if (isDark) Color(0xFF1E293B).copy(alpha = 0.45f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
-                disabledContainerColor = if (isDark) Color(0xFF111A20).copy(alpha = 0.3f) else Color(0xFFF5F5F5),
-                errorContainerColor = if (isDark) Color(0xFF2C1517).copy(alpha = 0.5f) else Color(0xFFFFEBEE).copy(alpha = 0.4f),
+                focusedContainerColor = containerColor,
+                unfocusedContainerColor = containerColor,
+                disabledContainerColor = containerColor,
+                errorContainerColor = if (isDark) Color(0xFF2C1517) else Color(0xFFFFF5F5),
 
-                focusedBorderColor = PrimaryTeal,
-                unfocusedBorderColor = if (isDark) Color(0xFF334155) else Color(0xFFCFD8DC),
-                disabledBorderColor = if (isDark) Color(0xFF1E293B) else Color(0xFFE0E0E0),
+                focusedTextColor = textColor,
+                unfocusedTextColor = textColor,
+                disabledTextColor = textColor,
+
+                focusedBorderColor = activeTeal,
+                unfocusedBorderColor = borderColor,
+                disabledBorderColor = borderColor,
                 errorBorderColor = Color(0xFFE53935),
 
-                focusedLeadingIconColor = PrimaryTeal,
-                unfocusedLeadingIconColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF78909C),
-                focusedTrailingIconColor = PrimaryTeal,
-                unfocusedTrailingIconColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF78909C),
+                focusedLeadingIconColor = activeTeal,
+                unfocusedLeadingIconColor = activeTeal,
+                disabledLeadingIconColor = activeTeal.copy(alpha = 0.6f),
 
-                cursorColor = PrimaryTeal
+                focusedTrailingIconColor = activeTeal,
+                unfocusedTrailingIconColor = if (isDark) Color(0xFFAABCC6) else Color(0xFF64748B),
+                disabledTrailingIconColor = if (isDark) Color(0xFFAABCC6) else Color(0xFF64748B),
+
+                cursorColor = activeTeal
             )
         )
 
@@ -132,19 +150,19 @@ fun MosaribTextField(
                 text = errorText ?: "",
                 style = MaterialTheme.typography.labelSmall.copy(
                     color = Color(0xFFE53935),
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Bold,
                     fontSize = 11.5.sp
                 ),
                 modifier = Modifier.padding(top = 4.dp, start = 4.dp)
             )
         }
 
-        if (!isError && !helperText.isNullOrBlank()) {
+        if (!helperText.isNullOrBlank() && !isError) {
             Text(
                 text = helperText,
                 style = MaterialTheme.typography.labelSmall.copy(
-                    color = if (isDark) Color(0xFF94A3B8) else Color(0xFF78909C),
-                    fontSize = 11.5.sp
+                    color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                    fontSize = 11.sp
                 ),
                 modifier = Modifier.padding(top = 4.dp, start = 4.dp)
             )

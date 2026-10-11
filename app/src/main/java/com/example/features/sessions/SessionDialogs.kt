@@ -8,8 +8,10 @@ import com.example.core.ui.MosaribFilterChip
 import com.example.core.ui.MosaribOutlinedButton
 import com.example.core.ui.MosaribTextField
 import com.example.core.ui.MosaribTimePickerDialog
+import com.example.core.ui.isAppDark
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -141,6 +143,7 @@ fun AddEditSessionBottomSheet(
     )
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val isDark = isAppDark()
 
     var selectedCustomerId by remember(initialSession?.customerId, defaultCustomerId) {
         mutableLongStateOf(initialSession?.customerId ?: defaultCustomerId ?: customers.firstOrNull()?.id ?: 0L)
@@ -491,7 +494,8 @@ fun AddEditSessionBottomSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp)),
-                    color = Color(0xFFE0F2FE),
+                    color = if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE),
+                    border = BorderStroke(1.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Row(
@@ -504,7 +508,7 @@ fun AddEditSessionBottomSheet(
                             text = "💧 حساب صاحب بئر: يُحتسب هذا السقي مقاصة تلقائية وتُخصم قيمته من مستحقات مشتريات الساعات لديه.",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0284C7),
+                                color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
                                 fontSize = 11.5.sp
                             )
                         )
@@ -516,7 +520,16 @@ fun AddEditSessionBottomSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp)),
-                    color = if (billedToCustomerId != null) Color(0xFFE0F2FE) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    color = if (billedToCustomerId != null) {
+                        if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE)
+                    } else {
+                        if (isDark) Color(0xFF141F25) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    },
+                    border = BorderStroke(1.dp, if (billedToCustomerId != null) {
+                        if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD)
+                    } else {
+                        if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0)
+                    }),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
@@ -530,12 +543,17 @@ fun AddEditSessionBottomSheet(
                                     text = "💧 احتساب السقي على صاحب بئر",
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = if (billedToCustomerId != null) Color(0xFF0284C7) else MaterialTheme.colorScheme.onSurface
+                                        color = if (billedToCustomerId != null) {
+                                            if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
+                                        } else MaterialTheme.colorScheme.onSurface
                                     )
                                 )
                                 Text(
                                     text = "تُخصم القيمة كتسديد من مستحقات صاحب البئر لدى المسرب",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontSize = 11.sp)
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = if (isDark) Color(0xFF94A3B8) else Color.Gray,
+                                        fontSize = 11.sp
+                                    )
                                 )
                             }
                             Switch(
@@ -940,8 +958,10 @@ fun AddEditSessionBottomSheet(
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
-                                    border = BorderStroke(1.dp, Color(0xFF93C5FD)),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isDark) Color(0xFF0E2338) else Color(0xFFEFF6FF)
+                                    ),
+                                    border = BorderStroke(1.dp, if (isDark) Color(0xFF1D4ED8) else Color(0xFF93C5FD)),
                                     shape = RoundedCornerShape(10.dp)
                                 ) {
                                     Row(
@@ -951,14 +971,14 @@ fun AddEditSessionBottomSheet(
                                         Icon(
                                             Icons.Default.Info,
                                             contentDescription = null,
-                                            tint = Color(0xFF2563EB),
+                                            tint = if (isDark) Color(0xFF60A5FA) else Color(0xFF2563EB),
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = overnightNotice!!,
                                             style = MaterialTheme.typography.bodySmall.copy(
-                                                color = Color(0xFF1E40AF),
+                                                color = if (isDark) Color(0xFF93C5FD) else Color(0xFF1E40AF),
                                                 fontWeight = FontWeight.Medium,
                                                 fontSize = 11.sp
                                             )
@@ -1023,19 +1043,29 @@ fun AddEditSessionBottomSheet(
                         Spacer(modifier = Modifier.height(8.dp))
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-                            border = BorderStroke(1.dp, Color(0xFFF87171)),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isDark) Color(0xFF2B1313) else Color(0xFFFEF2F2)
+                            ),
+                            border = BorderStroke(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFF87171)),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
+                                Icon(
+                                    Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
+                                    modifier = Modifier.size(18.dp)
+                                )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "⚠️ لا يمكن تسجيل سقي بساعات خيالية! الحد الأقصى المسموح به للدورة الواحدة هو 10 أيام (240 ساعة / 14,400 دقيقة).",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB91C1C), fontWeight = FontWeight.Bold)
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 )
                             }
                         }
@@ -1050,7 +1080,19 @@ fun AddEditSessionBottomSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp)),
-                color = if (wastedTotalMinutes > 0) Color(0xFFFFF7ED) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                color = when {
+                    wastedTotalMinutes > 0 -> if (isDark) Color(0xFF261811) else Color(0xFFFFF7ED)
+                    isDark -> Color(0xFF141F25)
+                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                },
+                border = BorderStroke(
+                    1.dp,
+                    when {
+                        wastedTotalMinutes > 0 -> if (isDark) Color(0xFF9A3412) else Color(0xFFFED7AA)
+                        isDark -> Color(0xFF2A3C45)
+                        else -> Color(0xFFE2E8F0)
+                    }
+                ),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
@@ -1063,7 +1105,10 @@ fun AddEditSessionBottomSheet(
                             text = "⏱️ الوقت المهدور والتوقفات (يُخصم)",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = if (wastedTotalMinutes > 0) Color(0xFFC2410C) else MaterialTheme.colorScheme.onSurface
+                                color = when {
+                                    wastedTotalMinutes > 0 -> if (isDark) Color(0xFFFB923C) else Color(0xFFC2410C)
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                }
                             ),
                             modifier = Modifier.weight(1f)
                         )
@@ -1111,7 +1156,10 @@ fun AddEditSessionBottomSheet(
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 "❌ لا يمكن أن يكون الهدر أكبر من مدة السقي بتاتاً!",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F),
+                                    fontWeight = FontWeight.Bold
+                                )
                             )
                         }
                     }
@@ -1137,7 +1185,19 @@ fun AddEditSessionBottomSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp)),
-                color = if (discountAmount > 0) Color(0xFFF0FDF4) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                color = when {
+                    discountAmount > 0 -> if (isDark) Color(0xFF11261B) else Color(0xFFF0FDF4)
+                    isDark -> Color(0xFF141F25)
+                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                },
+                border = BorderStroke(
+                    1.dp,
+                    when {
+                        discountAmount > 0 -> if (isDark) Color(0xFF166534) else Color(0xFFBBF7D0)
+                        isDark -> Color(0xFF2A3C45)
+                        else -> Color(0xFFE2E8F0)
+                    }
+                ),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
@@ -1148,7 +1208,13 @@ fun AddEditSessionBottomSheet(
                     ) {
                         Text(
                             text = "🏷️ خصم ومسامحة للمزارع (مبلغ مالي)",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = if (discountAmount > 0) Color(0xFF15803D) else MaterialTheme.colorScheme.onSurface)
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = when {
+                                    discountAmount > 0 -> if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D)
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                }
+                            )
                         )
                         TextButton(onClick = { showDiscountDetails = !showDiscountDetails }) {
                             Text(if (showDiscountDetails) "إخفاء" else "إضافة خصم")
@@ -1174,7 +1240,10 @@ fun AddEditSessionBottomSheet(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = PrimaryTeal.copy(alpha = 0.08f))
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isDark) Color(0xFF141F25) else PrimaryTeal.copy(alpha = 0.08f)
+                ),
+                border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else PrimaryTeal.copy(alpha = 0.2f))
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     // سطر الساعات
@@ -1194,8 +1263,8 @@ fun AddEditSessionBottomSheet(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("الوقت المهدور المخصوم:", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFC2410C)))
-                            Text("- ${Formatters.formatDurationArabic(wastedTotalMinutes)}", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFC2410C), fontWeight = FontWeight.Bold))
+                            Text("الوقت المهدور المخصوم:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFFB923C) else Color(0xFFC2410C)))
+                            Text("- ${Formatters.formatDurationArabic(wastedTotalMinutes)}", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFFB923C) else Color(0xFFC2410C), fontWeight = FontWeight.Bold))
                         }
                     }
 
@@ -1218,13 +1287,15 @@ fun AddEditSessionBottomSheet(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color(0xFFE0F2FE), RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE))
+                                .border(1.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD), RoundedCornerShape(8.dp))
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("💧 مسجل على حساب صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold))
-                            Text(ownerName, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                            Text("💧 مسجل على حساب صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                            Text(ownerName, style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(
@@ -1241,8 +1312,8 @@ fun AddEditSessionBottomSheet(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("المحتسب على صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1)))
-                            Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                            Text("المحتسب على صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1)))
+                            Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.bodyMedium.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
                         }
                     } else {
                         // المبلغ المطلوب من المزارع
@@ -1279,26 +1350,30 @@ fun AddEditSessionBottomSheet(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFFE0F2FE), RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE))
+                        .border(1.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD), RoundedCornerShape(8.dp))
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("المعاملة المحاسبية:", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1)))
-                    Text("مقاصة تخصم من مستحقات الشراء", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                    Text("المعاملة المحاسبية:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1)))
+                    Text("مقاصة تخصم من مستحقات الشراء", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
                 }
             } else if (remainingDebt > 0) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFFFEF2F2), RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isDark) Color(0xFF2B1313) else Color(0xFFFEF2F2))
+                        .border(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFFECACA), RoundedCornerShape(8.dp))
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("المتبقي بذمة العميل (دين):", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB91C1C)))
-                    Text(Formatters.formatCurrency(remainingDebt, currencySymbol), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB91C1C), fontWeight = FontWeight.Bold))
+                    Text("المتبقي بذمة العميل (دين):", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C)))
+                    Text(Formatters.formatCurrency(remainingDebt, currencySymbol), style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C), fontWeight = FontWeight.Bold))
                 }
             }
 

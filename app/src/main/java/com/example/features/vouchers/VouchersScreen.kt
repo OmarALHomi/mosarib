@@ -3,6 +3,7 @@ package com.example.features.vouchers
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import com.example.core.ui.isAppDark
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -1764,6 +1765,7 @@ fun AddVoucherBottomSheet(
     ) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val isDark = isAppDark()
 
     var type by remember { mutableStateOf(initialVoucher?.type ?: VoucherType.RECEIPT) }
     var selectedCustomerId by remember {
@@ -1836,16 +1838,16 @@ fun AddVoucherBottomSheet(
                     text = "قبض من عميل",
                     onClick = { type = VoucherType.RECEIPT },
                     modifier = Modifier.weight(1f),
-                    containerColor = if (type == VoucherType.RECEIPT) AccentEmerald else MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = if (type == VoucherType.RECEIPT) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                    containerColor = if (type == VoucherType.RECEIPT) AccentEmerald else if (isDark) Color(0xFF141F25) else Color(0xFFF1F5F9),
+                    contentColor = if (type == VoucherType.RECEIPT) Color.White else if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
                 )
 
                 MosaribButton(
                     text = "مصروف",
                     onClick = { type = VoucherType.EXPENSE },
                     modifier = Modifier.weight(1f),
-                    containerColor = if (type == VoucherType.EXPENSE) Color(0xFFE53935) else MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = if (type == VoucherType.EXPENSE) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                    containerColor = if (type == VoucherType.EXPENSE) Color(0xFFE53935) else if (isDark) Color(0xFF141F25) else Color(0xFFF1F5F9),
+                    contentColor = if (type == VoucherType.EXPENSE) Color.White else if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
                 )
             }
 
@@ -1892,8 +1894,9 @@ fun AddVoucherBottomSheet(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                        )
+                            containerColor = if (isDark) Color(0xFF141F25) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                        ),
+                        border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0))
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Row(
@@ -1909,7 +1912,7 @@ fun AddVoucherBottomSheet(
                                     val totalUnsettledDebt = unsettledSessions.sumOf { it.remainingDebt }
                                     Text(
                                         text = "إجمالي المتأخرات: ${Formatters.formatCurrency(totalUnsettledDebt, currencySymbol)}",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFC62828), fontWeight = FontWeight.Bold)
+                                        style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFF87171) else Color(0xFFC62828), fontWeight = FontWeight.Bold)
                                     )
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1979,15 +1982,15 @@ fun AddVoucherBottomSheet(
                                         shape = RoundedCornerShape(10.dp),
                                         colors = CardDefaults.cardColors(
                                             containerColor = if (isSelected) {
-                                                PrimaryTeal.copy(alpha = 0.08f)
+                                                if (isDark) Color(0xFF10282E) else PrimaryTeal.copy(alpha = 0.08f)
                                             } else {
-                                                MaterialTheme.colorScheme.surface
+                                                if (isDark) Color(0xFF182329) else Color.White
                                             }
                                         ),
                                         border = if (isSelected) {
                                             BorderStroke(1.5.dp, PrimaryTeal)
                                         } else {
-                                            BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.4f))
+                                            BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color.LightGray.copy(alpha = 0.4f))
                                         }
                                     ) {
                                         Column(modifier = Modifier.padding(10.dp)) {
@@ -2034,7 +2037,7 @@ fun AddVoucherBottomSheet(
                                                         text = Formatters.formatCurrency(session.remainingDebt, currencySymbol),
                                                         fontWeight = FontWeight.Bold,
                                                         fontSize = 13.sp,
-                                                        color = Color(0xFFC62828)
+                                                        color = if (isDark) Color(0xFFF87171) else Color(0xFFC62828)
                                                     )
                                                     Text(
                                                         text = "المتبقي",
@@ -2050,23 +2053,23 @@ fun AddVoucherBottomSheet(
                                                 val (allocated, remAfter) = allocInfo
                                                 val (badgeBg, badgeTextColor, badgeText) = when {
                                                     parsedAmt <= 0.0 -> Triple(
-                                                        Color(0xFFEEEEEE),
-                                                        Color.DarkGray,
+                                                        if (isDark) Color(0xFF202A30) else Color(0xFFEEEEEE),
+                                                        if (isDark) Color(0xFF94A3B8) else Color.DarkGray,
                                                         "⚠️ أدخل المبلغ لمعاينة التوزيع"
                                                     )
                                                     remAfter == 0.0 -> Triple(
-                                                        Color(0xFFE8F5E9),
-                                                        Color(0xFF2E7D32),
+                                                        if (isDark) Color(0xFF11261B) else Color(0xFFE8F5E9),
+                                                        if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
                                                         "✅ ستُسدد بالكامل (${Formatters.formatCurrency(allocated, currencySymbol)})"
                                                     )
                                                     allocated > 0.0 -> Triple(
-                                                        Color(0xFFFFF8E1),
-                                                        Color(0xFFF57F17),
+                                                        if (isDark) Color(0xFF2A2010) else Color(0xFFFFF8E1),
+                                                        if (isDark) Color(0xFFFBBF24) else Color(0xFFF57F17),
                                                         "⏳ سداد جزئي: ${Formatters.formatCurrency(allocated, currencySymbol)} (متبقي: ${Formatters.formatCurrency(remAfter, currencySymbol)})"
                                                     )
                                                     else -> Triple(
-                                                        Color(0xFFFFEBEE),
-                                                        Color(0xFFC62828),
+                                                        if (isDark) Color(0xFF2B1313) else Color(0xFFFFEBEE),
+                                                        if (isDark) Color(0xFFF87171) else Color(0xFFC62828),
                                                         "❌ لم يشملها المبلغ (المبلغ غير كافٍ)"
                                                     )
                                                 }
@@ -2098,14 +2101,15 @@ fun AddVoucherBottomSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFE8F5E9))
+                            .background(if (isDark) Color(0xFF11261B) else Color(0xFFE8F5E9))
+                            .border(1.dp, if (isDark) Color(0xFF166534) else Color(0xFFC8E6C9), RoundedCornerShape(8.dp))
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Text(
                             text = "هذا العميل ليس عليه جلسات مؤخرة (سداد عام لحسابه)",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF2E7D32)
+                            color = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32)
                         )
                     }
                 }
@@ -2244,6 +2248,7 @@ fun SettlementResultDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val isDark = isAppDark()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -2287,8 +2292,9 @@ fun SettlementResultDialog(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        containerColor = if (isDark) Color(0xFF141F25) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     ),
+                    border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -2323,9 +2329,17 @@ fun SettlementResultDialog(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
                             containerColor = when {
-                                item.isFullyPaid -> Color(0xFFE8F5E9)
-                                item.allocatedAmount > 0 -> Color(0xFFFFF8E1)
-                                else -> Color(0xFFFFEBEE)
+                                item.isFullyPaid -> if (isDark) Color(0xFF11261B) else Color(0xFFE8F5E9)
+                                item.allocatedAmount > 0 -> if (isDark) Color(0xFF2A2010) else Color(0xFFFFF8E1)
+                                else -> if (isDark) Color(0xFF2B1313) else Color(0xFFFFEBEE)
+                            }
+                        ),
+                        border = BorderStroke(
+                            1.dp,
+                            when {
+                                item.isFullyPaid -> if (isDark) Color(0xFF166534) else Color(0xFFC8E6C9)
+                                item.allocatedAmount > 0 -> if (isDark) Color(0xFF854D0E) else Color(0xFFFEF08A)
+                                else -> if (isDark) Color(0xFF991B1B) else Color(0xFFFECACA)
                             }
                         ),
                         shape = RoundedCornerShape(10.dp)
@@ -2354,7 +2368,7 @@ fun SettlementResultDialog(
                                     text = "المسدد: ${Formatters.formatCurrency(item.allocatedAmount, result.currencySymbol)}",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
-                                    color = if (item.allocatedAmount > 0) PrimaryTeal else Color(0xFFC62828)
+                                    color = if (item.allocatedAmount > 0) PrimaryTeal else if (isDark) Color(0xFFF87171) else Color(0xFFC62828)
                                 )
                                 Text(
                                     text = when {
@@ -2365,9 +2379,9 @@ fun SettlementResultDialog(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
                                     color = when {
-                                        item.isFullyPaid -> Color(0xFF2E7D32)
-                                        item.allocatedAmount > 0 -> Color(0xFFF57F17)
-                                        else -> Color(0xFFC62828)
+                                        item.isFullyPaid -> if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32)
+                                        item.allocatedAmount > 0 -> if (isDark) Color(0xFFFBBF24) else Color(0xFFF57F17)
+                                        else -> if (isDark) Color(0xFFF87171) else Color(0xFFC62828)
                                     }
                                 )
                             }
@@ -2378,7 +2392,10 @@ fun SettlementResultDialog(
                 if (result.surplusAmount > 0.0) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE0F2F1)),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isDark) Color(0xFF0F2624) else Color(0xFFE0F2F1)
+                        ),
+                        border = BorderStroke(1.dp, if (isDark) Color(0xFF115E59) else Color(0xFF99F6E4)),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Row(

@@ -1,7 +1,6 @@
 package com.example.core.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -27,9 +26,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.PrimaryTeal
+import com.example.ui.theme.PrimaryTealLight
 
 /**
- * زر رئيسي موحد بتصميم عصري وخيارات مرنة
+ * زر رئيسي موحد بتصميم عصري فائق الوضوح وخيارات مرنة
  */
 @Composable
 fun MosaribButton(
@@ -45,6 +45,11 @@ fun MosaribButton(
     shape: Shape = RoundedCornerShape(14.dp),
     height: Dp = 50.dp
 ) {
+    val isDark = isAppDark()
+
+    val disabledBg = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0)
+    val disabledFg = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
+
     Button(
         onClick = onClick,
         modifier = modifier
@@ -55,8 +60,8 @@ fun MosaribButton(
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
             contentColor = contentColor,
-            disabledContainerColor = containerColor.copy(alpha = 0.4f),
-            disabledContentColor = contentColor.copy(alpha = 0.7f)
+            disabledContainerColor = disabledBg,
+            disabledContentColor = disabledFg
         ),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
     ) {
@@ -78,8 +83,8 @@ fun MosaribButton(
                 Text(
                     text = text,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 )
                 if (trailingIcon != null) {
@@ -92,7 +97,7 @@ fun MosaribButton(
 }
 
 /**
- * زر إطاري ثانوي موحد
+ * زر ثانوي محدد الحدود (Outlined)
  */
 @Composable
 fun MosaribOutlinedButton(
@@ -105,7 +110,12 @@ fun MosaribOutlinedButton(
     shape: Shape = RoundedCornerShape(14.dp),
     height: Dp = 50.dp
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppDark()
+    val activeTeal = if (isDark) PrimaryTealLight else PrimaryTeal
+    val containerBg = if (isDark) Color(0xFF141F25) else Color.White
+    val borderColor = if (enabled) activeTeal.copy(alpha = 0.5f) else (if (isDark) Color(0xFF2A3F4D) else Color(0xFFCBD5E1))
+    val disabledFg = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
+
     OutlinedButton(
         onClick = onClick,
         modifier = modifier
@@ -113,12 +123,12 @@ fun MosaribOutlinedButton(
             .height(height),
         enabled = enabled,
         shape = shape,
-        border = BorderStroke(
-            1.dp,
-            if (isDark) Color(0xFF334155) else Color(0xFFCFD8DC)
-        ),
+        border = BorderStroke(1.2.dp, borderColor),
         colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = if (isDark) Color(0xFFE2E8F0) else MaterialTheme.colorScheme.onSurface
+            containerColor = containerBg,
+            contentColor = activeTeal,
+            disabledContainerColor = if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9),
+            disabledContentColor = disabledFg
         ),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
     ) {
@@ -133,59 +143,14 @@ fun MosaribOutlinedButton(
             Text(
                 text = text,
                 style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.5.sp
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.Bold
                 )
             )
             if (trailingIcon != null) {
                 Spacer(modifier = Modifier.width(8.dp))
                 trailingIcon()
             }
-        }
-    }
-}
-
-/**
- * زر عمليات الحذف والخطر الموحد
- */
-@Composable
-fun MosaribDangerButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    leadingIcon: @Composable (() -> Unit)? = null,
-    shape: Shape = RoundedCornerShape(14.dp),
-    height: Dp = 50.dp
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier
-            .fillMaxWidth()
-            .height(height),
-        enabled = enabled,
-        shape = shape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFFE53935),
-            contentColor = Color.White
-        ),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            if (leadingIcon != null) {
-                leadingIcon()
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-            Text(
-                text = text,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
-            )
         }
     }
 }

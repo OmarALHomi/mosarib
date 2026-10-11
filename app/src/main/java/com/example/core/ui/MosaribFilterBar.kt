@@ -50,12 +50,12 @@ fun MosaribFilterChip(
     enabled: Boolean = true,
     shape: Shape = RoundedCornerShape(12.dp)
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppDark()
 
     val targetContainerColor = when {
         selected -> PrimaryTeal
-        isDark -> Color(0xFF1E2628)
-        else -> Color(0xFFF1F5F7)
+        isDark -> Color(0xFF141F25)
+        else -> Color(0xFFF1F5F9)
     }
 
     val targetContentColor = when {
@@ -66,7 +66,7 @@ fun MosaribFilterChip(
 
     val borderColor = when {
         selected -> PrimaryTeal
-        isDark -> Color(0xFF334155)
+        isDark -> Color(0xFF2A3C45)
         else -> Color(0xFFCBD5E1)
     }
 

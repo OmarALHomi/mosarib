@@ -1,10 +1,10 @@
 package com.example.core.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,7 +28,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,7 +40,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -52,7 +48,7 @@ import java.util.Calendar
 
 /**
  * نافذة حوار مخصصة وفاخرة لاختيار الوقت (بدون استخدام نوافذ النظام القديمة)
- * - دعم كامل ودقيق للغتين والعربية والوضع المظلم
+ * - دعم كامل ودقيق وتلقائي للوضعين الفاتح والمظلم (Dark & Light Theme)
  * - اختيار الساعات (1..12)، الدقائق (00..59)، والصباح/المساء
  * - أزرار سريعة للرفع والخفض واختيار الدقائق الشائعة (00, 15, 30, 45)
  */
@@ -64,7 +60,7 @@ fun MosaribTimePickerDialog(
     onDismiss: () -> Unit,
     onTimeSelected: (hour24: Int, minute: Int) -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppDark()
 
     // تحويل الوقت الأولي إلى نظام 12 ساعة
     val initIsPm = initialHour24 >= 12
@@ -85,8 +81,9 @@ fun MosaribTimePickerDialog(
                 .padding(horizontal = 8.dp),
             shape = RoundedCornerShape(22.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (isDark) Color(0xFF1E293B) else Color.White
+                containerColor = if (isDark) Color(0xFF141F25) else Color.White
             ),
+            border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0)),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
@@ -99,13 +96,13 @@ fun MosaribTimePickerDialog(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
-                            .background(PrimaryTeal.copy(alpha = 0.15f)),
+                            .background(PrimaryTeal.copy(alpha = if (isDark) 0.22f else 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -119,7 +116,7 @@ fun MosaribTimePickerDialog(
                         text = title,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
                         )
                     )
                 }
@@ -133,7 +130,8 @@ fun MosaribTimePickerDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9))
+                        .background(if (isDark) Color(0xFF0D161B) else Color(0xFFF1F5F9))
+                        .border(1.dp, if (isDark) Color(0xFF23353E) else Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
                         .padding(vertical = 12.dp, horizontal = 16.dp)
                 ) {
                     Text(
@@ -146,7 +144,7 @@ fun MosaribTimePickerDialog(
                         text = ":",
                         fontSize = 34.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                         modifier = Modifier.padding(horizontal = 6.dp)
                     )
                     Text(
@@ -155,12 +153,16 @@ fun MosaribTimePickerDialog(
                         fontWeight = FontWeight.ExtraBold,
                         color = PrimaryTeal
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(14.dp))
                     Text(
-                        text = if (isPm) "مساءً" else "صباحاً",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isPm) Color(0xFFF59E0B) else Color(0xFF0284C7)
+                        text = if (isPm) "مساءً (م)" else "صباحاً (ص)",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (isPm) {
+                            if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706)
+                        } else {
+                            if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
+                        }
                     )
                 }
 
@@ -174,22 +176,22 @@ fun MosaribTimePickerDialog(
                     AmPmToggleCard(
                         text = "صباحاً (ص)",
                         isSelected = !isPm,
-                        activeColor = Color(0xFF0284C7),
+                        activeColor = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
                         modifier = Modifier.weight(1f),
                         onClick = { isPm = false }
                     )
                     AmPmToggleCard(
                         text = "مساءً (م)",
                         isSelected = isPm,
-                        activeColor = Color(0xFFF59E0B),
+                        activeColor = if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706),
                         modifier = Modifier.weight(1f),
                         onClick = { isPm = true }
                     )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0))
-                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = if (isDark) Color(0xFF26353E) else Color(0xFFE2E8F0))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // عدادات الساعات والدقائق التفاعلية
                 Row(
@@ -226,7 +228,7 @@ fun MosaribTimePickerDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // أزرار سريعة للدقائق الشائعة
                 Row(
@@ -236,29 +238,37 @@ fun MosaribTimePickerDialog(
                 ) {
                     listOf(0, 15, 30, 45).forEach { min ->
                         val isSelected = selectedMinute == min
+                        val chipBg = when {
+                            isSelected -> PrimaryTeal
+                            isDark -> Color(0xFF1B2830)
+                            else -> Color(0xFFF1F5F9)
+                        }
+                        val chipText = when {
+                            isSelected -> Color.White
+                            isDark -> Color(0xFFCBD5E1)
+                            else -> Color(0xFF334155)
+                        }
+                        val chipBorder = when {
+                            isSelected -> PrimaryTeal
+                            isDark -> Color(0xFF2E404C)
+                            else -> Color(0xFFCBD5E1)
+                        }
+
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    if (isSelected) PrimaryTeal.copy(alpha = 0.18f)
-                                    else if (isDark) Color(0xFF334155).copy(alpha = 0.5f)
-                                    else Color(0xFFF1F5F9)
-                                )
-                                .border(
-                                    width = 1.dp,
-                                    color = if (isSelected) PrimaryTeal else Color.Transparent,
-                                    shape = RoundedCornerShape(8.dp)
-                                )
+                                .background(chipBg)
+                                .border(1.dp, chipBorder, RoundedCornerShape(8.dp))
                                 .clickable { selectedMinute = min }
-                                .padding(vertical = 6.dp),
+                                .padding(vertical = 7.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = ":${String.format("%02d", min)}",
                                 fontSize = 13.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) PrimaryTeal else MaterialTheme.colorScheme.onSurface
+                                color = chipText
                             )
                         }
                     }
@@ -306,16 +316,19 @@ private fun AmPmToggleCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppDark()
     val bgColor by animateColorAsState(
-        targetValue = if (isSelected) activeColor.copy(alpha = 0.16f)
-        else if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
+        targetValue = if (isSelected) activeColor.copy(alpha = if (isDark) 0.22f else 0.12f)
+        else if (isDark) Color(0xFF141F25) else Color(0xFFF8FAFC),
         label = "ampm_bg"
     )
     val borderColor by animateColorAsState(
-        targetValue = if (isSelected) activeColor else if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1),
+        targetValue = if (isSelected) activeColor
+        else if (isDark) Color(0xFF2A3C45) else Color(0xFFCBD5E1),
         label = "ampm_border"
     )
+    val textColor = if (isSelected) activeColor
+    else if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
 
     Box(
         modifier = modifier
@@ -330,7 +343,7 @@ private fun AmPmToggleCard(
             text = text,
             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
             fontSize = 13.5.sp,
-            color = if (isSelected) activeColor else MaterialTheme.colorScheme.onSurface
+            color = textColor
         )
     }
 }
@@ -344,7 +357,7 @@ private fun TimeCounterColumn(
     onIncrement: () -> Unit,
     onDecrement: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppDark()
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -354,7 +367,7 @@ private fun TimeCounterColumn(
             text = label,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Gray
+            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
         )
 
         IconButton(
@@ -362,24 +375,29 @@ private fun TimeCounterColumn(
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
-                .background(if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0))
+                .background(if (isDark) Color(0xFF202F38) else Color(0xFFE2E8F0))
         ) {
-            Icon(Icons.Default.Add, contentDescription = "زيادة", modifier = Modifier.size(18.dp))
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "زيادة",
+                modifier = Modifier.size(18.dp),
+                tint = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
+            )
         }
 
         Box(
             modifier = Modifier
                 .size(width = 64.dp, height = 44.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(if (isDark) Color(0xFF0F172A) else Color(0xFFF8FAFC))
-                .border(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1), RoundedCornerShape(10.dp)),
+                .background(if (isDark) Color(0xFF0D161B) else Color(0xFFF8FAFC))
+                .border(1.dp, if (isDark) Color(0xFF2E404C) else Color(0xFFCBD5E1), RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = String.format("%02d", value),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
             )
         }
 
@@ -388,15 +406,21 @@ private fun TimeCounterColumn(
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
-                .background(if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0))
+                .background(if (isDark) Color(0xFF202F38) else Color(0xFFE2E8F0))
         ) {
-            Icon(Icons.Default.Remove, contentDescription = "إنقاص", modifier = Modifier.size(18.dp))
+            Icon(
+                imageVector = Icons.Default.Remove,
+                contentDescription = "إنقاص",
+                modifier = Modifier.size(18.dp),
+                tint = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
+            )
         }
     }
 }
 
 /**
  * نافذة حوار مخصصة لاختيار التاريخ (يوم / شهر / سنة) بدون استخدام نوافذ النظام
+ * - تدعم الوضعين الفاتح والمظلم بتباين عالٍ وألوان منسجمة
  */
 @Composable
 fun MosaribDatePickerDialog(
@@ -405,7 +429,7 @@ fun MosaribDatePickerDialog(
     onDismiss: () -> Unit,
     onDateSelected: (timestamp: Long) -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppDark()
     val cal = remember(initialTimestamp) {
         Calendar.getInstance().apply { timeInMillis = initialTimestamp }
     }
@@ -426,8 +450,9 @@ fun MosaribDatePickerDialog(
                 .padding(horizontal = 8.dp),
             shape = RoundedCornerShape(22.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (isDark) Color(0xFF1E293B) else Color.White
+                containerColor = if (isDark) Color(0xFF141F25) else Color.White
             ),
+            border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0)),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
@@ -440,13 +465,13 @@ fun MosaribDatePickerDialog(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
-                            .background(PrimaryTeal.copy(alpha = 0.15f)),
+                            .background(PrimaryTeal.copy(alpha = if (isDark) 0.22f else 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -460,19 +485,20 @@ fun MosaribDatePickerDialog(
                         text = title,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
                         )
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
                 // عرض التاريخ المختار
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9))
+                        .background(if (isDark) Color(0xFF0D161B) else Color(0xFFF1F5F9))
+                        .border(1.dp, if (isDark) Color(0xFF23353E) else Color(0xFFE2E8F0), RoundedCornerShape(14.dp))
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -484,7 +510,7 @@ fun MosaribDatePickerDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
                 // عدادات اليوم والشهر والسنة
                 Row(
@@ -511,33 +537,54 @@ fun MosaribDatePickerDialog(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(text = "الشهر", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Text(
+                            text = "الشهر",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                        )
                         IconButton(
                             onClick = { selectedMonth = if (selectedMonth >= 11) 0 else selectedMonth + 1 },
-                            modifier = Modifier.size(36.dp).clip(CircleShape).background(if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0))
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(if (isDark) Color(0xFF202F38) else Color(0xFFE2E8F0))
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "زيادة الشهر", modifier = Modifier.size(18.dp))
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "زيادة الشهر",
+                                modifier = Modifier.size(18.dp),
+                                tint = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
+                            )
                         }
                         Box(
                             modifier = Modifier
-                                .size(width = 80.dp, height = 44.dp)
+                                .size(width = 96.dp, height = 44.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) Color(0xFF0F172A) else Color(0xFFF8FAFC))
-                                .border(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1), RoundedCornerShape(10.dp)),
+                                .background(if (isDark) Color(0xFF0D161B) else Color(0xFFF8FAFC))
+                                .border(1.dp, if (isDark) Color(0xFF2E404C) else Color(0xFFCBD5E1), RoundedCornerShape(10.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = arabicMonths.getOrElse(selectedMonth) { "" },
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
                             )
                         }
                         IconButton(
                             onClick = { selectedMonth = if (selectedMonth <= 0) 11 else selectedMonth - 1 },
-                            modifier = Modifier.size(36.dp).clip(CircleShape).background(if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0))
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(if (isDark) Color(0xFF202F38) else Color(0xFFE2E8F0))
                         ) {
-                            Icon(Icons.Default.Remove, contentDescription = "إنقاص الشهر", modifier = Modifier.size(18.dp))
+                            Icon(
+                                Icons.Default.Remove,
+                                contentDescription = "إنقاص الشهر",
+                                modifier = Modifier.size(18.dp),
+                                tint = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
+                            )
                         }
                     }
 
@@ -552,7 +599,7 @@ fun MosaribDatePickerDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(22.dp))
 
                 // أزرار الإجراءات
                 Row(
