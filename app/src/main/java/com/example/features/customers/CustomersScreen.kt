@@ -17,12 +17,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Call
@@ -49,6 +56,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -99,6 +108,18 @@ fun CustomersScreen(
     var customerToEdit by remember { mutableStateOf<Customer?>(null) }
     var customerToDelete by remember { mutableStateOf<Customer?>(null) }
     var messageChoiceCustomer by remember { mutableStateOf<CustomerWithBalance?>(null) }
+    var showExportMenu by remember { mutableStateOf(false) }
+
+    val importDrafts by viewModel.importDrafts.collectAsStateWithLifecycle()
+    val isImporting by viewModel.isImporting.collectAsStateWithLifecycle()
+
+    val excelPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.startImportFromUri(context, uri)
+        }
+    }
 
     // حساب إجمالي المركز المالي للشريط السفلي (دفتر الحسابات)
     val totalOwedByCustomers = remember(rawCustomers) {
@@ -164,18 +185,96 @@ fun CustomersScreen(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    // حقل البحث
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { viewModel.setSearchQuery(it) },
-                        placeholder = { Text("بحث بالاسم، المزرعة، أو الهاتف...") },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("customers_search_input"),
-                        shape = RoundedCornerShape(14.dp),
-                        singleLine = true
-                    )
+                    // حقل البحث مع أزرار استيراد وتصدير إكسل
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { viewModel.setSearchQuery(it) },
+                            placeholder = { Text("بحث بالاسم، المزرعة، أو الهاتف...") },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("customers_search_input"),
+                            shape = RoundedCornerShape(14.dp),
+                            singleLine = true
+                        )
+
+                        // زر استيراد إكسل
+                        Surface(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .clickable {
+                                    excelPickerLauncher.launch(
+                                        arrayOf(
+                                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                            "application/vnd.ms-excel",
+                                            "text/csv",
+                                            "text/comma-separated-values",
+                                            "text/plain",
+                                            "*/*"
+                                        )
+                                    )
+                                },
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.FileUpload,
+                                    contentDescription = "استيراد من إكسل",
+                                    tint = PrimaryTeal,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+
+                        // زر تصدير إكسل
+                        Box {
+                            Surface(
+                                modifier = Modifier
+                                    .size(50.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .clickable { showExportMenu = true },
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.FileDownload,
+                                        contentDescription = "تصدير إلى إكسل",
+                                        tint = PrimaryTeal,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                            DropdownMenu(
+                                expanded = showExportMenu,
+                                onDismissRequest = { showExportMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("تصدير إلى إكسل (XLSX)", fontWeight = FontWeight.Bold) },
+                                    leadingIcon = { Icon(Icons.Default.TableChart, contentDescription = null, tint = PrimaryTeal) },
+                                    onClick = {
+                                        showExportMenu = false
+                                        viewModel.exportCustomersToExcel(context)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("تصدير كملف CSV", fontWeight = FontWeight.Bold) },
+                                    leadingIcon = { Icon(Icons.Default.Description, contentDescription = null, tint = PrimaryTeal) },
+                                    onClick = {
+                                        showExportMenu = false
+                                        viewModel.exportCustomersToCsv(context)
+                                    }
+                                )
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(6.dp))
 
@@ -343,6 +442,34 @@ fun CustomersScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 75.dp)
+        )
+    }
+
+    // شاشة مراجعة استيراد إكسل الذكية
+    importDrafts?.let { drafts ->
+        CustomerImportReviewDialog(
+            drafts = drafts,
+            onDraftUpdated = { viewModel.updateImportDraft(it) },
+            onDraftDeleted = { viewModel.removeImportDraft(it) },
+            onToggleSelectAll = { viewModel.toggleSelectAllImportDrafts(it) },
+            onConfirmImport = { updateExisting -> viewModel.confirmImport(updateExisting) },
+            onDismiss = { viewModel.cancelImport() }
+        )
+    }
+
+    // مؤشر جاري قراءة ملف الإكسل بذكاء
+    if (isImporting) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            title = { Text("قراءة ملف الإكسل", fontWeight = FontWeight.Bold) },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = PrimaryTeal)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("يتم فحص الأعمدة والبيانات بذكاء...")
+                }
+            }
         )
     }
 

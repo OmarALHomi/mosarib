@@ -9,7 +9,7 @@ import java.io.File
 
 object FileSharingHelper {
 
-    fun sharePdf(context: Context, file: File, title: String = "مشاركة المستند") {
+    fun shareFile(context: Context, file: File, mimeType: String, title: String = "مشاركة الملف") {
         try {
             val uri: Uri = FileProvider.getUriForFile(
                 context,
@@ -17,7 +17,7 @@ object FileSharingHelper {
                 file
             )
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "application/pdf"
+                type = mimeType
                 putExtra(Intent.EXTRA_STREAM, uri)
                 putExtra(Intent.EXTRA_SUBJECT, title)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -31,7 +31,7 @@ object FileSharingHelper {
         }
     }
 
-    fun openPdf(context: Context, file: File) {
+    fun openFile(context: Context, file: File, mimeType: String, title: String = "فتح الملف") {
         try {
             val uri: Uri = FileProvider.getUriForFile(
                 context,
@@ -39,16 +39,24 @@ object FileSharingHelper {
                 file
             )
             val viewIntent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/pdf")
+                setDataAndType(uri, mimeType)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            context.startActivity(Intent.createChooser(viewIntent, "فتح ملف PDF").apply {
+            context.startActivity(Intent.createChooser(viewIntent, title).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
         } catch (e: Exception) {
-            Toast.makeText(context, "لا يوجد تطبيق لعرض ملفات PDF، يرجى مشاركته", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "تعذر فتح الملف مباشرة، يرجى مشاركته: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    fun sharePdf(context: Context, file: File, title: String = "مشاركة المستند") {
+        shareFile(context, file, "application/pdf", title)
+    }
+
+    fun openPdf(context: Context, file: File) {
+        openFile(context, file, "application/pdf", "فتح ملف PDF")
     }
 
     const val MESSAGE_FOOTER = "\n\n---\nتطبيق المُسَرِّبْ | م. عمر الحومي\nwa.me/967773712030"

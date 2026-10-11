@@ -25,8 +25,14 @@ interface CustomerDao {
     @Query("SELECT * FROM customers WHERE isArchived = 0 AND (name LIKE '%' || :query || '%' OR phone LIKE '%' || :query || '%' OR farmName LIKE '%' || :query || '%') ORDER BY name ASC")
     fun searchCustomers(query: String): Flow<List<Customer>>
 
+    @Query("SELECT * FROM customers WHERE isArchived = 0 ORDER BY name ASC")
+    suspend fun getAllCustomersDirect(): List<Customer>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCustomer(customer: Customer): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCustomers(customers: List<Customer>): List<Long>
 
     @Update
     suspend fun updateCustomer(customer: Customer)

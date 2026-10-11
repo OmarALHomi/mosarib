@@ -147,7 +147,11 @@ class CustomerRepository(
             }
         }
 
+    suspend fun getAllCustomersDirect(): List<Customer> = customerDao.getAllCustomersDirect()
+
     suspend fun insertCustomer(customer: Customer): Long = customerDao.insertCustomer(customer)
+
+    suspend fun insertCustomers(customers: List<Customer>): List<Long> = customerDao.insertCustomers(customers)
 
     suspend fun updateCustomer(customer: Customer) = customerDao.updateCustomer(customer)
 
