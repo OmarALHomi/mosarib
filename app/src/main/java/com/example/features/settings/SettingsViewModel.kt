@@ -271,6 +271,20 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         showToast("تم حذف النسخة الاحتياطية", ToastType.INFO)
     }
 
+    fun cleanOldLocalBackups(keepCount: Int = 3) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val backups = BackupManager.getAvailableBackups(getApplication())
+            if (backups.size > keepCount) {
+                val toDelete = backups.drop(keepCount)
+                toDelete.forEach { BackupManager.deleteBackup(it.file) }
+                loadBackups()
+                showToast("تم تنظيف ${toDelete.size} نسخة قديمة والاحتفاظ بأحدث $keepCount نسخ", ToastType.SUCCESS)
+            } else {
+                showToast("النسخ الحالية (${backups.size}) ضمن الحد المسموح ($keepCount نسخ)", ToastType.INFO)
+            }
+        }
+    }
+
     fun shareExistingBackup(file: File) {
         BackupManager.shareBackupToDriveOrApps(getApplication(), file)
     }

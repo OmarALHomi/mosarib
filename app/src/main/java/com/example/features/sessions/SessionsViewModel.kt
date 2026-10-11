@@ -206,11 +206,26 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
     ) {
         viewModelScope.launch {
             val totalMinutes = (hours * 60) + minutes
+            if (totalMinutes <= 0) {
+                showToast("يرجى تحديد مدة سقي صالحة", ToastType.ERROR)
+                return@launch
+            }
+            val maxSessionMinutes = 10 * 24 * 60 // 10 days = 14,400 minutes
+            if (totalMinutes > maxSessionMinutes) {
+                showToast("لا يمكن تسجيل سقي بساعات خيالية! الحد الأقصى للدورة الواحدة 10 أيام (240 ساعة)", ToastType.ERROR)
+                return@launch
+            }
+            if (wastedMinutes > totalMinutes) {
+                showToast("لا يمكن أن يكون الهدر أكبر من مدة السقي بتاتاً", ToastType.ERROR)
+                return@launch
+            }
             val netMinutes = maxOf(0, totalMinutes - wastedMinutes)
             val grossCost = Formatters.calculateWaterCost(netMinutes, pricePerHour)
             val totalCost = Formatters.roundMoney(maxOf(0.0, grossCost - discountAmount))
             val roundedPaid = Formatters.roundMoney(amountPaid)
-            val debt = Formatters.roundMoney(maxOf(0.0, totalCost - roundedPaid))
+            val isOwnerOrBilled = billedToCustomerId != null ||
+                db.customerDao().getCustomerByIdDirect(customerId)?.isWellOwner == true
+            val debt = if (isOwnerOrBilled) 0.0 else Formatters.roundMoney(maxOf(0.0, totalCost - roundedPaid))
 
             val session = WaterSession(
                 id = id,
@@ -297,8 +312,14 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
 
     fun deleteSession(session: WaterSession) {
         viewModelScope.launch {
+            val sessionVouchers = voucherRepo.getVouchersForSessionDirect(session.id)
+            for (v in sessionVouchers) {
+                voucherRepo.updateVoucher(
+                    v.copy(sessionId = null, notes = "${v.notes} (دفعة على الحساب بعد حذف دورة #${session.id})".trim())
+                )
+            }
             sessionRepo.deleteSession(session)
-            showToast("تم حذف الجلسة بنجاح", ToastType.INFO)
+            showToast("تم حذف دورة السقي وتحديث الحساب", ToastType.INFO)
         }
     }
 

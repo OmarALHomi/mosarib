@@ -113,93 +113,75 @@ class DynamicCrestedBarShape(
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * Tab 0 (سجلات السقي): Water meter gauge with needle, dial ticks, odometer, and top droplet.
+ * Tab 0 (التقارير): Analytics bar chart with rising trendline.
  */
 @Composable
-fun IrrigationGaugeIcon(
+fun AnalyticsChartIcon(
     tint: Color,
     modifier: Modifier = Modifier
 ) {
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
-        val cx = w * 0.5f
-        val cy = h * 0.62f
-        val r = w * 0.36f
 
-        // 1. Water meter gauge dial circle
-        drawCircle(
-            color = tint,
-            radius = r,
-            center = Offset(cx, cy),
-            style = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
-        )
+        val barW = w * 0.18f
+        val b1H = h * 0.35f
+        val b2H = h * 0.55f
+        val b3H = h * 0.75f
 
-        // 2. Radial scale tick marks around dial
-        val angles = listOf(-150f, -125f, -100f, -75f, -50f, -25f, 0f, 25f, 50f)
-        for (angleDeg in angles) {
-            val rad = Math.toRadians(angleDeg.toDouble())
-            val rOuter = r - 1.2.dp.toPx()
-            val rInner = r - 4.dp.toPx()
-            drawLine(
-                color = tint,
-                start = Offset(cx + (rOuter * Math.cos(rad)).toFloat(), cy + (rOuter * Math.sin(rad)).toFloat()),
-                end = Offset(cx + (rInner * Math.cos(rad)).toFloat(), cy + (rInner * Math.sin(rad)).toFloat()),
-                strokeWidth = 1.1.dp.toPx(),
-                cap = StrokeCap.Round
-            )
-        }
+        val b1Left = w * 0.12f
+        val b2Left = w * 0.41f
+        val b3Left = w * 0.70f
+        val baseBottom = h * 0.88f
 
-        // 3. Dial needle pointing up-right (~ -45 deg)
-        val needleRad = Math.toRadians(-45.0)
-        val needleLen = r * 0.65f
+        // Baseline
         drawLine(
-            color = tint,
-            start = Offset(cx, cy),
-            end = Offset(cx + (needleLen * Math.cos(needleRad)).toFloat(), cy + (needleLen * Math.sin(needleRad)).toFloat()),
-            strokeWidth = 1.8.dp.toPx(),
+            color = tint.copy(alpha = 0.5f),
+            start = Offset(w * 0.08f, baseBottom),
+            end = Offset(w * 0.92f, baseBottom),
+            strokeWidth = 1.2.dp.toPx(),
             cap = StrokeCap.Round
         )
-        drawCircle(color = tint, radius = 2.dp.toPx(), center = Offset(cx, cy))
 
-        // 4. Odometer readout box at bottom
+        // Bar 1
         drawRoundRect(
             color = tint,
-            topLeft = Offset(cx - r * 0.45f, cy + r * 0.40f),
-            size = Size(r * 0.9f, r * 0.35f),
-            cornerRadius = CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx()),
-            style = Stroke(width = 1.1.dp.toPx())
+            topLeft = Offset(b1Left, baseBottom - b1H),
+            size = Size(barW, b1H),
+            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
         )
 
-        // 5. Water droplet perched on top of gauge
-        val dropPath = Path().apply {
-            val dropTop = h * 0.04f
-            val dropBottom = cy - r * 0.42f
-            val dropWidth = w * 0.36f
-            moveTo(cx, dropTop)
-            cubicTo(
-                cx + dropWidth * 0.65f, dropTop + (dropBottom - dropTop) * 0.45f,
-                cx + dropWidth * 0.55f, dropBottom,
-                cx, dropBottom
-            )
-            cubicTo(
-                cx - dropWidth * 0.55f, dropBottom,
-                cx - dropWidth * 0.65f, dropTop + (dropBottom - dropTop) * 0.45f,
-                cx, dropTop
-            )
-            close()
-        }
-        drawPath(path = dropPath, color = tint)
+        // Bar 2
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(b2Left, baseBottom - b2H),
+            size = Size(barW, b2H),
+            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+        )
 
-        // Droplet inner highlight
-        val arcPath = Path().apply {
-            moveTo(cx - w * 0.08f, cy - r * 0.70f)
-            quadraticTo(cx - w * 0.03f, cy - r * 0.92f, cx + w * 0.04f, cy - r * 0.88f)
-        }
-        drawPath(
-            path = arcPath,
-            color = Color.White.copy(alpha = 0.85f),
-            style = Stroke(width = 1.1.dp.toPx(), cap = StrokeCap.Round)
+        // Bar 3
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(b3Left, baseBottom - b3H),
+            size = Size(barW, b3H),
+            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+        )
+
+        // Trendline dots
+        drawCircle(
+            color = tint,
+            radius = 2.dp.toPx(),
+            center = Offset(b1Left + barW / 2f, baseBottom - b1H - 4.dp.toPx())
+        )
+        drawCircle(
+            color = tint,
+            radius = 2.dp.toPx(),
+            center = Offset(b2Left + barW / 2f, baseBottom - b2H - 4.dp.toPx())
+        )
+        drawCircle(
+            color = tint,
+            radius = 2.dp.toPx(),
+            center = Offset(b3Left + barW / 2f, baseBottom - b3H - 4.dp.toPx())
         )
     }
 }
@@ -568,7 +550,7 @@ data class MosaribNavItemData(
 )
 
 val mosaribNavItems = listOf(
-    MosaribNavItemData(0, "سجلات", "السقي", "tab_sessions"),
+    MosaribNavItemData(0, "التقارير", null, "tab_reports"),
     MosaribNavItemData(1, "العملاء", null, "tab_customers"),
     MosaribNavItemData(2, "الرئيسية", null, "tab_home"),
     MosaribNavItemData(3, "سجل", "العمليات", "tab_vouchers"),
@@ -702,7 +684,7 @@ fun MosaribNavBar(
                             contentAlignment = Alignment.Center
                         ) {
                             when (index) {
-                                0 -> IrrigationGaugeIcon(tint = currentTint, modifier = Modifier.size(28.dp))
+                                0 -> AnalyticsChartIcon(tint = currentTint, modifier = Modifier.size(28.dp))
                                 1 -> CustomersBadgeIcon(tint = currentTint, modifier = Modifier.size(28.dp))
                                 2 -> HomeDropHouseIcon(dropTint = currentTint, houseTint = barBg, modifier = Modifier.size(28.dp))
                                 3 -> OperationsClipboardIcon(tint = currentTint, modifier = Modifier.size(28.dp))
@@ -784,7 +766,7 @@ fun MosaribNavBar(
                     label = "floating_circle_icon"
                 ) { targetIndex ->
                     when (targetIndex) {
-                        0 -> IrrigationGaugeIcon(tint = Color.White, modifier = Modifier.size(32.dp))
+                        0 -> AnalyticsChartIcon(tint = Color.White, modifier = Modifier.size(32.dp))
                         1 -> CustomersBadgeIcon(tint = Color.White, modifier = Modifier.size(32.dp))
                         2 -> HomeDropHouseIcon(
                             dropTint = homeDropSilhouette,

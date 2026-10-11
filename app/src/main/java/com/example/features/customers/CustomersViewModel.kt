@@ -167,6 +167,10 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    suspend fun insertCustomerDirect(customer: Customer): Long {
+        return customerRepo.insertCustomer(customer)
+    }
+
     fun deleteCustomer(customer: Customer) {
         viewModelScope.launch {
             // Keep financial history and foreign-key references intact; archived accounts disappear
@@ -196,7 +200,8 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         durationMinutes: Int,
         wastedMinutesOnOwner: Int,
         purchaseRatePerHour: Double,
-        notes: String
+        notes: String,
+        amountPaid: Double = 0.0
     ) {
         viewModelScope.launch {
             val owner = customerRepo.getCustomerByIdDirect(ownerCustomerId)
@@ -204,8 +209,16 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 showToast("اختر حساب صاحب بئر صالحاً لتسجيل الشراء", ToastType.ERROR)
                 return@launch
             }
-            if (durationMinutes <= 0 || wastedMinutesOnOwner !in 0..durationMinutes || purchaseRatePerHour <= 0.0) {
-                showToast("تحقق من الساعات المشتراة والهدر وسعر الساعة", ToastType.ERROR)
+            if (durationMinutes <= 0 || durationMinutes > 6000) {
+                showToast("لا يمكن تسجيل شراء بساعات خيالية أو صفرية", ToastType.ERROR)
+                return@launch
+            }
+            if (wastedMinutesOnOwner > durationMinutes) {
+                showToast("لا يمكن أن يكون الهدر أكبر من عملية الشراء بتاتاً", ToastType.ERROR)
+                return@launch
+            }
+            if (purchaseRatePerHour <= 0.0) {
+                showToast("يرجى تحديد سعر شراء صالح للساعة", ToastType.ERROR)
                 return@launch
             }
 
@@ -217,23 +230,300 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 return@launch
             }
 
-            ownerPurchaseRepo.insert(
+            val newId = ownerPurchaseRepo.insert(
                 WellOwnerPurchase(
                     ownerCustomerId = ownerCustomerId,
                     date = date,
                     durationMinutes = durationMinutes,
                     wastedMinutesOnOwner = wastedMinutesOnOwner,
                     purchaseRatePerHour = com.example.core.util.Formatters.roundMoney(purchaseRatePerHour),
+                    amountPaid = com.example.core.util.Formatters.roundMoney(amountPaid),
                     notes = notes.trim()
                 )
             )
+
+            // إذا تم تسليم مبلغ نقدياً فوراً لصاحب البئر، يُسجّل سند صرف (EXPENSE) مرتبط به فوراً
+            if (amountPaid > 0.0) {
+                val vNumber = "EXP-${System.currentTimeMillis().toString().takeLast(8)}"
+                val voucher = Voucher(
+                    voucherNumber = vNumber,
+                    type = VoucherType.EXPENSE,
+                    customerId = ownerCustomerId,
+                    amount = com.example.core.util.Formatters.roundMoney(amountPaid),
+                    category = "تسديد نقدي لشراء ساعات",
+                    paymentMethod = "نقداً",
+                    date = date,
+                    notes = "دفعة مسلّمة فوراً لصاحب البئر عند شراء ساعات [شراء #$newId]"
+                )
+                voucherRepo.insertVoucher(voucher)
+            }
+
             LicenseManager.recordOperationPerformed(getApplication(), totalOps)
-            showToast("تم تسجيل شراء الساعات وخصم الهدر على صاحب البئر من مستحقه", ToastType.SUCCESS)
+            showToast("تم تسجيل شراء الساعات وتحديث حساب صاحب البئر", ToastType.SUCCESS)
+        }
+    }
+
+    /**
+     * تسجيل هدر على صاحب البئر يُخصم من آخر عملية شراء له ويقلل مستحقاته بسعر الشراء
+     */
+    fun recordWasteOnOwner(
+        ownerCustomerId: Long,
+        wastedMinutes: Int,
+        reason: String
+    ) {
+        viewModelScope.launch {
+            val owner = customerRepo.getCustomerByIdDirect(ownerCustomerId)
+            if (owner == null || !owner.isWellOwner) {
+                showToast("حساب صاحب البئر غير موجود", ToastType.ERROR)
+                return@launch
+            }
+            val purchases = db.wellOwnerPurchaseDao().getPurchasesForOwner(ownerCustomerId).first()
+            val latestPurchase = purchases.maxByOrNull { it.date }
+            if (latestPurchase == null) {
+                showToast("لا توجد عمليات شراء سابقة لتسجيل الهدر عليها", ToastType.ERROR)
+                return@launch
+            }
+            val availableMinutes = latestPurchase.durationMinutes - latestPurchase.wastedMinutesOnOwner
+            if (wastedMinutes <= 0) {
+                showToast("يرجى إدخال مدة هدر صالحة", ToastType.ERROR)
+                return@launch
+            }
+            if (wastedMinutes > availableMinutes) {
+                showToast("لا يمكن أن يكون الهدر أكبر من عملية الشراء بتاتاً! المتاح للهدر: ${com.example.core.util.Formatters.formatDurationArabic(availableMinutes)}", ToastType.ERROR)
+                return@launch
+            }
+            val updatedPurchase = latestPurchase.copy(
+                wastedMinutesOnOwner = latestPurchase.wastedMinutesOnOwner + wastedMinutes,
+                notes = if (reason.isNotBlank()) "${latestPurchase.notes} | هدر مخصوم: $reason".trim(' ', '|') else latestPurchase.notes
+            )
+            ownerPurchaseRepo.update(updatedPurchase)
+            val credit = com.example.core.util.Formatters.calculateWaterCost(wastedMinutes, latestPurchase.purchaseRatePerHour)
+            showToast("تم خصم هدر ${com.example.core.util.Formatters.formatDurationArabic(wastedMinutes)} بمبلغ ${com.example.core.util.Formatters.formatCurrency(credit, "")} من مستحقات صاحب البئر", ToastType.SUCCESS)
+        }
+    }
+
+    /**
+     * تسجيل دورة سقي مباشرة للعميل أو على حساب صاحب البئر دون مغادرة شاشة العميل
+     */
+    fun addSessionForCustomer(
+        customerId: Long,
+        pumpName: String = "",
+        startTime: Long,
+        endTime: Long,
+        hours: Int,
+        minutes: Int,
+        pricePerHour: Double,
+        amountPaid: Double,
+        notes: String,
+        billedToCustomerId: Long? = null,
+        wastedMinutes: Int = 0,
+        wastedReason: String = "",
+        discountAmount: Double = 0.0,
+        costPricePerHour: Double = 0.0,
+        pumpSourceId: Long? = null
+    ) {
+        viewModelScope.launch {
+            val totalMinutes = (hours * 60) + minutes
+            if (totalMinutes <= 0) {
+                showToast("يرجى تحديد مدة سقي صالحة", ToastType.ERROR)
+                return@launch
+            }
+            val maxSessionMinutes = 10 * 24 * 60 // 10 days = 14,400 minutes
+            if (totalMinutes > maxSessionMinutes) {
+                showToast("لا يمكن تسجيل سقي بساعات خيالية! الحد الأقصى للدورة الواحدة 10 أيام (240 ساعة)", ToastType.ERROR)
+                return@launch
+            }
+            if (wastedMinutes > totalMinutes) {
+                showToast("لا يمكن أن يكون الهدر أكبر من مدة السقي بتاتاً", ToastType.ERROR)
+                return@launch
+            }
+            val netMinutes = maxOf(0, totalMinutes - wastedMinutes)
+            val grossCost = com.example.core.util.Formatters.calculateWaterCost(netMinutes, pricePerHour)
+            val totalCost = com.example.core.util.Formatters.roundMoney(maxOf(0.0, grossCost - discountAmount))
+            val roundedPaid = com.example.core.util.Formatters.roundMoney(amountPaid)
+            val isOwnerOrBilled = billedToCustomerId != null || customerRepo.getCustomerByIdDirect(customerId)?.isWellOwner == true
+            val debt = if (isOwnerOrBilled) 0.0 else com.example.core.util.Formatters.roundMoney(maxOf(0.0, totalCost - roundedPaid))
+
+            val session = WaterSession(
+                id = 0L,
+                customerId = customerId,
+                pumpName = pumpName,
+                startTime = startTime,
+                endTime = if (endTime > startTime) endTime else (startTime + totalMinutes * 60000L),
+                durationMinutes = totalMinutes,
+                pricePerHour = com.example.core.util.Formatters.roundMoney(pricePerHour),
+                totalAmount = totalCost,
+                amountPaid = roundedPaid,
+                remainingDebt = debt,
+                notes = notes,
+                isLive = false,
+                billedToCustomerId = billedToCustomerId,
+                wastedMinutes = wastedMinutes,
+                wastedReason = wastedReason,
+                discountAmount = discountAmount,
+                costPricePerHour = costPricePerHour,
+                pumpSourceId = pumpSourceId
+            )
+
+            val totalOps = db.waterSessionDao().getSessionsCountDirect() +
+                db.voucherDao().getVouchersCountDirect() + db.wellOwnerPurchaseDao().getPurchasesCountDirect()
+            if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
+                showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
+                return@launch
+            }
+            sessionRepo.insertSession(session)
+            LicenseManager.recordOperationPerformed(getApplication(), totalOps)
+            showToast("تم تسجيل دورة السقي بنجاح وتحديث كشف الحساب", ToastType.SUCCESS)
+        }
+    }
+
+    fun updateSessionForCustomer(
+        id: Long,
+        customerId: Long,
+        pumpName: String = "",
+        startTime: Long,
+        endTime: Long,
+        hours: Int,
+        minutes: Int,
+        pricePerHour: Double,
+        amountPaid: Double,
+        notes: String,
+        billedToCustomerId: Long? = null,
+        wastedMinutes: Int = 0,
+        wastedReason: String = "",
+        discountAmount: Double = 0.0,
+        costPricePerHour: Double = 0.0,
+        pumpSourceId: Long? = null
+    ) {
+        viewModelScope.launch {
+            val totalMinutes = (hours * 60) + minutes
+            if (totalMinutes <= 0) {
+                showToast("يرجى تحديد مدة سقي صالحة", ToastType.ERROR)
+                return@launch
+            }
+            val maxSessionMinutes = 10 * 24 * 60
+            if (totalMinutes > maxSessionMinutes) {
+                showToast("لا يمكن تسجيل سقي بساعات خيالية! الحد الأقصى 10 أيام", ToastType.ERROR)
+                return@launch
+            }
+            if (wastedMinutes > totalMinutes) {
+                showToast("لا يمكن أن يكون الهدر أكبر من مدة السقي بتاتاً", ToastType.ERROR)
+                return@launch
+            }
+            val netMinutes = maxOf(0, totalMinutes - wastedMinutes)
+            val grossCost = com.example.core.util.Formatters.calculateWaterCost(netMinutes, pricePerHour)
+            val totalCost = com.example.core.util.Formatters.roundMoney(maxOf(0.0, grossCost - discountAmount))
+            val roundedPaid = com.example.core.util.Formatters.roundMoney(amountPaid)
+            val isOwnerOrBilled = billedToCustomerId != null || customerRepo.getCustomerByIdDirect(customerId)?.isWellOwner == true
+            val debt = if (isOwnerOrBilled) 0.0 else com.example.core.util.Formatters.roundMoney(maxOf(0.0, totalCost - roundedPaid))
+
+            val session = WaterSession(
+                id = id,
+                customerId = customerId,
+                pumpName = pumpName,
+                startTime = startTime,
+                endTime = if (endTime > startTime) endTime else (startTime + totalMinutes * 60000L),
+                durationMinutes = totalMinutes,
+                pricePerHour = com.example.core.util.Formatters.roundMoney(pricePerHour),
+                totalAmount = totalCost,
+                amountPaid = roundedPaid,
+                remainingDebt = debt,
+                notes = notes,
+                isLive = false,
+                billedToCustomerId = billedToCustomerId,
+                wastedMinutes = wastedMinutes,
+                wastedReason = wastedReason,
+                discountAmount = discountAmount,
+                costPricePerHour = costPricePerHour,
+                pumpSourceId = pumpSourceId
+            )
+            sessionRepo.updateSession(session)
+            showToast("تم تعديل دورة السقي بنجاح وتحديث كشف الحساب", ToastType.SUCCESS)
+        }
+    }
+
+    fun updateOwnerPurchase(
+        purchaseId: Long,
+        ownerCustomerId: Long,
+        date: Long,
+        durationMinutes: Int,
+        wastedMinutesOnOwner: Int,
+        purchaseRatePerHour: Double,
+        notes: String,
+        amountPaid: Double = 0.0
+    ) {
+        viewModelScope.launch {
+            if (durationMinutes <= 0) {
+                showToast("يرجى إدخال مدة شراء صالحة", ToastType.ERROR)
+                return@launch
+            }
+            if (wastedMinutesOnOwner > durationMinutes) {
+                showToast("لا يمكن أن يكون الهدر أكبر من مدة الشراء", ToastType.ERROR)
+                return@launch
+            }
+            if (purchaseRatePerHour <= 0.0) {
+                showToast("يرجى تحديد سعر شراء صالح للساعة", ToastType.ERROR)
+                return@launch
+            }
+            val roundedPaid = com.example.core.util.Formatters.roundMoney(amountPaid)
+            val purchase = WellOwnerPurchase(
+                id = purchaseId,
+                ownerCustomerId = ownerCustomerId,
+                date = date,
+                durationMinutes = durationMinutes,
+                wastedMinutesOnOwner = wastedMinutesOnOwner,
+                purchaseRatePerHour = com.example.core.util.Formatters.roundMoney(purchaseRatePerHour),
+                amountPaid = roundedPaid,
+                notes = notes.trim()
+            )
+            ownerPurchaseRepo.update(purchase)
+
+            // مزامنة سند الصرف المرتبط بعملية الشراء
+            val existingVouchers = voucherRepo.getVouchersForCustomerDirect(ownerCustomerId)
+            val linkedExpenseVoucher = existingVouchers.find {
+                it.type == VoucherType.EXPENSE && it.notes.contains("[شراء #$purchaseId]")
+            }
+            if (roundedPaid > 0.0) {
+                if (linkedExpenseVoucher != null) {
+                    voucherRepo.updateVoucher(
+                        linkedExpenseVoucher.copy(
+                            amount = roundedPaid,
+                            date = date
+                        )
+                    )
+                } else {
+                    val vNumber = "EXP-${System.currentTimeMillis().toString().takeLast(8)}"
+                    voucherRepo.insertVoucher(
+                        Voucher(
+                            voucherNumber = vNumber,
+                            type = VoucherType.EXPENSE,
+                            customerId = ownerCustomerId,
+                            amount = roundedPaid,
+                            category = "تسديد نقدي لشراء ساعات",
+                            paymentMethod = "نقداً",
+                            date = date,
+                            notes = "دفعة مسلّمة فوراً لصاحب البئر عند شراء ساعات [شراء #$purchaseId]"
+                        )
+                    )
+                }
+            } else {
+                if (linkedExpenseVoucher != null) {
+                    voucherRepo.deleteVoucher(linkedExpenseVoucher)
+                }
+            }
+            showToast("تم تعديل عملية شراء الساعات بنجاح", ToastType.SUCCESS)
         }
     }
 
     fun deleteOwnerPurchase(purchase: WellOwnerPurchase) {
         viewModelScope.launch {
+            val existingVouchers = voucherRepo.getVouchersForCustomerDirect(purchase.ownerCustomerId)
+            val linkedExpenseVoucher = existingVouchers.find {
+                it.type == VoucherType.EXPENSE && it.notes.contains("[شراء #${purchase.id}]")
+            }
+            if (linkedExpenseVoucher != null) {
+                voucherRepo.deleteVoucher(linkedExpenseVoucher)
+            }
             ownerPurchaseRepo.delete(purchase)
             showToast("تم حذف حركة الشراء وتحديث كشف صاحب البئر", ToastType.INFO)
         }
@@ -241,6 +531,10 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun addReceiptVoucher(customerId: Long, amount: Double, paymentMethod: String, notes: String) {
         viewModelScope.launch {
+            if (amount <= 0.0) {
+                showToast("يرجى إدخال مبلغ صالح أكبر من صفر", ToastType.ERROR)
+                return@launch
+            }
             val totalOps = db.waterSessionDao().getSessionsCountDirect() +
                 db.voucherDao().getVouchersCountDirect() +
                 db.wellOwnerPurchaseDao().getPurchasesCountDirect()
@@ -249,7 +543,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 return@launch
             }
 
-            val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(4)}"
+            val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(8)}"
             val voucher = Voucher(
                 voucherNumber = vNumber,
                 type = VoucherType.RECEIPT,
@@ -268,6 +562,10 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun addExpenseVoucher(customerId: Long, amount: Double, paymentMethod: String, description: String) {
         viewModelScope.launch {
+            if (amount <= 0.0) {
+                showToast("يرجى إدخال مبلغ صالح أكبر من صفر", ToastType.ERROR)
+                return@launch
+            }
             val totalOps = db.waterSessionDao().getSessionsCountDirect() +
                 db.voucherDao().getVouchersCountDirect() +
                 db.wellOwnerPurchaseDao().getPurchasesCountDirect()
@@ -276,7 +574,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 return@launch
             }
 
-            val vNumber = "EXP-${System.currentTimeMillis().toString().takeLast(4)}"
+            val vNumber = "EXP-${System.currentTimeMillis().toString().takeLast(8)}"
             val voucher = Voucher(
                 voucherNumber = vNumber,
                 type = VoucherType.EXPENSE,
@@ -316,7 +614,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             )
             sessionRepo.updateSession(updatedSession)
 
-            val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(4)}"
+            val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(8)}"
             val voucher = Voucher(
                 voucherNumber = vNumber,
                 type = VoucherType.RECEIPT,
@@ -336,6 +634,19 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun deleteVoucher(voucher: Voucher) {
         viewModelScope.launch {
+            if (voucher.sessionId != null) {
+                val session = sessionRepo.getSessionById(voucher.sessionId)
+                if (session != null) {
+                    val newPaid = (session.amountPaid - voucher.amount).coerceAtLeast(0.0)
+                    val newDebt = (session.totalAmount - newPaid).coerceAtLeast(0.0)
+                    sessionRepo.updateSession(
+                        session.copy(
+                            amountPaid = com.example.core.util.Formatters.roundMoney(newPaid),
+                            remainingDebt = com.example.core.util.Formatters.roundMoney(newDebt)
+                        )
+                    )
+                }
+            }
             voucherRepo.deleteVoucher(voucher)
             showToast("تم حذف السند وتحديث الرصيد", ToastType.INFO)
         }
@@ -343,8 +654,14 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun deleteSession(session: WaterSession) {
         viewModelScope.launch {
+            val sessionVouchers = voucherRepo.getVouchersForSessionDirect(session.id)
+            for (v in sessionVouchers) {
+                voucherRepo.updateVoucher(
+                    v.copy(sessionId = null, notes = "${v.notes} (دفعة على الحساب بعد حذف دورة #${session.id})".trim())
+                )
+            }
             sessionRepo.deleteSession(session)
-            showToast("تم حذف دورة الماء بنجاح", ToastType.INFO)
+            showToast("تم حذف دورة الماء وتحديث الحساب", ToastType.INFO)
         }
     }
 

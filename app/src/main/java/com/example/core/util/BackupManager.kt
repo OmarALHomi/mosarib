@@ -117,6 +117,7 @@ object BackupManager {
                 put("durationMinutes", purchase.durationMinutes)
                 put("wastedMinutesOnOwner", purchase.wastedMinutesOnOwner)
                 put("purchaseRatePerHour", purchase.purchaseRatePerHour)
+                put("amountPaid", purchase.amountPaid)
                 put("notes", purchase.notes)
                 put("createdAt", purchase.createdAt)
             })
@@ -198,10 +199,14 @@ object BackupManager {
         return runCatching { if (file.exists()) file.delete() else false }.getOrDefault(false)
     }
 
+    private const val MAX_BACKUP_SIZE_BYTES = 50L * 1024 * 1024 // 50 MB
+
     suspend fun restoreFromFile(context: Context, database: AppDatabase, file: File): Result<Int> = withContext(Dispatchers.IO) {
         runCatching {
+            if (file.length() > MAX_BACKUP_SIZE_BYTES) throw IllegalArgumentException("حجم ملف النسخة كبير جداً (أكثر من 50 ميجابايت)")
             val jsonString = file.readText(Charsets.UTF_8)
             val root = JSONObject(jsonString)
+            validateBackupJson(root)
             restoreFromJsonObject(database, root)
         }
     }
@@ -212,7 +217,10 @@ object BackupManager {
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
                 BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8)).use { reader ->
                     var line: String? = reader.readLine()
+                    var totalBytes = 0L
                     while (line != null) {
+                        totalBytes += line.length
+                        if (totalBytes > MAX_BACKUP_SIZE_BYTES) throw IllegalArgumentException("حجم ملف النسخة كبير جداً (أكثر من 50 ميجابايت)")
                         stringBuilder.append(line)
                         line = reader.readLine()
                     }
@@ -220,8 +228,16 @@ object BackupManager {
             }
 
             val root = JSONObject(stringBuilder.toString())
+            validateBackupJson(root)
             restoreFromJsonObject(database, root)
         }
+    }
+
+    private fun validateBackupJson(root: JSONObject) {
+        val app = root.optString("app", "")
+        if (app != "Mosarib") throw IllegalArgumentException("هذا الملف ليس نسخة احتياطية صالحة من تطبيق المُسَرِّب")
+        val version = root.optInt("version", 0)
+        if (version < 1 || version > 10) throw IllegalArgumentException("إصدار النسخة الاحتياطية ($version) غير مدعوم")
     }
 
     private suspend fun restoreFromJsonObject(database: AppDatabase, root: JSONObject): Int = database.withTransaction {
@@ -349,6 +365,7 @@ object BackupManager {
                         durationMinutes = obj.optInt("durationMinutes", 0),
                         wastedMinutesOnOwner = obj.optInt("wastedMinutesOnOwner", 0),
                         purchaseRatePerHour = obj.optDouble("purchaseRatePerHour", 0.0),
+                        amountPaid = obj.optDouble("amountPaid", 0.0),
                         notes = obj.optString("notes", ""),
                         createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                     )
