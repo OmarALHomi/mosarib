@@ -375,15 +375,35 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
 
     fun deleteVoucher(voucher: Voucher) {
         viewModelScope.launch {
+            if (voucher.sessionId != null) {
+                val session = sessionRepo.getSessionById(voucher.sessionId)
+                if (session != null) {
+                    val newPaid = (session.amountPaid - voucher.amount).coerceAtLeast(0.0)
+                    val newDebt = (session.totalAmount - newPaid).coerceAtLeast(0.0)
+                    sessionRepo.updateSession(
+                        session.copy(
+                            amountPaid = Formatters.roundMoney(newPaid),
+                            remainingDebt = Formatters.roundMoney(newDebt)
+                        )
+                    )
+                }
+            }
             voucherRepo.deleteVoucher(voucher)
-            showToast("تم حذف السند بنجاح", ToastType.INFO)
+            showToast("تم حذف السند وتحديث الرصيد بنجاح", ToastType.INFO)
         }
     }
 
     fun deleteOwnerPurchase(purchase: WellOwnerPurchase) {
         viewModelScope.launch {
+            val existingVouchers = voucherRepo.getVouchersForCustomerDirect(purchase.ownerCustomerId)
+            val linkedExpenseVoucher = existingVouchers.find {
+                it.type == VoucherType.EXPENSE && it.notes.contains("[شراء #${purchase.id}]")
+            }
+            if (linkedExpenseVoucher != null) {
+                voucherRepo.deleteVoucher(linkedExpenseVoucher)
+            }
             ownerPurchaseRepo.delete(purchase)
-            showToast("تم حذف عملية شراء الساعات بنجاح", ToastType.INFO)
+            showToast("تم حذف عملية شراء الساعات وسند الصرف بنجاح", ToastType.INFO)
         }
     }
 
@@ -397,16 +417,51 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         notes: String
     ) {
         viewModelScope.launch {
+            val roundedPaid = Formatters.roundMoney(amountPaid)
             ownerPurchaseRepo.update(
                 purchase.copy(
                     date = date,
                     durationMinutes = durationMinutes,
                     wastedMinutesOnOwner = wastedMinutes,
-                    purchaseRatePerHour = rate,
-                    amountPaid = amountPaid,
+                    purchaseRatePerHour = Formatters.roundMoney(rate),
+                    amountPaid = roundedPaid,
                     notes = notes
                 )
             )
+
+            // مزامنة سند الصرف المرتبط بعملية الشراء
+            val existingVouchers = voucherRepo.getVouchersForCustomerDirect(purchase.ownerCustomerId)
+            val linkedExpenseVoucher = existingVouchers.find {
+                it.type == VoucherType.EXPENSE && it.notes.contains("[شراء #${purchase.id}]")
+            }
+            if (roundedPaid > 0.0) {
+                if (linkedExpenseVoucher != null) {
+                    voucherRepo.updateVoucher(
+                        linkedExpenseVoucher.copy(
+                            amount = roundedPaid,
+                            date = date
+                        )
+                    )
+                } else {
+                    val vNumber = "EXP-${System.currentTimeMillis().toString().takeLast(8)}"
+                    voucherRepo.insertVoucher(
+                        Voucher(
+                            voucherNumber = vNumber,
+                            type = VoucherType.EXPENSE,
+                            customerId = purchase.ownerCustomerId,
+                            amount = roundedPaid,
+                            category = "تسديد نقدي لشراء ساعات",
+                            paymentMethod = "نقداً",
+                            date = date,
+                            notes = "دفعة مسلّمة فوراً لصاحب البئر عند شراء ساعات [شراء #${purchase.id}]"
+                        )
+                    )
+                }
+            } else {
+                if (linkedExpenseVoucher != null) {
+                    voucherRepo.deleteVoucher(linkedExpenseVoucher)
+                }
+            }
             showToast("تم تعديل عملية شراء الساعات بنجاح", ToastType.SUCCESS)
         }
     }

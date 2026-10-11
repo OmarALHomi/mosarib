@@ -307,10 +307,13 @@ fun CustomerDetailScreen(
     val disbursementItems = remember(vouchers) {
         vouchers.filter { it.type == VoucherType.EXPENSE }.map { CustomerLedgerItem.DisbursementItem(it) }
     }
+    val standaloneDisbursementItems = remember(disbursementItems) {
+        disbursementItems.filter { !it.voucher.notes.contains("[شراء #") }
+    }
 
-    val filteredItems = remember(selectedFilter, sessionItems, purchaseItems, receiptItems, disbursementItems) {
+    val filteredItems = remember(selectedFilter, sessionItems, purchaseItems, receiptItems, disbursementItems, standaloneDisbursementItems) {
         when (selectedFilter) {
-            CustomerOpFilter.ALL -> (sessionItems + purchaseItems + standaloneReceiptItems + disbursementItems).sortedByDescending { it.timestamp }
+            CustomerOpFilter.ALL -> (sessionItems + purchaseItems + standaloneReceiptItems + standaloneDisbursementItems).sortedByDescending { it.timestamp }
             CustomerOpFilter.PURCHASES -> purchaseItems.sortedByDescending { it.timestamp }
             CustomerOpFilter.SESSIONS -> sessionItems.sortedByDescending { it.timestamp }
             CustomerOpFilter.RECEIPTS -> receiptItems.sortedByDescending { it.timestamp }
@@ -897,6 +900,7 @@ fun CustomerDetailScreen(
                                     session = ledgerItem.session,
                                     originalCustomer = ledgerItem.originalCustomer,
                                     isBeneficiaryView = false,
+                                    isWellOwner = customer.isWellOwner,
                                     currencySymbol = config.currencySymbol,
                                     linkedVouchers = ledgerItem.linkedVouchers,
                                     onEditClick = { sessionToEdit = ledgerItem.session },
@@ -1619,6 +1623,7 @@ private fun CustomerSessionCardItem(
     session: WaterSession,
     originalCustomer: Customer?,
     isBeneficiaryView: Boolean,
+    isWellOwner: Boolean = false,
     currencySymbol: String,
     linkedVouchers: List<Voucher>,
     onEditClick: () -> Unit,
@@ -1630,6 +1635,7 @@ private fun CustomerSessionCardItem(
 ) {
     var isExpanded by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
+    val isSettledByOffset = isWellOwner || session.billedToCustomerId != null
 
     Card(
         modifier = Modifier
@@ -1717,7 +1723,7 @@ private fun CustomerSessionCardItem(
                 }
             }
 
-            if (session.billedToCustomerId != null) {
+            if (isSettledByOffset) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Box(
                     modifier = Modifier
@@ -1726,7 +1732,7 @@ private fun CustomerSessionCardItem(
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
-                        text = "💧 على حساب صاحب البئر (مدفوع / مقاصة)",
+                        text = if (isWellOwner) "💧 مقاصة تخصم من مستحقات صاحب البئر" else "💧 على حساب صاحب البئر (مدفوع / مقاصة)",
                         style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold)
                     )
                 }
@@ -1772,11 +1778,11 @@ private fun CustomerSessionCardItem(
                 Column(horizontalAlignment = Alignment.End) {
                     Text("المتبقي", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
                     Text(
-                        if (session.billedToCustomerId != null) "مسدد بالمقاصة"
+                        if (isSettledByOffset) "مسدد بالمقاصة"
                         else if (session.remainingDebt > 0) Formatters.formatCurrency(session.remainingDebt, currencySymbol)
                         else "خالص بالكامل",
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = if (session.billedToCustomerId != null) Color(0xFF0284C7)
+                            color = if (isSettledByOffset) Color(0xFF0284C7)
                                 else if (session.remainingDebt > 0) Color(0xFFE53935)
                                 else AccentEmerald,
                             fontWeight = FontWeight.ExtraBold
@@ -1792,7 +1798,7 @@ private fun CustomerSessionCardItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (session.billedToCustomerId != null) {
+                if (isSettledByOffset) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))

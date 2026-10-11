@@ -355,8 +355,8 @@ fun AddEditSessionBottomSheet(
         derivedStateOf { Formatters.roundMoney(maxOf(0.0, grossWaterAmount - discountAmount)) }
     }
 
-    val isBilledToWellOwner by remember(billedToCustomerId) {
-        derivedStateOf { billedToCustomerId != null }
+    val isBilledToWellOwner by remember(billedToCustomerId, selectedCustomer) {
+        derivedStateOf { billedToCustomerId != null || selectedCustomer?.isWellOwner == true }
     }
     val effectiveFarmerCharge by remember(finalFarmerCharge, isBilledToWellOwner) {
         derivedStateOf { if (isBilledToWellOwner) 0.0 else finalFarmerCharge }
@@ -478,7 +478,32 @@ fun AddEditSessionBottomSheet(
             }
 
             // خيار احتساب السقي على صاحب بئر (مقاصة من مستحقاته)
-            if (wellOwners.isNotEmpty()) {
+            if (selectedCustomer?.isWellOwner == true) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp)),
+                    color = Color(0xFFE0F2FE),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "💧 حساب صاحب بئر: يُحتسب هذا السقي مقاصة تلقائية وتُخصم قيمته من مستحقات مشتريات الساعات لديه.",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF0284C7),
+                                fontSize = 11.5.sp
+                            )
+                        )
+                    }
+                }
+            } else if (wellOwners.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
                     modifier = Modifier
@@ -1319,7 +1344,20 @@ fun AddEditSessionBottomSheet(
                 shape = RoundedCornerShape(12.dp)
             )
 
-            if (remainingDebt > 0) {
+            if (isBilledToWellOwner) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFE0F2FE), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("المعاملة المحاسبية:", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1)))
+                    Text("مقاصة تخصم من مستحقات الشراء", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                }
+            } else if (remainingDebt > 0) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier

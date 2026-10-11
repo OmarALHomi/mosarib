@@ -133,46 +133,39 @@ object PdfReportGenerator {
         canvas.drawText("تاريخ التقرير: ${Formatters.formatDate(System.currentTimeMillis())}", 45f, 135f, paint)
         canvas.drawText("العملة: ${config.currencySymbol}", 45f, 155f, paint)
 
-        // Financial summary: owners keep supplier payables separate from irrigation receivables.
+        // Financial summary: pure shared calculateCustomerBalance guarantees exact match with app
+        val cwb = com.example.features.customers.calculateCustomerBalance(customer, sessions, vouchers, purchases = purchases)
         val ownerPurchases = if (customer.isWellOwner) purchases.filter { it.ownerCustomerId == customer.id } else emptyList()
-        val totalPurchasePayable = ownerPurchases.sumOf(WellOwnerPurchaseMath::payableAmount)
-        val totalPurchasedMinutes = ownerPurchases.sumOf { it.durationMinutes.coerceAtLeast(0) }
-        val chargeablePurchasedMinutes = ownerPurchases.sumOf(WellOwnerPurchaseMath::chargeableMinutes)
+        val totalPurchasePayable = cwb.totalPurchaseAmount
+        val totalPurchasedMinutes = cwb.totalPurchasedMinutes
+        val chargeablePurchasedMinutes = cwb.totalChargeablePurchasedMinutes
         val ownerWasteMinutes = (totalPurchasedMinutes - chargeablePurchasedMinutes).coerceAtLeast(0)
-        val totalOwnerWasteCredit = ownerPurchases.sumOf(WellOwnerPurchaseMath::ownerWasteCredit)
-        val totalWaterCost = sessions.sumOf { it.totalAmount.coerceAtLeast(0.0) }
-        val totalSessionPaid = sessions.sumOf { it.amountPaid.coerceAtLeast(0.0) }
-        // Linked receipts are already reflected in WaterSession.amountPaid; count only standalone receipts.
-        val totalReceiptVouchers = vouchers
-            .filter { it.type == VoucherType.RECEIPT && it.sessionId == null }
-            .sumOf { it.amount.coerceAtLeast(0.0) }
-        val totalPaidOverall = totalSessionPaid + totalReceiptVouchers
-        val totalDiscount = vouchers
-            .filter { it.type == VoucherType.DISCOUNT && it.sessionId == null }
-            .sumOf { it.amount.coerceAtLeast(0.0) }
-        val totalExpenses = vouchers.filter { it.type == VoucherType.EXPENSE }.sumOf { it.amount.coerceAtLeast(0.0) }
-        val receivableBalance = totalWaterCost + (if (customer.isWellOwner) 0.0 else totalExpenses) - totalPaidOverall - totalDiscount
-        val payableBalance = if (customer.isWellOwner) totalPurchasePayable - totalExpenses else 0.0
-        val totalMinutes = sessions.sumOf { session ->
-            val duration = session.durationMinutes.coerceAtLeast(0)
-            duration - session.wastedMinutes.coerceIn(0, duration)
-        }
+        val totalOwnerWasteCredit = cwb.totalOwnerWasteCredit
+        val totalWaterCost = cwb.totalBilledAmount
+        val totalPaidOverall = cwb.totalPaidAmount
+        val totalExpenses = cwb.totalDisbursedAmount
+        val receivableBalance = cwb.receivableBalance
+        val payableBalance = cwb.payableBalance
+        val totalMinutes = cwb.totalSoldMinutes
 
         // Summary badges
         val boxWidth = (pageWidth - 70f) / 3f
         val boxH = 52f
         if (customer.isWellOwner) {
-            val payableLabel = if (payableBalance > 0) "متبقي لصاحب البئر" else if (payableBalance < 0) "رصيد لنا عنده" else "شراء مسدد"
-            val receivableLabel = if (receivableBalance > 0) "متبقي على السقي" else if (receivableBalance < 0) "رصيد له عن السقي" else "سقي مسدد"
+            val netStatusLabel = when {
+                payableBalance > 0 -> "عليك لصاحب البئر (متبقي)"
+                receivableBalance > 0 -> "لك على صاحب البئر (سقي)"
+                else -> "الحساب مسدد وخالص"
+            }
+            val netAmount = if (payableBalance > 0) payableBalance else receivableBalance
+            val netColor = if (payableBalance > 0) debtRed else paidGreen
+
             drawSummaryBox(canvas, 25f, 210f, boxWidth, boxH, "قيمة الشراء بعد الهدر", Formatters.formatCurrency(totalPurchasePayable, config.currencySymbol), primaryColor)
-            drawSummaryBox(canvas, 25f + boxWidth + 10f, 210f, boxWidth, boxH, "المسدد له", Formatters.formatCurrency(totalExpenses, config.currencySymbol), debtRed)
-            drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 210f, boxWidth, boxH, payableLabel, Formatters.formatCurrency(kotlin.math.abs(payableBalance), config.currencySymbol), if (payableBalance > 0) debtRed else paidGreen)
-            drawSummaryBox(canvas, 25f, 268f, boxWidth, boxH, "سقي / بيع له", "${Formatters.formatCurrency(totalWaterCost, config.currencySymbol)} (${Formatters.formatDurationArabic(sessions.sumOf { (it.durationMinutes - it.wastedMinutes.coerceAtLeast(0)).coerceAtLeast(0) })})", primaryColor)
-            drawSummaryBox(canvas, 25f + boxWidth + 10f, 268f, boxWidth, boxH, "المحصل منه", Formatters.formatCurrency(totalPaidOverall, config.currencySymbol), paidGreen)
-            drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 268f, boxWidth, boxH, receivableLabel, Formatters.formatCurrency(kotlin.math.abs(receivableBalance), config.currencySymbol), if (receivableBalance > 0) debtRed else paidGreen)
-            drawSummaryBox(canvas, 25f, 326f, boxWidth, boxH, "ساعات الشراء المحتسبة", Formatters.formatDurationArabic(chargeablePurchasedMinutes), primaryColor)
-            drawSummaryBox(canvas, 25f + boxWidth + 10f, 326f, boxWidth, boxH, "هدر صاحب البئر", Formatters.formatDurationArabic(ownerWasteMinutes), debtRed)
-            drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 326f, boxWidth, boxH, "خصم قيمة الهدر", Formatters.formatCurrency(totalOwnerWasteCredit, config.currencySymbol), debtRed)
+            drawSummaryBox(canvas, 25f + boxWidth + 10f, 210f, boxWidth, boxH, "المسدد له نقداً", Formatters.formatCurrency(totalExpenses, config.currencySymbol), debtRed)
+            drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 210f, boxWidth, boxH, "سقي / بيع على حسابه", Formatters.formatCurrency(totalWaterCost, config.currencySymbol), primaryColor)
+            drawSummaryBox(canvas, 25f, 268f, boxWidth, boxH, "ساعات الشراء المحتسبة", Formatters.formatDurationArabic(chargeablePurchasedMinutes), primaryColor)
+            drawSummaryBox(canvas, 25f + boxWidth + 10f, 268f, boxWidth, boxH, "خصم هدر صاحب البئر", Formatters.formatCurrency(totalOwnerWasteCredit, config.currencySymbol), debtRed)
+            drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 268f, boxWidth, boxH, netStatusLabel, Formatters.formatCurrency(netAmount, config.currencySymbol), netColor)
         } else {
             val finalBalance = receivableBalance
             drawSummaryBox(canvas, 25f, 210f, boxWidth, boxH, "السقي بعد هدر المسرب", "${Formatters.formatCurrency(totalWaterCost, config.currencySymbol)} (${Formatters.formatDurationArabic(totalMinutes)})", primaryColor)

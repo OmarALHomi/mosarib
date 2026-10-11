@@ -57,7 +57,7 @@ object LicenseManager {
      * Monthly: ACTV-M-XXXX-XXXX
      * Yearly: ACTV-Y-XXXX-XXXX
      */
-    private fun generateActivationKey(deviceCode: String, plan: SubscriptionPlan = SubscriptionPlan.MONTHLY): String {
+    internal fun generateActivationKey(deviceCode: String, plan: SubscriptionPlan = SubscriptionPlan.MONTHLY): String {
         val cleanCode = deviceCode.replace("-", "").trim().uppercase()
         val hash = sha256(cleanCode + SECRET_ACTIVATION_SALT + plan.codePrefix)
         val part1 = hash.substring(0, 4)

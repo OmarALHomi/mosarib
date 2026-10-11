@@ -230,7 +230,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 return@launch
             }
 
-            ownerPurchaseRepo.insert(
+            val newId = ownerPurchaseRepo.insert(
                 WellOwnerPurchase(
                     ownerCustomerId = ownerCustomerId,
                     date = date,
@@ -253,7 +253,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                     category = "تسديد نقدي لشراء ساعات",
                     paymentMethod = "نقداً",
                     date = date,
-                    notes = "دفعة مسلّمة فوراً لصاحب البئر عند شراء الساعات"
+                    notes = "دفعة مسلّمة فوراً لصاحب البئر عند شراء ساعات [شراء #$newId]"
                 )
                 voucherRepo.insertVoucher(voucher)
             }
@@ -341,7 +341,8 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             val grossCost = com.example.core.util.Formatters.calculateWaterCost(netMinutes, pricePerHour)
             val totalCost = com.example.core.util.Formatters.roundMoney(maxOf(0.0, grossCost - discountAmount))
             val roundedPaid = com.example.core.util.Formatters.roundMoney(amountPaid)
-            val debt = if (billedToCustomerId != null) 0.0 else com.example.core.util.Formatters.roundMoney(maxOf(0.0, totalCost - roundedPaid))
+            val isOwnerOrBilled = billedToCustomerId != null || customerRepo.getCustomerByIdDirect(customerId)?.isWellOwner == true
+            val debt = if (isOwnerOrBilled) 0.0 else com.example.core.util.Formatters.roundMoney(maxOf(0.0, totalCost - roundedPaid))
 
             val session = WaterSession(
                 id = 0L,
@@ -413,7 +414,8 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             val grossCost = com.example.core.util.Formatters.calculateWaterCost(netMinutes, pricePerHour)
             val totalCost = com.example.core.util.Formatters.roundMoney(maxOf(0.0, grossCost - discountAmount))
             val roundedPaid = com.example.core.util.Formatters.roundMoney(amountPaid)
-            val debt = if (billedToCustomerId != null) 0.0 else com.example.core.util.Formatters.roundMoney(maxOf(0.0, totalCost - roundedPaid))
+            val isOwnerOrBilled = billedToCustomerId != null || customerRepo.getCustomerByIdDirect(customerId)?.isWellOwner == true
+            val debt = if (isOwnerOrBilled) 0.0 else com.example.core.util.Formatters.roundMoney(maxOf(0.0, totalCost - roundedPaid))
 
             val session = WaterSession(
                 id = id,
@@ -463,6 +465,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 showToast("يرجى تحديد سعر شراء صالح للساعة", ToastType.ERROR)
                 return@launch
             }
+            val roundedPaid = com.example.core.util.Formatters.roundMoney(amountPaid)
             val purchase = WellOwnerPurchase(
                 id = purchaseId,
                 ownerCustomerId = ownerCustomerId,
@@ -470,16 +473,57 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 durationMinutes = durationMinutes,
                 wastedMinutesOnOwner = wastedMinutesOnOwner,
                 purchaseRatePerHour = com.example.core.util.Formatters.roundMoney(purchaseRatePerHour),
-                amountPaid = com.example.core.util.Formatters.roundMoney(amountPaid),
+                amountPaid = roundedPaid,
                 notes = notes.trim()
             )
             ownerPurchaseRepo.update(purchase)
+
+            // مزامنة سند الصرف المرتبط بعملية الشراء
+            val existingVouchers = voucherRepo.getVouchersForCustomerDirect(ownerCustomerId)
+            val linkedExpenseVoucher = existingVouchers.find {
+                it.type == VoucherType.EXPENSE && it.notes.contains("[شراء #$purchaseId]")
+            }
+            if (roundedPaid > 0.0) {
+                if (linkedExpenseVoucher != null) {
+                    voucherRepo.updateVoucher(
+                        linkedExpenseVoucher.copy(
+                            amount = roundedPaid,
+                            date = date
+                        )
+                    )
+                } else {
+                    val vNumber = "EXP-${System.currentTimeMillis().toString().takeLast(8)}"
+                    voucherRepo.insertVoucher(
+                        Voucher(
+                            voucherNumber = vNumber,
+                            type = VoucherType.EXPENSE,
+                            customerId = ownerCustomerId,
+                            amount = roundedPaid,
+                            category = "تسديد نقدي لشراء ساعات",
+                            paymentMethod = "نقداً",
+                            date = date,
+                            notes = "دفعة مسلّمة فوراً لصاحب البئر عند شراء ساعات [شراء #$purchaseId]"
+                        )
+                    )
+                }
+            } else {
+                if (linkedExpenseVoucher != null) {
+                    voucherRepo.deleteVoucher(linkedExpenseVoucher)
+                }
+            }
             showToast("تم تعديل عملية شراء الساعات بنجاح", ToastType.SUCCESS)
         }
     }
 
     fun deleteOwnerPurchase(purchase: WellOwnerPurchase) {
         viewModelScope.launch {
+            val existingVouchers = voucherRepo.getVouchersForCustomerDirect(purchase.ownerCustomerId)
+            val linkedExpenseVoucher = existingVouchers.find {
+                it.type == VoucherType.EXPENSE && it.notes.contains("[شراء #${purchase.id}]")
+            }
+            if (linkedExpenseVoucher != null) {
+                voucherRepo.deleteVoucher(linkedExpenseVoucher)
+            }
             ownerPurchaseRepo.delete(purchase)
             showToast("تم حذف حركة الشراء وتحديث كشف صاحب البئر", ToastType.INFO)
         }
@@ -590,6 +634,19 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun deleteVoucher(voucher: Voucher) {
         viewModelScope.launch {
+            if (voucher.sessionId != null) {
+                val session = sessionRepo.getSessionById(voucher.sessionId)
+                if (session != null) {
+                    val newPaid = (session.amountPaid - voucher.amount).coerceAtLeast(0.0)
+                    val newDebt = (session.totalAmount - newPaid).coerceAtLeast(0.0)
+                    sessionRepo.updateSession(
+                        session.copy(
+                            amountPaid = com.example.core.util.Formatters.roundMoney(newPaid),
+                            remainingDebt = com.example.core.util.Formatters.roundMoney(newDebt)
+                        )
+                    )
+                }
+            }
             voucherRepo.deleteVoucher(voucher)
             showToast("تم حذف السند وتحديث الرصيد", ToastType.INFO)
         }
@@ -597,8 +654,14 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun deleteSession(session: WaterSession) {
         viewModelScope.launch {
+            val sessionVouchers = voucherRepo.getVouchersForSessionDirect(session.id)
+            for (v in sessionVouchers) {
+                voucherRepo.updateVoucher(
+                    v.copy(sessionId = null, notes = "${v.notes} (دفعة على الحساب بعد حذف دورة #${session.id})".trim())
+                )
+            }
             sessionRepo.deleteSession(session)
-            showToast("تم حذف دورة الماء بنجاح", ToastType.INFO)
+            showToast("تم حذف دورة الماء وتحديث الحساب", ToastType.INFO)
         }
     }
 

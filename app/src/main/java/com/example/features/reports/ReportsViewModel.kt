@@ -11,6 +11,7 @@ import com.example.core.util.ComprehensiveReportTotals
 import com.example.core.util.Formatters
 import com.example.core.util.PdfReportGenerator
 import com.example.features.customers.Customer
+import com.example.features.customers.calculateCustomerBalance
 import com.example.features.sessions.WaterSession
 import com.example.features.sessions.WaterSessionRepository
 import com.example.features.settings.AppConfig
@@ -193,13 +194,30 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             .filter { it.type == VoucherType.DISCOUNT && it.sessionId == null }
             .sumOf { it.amount.coerceAtLeast(0.0) }
 
-        val customerSideExpenses = vouchers
-            .filter { voucher ->
-                voucher.type == VoucherType.EXPENSE &&
-                    voucher.customerId?.let { customersById[it]?.isWellOwner == false } == true
-            }
-            .sumOf { it.amount.coerceAtLeast(0.0) }
-        val totalOutstandingDebt = max(0.0, totalRevenue + customerSideExpenses - totalCollected - totalDiscounts)
+        val customerRows = customers.map { customer ->
+            val cwb = calculateCustomerBalance(customer, sessions, vouchers, purchases = purchases)
+            ComprehensiveCustomerRow(
+                customerName = customer.name,
+                phone = customer.phone,
+                farmName = customer.farmName.ifEmpty { customer.location },
+                sessionsCount = cwb.totalSessionsCount,
+                waterMinutes = cwb.totalSoldMinutes,
+                billed = cwb.totalBilledAmount,
+                paid = cwb.totalPaidAmount,
+                balance = if (customer.isWellOwner) cwb.payableBalance else cwb.receivableBalance,
+                isWellOwner = customer.isWellOwner,
+                purchasedMinutes = cwb.totalPurchasedMinutes,
+                chargeablePurchasedMinutes = cwb.totalChargeablePurchasedMinutes,
+                ownerWasteMinutes = (cwb.totalPurchasedMinutes - cwb.totalChargeablePurchasedMinutes).coerceAtLeast(0),
+                ownerWasteCredit = cwb.totalOwnerWasteCredit,
+                purchaseAmount = cwb.totalPurchaseAmount,
+                ownerPayments = cwb.totalDisbursedAmount,
+                payableBalance = cwb.payableBalance,
+                receivableBalance = cwb.receivableBalance
+            )
+        }.sortedWith(compareByDescending<ComprehensiveCustomerRow> { it.balance }.thenBy { it.customerName })
+
+        val totalOutstandingDebt = customerRows.sumOf { it.receivableBalance }
 
         val distributorWasteMinutes = sessions.sumOf { session ->
             session.wastedMinutes.coerceIn(0, session.durationMinutes.coerceAtLeast(0))
@@ -228,29 +246,25 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             }
             .sumOf { it.amount.coerceAtLeast(0.0) }
         val netProfit = totalRevenue - totalWellCost - operatingExpenses
-        val ownerPayable = ownerPurchaseAmount - ownerPayments
+        val ownerPayable = customerRows.filter { it.isWellOwner }.sumOf { it.payableBalance }
 
         val topList = sessions
             .groupBy { it.billedToCustomerId ?: it.customerId }
             .mapNotNull { (customerId, customerSessions) ->
                 val customer = customersById[customerId] ?: return@mapNotNull null
-                val customerVouchers = vouchers.filter { it.customerId == customer.id }
-                val customerRevenue = customerSessions.sumOf { it.totalAmount.coerceAtLeast(0.0) }
-                val customerPaid = customerSessions.sumOf(::initialPayment) +
-                    customerVouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount.coerceAtLeast(0.0) }
-                val customerDiscount = customerVouchers
-                    .filter { it.type == VoucherType.DISCOUNT && it.sessionId == null }
-                    .sumOf { it.amount.coerceAtLeast(0.0) }
-                val customerExpense = if (customer.isWellOwner) 0.0 else customerVouchers
-                    .filter { it.type == VoucherType.EXPENSE }
-                    .sumOf { it.amount.coerceAtLeast(0.0) }
+                val cwb = calculateCustomerBalance(
+                    customer,
+                    customerSessions,
+                    vouchers.filter { it.customerId == customer.id },
+                    purchases = purchases.filter { it.ownerCustomerId == customer.id }
+                )
                 TopCustomerStat(
                     customer = customer,
                     totalMinutes = customerSessions.sumOf { session ->
                         (session.durationMinutes - session.wastedMinutes.coerceAtLeast(0)).coerceAtLeast(0)
                     },
-                    totalBilled = customerRevenue,
-                    balance = max(0.0, customerRevenue + customerExpense - customerPaid - customerDiscount)
+                    totalBilled = cwb.totalBilledAmount,
+                    balance = if (customer.isWellOwner) cwb.payableBalance else cwb.receivableBalance
                 )
             }
             .sortedByDescending { it.totalMinutes }
@@ -275,54 +289,6 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             totalOwnerPayable = ownerPayable,
             topCustomers = topList
         )
-
-        val customerRows = customers.map { customer ->
-            val customerSessions = sessions.filter { session ->
-                session.billedToCustomerId == customer.id ||
-                    (session.customerId == customer.id && session.billedToCustomerId == null)
-            }
-            val customerVouchers = vouchers.filter { it.customerId == customer.id }
-            val customerPurchases = purchases.filter { it.ownerCustomerId == customer.id }
-            val billed = customerSessions.sumOf { it.totalAmount.coerceAtLeast(0.0) }
-            val customerPaid = customerSessions.sumOf(::initialPayment) +
-                customerVouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount.coerceAtLeast(0.0) }
-            val discount = customerVouchers
-                .filter { it.type == VoucherType.DISCOUNT && it.sessionId == null }
-                .sumOf { it.amount.coerceAtLeast(0.0) }
-            val customerExpenses = if (customer.isWellOwner) 0.0 else customerVouchers
-                .filter { it.type == VoucherType.EXPENSE }
-                .sumOf { it.amount.coerceAtLeast(0.0) }
-            val receivable = max(0.0, billed + customerExpenses - customerPaid - discount)
-            val purchaseAmount = customerPurchases.sumOf(WellOwnerPurchaseMath::payableAmount)
-            val ownerPaymentsForCustomer = customerVouchers
-                .filter { it.type == VoucherType.EXPENSE }
-                .sumOf { it.amount.coerceAtLeast(0.0) }
-            val payable = if (customer.isWellOwner) purchaseAmount - ownerPaymentsForCustomer else 0.0
-            val purchasedMinutes = customerPurchases.sumOf { it.durationMinutes.coerceAtLeast(0) }
-            val chargeableMinutes = customerPurchases.sumOf(WellOwnerPurchaseMath::chargeableMinutes)
-
-            ComprehensiveCustomerRow(
-                customerName = customer.name,
-                phone = customer.phone,
-                farmName = customer.farmName.ifEmpty { customer.location },
-                sessionsCount = customerSessions.size,
-                waterMinutes = customerSessions.sumOf { session ->
-                    (session.durationMinutes - session.wastedMinutes.coerceAtLeast(0)).coerceAtLeast(0)
-                },
-                billed = billed,
-                paid = customerPaid,
-                balance = receivable,
-                isWellOwner = customer.isWellOwner,
-                purchasedMinutes = purchasedMinutes,
-                chargeablePurchasedMinutes = chargeableMinutes,
-                ownerWasteMinutes = (purchasedMinutes - chargeableMinutes).coerceAtLeast(0),
-                ownerWasteCredit = customerPurchases.sumOf(WellOwnerPurchaseMath::ownerWasteCredit),
-                purchaseAmount = purchaseAmount,
-                ownerPayments = ownerPaymentsForCustomer,
-                payableBalance = payable,
-                receivableBalance = receivable
-            )
-        }.sortedWith(compareByDescending<ComprehensiveCustomerRow> { it.balance }.thenBy { it.customerName })
 
         val totals = ComprehensiveReportTotals(
             sessionsCount = sessions.size,

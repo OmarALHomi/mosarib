@@ -41,7 +41,7 @@ data class CustomerWithBalance(
 )
 
 /** Shared, pure balance calculation so account lists, statements, and reports use the same rules. */
-internal fun calculateCustomerBalance(
+fun calculateCustomerBalance(
     customer: Customer,
     sessions: List<WaterSession>,
     vouchers: List<Voucher>,
