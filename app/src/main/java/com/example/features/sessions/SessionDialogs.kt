@@ -38,21 +38,32 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -210,9 +221,41 @@ fun AddEditSessionBottomSheet(
     var overnightNotice by remember {
         mutableStateOf<String?>(
             if (isInitiallyOvernight && endDateMillis > startDateMillis) {
-                "🌙 ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
+                "ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
             } else null
         )
+    }
+
+    val dayDifference by remember(startDateMillis, endDateMillis) {
+        derivedStateOf {
+            val startDayCal = Calendar.getInstance().apply {
+                timeInMillis = startDateMillis
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }
+            val endDayCal = Calendar.getInstance().apply {
+                timeInMillis = endDateMillis
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }
+            val diffMs = endDayCal.timeInMillis - startDayCal.timeInMillis
+            (diffMs / (24 * 60 * 60 * 1000L)).toInt()
+        }
+    }
+
+    val dayDescription by remember(dayDifference, endDateMillis) {
+        derivedStateOf {
+            when {
+                dayDifference <= 0 -> null
+                dayDifference == 1 -> "اليوم التالي (${Formatters.formatDate(endDateMillis)})"
+                dayDifference == 2 -> "بعد يومين (${Formatters.formatDate(endDateMillis)})"
+                dayDifference in 3..10 -> "بعد $dayDifference أيام (${Formatters.formatDate(endDateMillis)})"
+                dayDifference > 10 -> "بعد $dayDifference يوماً (${Formatters.formatDate(endDateMillis)})"
+                else -> null
+            }
+        }
+    }
+
+    val isEndNight by remember(endHour) {
+        derivedStateOf { endHour < 6 || endHour >= 18 }
     }
 
     // الوقت المهدور (التوقفات والأعطال)
@@ -270,7 +313,7 @@ fun AddEditSessionBottomSheet(
             val startDay = Calendar.getInstance().apply { timeInMillis = startDateMillis }.get(Calendar.DAY_OF_YEAR)
             val endDay = newEndCal.get(Calendar.DAY_OF_YEAR)
             if (endDay != startDay) {
-                overnightNotice = "🌙 ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
+                overnightNotice = "ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
             } else {
                 overnightNotice = null
             }
@@ -292,7 +335,7 @@ fun AddEditSessionBottomSheet(
                 }
                 endDateMillis = nextDayCal.timeInMillis
                 val dateStr = Formatters.formatDate(endDateMillis)
-                overnightNotice = "🌙 تم تقديم وقت الانتهاء تلقائياً إلى اليوم التالي ($dateStr) لأن ساعة الانتهاء تقع بعد منتصف الليل."
+                overnightNotice = "تم تقديم وقت الانتهاء تلقائياً إلى اليوم التالي ($dateStr) لأن ساعة الانتهاء تقع بعد منتصف الليل."
                 Toast.makeText(context, "تم التقديم إلى اليوم التالي: $dateStr", Toast.LENGTH_SHORT).show()
             } else if (overnightNotice != null) {
                 endDateMillis = startDateMillis
@@ -313,7 +356,7 @@ fun AddEditSessionBottomSheet(
             }
             endDateMillis = nextDayCal.timeInMillis
             val dateStr = Formatters.formatDate(endDateMillis)
-            overnightNotice = "🌙 تم تقديم وقت الانتهاء تلقائياً إلى اليوم التالي ($dateStr) لأن ساعة الانتهاء تقع بعد منتصف الليل."
+            overnightNotice = "تم تقديم وقت الانتهاء تلقائياً إلى اليوم التالي ($dateStr) لأن ساعة الانتهاء تقع بعد منتصف الليل."
             Toast.makeText(context, "تم التقديم إلى اليوم التالي: $dateStr", Toast.LENGTH_SHORT).show()
         } else {
             val startDay = Calendar.getInstance().apply { timeInMillis = startDateMillis }.get(Calendar.DAY_OF_YEAR)
@@ -385,6 +428,7 @@ fun AddEditSessionBottomSheet(
     }
 
     var customerDropdownExpanded by remember { mutableStateOf(false) }
+    var customerSearchQuery by remember { mutableStateOf("") }
     var showAddCustomerSheet by remember { mutableStateOf(false) }
     var customerSaveError by remember { mutableStateOf<String?>(null) }
     var showWastedDetails by remember { mutableStateOf(wastedTotalMinutes > 0) }
@@ -411,7 +455,7 @@ fun AddEditSessionBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (initialSession == null) "تسجيل دورة ري (ساقية ماء)" else "تعديل بيانات دورة الماء",
+                    text = if (initialSession == null) "تسجيل سقي جديد" else "تعديل بيانات السقي",
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -422,18 +466,13 @@ fun AddEditSessionBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // اختيار العميل
-            Text(
-                text = "العميل الذي يُحتسب عليه السقي *",
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
-            )
-            Spacer(modifier = Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f)) {
                     MosaribTextField(
-                        value = selectedCustomer?.name ?: "اختر العميل...",
+                        value = selectedCustomer?.name ?: "اختر العميل *",
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
@@ -449,30 +488,133 @@ fun AddEditSessionBottomSheet(
                     )
                     DropdownMenu(
                         expanded = customerDropdownExpanded,
-                        onDismissRequest = { customerDropdownExpanded = false }
+                        onDismissRequest = {
+                            customerDropdownExpanded = false
+                            customerSearchQuery = ""
+                        },
+                        modifier = Modifier.fillMaxWidth(0.9f)
                     ) {
-                        customers.forEach { c ->
-                            DropdownMenuItem(
-                                text = {
-                                    Column {
-                                        Text(c.name, fontWeight = FontWeight.Bold)
-                                        val detail = when {
-                                            c.isWellOwner -> "صاحب بئر • يمكن احتساب السقي عليه"
-                                            c.farmName.isNotEmpty() -> c.farmName
-                                            else -> ""
-                                        }
-                                        if (detail.isNotEmpty()) {
-                                            Text(detail, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                                        }
+                        MosaribTextField(
+                            value = customerSearchQuery,
+                            onValueChange = { customerSearchQuery = it },
+                            placeholder = "بحث بالاسم أو الهاتف أو المزرعة...",
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp), tint = PrimaryTeal) },
+                            trailingIcon = if (customerSearchQuery.isNotEmpty()) {
+                                {
+                                    IconButton(onClick = { customerSearchQuery = "" }) {
+                                        Icon(Icons.Default.Close, contentDescription = "مسح", modifier = Modifier.size(16.dp))
                                     }
-                                },
-                                onClick = {
-                                    selectedCustomerId = c.id
-                                    val customerPrice = if (c.isWellOwner) null else c.customPricePerHour
-                                    pricePerHourStr = Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
-                                    customerDropdownExpanded = false
                                 }
+                            } else null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                        HorizontalDivider()
+
+                        val displayedCustomers = if (customerSearchQuery.isBlank()) customers
+                        else customers.filter {
+                            it.name.contains(customerSearchQuery, ignoreCase = true) ||
+                            it.phone.contains(customerSearchQuery) ||
+                            it.farmName.contains(customerSearchQuery, ignoreCase = true)
+                        }
+                        if (displayedCustomers.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("لا توجد نتائج مطابقة", style = MaterialTheme.typography.bodySmall, color = Color.Gray) },
+                                onClick = {}
                             )
+                        } else {
+                            displayedCustomers.forEach { c ->
+                                val isCurrent = c.id == selectedCustomerId
+                                DropdownMenuItem(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(if (isCurrent) PrimaryTeal.copy(alpha = 0.08f) else Color.Transparent),
+                                    text = {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Surface(
+                                                    modifier = Modifier.size(34.dp),
+                                                    shape = CircleShape,
+                                                    color = if (c.isWellOwner) (if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD))
+                                                            else (if (isDark) Color(0xFF1E3A3A) else Color(0xFFCCFBF1))
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Text(
+                                                            text = c.name.firstOrNull()?.toString() ?: "ع",
+                                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = if (c.isWellOwner) (if (isDark) Color(0xFFE0F2FE) else Color(0xFF0369A1))
+                                                                        else (if (isDark) Color(0xFF5EEAD4) else PrimaryTeal)
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                                Spacer(modifier = Modifier.width(10.dp))
+                                                Column {
+                                                    Text(
+                                                        text = c.name,
+                                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.SemiBold
+                                                        )
+                                                    )
+                                                    val detail = when {
+                                                        c.farmName.isNotEmpty() -> c.farmName
+                                                        c.phone.isNotEmpty() -> c.phone
+                                                        else -> ""
+                                                    }
+                                                    if (detail.isNotEmpty()) {
+                                                        Text(detail, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                                    }
+                                                }
+                                            }
+
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                if (c.isWellOwner) {
+                                                    Surface(
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        color = if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE),
+                                                        border = BorderStroke(0.5.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD))
+                                                    ) {
+                                                        Text(
+                                                            text = "صاحب بئر",
+                                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                                color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
+                                                                fontSize = 10.sp,
+                                                                fontWeight = FontWeight.Bold
+                                                            ),
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+                                                }
+                                                if (isCurrent) {
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Icon(
+                                                        imageVector = Icons.Default.Check,
+                                                        contentDescription = null,
+                                                        tint = PrimaryTeal,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedCustomerId = c.id
+                                        val customerPrice = if (c.isWellOwner) null else c.customPricePerHour
+                                        pricePerHourStr = Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
+                                        customerDropdownExpanded = false
+                                        customerSearchQuery = ""
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -504,8 +646,15 @@ fun AddEditSessionBottomSheet(
                             .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Icon(
+                            Icons.Default.WaterDrop,
+                            contentDescription = null,
+                            tint = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "💧 حساب صاحب بئر: يُحتسب هذا السقي مقاصة تلقائية وتُخصم قيمته من مستحقات مشتريات الساعات لديه.",
+                            text = "حساب صاحب بئر: يُحتسب هذا السقي مقاصة تلقائية وتُخصم قيمته من مستحقات مشتريات الساعات لديه.",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
@@ -539,15 +688,26 @@ fun AddEditSessionBottomSheet(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "💧 احتساب السقي على صاحب بئر",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (billedToCustomerId != null) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.WaterDrop,
+                                        contentDescription = null,
+                                        tint = if (billedToCustomerId != null) {
                                             if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
-                                        } else MaterialTheme.colorScheme.onSurface
+                                        } else MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
                                     )
-                                )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "احتساب السقي على صاحب بئر",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (billedToCustomerId != null) {
+                                                if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
+                                            } else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    )
+                                }
                                 Text(
                                     text = "تُخصم القيمة كتسديد من مستحقات صاحب البئر لدى المسرب",
                                     style = MaterialTheme.typography.bodySmall.copy(
@@ -765,7 +925,7 @@ fun AddEditSessionBottomSheet(
                                         manualHoursStr = it.filter { c -> c.isDigit() }.take(3)
                                         applyManualDuration(manualHoursStr, manualMinutesStr)
                                     },
-                                    label = "عدد الساعات (أقصى حد 240 س / 10 أيام) *",
+                                    label = "عدد الساعات *",
                                     placeholder = "مثلاً: 3",
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, tint = PrimaryTeal) },
@@ -781,7 +941,7 @@ fun AddEditSessionBottomSheet(
                                             applyManualDuration(manualHoursStr, manualMinutesStr)
                                         }
                                     },
-                                    label = "الدقائق (اختياري)",
+                                    label = "الدقائق",
                                     placeholder = "0",
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     modifier = Modifier.weight(1f)
@@ -790,8 +950,7 @@ fun AddEditSessionBottomSheet(
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // وقت الانتهاء المحسوب تلقائياً
-                            val crossesMidnight = endDateMillis > startDateMillis
+                            // وقت الانتهاء المحسوب بدقة
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 color = MaterialTheme.colorScheme.surface,
@@ -805,21 +964,41 @@ fun AddEditSessionBottomSheet(
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
-                                            Icons.Default.Check,
+                                            imageVector = if (isEndNight) Icons.Default.DarkMode else Icons.Default.WbSunny,
                                             contentDescription = null,
-                                            tint = AccentEmerald,
-                                            modifier = Modifier.size(16.dp)
+                                            tint = if (isEndNight) (if (isDark) Color(0xFF93C5FD) else Color(0xFF2563EB)) else (if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706)),
+                                            modifier = Modifier.size(17.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = "وقت الانتهاء التلقائي:",
+                                            text = "وقت الانتهاء:",
                                             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
                                         )
                                     }
-                                    Text(
-                                        text = "${Formatters.formatClockTimeArabic(endHour, endMinute)} ${if (crossesMidnight) "(${Formatters.formatDate(endDateMillis)}) 🌙" else ""}",
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, color = PrimaryTeal)
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = Formatters.formatClockTimeArabic(endHour, endMinute),
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, color = PrimaryTeal)
+                                        )
+                                        if (dayDescription != null) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE),
+                                                border = BorderStroke(0.5.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD))
+                                            ) {
+                                                Text(
+                                                    text = dayDescription!!,
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1),
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 10.sp
+                                                    ),
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -953,8 +1132,8 @@ fun AddEditSessionBottomSheet(
                                 }
                             }
 
-                            // إشعار التقديم التلقائي إلى اليوم التالي (عبر منتصف الليل)
-                            if (overnightNotice != null) {
+                            // إشعار الانتقال لليوم التالي / أيام قادمة
+                            if (dayDescription != null || overnightNotice != null) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
@@ -969,14 +1148,14 @@ fun AddEditSessionBottomSheet(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
-                                            Icons.Default.Info,
+                                            imageVector = if (isEndNight) Icons.Default.DarkMode else Icons.Default.WbSunny,
                                             contentDescription = null,
-                                            tint = if (isDark) Color(0xFF60A5FA) else Color(0xFF2563EB),
+                                            tint = if (isEndNight) (if (isDark) Color(0xFF93C5FD) else Color(0xFF2563EB)) else (if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706)),
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = overnightNotice!!,
+                                            text = dayDescription ?: overnightNotice.orEmpty(),
                                             style = MaterialTheme.typography.bodySmall.copy(
                                                 color = if (isDark) Color(0xFF93C5FD) else Color(0xFF1E40AF),
                                                 fontWeight = FontWeight.Medium,
@@ -986,56 +1165,6 @@ fun AddEditSessionBottomSheet(
                                     }
                                 }
                             }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // شرائح المدد السريعة بنقرة واحدة (تشمل حتى 48 ساعة)
-                    Text(
-                        text = "أو ضبط المدة مباشرة بنقرة واحدة:",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                        val quickDurations = listOf(
-                            Pair("نصف ساعة", 30),
-                            Pair("1 ساعة", 60),
-                            Pair("ساعتان", 120),
-                            Pair("3 ساعات", 180),
-                            Pair("4 ساعات", 240),
-                            Pair("6 ساعات", 360),
-                            Pair("8 ساعات", 480),
-                            Pair("12 ساعة", 720),
-                            Pair("24 ساعة (يوم)", 1440),
-                            Pair("يومان (48 س)", 2880),
-                            Pair("3 أيام (72 س)", 4320),
-                            Pair("5 أيام (120 س)", 7200),
-                            Pair("10 أيام (240 س)", 14400)
-                        )
-                        items(quickDurations) { (label, qMins) ->
-                            val isSelected = grossMinutes == qMins
-                            MosaribFilterChip(
-                                selected = isSelected,
-                                onClick = {
-                                    val newEndMs = startCal.timeInMillis + (qMins * 60000L)
-                                    val newEndCal = Calendar.getInstance().apply { timeInMillis = newEndMs }
-                                    endDateMillis = newEndCal.timeInMillis
-                                    endHour = newEndCal.get(Calendar.HOUR_OF_DAY)
-                                    endMinute = newEndCal.get(Calendar.MINUTE)
-                                    manualHoursStr = (qMins / 60).toString()
-                                    manualMinutesStr = if (qMins % 60 > 0) (qMins % 60).toString() else ""
-                                    val startDay = Calendar.getInstance().apply { timeInMillis = startDateMillis }.get(Calendar.DAY_OF_YEAR)
-                                    val endDay = newEndCal.get(Calendar.DAY_OF_YEAR)
-                                    if (endDay != startDay) {
-                                        overnightNotice = "🌙 ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
-                                    } else {
-                                        overnightNotice = null
-                                    }
-                                },
-                                label = label
-                            )
                         }
                     }
 
@@ -1054,14 +1183,14 @@ fun AddEditSessionBottomSheet(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    Icons.Default.Info,
+                                    Icons.Default.Warning,
                                     contentDescription = null,
                                     tint = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "⚠️ لا يمكن تسجيل سقي بساعات خيالية! الحد الأقصى المسموح به للدورة الواحدة هو 10 أيام (240 ساعة / 14,400 دقيقة).",
+                                    text = "الحد الأقصى المسموح به للدورة الواحدة هو 10 أيام (240 ساعة).",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
                                         fontWeight = FontWeight.Bold
@@ -1075,13 +1204,42 @@ fun AddEditSessionBottomSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // قسم الوقت المهدور (التوقفات / الأعطال)
+            // سعر الساعة (مباشرة تحت تحديد الساعات)
+            Column {
+                MosaribTextField(
+                    value = pricePerHourStr,
+                    onValueChange = { pricePerHourStr = Formatters.formatAmountInput(it) },
+                    label = "سعر الساعة ($currencySymbol) *",
+                    leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = AccentGold) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (pricePerHour > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = Formatters.amountToArabicWords(pricePerHour, currencySymbol),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                            fontWeight = FontWeight.Medium
+                        ),
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // بطاقة منسدلة في الأخير: خيارات إضافية (الوقت المهدور والخصم)
+            var showExtraOptions by remember {
+                mutableStateOf(wastedTotalMinutes > 0 || discountAmount > 0)
+            }
+
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp)),
                 color = when {
-                    wastedTotalMinutes > 0 -> if (isDark) Color(0xFF261811) else Color(0xFFFFF7ED)
+                    wastedTotalMinutes > 0 || discountAmount > 0 -> if (isDark) Color(0xFF162329) else Color(0xFFF8FAFC)
                     isDark -> Color(0xFF141F25)
                     else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
                 },
@@ -1089,6 +1247,7 @@ fun AddEditSessionBottomSheet(
                     1.dp,
                     when {
                         wastedTotalMinutes > 0 -> if (isDark) Color(0xFF9A3412) else Color(0xFFFED7AA)
+                        discountAmount > 0 -> if (isDark) Color(0xFF166534) else Color(0xFFBBF7D0)
                         isDark -> Color(0xFF2A3C45)
                         else -> Color(0xFFE2E8F0)
                     }
@@ -1097,35 +1256,90 @@ fun AddEditSessionBottomSheet(
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showExtraOptions = !showExtraOptions }
+                            .padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "⏱️ الوقت المهدور والتوقفات (يُخصم)",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = when {
-                                    wastedTotalMinutes > 0 -> if (isDark) Color(0xFFFB923C) else Color(0xFFC2410C)
-                                    else -> MaterialTheme.colorScheme.onSurface
-                                }
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        TextButton(
-                            onClick = { showWastedDetails = !showWastedDetails },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.LocalOffer,
+                                contentDescription = null,
+                                tint = PrimaryTeal,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (showWastedDetails) "إخفاء" else "تحديد هدر",
-                                fontWeight = FontWeight.Bold
+                                text = "خيارات إضافية (الوقت المهدور والخصم)",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (wastedTotalMinutes > 0) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (isDark) Color(0xFF261811) else Color(0xFFFFF7ED),
+                                    border = BorderStroke(0.5.dp, if (isDark) Color(0xFF9A3412) else Color(0xFFFED7AA))
+                                ) {
+                                    Text(
+                                        text = "هدر: ${Formatters.formatDurationArabic(wastedTotalMinutes)}",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = if (isDark) Color(0xFFFB923C) else Color(0xFFC2410C),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            if (discountAmount > 0) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (isDark) Color(0xFF11261B) else Color(0xFFF0FDF4),
+                                    border = BorderStroke(0.5.dp, if (isDark) Color(0xFF166534) else Color(0xFFBBF7D0))
+                                ) {
+                                    Text(
+                                        text = "خصم: ${Formatters.formatCurrency(discountAmount, currencySymbol)}",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Icon(
+                                imageVector = if (showExtraOptions) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
-                    if (showWastedDetails || wastedTotalMinutes > 0) {
-                        Spacer(modifier = Modifier.height(8.dp))
+                    if (showExtraOptions) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // تفاصيل الوقت المهدور
+                        Text(
+                            text = "الوقت المهدور (يُخصم من السقي):",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1149,94 +1363,89 @@ fun AddEditSessionBottomSheet(
                         MosaribTextField(
                             value = wastedReason,
                             onValueChange = { wastedReason = it },
-                            label = "سبب التوقف (عطل مضخة، نقص ديزل...)",
+                            label = "سبب التوقف",
+                            placeholder = "مثال: عطل مضخة، نقص ديزل...",
                             modifier = Modifier.fillMaxWidth()
                         )
-                        if (wastedTotalMinutes > grossMinutes && grossMinutes > 0) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "❌ لا يمكن أن يكون الهدر أكبر من مدة السقي بتاتاً!",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F),
-                                    fontWeight = FontWeight.Bold
+                        Spacer(modifier = Modifier.height(6.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            val commonWastedReasons = listOf("عطل مضخة", "نقص ديزل", "صيانة ليات", "انقطاع كهرباء", "توقف مؤقت")
+                            items(commonWastedReasons) { r ->
+                                val isSelected = wastedReason == r
+                                MosaribFilterChip(
+                                    selected = isSelected,
+                                    onClick = { wastedReason = if (isSelected) "" else r },
+                                    label = r
                                 )
-                            )
+                            }
                         }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Historical sale price for this session. Purchase rates are captured separately.
-            MosaribTextField(
-                value = pricePerHourStr,
-                onValueChange = { pricePerHourStr = Formatters.formatAmountInput(it) },
-                label = "سعر البيع ($currencySymbol/ساعة)",
-                leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = AccentGold) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // قسم الخصم والمسامحة
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp)),
-                color = when {
-                    discountAmount > 0 -> if (isDark) Color(0xFF11261B) else Color(0xFFF0FDF4)
-                    isDark -> Color(0xFF141F25)
-                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                },
-                border = BorderStroke(
-                    1.dp,
-                    when {
-                        discountAmount > 0 -> if (isDark) Color(0xFF166534) else Color(0xFFBBF7D0)
-                        isDark -> Color(0xFF2A3C45)
-                        else -> Color(0xFFE2E8F0)
-                    }
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "🏷️ خصم ومسامحة للمزارع (مبلغ مالي)",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = when {
-                                    discountAmount > 0 -> if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D)
-                                    else -> MaterialTheme.colorScheme.onSurface
+                        if (wastedTotalMinutes > grossMinutes && grossMinutes > 0) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isDark) Color(0xFF2B1313) else Color(0xFFFEF2F2),
+                                border = BorderStroke(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFFECACA))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.ErrorOutline,
+                                        contentDescription = null,
+                                        tint = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        "لا يمكن أن يكون الهدر أكبر من مدة السقي!",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
                                 }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // تفاصيل الخصم والمسامحة
+                        Text(
+                            text = "الخصم والمسامحة:",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         )
-                        TextButton(onClick = { showDiscountDetails = !showDiscountDetails }) {
-                            Text(if (showDiscountDetails) "إخفاء" else "إضافة خصم")
-                        }
-                    }
-
-                    if (showDiscountDetails || discountAmount > 0) {
                         Spacer(modifier = Modifier.height(6.dp))
                         MosaribTextField(
                             value = discountAmountStr,
                             onValueChange = { discountAmountStr = Formatters.formatAmountInput(it) },
-                            label = "مبلغ الخصم أو المسامحة ($currencySymbol)",
+                            label = "مبلغ الخصم ($currencySymbol)",
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
+                        if (discountAmount > 0) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = Formatters.amountToArabicWords(discountAmount, currencySymbol),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D),
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                            )
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // بطاقة الحسابات الميدانية الشاملة (للمزارع وصاحب البئر وصافي الربح)
+            // بطاقة الحسابات الميدانية الشاملة
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -1294,7 +1503,11 @@ fun AddEditSessionBottomSheet(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("💧 مسجل على حساب صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.WaterDrop, contentDescription = null, tint = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("مسجل على حساب صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                            }
                             Text(ownerName, style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
                         }
                         Spacer(modifier = Modifier.height(4.dp))
@@ -1307,43 +1520,128 @@ fun AddEditSessionBottomSheet(
                             Text("0.00 $currencySymbol (مدفوع من المالك)", style = MaterialTheme.typography.titleMedium.copy(color = AccentEmerald, fontWeight = FontWeight.ExtraBold))
                         }
                         Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("المحتسب على صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1)))
-                            Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.bodyMedium.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("المحتسب على صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1)))
+                                Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.bodyMedium.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                            }
+                            if (finalFarmerCharge > 0) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    Formatters.amountToArabicWords(finalFarmerCharge, currencySymbol),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1),
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                )
+                            }
                         }
                     } else {
                         // المبلغ المطلوب من المزارع
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("المطلوب الصافي من العميل:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                            Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.titleLarge.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold))
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("المطلوب الصافي من العميل:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                                Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.titleLarge.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold))
+                            }
+                            if (finalFarmerCharge > 0) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    Formatters.amountToArabicWords(finalFarmerCharge, currencySymbol),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                )
+                            }
                         }
                     }
-
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // المبلغ المدفوع فوراً والمتبقي كدين
-            MosaribTextField(
-                value = amountPaidStr,
-                onValueChange = { amountPaidStr = Formatters.formatAmountInput(it) },
-                label = "المبلغ المدفوع فوراً نقدياً (اختياري)",
-                placeholder = "0",
-                leadingIcon = { Icon(Icons.Default.Check, contentDescription = null, tint = AccentEmerald) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("session_paid_input")
-            )
+            // المبلغ المستلم نقدياً فوراً
+            val isFullPaid = finalFarmerCharge > 0 && amountPaid >= finalFarmerCharge
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    MosaribTextField(
+                        value = amountPaidStr,
+                        onValueChange = { amountPaidStr = Formatters.formatAmountInput(it) },
+                        label = "المبلغ المستلم",
+                        placeholder = "0",
+                        leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald) },
+                        trailingIcon = if (amountPaidStr.isNotBlank()) {
+                            {
+                                IconButton(onClick = { amountPaidStr = "" }) {
+                                    Icon(Icons.Default.Close, contentDescription = "مسح", modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        } else null,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("session_paid_input")
+                    )
+
+                    if (!isBilledToWellOwner && finalFarmerCharge > 0) {
+                        Surface(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    amountPaidStr = if (isFullPaid) "" else Formatters.formatAmountInput(finalFarmerCharge.toString())
+                                },
+                            color = if (isFullPaid) AccentEmerald.copy(alpha = 0.12f) else (if (isDark) Color(0xFF141F25) else Color(0xFFF1F5F9)),
+                            border = BorderStroke(1.dp, if (isFullPaid) AccentEmerald else (if (isDark) Color(0xFF2A3C45) else Color(0xFFCBD5E1))),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isFullPaid,
+                                    onCheckedChange = { checked ->
+                                        amountPaidStr = if (checked) Formatters.formatAmountInput(finalFarmerCharge.toString()) else ""
+                                    },
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "دفع كامل",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isFullPaid) AccentEmerald else MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (amountPaid > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = Formatters.amountToArabicWords(amountPaid, currencySymbol),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = AccentEmerald,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                }
+            }
 
             if (isBilledToWellOwner) {
                 Spacer(modifier = Modifier.height(6.dp))
@@ -1362,18 +1660,45 @@ fun AddEditSessionBottomSheet(
                 }
             } else if (remainingDebt > 0) {
                 Spacer(modifier = Modifier.height(6.dp))
-                Row(
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (isDark) Color(0xFF2B1313) else Color(0xFFFEF2F2))
-                        .border(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFFECACA), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .clip(RoundedCornerShape(10.dp)),
+                    color = if (isDark) Color(0xFF2B1313) else Color(0xFFFEF2F2),
+                    border = BorderStroke(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFFECACA)),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("المتبقي بذمة العميل (دين):", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C)))
-                    Text(Formatters.formatCurrency(remainingDebt, currencySymbol), style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C), fontWeight = FontWeight.Bold))
+                    Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "المتبقي (آجل):",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            Text(
+                                text = Formatters.formatCurrency(remainingDebt, currencySymbol),
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = Formatters.amountToArabicWords(remainingDebt, currencySymbol),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 11.sp
+                            )
+                        )
+                    }
                 }
             }
 
@@ -1384,16 +1709,16 @@ fun AddEditSessionBottomSheet(
                 MosaribTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = "ملاحظات الجلسة",
+                    label = "ملاحظات",
                     modifier = Modifier.fillMaxWidth()
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Save Button
             MosaribButton(
-                text = if (initialSession == null) "حفظ وترحيل دورة السقي 💾" else "حفظ التعديلات 💾",
+                text = if (initialSession == null) "حفظ وترحيل" else "حفظ التعديلات",
                 onClick = {
                     if (selectedCustomerId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes) {
                         onSave(
@@ -1679,7 +2004,7 @@ private fun TimePickerBox(
             Spacer(modifier = Modifier.height(2.dp))
 
             Text(
-                text = "انقر للتعديل 🕒",
+                text = "انقر للتعديل",
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontSize = 10.sp,
                     color = androidx.compose.ui.graphics.Color.Gray

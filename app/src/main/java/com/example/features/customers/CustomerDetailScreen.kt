@@ -1291,7 +1291,7 @@ fun CustomerDetailScreen(
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
-                                    text = "❌ لا يمكن أن يكون الهدر أكبر من عملية الشراء بتاتاً! الحد المتاح: ${Formatters.formatDurationArabic(availableMinutes)}",
+                                    text = "لا يمكن أن يكون الهدر أكبر من عملية الشراء! الحد المتاح: ${Formatters.formatDurationArabic(availableMinutes)}",
                                     color = Color(0xFFB91C1C),
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Bold,

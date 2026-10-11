@@ -365,7 +365,7 @@ private fun HeroProfitCard(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            text = if (isProfit) "عائد إيجابي 📈" else "عجز تشغيلي ⚠️",
+                            text = if (isProfit) "عائد إيجابي" else "عجز تشغيلي",
                             color = if (isProfit) Color(0xFF1B5E20) else Color(0xFFC62828),
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp,
@@ -815,7 +815,7 @@ private fun WellOwnerAccountingCard(
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        text = if (stats.totalOwnerPayable <= 0) "خالص بالكامل ✅" else "متبقي مستحقات",
+                        text = if (stats.totalOwnerPayable <= 0) "خالص بالكامل" else "متبقي مستحقات",
                         color = if (stats.totalOwnerPayable <= 0) Color(0xFF1B5E20) else Color(0xFFC62828),
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp,

@@ -1003,7 +1003,7 @@ fun VouchersScreen(
                                             )
 
                                             Text(
-                                                text = "⏱️ ${Formatters.formatDurationArabic(chargeable)}",
+                                                text = Formatters.formatDurationArabic(chargeable),
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     fontWeight = FontWeight.SemiBold,
                                                     fontSize = 9.5.sp,
@@ -2055,22 +2055,22 @@ fun AddVoucherBottomSheet(
                                                     parsedAmt <= 0.0 -> Triple(
                                                         if (isDark) Color(0xFF202A30) else Color(0xFFEEEEEE),
                                                         if (isDark) Color(0xFF94A3B8) else Color.DarkGray,
-                                                        "⚠️ أدخل المبلغ لمعاينة التوزيع"
+                                                        "أدخل المبلغ لمعاينة التوزيع"
                                                     )
                                                     remAfter == 0.0 -> Triple(
                                                         if (isDark) Color(0xFF11261B) else Color(0xFFE8F5E9),
                                                         if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
-                                                        "✅ ستُسدد بالكامل (${Formatters.formatCurrency(allocated, currencySymbol)})"
+                                                        "ستُسدد بالكامل (${Formatters.formatCurrency(allocated, currencySymbol)})"
                                                     )
                                                     allocated > 0.0 -> Triple(
                                                         if (isDark) Color(0xFF2A2010) else Color(0xFFFFF8E1),
                                                         if (isDark) Color(0xFFFBBF24) else Color(0xFFF57F17),
-                                                        "⏳ سداد جزئي: ${Formatters.formatCurrency(allocated, currencySymbol)} (متبقي: ${Formatters.formatCurrency(remAfter, currencySymbol)})"
+                                                        "سداد جزئي: ${Formatters.formatCurrency(allocated, currencySymbol)} (متبقي: ${Formatters.formatCurrency(remAfter, currencySymbol)})"
                                                     )
                                                     else -> Triple(
                                                         if (isDark) Color(0xFF2B1313) else Color(0xFFFFEBEE),
                                                         if (isDark) Color(0xFFF87171) else Color(0xFFC62828),
-                                                        "❌ لم يشملها المبلغ (المبلغ غير كافٍ)"
+                                                        "لم يشملها المبلغ (المبلغ غير كافٍ)"
                                                     )
                                                 }
 
@@ -2372,9 +2372,9 @@ fun SettlementResultDialog(
                                 )
                                 Text(
                                     text = when {
-                                        item.isFullyPaid -> "خالصة بالكامل ✅"
-                                        item.allocatedAmount > 0 -> "متبقي: ${Formatters.formatCurrency(item.remainingDebtAfter, result.currencySymbol)} ⏳"
-                                        else -> "لم يشملها المبلغ ❌"
+                                        item.isFullyPaid -> "خالصة بالكامل"
+                                        item.allocatedAmount > 0 -> "متبقي: ${Formatters.formatCurrency(item.remainingDebtAfter, result.currencySymbol)}"
+                                        else -> "لم يشملها المبلغ"
                                     },
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
@@ -2403,7 +2403,7 @@ fun SettlementResultDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("💰", fontSize = 18.sp)
+                            Icon(Icons.Default.Payments, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(20.dp))
                             Column {
                                 Text(
                                     "فائض رصيد للعميل",
