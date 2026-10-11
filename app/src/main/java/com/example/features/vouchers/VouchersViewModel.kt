@@ -9,6 +9,7 @@ import com.example.core.ui.ToastType
 import com.example.features.customers.Customer
 import com.example.features.customers.CustomerRepository
 import com.example.features.sessions.WaterSessionRepository
+import com.example.features.sessions.WaterSessionWithCustomer
 import com.example.features.settings.AppConfig
 import com.example.features.settings.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,13 +23,15 @@ import kotlinx.coroutines.launch
 import com.example.core.license.LicenseManager
 import com.example.core.util.Formatters
 import com.example.features.sessions.WaterSession
-import com.example.features.sessions.WaterSessionWithCustomer
+import com.example.features.wellowners.WellOwnerPurchase
+import com.example.features.wellowners.WellOwnerPurchaseRepository
 
 enum class OperationsFilter {
     ALL,        // الكل
     SESSIONS,   // سقي
     RECEIPTS,   // مقبوضات
     EXPENSES,   // مصروفات
+    PURCHASES,  // شراء ساعات
     DEFERRED    // مؤخر / ديون
 }
 
@@ -49,6 +52,14 @@ sealed class UnifiedOperation {
     ) : UnifiedOperation() {
         override val timestamp: Long get() = voucherWithCustomer.voucher.date
         override val id: Long get() = voucherWithCustomer.voucher.id
+    }
+
+    data class PurchaseOp(
+        val purchase: WellOwnerPurchase,
+        val owner: Customer?
+    ) : UnifiedOperation() {
+        override val timestamp: Long get() = purchase.date
+        override val id: Long get() = purchase.id
     }
 }
 
@@ -111,29 +122,46 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                 .map { it.key }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    /** سجل العمليات الموحد (سقي + مقبوضات + مصروفات) مع الفلترة */
+    private val ownerPurchaseRepo = WellOwnerPurchaseRepository(db.wellOwnerPurchaseDao())
+
+    /** سجل العمليات الموحد (سقي + مقبوضات + مصروفات + شراء ساعات) مع الفلترة */
+    private val rawOperationsFlow = combine(
+        sessionRepo.sessionsWithCustomer,
+        voucherRepo.vouchersWithCustomer,
+        ownerPurchaseRepo.allPurchases,
+        customerRepo.allCustomers
+    ) { sessions, vouchers, purchases, customersList ->
+        val vouchersList = vouchers.map { it.voucher }
+        val sessionOps = sessions.map { sWithC ->
+            val linked = vouchersList.filter { it.sessionId == sWithC.session.id }
+            UnifiedOperation.SessionOp(sWithC, linked)
+        }
+        val voucherOps = vouchers.map { vWithC ->
+            UnifiedOperation.VoucherOp(vWithC)
+        }
+        val purchaseOps = purchases.map { purchase ->
+            val owner = customersList.find { it.id == purchase.ownerCustomerId }
+            UnifiedOperation.PurchaseOp(purchase, owner)
+        }
+        sessionOps + voucherOps + purchaseOps
+    }
+
     val unifiedOperations: StateFlow<List<UnifiedOperation>> =
         combine(
-            sessionRepo.sessionsWithCustomer,
-            voucherRepo.vouchersWithCustomer,
+            rawOperationsFlow,
             _operationsFilter,
             _searchQuery
-        ) { sessions, vouchers, filter, query ->
-            val vouchersList = vouchers.map { it.voucher }
-            val sessionOps = sessions.map { sWithC ->
-                val linked = vouchersList.filter { it.sessionId == sWithC.session.id }
-                UnifiedOperation.SessionOp(sWithC, linked)
-            }
-            val voucherOps = vouchers.map { vWithC ->
-                UnifiedOperation.VoucherOp(vWithC)
-            }
-
+        ) { allOps, filter, query ->
             val filteredList = when (filter) {
-                OperationsFilter.ALL -> (sessionOps + voucherOps)
-                OperationsFilter.SESSIONS -> sessionOps
-                OperationsFilter.RECEIPTS -> voucherOps.filter { it.voucherWithCustomer.voucher.type == VoucherType.RECEIPT }
-                OperationsFilter.EXPENSES -> voucherOps.filter { it.voucherWithCustomer.voucher.type == VoucherType.EXPENSE }
-                OperationsFilter.DEFERRED -> sessionOps.filter { it.sessionWithCustomer.session.remainingDebt > 0 }
+                OperationsFilter.ALL -> allOps
+                OperationsFilter.SESSIONS -> allOps.filterIsInstance<UnifiedOperation.SessionOp>()
+                OperationsFilter.RECEIPTS -> allOps.filterIsInstance<UnifiedOperation.VoucherOp>()
+                    .filter { it.voucherWithCustomer.voucher.type == VoucherType.RECEIPT }
+                OperationsFilter.EXPENSES -> allOps.filterIsInstance<UnifiedOperation.VoucherOp>()
+                    .filter { it.voucherWithCustomer.voucher.type == VoucherType.EXPENSE }
+                OperationsFilter.PURCHASES -> allOps.filterIsInstance<UnifiedOperation.PurchaseOp>()
+                OperationsFilter.DEFERRED -> allOps.filterIsInstance<UnifiedOperation.SessionOp>()
+                    .filter { it.sessionWithCustomer.session.remainingDebt > 0 }
             }
 
             val searched = if (query.isBlank()) {
@@ -155,6 +183,12 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                             v.category.contains(query, ignoreCase = true) ||
                             v.notes.contains(query, ignoreCase = true) ||
                             (c?.name?.contains(query, ignoreCase = true) == true)
+                        }
+                        is UnifiedOperation.PurchaseOp -> {
+                            val p = op.purchase
+                            val c = op.owner
+                            (c?.name?.contains(query, ignoreCase = true) == true) ||
+                            p.notes.contains(query, ignoreCase = true)
                         }
                     }
                 }
@@ -343,6 +377,37 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             voucherRepo.deleteVoucher(voucher)
             showToast("تم حذف السند بنجاح", ToastType.INFO)
+        }
+    }
+
+    fun deleteOwnerPurchase(purchase: WellOwnerPurchase) {
+        viewModelScope.launch {
+            ownerPurchaseRepo.delete(purchase)
+            showToast("تم حذف عملية شراء الساعات بنجاح", ToastType.INFO)
+        }
+    }
+
+    fun updateOwnerPurchase(
+        purchase: WellOwnerPurchase,
+        date: Long,
+        durationMinutes: Int,
+        wastedMinutes: Int,
+        rate: Double,
+        amountPaid: Double,
+        notes: String
+    ) {
+        viewModelScope.launch {
+            ownerPurchaseRepo.update(
+                purchase.copy(
+                    date = date,
+                    durationMinutes = durationMinutes,
+                    wastedMinutesOnOwner = wastedMinutes,
+                    purchaseRatePerHour = rate,
+                    amountPaid = amountPaid,
+                    notes = notes
+                )
+            )
+            showToast("تم تعديل عملية شراء الساعات بنجاح", ToastType.SUCCESS)
         }
     }
 }

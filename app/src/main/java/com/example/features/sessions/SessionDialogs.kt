@@ -2,7 +2,9 @@ package com.example.features.sessions
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +33,8 @@ import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
@@ -58,6 +62,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -91,6 +96,11 @@ import com.example.ui.theme.SecondaryAqua
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Locale
+
+enum class SessionTimeMode {
+    MANUAL,
+    PICKER
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -168,6 +178,32 @@ fun AddEditSessionBottomSheet(
     var endHour by remember { mutableIntStateOf(defaultEndCal.get(Calendar.HOUR_OF_DAY)) }
     var endMinute by remember { mutableIntStateOf((defaultEndCal.get(Calendar.MINUTE) / 5) * 5) }
 
+    var timeMode by remember { mutableStateOf(SessionTimeMode.MANUAL) }
+
+    val initialDurationMins = remember {
+        val diffMs = (initialSession?.endTime ?: now) - (initialSession?.startTime ?: (now - 3600000L))
+        if (diffMs > 0) (diffMs / 60000L).toInt() else 60
+    }
+    var manualHoursStr by remember {
+        mutableStateOf((initialDurationMins / 60).let { if (it > 0) it.toString() else "1" })
+    }
+    var manualMinutesStr by remember {
+        mutableStateOf((initialDurationMins % 60).let { if (it > 0) it.toString() else "" })
+    }
+
+    val isInitiallyOvernight = remember {
+        val sTotal = startHour * 60 + startMinute
+        val eTotal = endHour * 60 + endMinute
+        endDateMillis > startDateMillis || eTotal < sTotal
+    }
+    var overnightNotice by remember {
+        mutableStateOf<String?>(
+            if (isInitiallyOvernight && endDateMillis > startDateMillis) {
+                "🌙 ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
+            } else null
+        )
+    }
+
     // الوقت المهدور (التوقفات والأعطال)
     var wastedHoursStr by remember {
         mutableStateOf(if ((initialSession?.wastedMinutes ?: 0) >= 60) ((initialSession?.wastedMinutes ?: 0) / 60).toString() else "")
@@ -210,13 +246,96 @@ fun AddEditSessionBottomSheet(
         }
     }
 
-    // حساب المدة الإجمالية بالدقائق بين تاريخين ووقتين مهما بلغت الأيام
+    fun applyManualDuration(hStr: String, mStr: String) {
+        val h = hStr.toIntOrNull() ?: 0
+        val m = mStr.toIntOrNull() ?: 0
+        val totalM = (h * 60) + m
+        if (totalM > 0) {
+            val newEndMs = startCal.timeInMillis + (totalM * 60000L)
+            val newEndCal = Calendar.getInstance().apply { timeInMillis = newEndMs }
+            endDateMillis = newEndCal.timeInMillis
+            endHour = newEndCal.get(Calendar.HOUR_OF_DAY)
+            endMinute = newEndCal.get(Calendar.MINUTE)
+            val startDay = Calendar.getInstance().apply { timeInMillis = startDateMillis }.get(Calendar.DAY_OF_YEAR)
+            val endDay = newEndCal.get(Calendar.DAY_OF_YEAR)
+            if (endDay != startDay) {
+                overnightNotice = "🌙 ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
+            } else {
+                overnightNotice = null
+            }
+        }
+    }
+
+    fun onStartTimeChanged(newHour: Int, newMinute: Int) {
+        startHour = newHour
+        startMinute = newMinute
+        if (timeMode == SessionTimeMode.MANUAL) {
+            applyManualDuration(manualHoursStr, manualMinutesStr)
+        } else {
+            val startTotal = newHour * 60 + newMinute
+            val endTotal = endHour * 60 + endMinute
+            if (endTotal < startTotal) {
+                val nextDayCal = Calendar.getInstance().apply {
+                    timeInMillis = startDateMillis
+                    add(Calendar.DAY_OF_YEAR, 1)
+                }
+                endDateMillis = nextDayCal.timeInMillis
+                val dateStr = Formatters.formatDate(endDateMillis)
+                overnightNotice = "🌙 تم تقديم وقت الانتهاء تلقائياً إلى اليوم التالي ($dateStr) لأن ساعة الانتهاء تقع بعد منتصف الليل."
+                Toast.makeText(context, "تم التقديم إلى اليوم التالي: $dateStr", Toast.LENGTH_SHORT).show()
+            } else if (overnightNotice != null) {
+                endDateMillis = startDateMillis
+                overnightNotice = null
+            }
+        }
+    }
+
+    fun onEndTimeChanged(newHour: Int, newMinute: Int) {
+        endHour = newHour
+        endMinute = newMinute
+        val startTotal = startHour * 60 + startMinute
+        val endTotal = newHour * 60 + newMinute
+        if (endTotal < startTotal) {
+            val nextDayCal = Calendar.getInstance().apply {
+                timeInMillis = startDateMillis
+                add(Calendar.DAY_OF_YEAR, 1)
+            }
+            endDateMillis = nextDayCal.timeInMillis
+            val dateStr = Formatters.formatDate(endDateMillis)
+            overnightNotice = "🌙 تم تقديم وقت الانتهاء تلقائياً إلى اليوم التالي ($dateStr) لأن ساعة الانتهاء تقع بعد منتصف الليل."
+            Toast.makeText(context, "تم التقديم إلى اليوم التالي: $dateStr", Toast.LENGTH_SHORT).show()
+        } else {
+            val startDay = Calendar.getInstance().apply { timeInMillis = startDateMillis }.get(Calendar.DAY_OF_YEAR)
+            val endDay = Calendar.getInstance().apply { timeInMillis = endDateMillis }.get(Calendar.DAY_OF_YEAR)
+            if (endDay == startDay + 1 && overnightNotice != null) {
+                endDateMillis = startDateMillis
+                overnightNotice = null
+            }
+        }
+    }
+
+    // حساب المدة الإجمالية بالدقائق بين تاريخين ووقتين (الحد الأقصى المسموح به 10 أيام = 240 ساعة)
+    val MAX_SESSION_MINUTES = 10 * 24 * 60
     val grossMinutes by remember(startCal.timeInMillis, endCal.timeInMillis) {
         derivedStateOf {
             val diffMs = endCal.timeInMillis - startCal.timeInMillis
             if (diffMs > 0) (diffMs / 60000L).toInt() else 60
         }
     }
+
+    val isDurationExceeded by remember(grossMinutes) {
+        derivedStateOf { grossMinutes > MAX_SESSION_MINUTES }
+    }
+    val isWasteExceeded by remember(grossMinutes, wastedTotalMinutes) {
+        derivedStateOf { wastedTotalMinutes > grossMinutes && grossMinutes > 0 }
+    }
+
+    // جهة الفوترة: سقي على حساب صاحب البئر (مقاصة من مستحقاته)
+    var billedToCustomerId by remember(initialSession?.billedToCustomerId) {
+        mutableStateOf<Long?>(initialSession?.billedToCustomerId)
+    }
+    var billedToOwnerDropdownExpanded by remember { mutableStateOf(false) }
+    val wellOwners = remember(customers) { customers.filter { it.isWellOwner } }
 
     // المدة الصافية المفوترة بعد خصم الوقت المهدور
     val netBillableMinutes by remember(grossMinutes, wastedTotalMinutes) {
@@ -236,13 +355,22 @@ fun AddEditSessionBottomSheet(
         derivedStateOf { Formatters.roundMoney(maxOf(0.0, grossWaterAmount - discountAmount)) }
     }
 
+    val isBilledToWellOwner by remember(billedToCustomerId) {
+        derivedStateOf { billedToCustomerId != null }
+    }
+    val effectiveFarmerCharge by remember(finalFarmerCharge, isBilledToWellOwner) {
+        derivedStateOf { if (isBilledToWellOwner) 0.0 else finalFarmerCharge }
+    }
+
     var amountPaidStr by remember {
         mutableStateOf(initialSession?.amountPaid?.let { if (it > 0) Formatters.formatAmountInput(it.toString()) else "" } ?: "")
     }
     var notes by remember { mutableStateOf(initialSession?.notes ?: "") }
     val amountPaid by remember { derivedStateOf { Formatters.parseAmountInput(amountPaidStr) } }
-    val remainingDebt by remember(finalFarmerCharge, amountPaid) {
-        derivedStateOf { Formatters.roundMoney(maxOf(0.0, finalFarmerCharge - amountPaid)) }
+    val remainingDebt by remember(effectiveFarmerCharge, amountPaid, isBilledToWellOwner) {
+        derivedStateOf {
+            if (isBilledToWellOwner) 0.0 else Formatters.roundMoney(maxOf(0.0, effectiveFarmerCharge - amountPaid))
+        }
     }
 
     var customerDropdownExpanded by remember { mutableStateOf(false) }
@@ -349,9 +477,83 @@ fun AddEditSessionBottomSheet(
                 }
             }
 
+            // خيار احتساب السقي على صاحب بئر (مقاصة من مستحقاته)
+            if (wellOwners.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp)),
+                    color = if (billedToCustomerId != null) Color(0xFFE0F2FE) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "💧 احتساب السقي على صاحب بئر",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (billedToCustomerId != null) Color(0xFF0284C7) else MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                                Text(
+                                    text = "تُخصم القيمة كتسديد من مستحقات صاحب البئر لدى المسرب",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontSize = 11.sp)
+                                )
+                            }
+                            Switch(
+                                checked = billedToCustomerId != null,
+                                onCheckedChange = { checked ->
+                                    billedToCustomerId = if (checked) wellOwners.firstOrNull()?.id else null
+                                }
+                            )
+                        }
+                        if (billedToCustomerId != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                val currentOwner = wellOwners.find { it.id == billedToCustomerId }
+                                OutlinedTextField(
+                                    value = currentOwner?.name ?: "اختر صاحب البئر...",
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
+                                    label = { Text("صاحب البئر المحتسب عليه السقي") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .clickable { billedToOwnerDropdownExpanded = true }
+                                )
+                                DropdownMenu(
+                                    expanded = billedToOwnerDropdownExpanded,
+                                    onDismissRequest = { billedToOwnerDropdownExpanded = false }
+                                ) {
+                                    wellOwners.forEach { owner ->
+                                        DropdownMenuItem(
+                                            text = { Text(owner.name, fontWeight = FontWeight.Bold) },
+                                            onClick = {
+                                                billedToCustomerId = owner.id
+                                                billedToOwnerDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(14.dp))
 
-            // بطاقة تحديد وقت السقي وتاريخه (دعم أكثر من 24 ساعة بدون أي حد)
+            // بطاقة تحديد وقت السقي بنظام التبويبين (يدوي / اختيار)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
@@ -360,134 +562,442 @@ fun AddEditSessionBottomSheet(
                 )
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
+                    // شريط التبويبين (يدوي / اختيار)
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(PrimaryTeal.copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.AccessTime, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(20.dp))
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "تحديد وقت وتاريخ السقي بدقة",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                            )
-                            Text(
-                                text = "يدعم السقي المستمر لأي عدد من الساعات والأيام (+24 ساعة)",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontSize = 11.sp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // بطاقتا الوقت والتاريخ (من ──▶ إلى)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // وقت وتاريخ البدء
+                        // تبويب يدوي
                         Surface(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(10.dp))
                                 .clickable {
-                                    val cal = Calendar.getInstance().apply { timeInMillis = startDateMillis }
-                                    DatePickerDialog(
-                                        context,
-                                        { _, y, m, d ->
-                                            cal.set(y, m, d)
-                                            startDateMillis = cal.timeInMillis
-                                            TimePickerDialog(
-                                                context,
-                                                { _, h, min ->
-                                                    startHour = h
-                                                    startMinute = min
-                                                },
-                                                startHour,
-                                                startMinute,
-                                                false
-                                            ).show()
-                                        },
-                                        cal.get(Calendar.YEAR),
-                                        cal.get(Calendar.MONTH),
-                                        cal.get(Calendar.DAY_OF_MONTH)
-                                    ).show()
+                                    timeMode = SessionTimeMode.MANUAL
+                                    manualHoursStr = (grossMinutes / 60).toString()
+                                    manualMinutesStr = if (grossMinutes % 60 > 0) (grossMinutes % 60).toString() else ""
                                 },
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(12.dp)
+                            color = if (timeMode == SessionTimeMode.MANUAL) PrimaryTeal else Color.Transparent,
+                            shape = RoundedCornerShape(10.dp)
                         ) {
-                            Column(modifier = Modifier.padding(10.dp)) {
-                                Text("بدء السقي (من)", style = MaterialTheme.typography.labelSmall.copy(color = PrimaryTeal, fontWeight = FontWeight.Bold))
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = Formatters.formatClockTimeArabic(startHour, startMinute),
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                            Row(
+                                modifier = Modifier.padding(vertical = 10.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null,
+                                    tint = if (timeMode == SessionTimeMode.MANUAL) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
                                 )
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = Formatters.formatDate(startDateMillis),
-                                    style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
+                                    text = "يدوي (عدد الساعات)",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (timeMode == SessionTimeMode.MANUAL) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 )
                             }
                         }
 
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            tint = PrimaryTeal.copy(alpha = 0.6f),
-                            modifier = Modifier.size(18.dp)
-                        )
-
-                        // وقت وتاريخ الانتهاء
+                        // تبويب اختيار
                         Surface(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(10.dp))
                                 .clickable {
-                                    val cal = Calendar.getInstance().apply { timeInMillis = endDateMillis }
-                                    DatePickerDialog(
-                                        context,
-                                        { _, y, m, d ->
-                                            cal.set(y, m, d)
-                                            endDateMillis = cal.timeInMillis
-                                            TimePickerDialog(
-                                                context,
-                                                { _, h, min ->
-                                                    endHour = h
-                                                    endMinute = min
-                                                },
-                                                endHour,
-                                                endMinute,
-                                                false
-                                            ).show()
-                                        },
-                                        cal.get(Calendar.YEAR),
-                                        cal.get(Calendar.MONTH),
-                                        cal.get(Calendar.DAY_OF_MONTH)
-                                    ).show()
+                                    timeMode = SessionTimeMode.PICKER
                                 },
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(12.dp)
+                            color = if (timeMode == SessionTimeMode.PICKER) PrimaryTeal else Color.Transparent,
+                            shape = RoundedCornerShape(10.dp)
                         ) {
-                            Column(modifier = Modifier.padding(10.dp)) {
-                                Text("نهاية السقي (إلى)", style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold))
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = Formatters.formatClockTimeArabic(endHour, endMinute),
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                            Row(
+                                modifier = Modifier.padding(vertical = 10.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AccessTime,
+                                    contentDescription = null,
+                                    tint = if (timeMode == SessionTimeMode.PICKER) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
                                 )
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = Formatters.formatDate(endDateMillis),
-                                    style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
+                                    text = "اختيار (بدء وانتهاء)",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (timeMode == SessionTimeMode.PICKER) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (timeMode == SessionTimeMode.MANUAL) {
+                        // ─── التبويب الأول: يدوي (حقل الساعات + وقت البداية) ───
+                        Column {
+                            // وقت وتاريخ البدء
+                            Text(
+                                text = "وقت وتاريخ بدء السقي:",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp)),
+                                color = MaterialTheme.colorScheme.surface,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                        .fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // النقر على الوقت يفتح محدد الساعة مباشرة
+                                    Row(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                TimePickerDialog(
+                                                    context,
+                                                    { _, h, min -> onStartTimeChanged(h, min) },
+                                                    startHour,
+                                                    startMinute,
+                                                    false
+                                                ).show()
+                                            }
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.AccessTime, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = Formatters.formatClockTimeArabic(startHour, startMinute),
+                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                                        )
+                                    }
+
+                                    // النقر على التاريخ يفتح محدد اليوم عند رغبة المستخدم فقط
+                                    Row(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                val cal = Calendar.getInstance().apply { timeInMillis = startDateMillis }
+                                                DatePickerDialog(
+                                                    context,
+                                                    { _, y, m, d ->
+                                                        cal.set(y, m, d)
+                                                        startDateMillis = cal.timeInMillis
+                                                        applyManualDuration(manualHoursStr, manualMinutesStr)
+                                                    },
+                                                    cal.get(Calendar.YEAR),
+                                                    cal.get(Calendar.MONTH),
+                                                    cal.get(Calendar.DAY_OF_MONTH)
+                                                ).show()
+                                            }
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = Formatters.formatDate(startDateMillis),
+                                            style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // حقل عدد الساعات والدقائق
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = manualHoursStr,
+                                    onValueChange = {
+                                        manualHoursStr = it.filter { c -> c.isDigit() }.take(3)
+                                        applyManualDuration(manualHoursStr, manualMinutesStr)
+                                    },
+                                    label = { Text("عدد الساعات (أقصى حد 240 س / 10 أيام) *") },
+                                    placeholder = { Text("مثلاً: 3") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, tint = PrimaryTeal) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                OutlinedTextField(
+                                    value = manualMinutesStr,
+                                    onValueChange = {
+                                        val filtered = it.filter { c -> c.isDigit() }
+                                        val minVal = filtered.toIntOrNull() ?: 0
+                                        if (minVal < 60) {
+                                            manualMinutesStr = filtered
+                                            applyManualDuration(manualHoursStr, manualMinutesStr)
+                                        }
+                                    },
+                                    label = { Text("الدقائق (اختياري)") },
+                                    placeholder = { Text("0") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // وقت الانتهاء المحسوب تلقائياً
+                            val crossesMidnight = endDateMillis > startDateMillis
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.surface,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = AccentEmerald,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "وقت الانتهاء التلقائي:",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
+                                        )
+                                    }
+                                    Text(
+                                        text = "${Formatters.formatClockTimeArabic(endHour, endMinute)} ${if (crossesMidnight) "(${Formatters.formatDate(endDateMillis)}) 🌙" else ""}",
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, color = PrimaryTeal)
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        // ─── التبويب الثاني: اختيار (وقت البدء ووقت الانتهاء) ───
+                        Column {
+                            Text(
+                                text = "انقر على الساعة لتغيير الوقت، أو على التاريخ إذا أردت تعديل اليوم:",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontSize = 11.sp)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            // بطاقتا الوقت والتاريخ (من ──▶ إلى)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // بطاقة وقت وتاريخ البدء
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(12.dp)),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Text(
+                                            text = "بدء السقي (من)",
+                                            style = MaterialTheme.typography.labelSmall.copy(color = PrimaryTeal, fontWeight = FontWeight.Bold)
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(PrimaryTeal.copy(alpha = 0.08f))
+                                                .clickable {
+                                                    TimePickerDialog(
+                                                        context,
+                                                        { _, h, min -> onStartTimeChanged(h, min) },
+                                                        startHour,
+                                                        startMinute,
+                                                        false
+                                                    ).show()
+                                                }
+                                                .padding(vertical = 6.dp, horizontal = 4.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = Formatters.formatClockTimeArabic(startHour, startMinute),
+                                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .clickable {
+                                                    val cal = Calendar.getInstance().apply { timeInMillis = startDateMillis }
+                                                    DatePickerDialog(
+                                                        context,
+                                                        { _, y, m, d ->
+                                                            cal.set(y, m, d)
+                                                            startDateMillis = cal.timeInMillis
+                                                        },
+                                                        cal.get(Calendar.YEAR),
+                                                        cal.get(Calendar.MONTH),
+                                                        cal.get(Calendar.DAY_OF_MONTH)
+                                                    ).show()
+                                                }
+                                                .padding(vertical = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(11.dp))
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Text(
+                                                text = Formatters.formatDate(startDateMillis),
+                                                style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = PrimaryTeal.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+
+                                // بطاقة وقت وتاريخ الانتهاء
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(12.dp)),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Text(
+                                            text = "نهاية السقي (إلى)",
+                                            style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(AccentEmerald.copy(alpha = 0.08f))
+                                                .clickable {
+                                                    TimePickerDialog(
+                                                        context,
+                                                        { _, h, min -> onEndTimeChanged(h, min) },
+                                                        endHour,
+                                                        endMinute,
+                                                        false
+                                                    ).show()
+                                                }
+                                                .padding(vertical = 6.dp, horizontal = 4.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = Formatters.formatClockTimeArabic(endHour, endMinute),
+                                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .clickable {
+                                                    val cal = Calendar.getInstance().apply { timeInMillis = endDateMillis }
+                                                    DatePickerDialog(
+                                                        context,
+                                                        { _, y, m, d ->
+                                                            cal.set(y, m, d)
+                                                            endDateMillis = cal.timeInMillis
+                                                            overnightNotice = null
+                                                        },
+                                                        cal.get(Calendar.YEAR),
+                                                        cal.get(Calendar.MONTH),
+                                                        cal.get(Calendar.DAY_OF_MONTH)
+                                                    ).show()
+                                                }
+                                                .padding(vertical = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Default.CalendarToday,
+                                                contentDescription = null,
+                                                tint = if (overnightNotice != null) Color(0xFF2563EB) else Color.Gray,
+                                                modifier = Modifier.size(11.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Text(
+                                                text = Formatters.formatDate(endDateMillis),
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    color = if (overnightNotice != null) Color(0xFF2563EB) else Color.Gray,
+                                                    fontWeight = if (overnightNotice != null) FontWeight.Bold else FontWeight.Normal,
+                                                    fontSize = 10.sp
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // إشعار التقديم التلقائي إلى اليوم التالي (عبر منتصف الليل)
+                            if (overnightNotice != null) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                                    border = BorderStroke(1.dp, Color(0xFF93C5FD)),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Info,
+                                            contentDescription = null,
+                                            tint = Color(0xFF2563EB),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = overnightNotice!!,
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = Color(0xFF1E40AF),
+                                                fontWeight = FontWeight.Medium,
+                                                fontSize = 11.sp
+                                            )
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -506,12 +1016,16 @@ fun AddEditSessionBottomSheet(
                             Pair("نصف ساعة", 30),
                             Pair("1 ساعة", 60),
                             Pair("ساعتان", 120),
+                            Pair("3 ساعات", 180),
                             Pair("4 ساعات", 240),
+                            Pair("6 ساعات", 360),
                             Pair("8 ساعات", 480),
                             Pair("12 ساعة", 720),
-                            Pair("24 ساعة", 1440),
-                            Pair("30 ساعة", 1800),
-                            Pair("48 ساعة", 2880)
+                            Pair("24 ساعة (يوم)", 1440),
+                            Pair("يومان (48 س)", 2880),
+                            Pair("3 أيام (72 س)", 4320),
+                            Pair("5 أيام (120 س)", 7200),
+                            Pair("10 أيام (240 س)", 14400)
                         )
                         items(quickDurations) { (label, qMins) ->
                             val isSelected = grossMinutes == qMins
@@ -523,6 +1037,15 @@ fun AddEditSessionBottomSheet(
                                     endDateMillis = newEndCal.timeInMillis
                                     endHour = newEndCal.get(Calendar.HOUR_OF_DAY)
                                     endMinute = newEndCal.get(Calendar.MINUTE)
+                                    manualHoursStr = (qMins / 60).toString()
+                                    manualMinutesStr = if (qMins % 60 > 0) (qMins % 60).toString() else ""
+                                    val startDay = Calendar.getInstance().apply { timeInMillis = startDateMillis }.get(Calendar.DAY_OF_YEAR)
+                                    val endDay = newEndCal.get(Calendar.DAY_OF_YEAR)
+                                    if (endDay != startDay) {
+                                        overnightNotice = "🌙 ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
+                                    } else {
+                                        overnightNotice = null
+                                    }
                                 },
                                 label = {
                                     Text(label, fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 11.sp)
@@ -532,6 +1055,28 @@ fun AddEditSessionBottomSheet(
                                     selectedLabelColor = Color.White
                                 )
                             )
+                        }
+                    }
+
+                    if (isDurationExceeded) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+                            border = BorderStroke(1.dp, Color(0xFFF87171)),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "⚠️ لا يمكن تسجيل سقي بساعات خيالية! الحد الأقصى المسموح به للدورة الواحدة هو 10 أيام (240 ساعة / 14,400 دقيقة).",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB91C1C), fontWeight = FontWeight.Bold)
+                                )
+                            }
                         }
                     }
                 }
@@ -604,10 +1149,11 @@ fun AddEditSessionBottomSheet(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp)
                         )
-                        if (wastedTotalMinutes > grossMinutes) {
+                        if (wastedTotalMinutes > grossMinutes && grossMinutes > 0) {
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                "لا يمكن أن يتجاوز الهدر مدة السقي المسجلة.",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFD32F2F))
+                                "❌ لا يمكن أن يكون الهدر أكبر من مدة السقي بتاتاً!",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
                             )
                         }
                     }
@@ -711,14 +1257,47 @@ fun AddEditSessionBottomSheet(
                     HorizontalDivider(color = PrimaryTeal.copy(alpha = 0.2f))
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // المبلغ المطلوب من المزارع
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("المطلوب الصافي من العميل:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                        Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.titleLarge.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold))
+                    if (isBilledToWellOwner) {
+                        val ownerName = wellOwners.find { it.id == billedToCustomerId }?.name ?: "صاحب البئر"
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFFE0F2FE), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("💧 مسجل على حساب صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                            Text(ownerName, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("المطلوب من المزارع:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                            Text("0.00 $currencySymbol (مدفوع من المالك)", style = MaterialTheme.typography.titleMedium.copy(color = AccentEmerald, fontWeight = FontWeight.ExtraBold))
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("المحتسب على صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1)))
+                            Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                        }
+                    } else {
+                        // المبلغ المطلوب من المزارع
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("المطلوب الصافي من العميل:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                            Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.titleLarge.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold))
+                        }
                     }
 
                 }
@@ -773,7 +1352,7 @@ fun AddEditSessionBottomSheet(
             // Save Button
             Button(
                 onClick = {
-                    if (selectedCustomerId > 0 && grossMinutes > 0 && wastedTotalMinutes <= grossMinutes) {
+                    if (selectedCustomerId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes) {
                         onSave(
                             initialSession?.id ?: 0L,
                             selectedCustomerId,
@@ -785,7 +1364,7 @@ fun AddEditSessionBottomSheet(
                             pricePerHour,
                             amountPaid,
                             notes,
-                            initialSession?.billedToCustomerId,
+                            billedToCustomerId,
                             wastedTotalMinutes,
                             wastedReason,
                             discountAmount,
@@ -795,7 +1374,7 @@ fun AddEditSessionBottomSheet(
                         onDismiss()
                     }
                 },
-                enabled = selectedCustomerId > 0 && grossMinutes > 0 && wastedTotalMinutes <= grossMinutes,
+                enabled = selectedCustomerId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp)

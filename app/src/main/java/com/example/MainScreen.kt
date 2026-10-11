@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.outlined.Home
@@ -37,6 +38,15 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.example.core.license.LicenseDialog
+import com.example.core.license.LicenseManager
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -76,7 +86,7 @@ enum class AppTab(
     val unselectedIcon: ImageVector,
     val testTag: String
 ) {
-    SESSIONS("سجلات السقي", Icons.Filled.WaterDrop, Icons.Outlined.WaterDrop, "tab_sessions"),
+    REPORTS("التقارير", Icons.Filled.Assessment, Icons.Default.Assessment, "tab_reports"),
     CUSTOMERS("العملاء", Icons.Filled.People, Icons.Outlined.People, "tab_customers"),
     HOME("الرئيسية", Icons.Filled.Home, Icons.Outlined.Home, "tab_home"),
     VOUCHERS("سجل العمليات", Icons.AutoMirrored.Filled.ReceiptLong, Icons.AutoMirrored.Outlined.ReceiptLong, "tab_vouchers"),
@@ -105,10 +115,17 @@ fun MainApp(
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
             var showSplashScreen by remember { mutableStateOf(true) }
             var isBiometricUnlocked by remember { mutableStateOf(false) }
-            var selectedTab by remember { mutableStateOf(AppTab.HOME) }
             var selectedCustomerId by remember { mutableLongStateOf(0L) }
-            var showReportsScreen by remember { mutableStateOf(false) }
             var showAboutScreen by remember { mutableStateOf(false) }
+            var showLicenseDialog by remember { mutableStateOf(false) }
+
+            val isActivated by settingsViewModel.isActivated.collectAsStateWithLifecycle()
+            val operationsCount by settingsViewModel.operationsCount.collectAsStateWithLifecycle()
+
+            val tabs = remember { listOf(AppTab.REPORTS, AppTab.CUSTOMERS, AppTab.HOME, AppTab.VOUCHERS, AppTab.SETTINGS) }
+            val pagerState = rememberPagerState(initialPage = 2) { tabs.size }
+            val coroutineScope = rememberCoroutineScope()
+            val currentTab = tabs[pagerState.currentPage]
 
             if (showSplashScreen) {
                 SplashScreen(onTimeout = { showSplashScreen = false })
@@ -124,45 +141,18 @@ fun MainApp(
                     onAddSessionForCustomer = { customer ->
                         sessionsViewModel.requestNewSessionForCustomer(customer.id)
                         selectedCustomerId = 0L
-                        selectedTab = AppTab.SESSIONS
+                        coroutineScope.launch { pagerState.animateScrollToPage(3) }
                     }
                 )
-            } else if (showReportsScreen) {
-                Scaffold(
-                    topBar = {
-                        TopAppBar(
-                            title = { Text("التقارير والإحصائيات", fontWeight = FontWeight.Bold) },
-                            navigationIcon = {
-                                IconButton(onClick = { showReportsScreen = false }) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "رجوع"
-                                    )
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            )
-                        )
-                    }
-                ) { innerPadding ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    ) {
-                        ReportsScreen(viewModel = reportsViewModel)
-                    }
-                }
             } else {
                 Scaffold(
                     topBar = {
-                        if (selectedTab != AppTab.HOME) {
+                        if (currentTab != AppTab.HOME) {
                             TopAppBar(
                                 title = {
                                     Text(
-                                        text = when (selectedTab) {
-                                            AppTab.SESSIONS -> "سجلات السقي"
+                                        text = when (currentTab) {
+                                            AppTab.REPORTS -> "التقارير والإحصائيات"
                                             AppTab.CUSTOMERS -> "إدارة العملاء والمزارع"
                                             AppTab.VOUCHERS -> "سجل العمليات"
                                             AppTab.SETTINGS -> "الإعدادات العامة"
@@ -178,15 +168,61 @@ fun MainApp(
                                     containerColor = MaterialTheme.colorScheme.surface
                                 ),
                                 actions = {
-                                    if (selectedTab == AppTab.SESSIONS || selectedTab == AppTab.VOUCHERS) {
-                                        IconButton(
-                                            onClick = { showReportsScreen = true },
-                                            modifier = Modifier.testTag("action_open_reports")
+                                    if (currentTab == AppTab.REPORTS) {
+                                        androidx.compose.material3.Button(
+                                            onClick = { reportsViewModel.exportComprehensiveReportPdf() },
+                                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = AccentGold),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.Assessment,
-                                                contentDescription = "التقارير",
-                                                tint = PrimaryTeal
+                                                imageVector = Icons.Default.PictureAsPdf,
+                                                contentDescription = null,
+                                                tint = Color.Black,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("تصدير PDF", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        }
+                                    }
+
+                                    // أيقونة خط خارجي دائرية بعدد العمليات المتبقية يتغير لونها مع النفاذ
+                                    if (!isActivated) {
+                                        val remaining = (LicenseManager.FREE_OPERATIONS_LIMIT - operationsCount).coerceAtLeast(0)
+                                        val progress = (operationsCount.toFloat() / LicenseManager.FREE_OPERATIONS_LIMIT).coerceIn(0f, 1f)
+                                        val indicatorColor = when {
+                                            remaining <= 10 -> Color(0xFFE53935)
+                                            remaining <= 40 -> Color(0xFFF57C00)
+                                            else -> PrimaryTeal
+                                        }
+
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(horizontal = 8.dp)
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .clickable { showLicenseDialog = true },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            CircularProgressIndicator(
+                                                progress = { 1f },
+                                                modifier = Modifier.size(32.dp),
+                                                color = indicatorColor.copy(alpha = 0.2f),
+                                                strokeWidth = 2.5.dp
+                                            )
+                                            CircularProgressIndicator(
+                                                progress = { 1f - progress },
+                                                modifier = Modifier.size(32.dp),
+                                                color = indicatorColor,
+                                                strokeWidth = 2.5.dp
+                                            )
+                                            Text(
+                                                text = "$remaining",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    fontSize = 9.5.sp,
+                                                    color = indicatorColor
+                                                )
                                             )
                                         }
                                     }
@@ -195,22 +231,11 @@ fun MainApp(
                         }
                     },
                     bottomBar = {
-                        val tabIndex = when (selectedTab) {
-                            AppTab.SESSIONS  -> 0
-                            AppTab.CUSTOMERS -> 1
-                            AppTab.HOME      -> 2
-                            AppTab.VOUCHERS  -> 3
-                            AppTab.SETTINGS  -> 4
-                        }
                         MosaribNavBar(
-                            selectedIndex = tabIndex,
+                            selectedIndex = pagerState.currentPage,
                             onItemSelected = { idx ->
-                                selectedTab = when (idx) {
-                                    0 -> AppTab.SESSIONS
-                                    1 -> AppTab.CUSTOMERS
-                                    3 -> AppTab.VOUCHERS
-                                    4 -> AppTab.SETTINGS
-                                    else -> AppTab.HOME
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(idx)
                                 }
                             }
                         )
@@ -221,53 +246,68 @@ fun MainApp(
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        when (selectedTab) {
-                            AppTab.HOME -> {
-                                HomeScreen(
-                                    sessionsViewModel = sessionsViewModel,
-                                    customersViewModel = customersViewModel,
-                                    vouchersViewModel = vouchersViewModel,
-                                    settingsViewModel = settingsViewModel,
-                                    onNavigateToTab = { tab -> selectedTab = tab },
-                                    onNavigateToCustomer = { custId ->
-                                        selectedCustomerId = custId
-                                    },
-                                    onOpenReports = { showReportsScreen = true }
-                                )
-                            }
-                            AppTab.SESSIONS -> {
-                                SessionsScreen(
-                                    viewModel = sessionsViewModel,
-                                    onNavigateToCustomer = { custId ->
-                                        selectedCustomerId = custId
-                                    }
-                                )
-                            }
-                            AppTab.CUSTOMERS -> {
-                                CustomersScreen(
-                                    viewModel = customersViewModel,
-                                    onNavigateToDetail = { custId ->
-                                        selectedCustomerId = custId
-                                    }
-                                )
-                            }
-                            AppTab.VOUCHERS -> {
-                                VouchersScreen(
-                                    viewModel = vouchersViewModel,
-                                    onNavigateToCustomer = { custId ->
-                                        selectedCustomerId = custId
-                                    }
-                                )
-                            }
-                            AppTab.SETTINGS -> {
-                                SettingsScreen(
-                                    viewModel = settingsViewModel,
-                                    onNavigateToAbout = { showAboutScreen = true }
-                                )
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxSize()
+                        ) { page ->
+                            when (tabs[page]) {
+                                AppTab.HOME -> {
+                                    HomeScreen(
+                                        sessionsViewModel = sessionsViewModel,
+                                        customersViewModel = customersViewModel,
+                                        vouchersViewModel = vouchersViewModel,
+                                        settingsViewModel = settingsViewModel,
+                                        onNavigateToTab = { tab ->
+                                            val targetIdx = tabs.indexOf(tab)
+                                            if (targetIdx >= 0) {
+                                                coroutineScope.launch { pagerState.animateScrollToPage(targetIdx) }
+                                            }
+                                        },
+                                        onNavigateToCustomer = { custId ->
+                                            selectedCustomerId = custId
+                                        },
+                                        onOpenReports = {
+                                            coroutineScope.launch { pagerState.animateScrollToPage(0) }
+                                        }
+                                    )
+                                }
+                                AppTab.REPORTS -> {
+                                    ReportsScreen(viewModel = reportsViewModel)
+                                }
+                                AppTab.CUSTOMERS -> {
+                                    CustomersScreen(
+                                        viewModel = customersViewModel,
+                                        onNavigateToDetail = { custId ->
+                                            selectedCustomerId = custId
+                                        }
+                                    )
+                                }
+                                AppTab.VOUCHERS -> {
+                                    VouchersScreen(
+                                        viewModel = vouchersViewModel,
+                                        sessionsViewModel = sessionsViewModel,
+                                        onNavigateToCustomer = { custId ->
+                                            selectedCustomerId = custId
+                                        }
+                                    )
+                                }
+                                AppTab.SETTINGS -> {
+                                    SettingsScreen(
+                                        viewModel = settingsViewModel,
+                                        onNavigateToAbout = { showAboutScreen = true }
+                                    )
+                                }
                             }
                         }
                     }
                 }
+            }
+
+            if (showLicenseDialog) {
+                LicenseDialog(
+                    onDismiss = { showLicenseDialog = false },
+                    onActivated = { showLicenseDialog = false }
+                )
             }
         }
     }

@@ -8,6 +8,7 @@ import com.example.core.ui.ToastMessage
 import com.example.core.ui.ToastType
 import com.example.core.util.ComprehensiveCustomerRow
 import com.example.core.util.ComprehensiveReportTotals
+import com.example.core.util.Formatters
 import com.example.core.util.PdfReportGenerator
 import com.example.features.customers.Customer
 import com.example.features.sessions.WaterSession
@@ -33,7 +34,7 @@ import java.util.Calendar
 import kotlin.math.max
 
 enum class ReportPeriod {
-    ALL, TODAY, THIS_WEEK, THIS_MONTH
+    ALL, TODAY, THIS_WEEK, THIS_MONTH, CUSTOM
 }
 
 data class GeneralReportStats(
@@ -88,6 +89,9 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     private val _period = MutableStateFlow(ReportPeriod.ALL)
     val period: StateFlow<ReportPeriod> = _period.asStateFlow()
 
+    private val _customDateRange = MutableStateFlow<Pair<Long, Long>?>(null)
+    val customDateRange: StateFlow<Pair<Long, Long>?> = _customDateRange.asStateFlow()
+
     private val _toast = MutableStateFlow<ToastMessage?>(null)
     val toast: StateFlow<ToastMessage?> = _toast.asStateFlow()
 
@@ -96,13 +100,18 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         voucherRepo.allVouchers,
         db.customerDao().getAllCustomersIncludingArchived(),
         ownerPurchaseRepo.allPurchases,
-        _period
-    ) { sessions, vouchers, customers, purchases, selectedPeriod ->
-        calculateReportSnapshot(sessions, vouchers, customers, purchases, selectedPeriod).stats
+        combine(_period, _customDateRange) { p, r -> Pair(p, r) }
+    ) { sessions, vouchers, customers, purchases, (selectedPeriod, customRange) ->
+        calculateReportSnapshot(sessions, vouchers, customers, purchases, selectedPeriod, customRange).stats
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), GeneralReportStats())
 
     fun setPeriod(p: ReportPeriod) {
         _period.value = p
+    }
+
+    fun setCustomDateRange(startMillis: Long, endMillis: Long) {
+        _customDateRange.value = Pair(startMillis, endMillis)
+        _period.value = ReportPeriod.CUSTOM
     }
 
     /**
@@ -110,7 +119,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
      * artificial end time: newly entered transactions remain visible while the report screen stays open.
      */
     private fun periodStartMillis(period: ReportPeriod): Long? {
-        if (period == ReportPeriod.ALL) return null
+        if (period == ReportPeriod.ALL || period == ReportPeriod.CUSTOM) return null
         val calendar = Calendar.getInstance()
         when (period) {
             ReportPeriod.TODAY -> calendar.set(Calendar.HOUR_OF_DAY, 0)
@@ -122,7 +131,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 calendar.set(Calendar.DAY_OF_MONTH, 1)
                 calendar.set(Calendar.HOUR_OF_DAY, 0)
             }
-            ReportPeriod.ALL -> Unit
+            ReportPeriod.ALL, ReportPeriod.CUSTOM -> Unit
         }
         calendar.set(Calendar.MINUTE, 0)
         calendar.set(Calendar.SECOND, 0)
@@ -135,6 +144,12 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         ReportPeriod.TODAY -> "اليوم"
         ReportPeriod.THIS_WEEK -> "هذا الأسبوع"
         ReportPeriod.THIS_MONTH -> "هذا الشهر"
+        ReportPeriod.CUSTOM -> {
+            val range = _customDateRange.value
+            if (range != null) {
+                "من ${Formatters.formatDate(range.first)} إلى ${Formatters.formatDate(range.second)}"
+            } else "فترة مخصصة"
+        }
     }
 
     private fun calculateReportSnapshot(
@@ -142,12 +157,24 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         allVouchers: List<Voucher>,
         customers: List<Customer>,
         allPurchases: List<WellOwnerPurchase>,
-        selectedPeriod: ReportPeriod
+        selectedPeriod: ReportPeriod,
+        customRange: Pair<Long, Long>? = null
     ): ReportSnapshot {
-        val periodStart = periodStartMillis(selectedPeriod)
-        val sessions = if (periodStart == null) allSessions else allSessions.filter { it.startTime >= periodStart }
-        val vouchers = if (periodStart == null) allVouchers else allVouchers.filter { it.date >= periodStart }
-        val purchases = if (periodStart == null) allPurchases else allPurchases.filter { it.date >= periodStart }
+        val (start, end) = when (selectedPeriod) {
+            ReportPeriod.ALL -> Pair(null, null)
+            ReportPeriod.CUSTOM -> customRange ?: Pair(null, null)
+            else -> Pair(periodStartMillis(selectedPeriod), null)
+        }
+
+        val sessions = allSessions.filter {
+            (start == null || it.startTime >= start) && (end == null || it.startTime <= end)
+        }
+        val vouchers = allVouchers.filter {
+            (start == null || it.date >= start) && (end == null || it.date <= end)
+        }
+        val purchases = allPurchases.filter {
+            (start == null || it.date >= start) && (end == null || it.date <= end)
+        }
         val customersById = customers.associateBy { it.id }
 
         // A session's amountPaid already contains linked receipt vouchers. Attribute those vouchers
