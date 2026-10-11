@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.WaterDrop
@@ -62,27 +63,37 @@ import java.util.Calendar
 fun WellOwnerPurchaseBottomSheet(
     owner: Customer,
     currencySymbol: String,
+    initialPurchase: WellOwnerPurchase? = null,
     onDismiss: () -> Unit,
     onSave: (date: Long, durationMinutes: Int, wastedMinutesOnOwner: Int, purchaseRatePerHour: Double, amountPaid: Double, notes: String) -> Unit
 ) {
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val now = System.currentTimeMillis()
-    var date by remember { mutableLongStateOf(now) }
-    var hoursText by remember { mutableStateOf("") }
-    var minutesText by remember { mutableStateOf("") }
-    var wastedHoursText by remember { mutableStateOf("") }
-    var wastedMinutesText by remember { mutableStateOf("") }
-    var amountPaidText by remember { mutableStateOf("") }
-    var rateText by remember(owner.id, owner.customPricePerHour) {
+    var date by remember(initialPurchase) { mutableLongStateOf(initialPurchase?.date ?: now) }
+    var hoursText by remember(initialPurchase) {
+        mutableStateOf(initialPurchase?.let { (it.durationMinutes / 60).toString() } ?: "")
+    }
+    var minutesText by remember(initialPurchase) {
+        mutableStateOf(initialPurchase?.let { (it.durationMinutes % 60).toString() } ?: "")
+    }
+    var wastedHoursText by remember(initialPurchase) {
+        mutableStateOf(initialPurchase?.let { if (it.wastedMinutesOnOwner > 0) (it.wastedMinutesOnOwner / 60).toString() else "" } ?: "")
+    }
+    var wastedMinutesText by remember(initialPurchase) {
+        mutableStateOf(initialPurchase?.let { if (it.wastedMinutesOnOwner > 0) (it.wastedMinutesOnOwner % 60).toString() else "" } ?: "")
+    }
+    var amountPaidText by remember(initialPurchase) { mutableStateOf("") }
+    var rateText by remember(initialPurchase, owner.id, owner.customPricePerHour) {
         mutableStateOf(
-            owner.customPricePerHour
-                ?.takeIf { it > 0 }
-                ?.let { Formatters.formatAmountInput(it.toString()) }
+            initialPurchase?.let { Formatters.formatAmountInput(it.purchaseRatePerHour.toString()) }
+                ?: owner.customPricePerHour
+                    ?.takeIf { it > 0 }
+                    ?.let { Formatters.formatAmountInput(it.toString()) }
                 ?: ""
         )
     }
-    var notes by remember { mutableStateOf("") }
+    var notes by remember(initialPurchase) { mutableStateOf(initialPurchase?.notes ?: "") }
 
     val durationMinutes by remember(hoursText, minutesText) {
         derivedStateOf {
@@ -128,7 +139,11 @@ fun WellOwnerPurchaseBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("شراء ساعات من صاحب البئر", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (initialPurchase != null) "تعديل عملية شراء الساعات" else "شراء ساعات من صاحب البئر",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
                     Text(owner.name, style = MaterialTheme.typography.bodyMedium, color = PrimaryTeal, fontWeight = FontWeight.SemiBold)
                 }
                 IconButton(onClick = onDismiss) {
@@ -317,9 +332,13 @@ fun WellOwnerPurchaseBottomSheet(
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
             ) {
-                Icon(Icons.Default.AccessTime, contentDescription = null)
+                Icon(if (initialPurchase != null) Icons.Default.Check else Icons.Default.AccessTime, contentDescription = null)
                 Spacer(Modifier.width(6.dp))
-                Text("حفظ عملية الشراء", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(
+                    if (initialPurchase != null) "حفظ التعديلات" else "حفظ عملية الشراء",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
             }
         }
     }

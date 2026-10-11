@@ -70,9 +70,8 @@ internal fun calculateCustomerBalance(
         .sumOf { it.amount.coerceAtLeast(0.0) }
 
     // Advances/disbursements to a non-owner account add to its receivable. For owners, EXPENSE
-    // vouchers represent money paid out to the supplier and reduce only the supplier payable.
+    // vouchers represent money paid out to the supplier and reduce the supplier payable.
     val customerSideDisbursements = if (customer.isWellOwner) 0.0 else totalDisbursed
-    val receivable = totalSales + customerSideDisbursements - collectedCash - standaloneDiscounts
 
     val ownerPurchases = purchases.filter { it.ownerCustomerId == customer.id }
     val grossPurchaseAmount = ownerPurchases.sumOf(WellOwnerPurchaseMath::grossAmount)
@@ -80,7 +79,25 @@ internal fun calculateCustomerBalance(
     val netPurchaseAmount = ownerPurchases.sumOf(WellOwnerPurchaseMath::payableAmount)
     val chargeablePurchasedMinutes = ownerPurchases.sumOf(WellOwnerPurchaseMath::chargeableMinutes)
     val purchasedMinutes = ownerPurchases.sumOf { it.durationMinutes.coerceAtLeast(0) }
-    val payable = if (customer.isWellOwner) (netPurchaseAmount - totalDisbursed) else 0.0
+
+    // المنطق المحاسبي لصاحب البئر:
+    // السقيات المسجلة على حسابه (سواء لنفسه أو لمزارع على حسابه) تُعامل كسداد مباشر تخصم من مستحقات الشراء
+    // فتنقص ما يطلبه صاحب البئر من المسرب، وإذا تجاوزت المشتريات تصبح ديناً على صاحب البئر للمسرب.
+    val netOwnerPayable = if (customer.isWellOwner) {
+        (netPurchaseAmount + collectedCash) - (totalDisbursed + totalSales)
+    } else {
+        0.0
+    }
+
+    val payable = if (customer.isWellOwner) {
+        if (netOwnerPayable > 0.0) netOwnerPayable else 0.0
+    } else 0.0
+
+    val receivable = if (customer.isWellOwner) {
+        if (netOwnerPayable < 0.0) -netOwnerPayable else 0.0
+    } else {
+        totalSales + customerSideDisbursements - collectedCash - standaloneDiscounts
+    }
 
     return CustomerWithBalance(
         customer = customer,

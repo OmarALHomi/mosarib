@@ -68,6 +68,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -180,7 +181,9 @@ fun CustomerDetailScreen(
     var showOwnerWasteDialog by remember { mutableStateOf(false) }
     var showEditCustomerSheet by remember { mutableStateOf(false) }
     var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
+    var sessionToEdit by remember { mutableStateOf<WaterSession?>(null) }
     var sessionToDelete by remember { mutableStateOf<WaterSession?>(null) }
+    var purchaseToEdit by remember { mutableStateOf<WellOwnerPurchase?>(null) }
     var purchaseToDelete by remember { mutableStateOf<WellOwnerPurchase?>(null) }
     var voucherToDelete by remember { mutableStateOf<Voucher?>(null) }
 
@@ -612,65 +615,56 @@ fun CustomerDetailScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             if (customer.isWellOwner) {
-                                val payableColor = if (customerWithBalance.payableBalance > 0) Color(0xFFD32F2F) else AccentEmerald
-                                val receivableColor = if (customerWithBalance.receivableBalance > 0) Color(0xFFD32F2F) else AccentEmerald
+                                val hasPayable = customerWithBalance.payableBalance > 0
+                                val hasReceivable = customerWithBalance.receivableBalance > 0
+                                val statusText = when {
+                                    hasPayable -> "عليك لصاحب البئر (متبقي مستحقات الشراء بعد خصم السقي)"
+                                    hasReceivable -> "لك على صاحب البئر (ديون سقي متبقية بذمته بعد خصم الشراء)"
+                                    else -> "حساب صاحب البئر مسدد وخالص بالكامل"
+                                }
+                                val statusColor = when {
+                                    hasPayable -> Color(0xFFD32F2F)
+                                    hasReceivable -> Color(0xFF2E7D32)
+                                    else -> AccentEmerald
+                                }
+                                val netAmount = if (hasPayable) customerWithBalance.payableBalance else customerWithBalance.receivableBalance
+
                                 Text(
-                                    "أرصدة مستقلة — لا تتم المقاصة تلقائياً",
+                                    text = statusText,
                                     style = MaterialTheme.typography.labelMedium.copy(
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontWeight = FontWeight.SemiBold
+                                        color = statusColor,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = Formatters.formatCurrency(netAmount, config.currencySymbol),
+                                    style = MaterialTheme.typography.displaySmall.copy(
+                                        color = statusColor,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 28.sp
+                                    )
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                                        .padding(8.dp),
+                                    horizontalArrangement = Arrangement.SpaceAround
                                 ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clip(RoundedCornerShape(14.dp))
-                                            .background(payableColor.copy(alpha = 0.08f))
-                                            .padding(10.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Text(
-                                            when {
-                                                customerWithBalance.payableBalance > 0 -> "عليك لصاحب البئر"
-                                                customerWithBalance.payableBalance < 0 -> "لك رصيد عند صاحب البئر"
-                                                else -> "مستحقات الشراء مسددة"
-                                            },
-                                            style = MaterialTheme.typography.labelSmall.copy(color = payableColor, fontWeight = FontWeight.Bold),
-                                            textAlign = TextAlign.Center
-                                        )
-                                        Text(
-                                            Formatters.formatCurrency(kotlin.math.abs(customerWithBalance.payableBalance), config.currencySymbol),
-                                            style = MaterialTheme.typography.titleMedium.copy(color = payableColor, fontWeight = FontWeight.ExtraBold),
-                                            textAlign = TextAlign.Center
-                                        )
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("مشتريات ساعات", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp))
+                                        Text(Formatters.formatCurrency(customerWithBalance.totalPurchaseAmount, config.currencySymbol), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = AccentGold))
                                     }
-                                    Column(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clip(RoundedCornerShape(14.dp))
-                                            .background(receivableColor.copy(alpha = 0.08f))
-                                            .padding(10.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Text(
-                                            when {
-                                                customerWithBalance.receivableBalance > 0 -> "لك على صاحب البئر"
-                                                customerWithBalance.receivableBalance < 0 -> "عليك له (رصيد)"
-                                                else -> "سقي مسدد"
-                                            },
-                                            style = MaterialTheme.typography.labelSmall.copy(color = receivableColor, fontWeight = FontWeight.Bold),
-                                            textAlign = TextAlign.Center
-                                        )
-                                        Text(
-                                            Formatters.formatCurrency(kotlin.math.abs(customerWithBalance.receivableBalance), config.currencySymbol),
-                                            style = MaterialTheme.typography.titleMedium.copy(color = receivableColor, fontWeight = FontWeight.ExtraBold),
-                                            textAlign = TextAlign.Center
-                                        )
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("مسدد نقداً له", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp))
+                                        Text(Formatters.formatCurrency(customerWithBalance.totalDisbursedAmount, config.currencySymbol), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFE53935)))
+                                    }
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("سقي على حسابه", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp))
+                                        Text(Formatters.formatCurrency(customerWithBalance.totalBilledAmount, config.currencySymbol), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal))
                                     }
                                 }
                             } else {
@@ -894,6 +888,7 @@ fun CustomerDetailScreen(
                                 CustomerPurchaseCardItem(
                                     purchase = ledgerItem.purchase,
                                     currencySymbol = config.currencySymbol,
+                                    onEditClick = { purchaseToEdit = ledgerItem.purchase },
                                     onDeleteClick = { purchaseToDelete = ledgerItem.purchase }
                                 )
                             }
@@ -904,6 +899,7 @@ fun CustomerDetailScreen(
                                     isBeneficiaryView = false,
                                     currencySymbol = config.currencySymbol,
                                     linkedVouchers = ledgerItem.linkedVouchers,
+                                    onEditClick = { sessionToEdit = ledgerItem.session },
                                     onPdfClick = {
                                         val file = PdfReportGenerator.generateSessionInvoicePdf(
                                             context = context,
@@ -1097,55 +1093,99 @@ fun CustomerDetailScreen(
         )
     }
 
-    if (showOwnerPurchaseSheet && customer.isWellOwner) {
+    if ((showOwnerPurchaseSheet || purchaseToEdit != null) && customer.isWellOwner) {
+        val editing = purchaseToEdit
         WellOwnerPurchaseBottomSheet(
             owner = customer,
             currencySymbol = config.currencySymbol,
-            onDismiss = { showOwnerPurchaseSheet = false },
-            onSave = { date, durationMinutes, wastedMinutes, purchaseRate, amountPaid, notes ->
-                viewModel.addOwnerPurchase(
-                    ownerCustomerId = customer.id,
-                    date = date,
-                    durationMinutes = durationMinutes,
-                    wastedMinutesOnOwner = wastedMinutes,
-                    purchaseRatePerHour = purchaseRate,
-                    notes = notes,
-                    amountPaid = amountPaid
-                )
+            initialPurchase = editing,
+            onDismiss = {
                 showOwnerPurchaseSheet = false
+                purchaseToEdit = null
+            },
+            onSave = { date, durationMinutes, wastedMinutes, purchaseRate, amountPaid, notes ->
+                if (editing != null) {
+                    viewModel.updateOwnerPurchase(
+                        purchaseId = editing.id,
+                        ownerCustomerId = customer.id,
+                        date = date,
+                        durationMinutes = durationMinutes,
+                        wastedMinutesOnOwner = wastedMinutes,
+                        purchaseRatePerHour = purchaseRate,
+                        notes = notes
+                    )
+                    purchaseToEdit = null
+                } else {
+                    viewModel.addOwnerPurchase(
+                        ownerCustomerId = customer.id,
+                        date = date,
+                        durationMinutes = durationMinutes,
+                        wastedMinutesOnOwner = wastedMinutes,
+                        purchaseRatePerHour = purchaseRate,
+                        notes = notes,
+                        amountPaid = amountPaid
+                    )
+                    showOwnerPurchaseSheet = false
+                }
             }
         )
     }
 
-    // تسجيل دورة سقي مباشرة داخل صفحة العميل
-    if (showAddSessionSheet) {
+    // تسجيل أو تعديل دورة سقي مباشرة داخل صفحة العميل
+    if (showAddSessionSheet || sessionToEdit != null) {
+        val editingSession = sessionToEdit
         AddEditSessionBottomSheet(
-            initialSession = null,
+            initialSession = editingSession,
             customers = allCustomers,
-            defaultCustomerId = customer.id,
+            defaultCustomerId = editingSession?.customerId ?: customer.id,
             defaultPricePerHour = config.defaultPricePerHour,
             currencySymbol = config.currencySymbol,
             onCreateCustomer = { viewModel.insertCustomerDirect(it) },
-            onDismiss = { showAddSessionSheet = false },
-            onSave = { _, custId, pumpName, startTime, endTime, hours, minutes, pricePerHour, amountPaid, notes, billedToCustomerId, wastedMinutes, wastedReason, discountAmount, costPricePerHour, pumpSourceId ->
-                viewModel.addSessionForCustomer(
-                    customerId = custId,
-                    pumpName = pumpName,
-                    startTime = startTime,
-                    endTime = endTime,
-                    hours = hours,
-                    minutes = minutes,
-                    pricePerHour = pricePerHour,
-                    amountPaid = amountPaid,
-                    notes = notes,
-                    billedToCustomerId = billedToCustomerId,
-                    wastedMinutes = wastedMinutes,
-                    wastedReason = wastedReason,
-                    discountAmount = discountAmount,
-                    costPricePerHour = costPricePerHour,
-                    pumpSourceId = pumpSourceId
-                )
+            onDismiss = {
                 showAddSessionSheet = false
+                sessionToEdit = null
+            },
+            onSave = { id, custId, pumpName, startTime, endTime, hours, minutes, pricePerHour, amountPaid, notes, billedToCustomerId, wastedMinutes, wastedReason, discountAmount, costPricePerHour, pumpSourceId ->
+                if (editingSession != null) {
+                    viewModel.updateSessionForCustomer(
+                        id = id,
+                        customerId = custId,
+                        pumpName = pumpName,
+                        startTime = startTime,
+                        endTime = endTime,
+                        hours = hours,
+                        minutes = minutes,
+                        pricePerHour = pricePerHour,
+                        amountPaid = amountPaid,
+                        notes = notes,
+                        billedToCustomerId = billedToCustomerId,
+                        wastedMinutes = wastedMinutes,
+                        wastedReason = wastedReason,
+                        discountAmount = discountAmount,
+                        costPricePerHour = costPricePerHour,
+                        pumpSourceId = pumpSourceId
+                    )
+                    sessionToEdit = null
+                } else {
+                    viewModel.addSessionForCustomer(
+                        customerId = custId,
+                        pumpName = pumpName,
+                        startTime = startTime,
+                        endTime = endTime,
+                        hours = hours,
+                        minutes = minutes,
+                        pricePerHour = pricePerHour,
+                        amountPaid = amountPaid,
+                        notes = notes,
+                        billedToCustomerId = billedToCustomerId,
+                        wastedMinutes = wastedMinutes,
+                        wastedReason = wastedReason,
+                        discountAmount = discountAmount,
+                        costPricePerHour = costPricePerHour,
+                        pumpSourceId = pumpSourceId
+                    )
+                    showAddSessionSheet = false
+                }
             }
         )
     }
@@ -1305,6 +1345,7 @@ fun CustomerDetailScreen(
 private fun CustomerPurchaseCardItem(
     purchase: WellOwnerPurchase,
     currencySymbol: String,
+    onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     val chargeableMinutes = WellOwnerPurchaseMath.chargeableMinutes(purchase)
@@ -1314,40 +1355,196 @@ private fun CustomerPurchaseCardItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(14.dp),
+            .padding(horizontal = 14.dp, vertical = 5.dp)
+            .shadow(1.5.dp, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Header Row: Icon + Title/Date + Actions (Edit & Delete)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("شراء ساعات من صاحب البئر", fontWeight = FontWeight.Bold, color = PrimaryTeal)
-                    Text(Formatters.formatDateTime(purchase.date), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(AccentGold.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AccessTime,
+                            contentDescription = null,
+                            tint = AccentGold,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "شراء ساعات من صاحب البئر",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            text = Formatters.formatDateTime(purchase.date),
+                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        )
+                    }
                 }
-                IconButton(onClick = onDeleteClick) {
-                    Icon(Icons.Default.Delete, contentDescription = "حذف عملية الشراء", tint = Color(0xFFE53935))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = onEditClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "تعديل الشراء",
+                            tint = PrimaryTeal,
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onDeleteClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "حذف الشراء",
+                            tint = Color(0xFFE53935),
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("المدة المسجلة: ${Formatters.formatDurationArabic(purchase.durationMinutes)}", style = MaterialTheme.typography.bodySmall)
-                Text("سعر الساعة: ${Formatters.formatCurrency(purchase.purchaseRatePerHour, currencySymbol)}", style = MaterialTheme.typography.bodySmall)
+
+            // Specs Grid (Duration + Rate)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Text(
+                            text = "المدة المسجلة",
+                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp)
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = Formatters.formatDurationArabic(purchase.durationMinutes),
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Text(
+                            text = "سعر شراء الساعة",
+                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp)
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = Formatters.formatCurrency(purchase.purchaseRatePerHour, currencySymbol),
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
             }
+
+            // Waste Alert if any
             if (purchase.wastedMinutesOnOwner > 0) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("هدر على صاحب البئر: ${Formatters.formatDurationArabic(purchase.wastedMinutesOnOwner)}", color = Color(0xFFD32F2F), style = MaterialTheme.typography.bodySmall)
-                    Text("خصم ${Formatters.formatCurrency(wasteCredit, currencySymbol)}", color = Color(0xFFD32F2F), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFFFEF2F2),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFECACA))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = null,
+                                tint = Color(0xFFDC2626),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "هدر على صاحب البئر: ${Formatters.formatDurationArabic(purchase.wastedMinutesOnOwner)}",
+                                style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFDC2626), fontWeight = FontWeight.SemiBold)
+                            )
+                        }
+                        Text(
+                            text = "خصم ${Formatters.formatCurrency(wasteCredit, currencySymbol)}",
+                            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFB91C1C), fontWeight = FontWeight.Bold)
+                        )
+                    }
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("الساعات المحتسبة: ${Formatters.formatDurationArabic(chargeableMinutes)}", fontWeight = FontWeight.SemiBold)
-                Text("المستحق: ${Formatters.formatCurrency(payableAmount, currencySymbol)}", color = PrimaryTeal, fontWeight = FontWeight.ExtraBold)
+
+            // Bottom Payable Banner
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = AccentGold.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "الساعات المحتسبة: ${Formatters.formatDurationArabic(chargeableMinutes)}",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                    Text(
+                        text = "المستحق: ${Formatters.formatCurrency(payableAmount, currencySymbol)}",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFFB45309))
+                    )
+                }
             }
+
             if (purchase.notes.isNotBlank()) {
-                Text(purchase.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Notes,
+                        contentDescription = null,
+                        modifier = Modifier.size(13.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = purchase.notes,
+                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    )
+                }
             }
         }
     }
@@ -1364,6 +1561,7 @@ private fun CustomerSessionCardItem(
     isBeneficiaryView: Boolean,
     currencySymbol: String,
     linkedVouchers: List<Voucher>,
+    onEditClick: () -> Unit,
     onPdfClick: () -> Unit,
     onMessageClick: () -> Unit,
     onSettleClick: () -> Unit,
@@ -1439,6 +1637,14 @@ private fun CustomerSessionCardItem(
                         }
                         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                             DropdownMenuItem(
+                                text = { Text("تعديل دورة السقي", fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryTeal) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onEditClick()
+                                }
+                            )
+                            DropdownMenuItem(
                                 text = { Text("حذف دورة السقي", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
                                 leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
                                 onClick = {
@@ -1506,23 +1712,42 @@ private fun CustomerSessionCardItem(
                 Column(horizontalAlignment = Alignment.End) {
                     Text("المتبقي", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
                     Text(
-                        if (session.remainingDebt > 0) Formatters.formatCurrency(session.remainingDebt, currencySymbol) else "خالص بالكامل",
+                        if (session.billedToCustomerId != null) "مسدد بالمقاصة"
+                        else if (session.remainingDebt > 0) Formatters.formatCurrency(session.remainingDebt, currencySymbol)
+                        else "خالص بالكامل",
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = if (session.remainingDebt > 0) Color(0xFFE53935) else AccentEmerald,
+                            color = if (session.billedToCustomerId != null) Color(0xFF0284C7)
+                                else if (session.remainingDebt > 0) Color(0xFFE53935)
+                                else AccentEmerald,
                             fontWeight = FontWeight.ExtraBold
                         )
                     )
                 }
             }
 
-            // شريط الإجراءات: زر [سداد] إن وُجد دين + زر فتح تفاصيل السداد (Accordion)
+            // شريط الإجراءات: زر [سداد] إن وُجد دين (لغير المسدد بالمقاصة) + تفاصيل السداد
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (session.remainingDebt > 0) {
+                if (session.billedToCustomerId != null) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFFE0F2FE))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "💧 مسدد ومخصوم من رصيد صاحب البئر",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color(0xFF0369A1),
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+                } else if (session.remainingDebt > 0) {
                     Button(
                         onClick = onSettleClick,
                         colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),

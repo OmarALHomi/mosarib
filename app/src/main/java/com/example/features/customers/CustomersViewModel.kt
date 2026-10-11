@@ -375,6 +375,106 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun updateSessionForCustomer(
+        id: Long,
+        customerId: Long,
+        pumpName: String = "",
+        startTime: Long,
+        endTime: Long,
+        hours: Int,
+        minutes: Int,
+        pricePerHour: Double,
+        amountPaid: Double,
+        notes: String,
+        billedToCustomerId: Long? = null,
+        wastedMinutes: Int = 0,
+        wastedReason: String = "",
+        discountAmount: Double = 0.0,
+        costPricePerHour: Double = 0.0,
+        pumpSourceId: Long? = null
+    ) {
+        viewModelScope.launch {
+            val totalMinutes = (hours * 60) + minutes
+            if (totalMinutes <= 0) {
+                showToast("يرجى تحديد مدة سقي صالحة", ToastType.ERROR)
+                return@launch
+            }
+            val maxSessionMinutes = 10 * 24 * 60
+            if (totalMinutes > maxSessionMinutes) {
+                showToast("لا يمكن تسجيل سقي بساعات خيالية! الحد الأقصى 10 أيام", ToastType.ERROR)
+                return@launch
+            }
+            if (wastedMinutes > totalMinutes) {
+                showToast("لا يمكن أن يكون الهدر أكبر من مدة السقي بتاتاً", ToastType.ERROR)
+                return@launch
+            }
+            val netMinutes = maxOf(0, totalMinutes - wastedMinutes)
+            val grossCost = com.example.core.util.Formatters.calculateWaterCost(netMinutes, pricePerHour)
+            val totalCost = com.example.core.util.Formatters.roundMoney(maxOf(0.0, grossCost - discountAmount))
+            val roundedPaid = com.example.core.util.Formatters.roundMoney(amountPaid)
+            val debt = if (billedToCustomerId != null) 0.0 else com.example.core.util.Formatters.roundMoney(maxOf(0.0, totalCost - roundedPaid))
+
+            val session = WaterSession(
+                id = id,
+                customerId = customerId,
+                pumpName = pumpName,
+                startTime = startTime,
+                endTime = if (endTime > startTime) endTime else (startTime + totalMinutes * 60000L),
+                durationMinutes = totalMinutes,
+                pricePerHour = com.example.core.util.Formatters.roundMoney(pricePerHour),
+                totalAmount = totalCost,
+                amountPaid = roundedPaid,
+                remainingDebt = debt,
+                notes = notes,
+                isLive = false,
+                billedToCustomerId = billedToCustomerId,
+                wastedMinutes = wastedMinutes,
+                wastedReason = wastedReason,
+                discountAmount = discountAmount,
+                costPricePerHour = costPricePerHour,
+                pumpSourceId = pumpSourceId
+            )
+            sessionRepo.updateSession(session)
+            showToast("تم تعديل دورة السقي بنجاح وتحديث كشف الحساب", ToastType.SUCCESS)
+        }
+    }
+
+    fun updateOwnerPurchase(
+        purchaseId: Long,
+        ownerCustomerId: Long,
+        date: Long,
+        durationMinutes: Int,
+        wastedMinutesOnOwner: Int,
+        purchaseRatePerHour: Double,
+        notes: String
+    ) {
+        viewModelScope.launch {
+            if (durationMinutes <= 0) {
+                showToast("يرجى إدخال مدة شراء صالحة", ToastType.ERROR)
+                return@launch
+            }
+            if (wastedMinutesOnOwner > durationMinutes) {
+                showToast("لا يمكن أن يكون الهدر أكبر من مدة الشراء", ToastType.ERROR)
+                return@launch
+            }
+            if (purchaseRatePerHour <= 0.0) {
+                showToast("يرجى تحديد سعر شراء صالح للساعة", ToastType.ERROR)
+                return@launch
+            }
+            val purchase = WellOwnerPurchase(
+                id = purchaseId,
+                ownerCustomerId = ownerCustomerId,
+                date = date,
+                durationMinutes = durationMinutes,
+                wastedMinutesOnOwner = wastedMinutesOnOwner,
+                purchaseRatePerHour = com.example.core.util.Formatters.roundMoney(purchaseRatePerHour),
+                notes = notes.trim()
+            )
+            ownerPurchaseRepo.update(purchase)
+            showToast("تم تعديل عملية شراء الساعات بنجاح", ToastType.SUCCESS)
+        }
+    }
+
     fun deleteOwnerPurchase(purchase: WellOwnerPurchase) {
         viewModelScope.launch {
             ownerPurchaseRepo.delete(purchase)

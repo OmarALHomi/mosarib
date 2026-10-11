@@ -33,7 +33,7 @@ class WellOwnerAccountingTest {
     }
 
     @Test
-    fun `well owner keeps supplier payable and customer receivable separate`() {
+    fun `well owner offsets irrigation sessions directly against purchase amounts`() {
         val owner = Customer(id = 9, name = "صاحب البئر", isWellOwner = true)
         val purchases = listOf(
             WellOwnerPurchase(
@@ -60,12 +60,61 @@ class WellOwnerAccountingTest {
         val result = calculateCustomerBalance(owner, sessions, vouchers, purchases = purchases)
 
         assertEquals(27000.0, result.totalPurchaseAmount, 0.001)
-        assertEquals(17000.0, result.payableBalance, 0.001)
-        assertEquals(5000.0, result.receivableBalance, 0.001)
-        // The list compatibility value is the supplier side; neither account offsets the other.
-        assertEquals(17000.0, result.balance, 0.001)
+        // (27000 net purchase + 5000 collected) - (10000 disbursed + 10000 water sessions) = 12000 payable
+        assertEquals(12000.0, result.payableBalance, 0.001)
+        assertEquals(0.0, result.receivableBalance, 0.001)
+        assertEquals(12000.0, result.balance, 0.001)
         assertEquals(5000.0, result.totalPaidAmount, 0.001)
         assertEquals(10000.0, result.totalDisbursedAmount, 0.001)
+    }
+
+    @Test
+    fun `session billed to well owner on behalf of farmer offsets well owner balance and leaves farmer debt zero`() {
+        val owner = Customer(id = 9, name = "صاحب البئر", isWellOwner = true)
+        val farmer = Customer(id = 1, name = "المزارع صالح", isWellOwner = false)
+
+        val purchases = listOf(
+            WellOwnerPurchase(
+                ownerCustomerId = owner.id,
+                durationMinutes = 10 * 60,
+                purchaseRatePerHour = 2000.0
+            )
+        )
+        // 600 min @ 2000 = 20,000 net purchase for owner
+
+        // Farmer waters, billed to well owner: 15,000
+        val sessionBilledToOwner = WaterSession(
+            id = 10,
+            customerId = farmer.id,
+            billedToCustomerId = owner.id,
+            durationMinutes = 180,
+            totalAmount = 15000.0,
+            amountPaid = 0.0,
+            remainingDebt = 0.0
+        )
+
+        val farmerResult = calculateCustomerBalance(farmer, listOf(sessionBilledToOwner), emptyList())
+        assertEquals(0.0, farmerResult.receivableBalance, 0.001)
+        assertEquals(0, farmerResult.totalSessionsCount)
+
+        val ownerResult = calculateCustomerBalance(owner, listOf(sessionBilledToOwner), emptyList(), purchases = purchases)
+        // 20000 purchase - 15000 session = 5000 payable to owner
+        assertEquals(5000.0, ownerResult.payableBalance, 0.001)
+        assertEquals(0.0, ownerResult.receivableBalance, 0.001)
+
+        // If water sessions exceed purchases, owner becomes debtor (receivable)
+        val excessiveSession = WaterSession(
+            id = 11,
+            customerId = owner.id,
+            durationMinutes = 300,
+            totalAmount = 25000.0,
+            amountPaid = 0.0,
+            remainingDebt = 0.0
+        )
+        val excessiveOwnerResult = calculateCustomerBalance(owner, listOf(excessiveSession), emptyList(), purchases = purchases)
+        // 20000 purchase - 25000 session = -5000 (receivable from owner = 5000)
+        assertEquals(0.0, excessiveOwnerResult.payableBalance, 0.001)
+        assertEquals(5000.0, excessiveOwnerResult.receivableBalance, 0.001)
     }
 
     @Test
