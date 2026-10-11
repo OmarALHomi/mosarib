@@ -244,7 +244,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
 
             // إذا تم تسليم مبلغ نقدياً فوراً لصاحب البئر، يُسجّل سند صرف (EXPENSE) مرتبط به فوراً
             if (amountPaid > 0.0) {
-                val vNumber = "EXP-${System.currentTimeMillis().toString().takeLast(4)}"
+                val vNumber = "EXP-${System.currentTimeMillis().toString().takeLast(8)}"
                 val voucher = Voucher(
                     voucherNumber = vNumber,
                     type = VoucherType.EXPENSE,
@@ -487,6 +487,10 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun addReceiptVoucher(customerId: Long, amount: Double, paymentMethod: String, notes: String) {
         viewModelScope.launch {
+            if (amount <= 0.0) {
+                showToast("يرجى إدخال مبلغ صالح أكبر من صفر", ToastType.ERROR)
+                return@launch
+            }
             val totalOps = db.waterSessionDao().getSessionsCountDirect() +
                 db.voucherDao().getVouchersCountDirect() +
                 db.wellOwnerPurchaseDao().getPurchasesCountDirect()
@@ -495,7 +499,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 return@launch
             }
 
-            val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(4)}"
+            val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(8)}"
             val voucher = Voucher(
                 voucherNumber = vNumber,
                 type = VoucherType.RECEIPT,
@@ -514,6 +518,10 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun addExpenseVoucher(customerId: Long, amount: Double, paymentMethod: String, description: String) {
         viewModelScope.launch {
+            if (amount <= 0.0) {
+                showToast("يرجى إدخال مبلغ صالح أكبر من صفر", ToastType.ERROR)
+                return@launch
+            }
             val totalOps = db.waterSessionDao().getSessionsCountDirect() +
                 db.voucherDao().getVouchersCountDirect() +
                 db.wellOwnerPurchaseDao().getPurchasesCountDirect()
@@ -522,7 +530,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 return@launch
             }
 
-            val vNumber = "EXP-${System.currentTimeMillis().toString().takeLast(4)}"
+            val vNumber = "EXP-${System.currentTimeMillis().toString().takeLast(8)}"
             val voucher = Voucher(
                 voucherNumber = vNumber,
                 type = VoucherType.EXPENSE,
@@ -562,7 +570,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             )
             sessionRepo.updateSession(updatedSession)
 
-            val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(4)}"
+            val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(8)}"
             val voucher = Voucher(
                 voucherNumber = vNumber,
                 type = VoucherType.RECEIPT,
