@@ -379,6 +379,37 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
             showToast("تم حذف السند بنجاح", ToastType.INFO)
         }
     }
+
+    fun deleteOwnerPurchase(purchase: WellOwnerPurchase) {
+        viewModelScope.launch {
+            ownerPurchaseRepo.delete(purchase)
+            showToast("تم حذف عملية شراء الساعات بنجاح", ToastType.INFO)
+        }
+    }
+
+    fun updateOwnerPurchase(
+        purchase: WellOwnerPurchase,
+        date: Long,
+        durationMinutes: Int,
+        wastedMinutes: Int,
+        rate: Double,
+        amountPaid: Double,
+        notes: String
+    ) {
+        viewModelScope.launch {
+            ownerPurchaseRepo.update(
+                purchase.copy(
+                    date = date,
+                    durationMinutes = durationMinutes,
+                    wastedMinutesOnOwner = wastedMinutes,
+                    purchaseRatePerHour = rate,
+                    amountPaid = amountPaid,
+                    notes = notes
+                )
+            )
+            showToast("تم تعديل عملية شراء الساعات بنجاح", ToastType.SUCCESS)
+        }
+    }
 }
 
 data class SettlementItemSummary(

@@ -1112,7 +1112,8 @@ fun CustomerDetailScreen(
                         durationMinutes = durationMinutes,
                         wastedMinutesOnOwner = wastedMinutes,
                         purchaseRatePerHour = purchaseRate,
-                        notes = notes
+                        notes = notes,
+                        amountPaid = amountPaid
                     )
                     purchaseToEdit = null
                 } else {
@@ -1507,27 +1508,86 @@ private fun CustomerPurchaseCardItem(
                 }
             }
 
-            // Bottom Payable Banner
+            // Bottom Financial Status Banner: الإجمالي + صرف (مدفوع) + عليك (متبقي)
+            val paidAmount = purchase.amountPaid
+            val remainingDebt = (payableAmount - paidAmount).coerceAtLeast(0.0)
+
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = AccentGold.copy(alpha = 0.12f),
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 10.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = "الساعات المحتسبة: ${Formatters.formatDurationArabic(chargeableMinutes)}",
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "الساعات المحتسبة: ${Formatters.formatDurationArabic(chargeableMinutes)}",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                        Text(
+                            text = "الإجمالي: ${Formatters.formatCurrency(payableAmount, currencySymbol)}",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFFB45309))
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(0.8.dp)
+                            .background(AccentGold.copy(alpha = 0.3f))
                     )
-                    Text(
-                        text = "المستحق: ${Formatters.formatCurrency(payableAmount, currencySymbol)}",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFFB45309))
-                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // المدفوع نقداً (صرف)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                text = "صرف (مدفوع):",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 10.5.sp
+                                )
+                            )
+                            Text(
+                                text = Formatters.formatCurrency(paidAmount, currencySymbol),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (paidAmount > 0) Color(0xFFE53935) else Color.Gray,
+                                    fontSize = 11.sp
+                                )
+                            )
+                        }
+
+                        // المتبقي (عليك لصاحب البئر)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                text = if (remainingDebt > 0) "عليك (متبقي):" else "الحالة:",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 10.5.sp
+                                )
+                            )
+                            Text(
+                                text = if (remainingDebt > 0) Formatters.formatCurrency(remainingDebt, currencySymbol) else "مسدد بالكامل",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = if (remainingDebt > 0) Color(0xFFE65100) else AccentEmerald,
+                                    fontSize = 11.sp
+                                )
+                            )
+                        }
+                    }
                 }
             }
 

@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Search
@@ -112,6 +113,8 @@ import com.example.features.sessions.SessionCardItem
 import com.example.features.sessions.SessionsViewModel
 import com.example.features.sessions.SettleSessionDialog
 import com.example.features.sessions.WaterSession
+import com.example.features.wellowners.WellOwnerPurchase
+import com.example.features.wellowners.WellOwnerPurchaseBottomSheet
 import com.example.features.wellowners.WellOwnerPurchaseMath
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
@@ -142,6 +145,8 @@ fun VouchersScreen(
     var showAddManualSheet by remember { mutableStateOf(false) }
     var speedDialOpen by remember { mutableStateOf(false) }
     var voucherToDelete by remember { mutableStateOf<Voucher?>(null) }
+    var purchaseToDelete by remember { mutableStateOf<WellOwnerPurchase?>(null) }
+    var purchaseToEdit by remember { mutableStateOf<WellOwnerPurchase?>(null) }
     var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
     var voucherMessageTarget by remember { mutableStateOf<Pair<Customer, String>?>(null) }
     var voucherPdfReady by remember { mutableStateOf<Pair<File, String>?>(null) }
@@ -784,7 +789,9 @@ fun VouchersScreen(
                         is UnifiedOperation.PurchaseOp -> {
                             val purchase = op.purchase
                             val owner = op.owner
-                            val payable = WellOwnerPurchaseMath.payableAmount(purchase)
+                            val totalAmount = WellOwnerPurchaseMath.payableAmount(purchase)
+                            val paidAmount = purchase.amountPaid
+                            val remainingDebt = (totalAmount - paidAmount).coerceAtLeast(0.0)
                             val chargeable = WellOwnerPurchaseMath.chargeableMinutes(purchase)
                             val waste = purchase.wastedMinutesOnOwner
 
@@ -801,7 +808,7 @@ fun VouchersScreen(
                                         .fillMaxWidth()
                                         .padding(horizontal = 10.dp, vertical = 7.dp)
                                 ) {
-                                    // 1. الصف العلوي: أيقونة شراء + اسم صاحب البئر + المبلغ الإجمالي المستحق
+                                    // 1. الصف العلوي: أيقونة + اسم صاحب البئر + الإجمالي المالي
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -863,21 +870,21 @@ fun VouchersScreen(
 
                                         Spacer(modifier = Modifier.width(8.dp))
 
-                                        // اليسار: المبلغ المستحق للمالك
+                                        // اليسار: الإجمالي الكلي للشراء
                                         Column(horizontalAlignment = Alignment.End) {
                                             Text(
-                                                text = Formatters.formatCurrency(payable, config.currencySymbol),
+                                                text = Formatters.formatCurrency(totalAmount, config.currencySymbol),
                                                 style = MaterialTheme.typography.titleMedium.copy(
                                                     fontWeight = FontWeight.ExtraBold,
                                                     color = Color(0xFF0288D1),
-                                                    fontSize = 16.sp
+                                                    fontSize = 15.5.sp
                                                 )
                                             )
                                             Text(
-                                                text = Formatters.amountToArabicWords(payable, config.currencySymbol),
+                                                text = Formatters.amountToArabicWords(totalAmount, config.currencySymbol),
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     color = Color(0xFF64748B),
-                                                    fontSize = 9.5.sp,
+                                                    fontSize = 9.sp,
                                                     fontWeight = FontWeight.Medium
                                                 ),
                                                 maxLines = 1,
@@ -888,100 +895,228 @@ fun VouchersScreen(
 
                                     Spacer(modifier = Modifier.height(4.dp))
 
-                                    // 2. الصف الأوسط: تفاصيل الساعات (إجمالي، هدر إن وجد، صافي، وسعر الساعة)
+                                    // 2. الشريط المالي المنسق (صرف المدفوع vs عليك المتبقي)
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Surface(
-                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                            shape = RoundedCornerShape(6.dp)
+                                        // صرف (المدفوع نقداً)
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
+                                            Icon(
+                                                imageVector = Icons.Default.ArrowUpward,
+                                                contentDescription = null,
+                                                tint = if (paidAmount > 0) Color(0xFFE53935) else Color.Gray,
+                                                modifier = Modifier.size(11.dp)
+                                            )
                                             Text(
-                                                text = "⏱️ المدة: ${Formatters.formatDurationArabic(purchase.durationMinutes)}",
+                                                text = "صرف (مدفوع):",
                                                 style = MaterialTheme.typography.labelSmall.copy(
-                                                    fontWeight = FontWeight.Medium,
+                                                    color = Color(0xFF64748B),
                                                     fontSize = 10.sp
-                                                ),
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            )
+                                            Text(
+                                                text = Formatters.formatCurrency(paidAmount, config.currencySymbol),
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (paidAmount > 0) Color(0xFFE53935) else Color.Gray,
+                                                    fontSize = 10.5.sp
+                                                )
                                             )
                                         }
 
-                                        if (waste > 0) {
-                                            Surface(
-                                                color = Color(0xFFFFEBEE),
-                                                shape = RoundedCornerShape(6.dp)
-                                            ) {
-                                                Text(
-                                                    text = "⚠️ هدر: ${Formatters.formatDurationArabic(waste)}",
-                                                    style = MaterialTheme.typography.labelSmall.copy(
-                                                        color = Color(0xFFD32F2F),
-                                                        fontWeight = FontWeight.Bold,
-                                                        fontSize = 10.sp
-                                                    ),
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                                )
-                                            }
-
-                                            Surface(
-                                                color = Color(0xFFE8F5E9),
-                                                shape = RoundedCornerShape(6.dp)
-                                            ) {
-                                                Text(
-                                                    text = "صافي: ${Formatters.formatDurationArabic(chargeable)}",
-                                                    style = MaterialTheme.typography.labelSmall.copy(
-                                                        color = Color(0xFF2E7D32),
-                                                        fontWeight = FontWeight.Bold,
-                                                        fontSize = 10.sp
-                                                    ),
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                                )
-                                            }
-                                        }
-
-                                        Surface(
-                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                            shape = RoundedCornerShape(6.dp)
+                                        // عليك (المتبقي لصاحب البئر)
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
                                             Text(
-                                                text = "السعر: ${Formatters.formatCurrency(purchase.purchaseRatePerHour, config.currencySymbol)}/س",
+                                                text = if (remainingDebt > 0) "عليك (متبقي):" else "الحالة:",
                                                 style = MaterialTheme.typography.labelSmall.copy(
-                                                    fontWeight = FontWeight.Medium,
+                                                    color = Color(0xFF64748B),
                                                     fontSize = 10.sp
-                                                ),
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
                                             )
+                                            if (remainingDebt > 0) {
+                                                Surface(
+                                                    color = Color(0xFFFFF3E0),
+                                                    shape = RoundedCornerShape(4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = Formatters.formatCurrency(remainingDebt, config.currencySymbol),
+                                                        style = MaterialTheme.typography.labelSmall.copy(
+                                                            fontWeight = FontWeight.ExtraBold,
+                                                            color = Color(0xFFE65100),
+                                                            fontSize = 10.5.sp
+                                                        ),
+                                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                                    )
+                                                }
+                                            } else {
+                                                Surface(
+                                                    color = Color(0xFFE8F5E9),
+                                                    shape = RoundedCornerShape(4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "مسدد بالكامل",
+                                                        style = MaterialTheme.typography.labelSmall.copy(
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = AccentEmerald,
+                                                            fontSize = 9.5.sp
+                                                        ),
+                                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                                    )
+                                                }
+                                            }
                                         }
-                                    }
-
-                                    if (purchase.notes.isNotBlank()) {
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = "ملاحظات: ${purchase.notes}",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Color(0xFF64748B),
-                                                fontSize = 9.5.sp
-                                            ),
-                                            maxLines = 1
-                                        )
                                     }
 
                                     Spacer(modifier = Modifier.height(4.dp))
 
-                                    // 3. الصف السفلي: التاريخ
+                                    // 3. الصف السفلي: التاريخ والمواصفات + أزرار العمليات المصغرة
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(
-                                            text = Formatters.formatDateTime(purchase.date),
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Color(0xFF64748B),
-                                                fontSize = 9.5.sp
+                                        // التفاصيل والتاريخ في سطر أفقي مدمج
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                            modifier = Modifier.weight(1f, fill = false)
+                                        ) {
+                                            Text(
+                                                text = Formatters.formatDateTime(purchase.date),
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    color = Color(0xFF64748B),
+                                                    fontSize = 9.5.sp
+                                                )
                                             )
-                                        )
+
+                                            Text(
+                                                text = "•",
+                                                style = MaterialTheme.typography.labelSmall.copy(color = Color.LightGray)
+                                            )
+
+                                            Text(
+                                                text = "⏱️ ${Formatters.formatDurationArabic(chargeable)}",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    fontSize = 9.5.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            )
+
+                                            if (waste > 0) {
+                                                Text(
+                                                    text = "(هدر: ${Formatters.formatDurationArabic(waste)})",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = Color(0xFFD32F2F),
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 9.sp
+                                                    )
+                                                )
+                                            }
+
+                                            Text(
+                                                text = "•",
+                                                style = MaterialTheme.typography.labelSmall.copy(color = Color.LightGray)
+                                            )
+
+                                            Text(
+                                                text = "${Formatters.formatCurrency(purchase.purchaseRatePerHour, config.currencySymbol)}/س",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    color = Color(0xFF64748B),
+                                                    fontSize = 9.5.sp
+                                                )
+                                            )
+
+                                            if (purchase.notes.isNotBlank()) {
+                                                Text(
+                                                    text = "(${purchase.notes})",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = Color(0xFF64748B),
+                                                        fontSize = 9.sp
+                                                    ),
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        }
+
+                                        // أزرار العمليات المصغرة (مشاركة + تعديل + حذف)
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            if (owner != null && owner.phone.isNotBlank()) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(26.dp)
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                                        .clickable {
+                                                            val msg = "بيان شراء ساعات #${purchase.id}\nصاحب البئر: ${owner.name}\nالمدة المحتسبة: ${Formatters.formatDurationArabic(chargeable)}" +
+                                                                    (if (waste > 0) "\nالهدر: ${Formatters.formatDurationArabic(waste)}" else "") +
+                                                                    "\nالسعر: ${Formatters.formatCurrency(purchase.purchaseRatePerHour, config.currencySymbol)}/ساعة" +
+                                                                    "\nالإجمالي: ${Formatters.formatCurrency(totalAmount, config.currencySymbol)}" +
+                                                                    "\nالمصروف (المسلم نقداً): ${Formatters.formatCurrency(paidAmount, config.currencySymbol)}" +
+                                                                    "\nالمتبقي (عليك): ${Formatters.formatCurrency(remainingDebt, config.currencySymbol)}" +
+                                                                    "\nالتاريخ: ${Formatters.formatDateTime(purchase.date)}"
+                                                            voucherMessageTarget = Pair(owner, FileSharingHelper.attachMessageFooter(msg))
+                                                        },
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        Icons.AutoMirrored.Filled.Send,
+                                                        contentDescription = "مشاركة",
+                                                        tint = PrimaryTeal,
+                                                        modifier = Modifier.size(13.dp)
+                                                    )
+                                                }
+                                            }
+
+                                            // زر تعديل
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(26.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                                    .clickable { purchaseToEdit = purchase },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Edit,
+                                                    contentDescription = "تعديل الشراء",
+                                                    tint = PrimaryTeal,
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                            }
+
+                                            // زر حذف
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(26.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(Color(0xFFFFEBEE))
+                                                    .clickable { purchaseToDelete = purchase },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "حذف الشراء",
+                                                    tint = Color(0xFFE53935),
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -1270,6 +1405,52 @@ fun VouchersScreen(
                 TextButton(onClick = { voucherToDelete = null }) {
                     Text("إلغاء", fontWeight = FontWeight.Bold)
                 }
+            }
+        )
+    }
+
+    purchaseToDelete?.let { p ->
+        AlertDialog(
+            onDismissRequest = { purchaseToDelete = null },
+            title = { Text("تأكيد حذف عملية الشراء", fontWeight = FontWeight.Bold) },
+            text = { Text("هل تريد بالتأكيد حذف عملية شراء الساعات #${p.id}؟ سيتم إلغاء تأثيرها المالي على رصيد صاحب البئر فورياً.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteOwnerPurchase(p)
+                        purchaseToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
+                ) {
+                    Text("حذف", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { purchaseToDelete = null }) {
+                    Text("إلغاء", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    purchaseToEdit?.let { p ->
+        val owner = customers.find { it.id == p.ownerCustomerId }
+        WellOwnerPurchaseBottomSheet(
+            owner = owner ?: Customer(id = p.ownerCustomerId, name = "صاحب بئر #${p.ownerCustomerId}", isWellOwner = true),
+            currencySymbol = config.currencySymbol,
+            initialPurchase = p,
+            onDismiss = { purchaseToEdit = null },
+            onSave = { date, durationMinutes, wastedMinutes, rate, amountPaid, notes ->
+                viewModel.updateOwnerPurchase(
+                    purchase = p,
+                    date = date,
+                    durationMinutes = durationMinutes,
+                    wastedMinutes = wastedMinutes,
+                    rate = rate,
+                    amountPaid = amountPaid,
+                    notes = notes
+                )
+                purchaseToEdit = null
             }
         )
     }

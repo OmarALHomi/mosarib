@@ -33,6 +33,7 @@ data class WellOwnerPurchase(
     val wastedMinutesOnOwner: Int = 0,
     /** Purchase-rate snapshot, so later price changes never rewrite historical accounts. */
     val purchaseRatePerHour: Double,
+    val amountPaid: Double = 0.0,
     val notes: String = "",
     val createdAt: Long = System.currentTimeMillis()
 )

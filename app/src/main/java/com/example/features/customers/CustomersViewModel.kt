@@ -237,6 +237,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                     durationMinutes = durationMinutes,
                     wastedMinutesOnOwner = wastedMinutesOnOwner,
                     purchaseRatePerHour = com.example.core.util.Formatters.roundMoney(purchaseRatePerHour),
+                    amountPaid = com.example.core.util.Formatters.roundMoney(amountPaid),
                     notes = notes.trim()
                 )
             )
@@ -446,7 +447,8 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         durationMinutes: Int,
         wastedMinutesOnOwner: Int,
         purchaseRatePerHour: Double,
-        notes: String
+        notes: String,
+        amountPaid: Double = 0.0
     ) {
         viewModelScope.launch {
             if (durationMinutes <= 0) {
@@ -468,6 +470,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 durationMinutes = durationMinutes,
                 wastedMinutesOnOwner = wastedMinutesOnOwner,
                 purchaseRatePerHour = com.example.core.util.Formatters.roundMoney(purchaseRatePerHour),
+                amountPaid = com.example.core.util.Formatters.roundMoney(amountPaid),
                 notes = notes.trim()
             )
             ownerPurchaseRepo.update(purchase)
