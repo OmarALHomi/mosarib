@@ -3,6 +3,7 @@ package com.example.features.vouchers
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import com.example.core.ui.MosaribAutoCompleteTextField
 import com.example.core.ui.isAppDark
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
@@ -1926,98 +1927,39 @@ fun AddVoucherBottomSheet(
             if (type == VoucherType.RECEIPT) {
                 Text("العميل المستلم منه *", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                 Spacer(modifier = Modifier.height(6.dp))
-                Box {
-                    MosaribTextField(
-                        value = selectedCustomer?.name ?: "اختر العميل...",
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable {
-                                custSearchQuery = ""
-                                custDropdownExpanded = true
-                            }
-                    )
-                    DropdownMenu(
-                        expanded = custDropdownExpanded,
-                        onDismissRequest = {
-                            custDropdownExpanded = false
-                            custSearchQuery = ""
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth(0.9f)
-                            .heightIn(max = 320.dp)
-                    ) {
-                        MosaribTextField(
-                            value = custSearchQuery,
-                            onValueChange = { custSearchQuery = it },
-                            placeholder = "بحث بالاسم أو الهاتف...",
-                            isDense = true,
-                            leadingIcon = {
-                                Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp), tint = PrimaryTeal)
-                            },
-                            trailingIcon = if (custSearchQuery.isNotEmpty()) {
-                                {
-                                    IconButton(onClick = { custSearchQuery = "" }) {
-                                        Icon(Icons.Default.Close, contentDescription = "مسح", modifier = Modifier.size(14.dp))
-                                    }
-                                }
-                            } else null,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            singleLine = true
-                        )
-                        HorizontalDivider()
-
-                        val filteredCustomers = if (custSearchQuery.isBlank()) customers
-                        else customers.filter {
-                            it.name.contains(custSearchQuery, ignoreCase = true) ||
-                            it.phone.contains(custSearchQuery) ||
-                            it.farmName.contains(custSearchQuery, ignoreCase = true)
-                        }
-
-                        if (filteredCustomers.isEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text("لا توجد نتائج مطابقة", color = Color.Gray, fontSize = 12.sp) },
-                                onClick = {}
-                            )
+                MosaribAutoCompleteTextField(
+                    value = custSearchQuery.ifEmpty { selectedCustomer?.name ?: "" },
+                    onValueChange = {
+                        custSearchQuery = it
+                        val exact = customers.find { c -> c.name.trim().equals(it.trim(), ignoreCase = true) }
+                        if (exact != null) {
+                            selectedCustomerId = exact.id
+                            selectedSessionIds = emptySet()
                         } else {
-                            filteredCustomers.forEach { c ->
-                                DropdownMenuItem(
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = if (c.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Agriculture,
-                                            contentDescription = null,
-                                            tint = if (c.isWellOwner) Color(0xFF0288D1) else PrimaryTeal,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    },
-                                    text = {
-                                        Column {
-                                            Text(c.name, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
-                                            val sub = listOf(c.farmName, c.phone).filter { it.isNotBlank() }.joinToString(" • ")
-                                            if (sub.isNotBlank()) {
-                                                Text(sub, fontSize = 11.sp, color = Color.Gray)
-                                            }
-                                        }
-                                    },
-                                    onClick = {
-                                        selectedCustomerId = c.id
-                                        selectedSessionIds = emptySet()
-                                        amountStr = ""
-                                        custDropdownExpanded = false
-                                        custSearchQuery = ""
-                                    }
-                                )
-                            }
+                            selectedCustomerId = 0L
                         }
-                    }
-                }
+                    },
+                    items = customers,
+                    itemText = { it.name },
+                    itemDetail = { listOf(it.farmName, it.phone).filter { s -> s.isNotBlank() }.joinToString(" • ") },
+                    isItemSecondary = { it.isWellOwner },
+                    isItemSelected = { it.id == selectedCustomerId },
+                    placeholder = "اكتب او اختر الاسم",
+                    leadingIcon = {
+                        Icon(
+                            imageVector = if (selectedCustomer?.isWellOwner == true) Icons.Default.WaterDrop else Icons.Default.Agriculture,
+                            contentDescription = null,
+                            tint = if (selectedCustomer?.isWellOwner == true) Color(0xFF0288D1) else PrimaryTeal
+                        )
+                    },
+                    onItemSelected = { c ->
+                        selectedCustomerId = c.id
+                        custSearchQuery = c.name
+                        selectedSessionIds = emptySet()
+                        amountStr = ""
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 // قسم الجلسات غير المسددة المتوفرة على العميل
                 if (unsettledSessions.isNotEmpty()) {

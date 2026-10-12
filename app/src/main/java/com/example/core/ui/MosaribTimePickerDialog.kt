@@ -27,10 +27,12 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import android.widget.Toast
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.runtime.CompositionLocalProvider
@@ -130,7 +132,7 @@ fun MosaribTimePickerDialog(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // عرض الوقت المختار بخط عريض وفخم
+                // عرض الوقت المختار بخط عريض وفخم (صباح/مساء على اليمين، ثم الساعة، ثم الدقائق على اليسار)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
@@ -141,6 +143,17 @@ fun MosaribTimePickerDialog(
                         .border(1.dp, if (isDark) Color(0xFF23353E) else Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
                         .padding(vertical = 12.dp, horizontal = 16.dp)
                 ) {
+                    Text(
+                        text = if (isPm) "مساءً (م)" else "صباحاً (ص)",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (isPm) {
+                            if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706)
+                        } else {
+                            if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(14.dp))
                     Text(
                         text = String.format("%02d", selectedHour12),
                         fontSize = 38.sp,
@@ -160,53 +173,45 @@ fun MosaribTimePickerDialog(
                         fontWeight = FontWeight.ExtraBold,
                         color = PrimaryTeal
                     )
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Text(
-                        text = if (isPm) "مساءً (م)" else "صباحاً (ص)",
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = if (isPm) {
-                            if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706)
-                        } else {
-                            if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
-                        }
-                    )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-                // التبديل بين صباحاً ومساءً
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    AmPmToggleCard(
-                        text = "صباحاً (ص)",
-                        isSelected = !isPm,
-                        activeColor = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
-                        modifier = Modifier.weight(1f),
-                        onClick = { isPm = false }
-                    )
-                    AmPmToggleCard(
-                        text = "مساءً (م)",
-                        isSelected = isPm,
-                        activeColor = if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706),
-                        modifier = Modifier.weight(1f),
-                        onClick = { isPm = true }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = if (isDark) Color(0xFF26353E) else Color(0xFFE2E8F0))
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // عدادات الساعات والدقائق التفاعلية
+                // عناصر اختيار الوقت التفاعلية مرتبة من اليمين للشمال:
+                // (1) اختيار صباح أو مساء على اليمين، (2) الساعة في الوسط، (3) الدقائق على اليسار
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // الساعات
+                    // 1. اختيار صباح أو مساء (على اليمين في RTL)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "الفترة",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                        )
+                        AmPmToggleCard(
+                            text = "صباحاً (ص)",
+                            isSelected = !isPm,
+                            activeColor = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
+                            modifier = Modifier.width(86.dp).height(56.dp),
+                            onClick = { isPm = false }
+                        )
+                        AmPmToggleCard(
+                            text = "مساءً (م)",
+                            isSelected = isPm,
+                            activeColor = if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706),
+                            modifier = Modifier.width(86.dp).height(56.dp),
+                            onClick = { isPm = true }
+                        )
+                    }
+
+                    // 2. الساعة (في الوسط في RTL)
                     TimeCounterColumn(
                         label = "الساعة",
                         value = selectedHour12,
@@ -220,7 +225,7 @@ fun MosaribTimePickerDialog(
                         }
                     )
 
-                    // الدقائق
+                    // 3. الدقيقة (على اليسار في RTL)
                     TimeCounterColumn(
                         label = "الدقيقة",
                         value = selectedMinute,
@@ -454,13 +459,16 @@ private fun TimeCounterColumn(
 @Composable
 fun MosaribDatePickerDialog(
     initialTimestamp: Long = System.currentTimeMillis(),
+    minTimestamp: Long? = null,
     title: String = "تحديد التاريخ",
     onDismiss: () -> Unit,
     onDateSelected: (timestamp: Long) -> Unit
 ) {
+    val context = LocalContext.current
     val isDark = isAppDark()
-    val cal = remember(initialTimestamp) {
-        Calendar.getInstance().apply { timeInMillis = initialTimestamp }
+    val effectiveInitial = if (minTimestamp != null && initialTimestamp < minTimestamp) minTimestamp else initialTimestamp
+    val cal = remember(effectiveInitial) {
+        Calendar.getInstance().apply { timeInMillis = effectiveInitial }
     }
 
     var selectedYear by remember { mutableIntStateOf(cal.get(Calendar.YEAR)) }
@@ -646,9 +654,19 @@ fun MosaribDatePickerDialog(
                         text = "تأكيد التاريخ",
                         onClick = {
                             val targetCal = Calendar.getInstance().apply {
-                                set(Calendar.YEAR, selectedYear)
-                                set(Calendar.MONTH, selectedMonth)
-                                set(Calendar.DAY_OF_MONTH, selectedDay)
+                                set(selectedYear, selectedMonth, selectedDay, 0, 0, 0)
+                                set(Calendar.MILLISECOND, 0)
+                            }
+                            if (minTimestamp != null) {
+                                val minDayCal = Calendar.getInstance().apply {
+                                    timeInMillis = minTimestamp
+                                    set(get(Calendar.YEAR), get(Calendar.MONTH), get(Calendar.DAY_OF_MONTH), 0, 0, 0)
+                                    set(Calendar.MILLISECOND, 0)
+                                }
+                                if (targetCal.before(minDayCal)) {
+                                    Toast.makeText(context, "لا يمكن اختيار تاريخ انتهاء قبل تاريخ البدء", Toast.LENGTH_SHORT).show()
+                                    return@MosaribButton
+                                }
                             }
                             onDateSelected(targetCal.timeInMillis)
                             onDismiss()

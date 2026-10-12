@@ -2,6 +2,7 @@ package com.example.features.sessions
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import com.example.core.ui.MosaribAutoCompleteTextField
 import com.example.core.ui.MosaribButton
 import com.example.core.ui.MosaribDatePickerDialog
 import com.example.core.ui.MosaribFilterChip
@@ -436,7 +437,6 @@ fun AddEditSessionBottomSheet(
         }
     }
 
-    var customerDropdownExpanded by remember { mutableStateOf(false) }
     var customerInputText by remember(selectedCustomer?.name, formKey) {
         mutableStateOf(selectedCustomer?.name ?: "")
     }
@@ -480,166 +480,43 @@ fun AddEditSessionBottomSheet(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // اختيار العميل مع إمكانية الكتابة المباشرة وظهور الاقتراحات فوراً
+            // اختيار العميل مع إمكانية الكتابة المباشرة وظهور الاقتراحات فوراً عبر الحقل الموحد
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.weight(1f)) {
-                    MosaribTextField(
-                        value = customerInputText,
-                        onValueChange = {
-                            customerInputText = it
-                            customerDropdownExpanded = true
-                            val exact = customers.find { c -> c.name.trim().equals(it.trim(), ignoreCase = true) }
-                            if (exact != null) {
-                                selectedCustomerId = exact.id
-                                val customerPrice = if (exact.isWellOwner) null else exact.customPricePerHour
-                                pricePerHourStr = Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
-                            } else {
-                                selectedCustomerId = 0L
-                            }
-                        },
-                        placeholder = "اكتب اسم العميل أو اختر من القائمة... *",
-                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal) },
-                        trailingIcon = {
-                            IconButton(onClick = { customerDropdownExpanded = !customerDropdownExpanded }) {
-                                Icon(
-                                    if (customerDropdownExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
-                                    contentDescription = null
-                                )
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("session_customer_picker")
-                    )
-
-                    DropdownMenu(
-                        expanded = customerDropdownExpanded,
-                        onDismissRequest = {
-                            customerDropdownExpanded = false
-                        },
-                        modifier = Modifier.fillMaxWidth(0.9f)
-                    ) {
-                        val displayedCustomers = if (customerInputText.isBlank()) customers
-                        else customers.filter {
-                            it.name.contains(customerInputText, ignoreCase = true) ||
-                            it.phone.contains(customerInputText) ||
-                            it.farmName.contains(customerInputText, ignoreCase = true)
-                        }
-                        if (displayedCustomers.isEmpty()) {
-                            DropdownMenuItem(
-                                text = {
-                                    Column {
-                                        Text(
-                                            text = "العميل غير مسجل: \"$customerInputText\"",
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal)
-                                        )
-                                        Text(
-                                            text = "انقر هنا لتسجيله كعميل جديد فوراً",
-                                            style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
-                                        )
-                                    }
-                                },
-                                leadingIcon = { Icon(Icons.Default.PersonAdd, contentDescription = null, tint = PrimaryTeal) },
-                                onClick = {
-                                    customerDropdownExpanded = false
-                                    showQuickCustomerDialog = true
-                                }
-                            )
+                MosaribAutoCompleteTextField(
+                    value = customerInputText,
+                    onValueChange = {
+                        customerInputText = it
+                        val exact = customers.find { c -> c.name.trim().equals(it.trim(), ignoreCase = true) }
+                        if (exact != null) {
+                            selectedCustomerId = exact.id
+                            val customerPrice = if (exact.isWellOwner) null else exact.customPricePerHour
+                            pricePerHourStr = Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
                         } else {
-                            displayedCustomers.forEach { c ->
-                                val isCurrent = c.id == selectedCustomerId
-                                DropdownMenuItem(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(if (isCurrent) PrimaryTeal.copy(alpha = 0.08f) else Color.Transparent),
-                                    text = {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Surface(
-                                                    modifier = Modifier.size(34.dp),
-                                                    shape = CircleShape,
-                                                    color = if (c.isWellOwner) (if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD))
-                                                            else (if (isDark) Color(0xFF1E3A3A) else Color(0xFFCCFBF1))
-                                                ) {
-                                                    Box(contentAlignment = Alignment.Center) {
-                                                        Text(
-                                                            text = c.name.firstOrNull()?.toString() ?: "ع",
-                                                            style = MaterialTheme.typography.bodyMedium.copy(
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = if (c.isWellOwner) (if (isDark) Color(0xFFE0F2FE) else Color(0xFF0369A1))
-                                                                        else (if (isDark) Color(0xFF5EEAD4) else PrimaryTeal)
-                                                            )
-                                                        )
-                                                    }
-                                                }
-                                                Spacer(modifier = Modifier.width(10.dp))
-                                                Column {
-                                                    Text(
-                                                        text = c.name,
-                                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.SemiBold
-                                                        )
-                                                    )
-                                                    val detail = when {
-                                                        c.farmName.isNotEmpty() -> c.farmName
-                                                        c.phone.isNotEmpty() -> c.phone
-                                                        else -> ""
-                                                    }
-                                                    if (detail.isNotEmpty()) {
-                                                        Text(detail, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                                                    }
-                                                }
-                                            }
-
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                if (c.isWellOwner) {
-                                                    Surface(
-                                                        shape = RoundedCornerShape(6.dp),
-                                                        color = if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE),
-                                                        border = BorderStroke(0.5.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD))
-                                                    ) {
-                                                        Text(
-                                                            text = "صاحب بئر",
-                                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                                color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
-                                                                fontSize = 10.sp,
-                                                                fontWeight = FontWeight.Bold
-                                                            ),
-                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                                        )
-                                                    }
-                                                }
-                                                if (isCurrent) {
-                                                    Spacer(modifier = Modifier.width(6.dp))
-                                                    Icon(
-                                                        imageVector = Icons.Default.Check,
-                                                        contentDescription = null,
-                                                        tint = PrimaryTeal,
-                                                        modifier = Modifier.size(18.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    },
-                                    onClick = {
-                                        selectedCustomerId = c.id
-                                        customerInputText = c.name
-                                        val customerPrice = if (c.isWellOwner) null else c.customPricePerHour
-                                        pricePerHourStr = Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
-                                        customerDropdownExpanded = false
-                                    }
-                                )
-                            }
+                            selectedCustomerId = 0L
                         }
-                    }
-                }
+                    },
+                    items = customers,
+                    itemText = { it.name },
+                    itemDetail = { listOf(it.farmName, it.phone).filter { s -> s.isNotBlank() }.joinToString(" • ") },
+                    isItemSecondary = { it.isWellOwner },
+                    isItemSelected = { it.id == selectedCustomerId },
+                    placeholder = "اكتب او اختر الاسم",
+                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal) },
+                    onItemSelected = { c ->
+                        selectedCustomerId = c.id
+                        customerInputText = c.name
+                        val customerPrice = if (c.isWellOwner) null else c.customPricePerHour
+                        pricePerHourStr = Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
+                    },
+                    onAddNewClicked = {
+                        customerSaveError = null
+                        showQuickCustomerDialog = true
+                    },
+                    addNewPrompt = "العميل غير مسجل: \"$customerInputText\"",
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("session_customer_picker")
+                )
                 IconButton(
                     onClick = {
                         customerSaveError = null
@@ -1819,6 +1696,10 @@ fun AddEditSessionBottomSheet(
                     }
 
                     if (finalCustId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes) {
+                        if (endCal.timeInMillis < startCal.timeInMillis) {
+                            Toast.makeText(context, "لا يمكن اختيار تاريخ أو وقت انتهاء قبل تاريخ ووقت البدء", Toast.LENGTH_SHORT).show()
+                            return@MosaribButton
+                        }
                         onSave(
                             initialSession?.id ?: 0L,
                             finalCustId,
@@ -1872,6 +1753,9 @@ fun AddEditSessionBottomSheet(
                 val startCalTemp = Calendar.getInstance().apply { timeInMillis = startDateMillis }
                 startCalTemp.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
                 startDateMillis = startCalTemp.timeInMillis
+                if (endDateMillis < startDateMillis) {
+                    endDateMillis = startDateMillis
+                }
                 applyManualDuration(manualHoursStr, manualMinutesStr)
                 showStartDatePicker = false
             }
@@ -1893,14 +1777,30 @@ fun AddEditSessionBottomSheet(
 
     if (showEndDatePicker) {
         MosaribDatePickerDialog(
-            initialTimestamp = endDateMillis,
+            initialTimestamp = if (endDateMillis < startDateMillis) startDateMillis else endDateMillis,
+            minTimestamp = startDateMillis,
             title = "تحديد تاريخ نهاية السقي",
             onDismiss = { showEndDatePicker = false },
             onDateSelected = { newDate ->
                 val cal = Calendar.getInstance().apply { timeInMillis = newDate }
                 val endCalTemp = Calendar.getInstance().apply { timeInMillis = endDateMillis }
                 endCalTemp.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
-                endDateMillis = endCalTemp.timeInMillis
+                val startDayCal = Calendar.getInstance().apply {
+                    timeInMillis = startDateMillis
+                    set(get(Calendar.YEAR), get(Calendar.MONTH), get(Calendar.DAY_OF_MONTH), 0, 0, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                val endDayCal = Calendar.getInstance().apply {
+                    timeInMillis = endCalTemp.timeInMillis
+                    set(get(Calendar.YEAR), get(Calendar.MONTH), get(Calendar.DAY_OF_MONTH), 0, 0, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                if (endDayCal.before(startDayCal)) {
+                    Toast.makeText(context, "لا يمكن اختيار تاريخ انتهاء قبل تاريخ البدء", Toast.LENGTH_SHORT).show()
+                    endDateMillis = startDateMillis
+                } else {
+                    endDateMillis = endCalTemp.timeInMillis
+                }
                 overnightNotice = null
                 showEndDatePicker = false
             }
