@@ -203,11 +203,26 @@ object Formatters {
         return String.format(Locale.US, "%02d:%02d س", hours, minutes)
     }
 
-    fun formatDurationClock(seconds: Long): String {
-        val hrs = seconds / 3600
-        val mins = (seconds % 3600) / 60
-        val secs = seconds % 60
-        return String.format(Locale.US, "%02d:%02d:%02d", hrs, mins, secs)
+    fun formatDurationCompact(totalMinutes: Int): String {
+        val hours = totalMinutes / 60
+        val mins = totalMinutes % 60
+        return when {
+            hours > 0 && mins > 0 -> "${hours}س ${mins}د"
+            hours > 0 -> "${hours}س"
+            else -> "${mins}د"
+        }
+    }
+
+    fun formatDurationClock(totalSeconds: Int): String {
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        return String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
+    }
+
+    fun formatDateShort(timestamp: Long): String {
+        val sdf = SimpleDateFormat("MM/dd", Locale.US)
+        return sdf.format(Date(timestamp))
     }
 
     fun formatDate(timestamp: Long): String {

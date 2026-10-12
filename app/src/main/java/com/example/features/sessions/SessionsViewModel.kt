@@ -8,6 +8,7 @@ import com.example.core.ui.ToastMessage
 import com.example.core.ui.ToastType
 import com.example.core.util.FileSharingHelper
 import com.example.core.util.Formatters
+import com.example.core.util.MessageFormatHelper
 import com.example.core.util.PdfReportGenerator
 import com.example.features.customers.Customer
 import com.example.features.customers.CustomerRepository
@@ -402,27 +403,18 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
     /** إرسال الفاتورة عبر واتساب (مع تصحيح كود اليمن +967 تلقائياً) */
     fun sendWhatsAppBill(session: WaterSession, customer: Customer) {
         val config = appConfig.value
-        val msg = buildBillMessage(session, customer, config)
+        val msg = MessageFormatHelper.buildSessionBill(session, customer, config, isSms = false)
         FileSharingHelper.sendWhatsAppMessage(getApplication(), customer.phone, msg)
     }
 
     /** إرسال الفاتورة عبر SMS */
     fun sendSmsBill(session: WaterSession, customer: Customer) {
         val config = appConfig.value
-        val msg = buildBillMessage(session, customer, config)
+        val msg = MessageFormatHelper.buildSessionBill(session, customer, config, isSms = true)
         FileSharingHelper.sendSms(getApplication(), customer.phone, msg)
     }
 
-    fun buildBillMessage(session: WaterSession, customer: Customer, config: com.example.features.settings.AppConfig = appConfig.value): String {
-        val timeRange = "من ${Formatters.formatTime(session.startTime)} إلى ${Formatters.formatTime(session.endTime)}"
-        val debtStatus = if (session.remainingDebt > 0) "المتبقي: ${Formatters.formatCurrency(session.remainingDebt, config.currencySymbol)}" else "خالص ومسدد"
-        return """
-*فاتورة ري - ${config.distributorName.ifEmpty { "المُسَرِّب" }}*
-👤 العميل: ${customer.name}${if (customer.farmName.isNotEmpty()) " (${customer.farmName})" else ""}
-⏱️ الوقت: $timeRange (${Formatters.formatDurationArabic(session.durationMinutes)})
-💵 المبلغ: ${Formatters.formatCurrency(session.totalAmount, config.currencySymbol)} | مسدد: ${Formatters.formatCurrency(session.amountPaid, config.currencySymbol)}
-📊 الحالة: $debtStatus
-📅 التاريخ: ${Formatters.formatDate(session.startTime)}${FileSharingHelper.MESSAGE_FOOTER}
-        """.trimIndent()
+    fun buildBillMessage(session: WaterSession, customer: Customer, config: com.example.features.settings.AppConfig = appConfig.value, isSms: Boolean = false): String {
+        return MessageFormatHelper.buildSessionBill(session, customer, config, isSms)
     }
 }

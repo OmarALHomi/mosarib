@@ -89,10 +89,9 @@ object FileSharingHelper {
 
     fun sendSms(context: Context, phone: String, message: String) {
         try {
-            val finalMsg = attachMessageFooter(message)
             val intent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("smsto:$phone")
-                putExtra("sms_body", finalMsg)
+                putExtra("sms_body", message.trimEnd())
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)

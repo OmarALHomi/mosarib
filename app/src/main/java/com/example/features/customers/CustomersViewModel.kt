@@ -1019,64 +1019,13 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun buildCustomerStatementMessage(customer: Customer, item: CustomerWithBalance): String {
+    fun buildCustomerStatementMessage(customer: Customer, item: CustomerWithBalance, isSms: Boolean = false): String {
         val config = appConfig.value
-        val formatCurrency = { amount: Double -> com.example.core.util.Formatters.formatCurrency(amount, config.currencySymbol) }
-        val formatDuration = { minutes: Int -> com.example.core.util.Formatters.formatDurationArabic(minutes) }
-        val debtStatus = if (item.receivableBalance > 0) {
-            "⚠️ المطلوب بذمتكم: ${formatCurrency(item.receivableBalance)}"
-        } else if (item.receivableBalance < 0) {
-            "✅ لديكم رصيد دائن: ${formatCurrency(kotlin.math.abs(item.receivableBalance))}"
-        } else {
-            "✅ الحساب خالص ومسدد بالكامل"
-        }
-
-        return if (customer.isWellOwner) {
-            val ownerPayableStatus = when {
-                item.payableBalance > 0 -> "⚠️ المتبقي المستحق لكم علينا: ${formatCurrency(item.payableBalance)}"
-                item.payableBalance < 0 -> "✅ لدينا رصيد دائن عليكم: ${formatCurrency(kotlin.math.abs(item.payableBalance))}"
-                else -> "✅ مستحقات الشراء مسددة بالكامل"
-            }
-            val ownerReceivableStatus = when {
-                item.receivableBalance > 0 -> "⚠️ المستحق لنا عليكم عن السقي: ${formatCurrency(item.receivableBalance)}"
-                item.receivableBalance < 0 -> "✅ لكم رصيد عن السقي: ${formatCurrency(kotlin.math.abs(item.receivableBalance))}"
-                else -> "✅ حساب السقي مسدد بالكامل"
-            }
-            val ownerWasteMinutes = (item.totalPurchasedMinutes - item.totalChargeablePurchasedMinutes).coerceAtLeast(0)
-            """
-                *كشف حساب صاحب البئر - ${config.distributorName.ifEmpty { "المسرب" }}*
-                💧 صاحب البئر: ${customer.name}
-                📍 البئر / الموقع: ${customer.farmName.ifEmpty { customer.location.ifEmpty { "عام" } }}
-                🛒 شراء الساعات: ${formatDuration(item.totalPurchasedMinutes)}، المحتسب بعد الهدر: ${formatDuration(item.totalChargeablePurchasedMinutes)}
-                🕒 هدر على صاحب البئر: ${formatDuration(ownerWasteMinutes)} (خصم ${formatCurrency(item.totalOwnerWasteCredit)})
-                💰 صافي قيمة المشتريات: ${formatCurrency(item.totalPurchaseAmount)}
-                💸 المسدد لصاحب البئر: ${formatCurrency(item.totalDisbursedAmount)}
-                $ownerPayableStatus
-                ------------------------
-                💧 سقي / بيع لصاحب البئر: ${formatDuration(item.totalSoldMinutes)}، بقيمة ${formatCurrency(item.totalBilledAmount)}
-                💵 المحصل منه عن السقي: ${formatCurrency(item.totalPaidAmount)}
-                $ownerReceivableStatus
-                ------------------------
-                *الحسابان مستقلان ولا تتم المقاصة تلقائياً.*
-                ${com.example.core.util.FileSharingHelper.MESSAGE_FOOTER}
-            """.trimIndent()
-        } else {
-            """
-                *كشف حساب مياه - ${config.distributorName.ifEmpty { "المسرب" }}*
-                👤 العميل: ${customer.name}
-                📍 المزرعة: ${customer.farmName.ifEmpty { "عام" }}
-                ⏱️ ساعات البيع بعد هدر المسرب: ${formatDuration(item.totalSoldMinutes)}
-                💰 إجمالي قيمة المسارب: ${formatCurrency(item.totalBilledAmount)}
-                💵 إجمالي المسدد نقداً: ${formatCurrency(item.totalPaidAmount)}
-                ------------------------
-                $debtStatus
-                ------------------------${com.example.core.util.FileSharingHelper.MESSAGE_FOOTER}
-            """.trimIndent()
-        }
+        return com.example.core.util.MessageFormatHelper.buildCustomerStatement(customer, item, config, isSms)
     }
 
     fun sendCustomerStatementWhatsApp(customer: Customer, item: CustomerWithBalance) {
-        val msg = buildCustomerStatementMessage(customer, item)
+        val msg = buildCustomerStatementMessage(customer, item, isSms = false)
         FileSharingHelper.sendWhatsAppMessage(getApplication(), customer.phone, msg)
     }
 }

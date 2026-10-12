@@ -253,29 +253,22 @@ fun CustomerDetailScreen(
 
     // Message Choice Dialog (WhatsApp / SMS)
     messageSessionTarget?.let { s ->
-        val timeRange = "من ${Formatters.formatTime(s.startTime)} إلى ${Formatters.formatTime(s.endTime)}"
-        val debtStatus = if (s.remainingDebt > 0) "المتبقي: ${Formatters.formatCurrency(s.remainingDebt, config.currencySymbol)}" else "خالص ومسدد بالكامل"
-        val msg = """
-*فاتورة ري - ${config.distributorName.ifEmpty { "المُسَرِّب" }}*
-👤 العميل: ${customer.name}${if (customer.farmName.isNotEmpty()) " (${customer.farmName})" else ""}
-⏱️ الوقت: $timeRange (${Formatters.formatDurationArabic(s.durationMinutes)})
-💵 المبلغ: ${Formatters.formatCurrency(s.totalAmount, config.currencySymbol)} | مسدد: ${Formatters.formatCurrency(s.amountPaid, config.currencySymbol)}
-📊 الحالة: $debtStatus
-📅 التاريخ: ${Formatters.formatDate(s.startTime)}${FileSharingHelper.MESSAGE_FOOTER}
-        """.trimIndent()
+        val waMsg = com.example.core.util.MessageFormatHelper.buildSessionBill(s, customer, config, isSms = false)
+        val smsMsg = com.example.core.util.MessageFormatHelper.buildSessionBill(s, customer, config, isSms = true)
 
         SendMessageChoiceDialog(
             recipientName = customer.name,
             recipientPhone = customer.phone,
-            messageText = msg,
+            messageText = waMsg,
+            smsMessageText = smsMsg,
             onDismiss = { messageSessionTarget = null },
             onSendWhatsApp = {
                 messageSessionTarget = null
-                FileSharingHelper.sendWhatsAppMessage(context, customer.phone, msg)
+                FileSharingHelper.sendWhatsAppMessage(context, customer.phone, waMsg)
             },
             onSendSms = {
                 messageSessionTarget = null
-                FileSharingHelper.sendSms(context, customer.phone, msg)
+                FileSharingHelper.sendSms(context, customer.phone, smsMsg)
             }
         )
     }

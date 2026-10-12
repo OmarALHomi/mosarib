@@ -642,19 +642,21 @@ fun CustomersScreen(
 
     // SMS / WhatsApp Choice Dialog
     messageChoiceCustomer?.let { item ->
-        val msg = viewModel.buildCustomerStatementMessage(item.customer, item)
+        val waMsg = viewModel.buildCustomerStatementMessage(item.customer, item, isSms = false)
+        val smsMsg = viewModel.buildCustomerStatementMessage(item.customer, item, isSms = true)
         SendMessageChoiceDialog(
             recipientName = item.customer.name,
             recipientPhone = item.customer.phone,
-            messageText = msg,
+            messageText = waMsg,
+            smsMessageText = smsMsg,
             onDismiss = { messageChoiceCustomer = null },
             onSendWhatsApp = {
                 messageChoiceCustomer = null
-                FileSharingHelper.sendWhatsAppMessage(context, item.customer.phone, msg)
+                FileSharingHelper.sendWhatsAppMessage(context, item.customer.phone, waMsg)
             },
             onSendSms = {
                 messageChoiceCustomer = null
-                FileSharingHelper.sendSms(context, item.customer.phone, msg)
+                FileSharingHelper.sendSms(context, item.customer.phone, smsMsg)
             }
         )
     }

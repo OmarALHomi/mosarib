@@ -92,6 +92,7 @@ import com.example.core.ui.SendMessageChoiceDialog
 import com.example.core.ui.StatBoxCard
 import com.example.core.util.FileSharingHelper
 import com.example.core.util.Formatters
+import com.example.core.util.MessageFormatHelper
 import com.example.core.license.LicenseDialog
 import com.example.core.license.LicenseManager
 import com.example.features.customers.Customer
@@ -127,7 +128,7 @@ fun SessionsScreen(
     var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
     var defaultCustomerIdForForm by remember { mutableStateOf<Long?>(null) }
     var messageTargetSession by remember { mutableStateOf<Pair<WaterSession, Customer>?>(null) }
-    var messageTargetCustom by remember { mutableStateOf<Pair<Customer, String>?>(null) }
+    var messageTargetCustom by remember { mutableStateOf<Triple<Customer, String, String>?>(null) }
 
     LaunchedEffect(requestedCustomerForNewSession) {
         requestedCustomerForNewSession?.let { customerId ->
@@ -247,8 +248,9 @@ fun SessionsScreen(
                         },
                         onShareVoucher = { voucher ->
                             item.customer?.let { c ->
-                                val rawMsg = "سند قبض #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nسداد دورة سقي #${item.session.id}\nالعميل: ${c.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nطريقة الدفع: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
-                                messageTargetCustom = Pair(c, FileSharingHelper.attachMessageFooter(rawMsg))
+                                val waMsg = MessageFormatHelper.buildReceiptVoucher(voucher, c, item.session.id, config, isSms = false)
+                                val smsMsg = MessageFormatHelper.buildReceiptVoucher(voucher, c, item.session.id, config, isSms = true)
+                                messageTargetCustom = Triple(c, waMsg, smsMsg)
                             }
                         }
                     )
@@ -286,11 +288,13 @@ fun SessionsScreen(
 
     // Message Choice Dialog (WhatsApp or SMS)
     messageTargetSession?.let { (session, customer) ->
-        val msg = viewModel.buildBillMessage(session, customer, config)
+        val waMsg = viewModel.buildBillMessage(session, customer, config, isSms = false)
+        val smsMsg = viewModel.buildBillMessage(session, customer, config, isSms = true)
         SendMessageChoiceDialog(
             recipientName = customer.name,
             recipientPhone = customer.phone,
-            messageText = msg,
+            messageText = waMsg,
+            smsMessageText = smsMsg,
             onDismiss = { messageTargetSession = null },
             onSendWhatsApp = {
                 messageTargetSession = null
@@ -304,19 +308,20 @@ fun SessionsScreen(
     }
 
     // Choice Dialog for Voucher Receipt
-    messageTargetCustom?.let { (cust, msg) ->
+    messageTargetCustom?.let { (cust, waMsg, smsMsg) ->
         SendMessageChoiceDialog(
             recipientName = cust.name,
             recipientPhone = cust.phone,
-            messageText = msg,
+            messageText = waMsg,
+            smsMessageText = smsMsg,
             onDismiss = { messageTargetCustom = null },
             onSendWhatsApp = {
                 messageTargetCustom = null
-                FileSharingHelper.sendWhatsAppMessage(context, cust.phone, msg)
+                FileSharingHelper.sendWhatsAppMessage(context, cust.phone, waMsg)
             },
             onSendSms = {
                 messageTargetCustom = null
-                FileSharingHelper.sendSms(context, cust.phone, msg)
+                FileSharingHelper.sendSms(context, cust.phone, smsMsg)
             }
         )
     }

@@ -67,6 +67,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -100,6 +101,7 @@ import com.example.core.license.LicenseDialog
 import com.example.core.license.LicenseManager
 import com.example.core.ui.StatBoxCard
 import com.example.core.util.FileSharingHelper
+import com.example.core.util.MessageFormatHelper
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -159,7 +161,7 @@ fun VouchersScreen(
     var purchaseToDelete by remember { mutableStateOf<WellOwnerPurchase?>(null) }
     var purchaseToEdit by remember { mutableStateOf<WellOwnerPurchase?>(null) }
     var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
-    var voucherMessageTarget by remember { mutableStateOf<Pair<Customer, String>?>(null) }
+    var voucherMessageTarget by remember { mutableStateOf<Triple<Customer, String, String>?>(null) }
     var voucherPdfReady by remember { mutableStateOf<Pair<File, String>?>(null) }
     var selectedLinkedSession by remember { mutableStateOf<WaterSession?>(null) }
 
@@ -470,8 +472,9 @@ fun VouchersScreen(
                                 onMessageClick = {
                                     op.sessionWithCustomer.customer?.let { c ->
                                         val s = op.sessionWithCustomer.session
-                                        val msg = "فاتورة دورة سقي #${s.id}\nالعميل: ${c.name}\nالمدة: ${Formatters.formatDurationArabic(s.durationMinutes)}\nإجمالي القيمة: ${Formatters.formatCurrency(s.totalAmount, config.currencySymbol)}\nالمسدد: ${Formatters.formatCurrency(s.amountPaid, config.currencySymbol)}\nالمتبقي: ${Formatters.formatCurrency(s.remainingDebt, config.currencySymbol)}\nالتاريخ: ${Formatters.formatDateTime(s.startTime)}"
-                                        voucherMessageTarget = Pair(c, FileSharingHelper.attachMessageFooter(msg))
+                                        val waMsg = MessageFormatHelper.buildSessionBill(s, c, config, isSms = false)
+                                        val smsMsg = MessageFormatHelper.buildSessionBill(s, c, config, isSms = true)
+                                        voucherMessageTarget = Triple(c, waMsg, smsMsg)
                                     }
                                 },
                                 onSettleClick = {
@@ -479,8 +482,9 @@ fun VouchersScreen(
                                 },
                                 onShareVoucher = { v ->
                                     op.sessionWithCustomer.customer?.let { c ->
-                                        val msg = "سند قبض #${v.voucherNumber}\nسداد دورة سقي #${op.sessionWithCustomer.session.id}\nالعميل: ${c.name}\nالمبلغ: ${Formatters.formatCurrency(v.amount, config.currencySymbol)}\nالتاريخ: ${Formatters.formatDateTime(v.date)}"
-                                        FileSharingHelper.sendWhatsAppMessage(context, c.phone, msg)
+                                        val waMsg = MessageFormatHelper.buildReceiptVoucher(v, c, op.sessionWithCustomer.session.id, config, isSms = false)
+                                        val smsMsg = MessageFormatHelper.buildReceiptVoucher(v, c, op.sessionWithCustomer.session.id, config, isSms = true)
+                                        voucherMessageTarget = Triple(c, waMsg, smsMsg)
                                     }
                                 }
                             )
@@ -694,12 +698,17 @@ fun VouchersScreen(
                                                         .clip(RoundedCornerShape(6.dp))
                                                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                                         .clickable {
-                                                            val rawMsg = if (isReceipt) {
-                                                                "سند قبض #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nطريقة الدفع: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
+                                                            val waMsg = if (isReceipt) {
+                                                                MessageFormatHelper.buildReceiptVoucher(voucher, customer, null, config, isSms = false)
                                                             } else {
-                                                                "سند صرف #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nالبيان: ${voucher.notes.ifEmpty { voucher.category }}\nطريقة الصرف: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
+                                                                MessageFormatHelper.buildDisbursementVoucher(voucher, customer, config, isSms = false)
                                                             }
-                                                            voucherMessageTarget = Pair(customer, FileSharingHelper.attachMessageFooter(rawMsg))
+                                                            val smsMsg = if (isReceipt) {
+                                                                MessageFormatHelper.buildReceiptVoucher(voucher, customer, null, config, isSms = true)
+                                                            } else {
+                                                                MessageFormatHelper.buildDisbursementVoucher(voucher, customer, config, isSms = true)
+                                                            }
+                                                            voucherMessageTarget = Triple(customer, waMsg, smsMsg)
                                                         },
                                                     contentAlignment = Alignment.Center
                                                 ) {
@@ -1061,14 +1070,29 @@ fun VouchersScreen(
                                                         .clip(RoundedCornerShape(6.dp))
                                                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                                         .clickable {
-                                                            val msg = "بيان شراء ساعات #${purchase.id}\nصاحب البئر: ${owner.name}\nالمدة المحتسبة: ${Formatters.formatDurationArabic(chargeable)}" +
-                                                                    (if (waste > 0) "\nالهدر: ${Formatters.formatDurationArabic(waste)}" else "") +
-                                                                    "\nالسعر: ${Formatters.formatCurrency(purchase.purchaseRatePerHour, config.currencySymbol)}/ساعة" +
-                                                                    "\nالإجمالي: ${Formatters.formatCurrency(totalAmount, config.currencySymbol)}" +
-                                                                    "\nالمصروف (المسلم نقداً): ${Formatters.formatCurrency(paidAmount, config.currencySymbol)}" +
-                                                                    "\nالمتبقي (عليك): ${Formatters.formatCurrency(remainingDebt, config.currencySymbol)}" +
-                                                                    "\nالتاريخ: ${Formatters.formatDateTime(purchase.date)}"
-                                                            voucherMessageTarget = Pair(owner, FileSharingHelper.attachMessageFooter(msg))
+                                                            val waMsg = MessageFormatHelper.buildPurchaseBill(
+                                                                purchase = purchase,
+                                                                owner = owner,
+                                                                chargeableMinutes = chargeable,
+                                                                wasteMinutes = waste,
+                                                                totalAmount = totalAmount,
+                                                                paidAmount = paidAmount,
+                                                                remainingDebt = remainingDebt,
+                                                                config = config,
+                                                                isSms = false
+                                                            )
+                                                            val smsMsg = MessageFormatHelper.buildPurchaseBill(
+                                                                purchase = purchase,
+                                                                owner = owner,
+                                                                chargeableMinutes = chargeable,
+                                                                wasteMinutes = waste,
+                                                                totalAmount = totalAmount,
+                                                                paidAmount = paidAmount,
+                                                                remainingDebt = remainingDebt,
+                                                                config = config,
+                                                                isSms = true
+                                                            )
+                                                            voucherMessageTarget = Triple(owner, waMsg, smsMsg)
                                                         },
                                                     contentAlignment = Alignment.Center
                                                 ) {
@@ -1482,19 +1506,20 @@ fun VouchersScreen(
     }
 
     // حوار اختيار قناة الإرسال (واتساب أو SMS)
-    voucherMessageTarget?.let { (cust, msg) ->
+    voucherMessageTarget?.let { (cust, waMsg, smsMsg) ->
         SendMessageChoiceDialog(
             recipientName = cust.name,
             recipientPhone = cust.phone,
-            messageText = msg,
+            messageText = waMsg,
+            smsMessageText = smsMsg,
             onDismiss = { voucherMessageTarget = null },
             onSendWhatsApp = {
                 voucherMessageTarget = null
-                FileSharingHelper.sendWhatsAppMessage(context, cust.phone, msg)
+                FileSharingHelper.sendWhatsAppMessage(context, cust.phone, waMsg)
             },
             onSendSms = {
                 voucherMessageTarget = null
-                FileSharingHelper.sendSms(context, cust.phone, msg)
+                FileSharingHelper.sendSms(context, cust.phone, smsMsg)
             }
         )
     }
@@ -2551,37 +2576,42 @@ fun SettlementResultDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    val sb = StringBuilder()
-                    sb.append("السلام عليكم ورحمة الله وبركاته\n")
-                    sb.append("الأخ/ ${result.customerName} المحترم\n")
-                    sb.append("تم استلام وتسجيل سند قبض بمبلغ: ${Formatters.formatCurrency(result.totalAmount, result.currencySymbol)}\n\n")
-                    sb.append("📋 تفاصيل تسديد الجلسات:\n")
-                    result.items.forEach { item ->
-                        val dateStr = Formatters.formatDate(item.date)
-                        val status = if (item.isFullyPaid) "خالص بالكامل ✅" else "متبقي: ${Formatters.formatCurrency(item.remainingDebtAfter, result.currencySymbol)} ⏳"
-                        sb.append("• دورة #${item.sessionId} ($dateStr):\n")
-                        sb.append("   - المسدد: ${Formatters.formatCurrency(item.allocatedAmount, result.currencySymbol)}\n")
-                        sb.append("   - الحالة: $status\n")
-                    }
-                    if (result.surplusAmount > 0.0) {
-                        sb.append("• رصيد فائض لحسابكم: ${Formatters.formatCurrency(result.surplusAmount, result.currencySymbol)} 💰\n")
-                    }
-                    val msg = FileSharingHelper.attachMessageFooter(sb.toString())
-                    FileSharingHelper.sendWhatsAppMessage(context, result.customerPhone, msg)
-                    onDismiss()
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Send,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("إشعار واتساب", fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = {
+                        val smsMsg = MessageFormatHelper.buildSettlementMessage(result, isSms = true)
+                        FileSharingHelper.sendSms(context, result.customerPhone, smsMsg)
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Sms,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("SMS", fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = {
+                        val waMsg = MessageFormatHelper.buildSettlementMessage(result, isSms = false)
+                        FileSharingHelper.sendWhatsAppMessage(context, result.customerPhone, waMsg)
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("واتساب", fontWeight = FontWeight.Bold)
+                }
             }
         },
         dismissButton = {
