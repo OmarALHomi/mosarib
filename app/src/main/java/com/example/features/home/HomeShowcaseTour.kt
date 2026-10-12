@@ -28,10 +28,13 @@ import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -126,13 +129,13 @@ fun HomeShowcaseTourDialog(
                 tip = "نصيحة: يمكنك الاتصال بالعميل أو مراسلته عبر واتساب بنقرة واحدة من صفحته!"
             ),
             TourStep(
-                title = "زر «التقارير»",
-                subtitle = "كشوفات الحساب وملفات PDF",
-                description = "استخرج تقارير تفصيلية وإجمالية تشمل إجمالي ساعات الري، المبالغ المستلمة، المصروفات، وأرصدة المزارعين بصيغة PDF قابلة للطباعة والمشاركة عبر الواتساب.",
-                icon = Icons.Default.Assessment,
-                color = Color(0xFFD97706),
-                bgColor = Color(0xFFFEF3C7),
-                tip = "نصيحة: يمكنك تصدير كشف حساب خاص بكل مزارع وإرساله له دورياً!"
+                title = "زر «النسخ الاحتياطي»",
+                subtitle = "حفظ واسترجاع البيانات سحابياً ومحلياً",
+                description = "يتيح لك حفظ نسخة احتياطية من كافة سجلات السقي والعملاء والمصروفات على حسابك في Google Drive أو ذاكرة الهاتف، واسترجاعها بأي وقت بنقرة واحدة لحماية أعمالك من الضياع.",
+                icon = Icons.Default.CloudSync,
+                color = Color(0xFF16A34A),
+                bgColor = Color(0xFFDCFCE7),
+                tip = "نصيحة: احرص على تفعيل النسخ التلقائي في Google Drive ليتم حفظ أعمالك بأمان دورياً!"
             )
         )
     }
@@ -146,18 +149,26 @@ fun HomeShowcaseTourDialog(
         onDismiss()
     }
 
-    // Full screen overlay scrim
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.68f))
-            .clickable(
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() }
-            ) { /* block outside clicks */ },
-        contentAlignment = Alignment.Center
+    // Modal dialog overlay to guarantee rendering above the entire screen
+    Dialog(
+        onDismissRequest = { finishTour() },
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false
+        )
     ) {
-        Card(
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.72f))
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) { /* block outside clicks */ },
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
@@ -382,4 +393,5 @@ fun HomeShowcaseTourDialog(
             }
         }
     }
+}
 }

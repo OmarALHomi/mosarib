@@ -34,7 +34,7 @@ object LicenseManager {
     private const val KEY_ANDROID_VERSION = "activation_android_version"
     private const val KEY_ACTIVATION_KEY_USED = "activation_key_used"
     const val KEY_ONBOARDING_COMPLETED = "is_onboarding_completed"
-    const val KEY_HOME_TOUR_COMPLETED = "is_home_tour_completed"
+    const val KEY_HOME_TOUR_COMPLETED = "is_home_tour_completed_v2"
 
     // Secret salts (never expose raw algorithms)
     private const val DEVICE_CODE_SALT = "msrb_device_token_salt_v1"

@@ -165,13 +165,12 @@ fun VouchersScreen(
     val listState = rememberLazyListState()
     val firstIndex by remember { derivedStateOf { listState.firstVisibleItemIndex } }
     val firstOffset by remember { derivedStateOf { listState.firstVisibleItemScrollOffset } }
-    val fadeFactor by remember {
+    val summaryScrollAlpha by remember {
         derivedStateOf {
             if (firstIndex > 0) 0f
-            else (1f - (firstOffset / 200f)).coerceIn(0f, 1f)
+            else (1f - (firstOffset / 180f)).coerceIn(0f, 1f)
         }
     }
-    val animatedAlpha by animateFloatAsState(targetValue = fadeFactor, label = "summary_card_fade")
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -179,30 +178,30 @@ fun VouchersScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = 8.dp, bottom = 110.dp)
         ) {
-            // Merged Integrated Financial Summary Card (يتلاشى وينكمش عند التمرير لأعلى)
+            // Merged Integrated Financial Summary Card (يتلاشى بسلاسة تامة مع التمرير دون قفز)
             item {
-                if (animatedAlpha > 0.05f) {
-                    val totalReceipts = allVouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount } +
-                        allSessions.sumOf { it.amountPaid }
-                    val totalExpenses = allVouchers.filter { it.type == VoucherType.EXPENSE }.sumOf { it.amount }
-                    val totalDebts = allSessions.sumOf { it.remainingDebt }
-                    val netProfit = totalReceipts - totalExpenses
-                    val totalWaterMinutes = allSessions.sumOf { it.durationMinutes }
+                val totalReceipts = allVouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount } +
+                    allSessions.sumOf { it.amountPaid }
+                val totalExpenses = allVouchers.filter { it.type == VoucherType.EXPENSE }.sumOf { it.amount }
+                val totalDebts = allSessions.sumOf { it.remainingDebt }
+                val netProfit = totalReceipts - totalExpenses
+                val totalWaterMinutes = allSessions.sumOf { it.durationMinutes }
 
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 4.dp)
-                            .graphicsLayer {
-                                alpha = animatedAlpha
-                                scaleY = animatedAlpha.coerceAtLeast(0.85f)
-                            }
-                            .shadow((3 * animatedAlpha).dp, RoundedCornerShape(16.dp)),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            // Top Row: Net Profit & Water Hours
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 4.dp)
+                        .graphicsLayer {
+                            alpha = summaryScrollAlpha
+                            scaleY = 0.94f + (0.06f * summaryScrollAlpha)
+                            scaleX = 0.96f + (0.04f * summaryScrollAlpha)
+                        }
+                        .shadow((3 * summaryScrollAlpha).dp, RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        // Top Row: Net Profit & Water Hours
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -316,7 +315,6 @@ fun VouchersScreen(
                         }
                     }
                 }
-            }
 
             // Search & Filters Row (Compact & Borderless)
             item {

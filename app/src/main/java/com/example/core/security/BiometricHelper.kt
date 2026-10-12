@@ -15,33 +15,32 @@ object BiometricHelper {
 
     /** Returns true when the device has enrolled biometrics the app can use. */
     fun isAvailable(context: Context): Boolean {
-        // 1. Direct FingerprintManager check (most reliable across Samsung One UI & Android)
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                @Suppress("DEPRECATION")
-                val fm = context.getSystemService(android.hardware.fingerprint.FingerprintManager::class.java)
-                if (fm != null && fm.isHardwareDetected && fm.hasEnrolledFingerprints()) {
-                    return true
-                }
-            }
-        } catch (_: Throwable) {
-            // Ignore and fall through to BiometricManager
-        }
-
-        // 2. BiometricManager check (API 29+)
+        // 1. Modern BiometricManager check (API 29+)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 val bm = context.getSystemService(android.hardware.biometrics.BiometricManager::class.java)
                 val authenticators = android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_STRONG or
                         android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_WEAK
-                val result = bm?.canAuthenticate(authenticators)
-                if (result == android.hardware.biometrics.BiometricManager.BIOMETRIC_SUCCESS) {
+                if (bm?.canAuthenticate(authenticators) == android.hardware.biometrics.BiometricManager.BIOMETRIC_SUCCESS) {
                     return true
                 }
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 @Suppress("DEPRECATION")
                 val bm = context.getSystemService(android.hardware.biometrics.BiometricManager::class.java)
                 if (bm?.canAuthenticate() == android.hardware.biometrics.BiometricManager.BIOMETRIC_SUCCESS) {
+                    return true
+                }
+            }
+        } catch (_: Throwable) {
+            // Ignore and fall through to legacy check
+        }
+
+        // 2. Legacy FingerprintManager fallback for Android 6.0 to 9.0 (API 23..28)
+        try {
+            if (Build.VERSION.SDK_INT in Build.VERSION_CODES.M..Build.VERSION_CODES.P) {
+                @Suppress("DEPRECATION")
+                val fm = context.getSystemService(android.hardware.fingerprint.FingerprintManager::class.java)
+                if (fm != null && fm.isHardwareDetected && fm.hasEnrolledFingerprints()) {
                     return true
                 }
             }

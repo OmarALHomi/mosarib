@@ -364,207 +364,53 @@ fun CustomerDetailScreen(
         val firstIndex by remember { derivedStateOf { listState.firstVisibleItemIndex } }
         val firstOffset by remember { derivedStateOf { listState.firstVisibleItemScrollOffset } }
 
-        val isScrolled by remember {
+        val scrollProgress by remember {
             derivedStateOf {
-                firstIndex > 0 || firstOffset > 25
+                if (firstIndex > 0) 1f
+                else (firstOffset / 180f).coerceIn(0f, 1f)
             }
         }
-
-        val statsAlpha by remember {
-            derivedStateOf {
-                if (firstIndex > 0) 0f
-                else (1f - (firstOffset / 140f)).coerceIn(0f, 1f)
-            }
-        }
-        val animatedStatsAlpha by animateFloatAsState(
-            targetValue = statsAlpha,
-            animationSpec = tween(durationMillis = 200),
-            label = "stats_alpha"
-        )
 
         var moreMenuExpanded by remember { mutableStateOf(false) }
+        val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = padding.calculateBottomPadding())
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 90.dp)
+            ) {
                 // ============================================================
-                // 1. GRADIENT HERO HEADER (ينكمش ويصغر عند التمرير لأعلى)
+                // 1. GRADIENT HERO HEADER (ينسحب ويتلاشى بسلاسة تامة مع التمرير)
                 // ============================================================
-                val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(bottomStart = if (isScrolled) 16.dp else 26.dp, bottomEnd = if (isScrolled) 16.dp else 26.dp))
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    PrimaryTealDark,
-                                    SecondaryAquaDark,
-                                    PrimaryTeal.copy(alpha = 0.92f)
-                                )
-                            )
-                        )
-                        .animateContentSize()
-                ) {
-                    Column(
+                item {
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = statusBarPadding)
+                            .clip(RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp))
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        PrimaryTealDark,
+                                        SecondaryAquaDark,
+                                        PrimaryTeal.copy(alpha = 0.92f)
+                                    )
+                                )
+                            )
                     ) {
-                        // الصف العلوي:
-                        // إذا تم التمرير لأعلى: يصغر الكرت ويعرض سهم الرجوع + اسم العميل + زر الثلاث نقاط
-                        // إذا لم يتم التمرير: يعرض سهم الرجوع + أزرار التعديل وPDF
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = if (isScrolled) 8.dp else 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(top = statusBarPadding + 52.dp, bottom = 14.dp)
+                                .graphicsLayer {
+                                    alpha = (1f - (scrollProgress * 0.45f)).coerceIn(0.4f, 1f)
+                                },
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            IconButton(
-                                onClick = onBack,
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.16f))
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "رجوع",
-                                    tint = Color.White
-                                )
-                            }
-
-                            if (isScrolled) {
-                                Row(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(horizontal = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(28.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.White.copy(alpha = 0.20f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = if (customer.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Agriculture,
-                                            contentDescription = null,
-                                            tint = if (customer.isWellOwner) AccentGold else Color.White,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = customer.name,
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            fontSize = 16.sp
-                                        ),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-
-                                Box {
-                                    IconButton(
-                                        onClick = { moreMenuExpanded = true },
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.White.copy(alpha = 0.20f))
-                                    ) {
-                                        Icon(
-                                            Icons.Default.MoreVert,
-                                            contentDescription = "المزيد",
-                                            tint = Color.White
-                                        )
-                                    }
-
-                                    CustomerActionsDropdownMenu(
-                                        expanded = moreMenuExpanded,
-                                        onDismissRequest = { moreMenuExpanded = false },
-                                        customer = customer,
-                                        onCall = {
-                                            moreMenuExpanded = false
-                                            FileSharingHelper.makePhoneCall(context, customer.phone)
-                                        },
-                                        onSendMessage = {
-                                            moreMenuExpanded = false
-                                            messageCustomTarget = viewModel.buildCustomerStatementMessage(customer, customerWithBalance)
-                                        },
-                                        onPdf = {
-                                            moreMenuExpanded = false
-                                            viewModel.generateCustomerStatementPdf(customer)
-                                        },
-                                        onEdit = {
-                                            moreMenuExpanded = false
-                                            showEditCustomerSheet = true
-                                        },
-                                        onAddSession = {
-                                            moreMenuExpanded = false
-                                            showAddSessionSheet = true
-                                        },
-                                        onAddReceipt = {
-                                            moreMenuExpanded = false
-                                            showAddReceiptSheet = true
-                                        },
-                                        onAddDisbursement = {
-                                            moreMenuExpanded = false
-                                            showAddDisbursementSheet = true
-                                        },
-                                        onOwnerPurchase = {
-                                            moreMenuExpanded = false
-                                            showOwnerPurchaseSheet = true
-                                        },
-                                        onOwnerWaste = {
-                                            moreMenuExpanded = false
-                                            showOwnerWasteDialog = true
-                                        }
-                                    )
-                                }
-                            } else {
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    IconButton(
-                                        onClick = { viewModel.generateCustomerStatementPdf(customer) },
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.White.copy(alpha = 0.16f))
-                                    ) {
-                                        Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold)
-                                    }
-                                    IconButton(
-                                        onClick = { showEditCustomerSheet = true },
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.White.copy(alpha = 0.16f))
-                                    ) {
-                                        Icon(Icons.Default.Edit, contentDescription = "تعديل", tint = Color.White)
-                                    }
-                                }
-                            }
-                        }
-
-                        // المحتوى الكامل عند عدم التمرير: الصورة الرمزية، الاسم، المعلومات، الأزرار السريعة
-                        AnimatedVisibility(
-                            visible = !isScrolled,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut()
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 4.dp, bottom = 14.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
                                 // الصورة الرمزية
                                 Box(
                                     modifier = Modifier
@@ -728,40 +574,24 @@ fun CustomerDetailScreen(
                             }
                         }
                     }
-                }
 
-                // ============================================================
-                // 2. LAZY COLUMN
-                // ============================================================
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentPadding = PaddingValues(bottom = 90.dp)
-                ) {
                     // ============================================================
-                    // 2. BALANCE + TOTALS CARD (يتلاشى عند التمرير لأعلى)
+                    // 2. BALANCE + TOTALS CARD
                     // ============================================================
                     item {
-                        if (animatedStatsAlpha > 0.05f) {
-                            val isDebt = customerWithBalance.balance > 0
-                            val isCredit = customerWithBalance.balance < 0
+                        val isDebt = customerWithBalance.balance > 0
+                        val isCredit = customerWithBalance.balance < 0
 
-                            Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp)
-                                    .graphicsLayer {
-                                        alpha = animatedStatsAlpha
-                                        scaleY = animatedStatsAlpha.coerceAtLeast(0.85f)
-                                    }
-                                    .shadow((3 * animatedStatsAlpha).dp, RoundedCornerShape(20.dp)),
-                                shape = RoundedCornerShape(20.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                            ) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp)
+                                .shadow(3.dp, RoundedCornerShape(20.dp)),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -975,7 +805,6 @@ fun CustomerDetailScreen(
                                 }
                             }
                         }
-                    }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
@@ -1128,7 +957,153 @@ fun CustomerDetailScreen(
                     }
                 }
             }
-        }
+
+            // ============================================================
+            // STICKY TOP APP BAR (يتلاشى خلفيته واسم العميل مع التمرير بسلاسة تامة)
+            // ============================================================
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .background(PrimaryTealDark.copy(alpha = scrollProgress))
+                    .padding(top = statusBarPadding)
+                    .height(52.dp)
+                    .padding(horizontal = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.16f))
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "رجوع",
+                            tint = Color.White
+                        )
+                    }
+
+                    // Compact Customer Name & Icon (fades in smoothly with scroll)
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 10.dp)
+                            .graphicsLayer { alpha = scrollProgress },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.20f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (customer.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Agriculture,
+                                contentDescription = null,
+                                tint = if (customer.isWellOwner) AccentGold else Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = customer.name,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 16.sp
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    // Action Icons: PDF, Edit, More Menu
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = { viewModel.generateCustomerStatementPdf(customer) },
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.16f))
+                        ) {
+                            Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold)
+                        }
+                        IconButton(
+                            onClick = { showEditCustomerSheet = true },
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.16f))
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = "تعديل", tint = Color.White)
+                        }
+                        Box {
+                            IconButton(
+                                onClick = { moreMenuExpanded = true },
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.20f))
+                            ) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "المزيد", tint = Color.White)
+                            }
+
+                            CustomerActionsDropdownMenu(
+                                expanded = moreMenuExpanded,
+                                onDismissRequest = { moreMenuExpanded = false },
+                                customer = customer,
+                                onCall = {
+                                    moreMenuExpanded = false
+                                    FileSharingHelper.makePhoneCall(context, customer.phone)
+                                },
+                                onSendMessage = {
+                                    moreMenuExpanded = false
+                                    messageCustomTarget = viewModel.buildCustomerStatementMessage(customer, customerWithBalance)
+                                },
+                                onPdf = {
+                                    moreMenuExpanded = false
+                                    viewModel.generateCustomerStatementPdf(customer)
+                                },
+                                onEdit = {
+                                    moreMenuExpanded = false
+                                    showEditCustomerSheet = true
+                                },
+                                onAddSession = {
+                                    moreMenuExpanded = false
+                                    showAddSessionSheet = true
+                                },
+                                onAddReceipt = {
+                                    moreMenuExpanded = false
+                                    showAddReceiptSheet = true
+                                },
+                                onAddDisbursement = {
+                                    moreMenuExpanded = false
+                                    showAddDisbursementSheet = true
+                                },
+                                onOwnerPurchase = {
+                                    moreMenuExpanded = false
+                                    showOwnerPurchaseSheet = true
+                                },
+                                onOwnerWaste = {
+                                    moreMenuExpanded = false
+                                    showOwnerWasteDialog = true
+                                }
+                            )
+                        }
+                    }
+                }
+            }
 
             LuxuryToastNotification(
                 toast = toast,
