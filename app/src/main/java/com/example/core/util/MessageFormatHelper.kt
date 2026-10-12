@@ -63,7 +63,7 @@ $statusEmoji
             } else {
                 "خالص ومسدد بالكامل ✅"
             }
-            val appTitle = config.distributorName.ifEmpty { "المُسَرِّب" }
+            val appTitle = config.distributorName.ifEmpty { "المسرّب" }
             val farm = if (customer.farmName.isNotBlank()) " (${customer.farmName})" else ""
             val msg = """
 *فاتورة ري - $appTitle*
@@ -268,7 +268,7 @@ $status
                 """.trimIndent()
                 FileSharingHelper.attachMessageFooter(msg)
             } else {
-                val appTitle = config.distributorName.ifEmpty { "المسرب" }
+                val appTitle = config.distributorName.ifEmpty { "المسرّب" }
                 val ownerPayableStatus = when {
                     item.payableBalance > 0 -> "⚠️ المتبقي المستحق لكم علينا: ${Formatters.formatCurrency(item.payableBalance, curr)}"
                     item.payableBalance < 0 -> "✅ لدينا رصيد دائن عليكم: ${Formatters.formatCurrency(kotlin.math.abs(item.payableBalance), curr)}"
@@ -315,7 +315,7 @@ $debtText
                 """.trimIndent()
                 FileSharingHelper.attachMessageFooter(msg)
             } else {
-                val appTitle = config.distributorName.ifEmpty { "المسرب" }
+                val appTitle = config.distributorName.ifEmpty { "المسرّب" }
                 val debtStatus = if (item.receivableBalance > 0) {
                     "⚠️ المطلوب بذمتكم: ${Formatters.formatCurrency(item.receivableBalance, curr)}"
                 } else if (item.receivableBalance < 0) {
