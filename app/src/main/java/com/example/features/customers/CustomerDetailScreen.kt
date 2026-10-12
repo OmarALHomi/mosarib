@@ -2,6 +2,13 @@ package com.example.features.customers
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +29,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,6 +38,7 @@ import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Call
@@ -86,6 +95,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -338,7 +348,7 @@ fun CustomerDetailScreen(
                     },
                     text = {
                         Text(
-                            text = if (cwb.customer.isWellOwner) "تسجيل سقي له" else "تسجيل سقي للمزارع",
+                            text = "تسجيل سقي",
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.5.sp
                         )
@@ -350,56 +360,176 @@ fun CustomerDetailScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + 90.dp)
-            ) {
+        val listState = rememberLazyListState()
+        val firstIndex by remember { derivedStateOf { listState.firstVisibleItemIndex } }
+        val firstOffset by remember { derivedStateOf { listState.firstVisibleItemScrollOffset } }
+
+        val isScrolled by remember {
+            derivedStateOf {
+                firstIndex > 0 || firstOffset > 25
+            }
+        }
+
+        val statsAlpha by remember {
+            derivedStateOf {
+                if (firstIndex > 0) 0f
+                else (1f - (firstOffset / 140f)).coerceIn(0f, 1f)
+            }
+        }
+        val animatedStatsAlpha by animateFloatAsState(
+            targetValue = statsAlpha,
+            animationSpec = tween(durationMillis = 200),
+            label = "stats_alpha"
+        )
+
+        var moreMenuExpanded by remember { mutableStateOf(false) }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = padding.calculateBottomPadding())
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 // ============================================================
-                // 1. GRADIENT HERO HEADER
+                // 1. GRADIENT HERO HEADER (ينكمش ويصغر عند التمرير لأعلى)
                 // ============================================================
-                item {
-                    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp))
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        PrimaryTealDark,
-                                        SecondaryAquaDark,
-                                        PrimaryTeal.copy(alpha = 0.90f)
-                                    )
+                val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(bottomStart = if (isScrolled) 16.dp else 26.dp, bottomEnd = if (isScrolled) 16.dp else 26.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    PrimaryTealDark,
+                                    SecondaryAquaDark,
+                                    PrimaryTeal.copy(alpha = 0.92f)
                                 )
                             )
+                        )
+                        .animateContentSize()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = statusBarPadding)
                     ) {
-                        Column(
+                        // الصف العلوي:
+                        // إذا تم التمرير لأعلى: يصغر الكرت ويعرض سهم الرجوع + اسم العميل + زر الثلاث نقاط
+                        // إذا لم يتم التمرير: يعرض سهم الرجوع + أزرار التعديل وPDF
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = statusBarPadding)
+                                .padding(horizontal = 8.dp, vertical = if (isScrolled) 8.dp else 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Back + Edit + PDF buttons on top
-                            Row(
+                            IconButton(
+                                onClick = onBack,
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 6.dp, start = 8.dp, end = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.16f))
                             ) {
-                                IconButton(
-                                    onClick = onBack,
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "رجوع",
+                                    tint = Color.White
+                                )
+                            }
+
+                            if (isScrolled) {
+                                Row(
                                     modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.16f))
+                                        .weight(1f)
+                                        .padding(horizontal = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "رجوع",
-                                        tint = Color.White
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(alpha = 0.20f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (customer.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Agriculture,
+                                            contentDescription = null,
+                                            tint = if (customer.isWellOwner) AccentGold else Color.White,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = customer.name,
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            fontSize = 16.sp
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
+
+                                Box {
+                                    IconButton(
+                                        onClick = { moreMenuExpanded = true },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(alpha = 0.20f))
+                                    ) {
+                                        Icon(
+                                            Icons.Default.MoreVert,
+                                            contentDescription = "المزيد",
+                                            tint = Color.White
+                                        )
+                                    }
+
+                                    CustomerActionsDropdownMenu(
+                                        expanded = moreMenuExpanded,
+                                        onDismissRequest = { moreMenuExpanded = false },
+                                        customer = customer,
+                                        onCall = {
+                                            moreMenuExpanded = false
+                                            FileSharingHelper.makePhoneCall(context, customer.phone)
+                                        },
+                                        onSendMessage = {
+                                            moreMenuExpanded = false
+                                            messageCustomTarget = viewModel.buildCustomerStatementMessage(customer, customerWithBalance)
+                                        },
+                                        onPdf = {
+                                            moreMenuExpanded = false
+                                            viewModel.generateCustomerStatementPdf(customer)
+                                        },
+                                        onEdit = {
+                                            moreMenuExpanded = false
+                                            showEditCustomerSheet = true
+                                        },
+                                        onAddSession = {
+                                            moreMenuExpanded = false
+                                            showAddSessionSheet = true
+                                        },
+                                        onAddReceipt = {
+                                            moreMenuExpanded = false
+                                            showAddReceiptSheet = true
+                                        },
+                                        onAddDisbursement = {
+                                            moreMenuExpanded = false
+                                            showAddDisbursementSheet = true
+                                        },
+                                        onOwnerPurchase = {
+                                            moreMenuExpanded = false
+                                            showOwnerPurchaseSheet = true
+                                        },
+                                        onOwnerWaste = {
+                                            moreMenuExpanded = false
+                                            showOwnerWasteDialog = true
+                                        }
+                                    )
+                                }
+                            } else {
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     IconButton(
                                         onClick = { viewModel.generateCustomerStatementPdf(customer) },
@@ -421,25 +551,31 @@ fun CustomerDetailScreen(
                                     }
                                 }
                             }
+                        }
 
-                            // Avatar + Name + sub-info + Quick Actions
+                        // المحتوى الكامل عند عدم التمرير: الصورة الرمزية، الاسم، المعلومات، الأزرار السريعة
+                        AnimatedVisibility(
+                            visible = !isScrolled,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut()
+                        ) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 6.dp, bottom = 16.dp),
+                                    .padding(top = 4.dp, bottom = 14.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                // Compact Avatar
+                                // الصورة الرمزية
                                 Box(
                                     modifier = Modifier
-                                        .size(60.dp)
+                                        .size(58.dp)
                                         .clip(CircleShape)
                                         .background(Color.White.copy(alpha = 0.22f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(50.dp)
+                                            .size(48.dp)
                                             .clip(CircleShape)
                                             .background(Color.White.copy(alpha = 0.15f)),
                                         contentAlignment = Alignment.Center
@@ -454,7 +590,7 @@ fun CustomerDetailScreen(
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
 
                                 Text(
                                     text = customer.name,
@@ -521,9 +657,9 @@ fun CustomerDetailScreen(
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(12.dp))
+                                Spacer(modifier = Modifier.height(10.dp))
 
-                                // ── Quick Action Buttons ──
+                                // Quick Action Buttons
                                 Row(
                                     modifier = Modifier.padding(horizontal = 12.dp),
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -595,22 +731,37 @@ fun CustomerDetailScreen(
                 }
 
                 // ============================================================
-                // 2. BALANCE + TOTALS CARD (floating over the gradient)
+                // 2. LAZY COLUMN
                 // ============================================================
-                item {
-                    val isDebt = customerWithBalance.balance > 0
-                    val isCredit = customerWithBalance.balance < 0
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(bottom = 90.dp)
+                ) {
+                    // ============================================================
+                    // 2. BALANCE + TOTALS CARD (يتلاشى عند التمرير لأعلى)
+                    // ============================================================
+                    item {
+                        if (animatedStatsAlpha > 0.05f) {
+                            val isDebt = customerWithBalance.balance > 0
+                            val isCredit = customerWithBalance.balance < 0
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .shadow(3.dp, RoundedCornerShape(20.dp)),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp)
+                                    .graphicsLayer {
+                                        alpha = animatedStatsAlpha
+                                        scaleY = animatedStatsAlpha.coerceAtLeast(0.85f)
+                                    }
+                                    .shadow((3 * animatedStatsAlpha).dp, RoundedCornerShape(20.dp)),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -827,6 +978,7 @@ fun CustomerDetailScreen(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
+            }
 
                 // 2. Filter Bar Chips
                 item {
@@ -976,6 +1128,7 @@ fun CustomerDetailScreen(
                     }
                 }
             }
+        }
 
             LuxuryToastNotification(
                 toast = toast,
@@ -2294,6 +2447,138 @@ private fun StatCell(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 10.sp
             )
+        )
+    }
+}
+
+@Composable
+private fun CustomerActionsDropdownMenu(
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    customer: Customer,
+    onCall: () -> Unit,
+    onSendMessage: () -> Unit,
+    onPdf: () -> Unit,
+    onEdit: () -> Unit,
+    onAddSession: () -> Unit,
+    onAddReceipt: () -> Unit,
+    onAddDisbursement: () -> Unit,
+    onOwnerPurchase: () -> Unit,
+    onOwnerWaste: () -> Unit
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(vertical = 4.dp)
+    ) {
+        if (customer.isWellOwner) {
+            DropdownMenuItem(
+                text = { Text("شراء ساعات", fontWeight = FontWeight.Bold) },
+                onClick = onOwnerPurchase,
+                leadingIcon = {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = AccentGold, modifier = Modifier.size(20.dp))
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("تسجيل سقي", fontWeight = FontWeight.Bold) },
+                onClick = onAddSession,
+                leadingIcon = {
+                    Icon(Icons.Default.WaterDrop, contentDescription = null, tint = SecondaryAquaDark, modifier = Modifier.size(20.dp))
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("تسجيل هدر", fontWeight = FontWeight.Bold) },
+                onClick = onOwnerWaste,
+                leadingIcon = {
+                    Icon(Icons.Default.AccessTime, contentDescription = null, tint = Color(0xFFFFB74D), modifier = Modifier.size(20.dp))
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("سداد له (سند صرف)", fontWeight = FontWeight.Bold) },
+                onClick = onAddDisbursement,
+                leadingIcon = {
+                    Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = Color(0xFFFF8A80), modifier = Modifier.size(20.dp))
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("تحصيل منه (سند قبض)", fontWeight = FontWeight.Bold) },
+                onClick = onAddReceipt,
+                leadingIcon = {
+                    Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(20.dp))
+                }
+            )
+            if (customer.phone.isNotBlank()) {
+                DropdownMenuItem(
+                    text = { Text("اتصال هاتفياً", fontWeight = FontWeight.Bold) },
+                    onClick = onCall,
+                    leadingIcon = {
+                        Icon(Icons.Default.Call, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(20.dp))
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("إرسال كشف حساب", fontWeight = FontWeight.Bold) },
+                    onClick = onSendMessage,
+                    leadingIcon = {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF00897B), modifier = Modifier.size(20.dp))
+                    }
+                )
+            }
+        } else {
+            if (customer.phone.isNotBlank()) {
+                DropdownMenuItem(
+                    text = { Text("اتصال هاتفياً", fontWeight = FontWeight.Bold) },
+                    onClick = onCall,
+                    leadingIcon = {
+                        Icon(Icons.Default.Call, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(20.dp))
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("إرسال كشف (واتساب/رسالة)", fontWeight = FontWeight.Bold) },
+                    onClick = onSendMessage,
+                    leadingIcon = {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF00897B), modifier = Modifier.size(20.dp))
+                    }
+                )
+            }
+            DropdownMenuItem(
+                text = { Text("تسجيل سقي", fontWeight = FontWeight.Bold) },
+                onClick = onAddSession,
+                leadingIcon = {
+                    Icon(Icons.Default.WaterDrop, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(20.dp))
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("سند قبض (تحصيل)", fontWeight = FontWeight.Bold) },
+                onClick = onAddReceipt,
+                leadingIcon = {
+                    Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(20.dp))
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("سند صرف", fontWeight = FontWeight.Bold) },
+                onClick = onAddDisbursement,
+                leadingIcon = {
+                    Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = Color(0xFFFF8A80), modifier = Modifier.size(20.dp))
+                }
+            )
+        }
+
+        DropdownMenuItem(
+            text = { Text("كشف حساب PDF", fontWeight = FontWeight.Bold) },
+            onClick = onPdf,
+            leadingIcon = {
+                Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold, modifier = Modifier.size(20.dp))
+            }
+        )
+
+        DropdownMenuItem(
+            text = { Text("تعديل البيانات", fontWeight = FontWeight.Bold) },
+            onClick = onEdit,
+            leadingIcon = {
+                Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(20.dp))
+            }
         )
     }
 }
