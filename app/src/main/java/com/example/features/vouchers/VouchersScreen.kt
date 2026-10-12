@@ -3,6 +3,7 @@ package com.example.features.vouchers
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import com.example.core.ui.isAppDark
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,6 +31,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -66,6 +69,9 @@ import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import com.example.core.ui.MosaribButton
+import com.example.core.ui.MosaribFilterChip
+import com.example.core.ui.MosaribTextField
 import com.example.core.ui.SendMessageChoiceDialog
 import com.example.core.util.PdfReportGenerator
 import java.io.File
@@ -143,8 +149,12 @@ fun VouchersScreen(
     var showActivationDialog by remember { mutableStateOf(false) }
     var showAddSheet by remember { mutableStateOf(false) }
     var showAddManualSheet by remember { mutableStateOf(false) }
+    var showAddPurchaseSheet by remember { mutableStateOf(false) }
     var speedDialOpen by remember { mutableStateOf(false) }
     var voucherToDelete by remember { mutableStateOf<Voucher?>(null) }
+    var voucherToEdit by remember { mutableStateOf<Voucher?>(null) }
+    var sessionToEdit by remember { mutableStateOf<WaterSession?>(null) }
+    var sessionToDelete by remember { mutableStateOf<WaterSession?>(null) }
     var purchaseToDelete by remember { mutableStateOf<WellOwnerPurchase?>(null) }
     var purchaseToEdit by remember { mutableStateOf<WellOwnerPurchase?>(null) }
     var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
@@ -155,13 +165,12 @@ fun VouchersScreen(
     val listState = rememberLazyListState()
     val firstIndex by remember { derivedStateOf { listState.firstVisibleItemIndex } }
     val firstOffset by remember { derivedStateOf { listState.firstVisibleItemScrollOffset } }
-    val fadeFactor by remember {
+    val summaryScrollAlpha by remember {
         derivedStateOf {
             if (firstIndex > 0) 0f
-            else (1f - (firstOffset / 200f)).coerceIn(0f, 1f)
+            else (1f - (firstOffset / 180f)).coerceIn(0f, 1f)
         }
     }
-    val animatedAlpha by animateFloatAsState(targetValue = fadeFactor, label = "summary_card_fade")
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -169,30 +178,30 @@ fun VouchersScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = 8.dp, bottom = 110.dp)
         ) {
-            // Merged Integrated Financial Summary Card (يتلاشى وينكمش عند التمرير لأعلى)
+            // Merged Integrated Financial Summary Card (يتلاشى بسلاسة تامة مع التمرير دون قفز)
             item {
-                if (animatedAlpha > 0.05f) {
-                    val totalReceipts = allVouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount } +
-                        allSessions.sumOf { it.amountPaid }
-                    val totalExpenses = allVouchers.filter { it.type == VoucherType.EXPENSE }.sumOf { it.amount }
-                    val totalDebts = allSessions.sumOf { it.remainingDebt }
-                    val netProfit = totalReceipts - totalExpenses
-                    val totalWaterMinutes = allSessions.sumOf { it.durationMinutes }
+                val totalReceipts = allVouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount } +
+                    allSessions.sumOf { it.amountPaid }
+                val totalExpenses = allVouchers.filter { it.type == VoucherType.EXPENSE }.sumOf { it.amount }
+                val totalDebts = allSessions.sumOf { it.remainingDebt }
+                val netProfit = totalReceipts - totalExpenses
+                val totalWaterMinutes = allSessions.sumOf { it.durationMinutes }
 
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 4.dp)
-                            .graphicsLayer {
-                                alpha = animatedAlpha
-                                scaleY = animatedAlpha.coerceAtLeast(0.85f)
-                            }
-                            .shadow((3 * animatedAlpha).dp, RoundedCornerShape(16.dp)),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            // Top Row: Net Profit & Water Hours
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 4.dp)
+                        .graphicsLayer {
+                            alpha = summaryScrollAlpha
+                            scaleY = 0.94f + (0.06f * summaryScrollAlpha)
+                            scaleX = 0.96f + (0.04f * summaryScrollAlpha)
+                        }
+                        .shadow((3 * summaryScrollAlpha).dp, RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        // Top Row: Net Profit & Water Hours
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -306,7 +315,6 @@ fun VouchersScreen(
                         }
                     }
                 }
-            }
 
             // Search & Filters Row (Compact & Borderless)
             item {
@@ -378,87 +386,45 @@ fun VouchersScreen(
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         item {
-                            FilterChip(
+                            MosaribFilterChip(
                                 selected = operationsFilter == OperationsFilter.ALL,
                                 onClick = { viewModel.setOperationsFilter(OperationsFilter.ALL) },
-                                label = { Text("الكل", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal,
-                                    selectedLabelColor = Color.White,
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                ),
-                                border = null
+                                label = "الكل"
                             )
                         }
                         item {
-                            FilterChip(
+                            MosaribFilterChip(
                                 selected = operationsFilter == OperationsFilter.SESSIONS,
                                 onClick = { viewModel.setOperationsFilter(OperationsFilter.SESSIONS) },
-                                label = { Text("سقي", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal,
-                                    selectedLabelColor = Color.White,
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                ),
-                                border = null
+                                label = "سقي"
                             )
                         }
                         item {
-                            FilterChip(
+                            MosaribFilterChip(
                                 selected = operationsFilter == OperationsFilter.RECEIPTS,
                                 onClick = { viewModel.setOperationsFilter(OperationsFilter.RECEIPTS) },
-                                label = { Text("مقبوضات", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AccentEmerald,
-                                    selectedLabelColor = Color.White,
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                ),
-                                border = null
+                                label = "مقبوضات"
                             )
                         }
                         item {
-                            FilterChip(
+                            MosaribFilterChip(
                                 selected = operationsFilter == OperationsFilter.EXPENSES,
                                 onClick = { viewModel.setOperationsFilter(OperationsFilter.EXPENSES) },
-                                label = { Text("مصروفات", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFFE53935),
-                                    selectedLabelColor = Color.White,
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                ),
-                                border = null
+                                label = "مصروفات"
                             )
                         }
                         item {
-                            FilterChip(
+                            MosaribFilterChip(
                                 selected = operationsFilter == OperationsFilter.DEFERRED,
                                 onClick = { viewModel.setOperationsFilter(OperationsFilter.DEFERRED) },
-                                label = { Text("آجل / ديون", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFFE65100),
-                                    selectedLabelColor = Color.White,
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                ),
-                                border = null
+                                label = "آجل / ديون"
                             )
                         }
                         item {
-                            FilterChip(
+                            MosaribFilterChip(
                                 selected = operationsFilter == OperationsFilter.PURCHASES,
                                 onClick = { viewModel.setOperationsFilter(OperationsFilter.PURCHASES) },
-                                label = { Text("شراء ساعات", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFF0288D1),
-                                    selectedLabelColor = Color.White,
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                ),
-                                border = null
+                                label = "شراء ساعات"
                             )
                         }
                     }
@@ -489,10 +455,24 @@ fun VouchersScreen(
                                 currencySymbol = config.currencySymbol,
                                 linkedVouchers = op.linkedVouchers,
                                 onCustomerClick = { onNavigateToCustomer(op.sessionWithCustomer.session.customerId) },
-                                onEditClick = {},
-                                onDeleteClick = {},
-                                onPdfClick = {},
-                                onMessageClick = {},
+                                onEditClick = { sessionToEdit = op.sessionWithCustomer.session },
+                                onDeleteClick = { sessionToDelete = op.sessionWithCustomer.session },
+                                onPdfClick = {
+                                    val file = PdfReportGenerator.generateSessionInvoicePdf(
+                                        context = context,
+                                        config = config,
+                                        customer = op.sessionWithCustomer.customer ?: Customer(name = "عميل غير محدد"),
+                                        session = op.sessionWithCustomer.session
+                                    )
+                                    voucherPdfReady = Pair(file, "فاتورة ري #${op.sessionWithCustomer.session.id}")
+                                },
+                                onMessageClick = {
+                                    op.sessionWithCustomer.customer?.let { c ->
+                                        val s = op.sessionWithCustomer.session
+                                        val msg = "فاتورة دورة سقي #${s.id}\nالعميل: ${c.name}\nالمدة: ${Formatters.formatDurationArabic(s.durationMinutes)}\nإجمالي القيمة: ${Formatters.formatCurrency(s.totalAmount, config.currencySymbol)}\nالمسدد: ${Formatters.formatCurrency(s.amountPaid, config.currencySymbol)}\nالمتبقي: ${Formatters.formatCurrency(s.remainingDebt, config.currencySymbol)}\nالتاريخ: ${Formatters.formatDateTime(s.startTime)}"
+                                        voucherMessageTarget = Pair(c, FileSharingHelper.attachMessageFooter(msg))
+                                    }
+                                },
                                 onSettleClick = {
                                     sessionToSettle = op.sessionWithCustomer.session
                                 },
@@ -765,6 +745,23 @@ fun VouchersScreen(
                                                 )
                                             }
 
+                                            // زر تعديل
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(26.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                                    .clickable { voucherToEdit = voucher },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Edit,
+                                                    contentDescription = "تعديل",
+                                                    tint = PrimaryTeal,
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                            }
+
                                             // زر حذف
                                             Box(
                                                 modifier = Modifier
@@ -1007,7 +1004,7 @@ fun VouchersScreen(
                                             )
 
                                             Text(
-                                                text = "⏱️ ${Formatters.formatDurationArabic(chargeable)}",
+                                                text = Formatters.formatDurationArabic(chargeable),
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     fontWeight = FontWeight.SemiBold,
                                                     fontSize = 9.5.sp,
@@ -1230,6 +1227,50 @@ fun VouchersScreen(
                             )
                         }
                     }
+
+                    // خيار 3: شراء ساعات (من صاحب بئر)
+                    Surface(
+                        onClick = {
+                            speedDialOpen = false
+                            if (LicenseManager.canPerformOperation(context, operationsCount)) {
+                                showAddPurchaseSheet = true
+                            } else {
+                                showActivationDialog = true
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        shadowElevation = 6.dp,
+                        modifier = Modifier.height(38.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFE1F5FE)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.WaterDrop,
+                                    contentDescription = null,
+                                    tint = Color(0xFF0288D1),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "شراء ساعات (من بئر)",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1322,6 +1363,112 @@ fun VouchersScreen(
                     costPricePerHour = costRate,
                     pumpSourceId = pumpId
                 )
+            }
+        )
+    }
+
+    // تعديل دورة سقي من سجل العمليات
+    sessionToEdit?.let { s ->
+        AddEditSessionBottomSheet(
+            initialSession = s,
+            customers = customers,
+            defaultCustomerId = s.customerId,
+            defaultPricePerHour = config.defaultPricePerHour,
+            currencySymbol = config.currencySymbol,
+            onCreateCustomer = { customer -> sessionsViewModel?.createCustomer(customer) ?: 0L },
+            onDismiss = { sessionToEdit = null },
+            onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes, billedTo, wastedMins, wastedReason, discount, costRate, pumpId ->
+                if (sessionsViewModel != null) {
+                    sessionsViewModel.saveManualSession(
+                        id = id,
+                        customerId = custId,
+                        pumpName = pumpName,
+                        startTime = startTime,
+                        endTime = endTime,
+                        hours = hrs,
+                        minutes = mins,
+                        pricePerHour = rate,
+                        amountPaid = paid,
+                        notes = notes,
+                        billedToCustomerId = billedTo,
+                        wastedMinutes = wastedMins,
+                        wastedReason = wastedReason,
+                        discountAmount = discount,
+                        costPricePerHour = costRate,
+                        pumpSourceId = pumpId
+                    )
+                } else {
+                    viewModel.updateSession(
+                        id = id,
+                        customerId = custId,
+                        pumpName = pumpName,
+                        startTime = startTime,
+                        endTime = endTime,
+                        durationMinutes = (hrs * 60) + mins,
+                        pricePerHour = rate,
+                        amountPaid = paid,
+                        notes = notes,
+                        billedToCustomerId = billedTo,
+                        wastedMinutes = wastedMins,
+                        wastedReason = wastedReason,
+                        discountAmount = discount,
+                        costPricePerHour = costRate,
+                        pumpSourceId = pumpId
+                    )
+                }
+                sessionToEdit = null
+            }
+        )
+    }
+
+    // حذف دورة سقي من سجل العمليات
+    sessionToDelete?.let { s ->
+        AlertDialog(
+            onDismissRequest = { sessionToDelete = null },
+            title = { Text("تأكيد حذف دورة السقي", fontWeight = FontWeight.Bold) },
+            text = { Text("هل تريد بالتأكيد حذف دورة السقي #${s.id}؟ سيتم فك ارتباط أي سندات قبض مسددة لها وتحويلها لدفعات على الحساب.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (sessionsViewModel != null) {
+                            sessionsViewModel.deleteSession(s)
+                        } else {
+                            viewModel.deleteSession(s)
+                        }
+                        sessionToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
+                ) {
+                    Text("حذف", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { sessionToDelete = null }) {
+                    Text("إلغاء", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    // تعديل سند قبض أو صرف من سجل العمليات
+    voucherToEdit?.let { v ->
+        AddVoucherBottomSheet(
+            initialVoucher = v,
+            customers = customers,
+            allSessions = allSessions,
+            frequentDescriptions = frequentDescriptions,
+            currencySymbol = config.currencySymbol,
+            onDismiss = { voucherToEdit = null },
+            onSave = { type, custId, amt, cat, method, notes, sessionId, _ ->
+                viewModel.updateVoucher(
+                    voucher = v,
+                    amount = amt,
+                    paymentMethod = method,
+                    notes = notes,
+                    category = cat,
+                    customerId = custId
+                )
+                voucherToEdit = null
             }
         )
     }
@@ -1451,6 +1598,28 @@ fun VouchersScreen(
                     notes = notes
                 )
                 purchaseToEdit = null
+            }
+        )
+    }
+
+    if (showAddPurchaseSheet) {
+        val wellOwners = customers.filter { it.isWellOwner }
+        WellOwnerPurchaseBottomSheet(
+            owner = null,
+            availableOwners = wellOwners,
+            currencySymbol = config.currencySymbol,
+            onDismiss = { showAddPurchaseSheet = false },
+            onSaveWithOwner = { ownerId, date, duration, wasted, rate, paid, notes ->
+                viewModel.addOwnerPurchase(
+                    ownerCustomerId = ownerId,
+                    date = date,
+                    durationMinutes = duration,
+                    wastedMinutesOnOwner = wasted,
+                    purchaseRatePerHour = rate,
+                    notes = notes,
+                    amountPaid = paid
+                )
+                showAddPurchaseSheet = false
             }
         )
     }
@@ -1645,6 +1814,8 @@ fun VouchersScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddVoucherBottomSheet(
+    initialVoucher: Voucher? = null,
+    initialType: VoucherType = initialVoucher?.type ?: VoucherType.RECEIPT,
     customers: List<Customer>,
     allSessions: List<WaterSession> = emptyList(),
     frequentDescriptions: List<String> = emptyList(),
@@ -1662,17 +1833,29 @@ fun AddVoucherBottomSheet(
     ) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val isDark = isAppDark()
 
-    var type by remember { mutableStateOf(VoucherType.RECEIPT) }
-    var selectedCustomerId by remember { mutableLongStateOf(customers.firstOrNull()?.id ?: 0L) }
-    var selectedBeneficiaryId by remember { mutableStateOf<Long?>(null) }
+    var type by remember { mutableStateOf(initialType) }
+    var selectedCustomerId by remember {
+        mutableLongStateOf(
+            if (initialVoucher?.type == VoucherType.RECEIPT && initialVoucher.customerId != null) initialVoucher.customerId!!
+            else customers.firstOrNull()?.id ?: 0L
+        )
+    }
+    var selectedBeneficiaryId by remember {
+        mutableStateOf<Long?>(
+            if (initialVoucher?.type == VoucherType.EXPENSE) initialVoucher.customerId else null
+        )
+    }
     var selectedSessionIds by remember { mutableStateOf(setOf<Long>()) }
-    var amountStr by remember { mutableStateOf("") }
-    var paymentMethod by remember { mutableStateOf("نقداً") }
-    var notes by remember { mutableStateOf("") }
+    var amountStr by remember { mutableStateOf(if (initialVoucher != null && initialVoucher.amount > 0) initialVoucher.amount.toString() else "") }
+    var paymentMethod by remember { mutableStateOf(initialVoucher?.paymentMethod ?: "نقداً") }
+    var notes by remember { mutableStateOf(initialVoucher?.notes ?: "") }
 
     var custDropdownExpanded by remember { mutableStateOf(false) }
+    var custSearchQuery by remember { mutableStateOf("") }
     var beneficiaryDropdownExpanded by remember { mutableStateOf(false) }
+    var beneficiarySearchQuery by remember { mutableStateOf("") }
 
     val selectedCustomer = customers.find { it.id == selectedCustomerId }
     val selectedBeneficiary = customers.find { it.id == selectedBeneficiaryId }
@@ -1699,8 +1882,14 @@ fun AddVoucherBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val headerTitle = when {
+                    initialVoucher != null && type == VoucherType.RECEIPT -> "تعديل سند قبض #${initialVoucher.voucherNumber.ifEmpty { initialVoucher.id.toString() }}"
+                    initialVoucher != null -> "تعديل سند صرف #${initialVoucher.voucherNumber.ifEmpty { initialVoucher.id.toString() }}"
+                    type == VoucherType.RECEIPT -> "سند قبض"
+                    else -> "تسجيل مصروف"
+                }
                 Text(
-                    text = if (type == VoucherType.RECEIPT) "سند قبض" else "تسجيل مصروف",
+                    text = headerTitle,
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
                 IconButton(onClick = onDismiss) {
@@ -1715,29 +1904,21 @@ fun AddVoucherBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Button(
+                MosaribButton(
+                    text = "قبض من عميل",
                     onClick = { type = VoucherType.RECEIPT },
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (type == VoucherType.RECEIPT) AccentEmerald else MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = if (type == VoucherType.RECEIPT) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("قبض من عميل", fontWeight = FontWeight.Bold)
-                }
+                    containerColor = if (type == VoucherType.RECEIPT) AccentEmerald else if (isDark) Color(0xFF141F25) else Color(0xFFF1F5F9),
+                    contentColor = if (type == VoucherType.RECEIPT) Color.White else if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
+                )
 
-                Button(
+                MosaribButton(
+                    text = "مصروف",
                     onClick = { type = VoucherType.EXPENSE },
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (type == VoucherType.EXPENSE) Color(0xFFE53935) else MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = if (type == VoucherType.EXPENSE) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("مصروف", fontWeight = FontWeight.Bold)
-                }
+                    containerColor = if (type == VoucherType.EXPENSE) Color(0xFFE53935) else if (isDark) Color(0xFF141F25) else Color(0xFFF1F5F9),
+                    contentColor = if (type == VoucherType.EXPENSE) Color.White else if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -1746,33 +1927,94 @@ fun AddVoucherBottomSheet(
                 Text("العميل المستلم منه *", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                 Spacer(modifier = Modifier.height(6.dp))
                 Box {
-                    OutlinedTextField(
+                    MosaribTextField(
                         value = selectedCustomer?.name ?: "اختر العميل...",
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .clickable { custDropdownExpanded = true }
+                            .clickable {
+                                custSearchQuery = ""
+                                custDropdownExpanded = true
+                            }
                     )
                     DropdownMenu(
                         expanded = custDropdownExpanded,
-                        onDismissRequest = { custDropdownExpanded = false }
+                        onDismissRequest = {
+                            custDropdownExpanded = false
+                            custSearchQuery = ""
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .heightIn(max = 320.dp)
                     ) {
-                        customers.forEach { c ->
-                            DropdownMenuItem(
-                                text = { Text(c.name, fontWeight = FontWeight.Bold) },
-                                onClick = {
-                                    selectedCustomerId = c.id
-                                    selectedSessionIds = emptySet()
-                                    amountStr = ""
-                                    custDropdownExpanded = false
+                        MosaribTextField(
+                            value = custSearchQuery,
+                            onValueChange = { custSearchQuery = it },
+                            placeholder = "بحث بالاسم أو الهاتف...",
+                            isDense = true,
+                            leadingIcon = {
+                                Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp), tint = PrimaryTeal)
+                            },
+                            trailingIcon = if (custSearchQuery.isNotEmpty()) {
+                                {
+                                    IconButton(onClick = { custSearchQuery = "" }) {
+                                        Icon(Icons.Default.Close, contentDescription = "مسح", modifier = Modifier.size(14.dp))
+                                    }
                                 }
+                            } else null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            singleLine = true
+                        )
+                        HorizontalDivider()
+
+                        val filteredCustomers = if (custSearchQuery.isBlank()) customers
+                        else customers.filter {
+                            it.name.contains(custSearchQuery, ignoreCase = true) ||
+                            it.phone.contains(custSearchQuery) ||
+                            it.farmName.contains(custSearchQuery, ignoreCase = true)
+                        }
+
+                        if (filteredCustomers.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("لا توجد نتائج مطابقة", color = Color.Gray, fontSize = 12.sp) },
+                                onClick = {}
                             )
+                        } else {
+                            filteredCustomers.forEach { c ->
+                                DropdownMenuItem(
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = if (c.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Agriculture,
+                                            contentDescription = null,
+                                            tint = if (c.isWellOwner) Color(0xFF0288D1) else PrimaryTeal,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    },
+                                    text = {
+                                        Column {
+                                            Text(c.name, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                                            val sub = listOf(c.farmName, c.phone).filter { it.isNotBlank() }.joinToString(" • ")
+                                            if (sub.isNotBlank()) {
+                                                Text(sub, fontSize = 11.sp, color = Color.Gray)
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedCustomerId = c.id
+                                        selectedSessionIds = emptySet()
+                                        amountStr = ""
+                                        custDropdownExpanded = false
+                                        custSearchQuery = ""
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -1784,8 +2026,9 @@ fun AddVoucherBottomSheet(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                        )
+                            containerColor = if (isDark) Color(0xFF141F25) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                        ),
+                        border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0))
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Row(
@@ -1801,7 +2044,7 @@ fun AddVoucherBottomSheet(
                                     val totalUnsettledDebt = unsettledSessions.sumOf { it.remainingDebt }
                                     Text(
                                         text = "إجمالي المتأخرات: ${Formatters.formatCurrency(totalUnsettledDebt, currencySymbol)}",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFC62828), fontWeight = FontWeight.Bold)
+                                        style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFF87171) else Color(0xFFC62828), fontWeight = FontWeight.Bold)
                                     )
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1871,15 +2114,15 @@ fun AddVoucherBottomSheet(
                                         shape = RoundedCornerShape(10.dp),
                                         colors = CardDefaults.cardColors(
                                             containerColor = if (isSelected) {
-                                                PrimaryTeal.copy(alpha = 0.08f)
+                                                if (isDark) Color(0xFF10282E) else PrimaryTeal.copy(alpha = 0.08f)
                                             } else {
-                                                MaterialTheme.colorScheme.surface
+                                                if (isDark) Color(0xFF182329) else Color.White
                                             }
                                         ),
                                         border = if (isSelected) {
                                             BorderStroke(1.5.dp, PrimaryTeal)
                                         } else {
-                                            BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.4f))
+                                            BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color.LightGray.copy(alpha = 0.4f))
                                         }
                                     ) {
                                         Column(modifier = Modifier.padding(10.dp)) {
@@ -1926,7 +2169,7 @@ fun AddVoucherBottomSheet(
                                                         text = Formatters.formatCurrency(session.remainingDebt, currencySymbol),
                                                         fontWeight = FontWeight.Bold,
                                                         fontSize = 13.sp,
-                                                        color = Color(0xFFC62828)
+                                                        color = if (isDark) Color(0xFFF87171) else Color(0xFFC62828)
                                                     )
                                                     Text(
                                                         text = "المتبقي",
@@ -1942,24 +2185,24 @@ fun AddVoucherBottomSheet(
                                                 val (allocated, remAfter) = allocInfo
                                                 val (badgeBg, badgeTextColor, badgeText) = when {
                                                     parsedAmt <= 0.0 -> Triple(
-                                                        Color(0xFFEEEEEE),
-                                                        Color.DarkGray,
-                                                        "⚠️ أدخل المبلغ لمعاينة التوزيع"
+                                                        if (isDark) Color(0xFF202A30) else Color(0xFFEEEEEE),
+                                                        if (isDark) Color(0xFF94A3B8) else Color.DarkGray,
+                                                        "أدخل المبلغ لمعاينة التوزيع"
                                                     )
                                                     remAfter == 0.0 -> Triple(
-                                                        Color(0xFFE8F5E9),
-                                                        Color(0xFF2E7D32),
-                                                        "✅ ستُسدد بالكامل (${Formatters.formatCurrency(allocated, currencySymbol)})"
+                                                        if (isDark) Color(0xFF11261B) else Color(0xFFE8F5E9),
+                                                        if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
+                                                        "ستُسدد بالكامل (${Formatters.formatCurrency(allocated, currencySymbol)})"
                                                     )
                                                     allocated > 0.0 -> Triple(
-                                                        Color(0xFFFFF8E1),
-                                                        Color(0xFFF57F17),
-                                                        "⏳ سداد جزئي: ${Formatters.formatCurrency(allocated, currencySymbol)} (متبقي: ${Formatters.formatCurrency(remAfter, currencySymbol)})"
+                                                        if (isDark) Color(0xFF2A2010) else Color(0xFFFFF8E1),
+                                                        if (isDark) Color(0xFFFBBF24) else Color(0xFFF57F17),
+                                                        "سداد جزئي: ${Formatters.formatCurrency(allocated, currencySymbol)} (متبقي: ${Formatters.formatCurrency(remAfter, currencySymbol)})"
                                                     )
                                                     else -> Triple(
-                                                        Color(0xFFFFEBEE),
-                                                        Color(0xFFC62828),
-                                                        "❌ لم يشملها المبلغ (المبلغ غير كافٍ)"
+                                                        if (isDark) Color(0xFF2B1313) else Color(0xFFFFEBEE),
+                                                        if (isDark) Color(0xFFF87171) else Color(0xFFC62828),
+                                                        "لم يشملها المبلغ (المبلغ غير كافٍ)"
                                                     )
                                                 }
 
@@ -1990,14 +2233,15 @@ fun AddVoucherBottomSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFE8F5E9))
+                            .background(if (isDark) Color(0xFF11261B) else Color(0xFFE8F5E9))
+                            .border(1.dp, if (isDark) Color(0xFF166534) else Color(0xFFC8E6C9), RoundedCornerShape(8.dp))
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Text(
                             text = "هذا العميل ليس عليه جلسات مؤخرة (سداد عام لحسابه)",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF2E7D32)
+                            color = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32)
                         )
                     }
                 }
@@ -2006,38 +2250,92 @@ fun AddVoucherBottomSheet(
                 Text("العميل / المستلم (اختياري):", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                 Spacer(modifier = Modifier.height(6.dp))
                 Box {
-                    OutlinedTextField(
+                    MosaribTextField(
                         value = selectedBeneficiary?.name ?: "مصروف عام (غير مقيد على عميل)",
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .clickable { beneficiaryDropdownExpanded = true }
+                            .clickable {
+                                beneficiarySearchQuery = ""
+                                beneficiaryDropdownExpanded = true
+                            }
                     )
                     DropdownMenu(
                         expanded = beneficiaryDropdownExpanded,
-                        onDismissRequest = { beneficiaryDropdownExpanded = false }
+                        onDismissRequest = {
+                            beneficiaryDropdownExpanded = false
+                            beneficiarySearchQuery = ""
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .heightIn(max = 320.dp)
                     ) {
+                        MosaribTextField(
+                            value = beneficiarySearchQuery,
+                            onValueChange = { beneficiarySearchQuery = it },
+                            placeholder = "بحث بالاسم أو الهاتف...",
+                            isDense = true,
+                            leadingIcon = {
+                                Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp), tint = PrimaryTeal)
+                            },
+                            trailingIcon = if (beneficiarySearchQuery.isNotEmpty()) {
+                                {
+                                    IconButton(onClick = { beneficiarySearchQuery = "" }) {
+                                        Icon(Icons.Default.Close, contentDescription = "مسح", modifier = Modifier.size(14.dp))
+                                    }
+                                }
+                            } else null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            singleLine = true
+                        )
+                        HorizontalDivider()
+
                         DropdownMenuItem(
-                            text = { Text("مصروف عام (غير مقيد على عميل)") },
+                            text = { Text("مصروف عام (غير مقيد على عميل)", fontWeight = FontWeight.Bold, color = PrimaryTeal) },
                             onClick = {
                                 selectedBeneficiaryId = null
                                 beneficiaryDropdownExpanded = false
+                                beneficiarySearchQuery = ""
                             }
                         )
-                        customers.forEach { c ->
+
+                        val filteredBeneficiaries = if (beneficiarySearchQuery.isBlank()) customers
+                        else customers.filter {
+                            it.name.contains(beneficiarySearchQuery, ignoreCase = true) ||
+                            it.phone.contains(beneficiarySearchQuery) ||
+                            it.farmName.contains(beneficiarySearchQuery, ignoreCase = true)
+                        }
+
+                        filteredBeneficiaries.forEach { c ->
                             DropdownMenuItem(
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (c.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Agriculture,
+                                        contentDescription = null,
+                                        tint = if (c.isWellOwner) Color(0xFF0288D1) else PrimaryTeal,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
                                 text = {
-                                    Text(c.name, fontWeight = FontWeight.Bold)
+                                    Column {
+                                        Text(c.name, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                                        val sub = listOf(c.farmName, c.phone).filter { it.isNotBlank() }.joinToString(" • ")
+                                        if (sub.isNotBlank()) {
+                                            Text(sub, fontSize = 11.sp, color = Color.Gray)
+                                        }
+                                    }
                                 },
                                 onClick = {
                                     selectedBeneficiaryId = c.id
                                     beneficiaryDropdownExpanded = false
+                                    beneficiarySearchQuery = ""
                                 }
                             )
                         }
@@ -2047,15 +2345,14 @@ fun AddVoucherBottomSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            OutlinedTextField(
+            MosaribTextField(
                 value = amountStr,
                 onValueChange = { amountStr = Formatters.formatAmountInput(it) },
-                label = { Text("المبلغ ($currencySymbol) *", fontWeight = FontWeight.Bold) },
+                label = "المبلغ ($currencySymbol) *",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("voucher_amount_input"),
-                shape = RoundedCornerShape(12.dp)
+                    .testTag("voucher_amount_input")
             )
 
             val parsedAmt = Formatters.parseAmountInput(amountStr)
@@ -2073,23 +2370,21 @@ fun AddVoucherBottomSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            OutlinedTextField(
+            MosaribTextField(
                 value = paymentMethod,
                 onValueChange = { paymentMethod = it },
-                label = { Text("طريقة الدفع", fontWeight = FontWeight.Bold) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                label = "طريقة الدفع",
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            OutlinedTextField(
+            MosaribTextField(
                 value = notes,
                 onValueChange = { notes = it },
-                label = { Text(if (type == VoucherType.RECEIPT) "البيان والملاحظات" else "بيان المصروف *", fontWeight = FontWeight.Bold) },
-                placeholder = { Text(if (type == VoucherType.RECEIPT) "مثال: دفعة ري أو سداد حساب" else "اكتب بيان المصروف...") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                label = if (type == VoucherType.RECEIPT) "البيان والملاحظات" else "بيان المصروف *",
+                placeholder = if (type == VoucherType.RECEIPT) "مثال: دفعة ري أو سداد حساب" else "اكتب بيان المصروف...",
+                modifier = Modifier.fillMaxWidth()
             )
 
             // مقترحات البيان التلقائية لسندات الصرف
@@ -2112,7 +2407,8 @@ fun AddVoucherBottomSheet(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Button(
+            MosaribButton(
+                text = if (initialVoucher != null) "حفظ التعديلات" else "حفظ وترحيل السند",
                 onClick = {
                     val amt = Formatters.parseAmountInput(amountStr)
                     if (amt > 0) {
@@ -2124,17 +2420,11 @@ fun AddVoucherBottomSheet(
                     }
                 },
                 enabled = Formatters.parseAmountInput(amountStr) > 0,
+                containerColor = if (type == VoucherType.RECEIPT) AccentEmerald else PrimaryTeal,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("save_voucher_button"),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (type == VoucherType.RECEIPT) AccentEmerald else PrimaryTeal
-                )
-            ) {
-                Text("حفظ وترحيل السند", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            }
+                    .testTag("save_voucher_button")
+            )
         }
     }
 }
@@ -2145,6 +2435,7 @@ fun SettlementResultDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val isDark = isAppDark()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -2188,8 +2479,9 @@ fun SettlementResultDialog(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        containerColor = if (isDark) Color(0xFF141F25) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     ),
+                    border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -2224,9 +2516,17 @@ fun SettlementResultDialog(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
                             containerColor = when {
-                                item.isFullyPaid -> Color(0xFFE8F5E9)
-                                item.allocatedAmount > 0 -> Color(0xFFFFF8E1)
-                                else -> Color(0xFFFFEBEE)
+                                item.isFullyPaid -> if (isDark) Color(0xFF11261B) else Color(0xFFE8F5E9)
+                                item.allocatedAmount > 0 -> if (isDark) Color(0xFF2A2010) else Color(0xFFFFF8E1)
+                                else -> if (isDark) Color(0xFF2B1313) else Color(0xFFFFEBEE)
+                            }
+                        ),
+                        border = BorderStroke(
+                            1.dp,
+                            when {
+                                item.isFullyPaid -> if (isDark) Color(0xFF166534) else Color(0xFFC8E6C9)
+                                item.allocatedAmount > 0 -> if (isDark) Color(0xFF854D0E) else Color(0xFFFEF08A)
+                                else -> if (isDark) Color(0xFF991B1B) else Color(0xFFFECACA)
                             }
                         ),
                         shape = RoundedCornerShape(10.dp)
@@ -2255,20 +2555,20 @@ fun SettlementResultDialog(
                                     text = "المسدد: ${Formatters.formatCurrency(item.allocatedAmount, result.currencySymbol)}",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
-                                    color = if (item.allocatedAmount > 0) PrimaryTeal else Color(0xFFC62828)
+                                    color = if (item.allocatedAmount > 0) PrimaryTeal else if (isDark) Color(0xFFF87171) else Color(0xFFC62828)
                                 )
                                 Text(
                                     text = when {
-                                        item.isFullyPaid -> "خالصة بالكامل ✅"
-                                        item.allocatedAmount > 0 -> "متبقي: ${Formatters.formatCurrency(item.remainingDebtAfter, result.currencySymbol)} ⏳"
-                                        else -> "لم يشملها المبلغ ❌"
+                                        item.isFullyPaid -> "خالصة بالكامل"
+                                        item.allocatedAmount > 0 -> "متبقي: ${Formatters.formatCurrency(item.remainingDebtAfter, result.currencySymbol)}"
+                                        else -> "لم يشملها المبلغ"
                                     },
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
                                     color = when {
-                                        item.isFullyPaid -> Color(0xFF2E7D32)
-                                        item.allocatedAmount > 0 -> Color(0xFFF57F17)
-                                        else -> Color(0xFFC62828)
+                                        item.isFullyPaid -> if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32)
+                                        item.allocatedAmount > 0 -> if (isDark) Color(0xFFFBBF24) else Color(0xFFF57F17)
+                                        else -> if (isDark) Color(0xFFF87171) else Color(0xFFC62828)
                                     }
                                 )
                             }
@@ -2279,7 +2579,10 @@ fun SettlementResultDialog(
                 if (result.surplusAmount > 0.0) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE0F2F1)),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isDark) Color(0xFF0F2624) else Color(0xFFE0F2F1)
+                        ),
+                        border = BorderStroke(1.dp, if (isDark) Color(0xFF115E59) else Color(0xFF99F6E4)),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Row(
@@ -2287,7 +2590,7 @@ fun SettlementResultDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("💰", fontSize = 18.sp)
+                            Icon(Icons.Default.Payments, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(20.dp))
                             Column {
                                 Text(
                                     "فائض رصيد للعميل",

@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Backup
@@ -128,6 +129,7 @@ fun SettingsScreen(
 
     // Uri to restore with critical warning
     var uriToRestore by remember { mutableStateOf<Uri?>(null) }
+    var showTourDialog by remember { mutableStateOf(false) }
 
     // File Picker Launcher for JSON Database Restore
     val restoreFileLauncher = rememberLauncherForActivityResult(
@@ -161,7 +163,11 @@ fun SettingsScreen(
     var showCleanOldBackupsConfirm by remember { mutableStateOf(false) }
 
     // Backup tab selector: 0 = Local (الهاتف), 1 = Cloud (Google Drive)
+    val targetBackupSourceTab by viewModel.targetBackupSourceTab.collectAsStateWithLifecycle()
     var selectedBackupSourceTab by remember { mutableStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(targetBackupSourceTab) {
+        selectedBackupSourceTab = targetBackupSourceTab
+    }
     var expandAllLocalBackups by remember { mutableStateOf(false) }
     var expandAllDriveBackups by remember { mutableStateOf(false) }
 
@@ -1179,11 +1185,19 @@ fun SettingsScreen(
                     } else {
                         val plan = LicenseManager.getActivePlan(context)
                         val remDays = LicenseManager.getRemainingDays(context)
+                        val actRecord = remember(isActivated) { LicenseManager.getActivationRecord(context) }
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Text(
                                 text = "حالة الاشتراك: ${plan?.titleArabic ?: "اشتراك سارٍ"}",
                                 style = MaterialTheme.typography.bodyMedium.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
                             )
+                            if (actRecord != null && actRecord.subscriberName.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "مسجل باسم: ${actRecord.subscriberName} • ${actRecord.deviceModel}",
+                                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                )
+                            }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "متبقي في اشتراكك الحالي: $remDays يوماً.",
@@ -1204,6 +1218,58 @@ fun SettingsScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+
+        // Section: دليل الاستخدام والتعليمات التفاعلية
+        item {
+            Card(
+                onClick = { showTourDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 5.dp)
+                    .shadow(1.5.dp, RoundedCornerShape(16.dp)),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(AccentGold.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = null, tint = AccentGold)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "دليل الاستخدام والتعليمات",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "شرح تفاعلي لكافة وظائف وأزرار التطبيق",
+                                style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B))
+                            )
+                        }
+                    }
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "عرض",
+                        tint = Color(0xFF64748B),
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
@@ -1432,6 +1498,13 @@ fun SettingsScreen(
                 showLicenseDialog = false
             },
             isMandatory = false
+        )
+    }
+
+    // Showcase Tour Dialog
+    if (showTourDialog) {
+        com.example.features.home.HomeShowcaseTourDialog(
+            onDismiss = { showTourDialog = false }
         )
     }
 }

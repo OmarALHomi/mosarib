@@ -1,11 +1,17 @@
 package com.example.features.sessions
 
-import android.app.DatePickerDialog
-import android.app.TimePickerDialog
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import com.example.core.ui.MosaribButton
+import com.example.core.ui.MosaribDatePickerDialog
+import com.example.core.ui.MosaribFilterChip
+import com.example.core.ui.MosaribOutlinedButton
+import com.example.core.ui.MosaribTextField
+import com.example.core.ui.MosaribTimePickerDialog
+import com.example.core.ui.isAppDark
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -29,24 +36,37 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -84,8 +104,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.core.util.Formatters
 import com.example.features.customers.AddEditCustomerBottomSheet
 import com.example.features.customers.Customer
@@ -137,6 +159,7 @@ fun AddEditSessionBottomSheet(
     )
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val isDark = isAppDark()
 
     var selectedCustomerId by remember(initialSession?.customerId, defaultCustomerId) {
         mutableLongStateOf(initialSession?.customerId ?: defaultCustomerId ?: customers.firstOrNull()?.id ?: 0L)
@@ -157,37 +180,45 @@ fun AddEditSessionBottomSheet(
     // Purchases from well owners are recorded independently in the owner account.
     val historicalCostPricePerHour = initialSession?.costPricePerHour ?: 0.0
 
-    // تواريخ وساعات البدء والانتهاء (تدعم أوقات غير محدودة وتتجاوز 24 ساعة بأريحية)
-    val now = System.currentTimeMillis()
-    var startDateMillis by remember { mutableLongStateOf(initialSession?.startTime ?: (now - 3600000L)) }
-    var endDateMillis by remember { mutableLongStateOf(initialSession?.endTime ?: now) }
+    // تواريخ وساعات البدء والانتهاء (تُعاد تهيئتها دائماً عند فتح نموذج جديد دون الاحتفاظ بالوقت السابق)
+    val formKey = remember { System.currentTimeMillis() }
+    val now = if (initialSession != null) System.currentTimeMillis() else formKey
+    val initialStartTime = initialSession?.startTime ?: (now - 3600000L)
+    val initialEndTime = initialSession?.endTime ?: now
 
-    val defaultStartCal = remember(startDateMillis) {
+    var startDateMillis by remember(initialSession?.id, formKey) { mutableLongStateOf(initialStartTime) }
+    var endDateMillis by remember(initialSession?.id, formKey) { mutableLongStateOf(initialEndTime) }
+
+    val defaultStartCal = remember(startDateMillis, initialSession?.id, formKey) {
         Calendar.getInstance().apply {
             timeInMillis = startDateMillis
         }
     }
-    val defaultEndCal = remember(endDateMillis) {
+    val defaultEndCal = remember(endDateMillis, initialSession?.id, formKey) {
         Calendar.getInstance().apply {
             timeInMillis = endDateMillis
         }
     }
 
-    var startHour by remember { mutableIntStateOf(defaultStartCal.get(Calendar.HOUR_OF_DAY)) }
-    var startMinute by remember { mutableIntStateOf((defaultStartCal.get(Calendar.MINUTE) / 5) * 5) }
-    var endHour by remember { mutableIntStateOf(defaultEndCal.get(Calendar.HOUR_OF_DAY)) }
-    var endMinute by remember { mutableIntStateOf((defaultEndCal.get(Calendar.MINUTE) / 5) * 5) }
+    var startHour by remember(initialSession?.id, formKey) { mutableIntStateOf(defaultStartCal.get(Calendar.HOUR_OF_DAY)) }
+    var startMinute by remember(initialSession?.id, formKey) { mutableIntStateOf((defaultStartCal.get(Calendar.MINUTE) / 5) * 5) }
+    var endHour by remember(initialSession?.id, formKey) { mutableIntStateOf(defaultEndCal.get(Calendar.HOUR_OF_DAY)) }
+    var endMinute by remember(initialSession?.id, formKey) { mutableIntStateOf((defaultEndCal.get(Calendar.MINUTE) / 5) * 5) }
 
-    var timeMode by remember { mutableStateOf(SessionTimeMode.MANUAL) }
+    var timeMode by remember(initialSession?.id, formKey) { mutableStateOf(SessionTimeMode.PICKER) }
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
 
-    val initialDurationMins = remember {
+    val initialDurationMins = remember(initialSession?.id, formKey) {
         val diffMs = (initialSession?.endTime ?: now) - (initialSession?.startTime ?: (now - 3600000L))
         if (diffMs > 0) (diffMs / 60000L).toInt() else 60
     }
-    var manualHoursStr by remember {
+    var manualHoursStr by remember(initialSession?.id, formKey) {
         mutableStateOf((initialDurationMins / 60).let { if (it > 0) it.toString() else "1" })
     }
-    var manualMinutesStr by remember {
+    var manualMinutesStr by remember(initialSession?.id, formKey) {
         mutableStateOf((initialDurationMins % 60).let { if (it > 0) it.toString() else "" })
     }
 
@@ -199,9 +230,41 @@ fun AddEditSessionBottomSheet(
     var overnightNotice by remember {
         mutableStateOf<String?>(
             if (isInitiallyOvernight && endDateMillis > startDateMillis) {
-                "🌙 ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
+                "ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
             } else null
         )
+    }
+
+    val dayDifference by remember(startDateMillis, endDateMillis) {
+        derivedStateOf {
+            val startDayCal = Calendar.getInstance().apply {
+                timeInMillis = startDateMillis
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }
+            val endDayCal = Calendar.getInstance().apply {
+                timeInMillis = endDateMillis
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }
+            val diffMs = endDayCal.timeInMillis - startDayCal.timeInMillis
+            (diffMs / (24 * 60 * 60 * 1000L)).toInt()
+        }
+    }
+
+    val dayDescription by remember(dayDifference, endDateMillis) {
+        derivedStateOf {
+            when {
+                dayDifference <= 0 -> null
+                dayDifference == 1 -> "اليوم التالي (${Formatters.formatDate(endDateMillis)})"
+                dayDifference == 2 -> "بعد يومين (${Formatters.formatDate(endDateMillis)})"
+                dayDifference in 3..10 -> "بعد $dayDifference أيام (${Formatters.formatDate(endDateMillis)})"
+                dayDifference > 10 -> "بعد $dayDifference يوماً (${Formatters.formatDate(endDateMillis)})"
+                else -> null
+            }
+        }
+    }
+
+    val isEndNight by remember(endHour) {
+        derivedStateOf { endHour < 6 || endHour >= 18 }
     }
 
     // الوقت المهدور (التوقفات والأعطال)
@@ -259,7 +322,7 @@ fun AddEditSessionBottomSheet(
             val startDay = Calendar.getInstance().apply { timeInMillis = startDateMillis }.get(Calendar.DAY_OF_YEAR)
             val endDay = newEndCal.get(Calendar.DAY_OF_YEAR)
             if (endDay != startDay) {
-                overnightNotice = "🌙 ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
+                overnightNotice = "ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
             } else {
                 overnightNotice = null
             }
@@ -281,7 +344,7 @@ fun AddEditSessionBottomSheet(
                 }
                 endDateMillis = nextDayCal.timeInMillis
                 val dateStr = Formatters.formatDate(endDateMillis)
-                overnightNotice = "🌙 تم تقديم وقت الانتهاء تلقائياً إلى اليوم التالي ($dateStr) لأن ساعة الانتهاء تقع بعد منتصف الليل."
+                overnightNotice = "تم تقديم وقت الانتهاء تلقائياً إلى اليوم التالي ($dateStr) لأن ساعة الانتهاء تقع بعد منتصف الليل."
                 Toast.makeText(context, "تم التقديم إلى اليوم التالي: $dateStr", Toast.LENGTH_SHORT).show()
             } else if (overnightNotice != null) {
                 endDateMillis = startDateMillis
@@ -302,7 +365,7 @@ fun AddEditSessionBottomSheet(
             }
             endDateMillis = nextDayCal.timeInMillis
             val dateStr = Formatters.formatDate(endDateMillis)
-            overnightNotice = "🌙 تم تقديم وقت الانتهاء تلقائياً إلى اليوم التالي ($dateStr) لأن ساعة الانتهاء تقع بعد منتصف الليل."
+            overnightNotice = "تم تقديم وقت الانتهاء تلقائياً إلى اليوم التالي ($dateStr) لأن ساعة الانتهاء تقع بعد منتصف الليل."
             Toast.makeText(context, "تم التقديم إلى اليوم التالي: $dateStr", Toast.LENGTH_SHORT).show()
         } else {
             val startDay = Calendar.getInstance().apply { timeInMillis = startDateMillis }.get(Calendar.DAY_OF_YEAR)
@@ -374,6 +437,10 @@ fun AddEditSessionBottomSheet(
     }
 
     var customerDropdownExpanded by remember { mutableStateOf(false) }
+    var customerInputText by remember(selectedCustomer?.name, formKey) {
+        mutableStateOf(selectedCustomer?.name ?: "")
+    }
+    var showQuickCustomerDialog by remember { mutableStateOf(false) }
     var showAddCustomerSheet by remember { mutableStateOf(false) }
     var customerSaveError by remember { mutableStateOf<String?>(null) }
     var showWastedDetails by remember { mutableStateOf(wastedTotalMinutes > 0) }
@@ -400,7 +467,7 @@ fun AddEditSessionBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (initialSession == null) "تسجيل دورة ري (ساقية ماء)" else "تعديل بيانات دورة الماء",
+                    text = if (initialSession == null) "تسجيل سقي جديد" else "تعديل بيانات السقي",
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -411,65 +478,172 @@ fun AddEditSessionBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // اختيار العميل
-            Text(
-                text = "العميل الذي يُحتسب عليه السقي *",
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
-            )
-            Spacer(modifier = Modifier.height(6.dp))
+            // اختيار العميل مع إمكانية الكتابة المباشرة وظهور الاقتراحات فوراً
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f)) {
-                    OutlinedTextField(
-                        value = selectedCustomer?.name ?: "اختر العميل...",
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
+                    MosaribTextField(
+                        value = customerInputText,
+                        onValueChange = {
+                            customerInputText = it
+                            customerDropdownExpanded = true
+                            val exact = customers.find { c -> c.name.trim().equals(it.trim(), ignoreCase = true) }
+                            if (exact != null) {
+                                selectedCustomerId = exact.id
+                                val customerPrice = if (exact.isWellOwner) null else exact.customPricePerHour
+                                pricePerHourStr = Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
+                            } else {
+                                selectedCustomerId = 0L
+                            }
+                        },
+                        placeholder = "اكتب اسم العميل أو اختر من القائمة... *",
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal) },
+                        trailingIcon = {
+                            IconButton(onClick = { customerDropdownExpanded = !customerDropdownExpanded }) {
+                                Icon(
+                                    if (customerDropdownExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                                    contentDescription = null
+                                )
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("session_customer_picker"),
-                        shape = RoundedCornerShape(12.dp)
+                            .testTag("session_customer_picker")
                     )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable { customerDropdownExpanded = true }
-                    )
+
                     DropdownMenu(
                         expanded = customerDropdownExpanded,
-                        onDismissRequest = { customerDropdownExpanded = false }
+                        onDismissRequest = {
+                            customerDropdownExpanded = false
+                        },
+                        modifier = Modifier.fillMaxWidth(0.9f)
                     ) {
-                        customers.forEach { c ->
+                        val displayedCustomers = if (customerInputText.isBlank()) customers
+                        else customers.filter {
+                            it.name.contains(customerInputText, ignoreCase = true) ||
+                            it.phone.contains(customerInputText) ||
+                            it.farmName.contains(customerInputText, ignoreCase = true)
+                        }
+                        if (displayedCustomers.isEmpty()) {
                             DropdownMenuItem(
                                 text = {
                                     Column {
-                                        Text(c.name, fontWeight = FontWeight.Bold)
-                                        val detail = when {
-                                            c.isWellOwner -> "صاحب بئر • يمكن احتساب السقي عليه"
-                                            c.farmName.isNotEmpty() -> c.farmName
-                                            else -> ""
-                                        }
-                                        if (detail.isNotEmpty()) {
-                                            Text(detail, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                                        }
+                                        Text(
+                                            text = "العميل غير مسجل: \"$customerInputText\"",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal)
+                                        )
+                                        Text(
+                                            text = "انقر هنا لتسجيله كعميل جديد فوراً",
+                                            style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                                        )
                                     }
                                 },
+                                leadingIcon = { Icon(Icons.Default.PersonAdd, contentDescription = null, tint = PrimaryTeal) },
                                 onClick = {
-                                    selectedCustomerId = c.id
-                                    val customerPrice = if (c.isWellOwner) null else c.customPricePerHour
-                                    pricePerHourStr = Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
                                     customerDropdownExpanded = false
+                                    showQuickCustomerDialog = true
                                 }
                             )
+                        } else {
+                            displayedCustomers.forEach { c ->
+                                val isCurrent = c.id == selectedCustomerId
+                                DropdownMenuItem(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(if (isCurrent) PrimaryTeal.copy(alpha = 0.08f) else Color.Transparent),
+                                    text = {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Surface(
+                                                    modifier = Modifier.size(34.dp),
+                                                    shape = CircleShape,
+                                                    color = if (c.isWellOwner) (if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD))
+                                                            else (if (isDark) Color(0xFF1E3A3A) else Color(0xFFCCFBF1))
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Text(
+                                                            text = c.name.firstOrNull()?.toString() ?: "ع",
+                                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = if (c.isWellOwner) (if (isDark) Color(0xFFE0F2FE) else Color(0xFF0369A1))
+                                                                        else (if (isDark) Color(0xFF5EEAD4) else PrimaryTeal)
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                                Spacer(modifier = Modifier.width(10.dp))
+                                                Column {
+                                                    Text(
+                                                        text = c.name,
+                                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.SemiBold
+                                                        )
+                                                    )
+                                                    val detail = when {
+                                                        c.farmName.isNotEmpty() -> c.farmName
+                                                        c.phone.isNotEmpty() -> c.phone
+                                                        else -> ""
+                                                    }
+                                                    if (detail.isNotEmpty()) {
+                                                        Text(detail, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                                    }
+                                                }
+                                            }
+
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                if (c.isWellOwner) {
+                                                    Surface(
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        color = if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE),
+                                                        border = BorderStroke(0.5.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD))
+                                                    ) {
+                                                        Text(
+                                                            text = "صاحب بئر",
+                                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                                color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
+                                                                fontSize = 10.sp,
+                                                                fontWeight = FontWeight.Bold
+                                                            ),
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+                                                }
+                                                if (isCurrent) {
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Icon(
+                                                        imageVector = Icons.Default.Check,
+                                                        contentDescription = null,
+                                                        tint = PrimaryTeal,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedCustomerId = c.id
+                                        customerInputText = c.name
+                                        val customerPrice = if (c.isWellOwner) null else c.customPricePerHour
+                                        pricePerHourStr = Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
+                                        customerDropdownExpanded = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
                 IconButton(
                     onClick = {
                         customerSaveError = null
-                        showAddCustomerSheet = true
+                        showQuickCustomerDialog = true
                     },
                     modifier = Modifier.size(48.dp)
                 ) {
@@ -484,7 +658,8 @@ fun AddEditSessionBottomSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp)),
-                    color = Color(0xFFE0F2FE),
+                    color = if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE),
+                    border = BorderStroke(1.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Row(
@@ -493,11 +668,18 @@ fun AddEditSessionBottomSheet(
                             .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Icon(
+                            Icons.Default.WaterDrop,
+                            contentDescription = null,
+                            tint = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "💧 حساب صاحب بئر: يُحتسب هذا السقي مقاصة تلقائية وتُخصم قيمته من مستحقات مشتريات الساعات لديه.",
+                            text = "حساب صاحب بئر: يُحتسب هذا السقي مقاصة تلقائية وتُخصم قيمته من مستحقات مشتريات الساعات لديه.",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0284C7),
+                                color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
                                 fontSize = 11.5.sp
                             )
                         )
@@ -509,7 +691,16 @@ fun AddEditSessionBottomSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp)),
-                    color = if (billedToCustomerId != null) Color(0xFFE0F2FE) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    color = if (billedToCustomerId != null) {
+                        if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE)
+                    } else {
+                        if (isDark) Color(0xFF141F25) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    },
+                    border = BorderStroke(1.dp, if (billedToCustomerId != null) {
+                        if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD)
+                    } else {
+                        if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0)
+                    }),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
@@ -519,16 +710,32 @@ fun AddEditSessionBottomSheet(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "💧 احتساب السقي على صاحب بئر",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (billedToCustomerId != null) Color(0xFF0284C7) else MaterialTheme.colorScheme.onSurface
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.WaterDrop,
+                                        contentDescription = null,
+                                        tint = if (billedToCustomerId != null) {
+                                            if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
+                                        } else MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
                                     )
-                                )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "احتساب السقي على صاحب بئر",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (billedToCustomerId != null) {
+                                                if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
+                                            } else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    )
+                                }
                                 Text(
                                     text = "تُخصم القيمة كتسديد من مستحقات صاحب البئر لدى المسرب",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontSize = 11.sp)
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = if (isDark) Color(0xFF94A3B8) else Color.Gray,
+                                        fontSize = 11.sp
+                                    )
                                 )
                             }
                             Switch(
@@ -542,14 +749,13 @@ fun AddEditSessionBottomSheet(
                             Spacer(modifier = Modifier.height(8.dp))
                             Box(modifier = Modifier.fillMaxWidth()) {
                                 val currentOwner = wellOwners.find { it.id == billedToCustomerId }
-                                OutlinedTextField(
+                                MosaribTextField(
                                     value = currentOwner?.name ?: "اختر صاحب البئر...",
                                     onValueChange = {},
                                     readOnly = true,
                                     trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                                    label = { Text("صاحب البئر المحتسب عليه السقي") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(10.dp)
+                                    label = "صاحب البئر المحتسب عليه السقي",
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                                 Box(
                                     modifier = Modifier
@@ -587,7 +793,7 @@ fun AddEditSessionBottomSheet(
                 )
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
-                    // شريط التبويبين (يدوي / اختيار)
+                    // شريط التبويبين (اختيار / يدوي)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -596,7 +802,40 @@ fun AddEditSessionBottomSheet(
                             .padding(4.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        // تبويب يدوي
+                        // تبويب اختيار (بدء وانتهاء) أولاً
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable {
+                                    timeMode = SessionTimeMode.PICKER
+                                },
+                            color = if (timeMode == SessionTimeMode.PICKER) PrimaryTeal else Color.Transparent,
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(vertical = 10.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AccessTime,
+                                    contentDescription = null,
+                                    tint = if (timeMode == SessionTimeMode.PICKER) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "اختيار (بدء وانتهاء)",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (timeMode == SessionTimeMode.PICKER) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
+                            }
+                        }
+
+                        // تبويب يدوي (عدد الساعات) ثانياً
                         Surface(
                             modifier = Modifier
                                 .weight(1f)
@@ -630,200 +869,12 @@ fun AddEditSessionBottomSheet(
                                 )
                             }
                         }
-
-                        // تبويب اختيار
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .clickable {
-                                    timeMode = SessionTimeMode.PICKER
-                                },
-                            color = if (timeMode == SessionTimeMode.PICKER) PrimaryTeal else Color.Transparent,
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 10.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.AccessTime,
-                                    contentDescription = null,
-                                    tint = if (timeMode == SessionTimeMode.PICKER) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "اختيار (بدء وانتهاء)",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (timeMode == SessionTimeMode.PICKER) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                )
-                            }
-                        }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    if (timeMode == SessionTimeMode.MANUAL) {
-                        // ─── التبويب الأول: يدوي (حقل الساعات + وقت البداية) ───
-                        Column {
-                            // وقت وتاريخ البدء
-                            Text(
-                                text = "وقت وتاريخ بدء السقي:",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp)),
-                                color = MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                                        .fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // النقر على الوقت يفتح محدد الساعة مباشرة
-                                    Row(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable {
-                                                TimePickerDialog(
-                                                    context,
-                                                    { _, h, min -> onStartTimeChanged(h, min) },
-                                                    startHour,
-                                                    startMinute,
-                                                    false
-                                                ).show()
-                                            }
-                                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(Icons.Default.AccessTime, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = Formatters.formatClockTimeArabic(startHour, startMinute),
-                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
-                                        )
-                                    }
-
-                                    // النقر على التاريخ يفتح محدد اليوم عند رغبة المستخدم فقط
-                                    Row(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable {
-                                                val cal = Calendar.getInstance().apply { timeInMillis = startDateMillis }
-                                                DatePickerDialog(
-                                                    context,
-                                                    { _, y, m, d ->
-                                                        cal.set(y, m, d)
-                                                        startDateMillis = cal.timeInMillis
-                                                        applyManualDuration(manualHoursStr, manualMinutesStr)
-                                                    },
-                                                    cal.get(Calendar.YEAR),
-                                                    cal.get(Calendar.MONTH),
-                                                    cal.get(Calendar.DAY_OF_MONTH)
-                                                ).show()
-                                            }
-                                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = Formatters.formatDate(startDateMillis),
-                                            style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
-                                        )
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            // حقل عدد الساعات والدقائق
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedTextField(
-                                    value = manualHoursStr,
-                                    onValueChange = {
-                                        manualHoursStr = it.filter { c -> c.isDigit() }.take(3)
-                                        applyManualDuration(manualHoursStr, manualMinutesStr)
-                                    },
-                                    label = { Text("عدد الساعات (أقصى حد 240 س / 10 أيام) *") },
-                                    placeholder = { Text("مثلاً: 3") },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, tint = PrimaryTeal) },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                OutlinedTextField(
-                                    value = manualMinutesStr,
-                                    onValueChange = {
-                                        val filtered = it.filter { c -> c.isDigit() }
-                                        val minVal = filtered.toIntOrNull() ?: 0
-                                        if (minVal < 60) {
-                                            manualMinutesStr = filtered
-                                            applyManualDuration(manualHoursStr, manualMinutesStr)
-                                        }
-                                    },
-                                    label = { Text("الدقائق (اختياري)") },
-                                    placeholder = { Text("0") },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // وقت الانتهاء المحسوب تلقائياً
-                            val crossesMidnight = endDateMillis > startDateMillis
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            Icons.Default.Check,
-                                            contentDescription = null,
-                                            tint = AccentEmerald,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "وقت الانتهاء التلقائي:",
-                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
-                                        )
-                                    }
-                                    Text(
-                                        text = "${Formatters.formatClockTimeArabic(endHour, endMinute)} ${if (crossesMidnight) "(${Formatters.formatDate(endDateMillis)}) 🌙" else ""}",
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, color = PrimaryTeal)
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        // ─── التبويب الثاني: اختيار (وقت البدء ووقت الانتهاء) ───
+                    if (timeMode == SessionTimeMode.PICKER) {
+                        // ─── التبويب الأول: اختيار (وقت البدء ووقت الانتهاء) ───
                         Column {
                             Text(
                                 text = "انقر على الساعة لتغيير الوقت، أو على التاريخ إذا أردت تعديل اليوم:",
@@ -857,15 +908,7 @@ fun AddEditSessionBottomSheet(
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .background(PrimaryTeal.copy(alpha = 0.08f))
-                                                .clickable {
-                                                    TimePickerDialog(
-                                                        context,
-                                                        { _, h, min -> onStartTimeChanged(h, min) },
-                                                        startHour,
-                                                        startMinute,
-                                                        false
-                                                    ).show()
-                                                }
+                                                .clickable { showStartTimePicker = true }
                                                 .padding(vertical = 6.dp, horizontal = 4.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
@@ -879,19 +922,7 @@ fun AddEditSessionBottomSheet(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .clickable {
-                                                    val cal = Calendar.getInstance().apply { timeInMillis = startDateMillis }
-                                                    DatePickerDialog(
-                                                        context,
-                                                        { _, y, m, d ->
-                                                            cal.set(y, m, d)
-                                                            startDateMillis = cal.timeInMillis
-                                                        },
-                                                        cal.get(Calendar.YEAR),
-                                                        cal.get(Calendar.MONTH),
-                                                        cal.get(Calendar.DAY_OF_MONTH)
-                                                    ).show()
-                                                }
+                                                .clickable { showStartDatePicker = true }
                                                 .padding(vertical = 2.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.Center
@@ -933,15 +964,7 @@ fun AddEditSessionBottomSheet(
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .background(AccentEmerald.copy(alpha = 0.08f))
-                                                .clickable {
-                                                    TimePickerDialog(
-                                                        context,
-                                                        { _, h, min -> onEndTimeChanged(h, min) },
-                                                        endHour,
-                                                        endMinute,
-                                                        false
-                                                    ).show()
-                                                }
+                                                .clickable { showEndTimePicker = true }
                                                 .padding(vertical = 6.dp, horizontal = 4.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
@@ -955,20 +978,7 @@ fun AddEditSessionBottomSheet(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .clickable {
-                                                    val cal = Calendar.getInstance().apply { timeInMillis = endDateMillis }
-                                                    DatePickerDialog(
-                                                        context,
-                                                        { _, y, m, d ->
-                                                            cal.set(y, m, d)
-                                                            endDateMillis = cal.timeInMillis
-                                                            overnightNotice = null
-                                                        },
-                                                        cal.get(Calendar.YEAR),
-                                                        cal.get(Calendar.MONTH),
-                                                        cal.get(Calendar.DAY_OF_MONTH)
-                                                    ).show()
-                                                }
+                                                .clickable { showEndDatePicker = true }
                                                 .padding(vertical = 2.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.Center
@@ -993,13 +1003,15 @@ fun AddEditSessionBottomSheet(
                                 }
                             }
 
-                            // إشعار التقديم التلقائي إلى اليوم التالي (عبر منتصف الليل)
-                            if (overnightNotice != null) {
+                            // إشعار الانتقال لليوم التالي / أيام قادمة
+                            if (dayDescription != null || overnightNotice != null) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
-                                    border = BorderStroke(1.dp, Color(0xFF93C5FD)),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isDark) Color(0xFF0E2338) else Color(0xFFEFF6FF)
+                                    ),
+                                    border = BorderStroke(1.dp, if (isDark) Color(0xFF1D4ED8) else Color(0xFF93C5FD)),
                                     shape = RoundedCornerShape(10.dp)
                                 ) {
                                     Row(
@@ -1007,16 +1019,16 @@ fun AddEditSessionBottomSheet(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
-                                            Icons.Default.Info,
+                                            imageVector = if (isEndNight) Icons.Default.DarkMode else Icons.Default.WbSunny,
                                             contentDescription = null,
-                                            tint = Color(0xFF2563EB),
+                                            tint = if (isEndNight) (if (isDark) Color(0xFF93C5FD) else Color(0xFF2563EB)) else (if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706)),
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = overnightNotice!!,
+                                            text = dayDescription ?: overnightNotice.orEmpty(),
                                             style = MaterialTheme.typography.bodySmall.copy(
-                                                color = Color(0xFF1E40AF),
+                                                color = if (isDark) Color(0xFF93C5FD) else Color(0xFF1E40AF),
                                                 fontWeight = FontWeight.Medium,
                                                 fontSize = 11.sp
                                             )
@@ -1025,61 +1037,156 @@ fun AddEditSessionBottomSheet(
                                 }
                             }
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // شرائح المدد السريعة بنقرة واحدة (تشمل حتى 48 ساعة)
-                    Text(
-                        text = "أو ضبط المدة مباشرة بنقرة واحدة:",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                        val quickDurations = listOf(
-                            Pair("نصف ساعة", 30),
-                            Pair("1 ساعة", 60),
-                            Pair("ساعتان", 120),
-                            Pair("3 ساعات", 180),
-                            Pair("4 ساعات", 240),
-                            Pair("6 ساعات", 360),
-                            Pair("8 ساعات", 480),
-                            Pair("12 ساعة", 720),
-                            Pair("24 ساعة (يوم)", 1440),
-                            Pair("يومان (48 س)", 2880),
-                            Pair("3 أيام (72 س)", 4320),
-                            Pair("5 أيام (120 س)", 7200),
-                            Pair("10 أيام (240 س)", 14400)
-                        )
-                        items(quickDurations) { (label, qMins) ->
-                            val isSelected = grossMinutes == qMins
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = {
-                                    val newEndMs = startCal.timeInMillis + (qMins * 60000L)
-                                    val newEndCal = Calendar.getInstance().apply { timeInMillis = newEndMs }
-                                    endDateMillis = newEndCal.timeInMillis
-                                    endHour = newEndCal.get(Calendar.HOUR_OF_DAY)
-                                    endMinute = newEndCal.get(Calendar.MINUTE)
-                                    manualHoursStr = (qMins / 60).toString()
-                                    manualMinutesStr = if (qMins % 60 > 0) (qMins % 60).toString() else ""
-                                    val startDay = Calendar.getInstance().apply { timeInMillis = startDateMillis }.get(Calendar.DAY_OF_YEAR)
-                                    val endDay = newEndCal.get(Calendar.DAY_OF_YEAR)
-                                    if (endDay != startDay) {
-                                        overnightNotice = "🌙 ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
-                                    } else {
-                                        overnightNotice = null
-                                    }
-                                },
-                                label = {
-                                    Text(label, fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 11.sp)
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal,
-                                    selectedLabelColor = Color.White
+                    } else {
+                        // ─── التبويب الثاني: يدوي (حقل الساعات + وقت البداية) ───
+                        Column {
+                            // وقت وتاريخ البدء
+                            Text(
+                                text = "وقت وتاريخ بدء السقي:",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp)),
+                                color = MaterialTheme.colorScheme.surface,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                        .fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // النقر على الوقت يفتح محدد الساعة مباشرة
+                                    Row(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable { showStartTimePicker = true }
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.AccessTime, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = Formatters.formatClockTimeArabic(startHour, startMinute),
+                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                                        )
+                                    }
+
+                                    // النقر على التاريخ يفتح محدد اليوم عند رغبة المستخدم فقط
+                                    Row(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable { showStartDatePicker = true }
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = Formatters.formatDate(startDateMillis),
+                                            style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // حقل عدد الساعات والدقائق
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                MosaribTextField(
+                                    value = manualHoursStr,
+                                    onValueChange = {
+                                        manualHoursStr = it.filter { c -> c.isDigit() }.take(3)
+                                        applyManualDuration(manualHoursStr, manualMinutesStr)
+                                    },
+                                    label = "عدد الساعات *",
+                                    placeholder = "مثلاً: 3",
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, tint = PrimaryTeal) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                MosaribTextField(
+                                    value = manualMinutesStr,
+                                    onValueChange = {
+                                        val filtered = it.filter { c -> c.isDigit() }
+                                        val minVal = filtered.toIntOrNull() ?: 0
+                                        if (minVal < 60) {
+                                            manualMinutesStr = filtered
+                                            applyManualDuration(manualHoursStr, manualMinutesStr)
+                                        }
+                                    },
+                                    label = "الدقائق",
+                                    placeholder = "0",
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // وقت الانتهاء المحسوب بدقة
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.surface,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = if (isEndNight) Icons.Default.DarkMode else Icons.Default.WbSunny,
+                                            contentDescription = null,
+                                            tint = if (isEndNight) (if (isDark) Color(0xFF93C5FD) else Color(0xFF2563EB)) else (if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706)),
+                                            modifier = Modifier.size(17.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "وقت الانتهاء:",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
+                                        )
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = Formatters.formatClockTimeArabic(endHour, endMinute),
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, color = PrimaryTeal)
+                                        )
+                                        if (dayDescription != null) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE),
+                                                border = BorderStroke(0.5.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD))
+                                            ) {
+                                                Text(
+                                                    text = dayDescription!!,
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1),
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 10.sp
+                                                    ),
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -1087,19 +1194,29 @@ fun AddEditSessionBottomSheet(
                         Spacer(modifier = Modifier.height(8.dp))
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-                            border = BorderStroke(1.dp, Color(0xFFF87171)),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isDark) Color(0xFF2B1313) else Color(0xFFFEF2F2)
+                            ),
+                            border = BorderStroke(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFF87171)),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
+                                Icon(
+                                    Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
+                                    modifier = Modifier.size(18.dp)
+                                )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "⚠️ لا يمكن تسجيل سقي بساعات خيالية! الحد الأقصى المسموح به للدورة الواحدة هو 10 أيام (240 ساعة / 14,400 دقيقة).",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB91C1C), fontWeight = FontWeight.Bold)
+                                    text = "الحد الأقصى المسموح به للدورة الواحدة هو 10 أيام (240 ساعة).",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 )
                             }
                         }
@@ -1107,143 +1224,259 @@ fun AddEditSessionBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // قسم الوقت المهدور (التوقفات / الأعطال)
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp)),
-                color = if (wastedTotalMinutes > 0) Color(0xFFFFF7ED) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "⏱️ الوقت المهدور والتوقفات (يُخصم)",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = if (wastedTotalMinutes > 0) Color(0xFFC2410C) else MaterialTheme.colorScheme.onSurface
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        TextButton(
-                            onClick = { showWastedDetails = !showWastedDetails },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = if (showWastedDetails) "إخفاء" else "تحديد هدر",
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    if (showWastedDetails || wastedTotalMinutes > 0) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = wastedHoursStr,
-                                onValueChange = { wastedHoursStr = it.filter { char -> char.isDigit() } },
-                                label = { Text("ساعات الهدر") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                            OutlinedTextField(
-                                value = wastedMinutesStr,
-                                onValueChange = { wastedMinutesStr = it.filter { char -> char.isDigit() } },
-                                label = { Text("دقائق الهدر") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        OutlinedTextField(
-                            value = wastedReason,
-                            onValueChange = { wastedReason = it },
-                            label = { Text("سبب التوقف (عطل مضخة، نقص ديزل...)") },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp)
-                        )
-                        if (wastedTotalMinutes > grossMinutes && grossMinutes > 0) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "❌ لا يمكن أن يكون الهدر أكبر من مدة السقي بتاتاً!",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
-                            )
-                        }
-                    }
+            // سعر الساعة (مباشرة تحت تحديد الساعات بتصميم أخف وأصغر وبحواشي مقللة)
+            Column {
+                MosaribTextField(
+                    value = pricePerHourStr,
+                    onValueChange = { pricePerHourStr = Formatters.formatAmountInput(it) },
+                    label = "سعر الساعة ($currencySymbol) *",
+                    leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = AccentGold, modifier = Modifier.size(18.dp)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isDense = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (pricePerHour > 0) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = Formatters.amountToArabicWords(pricePerHour, currencySymbol),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 11.sp
+                        ),
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Historical sale price for this session. Purchase rates are captured separately.
-            OutlinedTextField(
-                value = pricePerHourStr,
-                onValueChange = { pricePerHourStr = Formatters.formatAmountInput(it) },
-                label = { Text("سعر البيع ($currencySymbol/ساعة)") },
-                leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = AccentGold) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            )
+            // بطاقة منسدلة في الأخير: خيارات إضافية (الوقت المهدور والخصم)
+            var showExtraOptions by remember {
+                mutableStateOf(wastedTotalMinutes > 0 || discountAmount > 0)
+            }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // قسم الخصم والمسامحة
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp)),
-                color = if (discountAmount > 0) Color(0xFFF0FDF4) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                color = when {
+                    wastedTotalMinutes > 0 || discountAmount > 0 -> if (isDark) Color(0xFF162329) else Color(0xFFF8FAFC)
+                    isDark -> Color(0xFF141F25)
+                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                },
+                border = BorderStroke(
+                    1.dp,
+                    when {
+                        wastedTotalMinutes > 0 -> if (isDark) Color(0xFF9A3412) else Color(0xFFFED7AA)
+                        discountAmount > 0 -> if (isDark) Color(0xFF166534) else Color(0xFFBBF7D0)
+                        isDark -> Color(0xFF2A3C45)
+                        else -> Color(0xFFE2E8F0)
+                    }
+                ),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showExtraOptions = !showExtraOptions }
+                            .padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "🏷️ خصم ومسامحة للمزارع (مبلغ مالي)",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = if (discountAmount > 0) Color(0xFF15803D) else MaterialTheme.colorScheme.onSurface)
-                        )
-                        TextButton(onClick = { showDiscountDetails = !showDiscountDetails }) {
-                            Text(if (showDiscountDetails) "إخفاء" else "إضافة خصم")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.LocalOffer,
+                                contentDescription = null,
+                                tint = PrimaryTeal,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "خيارات إضافية (الوقت المهدور والخصم)",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (wastedTotalMinutes > 0) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (isDark) Color(0xFF261811) else Color(0xFFFFF7ED),
+                                    border = BorderStroke(0.5.dp, if (isDark) Color(0xFF9A3412) else Color(0xFFFED7AA))
+                                ) {
+                                    Text(
+                                        text = "هدر: ${Formatters.formatDurationArabic(wastedTotalMinutes)}",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = if (isDark) Color(0xFFFB923C) else Color(0xFFC2410C),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            if (discountAmount > 0) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (isDark) Color(0xFF11261B) else Color(0xFFF0FDF4),
+                                    border = BorderStroke(0.5.dp, if (isDark) Color(0xFF166534) else Color(0xFFBBF7D0))
+                                ) {
+                                    Text(
+                                        text = "خصم: ${Formatters.formatCurrency(discountAmount, currencySymbol)}",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Icon(
+                                imageVector = if (showExtraOptions) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
 
-                    if (showDiscountDetails || discountAmount > 0) {
+                    if (showExtraOptions) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // تفاصيل الوقت المهدور
+                        Text(
+                            text = "الوقت المهدور (يُخصم من السقي):",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        )
                         Spacer(modifier = Modifier.height(6.dp))
-                        OutlinedTextField(
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            MosaribTextField(
+                                value = wastedHoursStr,
+                                onValueChange = { wastedHoursStr = it.filter { char -> char.isDigit() } },
+                                label = "ساعات الهدر",
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+                            MosaribTextField(
+                                value = wastedMinutesStr,
+                                onValueChange = { wastedMinutesStr = it.filter { char -> char.isDigit() } },
+                                label = "دقائق الهدر",
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        MosaribTextField(
+                            value = wastedReason,
+                            onValueChange = { wastedReason = it },
+                            label = "سبب التوقف",
+                            placeholder = "مثال: عطل مضخة، نقص ديزل...",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            val commonWastedReasons = listOf("عطل مضخة", "نقص ديزل", "صيانة ليات", "انقطاع كهرباء", "توقف مؤقت")
+                            items(commonWastedReasons) { r ->
+                                val isSelected = wastedReason == r
+                                MosaribFilterChip(
+                                    selected = isSelected,
+                                    onClick = { wastedReason = if (isSelected) "" else r },
+                                    label = r
+                                )
+                            }
+                        }
+                        if (wastedTotalMinutes > grossMinutes && grossMinutes > 0) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isDark) Color(0xFF2B1313) else Color(0xFFFEF2F2),
+                                border = BorderStroke(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFFECACA))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.ErrorOutline,
+                                        contentDescription = null,
+                                        tint = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        "لا يمكن أن يكون الهدر أكبر من مدة السقي!",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // تفاصيل الخصم والمسامحة
+                        Text(
+                            text = "الخصم والمسامحة:",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        MosaribTextField(
                             value = discountAmountStr,
                             onValueChange = { discountAmountStr = Formatters.formatAmountInput(it) },
-                            label = { Text("مبلغ الخصم أو المسامحة ($currencySymbol)") },
+                            label = "مبلغ الخصم ($currencySymbol)",
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp)
+                            modifier = Modifier.fillMaxWidth()
                         )
+                        if (discountAmount > 0) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = Formatters.amountToArabicWords(discountAmount, currencySymbol),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D),
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                            )
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // بطاقة الحسابات الميدانية الشاملة (للمزارع وصاحب البئر وصافي الربح)
+            // بطاقة الحسابات الميدانية الشاملة
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = PrimaryTeal.copy(alpha = 0.08f))
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isDark) Color(0xFF141F25) else PrimaryTeal.copy(alpha = 0.08f)
+                ),
+                border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else PrimaryTeal.copy(alpha = 0.2f))
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     // سطر الساعات
@@ -1263,8 +1496,8 @@ fun AddEditSessionBottomSheet(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("الوقت المهدور المخصوم:", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFC2410C)))
-                            Text("- ${Formatters.formatDurationArabic(wastedTotalMinutes)}", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFC2410C), fontWeight = FontWeight.Bold))
+                            Text("الوقت المهدور المخصوم:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFFB923C) else Color(0xFFC2410C)))
+                            Text("- ${Formatters.formatDurationArabic(wastedTotalMinutes)}", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFFB923C) else Color(0xFFC2410C), fontWeight = FontWeight.Bold))
                         }
                     }
 
@@ -1287,13 +1520,19 @@ fun AddEditSessionBottomSheet(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color(0xFFE0F2FE), RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE))
+                                .border(1.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD), RoundedCornerShape(8.dp))
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("💧 مسجل على حساب صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold))
-                            Text(ownerName, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.WaterDrop, contentDescription = null, tint = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("مسجل على حساب صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                            }
+                            Text(ownerName, style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(
@@ -1305,70 +1544,243 @@ fun AddEditSessionBottomSheet(
                             Text("0.00 $currencySymbol (مدفوع من المالك)", style = MaterialTheme.typography.titleMedium.copy(color = AccentEmerald, fontWeight = FontWeight.ExtraBold))
                         }
                         Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("المحتسب على صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1)))
-                            Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("المحتسب على صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1)))
+                                Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.bodyMedium.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                            }
+                            if (finalFarmerCharge > 0) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    Formatters.amountToArabicWords(finalFarmerCharge, currencySymbol),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1),
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                )
+                            }
                         }
                     } else {
                         // المبلغ المطلوب من المزارع
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("المطلوب الصافي من العميل:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                            Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.titleLarge.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold))
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("المطلوب الصافي من العميل:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                                Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.titleLarge.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold))
+                            }
+                            if (finalFarmerCharge > 0) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    Formatters.amountToArabicWords(finalFarmerCharge, currencySymbol),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                )
+                            }
                         }
                     }
-
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // المبلغ المدفوع فوراً والمتبقي كدين
-            OutlinedTextField(
-                value = amountPaidStr,
-                onValueChange = { amountPaidStr = Formatters.formatAmountInput(it) },
-                label = { Text("المبلغ المدفوع فوراً نقدياً (اختياري)") },
-                placeholder = { Text("0") },
-                leadingIcon = { Icon(Icons.Default.Check, contentDescription = null, tint = AccentEmerald) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("session_paid_input"),
-                shape = RoundedCornerShape(12.dp)
-            )
+            // المبلغ المستلم نقدياً فوراً
+            val isFullPaid = finalFarmerCharge > 0 && amountPaid >= finalFarmerCharge
+            val excessAmount = if (!isBilledToWellOwner && amountPaid > finalFarmerCharge && finalFarmerCharge > 0) {
+                Formatters.roundMoney(amountPaid - finalFarmerCharge)
+            } else 0.0
+
+            Column {
+                Text(
+                    text = "المبلغ المستلم ($currencySymbol)",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B)
+                    ),
+                    modifier = Modifier.padding(bottom = 6.dp, start = 2.dp)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // 1. زر "دفع كامل" بجانب حقل المبلغ من جهة اليمين (في RTL) ومحاذي تماماً بارتفاع 52dp
+                    if (!isBilledToWellOwner && finalFarmerCharge > 0) {
+                        Surface(
+                            modifier = Modifier
+                                .height(52.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    amountPaidStr = if (isFullPaid) "" else Formatters.formatAmountInput(finalFarmerCharge.toString())
+                                },
+                            color = if (isFullPaid) AccentEmerald.copy(alpha = 0.12f) else (if (isDark) Color(0xFF141F25) else Color.White),
+                            border = BorderStroke(1.dp, if (isFullPaid) AccentEmerald else (if (isDark) Color(0xFF2A3F4D) else Color(0xFFCBD5E1))),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isFullPaid,
+                                    onCheckedChange = { checked ->
+                                        amountPaidStr = if (checked) Formatters.formatAmountInput(finalFarmerCharge.toString()) else ""
+                                    },
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "دفع كامل",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isFullPaid) AccentEmerald else MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    // 2. حقل المبلغ المستلم بمحاذاة تامة وبنفس الارتفاع والتنسيق
+                    MosaribTextField(
+                        value = amountPaidStr,
+                        onValueChange = { amountPaidStr = Formatters.formatAmountInput(it) },
+                        placeholder = "0",
+                        leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald) },
+                        trailingIcon = if (amountPaidStr.isNotBlank()) {
+                            {
+                                IconButton(onClick = { amountPaidStr = "" }) {
+                                    Icon(Icons.Default.Close, contentDescription = "مسح", modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        } else null,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("session_paid_input")
+                    )
+                }
+
+                if (amountPaid > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = Formatters.amountToArabicWords(amountPaid, currencySymbol),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = AccentEmerald,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                }
+
+                // إشعار الفائض النقدي وسند القبض المباشر
+                if (excessAmount > 0) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp)),
+                        color = if (isDark) Color(0xFF0F291E) else Color(0xFFECFDF5),
+                        border = BorderStroke(1.dp, if (isDark) Color(0xFF059669) else Color(0xFFA7F3D0)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = AccentEmerald,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "المبلغ المستلم أكبر من المطلوب بفائض: ${Formatters.formatCurrency(excessAmount, currencySymbol)}",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isDark) Color(0xFF6EE7B7) else Color(0xFF065F46)
+                                    )
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "سيتم تلقائياً إصدار سند قبض مباشر بالفائض (${Formatters.formatCurrency(excessAmount, currencySymbol)}) لتسديد ديون العميل السابقة إن وُجدت، أو قيده كرصيد دائن لصالحه عند الحفظ.",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = if (isDark) Color(0xFFA7F3D0) else Color(0xFF047857),
+                                    fontSize = 11.sp
+                                )
+                            )
+                        }
+                    }
+                }
+            }
 
             if (isBilledToWellOwner) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFFE0F2FE), RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE))
+                        .border(1.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD), RoundedCornerShape(8.dp))
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("المعاملة المحاسبية:", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1)))
-                    Text("مقاصة تخصم من مستحقات الشراء", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                    Text("المعاملة المحاسبية:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1)))
+                    Text("مقاصة تخصم من مستحقات الشراء", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
                 }
             } else if (remainingDebt > 0) {
                 Spacer(modifier = Modifier.height(6.dp))
-                Row(
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFFFEF2F2), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .clip(RoundedCornerShape(10.dp)),
+                    color = if (isDark) Color(0xFF2B1313) else Color(0xFFFEF2F2),
+                    border = BorderStroke(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFFECACA)),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("المتبقي بذمة العميل (دين):", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB91C1C)))
-                    Text(Formatters.formatCurrency(remainingDebt, currencySymbol), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFB91C1C), fontWeight = FontWeight.Bold))
+                    Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "المتبقي (آجل):",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            Text(
+                                text = Formatters.formatCurrency(remainingDebt, currencySymbol),
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = Formatters.amountToArabicWords(remainingDebt, currencySymbol),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 11.sp
+                            )
+                        )
+                    }
                 }
             }
 
@@ -1376,24 +1788,40 @@ fun AddEditSessionBottomSheet(
                 Text(if (showNotes) "إخفاء الملاحظات" else "إضافة ملاحظات (اختياري)")
             }
             if (showNotes) {
-                OutlinedTextField(
+                MosaribTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("ملاحظات الجلسة") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    label = "ملاحظات",
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Save Button
-            Button(
+            // Save Button (تسجيل وحفظ مع أيقونة دالة ودعم الحفظ الفوري للعميل الجديد)
+            MosaribButton(
+                text = if (initialSession == null) "تسجيل وحفظ" else "حفظ التعديلات",
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
                 onClick = {
-                    if (selectedCustomerId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes) {
+                    val trimmedInput = customerInputText.trim()
+                    val matchedCust = customers.find { it.name.trim().equals(trimmedInput, ignoreCase = true) }
+                    val finalCustId = if (selectedCustomerId > 0) selectedCustomerId else (matchedCust?.id ?: 0L)
+
+                    if (finalCustId == 0L && trimmedInput.isNotBlank()) {
+                        showQuickCustomerDialog = true
+                        return@MosaribButton
+                    }
+
+                    if (finalCustId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes) {
                         onSave(
                             initialSession?.id ?: 0L,
-                            selectedCustomerId,
+                            finalCustId,
                             legacyPumpName,
                             startCal.timeInMillis,
                             endCal.timeInMillis,
@@ -1412,21 +1840,71 @@ fun AddEditSessionBottomSheet(
                         onDismiss()
                     }
                 },
-                enabled = selectedCustomerId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes,
+                enabled = (selectedCustomerId > 0 || customerInputText.isNotBlank()) && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp)
-                    .testTag("save_session_button"),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
-            ) {
-                Text(
-                    text = if (initialSession == null) "حفظ وترحيل دورة السقي 💾" else "حفظ التعديلات 💾",
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 16.sp
-                )
-            }
+                    .testTag("save_session_button")
+            )
         }
+    }
+
+    // نوافذ اختيار الوقت والتاريخ المخصصة في التطبيق بدون استخدام نوافذ النظام
+    if (showStartTimePicker) {
+        MosaribTimePickerDialog(
+            initialHour24 = startHour,
+            initialMinute = startMinute,
+            title = "تحديد وقت بدء السقي",
+            onDismiss = { showStartTimePicker = false },
+            onTimeSelected = { h, m ->
+                onStartTimeChanged(h, m)
+                showStartTimePicker = false
+            }
+        )
+    }
+
+    if (showStartDatePicker) {
+        MosaribDatePickerDialog(
+            initialTimestamp = startDateMillis,
+            title = "تحديد تاريخ بدء السقي",
+            onDismiss = { showStartDatePicker = false },
+            onDateSelected = { newDate ->
+                val cal = Calendar.getInstance().apply { timeInMillis = newDate }
+                val startCalTemp = Calendar.getInstance().apply { timeInMillis = startDateMillis }
+                startCalTemp.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
+                startDateMillis = startCalTemp.timeInMillis
+                applyManualDuration(manualHoursStr, manualMinutesStr)
+                showStartDatePicker = false
+            }
+        )
+    }
+
+    if (showEndTimePicker) {
+        MosaribTimePickerDialog(
+            initialHour24 = endHour,
+            initialMinute = endMinute,
+            title = "تحديد وقت نهاية السقي",
+            onDismiss = { showEndTimePicker = false },
+            onTimeSelected = { h, m ->
+                onEndTimeChanged(h, m)
+                showEndTimePicker = false
+            }
+        )
+    }
+
+    if (showEndDatePicker) {
+        MosaribDatePickerDialog(
+            initialTimestamp = endDateMillis,
+            title = "تحديد تاريخ نهاية السقي",
+            onDismiss = { showEndDatePicker = false },
+            onDateSelected = { newDate ->
+                val cal = Calendar.getInstance().apply { timeInMillis = newDate }
+                val endCalTemp = Calendar.getInstance().apply { timeInMillis = endDateMillis }
+                endCalTemp.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
+                endDateMillis = endCalTemp.timeInMillis
+                overnightNotice = null
+                showEndDatePicker = false
+            }
+        )
     }
 
     if (showAddCustomerSheet) {
@@ -1462,6 +1940,189 @@ fun AddEditSessionBottomSheet(
                 }
             }
         )
+    }
+
+    if (showQuickCustomerDialog) {
+        var quickPhone by remember { mutableStateOf("") }
+        var quickIsWellOwner by remember { mutableStateOf(false) }
+        var isQuickSubmitting by remember { mutableStateOf(false) }
+
+        Dialog(onDismissRequest = { if (!isQuickSubmitting) showQuickCustomerDialog = false }) {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF141F25) else Color.White),
+                border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = PrimaryTeal.copy(alpha = 0.15f),
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.PersonAdd, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(22.dp))
+                            }
+                        }
+                        Column {
+                            Text(
+                                text = "تسجيل عميل جديد",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                            Text(
+                                text = "العميل غير مسجل من قبل، هل تريد حفظه؟",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "الاسم: ${customerInputText.trim()}",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal)
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    MosaribTextField(
+                        value = quickPhone,
+                        onValueChange = { quickPhone = it },
+                        label = "رقم الهاتف (اختياري)",
+                        placeholder = "05xxxxxxxx",
+                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = Color.Gray) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth(),
+                        isDense = true
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "نوع التسجيل:",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { quickIsWellOwner = false },
+                            color = if (!quickIsWellOwner) PrimaryTeal.copy(alpha = 0.15f) else (if (isDark) Color(0xFF162329) else Color(0xFFF8FAFC)),
+                            border = BorderStroke(1.dp, if (!quickIsWellOwner) PrimaryTeal else Color.Gray.copy(alpha = 0.3f)),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(
+                                text = "مزارع",
+                                modifier = Modifier.padding(vertical = 10.dp),
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = if (!quickIsWellOwner) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (!quickIsWellOwner) PrimaryTeal else MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
+
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { quickIsWellOwner = true },
+                            color = if (quickIsWellOwner) Color(0xFF0284C7).copy(alpha = 0.15f) else (if (isDark) Color(0xFF162329) else Color(0xFFF8FAFC)),
+                            border = BorderStroke(1.dp, if (quickIsWellOwner) Color(0xFF0284C7) else Color.Gray.copy(alpha = 0.3f)),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(
+                                text = "صاحب بئر",
+                                modifier = Modifier.padding(vertical = 10.dp),
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = if (quickIsWellOwner) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (quickIsWellOwner) Color(0xFF0284C7) else MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        MosaribOutlinedButton(
+                            text = "إلغاء",
+                            onClick = { showQuickCustomerDialog = false },
+                            modifier = Modifier.weight(1f),
+                            height = 46.dp
+                        )
+                        MosaribButton(
+                            text = "حفظ العميل وتسجيل السقي",
+                            isLoading = isQuickSubmitting,
+                            onClick = {
+                                if (!isQuickSubmitting) {
+                                    isQuickSubmitting = true
+                                    coroutineScope.launch {
+                                        try {
+                                            val newCustomer = Customer(
+                                                name = customerInputText.trim(),
+                                                phone = quickPhone.trim(),
+                                                isWellOwner = quickIsWellOwner
+                                            )
+                                            val newId = onCreateCustomer(newCustomer)
+                                            showQuickCustomerDialog = false
+                                            // حفظ بيانات السقي مباشرة بعد الحفظ
+                                            onSave(
+                                                initialSession?.id ?: 0L,
+                                                newId,
+                                                legacyPumpName,
+                                                startCal.timeInMillis,
+                                                endCal.timeInMillis,
+                                                hours,
+                                                minutes,
+                                                pricePerHour,
+                                                amountPaid,
+                                                notes,
+                                                billedToCustomerId,
+                                                wastedTotalMinutes,
+                                                wastedReason,
+                                                discountAmount,
+                                                historicalCostPricePerHour,
+                                                initialSession?.pumpSourceId
+                                            )
+                                            onDismiss()
+                                        } catch (e: Exception) {
+                                            isQuickSubmitting = false
+                                            Toast.makeText(context, "فشل حفظ العميل: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
+                            },
+                            modifier = Modifier.weight(1.8f),
+                            height = 46.dp
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1507,13 +2168,12 @@ fun SettleSessionDialog(
                     }
                 }
 
-                OutlinedTextField(
+                MosaribTextField(
                     value = amountStr,
                     onValueChange = { amountStr = Formatters.formatAmountInput(it) },
-                    label = { Text("المبلغ المراد سداده ($currencySymbol) *", fontWeight = FontWeight.Bold) },
+                    label = "المبلغ المراد سداده ($currencySymbol) *",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 val parsed = Formatters.parseAmountInput(amountStr)
@@ -1527,25 +2187,25 @@ fun SettleSessionDialog(
                 // طرق الدفع
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("نقداً", "تحويل بنكي", "شبكة").forEach { method ->
-                        FilterChip(
+                        MosaribFilterChip(
                             selected = paymentMethod == method,
                             onClick = { paymentMethod = method },
-                            label = { Text(method, fontWeight = FontWeight.Bold) }
+                            label = method
                         )
                     }
                 }
 
-                OutlinedTextField(
+                MosaribTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("البيان والملاحظات", fontWeight = FontWeight.Bold) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
+                    label = "البيان والملاحظات",
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
-            Button(
+            MosaribButton(
+                text = "تأكيد السداد وإصدار السند",
                 onClick = {
                     val amt = Formatters.parseAmountInput(amountStr)
                     if (amt > 0) {
@@ -1554,11 +2214,9 @@ fun SettleSessionDialog(
                     }
                 },
                 enabled = Formatters.parseAmountInput(amountStr) > 0,
-                colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text("تأكيد السداد وإصدار السند", fontWeight = FontWeight.Bold)
-            }
+                containerColor = AccentEmerald,
+                modifier = Modifier.fillMaxWidth()
+            )
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
@@ -1627,7 +2285,7 @@ private fun TimePickerBox(
             Spacer(modifier = Modifier.height(2.dp))
 
             Text(
-                text = "انقر للتعديل 🕒",
+                text = "انقر للتعديل",
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontSize = 10.sp,
                     color = androidx.compose.ui.graphics.Color.Gray

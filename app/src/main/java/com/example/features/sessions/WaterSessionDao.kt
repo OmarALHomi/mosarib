@@ -22,6 +22,9 @@ interface WaterSessionDao {
     @Query("SELECT * FROM water_sessions WHERE customerId = :customerId OR billedToCustomerId = :customerId ORDER BY startTime DESC")
     fun getSessionsForCustomer(customerId: Long): Flow<List<WaterSession>>
 
+    @Query("SELECT * FROM water_sessions WHERE (customerId = :customerId OR billedToCustomerId = :customerId) AND remainingDebt > 0 ORDER BY startTime ASC")
+    suspend fun getUnpaidSessionsForCustomerDirect(customerId: Long): List<WaterSession>
+
     @Query("SELECT * FROM water_sessions WHERE startTime >= :fromTime AND startTime <= :toTime ORDER BY startTime DESC")
     fun getSessionsBetween(fromTime: Long, toTime: Long): Flow<List<WaterSession>>
 

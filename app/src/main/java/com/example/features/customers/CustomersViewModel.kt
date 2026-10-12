@@ -1,12 +1,16 @@
 package com.example.features.customers
 
 import android.app.Application
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.database.AppDatabase
 import com.example.core.license.LicenseManager
 import com.example.core.ui.ToastMessage
 import com.example.core.ui.ToastType
+import com.example.core.util.ComprehensiveCustomerRow
+import com.example.core.util.ComprehensiveReportTotals
 import com.example.core.util.FileSharingHelper
 import com.example.core.util.PdfReportGenerator
 import com.example.features.sessions.WaterSession
@@ -180,6 +184,176 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    // --- ميزات الاستيراد والتصدير من وإلى إكسل (Smart Excel & CSV) ---
+    private val _importDrafts = MutableStateFlow<List<ImportedCustomerDraft>?>(null)
+    val importDrafts: StateFlow<List<ImportedCustomerDraft>?> = _importDrafts.asStateFlow()
+
+    private val _isImporting = MutableStateFlow(false)
+    val isImporting: StateFlow<Boolean> = _isImporting.asStateFlow()
+
+    fun startImportFromUri(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            _isImporting.value = true
+            try {
+                val existing = customerRepo.getAllCustomersDirect()
+                val drafts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    CustomerExcelHelper.parseCustomerFile(context, uri, existing)
+                }
+                if (drafts.isEmpty()) {
+                    showToast("الملف فارغ أو لم يتم التعرف على بيانات عملاء صالحة", ToastType.WARNING)
+                } else {
+                    _importDrafts.value = drafts
+                }
+            } catch (e: Exception) {
+                showToast("تعذر قراءة ملف الإكسل: ${e.localizedMessage}", ToastType.ERROR)
+            } finally {
+                _isImporting.value = false
+            }
+        }
+    }
+
+    fun updateImportDraft(updatedDraft: ImportedCustomerDraft) {
+        val current = _importDrafts.value ?: return
+        _importDrafts.value = current.map { if (it.localId == updatedDraft.localId) updatedDraft else it }
+    }
+
+    fun removeImportDraft(localId: String) {
+        val current = _importDrafts.value ?: return
+        _importDrafts.value = current.filter { it.localId != localId }
+    }
+
+    fun toggleSelectAllImportDrafts(select: Boolean) {
+        val current = _importDrafts.value ?: return
+        _importDrafts.value = current.map {
+            if (it.validationError == null) it.copy(isSelected = select) else it
+        }
+    }
+
+    fun confirmImport(updateExisting: Boolean) {
+        val current = _importDrafts.value ?: return
+        val selected = current.filter { it.isSelected && it.name.isNotBlank() }
+        if (selected.isEmpty()) {
+            showToast("يرجى تحديد حساب واحد على الأقل للاستيراد", ToastType.WARNING)
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                var insertedCount = 0
+                var updatedCount = 0
+                val existingCustomers = customerRepo.getAllCustomersDirect()
+                val toInsert = mutableListOf<Customer>()
+
+                for (draft in selected) {
+                    val existing = if (updateExisting) {
+                        existingCustomers.find {
+                            (draft.existingCustomerId != null && it.id == draft.existingCustomerId) ||
+                                it.name.trim().equals(draft.name.trim(), ignoreCase = true) ||
+                                (it.phone.isNotBlank() && it.phone == draft.phone)
+                        }
+                    } else null
+
+                    if (existing != null) {
+                        val updated = existing.copy(
+                            phone = if (draft.phone.isNotBlank()) draft.phone else existing.phone,
+                            farmName = if (draft.farmName.isNotBlank()) draft.farmName else existing.farmName,
+                            location = if (draft.location.isNotBlank()) draft.location else existing.location,
+                            notes = if (draft.notes.isNotBlank()) draft.notes else existing.notes,
+                            customPricePerHour = draft.customPricePerHour ?: existing.customPricePerHour,
+                            isWellOwner = draft.isWellOwner || existing.isWellOwner
+                        )
+                        customerRepo.updateCustomer(updated)
+                        updatedCount++
+                    } else {
+                        toInsert.add(
+                            Customer(
+                                name = draft.name.trim(),
+                                phone = draft.phone.trim(),
+                                farmName = draft.farmName.trim(),
+                                location = draft.location.trim(),
+                                notes = draft.notes.trim(),
+                                customPricePerHour = draft.customPricePerHour,
+                                isWellOwner = draft.isWellOwner,
+                                isBeneficiary = false,
+                                createdAt = System.currentTimeMillis(),
+                                isArchived = false
+                            )
+                        )
+                    }
+                }
+
+                if (toInsert.isNotEmpty()) {
+                    customerRepo.insertCustomers(toInsert)
+                    insertedCount = toInsert.size
+                }
+
+                _importDrafts.value = null
+
+                val msg = when {
+                    insertedCount > 0 && updatedCount > 0 -> "تم استيراد $insertedCount حساب جديد وتحديث $updatedCount حساب بنجاح"
+                    insertedCount > 0 -> "تم استيراد $insertedCount حساب بنجاح"
+                    updatedCount > 0 -> "تم تحديث $updatedCount حساب بنجاح"
+                    else -> "اكتملت العملية"
+                }
+                showToast(msg, ToastType.SUCCESS)
+            } catch (e: Exception) {
+                showToast("حدث خطأ أثناء حفظ الحسابات: ${e.localizedMessage}", ToastType.ERROR)
+            }
+        }
+    }
+
+    fun cancelImport() {
+        _importDrafts.value = null
+    }
+
+    fun exportCustomersToExcel(context: Context) {
+        viewModelScope.launch {
+            try {
+                val list = rawCustomersWithBalance.value
+                if (list.isEmpty()) {
+                    showToast("لا يوجد عملاء لتصديرهم", ToastType.WARNING)
+                    return@launch
+                }
+                val currency = appConfig.value.currencySymbol
+                val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    CustomerExcelHelper.exportCustomersToExcel(context, list, currency)
+                }
+                FileSharingHelper.shareFile(
+                    context = context,
+                    file = file,
+                    mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    title = "مشاركة قائمة العملاء والمزارع (Excel)"
+                )
+            } catch (e: Exception) {
+                showToast("فشل تصدير ملف الإكسل: ${e.localizedMessage}", ToastType.ERROR)
+            }
+        }
+    }
+
+    fun exportCustomersToCsv(context: Context) {
+        viewModelScope.launch {
+            try {
+                val list = rawCustomersWithBalance.value
+                if (list.isEmpty()) {
+                    showToast("لا يوجد عملاء لتصديرهم", ToastType.WARNING)
+                    return@launch
+                }
+                val currency = appConfig.value.currencySymbol
+                val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    CustomerExcelHelper.exportCustomersToCsv(context, list, currency)
+                }
+                FileSharingHelper.shareFile(
+                    context = context,
+                    file = file,
+                    mimeType = "text/csv",
+                    title = "مشاركة قائمة العملاء (CSV)"
+                )
+            } catch (e: Exception) {
+                showToast("فشل تصدير ملف CSV: ${e.localizedMessage}", ToastType.ERROR)
+            }
+        }
+    }
+
     fun getCustomerSessions(customerId: Long): Flow<List<WaterSession>> =
         sessionRepo.allSessions.combine(db.customerDao().getCustomerById(customerId)) { sessions, _ ->
             sessions.filter {
@@ -342,7 +516,13 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             val totalCost = com.example.core.util.Formatters.roundMoney(maxOf(0.0, grossCost - discountAmount))
             val roundedPaid = com.example.core.util.Formatters.roundMoney(amountPaid)
             val isOwnerOrBilled = billedToCustomerId != null || customerRepo.getCustomerByIdDirect(customerId)?.isWellOwner == true
-            val debt = if (isOwnerOrBilled) 0.0 else com.example.core.util.Formatters.roundMoney(maxOf(0.0, totalCost - roundedPaid))
+
+            val excessPaid = if (!isOwnerOrBilled && roundedPaid > totalCost) {
+                com.example.core.util.Formatters.roundMoney(roundedPaid - totalCost)
+            } else 0.0
+
+            val effectivePaidForSession = if (excessPaid > 0.0) totalCost else roundedPaid
+            val debt = if (isOwnerOrBilled) 0.0 else com.example.core.util.Formatters.roundMoney(maxOf(0.0, totalCost - effectivePaidForSession))
 
             val session = WaterSession(
                 id = 0L,
@@ -353,7 +533,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 durationMinutes = totalMinutes,
                 pricePerHour = com.example.core.util.Formatters.roundMoney(pricePerHour),
                 totalAmount = totalCost,
-                amountPaid = roundedPaid,
+                amountPaid = effectivePaidForSession,
                 remainingDebt = debt,
                 notes = notes,
                 isLive = false,
@@ -371,9 +551,54 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
                 return@launch
             }
-            sessionRepo.insertSession(session)
+            val newSessionId = sessionRepo.insertSession(session)
             LicenseManager.recordOperationPerformed(getApplication(), totalOps)
-            showToast("تم تسجيل دورة السقي بنجاح وتحديث كشف الحساب", ToastType.SUCCESS)
+
+            if (excessPaid > 0.0) {
+                val unpaidSessions = db.waterSessionDao()
+                    .getUnpaidSessionsForCustomerDirect(customerId)
+                    .filter { it.id != newSessionId }
+
+                var remainingExcess = excessPaid
+                val settledSessionIds = mutableListOf<Long>()
+                for (oldSession in unpaidSessions) {
+                    if (remainingExcess <= 0.0) break
+                    val settleAmt = minOf(remainingExcess, oldSession.remainingDebt)
+                    val newOldPaid = com.example.core.util.Formatters.roundMoney(oldSession.amountPaid + settleAmt)
+                    val newOldDebt = com.example.core.util.Formatters.roundMoney(maxOf(0.0, oldSession.totalAmount - newOldPaid))
+                    sessionRepo.updateSession(oldSession.copy(amountPaid = newOldPaid, remainingDebt = newOldDebt))
+                    remainingExcess = com.example.core.util.Formatters.roundMoney(remainingExcess - settleAmt)
+                    settledSessionIds.add(oldSession.id)
+                }
+
+                val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(4)}"
+                val notesText = if (settledSessionIds.isNotEmpty()) {
+                    val listStr = settledSessionIds.joinToString(", ") { "#$it" }
+                    if (remainingExcess > 0.0) {
+                        "سند قبض: سداد ديون سابقة لجلسات ($listStr) بمبلغ ${com.example.core.util.Formatters.formatCurrency(excessPaid - remainingExcess, "")} ومتبقي ${com.example.core.util.Formatters.formatCurrency(remainingExcess, "")} رصيد دائن للعميل (فائض نقدي من سقي #$newSessionId)"
+                    } else {
+                        "سند قبض: سداد ديون سابقة لجلسات ($listStr) بالكامل من فائض نقدي لسقي #$newSessionId"
+                    }
+                } else {
+                    "سند قبض: رصيد دائن لصالح العميل (فائض نقدي من سقي #$newSessionId)"
+                }
+
+                val voucher = Voucher(
+                    voucherNumber = vNumber,
+                    type = VoucherType.RECEIPT,
+                    customerId = customerId,
+                    sessionId = newSessionId,
+                    amount = excessPaid,
+                    category = if (settledSessionIds.isNotEmpty()) "سداد ديون سابقة" else "رصيد دائن للعميل",
+                    paymentMethod = "نقداً",
+                    date = System.currentTimeMillis(),
+                    notes = notesText
+                )
+                db.voucherDao().insertVoucher(voucher)
+                showToast("تم تسجيل السقي وسند قبض بالفائض (${com.example.core.util.Formatters.formatCurrency(excessPaid, "")}) وتسوية الحساب", ToastType.SUCCESS)
+            } else {
+                showToast("تم تسجيل دورة السقي بنجاح وتحديث كشف الحساب", ToastType.SUCCESS)
+            }
         }
     }
 
@@ -415,7 +640,13 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             val totalCost = com.example.core.util.Formatters.roundMoney(maxOf(0.0, grossCost - discountAmount))
             val roundedPaid = com.example.core.util.Formatters.roundMoney(amountPaid)
             val isOwnerOrBilled = billedToCustomerId != null || customerRepo.getCustomerByIdDirect(customerId)?.isWellOwner == true
-            val debt = if (isOwnerOrBilled) 0.0 else com.example.core.util.Formatters.roundMoney(maxOf(0.0, totalCost - roundedPaid))
+
+            val excessPaid = if (!isOwnerOrBilled && roundedPaid > totalCost) {
+                com.example.core.util.Formatters.roundMoney(roundedPaid - totalCost)
+            } else 0.0
+
+            val effectivePaidForSession = if (excessPaid > 0.0) totalCost else roundedPaid
+            val debt = if (isOwnerOrBilled) 0.0 else com.example.core.util.Formatters.roundMoney(maxOf(0.0, totalCost - effectivePaidForSession))
 
             val session = WaterSession(
                 id = id,
@@ -426,7 +657,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 durationMinutes = totalMinutes,
                 pricePerHour = com.example.core.util.Formatters.roundMoney(pricePerHour),
                 totalAmount = totalCost,
-                amountPaid = roundedPaid,
+                amountPaid = effectivePaidForSession,
                 remainingDebt = debt,
                 notes = notes,
                 isLive = false,
@@ -438,7 +669,52 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 pumpSourceId = pumpSourceId
             )
             sessionRepo.updateSession(session)
-            showToast("تم تعديل دورة السقي بنجاح وتحديث كشف الحساب", ToastType.SUCCESS)
+
+            if (excessPaid > 0.0) {
+                val unpaidSessions = db.waterSessionDao()
+                    .getUnpaidSessionsForCustomerDirect(customerId)
+                    .filter { it.id != id }
+
+                var remainingExcess = excessPaid
+                val settledSessionIds = mutableListOf<Long>()
+                for (oldSession in unpaidSessions) {
+                    if (remainingExcess <= 0.0) break
+                    val settleAmt = minOf(remainingExcess, oldSession.remainingDebt)
+                    val newOldPaid = com.example.core.util.Formatters.roundMoney(oldSession.amountPaid + settleAmt)
+                    val newOldDebt = com.example.core.util.Formatters.roundMoney(maxOf(0.0, oldSession.totalAmount - newOldPaid))
+                    sessionRepo.updateSession(oldSession.copy(amountPaid = newOldPaid, remainingDebt = newOldDebt))
+                    remainingExcess = com.example.core.util.Formatters.roundMoney(remainingExcess - settleAmt)
+                    settledSessionIds.add(oldSession.id)
+                }
+
+                val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(4)}"
+                val notesText = if (settledSessionIds.isNotEmpty()) {
+                    val listStr = settledSessionIds.joinToString(", ") { "#$it" }
+                    if (remainingExcess > 0.0) {
+                        "سند قبض: سداد ديون سابقة لجلسات ($listStr) بمبلغ ${com.example.core.util.Formatters.formatCurrency(excessPaid - remainingExcess, "")} ومتبقي ${com.example.core.util.Formatters.formatCurrency(remainingExcess, "")} رصيد دائن للعميل (فائض نقدي من سقي #$id)"
+                    } else {
+                        "سند قبض: سداد ديون سابقة لجلسات ($listStr) بالكامل من فائض نقدي لسقي #$id"
+                    }
+                } else {
+                    "سند قبض: رصيد دائن لصالح العميل (فائض نقدي من سقي #$id)"
+                }
+
+                val voucher = Voucher(
+                    voucherNumber = vNumber,
+                    type = VoucherType.RECEIPT,
+                    customerId = customerId,
+                    sessionId = id,
+                    amount = excessPaid,
+                    category = if (settledSessionIds.isNotEmpty()) "سداد ديون سابقة" else "رصيد دائن للعميل",
+                    paymentMethod = "نقداً",
+                    date = System.currentTimeMillis(),
+                    notes = notesText
+                )
+                db.voucherDao().insertVoucher(voucher)
+                showToast("تم تعديل السقي وسند قبض بالفائض (${com.example.core.util.Formatters.formatCurrency(excessPaid, "")}) وتسوية الحساب", ToastType.SUCCESS)
+            } else {
+                showToast("تم تعديل دورة السقي بنجاح وتحديث كشف الحساب", ToastType.SUCCESS)
+            }
         }
     }
 
@@ -683,6 +959,62 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 _pdfReadyFile.value = Pair(file, "كشف حساب ${customer.name}")
             } catch (e: Exception) {
                 showToast("فشل في إنشاء كشف الحساب: ${e.localizedMessage}", ToastType.ERROR)
+            }
+        }
+    }
+
+    fun generateAllCustomersReportPdf() {
+        viewModelScope.launch {
+            try {
+                val list = rawCustomersWithBalance.value
+                if (list.isEmpty()) {
+                    showToast("لا يوجد عملاء لطباعة الكشف", ToastType.WARNING)
+                    return@launch
+                }
+                val config = appConfig.value
+                val rows = list.map { item ->
+                    ComprehensiveCustomerRow(
+                        customerName = item.customer.name,
+                        phone = item.customer.phone,
+                        farmName = item.customer.farmName,
+                        sessionsCount = item.totalSessionsCount,
+                        waterMinutes = item.totalMinutes,
+                        billed = item.totalBilledAmount,
+                        paid = item.totalPaidAmount,
+                        balance = item.balance,
+                        isWellOwner = item.customer.isWellOwner,
+                        purchasedMinutes = item.totalPurchasedMinutes,
+                        chargeablePurchasedMinutes = item.totalChargeablePurchasedMinutes,
+                        ownerWasteMinutes = item.totalPurchasedMinutes - item.totalChargeablePurchasedMinutes,
+                        ownerWasteCredit = item.totalOwnerWasteCredit,
+                        payableBalance = item.payableBalance,
+                        receivableBalance = item.receivableBalance
+                    )
+                }
+                val totals = ComprehensiveReportTotals(
+                    sessionsCount = list.sumOf { it.totalSessionsCount },
+                    waterMinutes = list.sumOf { it.totalMinutes },
+                    totalRevenue = list.sumOf { it.totalBilledAmount },
+                    totalCollected = list.sumOf { it.totalPaidAmount },
+                    totalOutstandingDebt = list.sumOf { it.receivableBalance.coerceAtLeast(0.0) },
+                    totalExpenses = list.sumOf { it.totalDisbursedAmount },
+                    netProfit = list.sumOf { it.totalPaidAmount } - list.sumOf { it.totalDisbursedAmount },
+                    purchasedMinutes = list.sumOf { it.totalPurchasedMinutes },
+                    chargeablePurchasedMinutes = list.sumOf { it.totalChargeablePurchasedMinutes },
+                    ownerPurchaseAmount = list.sumOf { it.totalPurchaseAmount },
+                    ownerWasteCredit = list.sumOf { it.totalOwnerWasteCredit },
+                    ownerPayable = list.sumOf { it.payableBalance }
+                )
+                val file = PdfReportGenerator.generateComprehensiveReportPdf(
+                    context = getApplication(),
+                    config = config,
+                    periodTitle = "كشف حسابات العملاء الشامل",
+                    totals = totals,
+                    customerRows = rows
+                )
+                _pdfReadyFile.value = Pair(file, "كشف حسابات العملاء الشامل")
+            } catch (e: Exception) {
+                showToast("فشل في إنشاء التقرير: ${e.localizedMessage}", ToastType.ERROR)
             }
         }
     }

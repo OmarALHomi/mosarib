@@ -31,6 +31,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Agriculture
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AttachMoney
@@ -132,13 +134,14 @@ fun SessionCardItem(
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
-            // 1. الصف العلوي: معلومات العميل على اليمين (في RTL) و 3 أزرار دائرية/مربعة ناعمة على اليسار
+            // 1. الصف العلوي الملخص: أيقونة (عميل أو صاحب بئر) بجانبها الاسم + الأزرار الأربعة (إرسال، طباعة، تعديل، حذف) بدون زر قائمة
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // العميل والمزرعة
+                // العميل / صاحب البئر
+                val isWellOwner = customer?.isWellOwner == true
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -147,367 +150,409 @@ fun SessionCardItem(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(34.dp)
                             .clip(CircleShape)
-                            .background(PrimaryTeal.copy(alpha = 0.15f)),
+                            .background(
+                                if (isWellOwner) Color(0xFFE1F5FE)
+                                else PrimaryTeal.copy(alpha = 0.12f)
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.WaterDrop,
-                            contentDescription = null,
-                            tint = PrimaryTeal,
-                            modifier = Modifier.size(20.dp)
+                            imageVector = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Agriculture,
+                            contentDescription = if (isWellOwner) "صاحب بئر" else "عميل",
+                            tint = if (isWellOwner) Color(0xFF0288D1) else PrimaryTeal,
+                            modifier = Modifier.size(19.dp)
                         )
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    Column {
-                        Text(
-                            text = customer?.name ?: "عميل غير محدد",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            ),
-                            maxLines = 1
-                        )
-                        Text(
-                            text = if (!customer?.farmName.isNullOrBlank()) customer?.farmName!! else "جلسة ري",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Medium
-                            ),
-                            maxLines = 1
-                        )
-                    }
+                    Text(
+                        text = customer?.name ?: "عميل غير محدد",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 15.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
 
-                // الأزرار الثلاثة على اليسار (في RTL: إرسال الرسالة، ثم PDF، ثم خيارات إضافية)
+                // الأزرار الأربعة مباشرة كأيقونات بدون نصوص وبدون زر القائمة (إرسال، طباعة، تعديل، حذف)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // زر إرسال الفاتورة (واتساب / SMS)
+                    // 1. إرسال (واتساب / SMS)
                     Box(
                         modifier = Modifier
-                            .size(34.dp)
+                            .size(30.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .background(Color(0xFF2E7D32).copy(alpha = 0.12f))
                             .clickable { onMessageClick() },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = "إرسال الفاتورة",
-                            tint = PrimaryTeal,
-                            modifier = Modifier.size(17.dp)
+                            tint = Color(0xFF2E7D32),
+                            modifier = Modifier.size(15.dp)
                         )
                     }
 
-                    // زر فاتورة PDF
+                    // 2. طباعة PDF
                     Box(
                         modifier = Modifier
-                            .size(34.dp)
+                            .size(30.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .background(AccentGold.copy(alpha = 0.14f))
                             .clickable { onPdfClick() },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.PictureAsPdf,
                             contentDescription = "فاتورة PDF",
-                            tint = PrimaryTeal,
-                            modifier = Modifier.size(17.dp)
+                            tint = AccentGold,
+                            modifier = Modifier.size(15.dp)
                         )
                     }
 
-                    // زر القائمة (المزيد)
-                    Box {
+                    // 3. تعديل
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(PrimaryTeal.copy(alpha = 0.12f))
+                            .clickable { onEditClick() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "تعديل",
+                            tint = PrimaryTeal,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+
+                    // 4. حذف
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFFE53935).copy(alpha = 0.12f))
+                            .clickable { onDeleteClick() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "حذف",
+                            tint = Color(0xFFE53935),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+
+                    // زر طي عند التوسيع
+                    if (isExpanded) {
                         Box(
                             modifier = Modifier
-                                .size(34.dp)
+                                .size(30.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                .clickable { menuExpanded = true },
+                                .background(PrimaryTeal.copy(alpha = 0.12f))
+                                .clickable { isExpanded = false },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = "خيارات",
+                                imageVector = Icons.Default.KeyboardArrowUp,
+                                contentDescription = "طي التفاصيل",
                                 tint = PrimaryTeal,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
+                    }
+                }
+            }
 
-                        DropdownMenu(
-                            expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false }
+            // 2. الصف الثاني الملخص: يختفي عند التوسيع لمنع تكرار البيانات
+            AnimatedVisibility(visible = !isExpanded) {
+                Column {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                            .clickable { isExpanded = true }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // عدد الساعات
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AccessTime,
+                                contentDescription = null,
+                                tint = PrimaryTeal,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = Formatters.formatDurationArabic(session.durationMinutes),
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
+
+                        // المبلغ المتبقي
+                        if (session.remainingDebt > 0) {
+                            Text(
+                                text = "المتبقي: ${Formatters.formatCurrency(session.remainingDebt, currencySymbol)}",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color(0xFFE53935),
+                                    fontSize = 13.sp
+                                )
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFFE8F5E9))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "خالص ومسدد",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF2E7D32),
+                                        fontSize = 11.sp
+                                    )
+                                )
+                            }
+                        }
+
+                        // زر سداد وسهم التوسيع
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("إرسال الفاتورة (واتساب / SMS)") },
-                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = PrimaryTeal) },
-                                onClick = {
-                                    menuExpanded = false
-                                    onMessageClick()
+                            if (session.remainingDebt > 0 && onSettleClick != null) {
+                                Button(
+                                    onClick = onSettleClick,
+                                    colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(28.dp)
+                                ) {
+                                    Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(13.dp))
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text("سداد", fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
                                 }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("تعديل") },
-                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                onClick = {
-                                    menuExpanded = false
-                                    onEditClick()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("حذف", color = Color(0xFFE53935)) },
-                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
-                                onClick = {
-                                    menuExpanded = false
-                                    onDeleteClick()
-                                }
+                            }
+
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = "توسيع",
+                                tint = PrimaryTeal,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 2. الصف الأوسط: كبسولة كاملة للمدة وسعر الساعة
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                    .padding(horizontal = 12.dp, vertical = 7.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // المدة مع أيقونة الساعة (في RTL: أيقونة الساعة أولاً على اليمين ثم النص)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.AccessTime,
-                        contentDescription = null,
-                        tint = PrimaryTeal,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = Formatters.formatDurationArabic(session.durationMinutes),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
-                }
-
-                // سعر الساعة بالعربي (في RTL: على اليسار)
-                Text(
-                    text = "@ ${Formatters.formatNumber(session.pricePerHour)} $currencySymbol ساعة",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 3. الجزء السفلي: مقسم لعمودين مع فاصل رأسي
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // العمود الأيمن (في RTL): الإجمالي والمسدد والمتبقي (3 كبسولات عربية)
-                Column(
-                    modifier = Modifier.weight(1.05f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "الإجمالي",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier.padding(bottom = 1.dp)
-                    )
-
-                    // كبسولة الإجمالي
-                    SessionMetricPill(
-                        label = "الإجمالي",
-                        value = "${Formatters.formatNumber(session.totalAmount)} $currencySymbol",
-                        bgColor = AccentEmerald.copy(alpha = 0.15f),
-                        textColor = AccentEmerald
-                    )
-
-                    // كبسولة المدفوع
-                    SessionMetricPill(
-                        label = "المدفوع",
-                        value = "${Formatters.formatNumber(session.amountPaid)} $currencySymbol",
-                        bgColor = AccentEmerald.copy(alpha = 0.15f),
-                        textColor = AccentEmerald
-                    )
-
-                    // كبسولة المتبقي
-                    if (session.remainingDebt > 0) {
-                        SessionMetricPill(
-                            label = "المتبقي",
-                            value = "${Formatters.formatNumber(session.remainingDebt)} $currencySymbol",
-                            bgColor = Color(0xFFE53935).copy(alpha = 0.15f),
-                            textColor = Color(0xFFC62828)
-                        )
-                    } else {
-                        SessionMetricPill(
-                            label = "المتبقي",
-                            value = "0 $currencySymbol (خالص)",
-                            bgColor = AccentEmerald.copy(alpha = 0.15f),
-                            textColor = AccentEmerald
-                        )
-                    }
-                }
-
-                // فاصل رأسي رفيع
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 8.dp)
-                        .width(1.dp)
-                        .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                )
-
-                // العمود الأيسر (في RTL): وقت السقي من-إلى والتاريخ + المبلغ المتبقي/الإجمالي بالعريض والمحمر + كتابة المبلغ بالعربي
-                Column(
-                    modifier = Modifier.weight(0.95f),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    val startTimeStr = Formatters.formatTime(session.startTime)
-                    val endTimeStr = Formatters.formatTime(session.endTime)
-                    val dateStr = Formatters.formatDate(session.startTime)
-
-                    Text(
-                        text = "فترة السقي والتاريخ",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                    Text(
-                        text = "من $startTimeStr إلى $endTimeStr",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = PrimaryTeal,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.5.sp
-                        ),
-                        maxLines = 1
-                    )
-                    Text(
-                        text = dateStr,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 10.5.sp
-                        ),
-                        maxLines = 1
-                    )
-
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    val highlightAmount = if (session.remainingDebt > 0) session.remainingDebt else session.totalAmount
-                    val highlightColor = if (session.remainingDebt > 0) Color(0xFFB71C1C) else PrimaryTeal
-
-                    Text(
-                        text = "${Formatters.formatNumber(highlightAmount)} $currencySymbol",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = highlightColor,
-                            fontSize = 18.sp
-                        )
-                    )
-
-                    Text(
-                        text = Formatters.amountToArabicWords(highlightAmount, currencySymbol),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 10.sp,
-                            lineHeight = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        ),
-                        maxLines = 2
-                    )
-                }
-            }
-
-            if (session.notes.isNotBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "ملاحظة: ${session.notes}",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    maxLines = 1
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // شريط السداد وخاصية توسيع الكرت لعرض تواريخ السداد
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-                    .clickable { isExpanded = !isExpanded }
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = PrimaryTeal,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (session.remainingDebt == 0.0) "خالص ومسدد بالكامل (عرض التفاصيل)" else "سجل السداد وسندات القبض",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = if (session.remainingDebt == 0.0) AccentEmerald else PrimaryTeal
-                        )
-                    )
-                }
-
-                if (session.remainingDebt > 0 && onSettleClick != null) {
-                    Button(
-                        onClick = onSettleClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                        modifier = Modifier.height(30.dp)
-                    ) {
-                        Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("سداد", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
-                }
-            }
-
+            // 3. عند التوسيع (اكسباند): تظهر تفاصيل كرت السقي بكاملها كما هي الآن
             AnimatedVisibility(visible = isExpanded) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                        .padding(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    // كبسولة كاملة للمدة وسعر الساعة
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AccessTime,
+                                contentDescription = null,
+                                tint = PrimaryTeal,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = Formatters.formatDurationArabic(session.durationMinutes),
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
+
+                        Text(
+                            text = "@ ${Formatters.formatNumber(session.pricePerHour)} $currencySymbol ساعة",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // تفاصيل الإجمالي والمسدد والمتبقي ووقت السقي
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Min),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1.05f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "الإجمالي",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                ),
+                                modifier = Modifier.padding(bottom = 1.dp)
+                            )
+
+                            SessionMetricPill(
+                                label = "الإجمالي",
+                                value = "${Formatters.formatNumber(session.totalAmount)} $currencySymbol",
+                                bgColor = AccentEmerald.copy(alpha = 0.15f),
+                                textColor = AccentEmerald
+                            )
+
+                            SessionMetricPill(
+                                label = "المدفوع",
+                                value = "${Formatters.formatNumber(session.amountPaid)} $currencySymbol",
+                                bgColor = AccentEmerald.copy(alpha = 0.15f),
+                                textColor = AccentEmerald
+                            )
+
+                            if (session.remainingDebt > 0) {
+                                SessionMetricPill(
+                                    label = "المتبقي",
+                                    value = "${Formatters.formatNumber(session.remainingDebt)} $currencySymbol",
+                                    bgColor = Color(0xFFE53935).copy(alpha = 0.15f),
+                                    textColor = Color(0xFFC62828)
+                                )
+                            } else {
+                                SessionMetricPill(
+                                    label = "المتبقي",
+                                    value = "0 $currencySymbol (خالص)",
+                                    bgColor = AccentEmerald.copy(alpha = 0.15f),
+                                    textColor = AccentEmerald
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp)
+                                .width(1.dp)
+                                .fillMaxHeight()
+                                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        )
+
+                        Column(
+                            modifier = Modifier.weight(0.95f),
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            val startTimeStr = Formatters.formatTime(session.startTime)
+                            val endTimeStr = Formatters.formatTime(session.endTime)
+                            val dateStr = Formatters.formatDate(session.startTime)
+
+                            Text(
+                                text = "فترة السقي والتاريخ",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                            Text(
+                                text = "من $startTimeStr إلى $endTimeStr",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = PrimaryTeal,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.5.sp
+                                ),
+                                maxLines = 1
+                            )
+                            Text(
+                                text = dateStr,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 10.5.sp
+                                ),
+                                maxLines = 1
+                            )
+
+                            Spacer(modifier = Modifier.height(2.dp))
+
+                            val highlightAmount = if (session.remainingDebt > 0) session.remainingDebt else session.totalAmount
+                            val highlightColor = if (session.remainingDebt > 0) Color(0xFFB71C1C) else PrimaryTeal
+
+                            Text(
+                                text = "${Formatters.formatNumber(highlightAmount)} $currencySymbol",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = highlightColor,
+                                    fontSize = 18.sp
+                                )
+                            )
+
+                            Text(
+                                text = Formatters.amountToArabicWords(highlightAmount, currencySymbol),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 10.sp,
+                                    lineHeight = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                maxLines = 2
+                            )
+                        }
+                    }
+
+                    if (session.notes.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "ملاحظة: ${session.notes}",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            maxLines = 1
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                            .padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                     // الدفعة المسددة مقدماً
                     val upfront = Math.max(0.0, session.amountPaid - linkedVouchers.sumOf { it.amount })
                     if (upfront > 0) {
@@ -578,10 +623,60 @@ fun SessionCardItem(
                             style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFE53935), fontWeight = FontWeight.Bold)
                         )
                     }
+
+                    // زر السداد في العرض المفصل
+                    if (session.remainingDebt > 0 && onSettleClick != null) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Button(
+                            onClick = onSettleClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(34.dp)
+                        ) {
+                            Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                "سداد المبلغ المتبقي (${Formatters.formatCurrency(session.remainingDebt, currencySymbol)})",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    // زر طي التفاصيل أسفل الكرت
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { isExpanded = false }
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowUp,
+                            contentDescription = null,
+                            tint = PrimaryTeal,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "طي التفاصيل",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = PrimaryTeal,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
                 }
             }
         }
     }
+}
 }
 
 @Composable

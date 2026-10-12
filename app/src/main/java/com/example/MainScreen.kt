@@ -1,16 +1,21 @@
 package com.example
 
+import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.Assessment
@@ -23,10 +28,14 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -52,9 +61,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,6 +76,7 @@ import com.example.features.customers.CustomerDetailScreen
 import com.example.features.customers.CustomersScreen
 import com.example.features.customers.CustomersViewModel
 import com.example.features.home.HomeScreen
+import com.example.features.onboarding.OnboardingScreen
 import com.example.features.reports.ReportsScreen
 import com.example.features.splash.SplashScreen
 import com.example.features.reports.ReportsViewModel
@@ -113,11 +125,20 @@ fun MainApp(
     MosaribTheme(darkTheme = darkTheme) {
         // Arabic RTL layout provider
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            val context = LocalContext.current
             var showSplashScreen by remember { mutableStateOf(true) }
+            var showOnboarding by remember { mutableStateOf(!LicenseManager.isOnboardingCompleted(context)) }
             var isBiometricUnlocked by remember { mutableStateOf(false) }
             var selectedCustomerId by remember { mutableLongStateOf(0L) }
             var showAboutScreen by remember { mutableStateOf(false) }
             var showLicenseDialog by remember { mutableStateOf(false) }
+            var showExitConfirmationDialog by remember { mutableStateOf(false) }
+
+            // اعتراض زر التراجع لإظهار رسالة تأكيد الخروج من أي شاشة يؤدي التراجع منها للخروج من التطبيق
+            val shouldInterceptExit = !showSplashScreen && !showOnboarding && !showAboutScreen && selectedCustomerId == 0L
+            BackHandler(enabled = shouldInterceptExit) {
+                showExitConfirmationDialog = true
+            }
 
             val isActivated by settingsViewModel.isActivated.collectAsStateWithLifecycle()
             val operationsCount by settingsViewModel.operationsCount.collectAsStateWithLifecycle()
@@ -129,6 +150,8 @@ fun MainApp(
 
             if (showSplashScreen) {
                 SplashScreen(onTimeout = { showSplashScreen = false })
+            } else if (showOnboarding) {
+                OnboardingScreen(onFinish = { showOnboarding = false })
             } else if (appConfig.biometricEnabled && !isBiometricUnlocked) {
                 BiometricLockScreen(onUnlock = { isBiometricUnlocked = true })
             } else if (showAboutScreen) {
@@ -309,6 +332,91 @@ fun MainApp(
                     onActivated = { showLicenseDialog = false }
                 )
             }
+
+            if (showExitConfirmationDialog) {
+                val context = LocalContext.current
+                val activity = context as? Activity
+                ExitConfirmationDialog(
+                    onConfirmExit = {
+                        showExitConfirmationDialog = false
+                        activity?.finishAffinity()
+                    },
+                    onDismiss = {
+                        showExitConfirmationDialog = false
+                    }
+                )
+            }
         }
     }
+}
+
+@Composable
+fun ExitConfirmationDialog(
+    onConfirmExit: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE53935).copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                    contentDescription = null,
+                    tint = Color(0xFFE53935),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        },
+        title = {
+            Text(
+                text = "تأكيد الخروج",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        text = {
+            Text(
+                text = "هل أنت متأكد من رغبتك في إغلاق والخروج من تطبيق المُسَرِّب؟",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirmExit,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("خروج", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("إلغاء", fontWeight = FontWeight.SemiBold)
+            }
+        },
+        shape = RoundedCornerShape(22.dp),
+        containerColor = MaterialTheme.colorScheme.surface
+    )
 }
