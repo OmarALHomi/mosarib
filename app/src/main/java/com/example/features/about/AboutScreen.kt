@@ -3,6 +3,7 @@ package com.example.features.about
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -78,6 +79,7 @@ fun AboutScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    BackHandler { onBack() }
     val context = LocalContext.current
     var isActivated by remember { mutableStateOf(LicenseManager.isActivated(context)) }
     var showActivationDialog by remember { mutableStateOf(false) }
