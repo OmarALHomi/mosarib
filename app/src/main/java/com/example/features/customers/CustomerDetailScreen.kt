@@ -311,19 +311,17 @@ fun CustomerDetailScreen(
     val receiptItems = remember(vouchers) {
         vouchers.filter { it.type == VoucherType.RECEIPT }.map { CustomerLedgerItem.ReceiptItem(it) }
     }
-    val standaloneReceiptItems = remember(receiptItems) {
-        receiptItems.filter { it.voucher.sessionId == null }
-    }
     val disbursementItems = remember(vouchers) {
         vouchers.filter { it.type == VoucherType.EXPENSE }.map { CustomerLedgerItem.DisbursementItem(it) }
     }
-    val standaloneDisbursementItems = remember(disbursementItems) {
-        disbursementItems.filter { !it.voucher.notes.contains("[شراء #") }
+
+    val allLedgerItems = remember(sessionItems, purchaseItems, receiptItems, disbursementItems) {
+        (sessionItems + purchaseItems + receiptItems + disbursementItems).sortedByDescending { it.timestamp }
     }
 
-    val filteredItems = remember(selectedFilter, sessionItems, purchaseItems, receiptItems, disbursementItems, standaloneDisbursementItems) {
+    val filteredItems = remember(selectedFilter, allLedgerItems, sessionItems, purchaseItems, receiptItems, disbursementItems) {
         when (selectedFilter) {
-            CustomerOpFilter.ALL -> (sessionItems + purchaseItems + standaloneReceiptItems + standaloneDisbursementItems).sortedByDescending { it.timestamp }
+            CustomerOpFilter.ALL -> allLedgerItems
             CustomerOpFilter.PURCHASES -> purchaseItems.sortedByDescending { it.timestamp }
             CustomerOpFilter.SESSIONS -> sessionItems.sortedByDescending { it.timestamp }
             CustomerOpFilter.RECEIPTS -> receiptItems.sortedByDescending { it.timestamp }
@@ -821,7 +819,7 @@ fun CustomerDetailScreen(
                             .filter { customer.isWellOwner || it != CustomerOpFilter.PURCHASES }
                             .forEach { filter ->
                             val count = when (filter) {
-                                CustomerOpFilter.ALL -> filteredItems.size
+                                CustomerOpFilter.ALL -> allLedgerItems.size
                                 CustomerOpFilter.PURCHASES -> purchaseItems.size
                                 CustomerOpFilter.SESSIONS -> sessions.size
                                 CustomerOpFilter.RECEIPTS -> receiptItems.size
