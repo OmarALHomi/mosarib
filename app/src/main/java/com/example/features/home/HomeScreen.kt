@@ -89,6 +89,7 @@ import com.example.features.vouchers.AddVoucherBottomSheet
 import com.example.features.vouchers.SettlementResultDialog
 import com.example.features.vouchers.VoucherType
 import com.example.features.vouchers.VouchersViewModel
+import com.example.features.wellowners.WellOwnerPurchaseBottomSheet
 import com.example.core.license.LicenseDialog
 import com.example.core.license.LicenseManager
 import androidx.compose.material.icons.filled.Key
@@ -141,6 +142,7 @@ fun HomeScreen(
     var showAddVoucherSheet by remember { mutableStateOf(false) }
     var voucherInitialType by remember { mutableStateOf(VoucherType.RECEIPT) }
     var showAddCustomerSheet by remember { mutableStateOf(false) }
+    var showAddPurchaseSheet by remember { mutableStateOf(false) }
 
     fun checkOperationAllowed(action: () -> Unit) {
         if (LicenseManager.canPerformOperation(context, operationsCount)) {
@@ -190,8 +192,9 @@ fun HomeScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = "المُسَرِّبْ",
-                                    style = MaterialTheme.typography.titleMedium.copy(
+                                    style = MaterialTheme.typography.titleLarge.copy(
                                         fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 20.sp,
                                         color = MaterialTheme.colorScheme.onSurface,
                                         letterSpacing = 0.5.sp
                                     )
@@ -199,19 +202,12 @@ fun HomeScreen(
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "• Mosarib",
-                                    style = MaterialTheme.typography.bodySmall.copy(
+                                    style = MaterialTheme.typography.bodyMedium.copy(
                                         color = AccentGold,
                                         fontWeight = FontWeight.Bold
                                     )
                                 )
                             }
-                            Text(
-                                text = "لوحة التحكم وإدارة مياه الآبار والسقي",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 11.sp
-                                )
-                            )
                         }
                     }
 
@@ -219,45 +215,6 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        if (!isActivated) {
-                            val remaining = (LicenseManager.FREE_OPERATIONS_LIMIT - operationsCount).coerceAtLeast(0)
-                            val progress = (operationsCount.toFloat() / LicenseManager.FREE_OPERATIONS_LIMIT).coerceIn(0f, 1f)
-                            val indicatorColor = when {
-                                remaining <= 10 -> Color(0xFFE53935)
-                                remaining <= 40 -> Color(0xFFF57C00)
-                                else -> PrimaryTeal
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .clickable { showActivationDialog = true },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    progress = { 1f },
-                                    modifier = Modifier.size(32.dp),
-                                    color = indicatorColor.copy(alpha = 0.2f),
-                                    strokeWidth = 2.5.dp
-                                )
-                                CircularProgressIndicator(
-                                    progress = { 1f - progress },
-                                    modifier = Modifier.size(32.dp),
-                                    color = indicatorColor,
-                                    strokeWidth = 2.5.dp
-                                )
-                                Text(
-                                    text = "$remaining",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 9.5.sp,
-                                        color = indicatorColor
-                                    )
-                                )
-                            }
-                        }
-
                         // Living Breathing Theme Toggle Button
                         LivingThemeToggleButton(
                             isDarkTheme = isDarkTheme,
@@ -301,7 +258,21 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         QuickActionCard(
-                            title = "قبض دفعة",
+                            title = "سقي جديد",
+                            subtitle = "تسجيل دورة ري",
+                            icon = Icons.Default.WaterDrop,
+                            iconBgColor = Color(0xFFE0F2FE),
+                            iconTint = PrimaryTeal,
+                            onClick = {
+                                checkOperationAllowed {
+                                    showAddManualSheet = true
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        QuickActionCard(
+                            title = "قبض",
                             subtitle = "سند تحصيل كاش",
                             icon = Icons.Default.Payments,
                             iconBgColor = Color(0xFFE8F5E9),
@@ -314,9 +285,14 @@ fun HomeScreen(
                             },
                             modifier = Modifier.weight(1f)
                         )
+                    }
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         QuickActionCard(
-                            title = "مصروف تشغيلي",
+                            title = "صرف",
                             subtitle = "صيانة ونفقات",
                             icon = Icons.AutoMirrored.Filled.ReceiptLong,
                             iconBgColor = Color(0xFFFFEBEE),
@@ -329,6 +305,20 @@ fun HomeScreen(
                             },
                             modifier = Modifier.weight(1f)
                         )
+
+                        QuickActionCard(
+                            title = "شراء",
+                            subtitle = "شراء ماء من بئر",
+                            icon = Icons.Default.LocalGasStation,
+                            iconBgColor = Color(0xFFF3E8FF),
+                            iconTint = Color(0xFF7E22CE),
+                            onClick = {
+                                checkOperationAllowed {
+                                    showAddPurchaseSheet = true
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
 
                     Row(
@@ -337,7 +327,7 @@ fun HomeScreen(
                     ) {
                         QuickActionCard(
                             title = "عميل جديد",
-                            subtitle = "إضافة مزارع وأرض",
+                            subtitle = "إضافة مزارع أو بئر",
                             icon = Icons.Default.PersonAdd,
                             iconBgColor = Color(0xFFE0F2FE),
                             iconTint = Color(0xFF0284C7),
@@ -346,37 +336,12 @@ fun HomeScreen(
                         )
 
                         QuickActionCard(
-                            title = "سجل العمليات",
-                            subtitle = "السندات والدورات",
-                            icon = Icons.Default.History,
-                            iconBgColor = Color(0xFFFEF3C7),
-                            iconTint = Color(0xFFD97706),
-                            onClick = { onNavigateToTab(AppTab.VOUCHERS) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        QuickActionCard(
-                            title = "التقارير الشاملة",
+                            title = "تقارير",
                             subtitle = "كشف الحساب والـ PDF",
                             icon = Icons.Default.Assessment,
-                            iconBgColor = Color(0xFFF3E8FF),
-                            iconTint = Color(0xFF7E22CE),
+                            iconBgColor = Color(0xFFFEF3C7),
+                            iconTint = Color(0xFFD97706),
                             onClick = onOpenReports,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        QuickActionCard(
-                            title = "الآبار والمصادر",
-                            subtitle = "إدارة مضخات المياه",
-                            icon = Icons.Default.LocalGasStation,
-                            iconBgColor = Color(0xFFE0F2FE),
-                            iconTint = PrimaryTeal,
-                            onClick = { onNavigateToTab(AppTab.SETTINGS) },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -484,13 +449,6 @@ fun HomeScreen(
             item {
                 WeeklyIrrigationBarChartCard(sessions = sessions)
             }
-
-            item {
-                FinancialRecoveryGaugeCard(
-                    homeStats = homeStats,
-                    currencySymbol = config.currencySymbol
-                )
-            }
         }
 
         // Floating Action Button لإضافة دورة سقي جديدة
@@ -556,6 +514,7 @@ fun HomeScreen(
     // Sheet: Add Voucher (سند قبض أو مصروف)
     if (showAddVoucherSheet) {
         AddVoucherBottomSheet(
+            initialType = voucherInitialType,
             customers = customers,
             allSessions = allSessions,
             currencySymbol = config.currencySymbol,
@@ -571,6 +530,29 @@ fun HomeScreen(
                     sessionId = sessionId,
                     selectedSessionIds = selectedSessionIds
                 )
+            }
+        )
+    }
+
+    // Sheet: Well Owner Purchase (شراء ماء من بئر)
+    if (showAddPurchaseSheet) {
+        val wellOwners = customers.filter { it.isWellOwner }
+        WellOwnerPurchaseBottomSheet(
+            owner = null,
+            availableOwners = wellOwners,
+            currencySymbol = config.currencySymbol,
+            onDismiss = { showAddPurchaseSheet = false },
+            onSaveWithOwner = { ownerId, date, duration, wasted, rate, paid, notes ->
+                customersViewModel.addOwnerPurchase(
+                    ownerCustomerId = ownerId,
+                    date = date,
+                    durationMinutes = duration,
+                    wastedMinutesOnOwner = wasted,
+                    purchaseRatePerHour = rate,
+                    notes = notes,
+                    amountPaid = paid
+                )
+                showAddPurchaseSheet = false
             }
         )
     }

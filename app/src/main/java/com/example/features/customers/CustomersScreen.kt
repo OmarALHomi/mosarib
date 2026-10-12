@@ -77,8 +77,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material.icons.filled.Agriculture
+import androidx.compose.material.icons.filled.Close
 import com.example.core.ui.EmptyStateView
 import com.example.core.ui.LuxuryToastNotification
+import com.example.core.ui.MosaribFilterChip
+import com.example.core.ui.MosaribFilterRow
+import com.example.core.ui.MosaribTextField
 import com.example.core.ui.SendMessageChoiceDialog
 import com.example.core.ui.StatBoxCard
 import com.example.core.util.FileSharingHelper
@@ -121,12 +126,31 @@ fun CustomersScreen(
         }
     }
 
-    // حساب إجمالي المركز المالي للشريط السفلي (دفتر الحسابات)
-    val totalOwedByCustomers = remember(rawCustomers) {
-        rawCustomers.sumOf { it.receivableBalance.coerceAtLeast(0.0) }
-    }
-    val totalOwedToWellOwners = remember(rawCustomers) {
-        rawCustomers.filter { it.customer.isWellOwner && it.balance > 0 }.sumOf { it.balance }
+    // حساب المركز المالي التفاعلي للشريط السفلي (دفتر الحسابات) تفاعلياً مع الفلتر المختار
+    val (cardOwedByUs, cardOwedToUs) = remember(rawCustomers, accountFilter) {
+        when (accountFilter) {
+            AccountFilter.ALL -> {
+                val owedBy = rawCustomers.sumOf {
+                    if (it.customer.isWellOwner) it.payableBalance
+                    else if (it.receivableBalance < 0) -it.receivableBalance
+                    else 0.0
+                }
+                val owedTo = rawCustomers.sumOf { it.receivableBalance.coerceAtLeast(0.0) }
+                Pair(owedBy, owedTo)
+            }
+            AccountFilter.FARMERS -> {
+                val farmers = rawCustomers.filter { !it.customer.isWellOwner }
+                val owedBy = farmers.sumOf { if (it.receivableBalance < 0) -it.receivableBalance else 0.0 }
+                val owedTo = farmers.sumOf { it.receivableBalance.coerceAtLeast(0.0) }
+                Pair(owedBy, owedTo)
+            }
+            AccountFilter.WELL_OWNERS -> {
+                val owners = rawCustomers.filter { it.customer.isWellOwner }
+                val owedBy = owners.sumOf { it.payableBalance }
+                val owedTo = owners.sumOf { it.receivableBalance.coerceAtLeast(0.0) }
+                Pair(owedBy, owedTo)
+            }
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -137,50 +161,47 @@ fun CustomersScreen(
             // 1. شريط تبويبات التصنيف الرئيسي (الكل / المزارعون / أصحاب الآبار) + البحث والفرز
             item {
                 Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
-                    // تبويبات الحسابات
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
+                    // تبويبات الحسابات الموحدة
+                    MosaribFilterRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(0.dp)
                     ) {
-                        item {
-                            FilterChip(
-                                selected = accountFilter == AccountFilter.ALL,
-                                onClick = { viewModel.setAccountFilter(AccountFilter.ALL) },
-                                label = { Text("الكل (${rawCustomers.size})", fontWeight = FontWeight.Bold) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal,
-                                    selectedLabelColor = Color.White
+                        MosaribFilterChip(
+                            selected = accountFilter == AccountFilter.ALL,
+                            onClick = { viewModel.setAccountFilter(AccountFilter.ALL) },
+                            label = "الكل",
+                            badgeCount = rawCustomers.size
+                        )
+
+                        MosaribFilterChip(
+                            selected = accountFilter == AccountFilter.FARMERS,
+                            onClick = { viewModel.setAccountFilter(AccountFilter.FARMERS) },
+                            label = "المزارعون",
+                            badgeCount = rawCustomers.count { !it.customer.isWellOwner },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Agriculture,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (accountFilter == AccountFilter.FARMERS) Color.White else PrimaryTeal
                                 )
-                            )
-                        }
-                        item {
-                            FilterChip(
-                                selected = accountFilter == AccountFilter.FARMERS,
-                                onClick = { viewModel.setAccountFilter(AccountFilter.FARMERS) },
-                                label = {
-                                    val count = rawCustomers.count { !it.customer.isWellOwner }
-                                    Text("👨‍🌾 المزارعون ($count)", fontWeight = FontWeight.Bold)
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal,
-                                    selectedLabelColor = Color.White
+                            }
+                        )
+
+                        MosaribFilterChip(
+                            selected = accountFilter == AccountFilter.WELL_OWNERS,
+                            onClick = { viewModel.setAccountFilter(AccountFilter.WELL_OWNERS) },
+                            label = "أصحاب الآبار",
+                            badgeCount = rawCustomers.count { it.customer.isWellOwner },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.WaterDrop,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (accountFilter == AccountFilter.WELL_OWNERS) Color.White else PrimaryTeal
                                 )
-                            )
-                        }
-                        item {
-                            FilterChip(
-                                selected = accountFilter == AccountFilter.WELL_OWNERS,
-                                onClick = { viewModel.setAccountFilter(AccountFilter.WELL_OWNERS) },
-                                label = {
-                                    val count = rawCustomers.count { it.customer.isWellOwner }
-                                    Text("💧 أصحاب الآبار ($count)", fontWeight = FontWeight.Bold)
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal,
-                                    selectedLabelColor = Color.White
-                                )
-                            )
-                        }
+                            }
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
@@ -191,11 +212,29 @@ fun CustomersScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OutlinedTextField(
+                        MosaribTextField(
                             value = searchQuery,
                             onValueChange = { viewModel.setSearchQuery(it) },
-                            placeholder = { Text("بحث بالاسم، المزرعة، أو الهاتف...") },
-                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                            placeholder = "بحث بالاسم، المزرعة، أو الهاتف...",
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = PrimaryTeal,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            trailingIcon = if (searchQuery.isNotEmpty()) {
+                                {
+                                    IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "مسح",
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            } else null,
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("customers_search_input"),
@@ -278,41 +317,26 @@ fun CustomersScreen(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    // خيارات الفرز
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item {
-                            FilterChip(
-                                selected = sortType == CustomerSort.NAME,
-                                onClick = { viewModel.setSortType(CustomerSort.NAME) },
-                                label = { Text("أبجدياً (الاسم)") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal.copy(alpha = 0.15f),
-                                    selectedLabelColor = PrimaryTeal
-                                )
-                            )
-                        }
-                        item {
-                            FilterChip(
-                                selected = sortType == CustomerSort.HIGHEST_DEBT,
-                                onClick = { viewModel.setSortType(CustomerSort.HIGHEST_DEBT) },
-                                label = { Text("الأعلى رصيداً") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal.copy(alpha = 0.15f),
-                                    selectedLabelColor = PrimaryTeal
-                                )
-                            )
-                        }
-                        item {
-                            FilterChip(
-                                selected = sortType == CustomerSort.MOST_WATER_HOURS,
-                                onClick = { viewModel.setSortType(CustomerSort.MOST_WATER_HOURS) },
-                                label = { Text("الأكثر استهلاكاً / ضخاً") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal.copy(alpha = 0.15f),
-                                    selectedLabelColor = PrimaryTeal
-                                )
-                            )
-                        }
+                    // خيارات الفرز الموحدة
+                    MosaribFilterRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        MosaribFilterChip(
+                            selected = sortType == CustomerSort.NAME,
+                            onClick = { viewModel.setSortType(CustomerSort.NAME) },
+                            label = "أبجدياً (الاسم)"
+                        )
+                        MosaribFilterChip(
+                            selected = sortType == CustomerSort.HIGHEST_DEBT,
+                            onClick = { viewModel.setSortType(CustomerSort.HIGHEST_DEBT) },
+                            label = "الأعلى رصيداً"
+                        )
+                        MosaribFilterChip(
+                            selected = sortType == CustomerSort.MOST_WATER_HOURS,
+                            onClick = { viewModel.setSortType(CustomerSort.MOST_WATER_HOURS) },
+                            label = "الأكثر استهلاكاً / ضخاً"
+                        )
                     }
                 }
             }
@@ -342,7 +366,7 @@ fun CustomersScreen(
             }
         }
 
-        // 3. الشريط المالي السفلي الثابت (دفتر الحسابات): عليك | (+) | لك
+        // 3. الشريط المالي السفلي الثابت (دفتر الحسابات) التفاعلي: عليك | (+) | لك
         Card(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -359,27 +383,65 @@ fun CustomersScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // مستحقات أصحاب الآبار (عليك)
+                // مستحقات عليك (مختلفة تفاعلياً حسب الفلتر المختار)
                 Column(horizontalAlignment = Alignment.Start) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(8.dp)
+                                .size(7.dp)
                                 .clip(CircleShape)
                                 .background(Color(0xFFE53935))
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "عليك (لأصحاب الآبار)",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color(0xFFE53935),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            )
-                        )
+                        when (accountFilter) {
+                            AccountFilter.ALL -> {
+                                Text(
+                                    text = "عليك",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = Color(0xFFE53935),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.5.sp
+                                    )
+                                )
+                            }
+                            AccountFilter.FARMERS -> {
+                                Icon(
+                                    imageVector = Icons.Default.Agriculture,
+                                    contentDescription = null,
+                                    tint = Color(0xFFE53935),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "عليك",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = Color(0xFFE53935),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.5.sp
+                                    )
+                                )
+                            }
+                            AccountFilter.WELL_OWNERS -> {
+                                Icon(
+                                    imageVector = Icons.Default.WaterDrop,
+                                    contentDescription = null,
+                                    tint = Color(0xFFE53935),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "عليك",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = Color(0xFFE53935),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.5.sp
+                                    )
+                                )
+                            }
+                        }
                     }
                     Text(
-                        text = Formatters.formatCurrency(totalOwedToWellOwners, config.currencySymbol),
+                        text = Formatters.formatCurrency(cardOwedByUs, config.currencySymbol),
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = Color(0xFFE53935),
                             fontWeight = FontWeight.ExtraBold,
@@ -405,27 +467,65 @@ fun CustomersScreen(
                     )
                 }
 
-                // ديون العملاء (لك)
+                // مستحقات لك (مختلفة تفاعلياً حسب الفلتر المختار)
                 Column(horizontalAlignment = Alignment.End) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "لك (على العملاء)",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color(0xFF2E7D32),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            )
-                        )
+                        when (accountFilter) {
+                            AccountFilter.ALL -> {
+                                Text(
+                                    text = "لك",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = Color(0xFF2E7D32),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.5.sp
+                                    )
+                                )
+                            }
+                            AccountFilter.FARMERS -> {
+                                Text(
+                                    text = "لك",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = Color(0xFF2E7D32),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.5.sp
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Agriculture,
+                                    contentDescription = null,
+                                    tint = Color(0xFF2E7D32),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                            AccountFilter.WELL_OWNERS -> {
+                                Text(
+                                    text = "لك",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = Color(0xFF2E7D32),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.5.sp
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Icon(
+                                    imageVector = Icons.Default.WaterDrop,
+                                    contentDescription = null,
+                                    tint = Color(0xFF2E7D32),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        }
                         Spacer(modifier = Modifier.width(4.dp))
                         Box(
                             modifier = Modifier
-                                .size(8.dp)
+                                .size(7.dp)
                                 .clip(CircleShape)
                                 .background(Color(0xFF2E7D32))
                         )
                     }
                     Text(
-                        text = Formatters.formatCurrency(totalOwedByCustomers, config.currencySymbol),
+                        text = Formatters.formatCurrency(cardOwedToUs, config.currencySymbol),
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = Color(0xFF2E7D32),
                             fontWeight = FontWeight.ExtraBold,

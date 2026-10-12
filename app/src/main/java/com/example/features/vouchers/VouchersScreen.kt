@@ -1748,6 +1748,7 @@ fun VouchersScreen(
 @Composable
 fun AddVoucherBottomSheet(
     initialVoucher: Voucher? = null,
+    initialType: VoucherType = initialVoucher?.type ?: VoucherType.RECEIPT,
     customers: List<Customer>,
     allSessions: List<WaterSession> = emptyList(),
     frequentDescriptions: List<String> = emptyList(),
@@ -1767,7 +1768,7 @@ fun AddVoucherBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isDark = isAppDark()
 
-    var type by remember { mutableStateOf(initialVoucher?.type ?: VoucherType.RECEIPT) }
+    var type by remember { mutableStateOf(initialType) }
     var selectedCustomerId by remember {
         mutableLongStateOf(
             if (initialVoucher?.type == VoucherType.RECEIPT && initialVoucher.customerId != null) initialVoucher.customerId!!

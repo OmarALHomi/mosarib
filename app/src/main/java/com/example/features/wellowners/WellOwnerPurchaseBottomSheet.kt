@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -58,20 +59,35 @@ import com.example.core.util.Formatters
 import com.example.features.customers.Customer
 import com.example.ui.theme.PrimaryTeal
 
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WellOwnerPurchaseBottomSheet(
-    owner: Customer,
+    owner: Customer? = null,
+    availableOwners: List<Customer> = emptyList(),
     currencySymbol: String,
     initialPurchase: WellOwnerPurchase? = null,
     onDismiss: () -> Unit,
-    onSave: (date: Long, durationMinutes: Int, wastedMinutesOnOwner: Int, purchaseRatePerHour: Double, amountPaid: Double, notes: String) -> Unit
+    onSaveWithOwner: ((ownerId: Long, date: Long, durationMinutes: Int, wastedMinutesOnOwner: Int, purchaseRatePerHour: Double, amountPaid: Double, notes: String) -> Unit)? = null,
+    onSave: ((date: Long, durationMinutes: Int, wastedMinutesOnOwner: Int, purchaseRatePerHour: Double, amountPaid: Double, notes: String) -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isDark = isAppDark()
     val now = System.currentTimeMillis()
     var date by remember(initialPurchase) { mutableLongStateOf(initialPurchase?.date ?: now) }
     var showDatePicker by remember { mutableStateOf(false) }
+
+    val ownersList = remember(availableOwners, owner) {
+        if (owner != null) listOf(owner) else availableOwners.filter { it.isWellOwner }
+    }
+    var selectedOwner by remember(owner, ownersList) {
+        mutableStateOf(owner ?: ownersList.firstOrNull())
+    }
+    var ownerDropdownExpanded by remember { mutableStateOf(false) }
 
     var hoursText by remember(initialPurchase) {
         mutableStateOf(initialPurchase?.let { (it.durationMinutes / 60).toString() } ?: "")
@@ -86,10 +102,10 @@ fun WellOwnerPurchaseBottomSheet(
         mutableStateOf(initialPurchase?.let { if (it.wastedMinutesOnOwner > 0) (it.wastedMinutesOnOwner % 60).toString() else "" } ?: "")
     }
     var amountPaidText by remember(initialPurchase) { mutableStateOf("") }
-    var rateText by remember(initialPurchase, owner.id, owner.customPricePerHour) {
+    var rateText by remember(initialPurchase, selectedOwner?.id, selectedOwner?.customPricePerHour) {
         mutableStateOf(
             initialPurchase?.let { Formatters.formatAmountInput(it.purchaseRatePerHour.toString()) }
-                ?: owner.customPricePerHour
+                ?: selectedOwner?.customPricePerHour
                     ?.takeIf { it > 0 }
                     ?.let { Formatters.formatAmountInput(it.toString()) }
                 ?: ""
@@ -146,7 +162,44 @@ fun WellOwnerPurchaseBottomSheet(
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
-                    Text(owner.name, style = MaterialTheme.typography.bodyMedium, color = PrimaryTeal, fontWeight = FontWeight.SemiBold)
+                    if (owner != null) {
+                        Text(owner.name, style = MaterialTheme.typography.bodyMedium, color = PrimaryTeal, fontWeight = FontWeight.SemiBold)
+                    } else if (ownersList.size > 1) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Box {
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { ownerDropdownExpanded = true }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    selectedOwner?.name ?: "اختر صاحب البئر...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = PrimaryTeal,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = PrimaryTeal)
+                            }
+                            DropdownMenu(
+                                expanded = ownerDropdownExpanded,
+                                onDismissRequest = { ownerDropdownExpanded = false }
+                            ) {
+                                ownersList.forEach { o ->
+                                    DropdownMenuItem(
+                                        text = { Text(o.name, fontWeight = FontWeight.Bold) },
+                                        onClick = {
+                                            selectedOwner = o
+                                            ownerDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        Text(selectedOwner?.name ?: "صاحب بئر", style = MaterialTheme.typography.bodyMedium, color = PrimaryTeal, fontWeight = FontWeight.SemiBold)
+                    }
                 }
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Default.Close, contentDescription = "إغلاق")
@@ -405,12 +458,17 @@ fun WellOwnerPurchaseBottomSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            val curOwner = selectedOwner
+            val canSave = valid && curOwner != null
             MosaribButton(
                 text = if (initialPurchase != null) "حفظ التعديلات" else "حفظ عملية الشراء",
                 onClick = {
-                    if (valid) onSave(date, durationMinutes, wastedMinutes, rate, amountPaid, notes)
+                    if (canSave) {
+                        onSaveWithOwner?.invoke(curOwner!!.id, date, durationMinutes, wastedMinutes, rate, amountPaid, notes)
+                        onSave?.invoke(date, durationMinutes, wastedMinutes, rate, amountPaid, notes)
+                    }
                 },
-                enabled = valid,
+                enabled = canSave,
                 leadingIcon = { Icon(if (initialPurchase != null) Icons.Default.Check else Icons.Default.AccessTime, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth()
             )
