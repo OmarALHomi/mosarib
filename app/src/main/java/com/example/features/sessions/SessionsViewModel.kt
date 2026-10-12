@@ -225,7 +225,13 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
             val roundedPaid = Formatters.roundMoney(amountPaid)
             val isOwnerOrBilled = billedToCustomerId != null ||
                 db.customerDao().getCustomerByIdDirect(customerId)?.isWellOwner == true
-            val debt = if (isOwnerOrBilled) 0.0 else Formatters.roundMoney(maxOf(0.0, totalCost - roundedPaid))
+
+            val excessPaid = if (!isOwnerOrBilled && roundedPaid > totalCost) {
+                Formatters.roundMoney(roundedPaid - totalCost)
+            } else 0.0
+
+            val effectivePaidForSession = if (excessPaid > 0.0) totalCost else roundedPaid
+            val debt = if (isOwnerOrBilled) 0.0 else Formatters.roundMoney(maxOf(0.0, totalCost - effectivePaidForSession))
 
             val session = WaterSession(
                 id = id,
@@ -236,7 +242,7 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                 durationMinutes = totalMinutes,
                 pricePerHour = Formatters.roundMoney(pricePerHour),
                 totalAmount = totalCost,
-                amountPaid = roundedPaid,
+                amountPaid = effectivePaidForSession,
                 remainingDebt = debt,
                 notes = notes,
                 isLive = false,
@@ -248,19 +254,69 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                 pumpSourceId = pumpSourceId
             )
 
-            if (id == 0L) {
+            val savedSessionId = if (id == 0L) {
                 val totalOps = db.waterSessionDao().getSessionsCountDirect() +
                     db.voucherDao().getVouchersCountDirect() + db.wellOwnerPurchaseDao().getPurchasesCountDirect()
                 if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
                     showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
                     return@launch
                 }
-                sessionRepo.insertSession(session)
+                val newId = sessionRepo.insertSession(session)
                 LicenseManager.recordOperationPerformed(getApplication(), totalOps)
-                showToast("تم تسجيل دورة السقي وحساب التكلفة بنجاح", ToastType.SUCCESS)
+                newId
             } else {
                 sessionRepo.updateSession(session)
-                showToast("تم تحديث بيانات دورة السقي بنجاح", ToastType.SUCCESS)
+                id
+            }
+
+            if (excessPaid > 0.0) {
+                val unpaidSessions = db.waterSessionDao()
+                    .getUnpaidSessionsForCustomerDirect(customerId)
+                    .filter { it.id != savedSessionId }
+
+                var remainingExcess = excessPaid
+                val settledSessionIds = mutableListOf<Long>()
+                for (oldSession in unpaidSessions) {
+                    if (remainingExcess <= 0.0) break
+                    val settleAmt = minOf(remainingExcess, oldSession.remainingDebt)
+                    val newOldPaid = Formatters.roundMoney(oldSession.amountPaid + settleAmt)
+                    val newOldDebt = Formatters.roundMoney(maxOf(0.0, oldSession.totalAmount - newOldPaid))
+                    sessionRepo.updateSession(oldSession.copy(amountPaid = newOldPaid, remainingDebt = newOldDebt))
+                    remainingExcess = Formatters.roundMoney(remainingExcess - settleAmt)
+                    settledSessionIds.add(oldSession.id)
+                }
+
+                val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(4)}"
+                val notesText = if (settledSessionIds.isNotEmpty()) {
+                    val listStr = settledSessionIds.joinToString(", ") { "#$it" }
+                    if (remainingExcess > 0.0) {
+                        "سند قبض: سداد ديون سابقة لجلسات ($listStr) بمبلغ ${Formatters.formatCurrency(excessPaid - remainingExcess, "")} ومتبقي ${Formatters.formatCurrency(remainingExcess, "")} رصيد دائن للعميل (فائض نقدي من سقي #$savedSessionId)"
+                    } else {
+                        "سند قبض: سداد ديون سابقة لجلسات ($listStr) بالكامل من فائض نقدي لسقي #$savedSessionId"
+                    }
+                } else {
+                    "سند قبض: رصيد دائن لصالح العميل (فائض نقدي من سقي #$savedSessionId)"
+                }
+
+                val voucher = Voucher(
+                    voucherNumber = vNumber,
+                    type = VoucherType.RECEIPT,
+                    customerId = customerId,
+                    sessionId = savedSessionId,
+                    amount = excessPaid,
+                    category = if (settledSessionIds.isNotEmpty()) "سداد ديون سابقة" else "رصيد دائن للعميل",
+                    paymentMethod = "نقداً",
+                    date = System.currentTimeMillis(),
+                    notes = notesText
+                )
+                db.voucherDao().insertVoucher(voucher)
+                showToast("تم تسجيل السقي وسند قبض بالفائض (${Formatters.formatCurrency(excessPaid, "")}) وتسوية الحساب بنجاح", ToastType.SUCCESS)
+            } else {
+                if (id == 0L) {
+                    showToast("تم تسجيل دورة السقي وحساب التكلفة بنجاح", ToastType.SUCCESS)
+                } else {
+                    showToast("تم تحديث بيانات دورة السقي بنجاح", ToastType.SUCCESS)
+                }
             }
         }
     }

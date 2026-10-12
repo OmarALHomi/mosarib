@@ -29,6 +29,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -75,14 +81,15 @@ fun MosaribTimePickerDialog(
     var isPm by remember { mutableStateOf(initIsPm) }
 
     Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isDark) Color(0xFF141F25) else Color.White
-            ),
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isDark) Color(0xFF141F25) else Color.White
+                ),
             border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0)),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
@@ -307,6 +314,7 @@ fun MosaribTimePickerDialog(
         }
     }
 }
+}
 
 @Composable
 private fun AmPmToggleCard(
@@ -385,12 +393,33 @@ private fun TimeCounterColumn(
             )
         }
 
+        var dragAccumulator by remember { mutableFloatStateOf(0f) }
+
         Box(
             modifier = Modifier
-                .size(width = 64.dp, height = 44.dp)
+                .size(width = 66.dp, height = 46.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(if (isDark) Color(0xFF0D161B) else Color(0xFFF8FAFC))
-                .border(1.dp, if (isDark) Color(0xFF2E404C) else Color(0xFFCBD5E1), RoundedCornerShape(10.dp)),
+                .border(1.dp, if (isDark) Color(0xFF2E404C) else Color(0xFFCBD5E1), RoundedCornerShape(10.dp))
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            dragAccumulator += dragAmount
+                            val threshold = 22f
+                            while (dragAccumulator <= -threshold) {
+                                onIncrement()
+                                dragAccumulator += threshold
+                            }
+                            while (dragAccumulator >= threshold) {
+                                onDecrement()
+                                dragAccumulator -= threshold
+                            }
+                        },
+                        onDragEnd = { dragAccumulator = 0f },
+                        onDragCancel = { dragAccumulator = 0f }
+                    )
+                },
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -444,10 +473,11 @@ fun MosaribDatePickerDialog(
     )
 
     Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
             shape = RoundedCornerShape(22.dp),
             colors = CardDefaults.cardColors(
                 containerColor = if (isDark) Color(0xFF141F25) else Color.White
@@ -630,4 +660,5 @@ fun MosaribDatePickerDialog(
             }
         }
     }
+}
 }
