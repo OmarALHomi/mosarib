@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,6 +31,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -147,6 +149,7 @@ fun VouchersScreen(
     var showActivationDialog by remember { mutableStateOf(false) }
     var showAddSheet by remember { mutableStateOf(false) }
     var showAddManualSheet by remember { mutableStateOf(false) }
+    var showAddPurchaseSheet by remember { mutableStateOf(false) }
     var speedDialOpen by remember { mutableStateOf(false) }
     var voucherToDelete by remember { mutableStateOf<Voucher?>(null) }
     var voucherToEdit by remember { mutableStateOf<Voucher?>(null) }
@@ -1226,6 +1229,50 @@ fun VouchersScreen(
                             )
                         }
                     }
+
+                    // خيار 3: شراء ساعات (من صاحب بئر)
+                    Surface(
+                        onClick = {
+                            speedDialOpen = false
+                            if (LicenseManager.canPerformOperation(context, operationsCount)) {
+                                showAddPurchaseSheet = true
+                            } else {
+                                showActivationDialog = true
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        shadowElevation = 6.dp,
+                        modifier = Modifier.height(38.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFE1F5FE)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.WaterDrop,
+                                    contentDescription = null,
+                                    tint = Color(0xFF0288D1),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "شراء ساعات (من بئر)",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1557,6 +1604,28 @@ fun VouchersScreen(
         )
     }
 
+    if (showAddPurchaseSheet) {
+        val wellOwners = customers.filter { it.isWellOwner }
+        WellOwnerPurchaseBottomSheet(
+            owner = null,
+            availableOwners = wellOwners,
+            currencySymbol = config.currencySymbol,
+            onDismiss = { showAddPurchaseSheet = false },
+            onSaveWithOwner = { ownerId, date, duration, wasted, rate, paid, notes ->
+                viewModel.addOwnerPurchase(
+                    ownerCustomerId = ownerId,
+                    date = date,
+                    durationMinutes = duration,
+                    wastedMinutesOnOwner = wasted,
+                    purchaseRatePerHour = rate,
+                    notes = notes,
+                    amountPaid = paid
+                )
+                showAddPurchaseSheet = false
+            }
+        )
+    }
+
     selectedLinkedSession?.let { s ->
         val customer = customers.find { it.id == s.customerId }
         AlertDialog(
@@ -1786,7 +1855,9 @@ fun AddVoucherBottomSheet(
     var notes by remember { mutableStateOf(initialVoucher?.notes ?: "") }
 
     var custDropdownExpanded by remember { mutableStateOf(false) }
+    var custSearchQuery by remember { mutableStateOf("") }
     var beneficiaryDropdownExpanded by remember { mutableStateOf(false) }
+    var beneficiarySearchQuery by remember { mutableStateOf("") }
 
     val selectedCustomer = customers.find { it.id == selectedCustomerId }
     val selectedBeneficiary = customers.find { it.id == selectedBeneficiaryId }
@@ -1868,22 +1939,84 @@ fun AddVoucherBottomSheet(
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .clickable { custDropdownExpanded = true }
+                            .clickable {
+                                custSearchQuery = ""
+                                custDropdownExpanded = true
+                            }
                     )
                     DropdownMenu(
                         expanded = custDropdownExpanded,
-                        onDismissRequest = { custDropdownExpanded = false }
+                        onDismissRequest = {
+                            custDropdownExpanded = false
+                            custSearchQuery = ""
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .heightIn(max = 320.dp)
                     ) {
-                        customers.forEach { c ->
-                            DropdownMenuItem(
-                                text = { Text(c.name, fontWeight = FontWeight.Bold) },
-                                onClick = {
-                                    selectedCustomerId = c.id
-                                    selectedSessionIds = emptySet()
-                                    amountStr = ""
-                                    custDropdownExpanded = false
+                        MosaribTextField(
+                            value = custSearchQuery,
+                            onValueChange = { custSearchQuery = it },
+                            placeholder = "بحث بالاسم أو الهاتف...",
+                            isDense = true,
+                            leadingIcon = {
+                                Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp), tint = PrimaryTeal)
+                            },
+                            trailingIcon = if (custSearchQuery.isNotEmpty()) {
+                                {
+                                    IconButton(onClick = { custSearchQuery = "" }) {
+                                        Icon(Icons.Default.Close, contentDescription = "مسح", modifier = Modifier.size(14.dp))
+                                    }
                                 }
+                            } else null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            singleLine = true
+                        )
+                        HorizontalDivider()
+
+                        val filteredCustomers = if (custSearchQuery.isBlank()) customers
+                        else customers.filter {
+                            it.name.contains(custSearchQuery, ignoreCase = true) ||
+                            it.phone.contains(custSearchQuery) ||
+                            it.farmName.contains(custSearchQuery, ignoreCase = true)
+                        }
+
+                        if (filteredCustomers.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("لا توجد نتائج مطابقة", color = Color.Gray, fontSize = 12.sp) },
+                                onClick = {}
                             )
+                        } else {
+                            filteredCustomers.forEach { c ->
+                                DropdownMenuItem(
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = if (c.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Agriculture,
+                                            contentDescription = null,
+                                            tint = if (c.isWellOwner) Color(0xFF0288D1) else PrimaryTeal,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    },
+                                    text = {
+                                        Column {
+                                            Text(c.name, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                                            val sub = listOf(c.farmName, c.phone).filter { it.isNotBlank() }.joinToString(" • ")
+                                            if (sub.isNotBlank()) {
+                                                Text(sub, fontSize = 11.sp, color = Color.Gray)
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedCustomerId = c.id
+                                        selectedSessionIds = emptySet()
+                                        amountStr = ""
+                                        custDropdownExpanded = false
+                                        custSearchQuery = ""
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -2129,27 +2262,82 @@ fun AddVoucherBottomSheet(
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .clickable { beneficiaryDropdownExpanded = true }
+                            .clickable {
+                                beneficiarySearchQuery = ""
+                                beneficiaryDropdownExpanded = true
+                            }
                     )
                     DropdownMenu(
                         expanded = beneficiaryDropdownExpanded,
-                        onDismissRequest = { beneficiaryDropdownExpanded = false }
+                        onDismissRequest = {
+                            beneficiaryDropdownExpanded = false
+                            beneficiarySearchQuery = ""
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .heightIn(max = 320.dp)
                     ) {
+                        MosaribTextField(
+                            value = beneficiarySearchQuery,
+                            onValueChange = { beneficiarySearchQuery = it },
+                            placeholder = "بحث بالاسم أو الهاتف...",
+                            isDense = true,
+                            leadingIcon = {
+                                Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp), tint = PrimaryTeal)
+                            },
+                            trailingIcon = if (beneficiarySearchQuery.isNotEmpty()) {
+                                {
+                                    IconButton(onClick = { beneficiarySearchQuery = "" }) {
+                                        Icon(Icons.Default.Close, contentDescription = "مسح", modifier = Modifier.size(14.dp))
+                                    }
+                                }
+                            } else null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            singleLine = true
+                        )
+                        HorizontalDivider()
+
                         DropdownMenuItem(
-                            text = { Text("مصروف عام (غير مقيد على عميل)") },
+                            text = { Text("مصروف عام (غير مقيد على عميل)", fontWeight = FontWeight.Bold, color = PrimaryTeal) },
                             onClick = {
                                 selectedBeneficiaryId = null
                                 beneficiaryDropdownExpanded = false
+                                beneficiarySearchQuery = ""
                             }
                         )
-                        customers.forEach { c ->
+
+                        val filteredBeneficiaries = if (beneficiarySearchQuery.isBlank()) customers
+                        else customers.filter {
+                            it.name.contains(beneficiarySearchQuery, ignoreCase = true) ||
+                            it.phone.contains(beneficiarySearchQuery) ||
+                            it.farmName.contains(beneficiarySearchQuery, ignoreCase = true)
+                        }
+
+                        filteredBeneficiaries.forEach { c ->
                             DropdownMenuItem(
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (c.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Agriculture,
+                                        contentDescription = null,
+                                        tint = if (c.isWellOwner) Color(0xFF0288D1) else PrimaryTeal,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
                                 text = {
-                                    Text(c.name, fontWeight = FontWeight.Bold)
+                                    Column {
+                                        Text(c.name, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                                        val sub = listOf(c.farmName, c.phone).filter { it.isNotBlank() }.joinToString(" • ")
+                                        if (sub.isNotBlank()) {
+                                            Text(sub, fontSize = 11.sp, color = Color.Gray)
+                                        }
+                                    }
                                 },
                                 onClick = {
                                     selectedBeneficiaryId = c.id
                                     beneficiaryDropdownExpanded = false
+                                    beneficiarySearchQuery = ""
                                 }
                             )
                         }

@@ -9,6 +9,8 @@ import com.example.core.database.AppDatabase
 import com.example.core.license.LicenseManager
 import com.example.core.ui.ToastMessage
 import com.example.core.ui.ToastType
+import com.example.core.util.ComprehensiveCustomerRow
+import com.example.core.util.ComprehensiveReportTotals
 import com.example.core.util.FileSharingHelper
 import com.example.core.util.PdfReportGenerator
 import com.example.features.sessions.WaterSession
@@ -855,6 +857,62 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 _pdfReadyFile.value = Pair(file, "كشف حساب ${customer.name}")
             } catch (e: Exception) {
                 showToast("فشل في إنشاء كشف الحساب: ${e.localizedMessage}", ToastType.ERROR)
+            }
+        }
+    }
+
+    fun generateAllCustomersReportPdf() {
+        viewModelScope.launch {
+            try {
+                val list = rawCustomersWithBalance.value
+                if (list.isEmpty()) {
+                    showToast("لا يوجد عملاء لطباعة الكشف", ToastType.WARNING)
+                    return@launch
+                }
+                val config = appConfig.value
+                val rows = list.map { item ->
+                    ComprehensiveCustomerRow(
+                        customerName = item.customer.name,
+                        phone = item.customer.phone,
+                        farmName = item.customer.farmName,
+                        sessionsCount = item.totalSessionsCount,
+                        waterMinutes = item.totalMinutes,
+                        billed = item.totalBilledAmount,
+                        paid = item.totalPaidAmount,
+                        balance = item.balance,
+                        isWellOwner = item.customer.isWellOwner,
+                        purchasedMinutes = item.totalPurchasedMinutes,
+                        chargeablePurchasedMinutes = item.totalChargeablePurchasedMinutes,
+                        ownerWasteMinutes = item.totalPurchasedMinutes - item.totalChargeablePurchasedMinutes,
+                        ownerWasteCredit = item.totalOwnerWasteCredit,
+                        payableBalance = item.payableBalance,
+                        receivableBalance = item.receivableBalance
+                    )
+                }
+                val totals = ComprehensiveReportTotals(
+                    sessionsCount = list.sumOf { it.totalSessionsCount },
+                    waterMinutes = list.sumOf { it.totalMinutes },
+                    totalRevenue = list.sumOf { it.totalBilledAmount },
+                    totalCollected = list.sumOf { it.totalPaidAmount },
+                    totalOutstandingDebt = list.sumOf { it.receivableBalance.coerceAtLeast(0.0) },
+                    totalExpenses = list.sumOf { it.totalDisbursedAmount },
+                    netProfit = list.sumOf { it.totalPaidAmount } - list.sumOf { it.totalDisbursedAmount },
+                    purchasedMinutes = list.sumOf { it.totalPurchasedMinutes },
+                    chargeablePurchasedMinutes = list.sumOf { it.totalChargeablePurchasedMinutes },
+                    ownerPurchaseAmount = list.sumOf { it.totalPurchaseAmount },
+                    ownerWasteCredit = list.sumOf { it.totalOwnerWasteCredit },
+                    ownerPayable = list.sumOf { it.payableBalance }
+                )
+                val file = PdfReportGenerator.generateComprehensiveReportPdf(
+                    context = getApplication(),
+                    config = config,
+                    periodTitle = "كشف حسابات العملاء الشامل",
+                    totals = totals,
+                    customerRows = rows
+                )
+                _pdfReadyFile.value = Pair(file, "كشف حسابات العملاء الشامل")
+            } catch (e: Exception) {
+                showToast("فشل في إنشاء التقرير: ${e.localizedMessage}", ToastType.ERROR)
             }
         }
     }

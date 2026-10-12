@@ -48,7 +48,8 @@ fun MosaribFilterChip(
     leadingIcon: @Composable (() -> Unit)? = null,
     badgeCount: Int? = null,
     enabled: Boolean = true,
-    shape: Shape = RoundedCornerShape(12.dp)
+    isCompact: Boolean = false,
+    shape: Shape = if (isCompact) RoundedCornerShape(9.dp) else RoundedCornerShape(12.dp)
 ) {
     val isDark = isAppDark()
 
@@ -81,6 +82,10 @@ fun MosaribFilterChip(
         label = "chipContent"
     )
 
+    val horizontalPadding = if (isCompact) 10.dp else 14.dp
+    val verticalPadding = if (isCompact) 5.dp else 8.dp
+    val textFontSize = if (isCompact) 11.5.sp else 13.sp
+
     Surface(
         modifier = modifier
             .clip(shape)
@@ -90,19 +95,19 @@ fun MosaribFilterChip(
         border = BorderStroke(1.dp, borderColor)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = horizontalPadding, vertical = verticalPadding),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
             if (leadingIcon != null) {
                 leadingIcon()
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(if (isCompact) 4.dp else 6.dp))
             }
 
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 13.sp,
+                    fontSize = textFontSize,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                 ),
                 color = contentColor

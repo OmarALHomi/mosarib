@@ -500,6 +500,75 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun addOwnerPurchase(
+        ownerCustomerId: Long,
+        date: Long,
+        durationMinutes: Int,
+        wastedMinutesOnOwner: Int,
+        purchaseRatePerHour: Double,
+        notes: String,
+        amountPaid: Double = 0.0
+    ) {
+        viewModelScope.launch {
+            val owner = customerRepo.getCustomerByIdDirect(ownerCustomerId)
+            if (owner == null || !owner.isWellOwner) {
+                showToast("اختر حساب صاحب بئر صالحاً لتسجيل الشراء", ToastType.ERROR)
+                return@launch
+            }
+            if (durationMinutes <= 0 || durationMinutes > 6000) {
+                showToast("لا يمكن تسجيل شراء بساعات خيالية أو صفرية", ToastType.ERROR)
+                return@launch
+            }
+            if (wastedMinutesOnOwner > durationMinutes) {
+                showToast("لا يمكن أن يكون الهدر أكبر من عملية الشراء بتاتاً", ToastType.ERROR)
+                return@launch
+            }
+            if (purchaseRatePerHour <= 0.0) {
+                showToast("يرجى تحديد سعر شراء صالح للساعة", ToastType.ERROR)
+                return@launch
+            }
+
+            val totalOps = db.waterSessionDao().getSessionsCountDirect() +
+                db.voucherDao().getVouchersCountDirect() +
+                db.wellOwnerPurchaseDao().getPurchasesCountDirect()
+            if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
+                showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
+                return@launch
+            }
+
+            val newId = ownerPurchaseRepo.insert(
+                WellOwnerPurchase(
+                    ownerCustomerId = ownerCustomerId,
+                    date = date,
+                    durationMinutes = durationMinutes,
+                    wastedMinutesOnOwner = wastedMinutesOnOwner,
+                    purchaseRatePerHour = Formatters.roundMoney(purchaseRatePerHour),
+                    amountPaid = Formatters.roundMoney(amountPaid),
+                    notes = notes.trim()
+                )
+            )
+
+            // إذا تم تسليم مبلغ نقدياً فوراً لصاحب البئر، يُسجّل سند صرف (EXPENSE) مرتبط به فوراً
+            if (amountPaid > 0.0) {
+                val vNumber = "EXP-${System.currentTimeMillis().toString().takeLast(8)}"
+                val voucher = Voucher(
+                    voucherNumber = vNumber,
+                    type = VoucherType.EXPENSE,
+                    customerId = ownerCustomerId,
+                    amount = Formatters.roundMoney(amountPaid),
+                    category = "تسديد نقدي لشراء ساعات",
+                    paymentMethod = "نقداً",
+                    date = date,
+                    notes = "دفعة مسلّمة فوراً لصاحب البئر عند شراء ساعات [شراء #$newId]"
+                )
+                voucherRepo.insertVoucher(voucher)
+            }
+
+            LicenseManager.recordOperationPerformed(getApplication(), totalOps)
+            showToast("تم تسجيل شراء الساعات وتحديث حساب صاحب البئر", ToastType.SUCCESS)
+        }
+    }
+
     fun deleteOwnerPurchase(purchase: WellOwnerPurchase) {
         viewModelScope.launch {
             val existingVouchers = voucherRepo.getVouchersForCustomerDirect(purchase.ownerCustomerId)

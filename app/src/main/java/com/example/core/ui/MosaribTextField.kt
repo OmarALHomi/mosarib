@@ -48,7 +48,8 @@ fun MosaribTextField(
     maxLines: Int = 1,
     enabled: Boolean = true,
     readOnly: Boolean = false,
-    shape: Shape = RoundedCornerShape(14.dp),
+    isDense: Boolean = false,
+    shape: Shape = if (isDense) RoundedCornerShape(10.dp) else RoundedCornerShape(14.dp),
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
@@ -75,10 +76,10 @@ fun MosaribTextField(
                 text = label,
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
+                    fontSize = if (isDense) 12.sp else 13.sp,
                     color = labelColor
                 ),
-                modifier = Modifier.padding(bottom = 6.dp, start = 2.dp)
+                modifier = Modifier.padding(bottom = if (isDense) 4.dp else 6.dp, start = 2.dp)
             )
         }
 
@@ -92,7 +93,7 @@ fun MosaribTextField(
             maxLines = maxLines,
             shape = shape,
             textStyle = TextStyle(
-                fontSize = 15.sp,
+                fontSize = if (isDense) 13.5.sp else 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = textColor
             ),
@@ -102,7 +103,7 @@ fun MosaribTextField(
                         text = placeholder,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = placeholderColor,
-                            fontSize = 14.sp
+                            fontSize = if (isDense) 12.5.sp else 14.sp
                         )
                     )
                 }
