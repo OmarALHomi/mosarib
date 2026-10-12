@@ -30,12 +30,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Notes
-import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
@@ -124,9 +124,12 @@ fun AddEditCustomerBottomSheet(
         mutableStateOf(initialCustomer?.customPricePerHour?.let { it.toString() } ?: "")
     }
 
-    // اللون الرئيسي النشط يتكيف ديناميكياً مع نوع الحساب (تركوازي للمزارع، وأزرق مائي لصاحب البئر)
+    val FarmerColor = Color(0xFF059669)
+    val WellOwnerColor = Color(0xFF0284C7)
+
+    // اللون الرئيسي النشط يتكيف ديناميكياً مع نوع الحساب (أخضر زمردي للمزارع، وأزرق مائي لصاحب البئر)
     val activeColor by animateColorAsState(
-        targetValue = if (isWellOwner) Color(0xFF0284C7) else PrimaryTeal,
+        targetValue = if (isWellOwner) WellOwnerColor else FarmerColor,
         animationSpec = tween(300),
         label = "active_theme_color"
     )
@@ -242,9 +245,9 @@ fun AddEditCustomerBottomSheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 12.dp)
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // 1. شريط العنوان العلوي الأنيق
                 Row(
@@ -258,16 +261,16 @@ fun AddEditCustomerBottomSheet(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(36.dp)
                                 .clip(CircleShape)
                                 .background(activeColor.copy(alpha = if (isDark) 0.22f else 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = if (initialCustomer != null) Icons.Default.Person else Icons.Default.PersonAdd,
+                                imageVector = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Eco,
                                 contentDescription = null,
                                 tint = activeColor,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                         Column {
@@ -279,7 +282,7 @@ fun AddEditCustomerBottomSheet(
                                 },
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 17.sp,
+                                    fontSize = 16.sp,
                                     color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
                                 )
                             )
@@ -287,7 +290,7 @@ fun AddEditCustomerBottomSheet(
                                 text = if (initialCustomer != null) "تحديث البيانات المسجلة" else "تسجيل حساب جديد في النظام",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                                    fontSize = 11.5.sp
+                                    fontSize = 11.sp
                                 )
                             )
                         }
@@ -296,160 +299,30 @@ fun AddEditCustomerBottomSheet(
                     IconButton(
                         onClick = onDismiss,
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(32.dp)
                             .clip(CircleShape)
                             .background(if (isDark) Color(0xFF1A262E) else Color(0xFFE2E8F0))
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "إلغاء",
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(16.dp),
                             tint = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
                         )
                     }
                 }
 
-                // 2. بطاقة المعاينة الفورية للأفاتار والهوية (Hero Identity Card)
-                val initialLetter = name.trim().firstOrNull()?.toString() ?: if (isWellOwner) "ب" else "ع"
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isDark) Color(0xFF141F25) else Color.White
-                    ),
-                    border = BorderStroke(1.dp, if (isDark) Color(0xFF263842) else Color(0xFFE2E8F0)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // دائرة الأفاتار مع شارة نوع الحساب
-                        Box(
-                            modifier = Modifier.size(54.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Surface(
-                                modifier = Modifier.size(52.dp),
-                                shape = CircleShape,
-                                color = activeColor.copy(alpha = if (isDark) 0.22f else 0.12f),
-                                border = BorderStroke(1.5.dp, activeColor)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text(
-                                        text = initialLetter,
-                                        fontSize = 22.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = activeColor
-                                    )
-                                }
-                            }
-                            Surface(
-                                modifier = Modifier
-                                    .size(19.dp)
-                                    .align(Alignment.BottomEnd),
-                                shape = CircleShape,
-                                color = activeColor
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Agriculture,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(11.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.width(14.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = if (name.isNotBlank()) name else (if (isWellOwner) "اسم صاحب البئر..." else "اسم العميل..."),
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    color = if (name.isNotBlank()) (if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A))
-                                    else (if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8))
-                                ),
-                                maxLines = 1
-                            )
-                            Spacer(modifier = Modifier.height(3.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = activeColor.copy(alpha = if (isDark) 0.20f else 0.10f)
-                                ) {
-                                    Text(
-                                        text = if (isWellOwner) "💧 صاحب بئر" else "👨‍🌾 مزارع",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = activeColor,
-                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
-                                    )
-                                }
-                                if (phone.isNotBlank()) {
-                                    Text(
-                                        text = phone,
-                                        fontSize = 12.sp,
-                                        color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
-
-                        // زر استيراد سريع ومدمج من جهات الاتصال
-                        Surface(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable {
-                                    val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
-                                    contactPickerLauncher.launch(intent)
-                                },
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isDark) Color(0xFF1E2D36) else Color(0xFFF1F5F9),
-                            border = BorderStroke(1.dp, if (isDark) Color(0xFF2C3E4A) else Color(0xFFE2E8F0))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(5.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Contacts,
-                                    contentDescription = "جهات الاتصال",
-                                    tint = activeColor,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Text(
-                                    text = "دليل الهاتف",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF334155)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // 3. شريط اختيار نوع الحساب (مزارع vs صاحب بئر) بتصميم مجزأ وعصري
+                // 2. شريط اختيار نوع الحساب (مزارع vs صاحب بئر) بتصميم مجزأ وعصري
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     PersonaTypeCard(
                         title = "مزارع (عميل)",
                         subtitle = "سقي ومستحقات",
-                        icon = Icons.Default.Agriculture,
+                        icon = Icons.Default.Eco,
                         isSelected = !isWellOwner,
-                        activeColor = PrimaryTeal,
+                        activeColor = FarmerColor,
                         modifier = Modifier.weight(1f),
                         onClick = { isWellOwner = false }
                     )
@@ -458,13 +331,13 @@ fun AddEditCustomerBottomSheet(
                         subtitle = "شراء ومقاصة",
                         icon = Icons.Default.WaterDrop,
                         isSelected = isWellOwner,
-                        activeColor = Color(0xFF0284C7),
+                        activeColor = WellOwnerColor,
                         modifier = Modifier.weight(1f),
                         onClick = { isWellOwner = true }
                     )
                 }
 
-                // 4. البطاقة الأولى: البيانات الأساسية
+                // 3. البطاقة الأولى: البيانات الأساسية
                 FormSectionCard(
                     title = "البيانات الأساسية",
                     icon = Icons.Default.Person,
@@ -476,6 +349,7 @@ fun AddEditCustomerBottomSheet(
                         onValueChange = { name = it },
                         label = if (isWellOwner) "اسم صاحب البئر *" else "اسم العميل / المزارع *",
                         placeholder = if (isWellOwner) "مثال: الحاج علي ناصر (مالك بئر الوادي)" else "مثال: أبو صالح العامري",
+                        isDense = true,
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = activeColor) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -488,6 +362,7 @@ fun AddEditCustomerBottomSheet(
                         onValueChange = { phone = it },
                         label = "رقم الهاتف (للاتصال والتواصل)",
                         placeholder = "مثال: 777123456",
+                        isDense = true,
                         leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = activeColor) },
                         trailingIcon = {
                             IconButton(onClick = {
@@ -509,7 +384,7 @@ fun AddEditCustomerBottomSheet(
                     )
                 }
 
-                // 5. البطاقة الثانية: بيانات الأرض / البئر والموقع
+                // 4. البطاقة الثانية: بيانات الأرض / البئر والموقع
                 FormSectionCard(
                     title = if (isWellOwner) "بيانات البئر والموقع" else "بيانات المزرعة والموقع",
                     icon = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Yard,
@@ -521,6 +396,7 @@ fun AddEditCustomerBottomSheet(
                         onValueChange = { farmName = it },
                         label = if (isWellOwner) "اسم البئر أو المحطة (اختياري)" else "اسم المزرعة أو الأرض (اختياري)",
                         placeholder = if (isWellOwner) "مثال: بئر الخير، بئر الصافية" else "مثال: بستان النخيل، أرض السد",
+                        isDense = true,
                         leadingIcon = {
                             Icon(
                                 imageVector = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Yard,
@@ -537,12 +413,13 @@ fun AddEditCustomerBottomSheet(
                         onValueChange = { location = it },
                         label = if (isWellOwner) "موقع البئر (اختياري)" else "الموقع أو المنطقة (اختياري)",
                         placeholder = if (isWellOwner) "مثال: وادي ضهر، المحطة الشمالية" else "مثال: القطاع الغربي، وادي الخير",
+                        isDense = true,
                         leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = activeColor) },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
 
-                // 6. البطاقة الثالثة: التسعير والحساب المالي
+                // 5. البطاقة الثالثة: التسعير والحساب المالي
                 FormSectionCard(
                     title = "التسعير والحساب المالي",
                     icon = Icons.Default.AttachMoney,
@@ -554,6 +431,7 @@ fun AddEditCustomerBottomSheet(
                         onValueChange = { customPriceStr = Formatters.formatAmountInput(it) },
                         label = if (isWellOwner) "تكلفة شراء ساعة الضخ ($currencySymbol/ساعة) - اختياري" else "سعر سقي مخصص لهذا العميل ($currencySymbol/ساعة) - اختياري",
                         placeholder = if (isWellOwner) "تكلفة الشراء الافتراضية من هذا البئر" else "اتركه فارغاً لاستخدام السعر العام",
+                        isDense = true,
                         leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = AccentGold) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
@@ -573,7 +451,7 @@ fun AddEditCustomerBottomSheet(
                             border = BorderStroke(1.dp, AccentGold.copy(alpha = 0.35f))
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
@@ -588,7 +466,7 @@ fun AddEditCustomerBottomSheet(
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = if (isDark) Color(0xFFFDE68A) else Color(0xFFB45309),
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
+                                        fontSize = 11.5.sp
                                     )
                                 )
                             }
@@ -601,14 +479,15 @@ fun AddEditCustomerBottomSheet(
                         onValueChange = { notes = it },
                         label = "ملاحظات إضافية (اختياري)",
                         placeholder = "أي معلومات أو شروط خاصة بالحساب...",
+                        isDense = true,
                         leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null, tint = activeColor) },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
-                // 7. أزرار الإجراءات السفلية (إلغاء وحفظ الحساب)
+                // 6. أزرار الإجراءات السفلية (إلغاء وحفظ الحساب)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -618,7 +497,7 @@ fun AddEditCustomerBottomSheet(
                         text = "إلغاء",
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f),
-                        height = 48.dp
+                        height = 46.dp
                     )
 
                     MosaribButton(
@@ -651,17 +530,17 @@ fun AddEditCustomerBottomSheet(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = null,
                                 tint = Color.White,
-                                modifier = Modifier.size(19.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         },
                         modifier = Modifier
                             .weight(2f)
                             .testTag("save_customer_button"),
-                        height = 48.dp
+                        height = 46.dp
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
             }
         }
     }
@@ -682,8 +561,11 @@ private fun PersonaTypeCard(
 ) {
     val isDark = isAppDark()
     val bgColor by animateColorAsState(
-        targetValue = if (isSelected) activeColor.copy(alpha = if (isDark) 0.18f else 0.10f)
-        else if (isDark) Color(0xFF141F25) else Color(0xFFF8FAFC),
+        targetValue = if (isSelected) {
+            if (isDark) activeColor.copy(alpha = 0.22f) else activeColor.copy(alpha = 0.12f)
+        } else {
+            if (isDark) Color(0xFF141F25) else Color(0xFFF8FAFC)
+        },
         animationSpec = tween(250),
         label = "persona_bg"
     )
@@ -695,23 +577,22 @@ private fun PersonaTypeCard(
     )
 
     Card(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = bgColor),
         border = BorderStroke(if (isSelected) 1.5.dp else 1.dp, borderColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 2.dp else 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 9.dp),
+                .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(32.dp)
                     .clip(CircleShape)
                     .background(if (isSelected) activeColor else (if (isDark) Color(0xFF202E36) else Color(0xFFE2E8F0))),
                 contentAlignment = Alignment.Center
@@ -720,7 +601,7 @@ private fun PersonaTypeCard(
                     imageVector = icon,
                     contentDescription = null,
                     tint = if (isSelected) Color.White else (if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)),
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(17.dp)
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
@@ -730,14 +611,14 @@ private fun PersonaTypeCard(
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
                         color = if (isSelected) activeColor else (if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)),
-                        fontSize = 12.5.sp
+                        fontSize = 12.sp
                     )
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                        fontSize = 10.5.sp
+                        fontSize = 10.sp
                     ),
                     maxLines = 1
                 )
@@ -747,7 +628,7 @@ private fun PersonaTypeCard(
                     imageVector = Icons.Default.Check,
                     contentDescription = null,
                     tint = activeColor,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(15.dp)
                 )
             }
         }
@@ -767,7 +648,7 @@ private fun FormSectionCard(
     val isDark = isAppDark()
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF141F25) else Color.White
         ),
@@ -777,16 +658,16 @@ private fun FormSectionCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(26.dp)
+                        .size(24.dp)
                         .clip(CircleShape)
                         .background(iconColor.copy(alpha = if (isDark) 0.22f else 0.12f)),
                     contentAlignment = Alignment.Center
@@ -795,7 +676,7 @@ private fun FormSectionCard(
                         imageVector = icon,
                         contentDescription = null,
                         tint = iconColor,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(13.dp)
                     )
                 }
                 Text(
@@ -803,7 +684,7 @@ private fun FormSectionCard(
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.Bold,
                         color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A),
-                        fontSize = 13.5.sp
+                        fontSize = 13.sp
                     )
                 )
             }

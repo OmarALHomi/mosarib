@@ -32,7 +32,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Agriculture
+import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -1947,7 +1947,7 @@ fun AddVoucherBottomSheet(
                     placeholder = "اكتب او اختر الاسم",
                     leadingIcon = {
                         Icon(
-                            imageVector = if (selectedCustomer?.isWellOwner == true) Icons.Default.WaterDrop else Icons.Default.Agriculture,
+                            imageVector = if (selectedCustomer?.isWellOwner == true) Icons.Default.WaterDrop else Icons.Default.Eco,
                             contentDescription = null,
                             tint = if (selectedCustomer?.isWellOwner == true) Color(0xFF0288D1) else PrimaryTeal
                         )
@@ -2259,7 +2259,7 @@ fun AddVoucherBottomSheet(
                             DropdownMenuItem(
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = if (c.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Agriculture,
+                                        imageVector = if (c.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Eco,
                                         contentDescription = null,
                                         tint = if (c.isWellOwner) Color(0xFF0288D1) else PrimaryTeal,
                                         modifier = Modifier.size(18.dp)

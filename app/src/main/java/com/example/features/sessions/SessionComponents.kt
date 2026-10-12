@@ -31,7 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Agriculture
+import androidx.compose.material.icons.filled.Eco
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -159,7 +159,7 @@ fun SessionCardItem(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Agriculture,
+                            imageVector = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Eco,
                             contentDescription = if (isWellOwner) "صاحب بئر" else "عميل",
                             tint = if (isWellOwner) Color(0xFF0288D1) else PrimaryTeal,
                             modifier = Modifier.size(19.dp)

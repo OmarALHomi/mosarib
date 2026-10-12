@@ -77,7 +77,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.material.icons.filled.Agriculture
+import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.Close
 import com.example.core.ui.EmptyStateView
 import com.example.core.ui.LuxuryToastNotification
@@ -280,7 +280,7 @@ fun CustomersScreen(
                             isCompact = true,
                             leadingIcon = {
                                 Icon(
-                                    imageVector = Icons.Default.Agriculture,
+                                    imageVector = Icons.Default.Eco,
                                     contentDescription = null,
                                     modifier = Modifier.size(14.dp),
                                     tint = if (accountFilter == AccountFilter.FARMERS) Color.White else PrimaryTeal
@@ -438,7 +438,7 @@ fun CustomersScreen(
                                 }
                                 AccountFilter.FARMERS -> {
                                     Icon(
-                                        imageVector = Icons.Default.Agriculture,
+                                        imageVector = Icons.Default.Eco,
                                         contentDescription = null,
                                         tint = Color(0xFFE53935),
                                         modifier = Modifier.size(15.dp)
@@ -513,7 +513,7 @@ fun CustomersScreen(
                                     )
                                     Spacer(modifier = Modifier.width(3.dp))
                                     Icon(
-                                        imageVector = Icons.Default.Agriculture,
+                                        imageVector = Icons.Default.Eco,
                                         contentDescription = null,
                                         tint = Color(0xFF2E7D32),
                                         modifier = Modifier.size(15.dp)
@@ -751,7 +751,7 @@ fun CustomerCardItem(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = if (customer.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Agriculture,
+                            imageVector = if (customer.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Eco,
                             contentDescription = if (customer.isWellOwner) "صاحب بئر" else "عميل مزارع",
                             tint = if (customer.isWellOwner) Color(0xFF0288D1) else PrimaryTeal,
                             modifier = Modifier.size(19.dp)
