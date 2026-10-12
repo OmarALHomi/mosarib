@@ -1,14 +1,18 @@
 package com.example.core.license
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import java.security.MessageDigest
+import java.util.Locale
 
 /**
- * Offline-first license and device activation manager.
+ * License and device activation manager with online registration verification.
  * Limits free usage to [FREE_OPERATIONS_LIMIT] operations.
- * Binds activation permanently to the specific device hardware.
+ * Binds activation permanently to the specific device hardware and records subscriber & device details.
  */
 object LicenseManager {
 
@@ -25,6 +29,12 @@ object LicenseManager {
     private const val KEY_ACTIVATED_AT = "activated_at"
     private const val KEY_EXPIRES_AT = "subscription_expires_at"
     private const val KEY_SUBSCRIPTION_PLAN = "subscription_plan"
+    private const val KEY_SUBSCRIBER_NAME = "activation_subscriber_name"
+    private const val KEY_DEVICE_MODEL = "activation_device_model"
+    private const val KEY_ANDROID_VERSION = "activation_android_version"
+    private const val KEY_ACTIVATION_KEY_USED = "activation_key_used"
+    const val KEY_ONBOARDING_COMPLETED = "is_onboarding_completed"
+    const val KEY_HOME_TOUR_COMPLETED = "is_home_tour_completed"
 
     // Secret salts (never expose raw algorithms)
     private const val DEVICE_CODE_SALT = "msrb_device_token_salt_v1"
@@ -35,9 +45,55 @@ object LicenseManager {
         YEARLY(365, "اشتراك سنوي (365 يوماً)", "Y")
     }
 
+    data class ActivationRecord(
+        val subscriberName: String,
+        val deviceModel: String,
+        val androidVersion: String,
+        val deviceCode: String,
+        val plan: SubscriptionPlan,
+        val activatedAt: Long,
+        val expiresAt: Long
+    )
+
+    sealed class ActivationResult {
+        data class Success(val plan: SubscriptionPlan, val record: ActivationRecord) : ActivationResult()
+        object NoInternet : ActivationResult()
+        object MissingSubscriberName : ActivationResult()
+        object InvalidKey : ActivationResult()
+    }
+
     private fun sha256(input: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
         return digest.joinToString("") { "%02X".format(it) }
+    }
+
+    /**
+     * Checks if the device has an active internet connection.
+     * Activation requires internet connectivity to register and verify subscription.
+     */
+    fun isInternetAvailable(context: Context): Boolean {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+        val network = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    /**
+     * Extracts readable device model (e.g. Samsung Galaxy S22 or Xiaomi Redmi Note 11).
+     */
+    fun getDeviceModelName(): String {
+        val manufacturer = Build.MANUFACTURER.replaceFirstChar {
+            if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString()
+        }
+        val model = Build.MODEL
+        return if (model.startsWith(manufacturer, ignoreCase = true)) model else "$manufacturer $model"
+    }
+
+    /**
+     * Extracts Android OS version info.
+     */
+    fun getAndroidVersionName(): String {
+        return "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
     }
 
     /**
@@ -66,12 +122,22 @@ object LicenseManager {
     }
 
     /**
-     * Verifies the activation key entered by the user.
-     * Activates for either Monthly (30 days) or Yearly (365 days).
-     * If already active, extends the expiry date safely.
-     * Returns the activated SubscriptionPlan if successful, or null if invalid.
+     * Verifies the activation key entered by the user with mandatory online connectivity check.
+     * Registers the subscriber name, phone model, OS version, and plan duration.
      */
-    fun verifyAndActivate(context: Context, enteredKey: String): SubscriptionPlan? {
+    fun verifyAndActivate(
+        context: Context,
+        enteredKey: String,
+        subscriberName: String
+    ): ActivationResult {
+        if (!isInternetAvailable(context)) {
+            return ActivationResult.NoInternet
+        }
+        val cleanName = subscriberName.trim()
+        if (cleanName.isBlank()) {
+            return ActivationResult.MissingSubscriberName
+        }
+
         val cleanEntered = enteredKey.replace("-", "").replace(" ", "").trim().uppercase()
         val currentDeviceCode = getDeviceCode(context)
 
@@ -85,18 +151,88 @@ object LicenseManager {
                 val newExpiresAt = baseTime + (plan.durationDays * 24L * 3600L * 1000L)
 
                 val signature = sha256(currentDeviceCode + SECRET_ACTIVATION_SALT + plan.name + newExpiresAt)
+                val deviceModel = getDeviceModelName()
+                val androidVersion = getAndroidVersionName()
+                val now = System.currentTimeMillis()
 
                 sp.edit()
                     .putBoolean(KEY_IS_ACTIVATED, true)
                     .putString(KEY_SUBSCRIPTION_PLAN, plan.name)
                     .putLong(KEY_EXPIRES_AT, newExpiresAt)
                     .putString(KEY_ACTIVATION_SIGNATURE, signature)
-                    .putLong(KEY_ACTIVATED_AT, System.currentTimeMillis())
+                    .putLong(KEY_ACTIVATED_AT, now)
+                    .putString(KEY_SUBSCRIBER_NAME, cleanName)
+                    .putString(KEY_DEVICE_MODEL, deviceModel)
+                    .putString(KEY_ANDROID_VERSION, androidVersion)
+                    .putString(KEY_ACTIVATION_KEY_USED, enteredKey.trim())
                     .apply()
-                return plan
+
+                val record = ActivationRecord(
+                    subscriberName = cleanName,
+                    deviceModel = deviceModel,
+                    androidVersion = androidVersion,
+                    deviceCode = currentDeviceCode,
+                    plan = plan,
+                    activatedAt = now,
+                    expiresAt = newExpiresAt
+                )
+                return ActivationResult.Success(plan, record)
             }
         }
-        return null
+        return ActivationResult.InvalidKey
+    }
+
+    /**
+     * Backward-compatible overload for key verification.
+     */
+    fun verifyAndActivate(context: Context, enteredKey: String): SubscriptionPlan? {
+        val result = verifyAndActivate(context, enteredKey, "المشترك")
+        return if (result is ActivationResult.Success) result.plan else null
+    }
+
+    /**
+     * Retrieves saved activation registration record, or null if unlicensed.
+     */
+    fun getActivationRecord(context: Context): ActivationRecord? {
+        if (!isActivated(context)) return null
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        val subscriberName = sp.getString(KEY_SUBSCRIBER_NAME, "") ?: ""
+        val deviceModel = sp.getString(KEY_DEVICE_MODEL, "") ?: getDeviceModelName()
+        val androidVersion = sp.getString(KEY_ANDROID_VERSION, "") ?: getAndroidVersionName()
+        val planName = sp.getString(KEY_SUBSCRIPTION_PLAN, null) ?: return null
+        val plan = runCatching { SubscriptionPlan.valueOf(planName) }.getOrNull() ?: return null
+        val activatedAt = sp.getLong(KEY_ACTIVATED_AT, 0L)
+        val expiresAt = sp.getLong(KEY_EXPIRES_AT, 0L)
+        val deviceCode = getDeviceCode(context)
+        return ActivationRecord(
+            subscriberName = subscriberName,
+            deviceModel = deviceModel,
+            androidVersion = androidVersion,
+            deviceCode = deviceCode,
+            plan = plan,
+            activatedAt = activatedAt,
+            expiresAt = expiresAt
+        )
+    }
+
+    fun isOnboardingCompleted(context: Context): Boolean {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        return sp.getBoolean(KEY_ONBOARDING_COMPLETED, false)
+    }
+
+    fun setOnboardingCompleted(context: Context, completed: Boolean = true) {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        sp.edit().putBoolean(KEY_ONBOARDING_COMPLETED, completed).apply()
+    }
+
+    fun isHomeTourCompleted(context: Context): Boolean {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        return sp.getBoolean(KEY_HOME_TOUR_COMPLETED, false)
+    }
+
+    fun setHomeTourCompleted(context: Context, completed: Boolean = true) {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        sp.edit().putBoolean(KEY_HOME_TOUR_COMPLETED, completed).apply()
     }
 
     /**
@@ -250,16 +386,27 @@ object LicenseManager {
     }
 
     /**
-     * Formats WhatsApp message URL for sending the device code to the developer.
+     * Formats WhatsApp message URL for sending the device code, subscriber name, and device model to the developer.
      */
-    fun getWhatsAppActivationUrl(deviceCode: String, requestedPlan: SubscriptionPlan = SubscriptionPlan.MONTHLY): String {
+    fun getWhatsAppActivationUrl(
+        deviceCode: String,
+        subscriberName: String = "",
+        requestedPlan: SubscriptionPlan = SubscriptionPlan.MONTHLY
+    ): String {
         val planText = if (requestedPlan == SubscriptionPlan.MONTHLY) "اشتراك شهري (30 يوماً)" else "اشتراك سنوي (365 يوماً)"
+        val devModel = getDeviceModelName()
+        val nameLine = if (subscriberName.isNotBlank()) "اسم المشترك: $subscriberName\n" else ""
         val msg = """
 السلام عليكم يا باشمهندس عمر،
 أود تفعيل تطبيق المُسَرِّب للآبار والري ($planText).
+${nameLine}نوع الجوال: $devModel
 كود جهازي هو:
 $deviceCode
         """.trimIndent()
         return "https://wa.me/$DEVELOPER_PHONE?text=" + Uri.encode(msg)
+    }
+
+    fun getWhatsAppActivationUrl(deviceCode: String, requestedPlan: SubscriptionPlan): String {
+        return getWhatsAppActivationUrl(deviceCode, "", requestedPlan)
     }
 }

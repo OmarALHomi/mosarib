@@ -76,6 +76,7 @@ import com.example.features.customers.CustomerDetailScreen
 import com.example.features.customers.CustomersScreen
 import com.example.features.customers.CustomersViewModel
 import com.example.features.home.HomeScreen
+import com.example.features.onboarding.OnboardingScreen
 import com.example.features.reports.ReportsScreen
 import com.example.features.splash.SplashScreen
 import com.example.features.reports.ReportsViewModel
@@ -124,7 +125,9 @@ fun MainApp(
     MosaribTheme(darkTheme = darkTheme) {
         // Arabic RTL layout provider
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            val context = LocalContext.current
             var showSplashScreen by remember { mutableStateOf(true) }
+            var showOnboarding by remember { mutableStateOf(!LicenseManager.isOnboardingCompleted(context)) }
             var isBiometricUnlocked by remember { mutableStateOf(false) }
             var selectedCustomerId by remember { mutableLongStateOf(0L) }
             var showAboutScreen by remember { mutableStateOf(false) }
@@ -132,7 +135,7 @@ fun MainApp(
             var showExitConfirmationDialog by remember { mutableStateOf(false) }
 
             // اعتراض زر التراجع لإظهار رسالة تأكيد الخروج من أي شاشة يؤدي التراجع منها للخروج من التطبيق
-            val shouldInterceptExit = !showSplashScreen && !showAboutScreen && selectedCustomerId == 0L
+            val shouldInterceptExit = !showSplashScreen && !showOnboarding && !showAboutScreen && selectedCustomerId == 0L
             BackHandler(enabled = shouldInterceptExit) {
                 showExitConfirmationDialog = true
             }
@@ -147,6 +150,8 @@ fun MainApp(
 
             if (showSplashScreen) {
                 SplashScreen(onTimeout = { showSplashScreen = false })
+            } else if (showOnboarding) {
+                OnboardingScreen(onFinish = { showOnboarding = false })
             } else if (appConfig.biometricEnabled && !isBiometricUnlocked) {
                 BiometricLockScreen(onUnlock = { isBiometricUnlocked = true })
             } else if (showAboutScreen) {

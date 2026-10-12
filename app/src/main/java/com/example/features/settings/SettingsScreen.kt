@@ -161,7 +161,11 @@ fun SettingsScreen(
     var showCleanOldBackupsConfirm by remember { mutableStateOf(false) }
 
     // Backup tab selector: 0 = Local (الهاتف), 1 = Cloud (Google Drive)
+    val targetBackupSourceTab by viewModel.targetBackupSourceTab.collectAsStateWithLifecycle()
     var selectedBackupSourceTab by remember { mutableStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(targetBackupSourceTab) {
+        selectedBackupSourceTab = targetBackupSourceTab
+    }
     var expandAllLocalBackups by remember { mutableStateOf(false) }
     var expandAllDriveBackups by remember { mutableStateOf(false) }
 
@@ -1179,11 +1183,19 @@ fun SettingsScreen(
                     } else {
                         val plan = LicenseManager.getActivePlan(context)
                         val remDays = LicenseManager.getRemainingDays(context)
+                        val actRecord = remember(isActivated) { LicenseManager.getActivationRecord(context) }
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Text(
                                 text = "حالة الاشتراك: ${plan?.titleArabic ?: "اشتراك سارٍ"}",
                                 style = MaterialTheme.typography.bodyMedium.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
                             )
+                            if (actRecord != null && actRecord.subscriberName.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "مسجل باسم: ${actRecord.subscriberName} • ${actRecord.deviceModel}",
+                                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                )
+                            }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "متبقي في اشتراكك الحالي: $remDays يوماً.",

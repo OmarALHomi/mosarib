@@ -148,6 +148,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _driveRecoveryIntent = MutableStateFlow<Intent?>(null)
     val driveRecoveryIntent: StateFlow<Intent?> = _driveRecoveryIntent.asStateFlow()
 
+    private val _targetBackupSourceTab = MutableStateFlow(0)
+    val targetBackupSourceTab: StateFlow<Int> = _targetBackupSourceTab.asStateFlow()
+
+    fun selectDriveBackupTab() {
+        _targetBackupSourceTab.value = 1
+    }
+
+    fun selectLocalBackupTab() {
+        _targetBackupSourceTab.value = 0
+    }
+
     private var pendingDriveAction: (() -> Unit)? = null
 
     fun clearDriveRecoveryIntent() {

@@ -34,7 +34,10 @@ import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.LocalGasStation
@@ -138,6 +141,7 @@ fun HomeScreen(
 
     val context = LocalContext.current
     var showActivationDialog by remember { mutableStateOf(false) }
+    var showHomeTour by remember { mutableStateOf(!LicenseManager.isHomeTourCompleted(context)) }
     var showAddManualSheet by remember { mutableStateOf(false) }
     var showAddVoucherSheet by remember { mutableStateOf(false) }
     var voucherInitialType by remember { mutableStateOf(VoucherType.RECEIPT) }
@@ -215,6 +219,22 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        // Help / Interactive Tour Trigger Button
+                        IconButton(
+                            onClick = { showHomeTour = true },
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                                contentDescription = "دليل الاستخدام السريع",
+                                tint = PrimaryTeal,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+
                         // Living Breathing Theme Toggle Button
                         LivingThemeToggleButton(
                             isDarkTheme = isDarkTheme,
@@ -223,6 +243,105 @@ fun HomeScreen(
                                 settingsViewModel.updateThemeMode(nextMode)
                             }
                         )
+                    }
+                }
+            }
+
+            // 1.5. Google Drive Cloud Backup Quick Access Banner
+            item {
+                val googleAccount by settingsViewModel.googleAccount.collectAsStateWithLifecycle()
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable {
+                            settingsViewModel.selectDriveBackupTab()
+                            onNavigateToTab(AppTab.SETTINGS)
+                        },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (googleAccount != null) Color(0xFFF0FDF4) else Color(0xFFFEF3C7).copy(alpha = 0.55f)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (googleAccount != null) Color(0xFF86EFAC) else Color(0xFFFDE68A)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 9.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(if (googleAccount != null) Color(0xFFDCFCE7) else Color(0xFFFEF9C3)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (googleAccount != null) Icons.Default.CloudDone else Icons.Default.CloudUpload,
+                                    contentDescription = null,
+                                    tint = if (googleAccount != null) Color(0xFF16A34A) else Color(0xFFD97706),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = if (googleAccount != null) "النسخ السحابي: متصل" else "النسخ السحابي في Google Drive",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = if (googleAccount != null) Color(0xFF166534) else Color(0xFF92400E)
+                                        )
+                                    )
+                                    if (googleAccount != null) {
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "✓",
+                                            color = Color(0xFF16A34A),
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = if (googleAccount != null)
+                                        "${googleAccount?.email} • إدارة النسخ"
+                                    else
+                                        "اضغط لربط حساب جوجل لضمان حفظ بياناتك سحابياً",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = if (googleAccount != null) Color(0xFF15803D) else Color(0xFFB45309),
+                                        fontSize = 11.sp
+                                    ),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (googleAccount != null) Color(0xFF16A34A) else Color(0xFFD97706))
+                                .padding(horizontal = 9.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = if (googleAccount != null) "إدارة النسخ ←" else "ربط الآن ←",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.5.sp
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -585,6 +704,13 @@ fun HomeScreen(
                 showActivationDialog = false
             },
             isMandatory = operationsCount >= LicenseManager.FREE_OPERATIONS_LIMIT
+        )
+    }
+
+    // Interactive Showcase Tour Dialog for First-Time Users
+    if (showHomeTour) {
+        HomeShowcaseTourDialog(
+            onDismiss = { showHomeTour = false }
         )
     }
 }
