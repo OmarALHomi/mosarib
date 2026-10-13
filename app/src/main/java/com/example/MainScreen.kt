@@ -58,6 +58,12 @@ import com.example.core.license.LicenseDialog
 import com.example.core.license.LicenseManager
 import com.example.core.license.UserDeviceTracker
 import com.example.core.ui.DeviceBlockedScreen
+import com.example.core.ui.BackupReminderDialog
+import com.example.core.updates.AppBroadcast
+import com.example.core.updates.AppUpdateManager
+import com.example.core.updates.BroadcastAnnouncementDialog
+import com.example.core.updates.ForceUpdateScreen
+import com.example.core.util.PeriodicBackupReminderManager
 import com.example.features.feedback.FeedbackDialog
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -150,7 +156,12 @@ fun MainApp(
             var isDeviceBlocked by remember { mutableStateOf(UserDeviceTracker.isDeviceBlockedLocally(context)) }
             var blockReason by remember { mutableStateOf(UserDeviceTracker.getBlockReason(context)) }
 
-            // التحقق السحابي في الخلفية للتأكد من عدم سحب الاشتراك أو حظره ومزامنة تواجد المستخدم
+            // الإعلانات والتحديثات الإجبارية
+            var activeBroadcast by remember { mutableStateOf<AppBroadcast?>(null) }
+            var showAnnouncementDialog by remember { mutableStateOf(false) }
+            var showBackupReminderDialog by remember { mutableStateOf(false) }
+
+            // التحقق السحابي في الخلفية للتأكد من عدم سحب الاشتراك أو حظره ومزامنة تواجد المستخدم وفحص الإعلانات
             LaunchedEffect(operationsCount) {
                 val syncResult = UserDeviceTracker.syncPresence(context, operationsCount)
                 if (syncResult.isBlocked) {
@@ -158,6 +169,20 @@ fun MainApp(
                     blockReason = syncResult.blockReason ?: "تم إيقاف التطبيق على هذا الجهاز"
                 }
                 LicenseManager.checkRemoteRevocationInBackground(context)
+
+                // فحص الإعلانات والتحديث الإجباري
+                val broadcast = AppUpdateManager.checkBroadcastAndUpdates(context)
+                if (broadcast != null) {
+                    activeBroadcast = broadcast
+                    if (!broadcast.isForceUpdate && !AppUpdateManager.isBroadcastSeen(context, broadcast.id)) {
+                        showAnnouncementDialog = true
+                    }
+                }
+
+                // فحص التذكير الدوري بالنسخ الاحتياطي
+                if (PeriodicBackupReminderManager.shouldShowBackupReminder(context, operationsCount)) {
+                    showBackupReminderDialog = true
+                }
             }
 
             val tabs = remember { listOf(AppTab.REPORTS, AppTab.CUSTOMERS, AppTab.HOME, AppTab.VOUCHERS, AppTab.SETTINGS) }
@@ -169,6 +194,8 @@ fun MainApp(
                 SplashScreen(onTimeout = { showSplashScreen = false })
             } else if (isDeviceBlocked) {
                 DeviceBlockedScreen(reason = blockReason)
+            } else if (activeBroadcast?.isForceUpdate == true) {
+                ForceUpdateScreen(broadcast = activeBroadcast!!)
             } else if (showOnboarding) {
                 OnboardingScreen(onFinish = { showOnboarding = false })
             } else if (appConfig.biometricEnabled && !isBiometricUnlocked) {
@@ -365,6 +392,33 @@ fun MainApp(
             if (showFeedbackDialog) {
                 FeedbackDialog(
                     onDismiss = { showFeedbackDialog = false }
+                )
+            }
+
+            // نافذة الإعلان / التحديث الاختياري
+            if (showAnnouncementDialog && activeBroadcast != null) {
+                BroadcastAnnouncementDialog(
+                    broadcast = activeBroadcast!!,
+                    onDismiss = {
+                        AppUpdateManager.markBroadcastSeen(context, activeBroadcast!!.id)
+                        showAnnouncementDialog = false
+                    }
+                )
+            }
+
+            // نافذة التذكير بالنسخ الاحتياطي
+            if (showBackupReminderDialog) {
+                BackupReminderDialog(
+                    onBackupNow = {
+                        showBackupReminderDialog = false
+                        PeriodicBackupReminderManager.recordBackupPerformed(context)
+                        // التنقل لتبويب الإعدادات لإجراء النسخ
+                        coroutineScope.launch { pagerState.animateScrollToPage(4) }
+                    },
+                    onRemindLater = {
+                        showBackupReminderDialog = false
+                        PeriodicBackupReminderManager.dismissReminderTemporarily(context)
+                    }
                 )
             }
 
