@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>لوحة تحكم وإدارة تراخيص ومستخدمي مُسَرِّب | م. عمر الحومي</title>
+  <script>
+    (function() {
+      try {
+        const t = localStorage.getItem('mosarib_admin_theme');
+        if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      } catch(e) {}
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -14,19 +22,59 @@
       --primary-light: #4FB3BF;
       --accent: #FFB300;
       --bg: #0B171D;
+      --body-gradient: radial-gradient(circle at top, #132A32, var(--bg));
       --card-bg: #12232B;
       --card-border: rgba(0, 150, 166, 0.25);
+      --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
       --text: #E0F2F1;
+      --text-title: #FFFFFF;
       --text-muted: #80CBC4;
       --danger: #FF5252;
       --success: #00E676;
+      --input-bg: #081318;
+      --input-border: rgba(0, 150, 166, 0.4);
+      --table-th-bg: rgba(0, 131, 143, 0.2);
+      --table-hover: rgba(0, 150, 166, 0.08);
+      --table-border: rgba(0, 150, 166, 0.15);
+      --stat-icon-bg: rgba(0, 150, 166, 0.15);
+      --theme-btn-bg: rgba(255, 255, 255, 0.08);
+      --theme-btn-border: rgba(255, 255, 255, 0.18);
+      --theme-btn-color: #E0F2F1;
     }
+
+    [data-theme="light"] {
+      --primary: #00838F;
+      --primary-dark: #004D40;
+      --primary-light: #0097A7;
+      --accent: #D97706;
+      --bg: #F4F7F8;
+      --body-gradient: radial-gradient(circle at top, #E2F1F3, #F4F7F8);
+      --card-bg: #FFFFFF;
+      --card-border: rgba(0, 131, 143, 0.18);
+      --card-shadow: 0 4px 20px rgba(0, 77, 64, 0.08);
+      --text: #1E293B;
+      --text-title: #0F172A;
+      --text-muted: #475569;
+      --danger: #DC2626;
+      --success: #16A34A;
+      --input-bg: #F8FAFC;
+      --input-border: #CBD5E1;
+      --table-th-bg: #E6F4F5;
+      --table-hover: #F1F8F8;
+      --table-border: #E2E8F0;
+      --stat-icon-bg: #E0F2F1;
+      --theme-btn-bg: #FFFFFF;
+      --theme-btn-border: rgba(0, 131, 143, 0.25);
+      --theme-btn-color: #004D40;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
     body {
-      background: radial-gradient(circle at top, #132A32, var(--bg));
+      background: var(--body-gradient);
       color: var(--text);
       min-height: 100vh;
       padding: 24px;
+      transition: background 0.3s ease, color 0.3s ease;
     }
     .container { max-width: 1250px; margin: 0 auto; }
     
@@ -53,8 +101,39 @@
       font-size: 26px;
       box-shadow: 0 8px 20px rgba(0, 191, 165, 0.35);
     }
-    h1 { font-size: 24px; font-weight: 800; color: #FFF; }
+    h1 { font-size: 24px; font-weight: 800; color: var(--text-title); transition: color 0.3s ease; }
     .subtitle { font-size: 13px; color: var(--text-muted); }
+
+    /* Theme Toggle Button */
+    .theme-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--theme-btn-bg);
+      border: 1px solid var(--theme-btn-border);
+      color: var(--theme-btn-color);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      transition: all 0.25s ease;
+      user-select: none;
+    }
+    .theme-toggle-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(0, 131, 143, 0.25);
+    }
+    .theme-toggle-btn .theme-icon {
+      font-size: 16px;
+      display: inline-block;
+      transition: transform 0.3s ease;
+    }
+    .theme-toggle-btn:hover .theme-icon {
+      transform: rotate(20deg) scale(1.15);
+    }
+
     .status-badge {
       display: inline-flex;
       align-items: center;
@@ -84,10 +163,11 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      box-shadow: var(--card-shadow);
+      transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     }
     .stat-info h3 { font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
-    .stat-info .num { font-size: 28px; font-weight: 900; color: #FFF; }
+    .stat-info .num { font-size: 28px; font-weight: 900; color: var(--text-title); transition: color 0.3s ease; }
     .stat-icon {
       width: 48px;
       height: 48px;
@@ -96,7 +176,7 @@
       align-items: center;
       justify-content: center;
       font-size: 22px;
-      background: rgba(0, 150, 166, 0.15);
+      background: var(--stat-icon-bg);
       color: var(--primary-light);
     }
 
@@ -140,16 +220,18 @@
       border: 1px solid var(--card-border);
       border-radius: 18px;
       padding: 24px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      box-shadow: var(--card-shadow);
+      transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     }
     .card-title {
       font-size: 17px;
       font-weight: 800;
-      color: #FFF;
+      color: var(--text-title);
       margin-bottom: 18px;
       display: flex;
       align-items: center;
       gap: 10px;
+      transition: color 0.3s ease;
     }
     .form-group { margin-bottom: 16px; }
     label { display: block; font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; }
@@ -157,12 +239,12 @@
       width: 100%;
       padding: 12px 14px;
       border-radius: 10px;
-      border: 1px solid rgba(0, 150, 166, 0.4);
-      background: #081318;
-      color: #FFF;
+      border: 1px solid var(--input-border);
+      background: var(--input-bg);
+      color: var(--text);
       font-size: 15px;
       outline: none;
-      transition: border-color 0.2s;
+      transition: border-color 0.2s, background 0.3s ease, color 0.3s ease;
     }
     input:focus, select:focus, textarea:focus { border-color: var(--success); }
     .btn {
@@ -191,12 +273,13 @@
 
     .key-box {
       margin-top: 18px;
-      background: #081318;
+      background: var(--input-bg);
       border: 1px dashed var(--accent);
       border-radius: 12px;
       padding: 16px;
       text-align: center;
       display: none;
+      transition: background 0.3s ease;
     }
     .key-text {
       font-size: 22px;
@@ -218,19 +301,21 @@
       border-collapse: collapse;
       text-align: right;
       background: var(--card-bg);
+      transition: background 0.3s ease;
     }
     th, td {
       padding: 14px 16px;
-      border-bottom: 1px solid rgba(0, 150, 166, 0.15);
+      border-bottom: 1px solid var(--table-border);
       font-size: 14px;
     }
     th {
-      background: rgba(0, 131, 143, 0.2);
+      background: var(--table-th-bg);
       color: var(--text-muted);
       font-weight: 700;
       white-space: nowrap;
+      transition: background 0.3s ease, color 0.3s ease;
     }
-    tr:hover { background: rgba(0, 150, 166, 0.08); }
+    tr:hover { background: var(--table-hover); }
     .badge {
       padding: 4px 10px;
       border-radius: 8px;
@@ -275,7 +360,7 @@
       text-align: center;
       margin-top: 40px;
       font-size: 13px;
-      color: #546E7A;
+      color: var(--text-muted);
     }
   </style>
 </head>
@@ -291,8 +376,14 @@
         <p class="subtitle">تطوير المهندس عمر الحومي — تبع سوفت &copy; 2026</p>
       </div>
     </div>
-    <div class="status-badge" id="firebaseStatus">
-      <div class="status-dot"></div> متصل بقاعدة بيانات فايربيس (mosarib)
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <button id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleTheme()" title="تبديل الثيم (فاتح / ليلي)">
+        <span class="theme-icon" id="themeIcon">☀️</span>
+        <span id="themeLabel">الوضع الفاتح</span>
+      </button>
+      <div class="status-badge" id="firebaseStatus">
+        <div class="status-dot"></div> متصل بقاعدة بيانات فايربيس (mosarib)
+      </div>
     </div>
   </header>
 
@@ -901,7 +992,40 @@
     document.body.removeChild(link);
   }
 
+  // --- Theme Toggle Logic ---
+  function initTheme() {
+    try {
+      const savedTheme = localStorage.getItem('mosarib_admin_theme') || 'dark';
+      applyTheme(savedTheme);
+    } catch(e) {
+      applyTheme('dark');
+    }
+  }
+
+  function applyTheme(theme) {
+    const icon = document.getElementById('themeIcon');
+    const label = document.getElementById('themeLabel');
+    if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      if (icon) icon.textContent = '🌙';
+      if (label) label.textContent = 'الوضع الليلي';
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      if (icon) icon.textContent = '☀️';
+      if (label) label.textContent = 'الوضع الفاتح';
+    }
+    try {
+      localStorage.setItem('mosarib_admin_theme', theme);
+    } catch(e) {}
+  }
+
+  function toggleTheme() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    applyTheme(isLight ? 'dark' : 'light');
+  }
+
   // Initial load
+  initTheme();
   loadFirebaseData();
 </script>
 
