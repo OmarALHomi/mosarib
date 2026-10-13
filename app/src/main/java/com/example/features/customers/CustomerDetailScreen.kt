@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -595,7 +596,7 @@ fun CustomerDetailScreen(
                                 val statusText = when {
                                     hasPayable -> "عليك لصاحب البئر (متبقي مستحقات الشراء بعد خصم السقي)"
                                     hasReceivable -> "لك على صاحب البئر (ديون سقي متبقية بذمته بعد خصم الشراء)"
-                                    else -> "حساب صاحب البئر مسدد وخالص بالكامل"
+                                    else -> "حساب صاحب البئر مسدد (لا توجد مطالبات)"
                                 }
                                 val statusColor = when {
                                     hasPayable -> Color(0xFFD32F2F)
@@ -649,7 +650,7 @@ fun CustomerDetailScreen(
                                     text = when {
                                         isDebt -> "صافي الدين المتبقي بذمة العميل (لك)"
                                         isCredit -> "رصيد دائن لصالح العميل (عليك)"
-                                        else -> "الحساب مسدد بالكامل (لا توجد مطالبات)"
+                                        else -> "الحساب مسدد (لا توجد مطالبات)"
                                     },
                                     style = MaterialTheme.typography.labelMedium.copy(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -679,9 +680,9 @@ fun CustomerDetailScreen(
                                             .background(AccentEmerald.copy(alpha = 0.12f))
                                             .padding(horizontal = 12.dp, vertical = 4.dp)
                                     ) {
-                                        Icon(Icons.Default.Check, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(14.dp))
+                                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(14.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("خالص ومسدد بالكامل", style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold))
+                                        Text("مسدد", style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold))
                                     }
                                 }
                             }
@@ -1701,14 +1702,33 @@ private fun CustomerPurchaseCardItem(
                                     fontSize = 10.5.sp
                                 )
                             )
-                            Text(
-                                text = if (remainingDebt > 0) Formatters.formatCurrency(remainingDebt, currencySymbol) else "مسدد بالكامل",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = if (remainingDebt > 0) Color(0xFFE65100) else AccentEmerald,
-                                    fontSize = 11.sp
+                            if (remainingDebt > 0) {
+                                Text(
+                                    text = Formatters.formatCurrency(remainingDebt, currencySymbol),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFFE65100),
+                                        fontSize = 11.sp
+                                    )
                                 )
-                            )
+                            } else {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = AccentEmerald,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Text(
+                                        text = "مسدد",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = AccentEmerald,
+                                            fontSize = 11.sp
+                                        )
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -1896,17 +1916,34 @@ private fun CustomerSessionCardItem(
 
                 Column(horizontalAlignment = Alignment.End) {
                     Text("المتبقي", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
-                    Text(
-                        if (isSettledByOffset) "مسدد بالمقاصة"
-                        else if (session.remainingDebt > 0) Formatters.formatCurrency(session.remainingDebt, currencySymbol)
-                        else "خالص بالكامل",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = if (isSettledByOffset) Color(0xFF0284C7)
-                                else if (session.remainingDebt > 0) Color(0xFFE53935)
-                                else AccentEmerald,
-                            fontWeight = FontWeight.ExtraBold
+                    if (isSettledByOffset) {
+                        Text(
+                            "مسدد بالمقاصة",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color(0xFF0284C7),
+                                fontWeight = FontWeight.ExtraBold
+                            )
                         )
-                    )
+                    } else if (session.remainingDebt > 0) {
+                        Text(
+                            Formatters.formatCurrency(session.remainingDebt, currencySymbol),
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color(0xFFE53935),
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        )
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(13.dp))
+                            Text(
+                                "مسدد",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = AccentEmerald,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1950,10 +1987,16 @@ private fun CustomerSessionCardItem(
                             .background(AccentEmerald.copy(alpha = 0.12f))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Text(
-                            text = "خالص ومسدد بالكامل",
-                            style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(13.dp))
+                            Text(
+                                text = "مسدد",
+                                style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
+                            )
+                        }
                     }
                 }
 

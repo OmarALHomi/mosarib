@@ -483,8 +483,8 @@
         <span class="theme-icon" id="themeIcon">☀️</span>
         <span id="themeLabel">الوضع الفاتح</span>
       </button>
-      <div class="status-badge" id="firebaseStatus">
-        <div class="status-dot"></div> سحابة فايربيس متصلة
+      <div class="status-badge" id="firebaseStatus" onclick="promptConfigureFirebaseUrl()" style="cursor: pointer;" title="انقر لعرض وفحص وتعديل رابط قاعدة بيانات فايربيس">
+        <div class="status-dot"></div> سحابة فايربيس ⚙️
       </div>
     </div>
   </header>
@@ -779,12 +779,31 @@
 
 <script>
   const FIRESTORE_BASE_URL = "https://firestore.googleapis.com/v1/projects/mosarib/databases/(default)/documents";
-  const RTDB_BASE_URL = "https://mosarib-default-rtdb.firebaseio.com";
+  const DEFAULT_RTDB_URL = "https://mosarib-default-rtdb.firebaseio.com";
+  let RTDB_BASE_URL = localStorage.getItem("mosarib_rtdb_url") || DEFAULT_RTDB_URL;
+  let FIREBASE_BASE_URL = RTDB_BASE_URL;
   const SECRET_SALT = "mosarib_secure_license_secret_key_alhomi_2026_water_app";
+
+  function promptConfigureFirebaseUrl() {
+    const currentUrl = FIREBASE_BASE_URL;
+    const newUrl = prompt("رابط قاعدة بيانات فايربيس (Firebase Realtime Database URL):\nيمكنك نسخه مباشرة من Firebase Console:", currentUrl);
+    if (newUrl !== null && newUrl.trim().length > 0) {
+      let clean = newUrl.trim().replace(/\/+$/, '');
+      if (!clean.startsWith("http://") && !clean.startsWith("https://")) {
+        clean = "https://" + clean;
+      }
+      RTDB_BASE_URL = clean;
+      FIREBASE_BASE_URL = clean;
+      localStorage.setItem("mosarib_rtdb_url", clean);
+      alert("✅ تم ضبط رابط فايربيس بنجاح إلى:\n" + clean);
+      loadFirebaseData();
+    }
+  }
 
   let allUsers = [];
   let allFeedbacks = [];
   let allRequests = [];
+  let pendingRequestId = null;
 
   function parseFirestoreDoc(doc) {
     if (!doc || !doc.fields) return doc;
@@ -1022,18 +1041,19 @@
           <td><small>${r.deviceModel || '-'}</small></td>
           <td>${statusBadge}</td>
           <td>
-            <button class="btn-sm btn-unblock" onclick="quickActivateRequest('${devCode}', '${(r.subscriberName || '').replace(/'/g, "\\'")}', '${r.plan || 'MONTHLY'}')">⚡ تفعيل وتوليد الرمز</button>
+            <button class="btn-sm btn-unblock" onclick="quickActivateRequest('${devCode}', '${(r.subscriberName || '').replace(/'/g, "\\'")}', '${r.plan || 'MONTHLY'}', '${r.id || ''}')">⚡ تفعيل وتوليد الرمز</button>
           </td>
         </tr>
       `;
     }).join('');
   }
 
-  function quickActivateRequest(code, name, plan) {
+  function quickActivateRequest(code, name, plan, reqId) {
     switchTab('generator');
     document.getElementById('deviceCode').value = code;
     document.getElementById('subscriberName').value = name;
     document.getElementById('planSelect').value = plan || 'MONTHLY';
+    pendingRequestId = reqId || null;
     generateAndSaveKey();
   }
 
@@ -1204,18 +1224,58 @@
       lastCheckedAt: now
     };
 
+    let pushSuccess = false;
+    let pushError = null;
+
     try {
-      await fetch(`${FIREBASE_BASE_URL}/licenses/${cleanKey}.json`, {
+      // 1. Save License to RTDB
+      const res = await fetch(`${FIREBASE_BASE_URL}/licenses/${cleanKey}.json`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      if (res.ok) {
+        pushSuccess = true;
+      } else {
+        pushError = `HTTP ${res.status} (${res.statusText || 'رفض الخادم'})`;
+      }
+
+      // 2. Also save to devices for fast device lookup
+      await fetch(`${FIREBASE_BASE_URL}/devices/${devCode}.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
+
+      // 3. Mark subscription request as completed if applicable
+      if (pendingRequestId) {
+        await fetch(`${FIREBASE_BASE_URL}/subscription_requests/${pendingRequestId}/status.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify("COMPLETED")
+        }).catch(() => {});
+
+        await fetch(`${FIREBASE_BASE_URL}/subscription_requests/${pendingRequestId}/activationKey.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(key)
+        }).catch(() => {});
+
+        pendingRequestId = null;
+      }
     } catch (e) {
-      console.warn("Could not push to Firebase directly:", e);
+      pushError = e.message;
     }
 
     document.getElementById("keyText").innerText = key;
     document.getElementById("keyBox").style.display = "block";
+
+    if (pushSuccess) {
+      alert(`✅ تم توليد وتفعيل الرمز بنجاح: ${key}\nتم رفعه وحفظه في سحابة فايربيس بنجاح وربطه بالجهاز (${devCode}).`);
+    } else {
+      alert(`⚠️ تم توليد الرمز محلياً: ${key}\nولكن حدث خطأ أثناء رفعه إلى فايربيس: (${pushError || 'تعذر الاتصال'}).\nالرابط الحالي: ${FIREBASE_BASE_URL}\nيمكنك النقر على زر سحابة فايربيس بأعلى الصفحة للتأكد من الرابط وقواعد الأمان.`);
+    }
+
     loadFirebaseData();
   }
 

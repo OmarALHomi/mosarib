@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.filled.ArrowDownward
@@ -328,14 +329,25 @@ fun SessionCardItem(
                                     .background(if (isDark) Color(0xFF132A1C) else Color(0xFFE8F5E9))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
-                                Text(
-                                    text = "خالص ومسدد",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
-                                        fontSize = 11.sp
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
+                                        modifier = Modifier.size(12.dp)
                                     )
-                                )
+                                    Text(
+                                        text = "مسدد",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
+                                            fontSize = 11.sp
+                                        )
+                                    )
+                                }
                             }
                         }
 
@@ -458,7 +470,7 @@ fun SessionCardItem(
                             } else {
                                 SessionMetricPill(
                                     label = "المتبقي",
-                                    value = "0 $currencySymbol (خالص)",
+                                    value = "0 $currencySymbol (مسدد)",
                                     bgColor = AccentEmerald.copy(alpha = 0.15f),
                                     textColor = AccentEmerald
                                 )

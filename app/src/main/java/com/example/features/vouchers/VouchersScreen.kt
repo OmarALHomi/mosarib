@@ -32,6 +32,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -2525,20 +2526,38 @@ fun SettlementResultDialog(
                                     fontSize = 12.sp,
                                     color = if (item.allocatedAmount > 0) PrimaryTeal else if (isDark) Color(0xFFF87171) else Color(0xFFC62828)
                                 )
-                                Text(
-                                    text = when {
-                                        item.isFullyPaid -> "خالصة بالكامل"
-                                        item.allocatedAmount > 0 -> "متبقي: ${Formatters.formatCurrency(item.remainingDebtAfter, result.currencySymbol)}"
-                                        else -> "لم يشملها المبلغ"
-                                    },
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
-                                    color = when {
-                                        item.isFullyPaid -> if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32)
-                                        item.allocatedAmount > 0 -> if (isDark) Color(0xFFFBBF24) else Color(0xFFF57F17)
-                                        else -> if (isDark) Color(0xFFF87171) else Color(0xFFC62828)
+                                if (item.isFullyPaid) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Text(
+                                            text = "مسدد",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            color = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32)
+                                        )
                                     }
-                                )
+                                } else {
+                                    Text(
+                                        text = when {
+                                            item.allocatedAmount > 0 -> "متبقي: ${Formatters.formatCurrency(item.remainingDebtAfter, result.currencySymbol)}"
+                                            else -> "لم يشملها المبلغ"
+                                        },
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = when {
+                                            item.allocatedAmount > 0 -> if (isDark) Color(0xFFFBBF24) else Color(0xFFF57F17)
+                                            else -> if (isDark) Color(0xFFF87171) else Color(0xFFC62828)
+                                        }
+                                    )
+                                }
                             }
                         }
                     }

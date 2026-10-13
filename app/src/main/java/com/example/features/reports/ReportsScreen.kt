@@ -853,17 +853,34 @@ private fun WellOwnerAccountingCard(
                     },
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text(
-                        text = if (stats.totalOwnerPayable <= 0) "خالص بالكامل" else "متبقي مستحقات",
-                        color = if (isDark) {
-                            if (stats.totalOwnerPayable <= 0) Color(0xFF4ADE80) else Color(0xFFF87171)
-                        } else {
-                            if (stats.totalOwnerPayable <= 0) Color(0xFF1B5E20) else Color(0xFFC62828)
-                        },
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                    if (stats.totalOwnerPayable <= 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF1B5E20),
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Text(
+                                text = "مسدد",
+                                color = if (isDark) Color(0xFF4ADE80) else Color(0xFF1B5E20),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "متبقي مستحقات",
+                            color = if (isDark) Color(0xFFF87171) else Color(0xFFC62828),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
 

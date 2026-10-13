@@ -31,6 +31,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.CheckCircle
+import com.example.core.ui.isAppDark
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.History
@@ -357,6 +359,7 @@ fun WeeklyIrrigationBarChartCard(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
 
+                        val isDark = isAppDark()
                         // Animated Bar with safe max height
                         Box(
                             modifier = Modifier
@@ -366,7 +369,10 @@ fun WeeklyIrrigationBarChartCard(
                                 .background(
                                     if (stat.isToday) Brush.verticalGradient(listOf(AccentEmerald, PrimaryTeal))
                                     else if (stat.totalMinutes > 0) Brush.verticalGradient(listOf(PrimaryTeal.copy(alpha = 0.85f), SecondaryAqua))
-                                    else Brush.verticalGradient(listOf(Color(0xFFE2E8F0), Color(0xFFCBD5E1)))
+                                    else Brush.verticalGradient(
+                                        if (isDark) listOf(Color(0xFF334155), Color(0xFF1E293B))
+                                        else listOf(Color(0xFFE2E8F0), Color(0xFFCBD5E1))
+                                    )
                                 )
                         )
 
@@ -462,16 +468,21 @@ fun FinancialRecoveryGaugeCard(
                     )
                 }
 
+                val isDark = isAppDark()
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (percentInt >= 70) Color(0xFFE8F5E9) else Color(0xFFFFF3E0))
+                        .background(
+                            if (percentInt >= 70) (if (isDark) Color(0xFF132A1C) else Color(0xFFE8F5E9))
+                            else (if (isDark) Color(0xFF2E1C0C) else Color(0xFFFFF3E0))
+                        )
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(
                         text = "$percentInt% محصل",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = if (percentInt >= 70) Color(0xFF2E7D32) else Color(0xFFE65100),
+                            color = if (percentInt >= 70) (if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32))
+                            else (if (isDark) Color(0xFFFFB74D) else Color(0xFFE65100)),
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 11.sp
                         )
@@ -710,6 +721,7 @@ fun RecentSessionMiniCard(
                 }
             }
 
+            val isDark = isAppDark()
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = Formatters.formatCurrency(s.totalAmount, currencySymbol),
@@ -719,14 +731,36 @@ fun RecentSessionMiniCard(
                         fontSize = 13.sp
                     )
                 )
-                Text(
-                    text = if (s.remainingDebt > 0) "متبقي آجل" else "مسدد بالكامل",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = if (s.remainingDebt > 0) Color(0xFFC62828) else Color(0xFF2E7D32),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 9.5.sp
+                if (s.remainingDebt > 0) {
+                    Text(
+                        text = "متبقي آجل",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = if (isDark) Color(0xFFF87171) else Color(0xFFC62828),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 9.5.sp
+                        )
                     )
-                )
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "مسدد",
+                            tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
+                            modifier = Modifier.size(11.dp)
+                        )
+                        Text(
+                            text = "مسدد",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 9.5.sp
+                            )
+                        )
+                    }
+                }
             }
         }
     }

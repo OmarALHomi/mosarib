@@ -45,7 +45,7 @@ object MessageFormatHelper {
             val paid = Formatters.formatNumber(session.amountPaid)
             val rem = Formatters.formatNumber(session.remainingDebt)
             val curr = config.currencySymbol
-            val statusEmoji = if (session.remainingDebt > 0) "⚠️ المتبقي: $rem $curr" else "✅ خالص ومسدد"
+            val statusEmoji = if (session.remainingDebt > 0) "⚠️ المتبقي: $rem $curr" else "✅ مسدد"
             val msg = """
 💧 فاتورة ري #${session.id}
 👤 العميل: ${customer.name.take(18)}
@@ -61,7 +61,7 @@ $statusEmoji
             val debtStatus = if (session.remainingDebt > 0) {
                 "المتبقي: ${Formatters.formatCurrency(session.remainingDebt, config.currencySymbol)}"
             } else {
-                "خالص ومسدد بالكامل ✅"
+                "مسدد ✅"
             }
             val appTitle = config.distributorName.ifEmpty { "المسرّب" }
             val farm = if (customer.farmName.isNotBlank()) " (${customer.farmName})" else ""
@@ -170,7 +170,7 @@ ${notePart}📅 التاريخ: $date
 
         return if (isSms) {
             val wastePart = if (wasteMinutes > 0) " (هدر ${Formatters.formatDurationCompact(wasteMinutes)})" else ""
-            val remText = if (remainingDebt > 0) "⚠️ المتبقي لكم: ${Formatters.formatNumber(remainingDebt)} $curr" else "✅ خالص ومسدد"
+            val remText = if (remainingDebt > 0) "⚠️ المتبقي لكم: ${Formatters.formatNumber(remainingDebt)} $curr" else "✅ مسدد"
             val msg = """
 💧 شراء ساعات #${purchase.id}
 👤 صاحب البئر: ${owner.name.take(18)}
@@ -207,7 +207,7 @@ $remText
         val curr = result.currencySymbol
         return if (isSms) {
             val lines = result.items.take(3).joinToString("\n") { item ->
-                val status = if (item.isFullyPaid) "خالص ✅" else "متبقي ${Formatters.formatNumber(item.remainingDebtAfter)}"
+                val status = if (item.isFullyPaid) "مسدد ✅" else "متبقي ${Formatters.formatNumber(item.remainingDebtAfter)}"
                 "• دورة #${item.sessionId}: ${Formatters.formatNumber(item.allocatedAmount)} ($status)"
             }
             val msg = """
@@ -226,7 +226,7 @@ $lines
             sb.append("📋 تفاصيل تسديد الجلسات:\n")
             result.items.forEach { item ->
                 val dateStr = Formatters.formatDate(item.date)
-                val status = if (item.isFullyPaid) "خالص بالكامل ✅" else "متبقي: ${Formatters.formatCurrency(item.remainingDebtAfter, curr)} ⏳"
+                val status = if (item.isFullyPaid) "مسدد ✅" else "متبقي: ${Formatters.formatCurrency(item.remainingDebtAfter, curr)} ⏳"
                 sb.append("• دورة #${item.sessionId} ($dateStr):\n")
                 sb.append("   - المسدد: ${Formatters.formatCurrency(item.allocatedAmount, curr)}\n")
                 sb.append("   - الحالة: $status\n")
@@ -257,7 +257,7 @@ $lines
                 val status = when {
                     netDue > 0 -> "⚠️ المتبقي لكم: ${Formatters.formatNumber(netDue)} $curr"
                     netDue < 0 -> "⚠️ المستحق عليكم: ${Formatters.formatNumber(-netDue)} $curr"
-                    else -> "✅ الحساب خالص ومسدد"
+                    else -> "✅ الحساب مسدد"
                 }
                 val msg = """
 📊 كشف حساب بئر: ${customer.name.take(18)}
@@ -272,12 +272,12 @@ $status
                 val ownerPayableStatus = when {
                     item.payableBalance > 0 -> "⚠️ المتبقي المستحق لكم علينا: ${Formatters.formatCurrency(item.payableBalance, curr)}"
                     item.payableBalance < 0 -> "✅ لدينا رصيد دائن عليكم: ${Formatters.formatCurrency(kotlin.math.abs(item.payableBalance), curr)}"
-                    else -> "✅ مستحقات الشراء مسددة بالكامل"
+                    else -> "✅ مستحقات الشراء مسددة"
                 }
                 val ownerReceivableStatus = when {
                     item.receivableBalance > 0 -> "⚠️ المستحق لنا عليكم عن السقي: ${Formatters.formatCurrency(item.receivableBalance, curr)}"
                     item.receivableBalance < 0 -> "✅ لكم رصيد عن السقي: ${Formatters.formatCurrency(kotlin.math.abs(item.receivableBalance), curr)}"
-                    else -> "✅ حساب السقي مسدد بالكامل"
+                    else -> "✅ حساب السقي مسدد"
                 }
                 val ownerWasteMinutes = (item.totalPurchasedMinutes - item.totalChargeablePurchasedMinutes).coerceAtLeast(0)
                 val msg = """
@@ -303,7 +303,7 @@ $ownerReceivableStatus
                 val debtText = when {
                     item.receivableBalance > 0 -> "⚠️ المطلوب: ${Formatters.formatNumber(item.receivableBalance)} $curr"
                     item.receivableBalance < 0 -> "✅ لكم رصيد: ${Formatters.formatNumber(-item.receivableBalance)} $curr"
-                    else -> "✅ خالص ومسدد"
+                    else -> "✅ مسدد"
                 }
                 val msg = """
 📊 كشف حساب: ${customer.name.take(18)}
@@ -321,7 +321,7 @@ $debtText
                 } else if (item.receivableBalance < 0) {
                     "✅ لديكم رصيد دائن: ${Formatters.formatCurrency(kotlin.math.abs(item.receivableBalance), curr)}"
                 } else {
-                    "✅ الحساب خالص ومسدد بالكامل"
+                    "✅ الحساب مسدد"
                 }
                 val msg = """
 *كشف حساب مياه - $appTitle*

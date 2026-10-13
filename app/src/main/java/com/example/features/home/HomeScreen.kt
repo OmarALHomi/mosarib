@@ -284,8 +284,8 @@ fun HomeScreen(
                             title = "سقي جديد",
                             subtitle = "تسجيل دورة ري",
                             icon = Icons.Default.WaterDrop,
-                            iconBgColor = Color(0xFFE0F2FE),
-                            iconTint = PrimaryTeal,
+                            iconBgColor = if (isDarkTheme) Color(0xFF0C2433) else Color(0xFFE0F2FE),
+                            iconTint = if (isDarkTheme) Color(0xFF38BDF8) else PrimaryTeal,
                             onClick = {
                                 checkOperationAllowed {
                                     showAddManualSheet = true
@@ -298,8 +298,8 @@ fun HomeScreen(
                             title = "قبض",
                             subtitle = "سند تحصيل كاش",
                             icon = Icons.Default.Payments,
-                            iconBgColor = Color(0xFFE8F5E9),
-                            iconTint = AccentEmerald,
+                            iconBgColor = if (isDarkTheme) Color(0xFF132A1C) else Color(0xFFE8F5E9),
+                            iconTint = if (isDarkTheme) Color(0xFF4ADE80) else AccentEmerald,
                             onClick = {
                                 checkOperationAllowed {
                                     voucherInitialType = VoucherType.RECEIPT
@@ -318,8 +318,8 @@ fun HomeScreen(
                             title = "صرف",
                             subtitle = "صيانة ونفقات",
                             icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                            iconBgColor = Color(0xFFFFEBEE),
-                            iconTint = Color(0xFFE53935),
+                            iconBgColor = if (isDarkTheme) Color(0xFF2E1517) else Color(0xFFFFEBEE),
+                            iconTint = if (isDarkTheme) Color(0xFFF87171) else Color(0xFFE53935),
                             onClick = {
                                 checkOperationAllowed {
                                     voucherInitialType = VoucherType.EXPENSE
@@ -333,8 +333,8 @@ fun HomeScreen(
                             title = "شراء",
                             subtitle = "شراء ماء من بئر",
                             icon = Icons.Default.LocalGasStation,
-                            iconBgColor = Color(0xFFF3E8FF),
-                            iconTint = Color(0xFF7E22CE),
+                            iconBgColor = if (isDarkTheme) Color(0xFF261436) else Color(0xFFF3E8FF),
+                            iconTint = if (isDarkTheme) Color(0xFFC084FC) else Color(0xFF7E22CE),
                             onClick = {
                                 checkOperationAllowed {
                                     showAddPurchaseSheet = true
@@ -352,8 +352,8 @@ fun HomeScreen(
                             title = "عميل جديد",
                             subtitle = "إضافة مزارع أو بئر",
                             icon = Icons.Default.PersonAdd,
-                            iconBgColor = Color(0xFFE0F2FE),
-                            iconTint = Color(0xFF0284C7),
+                            iconBgColor = if (isDarkTheme) Color(0xFF0F2634) else Color(0xFFE0F2FE),
+                            iconTint = if (isDarkTheme) Color(0xFF38BDF8) else Color(0xFF0284C7),
                             onClick = { showAddCustomerSheet = true },
                             modifier = Modifier.weight(1f)
                         )
@@ -362,8 +362,8 @@ fun HomeScreen(
                             title = "النسخ الاحتياطي",
                             subtitle = "حفظ واستعادة سحابية ومحلية",
                             icon = Icons.Default.CloudSync,
-                            iconBgColor = Color(0xFFE8F5E9),
-                            iconTint = Color(0xFF16A34A),
+                            iconBgColor = if (isDarkTheme) Color(0xFF132A1C) else Color(0xFFE8F5E9),
+                            iconTint = if (isDarkTheme) Color(0xFF4ADE80) else Color(0xFF16A34A),
                             onClick = {
                                 settingsViewModel.selectDriveBackupTab()
                                 onNavigateToTab(AppTab.SETTINGS)

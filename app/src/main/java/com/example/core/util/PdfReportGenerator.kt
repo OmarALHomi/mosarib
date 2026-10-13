@@ -155,7 +155,7 @@ object PdfReportGenerator {
             val netStatusLabel = when {
                 payableBalance > 0 -> "عليك لصاحب البئر (متبقي)"
                 receivableBalance > 0 -> "لك على صاحب البئر (سقي)"
-                else -> "الحساب مسدد وخالص"
+                else -> "الحساب مسدد"
             }
             val netAmount = if (payableBalance > 0) payableBalance else receivableBalance
             val netColor = if (payableBalance > 0) debtRed else paidGreen
@@ -170,7 +170,7 @@ object PdfReportGenerator {
             val finalBalance = receivableBalance
             drawSummaryBox(canvas, 25f, 210f, boxWidth, boxH, "السقي بعد هدر المسرب", "${Formatters.formatCurrency(totalWaterCost, config.currencySymbol)} (${Formatters.formatDurationArabic(totalMinutes)})", primaryColor)
             drawSummaryBox(canvas, 25f + boxWidth + 10f, 210f, boxWidth, boxH, "إجمالي المسدد", Formatters.formatCurrency(totalPaidOverall, config.currencySymbol), paidGreen)
-            val balanceLabel = if (finalBalance > 0) "المبلغ المتبقي بذمته" else if (finalBalance < 0) "رصيد دائن للعميل" else "الحساب خالص"
+            val balanceLabel = if (finalBalance > 0) "المبلغ المتبقي بذمته" else if (finalBalance < 0) "رصيد دائن للعميل" else "الحساب مسدد"
             val balanceColor = if (finalBalance > 0) debtRed else paidGreen
             drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 210f, boxWidth, boxH, balanceLabel, Formatters.formatCurrency(kotlin.math.abs(finalBalance), config.currencySymbol), balanceColor)
         }
@@ -386,7 +386,7 @@ object PdfReportGenerator {
         canvas.drawText("تاريخ الري: ${Formatters.formatDateTime(session.startTime)}", pageWidth - 35f, 140f, paint)
 
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("حالة السداد: ${if (session.remainingDebt <= 0) "مسدد بالكامل" else "متبقي آجل"}", 35f, 130f, paint)
+        canvas.drawText("حالة السداد: ${if (session.remainingDebt <= 0) "مسدد" else "متبقي آجل"}", 35f, 130f, paint)
 
         // Customer details block
         val rectCustomer = RectF(30f, 160f, pageWidth - 30f, 225f)
