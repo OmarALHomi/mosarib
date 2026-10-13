@@ -107,10 +107,16 @@ fun LicenseDialog(
 
     fun submitActivation() {
         errorMessage = null
-        refreshInternet()
         if (!isOnline) {
-            errorMessage = "تعذر التفعيل: يلزم الاتصال بالإنترنت لإتمام وتوثيق عملية التفعيل بالسيرفر."
-            return
+            val cleanKey = enteredKey.replace("-", "").replace(" ", "").trim().uppercase()
+            val isOfflineMathValid = LicenseManager.SubscriptionPlan.entries.any { plan ->
+                val exp = LicenseManager.generateActivationKey(deviceCode, plan).replace("-", "").uppercase()
+                cleanKey == exp || cleanKey == exp.removePrefix("ACTV")
+            }
+            if (!isOfflineMathValid) {
+                errorMessage = "تعذر التفعيل بدون إنترنت: الرمز غير مطابق لهذا الجهاز، أو يلزم الاتصال بالإنترنت للتحقق منه عبر السيرفر."
+                return
+            }
         }
 
         if (subscriberName.trim().isBlank()) {

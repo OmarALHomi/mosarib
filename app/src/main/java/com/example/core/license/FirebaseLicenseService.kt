@@ -148,13 +148,12 @@ object FirebaseLicenseService {
                 }
             } else {
                 Log.w(TAG, "Firebase returned code $responseCode")
-                // Connection or permission issue, fallback to allow valid local keys if network restricted
-                return@withContext LicenseCheckResult(isValid = true, isRevoked = false, isBoundToOtherDevice = false)
+                return@withContext LicenseCheckResult(isValid = false, isRevoked = false, isBoundToOtherDevice = false, errorMessage = "خطأ في استجابة الخادم: $responseCode")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Online license check failed: ${e.message}")
             return@withContext LicenseCheckResult(
-                isValid = true,
+                isValid = false,
                 isRevoked = false,
                 isBoundToOtherDevice = false,
                 errorMessage = e.message

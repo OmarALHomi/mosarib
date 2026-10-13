@@ -135,9 +135,6 @@ object LicenseManager {
         enteredKey: String,
         subscriberName: String
     ): ActivationResult {
-        if (!isInternetAvailable(context)) {
-            return ActivationResult.NoInternet
-        }
         val cleanName = subscriberName.trim()
         if (cleanName.isBlank()) {
             return ActivationResult.MissingSubscriberName
@@ -168,31 +165,41 @@ object LicenseManager {
             }
         }
 
-        // Verify with Firebase Cloud backend
-        val cloudCheck = FirebaseLicenseService.verifyAndBindKeyOnline(
-            key = cleanEntered,
-            currentDeviceCode = currentDeviceCode,
-            subscriberName = cleanName,
-            plan = matchedPlan,
-            durationDays = matchedPlan.durationDays
-        )
-
-        if (cloudCheck.isRevoked) {
-            revokeLicenseLocally(context)
-            return ActivationResult.SubscriptionRevoked
-        }
-
-        if (cloudCheck.isBoundToOtherDevice) {
-            return ActivationResult.BoundToOtherDevice(cloudCheck.boundDeviceCode)
-        }
-
-        // Verify key mathematical signature for current device
         val expectedForDevice = generateActivationKey(currentDeviceCode, matchedPlan).replace("-", "").uppercase()
         val expectedWithoutPrefix = expectedForDevice.removePrefix("ACTV")
         val isMathValid = cleanEntered == expectedForDevice || cleanEntered == expectedWithoutPrefix
+        val hasInternet = isInternetAvailable(context)
 
-        if (!isMathValid && !cloudCheck.isValid) {
-            return ActivationResult.InvalidKey
+        var serverExpiresAt: Long? = null
+
+        if (hasInternet) {
+            // Verify with Firebase Cloud backend
+            val cloudCheck = FirebaseLicenseService.verifyAndBindKeyOnline(
+                key = cleanEntered,
+                currentDeviceCode = currentDeviceCode,
+                subscriberName = cleanName,
+                plan = matchedPlan,
+                durationDays = matchedPlan.durationDays
+            )
+
+            if (cloudCheck.isRevoked) {
+                revokeLicenseLocally(context)
+                return ActivationResult.SubscriptionRevoked
+            }
+
+            if (cloudCheck.isBoundToOtherDevice) {
+                return ActivationResult.BoundToOtherDevice(cloudCheck.boundDeviceCode)
+            }
+
+            if (!isMathValid && !cloudCheck.isValid) {
+                return ActivationResult.InvalidKey
+            }
+            serverExpiresAt = cloudCheck.serverExpiresAt
+        } else {
+            // Offline fallback: Must be mathematically valid for this device
+            if (!isMathValid) {
+                return ActivationResult.NoInternet
+            }
         }
 
         // Save activation locally
@@ -200,7 +207,7 @@ object LicenseManager {
         val currentExpiry = sp.getLong(KEY_EXPIRES_AT, 0L)
         val now = System.currentTimeMillis()
         val baseTime = maxOf(now, currentExpiry)
-        val newExpiresAt = cloudCheck.serverExpiresAt ?: (baseTime + (matchedPlan.durationDays * 24L * 3600L * 1000L))
+        val newExpiresAt = serverExpiresAt ?: (baseTime + (matchedPlan.durationDays * 24L * 3600L * 1000L))
 
         val signature = sha256(currentDeviceCode + SECRET_ACTIVATION_SALT + matchedPlan.name + newExpiresAt)
         val deviceModel = getDeviceModelName()
