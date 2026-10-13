@@ -426,7 +426,7 @@ object FirebaseLicenseService {
         return try {
             val url = URL("$FIREBASE_DB_URL/$path")
             val conn = (url.openConnection() as HttpURLConnection).apply {
-                // HttpURLConnection does not support PATCH on all Android versions directly, use POST with override or PUT
+                // HttpURLConnection does not support PATCH on all Android versions directly, use PUT
                 requestMethod = "PUT"
                 doOutput = true
                 connectTimeout = 8000
@@ -437,6 +437,69 @@ object FirebaseLicenseService {
             conn.responseCode in 200..299
         } catch (e: Exception) {
             false
+        }
+    }
+
+    sealed class ExistingUserResult {
+        data class Found(
+            val subscriberName: String,
+            val phone: String,
+            val isActivated: Boolean,
+            val plan: String
+        ) : ExistingUserResult()
+
+        object NotFound : ExistingUserResult()
+        data class Error(val message: String) : ExistingUserResult()
+    }
+
+    /**
+     * Searches Firebase Realtime Database (/all_users) for an account associated with this Google email.
+     * STRICT SECURITY RULE: This is a 100% read-only check and NEVER saves, writes, or creates an account
+     * if the user is not found, preventing any spoofing or ghost entries.
+     */
+    suspend fun findExistingUserByGoogleEmail(email: String): ExistingUserResult = withContext(Dispatchers.IO) {
+        val cleanEmail = email.trim().lowercase()
+        if (cleanEmail.isBlank()) return@withContext ExistingUserResult.NotFound
+
+        try {
+            val url = URL("$FIREBASE_DB_URL/all_users.json")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 7000
+                readTimeout = 7000
+                setRequestProperty("Accept", "application/json")
+            }
+
+            if (conn.responseCode == 200) {
+                val text = conn.inputStream.bufferedReader().readText().trim()
+                if (text != "null" && text.isNotBlank()) {
+                    val root = JSONObject(text)
+                    val keys = root.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        val userObj = root.optJSONObject(key) ?: continue
+                        val userEmail = userObj.optString("googleEmail", "").trim().lowercase()
+                        if (userEmail == cleanEmail) {
+                            val subName = userObj.optString("subscriberName", "").ifBlank {
+                                userObj.optString("googleDisplayName", "مشترك")
+                            }
+                            val phone = userObj.optString("phone", "")
+                            val isActivated = userObj.optBoolean("isActivated", false)
+                            val plan = userObj.optString("plan", "TRIAL")
+
+                            return@withContext ExistingUserResult.Found(
+                                subscriberName = subName,
+                                phone = phone,
+                                isActivated = isActivated,
+                                plan = plan
+                            )
+                        }
+                    }
+                }
+            }
+            ExistingUserResult.NotFound
+        } catch (e: Exception) {
+            ExistingUserResult.Error(e.localizedMessage ?: "فشل الاتصال بالخادم للتحقق من الحساب")
         }
     }
 }

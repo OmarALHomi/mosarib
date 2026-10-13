@@ -432,20 +432,25 @@ object LicenseManager {
         }
     }
 
+    fun getFreeOperationsLimit(context: Context): Int {
+        return RemoteConfigManager.getFreeOperationsLimit(context)
+    }
+
     fun recordOperationPerformed(context: Context, currentDbCount: Int) {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         val storedCumulative = sp.getInt(KEY_CUMULATIVE_OPS, 0)
         val newCumulative = maxOf(storedCumulative + 1, currentDbCount)
         sp.edit().putInt(KEY_CUMULATIVE_OPS, newCumulative).apply()
 
-        if (newCumulative >= FREE_OPERATIONS_LIMIT) {
+        val effectiveLimit = getFreeOperationsLimit(context)
+        if (newCumulative >= effectiveLimit) {
             markTrialAsConsumed(context)
         }
     }
 
     /**
      * Synchronizes license usage and trial limits after restoring a backup.
-     * @return true if the restored operations count reaches or exceeds [FREE_OPERATIONS_LIMIT],
+     * @return true if the restored operations count reaches or exceeds the dynamic free operations limit,
      * meaning the trial is fully consumed and subscription is mandatory.
      */
     fun syncOperationsAfterRestore(context: Context, totalDbCount: Int): Boolean {
@@ -454,7 +459,8 @@ object LicenseManager {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         sp.edit().putInt(KEY_CUMULATIVE_OPS, totalDbCount).apply()
 
-        return if (totalDbCount >= FREE_OPERATIONS_LIMIT) {
+        val effectiveLimit = getFreeOperationsLimit(context)
+        return if (totalDbCount >= effectiveLimit) {
             markTrialAsConsumed(context)
             true
         } else {
@@ -489,7 +495,8 @@ object LicenseManager {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         val storedOps = sp.getInt(KEY_CUMULATIVE_OPS, 0)
         val effectiveCount = maxOf(storedOps, currentOperationsCount)
-        if (effectiveCount >= FREE_OPERATIONS_LIMIT) {
+        val effectiveLimit = getFreeOperationsLimit(context)
+        if (effectiveCount >= effectiveLimit) {
             markTrialAsConsumed(context)
             return false
         }
@@ -502,7 +509,8 @@ object LicenseManager {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         val storedOps = sp.getInt(KEY_CUMULATIVE_OPS, 0)
         val effectiveCount = maxOf(storedOps, currentOperationsCount)
-        return (FREE_OPERATIONS_LIMIT - effectiveCount).coerceAtLeast(0)
+        val effectiveLimit = getFreeOperationsLimit(context)
+        return (effectiveLimit - effectiveCount).coerceAtLeast(0)
     }
 
     fun getWhatsAppActivationUrl(

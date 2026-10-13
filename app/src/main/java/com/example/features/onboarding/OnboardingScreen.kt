@@ -58,7 +58,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.widget.Toast
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedButton
+import com.example.core.license.FirebaseLicenseService
 import com.example.core.license.LicenseManager
+import com.example.core.license.UserDeviceTracker
 import com.example.core.util.GoogleDriveBackupHelper
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
@@ -87,6 +95,15 @@ fun OnboardingScreen(
     }
 
     var showGoogleBackupDialog by remember { mutableStateOf(false) }
+    var isLoginFlow by remember { mutableStateOf(false) }
+    var isCheckingGoogleLogin by remember { mutableStateOf(false) }
+    var showNotRegisteredDialog by remember { mutableStateOf(false) }
+    var unregisteredEmailAttempt by remember { mutableStateOf("") }
+
+    fun completeOnboarding() {
+        LicenseManager.setOnboardingCompleted(context, true)
+        onFinish()
+    }
 
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -95,12 +112,46 @@ fun OnboardingScreen(
         try {
             val account = task.getResult(ApiException::class.java)
             if (account != null) {
-                signedInGoogleAccount = account
-                scope.launch {
-                    com.example.core.license.UserDeviceTracker.syncPresence(context, 0)
+                if (isLoginFlow) {
+                    isCheckingGoogleLogin = true
+                    val email = account.email ?: ""
+                    scope.launch {
+                        val checkRes = FirebaseLicenseService.findExistingUserByGoogleEmail(email)
+                        isCheckingGoogleLogin = false
+                        when (checkRes) {
+                            is FirebaseLicenseService.ExistingUserResult.Found -> {
+                                UserDeviceTracker.saveUserRegistrationInfo(context, checkRes.subscriberName, checkRes.phone)
+                                UserDeviceTracker.setGoogleAccountAuthenticatedForApp(context, true)
+                                signedInGoogleAccount = account
+                                Toast.makeText(context, "أهلاً بك مجدداً ${checkRes.subscriberName}! تم استعادة حسابك بنجاح.", Toast.LENGTH_LONG).show()
+                                completeOnboarding()
+                            }
+                            is FirebaseLicenseService.ExistingUserResult.NotFound -> {
+                                // CRITICAL ANTI-TAMPERING: Sign out Google, do NOT save email to Firebase
+                                val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
+                                client.signOut()
+                                UserDeviceTracker.setGoogleAccountAuthenticatedForApp(context, false)
+                                signedInGoogleAccount = null
+                                unregisteredEmailAttempt = email
+                                showNotRegisteredDialog = true
+                            }
+                            is FirebaseLicenseService.ExistingUserResult.Error -> {
+                                Toast.makeText(context, checkRes.message, Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                } else {
+                    // Registration Flow
+                    signedInGoogleAccount = account
+                    UserDeviceTracker.setGoogleAccountAuthenticatedForApp(context, true)
+                    scope.launch {
+                        UserDeviceTracker.syncPresence(context, 0)
+                    }
                 }
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+            isCheckingGoogleLogin = false
+        }
     }
 
     val pages = remember {
@@ -137,11 +188,6 @@ fun OnboardingScreen(
     }
 
     val pagerState = rememberPagerState(initialPage = 0) { pages.size }
-
-    fun completeOnboarding() {
-        LicenseManager.setOnboardingCompleted(context, true)
-        onFinish()
-    }
 
     Box(
         modifier = Modifier
@@ -294,7 +340,7 @@ fun OnboardingScreen(
 
                     // Special for Google Drive slide (Page 3)
                     if (pageIdx == 3) {
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
@@ -320,17 +366,47 @@ fun OnboardingScreen(
                                             )
                                         )
                                     }
-                                } else {
-                                    Button(
-                                        onClick = {
-                                            showGoogleBackupDialog = true
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                                        shape = RoundedCornerShape(10.dp)
-                                    ) {
-                                        Icon(Icons.Default.CloudDone, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                                } else if (isCheckingGoogleLogin) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = PrimaryTeal)
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("ربط حساب Google الآن للنسخ الاحتياطي", fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                                        Text("جاري التحقق من وجود الحساب...", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                } else {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        // Path 1: Sign in with existing Google Account
+                                        Button(
+                                            onClick = {
+                                                isLoginFlow = true
+                                                val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
+                                                googleSignInLauncher.launch(client.signInIntent)
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                                            shape = RoundedCornerShape(10.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Icon(Icons.Default.CloudDone, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("تسجيل الدخول بحساب Google (للمسجلين مسبقاً)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        }
+
+                                        // Path 2: New Registration
+                                        OutlinedButton(
+                                            onClick = {
+                                                isLoginFlow = false
+                                                showGoogleBackupDialog = true
+                                            },
+                                            shape = RoundedCornerShape(10.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp), tint = AccentEmerald)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("تسجيل جديد (بياناتك وحساب Google)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        }
                                     }
                                 }
                             }
@@ -433,6 +509,60 @@ fun OnboardingScreen(
                     com.example.core.license.UserDeviceTracker.saveUserRegistrationInfo(context, name, phone)
                     val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
                     googleSignInLauncher.launch(client.signInIntent)
+                }
+            )
+        }
+
+        if (showNotRegisteredDialog) {
+            AlertDialog(
+                onDismissRequest = { showNotRegisteredDialog = false },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.WarningAmber,
+                        contentDescription = null,
+                        tint = AccentGold,
+                        modifier = Modifier.size(32.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = "لا يوجد حساب مسجل مسبقاً",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        textAlign = TextAlign.Center
+                    )
+                },
+                text = {
+                    Text(
+                        text = "لا يوجد حساب أو اشتراك مرتبط بهذا البريد الإلكتروني:\n($unregisteredEmailAttempt)\n\nيمكنك تسجيل حساب جديد ببياناتك الآن، أو المتابعة باستخدام النسخة المجانية.",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            lineHeight = 22.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showNotRegisteredDialog = false
+                            isLoginFlow = false
+                            showGoogleBackupDialog = true
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("تسجيل حساب جديد بالبيانات", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showNotRegisteredDialog = false
+                            completeOnboarding()
+                        }
+                    ) {
+                        Text("المتابعة بالنسخة المجانية", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             )
         }

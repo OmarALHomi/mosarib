@@ -162,6 +162,8 @@ fun MainApp(
             var activeBroadcast by remember { mutableStateOf<AppBroadcast?>(null) }
             var showAnnouncementDialog by remember { mutableStateOf(false) }
             var showBackupReminderDialog by remember { mutableStateOf(false) }
+            var specialDeviceWarning by remember { mutableStateOf<String?>(null) }
+            var showSpecialWarningDialog by remember { mutableStateOf(false) }
 
             // مزامنة تواجد المستخدم وفحص الإعلانات والتحديثات بشكل دوري
             LaunchedEffect(Unit) {
@@ -173,6 +175,13 @@ fun MainApp(
                             blockReason = syncResult.blockReason ?: "تم إيقاف التطبيق على هذا الجهاز"
                         }
                         LicenseManager.checkRemoteRevocationInBackground(context)
+
+                        // فحص التنبيه الخاص بالجهاز
+                        val customWarn = com.example.core.license.RemoteConfigManager.getSpecialWarningMessage(context)
+                        if (!customWarn.isNullOrBlank() && customWarn != specialDeviceWarning) {
+                            specialDeviceWarning = customWarn
+                            showSpecialWarningDialog = true
+                        }
 
                         // فحص الإعلانات والتحديث الإجباري وبث إشعار النظام
                         val broadcast = AppUpdateManager.checkBroadcastAndUpdates(context)
@@ -450,6 +459,42 @@ fun MainApp(
                     onRemindLater = {
                         showBackupReminderDialog = false
                         PeriodicBackupReminderManager.dismissReminderTemporarily(context)
+                    }
+                )
+            }
+
+            if (showSpecialWarningDialog && specialDeviceWarning != null) {
+                AlertDialog(
+                    onDismissRequest = { showSpecialWarningDialog = false },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = Color(0xFFF59E0B),
+                            modifier = Modifier.size(32.dp)
+                        )
+                    },
+                    title = {
+                        Text(
+                            text = "تنبيه خاص من إدارة التطبيق",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            textAlign = TextAlign.Center
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = specialDeviceWarning!!,
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = { showSpecialWarningDialog = false },
+                            colors = ButtonDefaults.buttonColors(containerColor = com.example.ui.theme.PrimaryTeal)
+                        ) {
+                            Text("حسناً، فهمت", fontWeight = FontWeight.Bold)
+                        }
                     }
                 )
             }

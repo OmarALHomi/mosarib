@@ -81,6 +81,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.activity.compose.BackHandler
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material3.AlertDialog
+import com.example.core.util.GoogleDriveBackupHelper
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.common.api.ApiException
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LicenseDialog(
@@ -103,6 +111,10 @@ fun LicenseDialog(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var requestSuccessMessage by remember { mutableStateOf<String?>(null) }
     var isRequestingOnline by remember { mutableStateOf(false) }
+    var isCheckingGoogleLogin by remember { mutableStateOf(false) }
+    var showNotRegisteredDialog by remember { mutableStateOf(false) }
+    var unregisteredEmailAttempt by remember { mutableStateOf("") }
+
     val coroutineScope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
@@ -110,6 +122,56 @@ fun LicenseDialog(
             if (isMandatory) sheetValue != androidx.compose.material3.SheetValue.Hidden else true
         }
     )
+
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            if (account != null) {
+                isCheckingGoogleLogin = true
+                val email = account.email ?: ""
+                coroutineScope.launch {
+                    val checkRes = FirebaseLicenseService.findExistingUserByGoogleEmail(email)
+                    isCheckingGoogleLogin = false
+                    when (checkRes) {
+                        is FirebaseLicenseService.ExistingUserResult.Found -> {
+                            UserDeviceTracker.saveUserRegistrationInfo(context, checkRes.subscriberName, checkRes.phone)
+                            UserDeviceTracker.setGoogleAccountAuthenticatedForApp(context, true)
+                            subscriberName = checkRes.subscriberName
+                            if (checkRes.phone.isNotBlank()) phone = checkRes.phone
+
+                            if (checkRes.isActivated) {
+                                val plan = runCatching { LicenseManager.SubscriptionPlan.valueOf(checkRes.plan) }.getOrDefault(LicenseManager.SubscriptionPlan.YEARLY)
+                                val devKey = LicenseManager.generateActivationKey(deviceCode, plan)
+                                val actResult = LicenseManager.verifyAndActivate(context, devKey, checkRes.subscriberName)
+                                if (actResult is LicenseManager.ActivationResult.Success) {
+                                    Toast.makeText(context, "أهلاً بك مجدداً ${checkRes.subscriberName}! تم استعادة ترخيصك وتفعيل جهازك بنجاح.", Toast.LENGTH_LONG).show()
+                                    onActivated()
+                                    return@launch
+                                }
+                            }
+                            Toast.makeText(context, "أهلاً بك مجدداً ${checkRes.subscriberName}! تم استعادة بيانات حسابك بنجاح.", Toast.LENGTH_LONG).show()
+                        }
+                        is FirebaseLicenseService.ExistingUserResult.NotFound -> {
+                            // CRITICAL ANTI-TAMPERING: Sign out Google, do NOT save email to Firebase
+                            val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
+                            client.signOut()
+                            UserDeviceTracker.setGoogleAccountAuthenticatedForApp(context, false)
+                            unregisteredEmailAttempt = email
+                            showNotRegisteredDialog = true
+                        }
+                        is FirebaseLicenseService.ExistingUserResult.Error -> {
+                            errorMessage = checkRes.message
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            isCheckingGoogleLogin = false
+        }
+    }
 
     if (isMandatory) {
         BackHandler {
@@ -537,6 +599,48 @@ fun LicenseDialog(
 
             Spacer(modifier = Modifier.height(10.dp))
 
+            // Google Account Restore Button
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "مسجل مسبقاً ولديك اشتراك؟",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
+                            googleSignInLauncher.launch(client.signInIntent)
+                        },
+                        enabled = !isCheckingGoogleLogin,
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F766E), contentColor = Color.White)
+                    ) {
+                        if (isCheckingGoogleLogin) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("جاري فحص الحساب في السحابة...", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        } else {
+                            Icon(Icons.Default.CloudDone, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("تسجيل الدخول واستعادة الحساب عبر Google", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
             // Device Code Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -692,5 +796,57 @@ fun LicenseDialog(
 
             Spacer(modifier = Modifier.height(18.dp))
         }
+    }
+
+    if (showNotRegisteredDialog) {
+        AlertDialog(
+            onDismissRequest = { showNotRegisteredDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.WarningAmber,
+                    contentDescription = null,
+                    tint = AccentGold,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "لا يوجد حساب مسجل مسبقاً",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Text(
+                    text = "لا يوجد حساب أو اشتراك مرتبط بهذا البريد الإلكتروني مسبقاً:\n($unregisteredEmailAttempt)\n\nيمكنك تسجيل حساب جديد ببياناتك الآن لطلب التفعيل، أو المتابعة بالنسخة المجانية.",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        lineHeight = 22.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    textAlign = TextAlign.Center
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showNotRegisteredDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("تسجيل وتفعيل حساب جديد", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                if (!isMandatory) {
+                    TextButton(
+                        onClick = {
+                            showNotRegisteredDialog = false
+                            onDismiss()
+                        }
+                    ) {
+                        Text("المتابعة بالنسخة المجانية", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        )
     }
 }

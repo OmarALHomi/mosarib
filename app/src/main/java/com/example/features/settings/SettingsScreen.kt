@@ -574,6 +574,32 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    val isBackupAllowed = remember { com.example.core.license.RemoteConfigManager.isBackupAllowed(context) }
+
+                    if (!isBackupAllowed) {
+                        androidx.compose.material3.Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isDark) Color(0xFF3B1E1E) else Color(0xFFFEF2F2),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Key, contentDescription = null, tint = Color(0xFFEF4444), modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "تم إيقاف ميزة النسخ الاحتياطي للنسخ التجريبية من قِبل إدارة التطبيق.",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isDark) Color(0xFFFCA5A5) else Color(0xFF991B1B)
+                                    )
+                                )
+                            }
+                        }
+                    }
+
                     // 2. Action Buttons (متناسقة بعرض موحد وبدون ضغط)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -584,6 +610,7 @@ fun SettingsScreen(
                                 val dateStr = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
                                 createBackupLauncher.launch("mosarib_backup_$dateStr.back")
                             },
+                            enabled = isBackupAllowed,
                             colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1f),
@@ -596,6 +623,7 @@ fun SettingsScreen(
 
                         OutlinedButton(
                             onClick = { restoreFileLauncher.launch(arrayOf("*/*", "application/octet-stream", "application/json")) },
+                            enabled = isBackupAllowed,
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1f),
                             contentPadding = PaddingValues(vertical = 9.dp)
@@ -607,6 +635,7 @@ fun SettingsScreen(
 
                         OutlinedButton(
                             onClick = { viewModel.createBackupAndShare() },
+                            enabled = isBackupAllowed,
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1f),
                             contentPadding = PaddingValues(vertical = 9.dp)

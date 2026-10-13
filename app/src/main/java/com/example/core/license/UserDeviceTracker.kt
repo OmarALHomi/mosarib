@@ -31,6 +31,18 @@ object UserDeviceTracker {
         val blockReason: String? = null
     )
 
+    private const val KEY_IS_GOOGLE_ACCOUNT_AUTHED = "is_google_account_authenticated_for_app"
+
+    fun setGoogleAccountAuthenticatedForApp(context: Context, isAuthed: Boolean) {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        sp.edit().putBoolean(KEY_IS_GOOGLE_ACCOUNT_AUTHED, isAuthed).apply()
+    }
+
+    fun isGoogleAccountAuthenticatedForApp(context: Context): Boolean {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        return sp.getBoolean(KEY_IS_GOOGLE_ACCOUNT_AUTHED, false)
+    }
+
     fun saveUserRegistrationInfo(context: Context, name: String, phone: String) {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         sp.edit()
@@ -71,9 +83,13 @@ object UserDeviceTracker {
             return@withContext DeviceStatusResult(isDeviceBlockedLocally(context), getBlockReason(context))
         }
 
+        // Concurrently refresh remote policies
+        RemoteConfigManager.syncRemotePolicies(context)
+
         val deviceCode = LicenseManager.getDeviceCode(context)
         val cleanDeviceKey = deviceCode.replace("-", "").trim()
-        val googleAccount = GoogleSignIn.getLastSignedInAccount(context)
+        val isAuthed = isGoogleAccountAuthenticatedForApp(context)
+        val googleAccount = if (isAuthed) GoogleSignIn.getLastSignedInAccount(context) else null
         val email = googleAccount?.email ?: ""
         val displayName = googleAccount?.displayName ?: ""
         val isActivated = LicenseManager.isActivated(context)
