@@ -175,6 +175,9 @@ fun SettingsScreen(
     var expandAllLocalBackups by remember { mutableStateOf(false) }
     var expandAllDriveBackups by remember { mutableStateOf(false) }
 
+    var showGoogleBackupAccountDialog by remember { mutableStateOf(false) }
+    var pendingAutoBackupAfterSignIn by remember { mutableStateOf(false) }
+
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -183,8 +186,13 @@ fun SettingsScreen(
             val account = task.getResult(ApiException::class.java)
             if (account != null) {
                 viewModel.onGoogleSignInSuccess(account)
+                if (pendingAutoBackupAfterSignIn) {
+                    pendingAutoBackupAfterSignIn = false
+                    viewModel.backupToGoogleDriveAppData()
+                }
             }
         } catch (e: Exception) {
+            pendingAutoBackupAfterSignIn = false
             viewModel.showToast("فشل تسجيل الدخول بحساب Google: ${com.example.core.util.GoogleDriveBackupHelper.getReadableErrorMessage(e)}", ToastType.ERROR)
         }
     }
@@ -842,8 +850,8 @@ fun SettingsScreen(
                                     )
                                     Button(
                                         onClick = {
-                                            val signInIntent = GoogleDriveBackupHelper.getGoogleSignInClient(context).signInIntent
-                                            googleSignInLauncher.launch(signInIntent)
+                                            pendingAutoBackupAfterSignIn = false
+                                            showGoogleBackupAccountDialog = true
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
                                         shape = RoundedCornerShape(8.dp),
@@ -911,7 +919,10 @@ fun SettingsScreen(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         Button(
-                                            onClick = { viewModel.backupToGoogleDriveAppData() },
+                                            onClick = {
+                                                pendingAutoBackupAfterSignIn = true
+                                                showGoogleBackupAccountDialog = true
+                                            },
                                             enabled = !isDriveLoading,
                                             modifier = Modifier.weight(1f),
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
@@ -1565,6 +1576,40 @@ fun SettingsScreen(
     if (showTourDialog) {
         com.example.features.home.HomeShowcaseTourDialog(
             onDismiss = { showTourDialog = false }
+        )
+    }
+
+    // Google Drive Backup Account Dialog
+    if (showGoogleBackupAccountDialog) {
+        val initialDialogName = distributorName.takeIf { it.isNotBlank() && it != "موزع الماء / المسرب" }
+            ?: com.example.core.license.UserDeviceTracker.getRegisteredName(context).takeIf { it.isNotBlank() }
+            ?: com.example.core.license.LicenseManager.getActivationRecord(context)?.subscriberName
+            ?: ""
+
+        val initialDialogPhone = distributorPhone.takeIf { it.isNotBlank() && it != "777000000" }
+            ?: com.example.core.license.UserDeviceTracker.getRegisteredPhone(context).takeIf { it.isNotBlank() }
+            ?: ""
+
+        com.example.core.ui.GoogleBackupAccountDialog(
+            initialName = initialDialogName,
+            initialPhone = initialDialogPhone,
+            currentGoogleAccount = googleAccount,
+            onDismiss = {
+                showGoogleBackupAccountDialog = false
+                pendingAutoBackupAfterSignIn = false
+            },
+            onProceed = { name, phone, shouldLaunchSignIn ->
+                showGoogleBackupAccountDialog = false
+                com.example.core.license.UserDeviceTracker.saveUserRegistrationInfo(context, name, phone)
+                viewModel.updateDistributorInfo(name, phone)
+
+                if (shouldLaunchSignIn) {
+                    val signInIntent = GoogleDriveBackupHelper.getGoogleSignInClient(context).signInIntent
+                    googleSignInLauncher.launch(signInIntent)
+                } else {
+                    viewModel.backupToGoogleDriveAppData()
+                }
+            }
         )
     }
 }

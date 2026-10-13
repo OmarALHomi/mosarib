@@ -312,6 +312,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _googleAccount.value = account
         showToast("تم الاتصال بحساب Google: ${account.email}", ToastType.SUCCESS)
         loadDriveBackups()
+        viewModelScope.launch {
+            com.example.core.license.UserDeviceTracker.syncPresence(getApplication(), operationsCount.value)
+        }
     }
 
     fun onGoogleSignOut() {

@@ -527,9 +527,11 @@
         : (u.plan === "MONTHLY" ? `<span class="badge badge-monthly">شهري</span>` : `<span class="badge" style="background:#334155;color:#94a3b8;">تجربة</span>`);
 
       const lastSeen = u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleString('ar-EG') : 'غير محدد';
+      const userName = u.subscriberName || u.googleDisplayName || 'مستخدم مسرّب';
+      const userPhone = u.phone ? `<br><small style="color:#4ADE80; font-weight:600;">📞 ${u.phone}</small>` : '';
       const googleInfo = u.googleEmail 
-        ? `<div><b>${u.googleDisplayName || ''}</b><br><small style="color:#38BDF8;">${u.googleEmail}</small></div>`
-        : `<span style="color:#64748B;">لم يسجل بجوجل</span>`;
+        ? `<div><b>${userName}</b>${userPhone}<br><small style="color:#38BDF8;">${u.googleEmail}</small></div>`
+        : `<div><b>${userName}</b>${userPhone}<br><span style="color:#64748B; font-size:11px;">لم يسجل بجوجل</span></div>`;
 
       const blockActionBtn = isBlocked
         ? `<button class="btn-sm btn-unblock" onclick="toggleBlockUser('${u.cleanDeviceKey}', '${u.googleEmail}', false)">إلغاء الحظر</button>`

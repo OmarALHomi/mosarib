@@ -23,11 +23,31 @@ object UserDeviceTracker {
     private const val PREFS_FILE = "mosarib_license_prefs"
     private const val KEY_IS_BLOCKED_LOCALLY = "is_device_blocked_by_admin"
     private const val KEY_BLOCK_REASON = "device_block_reason"
+    private const val KEY_REGISTERED_NAME = "user_registered_name"
+    private const val KEY_REGISTERED_PHONE = "user_registered_phone"
 
     data class DeviceStatusResult(
         val isBlocked: Boolean,
         val blockReason: String? = null
     )
+
+    fun saveUserRegistrationInfo(context: Context, name: String, phone: String) {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        sp.edit()
+            .putString(KEY_REGISTERED_NAME, name.trim())
+            .putString(KEY_REGISTERED_PHONE, phone.trim())
+            .apply()
+    }
+
+    fun getRegisteredName(context: Context): String {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        return sp.getString(KEY_REGISTERED_NAME, "") ?: ""
+    }
+
+    fun getRegisteredPhone(context: Context): String {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        return sp.getString(KEY_REGISTERED_PHONE, "") ?: ""
+    }
 
     /**
      * Checks if this device or user has been flagged/blocked by admin.
@@ -118,6 +138,11 @@ object UserDeviceTracker {
                 return@withContext DeviceStatusResult(isBlocked = true, blockReason = blockReason)
             }
 
+            val regName = getRegisteredName(context).ifBlank {
+                LicenseManager.getActivationRecord(context)?.subscriberName ?: displayName
+            }
+            val regPhone = getRegisteredPhone(context)
+
             // 2. Upload / update user data
             val payload = JSONObject().apply {
                 put("deviceCode", deviceCode)
@@ -126,6 +151,8 @@ object UserDeviceTracker {
                 put("androidVersion", LicenseManager.getAndroidVersionName())
                 put("googleEmail", email)
                 put("googleDisplayName", displayName)
+                put("subscriberName", regName)
+                put("phone", regPhone)
                 put("isActivated", isActivated)
                 put("plan", activePlan)
                 put("operationsCount", operationsCount)
