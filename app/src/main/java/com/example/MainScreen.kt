@@ -183,6 +183,11 @@ fun MainApp(
                 if (PeriodicBackupReminderManager.shouldShowBackupReminder(context, operationsCount)) {
                     showBackupReminderDialog = true
                 }
+
+                // مزامنة FCM Push Token للإشعارات المنبثقة
+                try {
+                    com.example.core.notifications.FcmTokenHelper.syncCurrentToken(context)
+                } catch (_: Exception) {}
             }
 
             val tabs = remember { listOf(AppTab.REPORTS, AppTab.CUSTOMERS, AppTab.HOME, AppTab.VOUCHERS, AppTab.SETTINGS) }

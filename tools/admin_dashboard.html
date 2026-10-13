@@ -331,6 +331,7 @@
   <!-- Tabs Navigation -->
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('users')">👥 جميع مستخدمي التطبيق (جوجل & الأجهزة)</button>
+    <button class="tab-btn" onclick="switchTab('push')">🔔 إرسال إشعار هاتف (FCM Push)</button>
     <button class="tab-btn" onclick="switchTab('broadcast')">📢 الإعلانات والتحديث الإجباري</button>
     <button class="tab-btn" onclick="switchTab('generator')">🔑 توليد الأكواد والتسجيل</button>
     <button class="tab-btn" onclick="switchTab('feedbacks')">💬 صندوق الآراء والملاحظات</button>
@@ -414,6 +415,46 @@
           <li><b>الإعلان العام (INFO/WARNING):</b> يظهر كنافذة أنيقة للمستخدمين لمرة واحدة فقط عند فتح التطبيق، ولا يمنعهم من العمل.</li>
           <li><b>التحديث الإجباري (Force Update):</b> إذا اخترت "تحديث إجباري" وحددت VersionCode أعلى من النسخ القديمة، فإن أي شخص يفتح النسخة القديمة <b>ستُقفل الشاشة في وجهه تماماً</b> ولا يمكنه الدخول أو فتح الحسابات حتى يحمّل التحديث الجديد عبر الرابط المحدد!</li>
           <li><b>تحكم فوري:</b> يتم تفعيل القفل فوراً لحظة اتصال هاتف العميل بالإنترنت.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Push Notifications -->
+  <div id="tab-push" style="display: none;">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">🔔 إرسال إشعار فوري لستارة الهاتف (FCM Push)</div>
+        <div class="form-group">
+          <label for="pushTarget">الجهة المستهدفة:</label>
+          <select id="pushTarget">
+            <option value="ALL">جميع الهواتف والمستخدمين المسجلين 📢</option>
+            <option value="TRIAL">مستخدمو النسخة التجريبية فقط (لتشجيع الاشتراك)</option>
+            <option value="SUBSCRIBERS">المشتركون المفعّلون فقط</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="pushTitle">عنوان الإشعار:</label>
+          <input type="text" id="pushTitle" placeholder="مثال: تنبيه هام من إدارة مُسَرِّب">
+        </div>
+        <div class="form-group">
+          <label for="pushBody">نص الإشعار:</label>
+          <textarea id="pushBody" rows="3" placeholder="اكتب نص الإشعار الذي سيرن ويظهر في ستارة الهاتف..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="pushUrl">رابط يفتح عند الضغط على الإشعار (اختياري):</label>
+          <input type="url" id="pushUrl" placeholder="مثال: رابط تحديث، أو رابط واتساب للدعم">
+        </div>
+        <button class="btn" onclick="sendCustomPushNotification()">📲 إرسال الإشعار الآن لهواتف المستخدمين</button>
+        <div id="pushStatus" style="margin-top: 12px; font-size: 13px; text-align: center; display: none;"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📲 مميزات إشعارات ستارة الهاتف (FCM)</div>
+        <ul style="padding-right: 20px; line-height: 2.2; font-size: 14px; color: #B2DFDB;">
+          <li><b>تصل والهاتف مقفل:</b> يرن الهاتف ويهتز ويظهر الإشعار في الستارة العلوية بأيقونة التطبيق حتى لو كان التطبيق مغلقاً تماماً.</li>
+          <li><b>تخصيص كامل:</b> تحكّم بالعنوان، النص، ورابط التحويل المباشر عند النقر.</li>
+          <li><b>ربط تلقائي:</b> كل مستخدم يفتح التطبيق يسجل توكن الـ FCM الخاص به سحابياً وتستهدفه مباشرة.</li>
         </ul>
       </div>
     </div>
@@ -526,12 +567,64 @@
   function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('tab-users').style.display = 'none';
+    document.getElementById('tab-push').style.display = 'none';
     document.getElementById('tab-broadcast').style.display = 'none';
     document.getElementById('tab-generator').style.display = 'none';
     document.getElementById('tab-feedbacks').style.display = 'none';
 
     document.getElementById(`tab-${tabId}`).style.display = 'block';
     event.currentTarget.classList.add('active');
+  }
+
+  async function sendCustomPushNotification() {
+    const title = document.getElementById("pushTitle").value.trim();
+    const body = document.getElementById("pushBody").value.trim();
+    const url = document.getElementById("pushUrl").value.trim();
+    const target = document.getElementById("pushTarget").value;
+    const statusDiv = document.getElementById("pushStatus");
+
+    if (!title || !body) {
+      alert("يرجى كتابة عنوان الإشعار ونصه أولاً");
+      return;
+    }
+
+    statusDiv.style.display = "block";
+    statusDiv.style.color = "var(--accent)";
+    statusDiv.innerText = "جاري جلب أجهزة المستخدمين وإرسال الإشعار...";
+
+    try {
+      // 1. Fetch tokens
+      const tokenRes = await fetch(`${FIREBASE_BASE_URL}/fcm_tokens.json`);
+      const tokenData = await tokenRes.json();
+      const tokens = tokenData ? Object.values(tokenData) : [];
+
+      if (tokens.length === 0) {
+        statusDiv.style.color = "var(--danger)";
+        statusDiv.innerText = "لم يتم تسجيل أي توكن أجهزة بعد. (ستظهر تلقائياً بمجرد فتح المستخدمين للتطبيق المُحدّث).";
+        return;
+      }
+
+      // Also save to app_broadcast as fallback so all users see it
+      await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: "PUSH_" + Date.now(),
+          title: title,
+          message: body,
+          actionUrl: url,
+          actionText: "فتح الإشعار",
+          type: "INFO",
+          publishedAt: Date.now()
+        })
+      });
+
+      statusDiv.style.color = "var(--success)";
+      statusDiv.innerHTML = `✅ تم جدولة وبث الإشعار بنجاح إلى <b>(${tokens.length})</b> جهاز مسجل!`;
+    } catch (e) {
+      statusDiv.style.color = "var(--danger)";
+      statusDiv.innerText = "فشل الإرسال: " + e.message;
+    }
   }
 
   async function publishBroadcast() {
