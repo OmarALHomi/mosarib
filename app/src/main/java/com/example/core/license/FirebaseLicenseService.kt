@@ -214,6 +214,62 @@ object FirebaseLicenseService {
         val errorMessage: String? = null
     )
 
+    data class SubscriptionRequestResult(
+        val isSuccess: Boolean,
+        val errorMessage: String? = null
+    )
+
+    /**
+     * Submits a direct subscription request to Firebase (Cloud Firestore + Realtime Database fallback)
+     */
+    suspend fun sendSubscriptionRequestOnline(
+        subscriberName: String,
+        phone: String,
+        plan: LicenseManager.SubscriptionPlan,
+        deviceCode: String
+    ): SubscriptionRequestResult = withContext(Dispatchers.IO) {
+        val timestamp = System.currentTimeMillis()
+        val requestId = "REQ_${timestamp}_${deviceCode.takeLast(4)}"
+
+        val firestoreFields = mapOf(
+            "id" to requestId,
+            "subscriberName" to subscriberName,
+            "phone" to phone,
+            "plan" to plan.name,
+            "deviceCode" to deviceCode,
+            "deviceModel" to LicenseManager.getDeviceModelName(),
+            "androidVersion" to LicenseManager.getAndroidVersionName(),
+            "status" to "PENDING",
+            "timestamp" to timestamp
+        )
+
+        // 1. Cloud Firestore
+        val firestoreSuccess = sendToFirestore("subscription_requests", requestId, firestoreFields)
+        if (firestoreSuccess) {
+            Log.i(TAG, "Subscription request sent via Cloud Firestore")
+            return@withContext SubscriptionRequestResult(isSuccess = true)
+        }
+
+        // 2. Realtime Database fallback
+        val payload = JSONObject().apply {
+            put("id", requestId)
+            put("subscriberName", subscriberName)
+            put("phone", phone)
+            put("plan", plan.name)
+            put("deviceCode", deviceCode)
+            put("deviceModel", LicenseManager.getDeviceModelName())
+            put("androidVersion", LicenseManager.getAndroidVersionName())
+            put("status", "PENDING")
+            put("timestamp", timestamp)
+        }
+        val rtdbSuccess = putJson("subscription_requests/$requestId.json", payload.toString())
+        if (rtdbSuccess) {
+            SubscriptionRequestResult(isSuccess = true)
+        } else {
+            SubscriptionRequestResult(isSuccess = false, errorMessage = "تعذر إرسال الطلب، تحقق من الاتصال")
+        }
+    }
+
     /**
      * Submits user feedback directly to Firebase Realtime Database.
      */

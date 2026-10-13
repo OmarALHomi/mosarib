@@ -319,6 +319,13 @@
       </div>
       <div class="stat-icon" style="color: var(--accent)">⏳</div>
     </div>
+    <div class="stat-card" style="border: 1px solid rgba(255, 179, 0, 0.4); cursor: pointer;" onclick="switchTab('requests')">
+      <div class="stat-info">
+        <h3>طلبات الاشتراك المعلقة</h3>
+        <div class="num" id="statPendingRequests" style="color: var(--accent);">0</div>
+      </div>
+      <div class="stat-icon" style="color: var(--accent)">🔔</div>
+    </div>
     <div class="stat-card">
       <div class="stat-info">
         <h3>الأجهزة المحظورة / الموقوفة</h3>
@@ -330,9 +337,44 @@
 
   <!-- Tabs Navigation -->
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('users')">👥 جميع مستخدمي التطبيق (جوجل & الأجهزة)</button>
-    <button class="tab-btn" onclick="switchTab('generator')">🔑 توليد الأكواد والتسجيل</button>
-    <button class="tab-btn" onclick="switchTab('feedbacks')">💬 صندوق الآراء والملاحظات</button>
+    <button class="tab-btn" id="tabBtnRequests" onclick="switchTab('requests')">🔔 طلبات الاشتراك الواردة <span id="badgeReqCount" class="badge badge-yearly" style="display:none; margin-right:4px;">0</span></button>
+    <button class="tab-btn active" id="tabBtnUsers" onclick="switchTab('users')">👥 جميع مستخدمي التطبيق (جوجل & الأجهزة)</button>
+    <button class="tab-btn" id="tabBtnGenerator" onclick="switchTab('generator')">🔑 توليد الأكواد والتسجيل</button>
+    <button class="tab-btn" id="tabBtnFeedbacks" onclick="switchTab('feedbacks')">💬 صندوق الآراء والملاحظات</button>
+  </div>
+
+  <!-- Tab: Subscription Requests (طلبات الاشتراك الواردة من التطبيق) -->
+  <div id="tab-requests" style="display: none;">
+    <div class="card">
+      <div class="toolbar">
+        <div class="card-title" style="margin-bottom: 0;">🔔 طلبات الاشتراك الواردة مباشرة من هواتف العملاء</div>
+        <div style="display: flex; gap: 10px;">
+          <input type="text" class="search-input" id="requestSearch" placeholder="بحث باسم المشترك، الهاتف، الكود..." oninput="filterRequests()">
+          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="loadFirebaseData()">🔄 تحديث</button>
+          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="exportRequestsCSV()">📥 تصدير Excel</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>تاريخ الطلب</th>
+              <th>اسم المشترك</th>
+              <th>رقم الهاتف</th>
+              <th>الباقة المطلوبة</th>
+              <th>كود الجهاز</th>
+              <th>الموديل</th>
+              <th>الحالة</th>
+              <th>إجراء فوري</th>
+            </tr>
+          </thead>
+          <tbody id="requestsTableBody">
+            <tr><td colspan="8" style="text-align: center; color: var(--text-muted);">جاري تحميل طلبات الاشتراك...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <!-- Tab 1: All Users (Both subscribed & trial, with Google Accounts & Instant Block) -->
@@ -452,11 +494,51 @@
 </div>
 
 <script>
-  const FIREBASE_BASE_URL = "https://mosarib-default-rtdb.firebaseio.com";
+  const FIRESTORE_BASE_URL = "https://firestore.googleapis.com/v1/projects/mosarib/databases/(default)/documents";
+  const RTDB_BASE_URL = "https://mosarib-default-rtdb.firebaseio.com";
   const SECRET_SALT = "mosarib_secure_license_secret_key_alhomi_2026_water_app";
 
   let allUsers = [];
   let allFeedbacks = [];
+  let allRequests = [];
+
+  function parseFirestoreDoc(doc) {
+    if (!doc || !doc.fields) return doc;
+    const out = {};
+    for (const [key, val] of Object.entries(doc.fields)) {
+      if (val.stringValue !== undefined) out[key] = val.stringValue;
+      else if (val.integerValue !== undefined) out[key] = parseInt(val.integerValue, 10);
+      else if (val.booleanValue !== undefined) out[key] = val.booleanValue;
+      else if (val.doubleValue !== undefined) out[key] = parseFloat(val.doubleValue);
+      else if (val.timestampValue !== undefined) out[key] = val.timestampValue;
+      else out[key] = val;
+    }
+    return out;
+  }
+
+  async function fetchCollection(name) {
+    // 1. First Attempt: Cloud Firestore REST API
+    try {
+      const res = await fetch(`${FIRESTORE_BASE_URL}/${name}?pageSize=300`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.documents && Array.isArray(data.documents)) {
+          return data.documents.map(parseFirestoreDoc);
+        }
+      }
+    } catch (_) {}
+
+    // 2. Second Attempt: Realtime Database Fallback
+    try {
+      const res = await fetch(`${RTDB_BASE_URL}/${name}.json`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data) return Object.values(data);
+      }
+    } catch (_) {}
+
+    return [];
+  }
 
   async function sha256(message) {
     const msgBuffer = new TextEncoder().encode(message);
@@ -467,27 +549,30 @@
 
   function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('tab-requests').style.display = 'none';
     document.getElementById('tab-users').style.display = 'none';
     document.getElementById('tab-generator').style.display = 'none';
     document.getElementById('tab-feedbacks').style.display = 'none';
 
     document.getElementById(`tab-${tabId}`).style.display = 'block';
-    event.currentTarget.classList.add('active');
+    const activeBtn = document.getElementById(`tabBtn${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
+    if (activeBtn) activeBtn.classList.add('active');
   }
 
   async function loadFirebaseData() {
     try {
-      // 1. Load All Users (both trial and subscribed)
-      const usersRes = await fetch(`${FIREBASE_BASE_URL}/all_users.json`);
-      const usersData = await usersRes.json();
-      allUsers = usersData ? Object.values(usersData) : [];
+      const [reqs, users, fbs] = await Promise.all([
+        fetchCollection('subscription_requests'),
+        fetchCollection('all_users'),
+        fetchCollection('feedbacks')
+      ]);
 
-      // 2. Load Feedbacks
-      const fbRes = await fetch(`${FIREBASE_BASE_URL}/feedbacks.json`);
-      const fbData = await fbRes.json();
-      allFeedbacks = fbData ? Object.values(fbData) : [];
+      allRequests = reqs;
+      allUsers = users;
+      allFeedbacks = fbs;
 
       updateStats();
+      renderRequestsTable(allRequests);
       renderUsersTable(allUsers);
       renderFeedbacksTable(allFeedbacks);
     } catch (e) {
@@ -500,10 +585,84 @@
     const activeLic = allUsers.filter(u => u.isActivated && !u.isBlocked).length;
     const trial = allUsers.filter(u => !u.isActivated && !u.isBlocked).length;
     const blocked = allUsers.filter(u => u.isBlocked).length;
+    const pendingReqs = allRequests.filter(r => r.status !== 'COMPLETED').length;
 
     document.getElementById("statActiveLicenses").innerText = activeLic;
     document.getElementById("statTrialUsers").innerText = trial;
     document.getElementById("statBlockedUsers").innerText = blocked;
+    document.getElementById("statPendingRequests").innerText = pendingReqs;
+
+    const badge = document.getElementById("badgeReqCount");
+    if (badge) {
+      if (pendingReqs > 0) {
+        badge.innerText = pendingReqs;
+        badge.style.display = "inline-block";
+      } else {
+        badge.style.display = "none";
+      }
+    }
+  }
+
+  function renderRequestsTable(requests) {
+    const tbody = document.getElementById("requestsTableBody");
+    if (!requests || requests.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">لا توجد طلبات اشتراك واردة حالياً (أي طلب يُرسل من التطبيق سيظهر هنا فوراً)</td></tr>`;
+      return;
+    }
+
+    requests.sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    tbody.innerHTML = requests.map(r => {
+      const dateStr = r.timestamp ? new Date(r.timestamp).toLocaleString('ar-EG') : 'الآن';
+      const cleanPhone = (r.phone || '').replace(/[^0-9]/g, '');
+      const phoneLink = cleanPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" style="color: var(--success); font-weight: bold;">${r.phone} 💬</a>` : '-';
+      const planBadge = r.plan === 'YEARLY' ? `<span class="badge badge-yearly">سنوي ⭐</span>` : `<span class="badge badge-monthly">شهري</span>`;
+      const statusBadge = r.status === 'COMPLETED' ? `<span class="badge badge-active">تم التفعيل ✅</span>` : `<span class="badge badge-trial">جديد ⏳</span>`;
+      const devCode = r.deviceCode || '';
+
+      return `
+        <tr>
+          <td><small>${dateStr}</small></td>
+          <td><b>${r.subscriberName || 'مشترك جديد'}</b></td>
+          <td>${phoneLink}</td>
+          <td>${planBadge}</td>
+          <td><code style="color: var(--accent); font-weight: bold; font-size: 13px;">${devCode}</code></td>
+          <td><small>${r.deviceModel || '-'}</small></td>
+          <td>${statusBadge}</td>
+          <td>
+            <button class="btn-sm btn-unblock" onclick="quickActivateRequest('${devCode}', '${(r.subscriberName || '').replace(/'/g, "\\'")}', '${r.plan || 'MONTHLY'}')">⚡ تفعيل وتوليد الرمز</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function quickActivateRequest(code, name, plan) {
+    switchTab('generator');
+    document.getElementById('deviceCode').value = code;
+    document.getElementById('subscriberName').value = name;
+    document.getElementById('planSelect').value = plan || 'MONTHLY';
+    generateAndSaveKey();
+  }
+
+  function filterRequests() {
+    const q = document.getElementById("requestSearch").value.trim().toLowerCase();
+    const filtered = allRequests.filter(r => 
+      (r.subscriberName && r.subscriberName.toLowerCase().includes(q)) ||
+      (r.phone && r.phone.includes(q)) ||
+      (r.deviceCode && r.deviceCode.toLowerCase().includes(q))
+    );
+    renderRequestsTable(filtered);
+  }
+
+  function exportRequestsCSV() {
+    if (allRequests.length === 0) return alert("لا توجد طلبات لتصديرها");
+    let csv = "\uFEFFتاريخ الطلب,اسم المشترك,الهاتف,الباقة,كود الجهاز,الموديل,الحالة\n";
+    allRequests.forEach(r => {
+      const dateStr = new Date(r.timestamp || Date.now()).toLocaleString('ar-EG');
+      csv += `"${dateStr}","${r.subscriberName || ''}","${r.phone || ''}","${r.plan || 'MONTHLY'}","${r.deviceCode || ''}","${r.deviceModel || ''}","${r.status || 'PENDING'}"\n`;
+    });
+    downloadCSV(csv, "mosarib_subscription_requests.csv");
   }
 
   function renderUsersTable(users) {

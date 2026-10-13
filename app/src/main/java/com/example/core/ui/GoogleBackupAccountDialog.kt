@@ -170,8 +170,17 @@ fun GoogleBackupAccountDialog(
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
+                    unfocusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
+                    focusedLabelColor = PrimaryTeal,
+                    unfocusedLabelColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                    focusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
+                    unfocusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
+                    cursorColor = PrimaryTeal,
                     focusedBorderColor = PrimaryTeal,
-                    unfocusedBorderColor = if (isDark) Color(0xFF334B56) else Color(0xFFCBD5E1)
+                    unfocusedBorderColor = if (isDark) Color(0xFF334B56) else Color(0xFFCBD5E1),
+                    focusedContainerColor = if (isDark) Color(0xFF162329) else Color(0xFFF8FAFC),
+                    unfocusedContainerColor = if (isDark) Color(0xFF142026) else Color(0xFFF8FAFC)
                 )
             )
 
@@ -194,8 +203,17 @@ fun GoogleBackupAccountDialog(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
+                    unfocusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
+                    focusedLabelColor = PrimaryTeal,
+                    unfocusedLabelColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                    focusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
+                    unfocusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
+                    cursorColor = PrimaryTeal,
                     focusedBorderColor = PrimaryTeal,
-                    unfocusedBorderColor = if (isDark) Color(0xFF334B56) else Color(0xFFCBD5E1)
+                    unfocusedBorderColor = if (isDark) Color(0xFF334B56) else Color(0xFFCBD5E1),
+                    focusedContainerColor = if (isDark) Color(0xFF162329) else Color(0xFFF8FAFC),
+                    unfocusedContainerColor = if (isDark) Color(0xFF142026) else Color(0xFFF8FAFC)
                 )
             )
 

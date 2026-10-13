@@ -100,11 +100,11 @@ service cloud.firestore {
     }
 
     // ==============================================================
-    // 💬 8. آراء ومقترحات المستخدمين (User Feedbacks)
+    // 🔔 9. طلبات الاشتراك الواردة من التطبيق (Subscription Requests)
     // ==============================================================
-    match /feedbacks/{feedbackId} {
-      allow create: if isSignedIn() && isValidId(feedbackId);
-      allow read, update, delete: if isAdmin();
+    match /subscription_requests/{requestId} {
+      allow create: if true;
+      allow read, update, delete: if true;
     }
   }
 }

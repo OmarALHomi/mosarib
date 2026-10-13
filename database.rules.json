@@ -1,5 +1,9 @@
 {
   "rules": {
+    "subscription_requests": {
+      ".read": true,
+      ".write": true
+    },
     "feedbacks": {
       ".read": true,
       ".write": true

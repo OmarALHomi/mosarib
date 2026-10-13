@@ -63,6 +63,13 @@ import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,9 +85,13 @@ fun LicenseDialog(
     val isCurrentlyActivated = remember { LicenseManager.isActivated(context) }
     val existingRecord = remember { LicenseManager.getActivationRecord(context) }
 
-    var subscriberName by remember { mutableStateOf(existingRecord?.subscriberName ?: "") }
+    var subscriberName by remember { mutableStateOf(existingRecord?.subscriberName ?: UserDeviceTracker.getRegisteredName(context)) }
+    var phone by remember { mutableStateOf(UserDeviceTracker.getRegisteredPhone(context)) }
     var enteredKey by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var requestSuccessMessage by remember { mutableStateOf<String?>(null) }
+    var isRequestingOnline by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var selectedPlan by remember { mutableStateOf(LicenseManager.SubscriptionPlan.MONTHLY) }
@@ -97,7 +108,43 @@ fun LicenseDialog(
         Toast.makeText(context, "تم نسخ كود الجهاز إلى الحافظة", Toast.LENGTH_SHORT).show()
     }
 
+    fun submitOnlineSubscriptionRequest() {
+        val cleanName = subscriberName.trim()
+        val cleanPhone = phone.trim()
+        if (cleanName.isBlank()) {
+            errorMessage = "يرجى كتابة اسم المشترك أولاً لتوثيق طلب الاشتراك"
+            return
+        }
+        isRequestingOnline = true
+        errorMessage = null
+        requestSuccessMessage = null
+        coroutineScope.launch {
+            UserDeviceTracker.saveUserRegistrationInfo(context, cleanName, cleanPhone)
+            val res = FirebaseLicenseService.sendSubscriptionRequestOnline(
+                subscriberName = cleanName,
+                phone = cleanPhone,
+                plan = selectedPlan,
+                deviceCode = deviceCode
+            )
+            isRequestingOnline = false
+            if (res.isSuccess) {
+                requestSuccessMessage = "تم إرسال طلب اشتراكك إلى الإدارة بنجاح! سيصلك رمز التفعيل قريباً."
+                Toast.makeText(context, "تم إرسال طلب اشتراكك إلى الإدارة بنجاح!", Toast.LENGTH_LONG).show()
+            } else {
+                errorMessage = res.errorMessage ?: "تعذر إرسال الطلب، يمكنك إرساله عبر واتساب مباشرة."
+            }
+        }
+    }
+
     fun openWhatsApp() {
+        val cleanName = subscriberName.trim()
+        val cleanPhone = phone.trim()
+        if (cleanName.isNotBlank()) {
+            coroutineScope.launch {
+                UserDeviceTracker.saveUserRegistrationInfo(context, cleanName, cleanPhone)
+                FirebaseLicenseService.sendSubscriptionRequestOnline(cleanName, cleanPhone, selectedPlan, deviceCode)
+            }
+        }
         val url = LicenseManager.getWhatsAppActivationUrl(deviceCode, subscriberName, selectedPlan)
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -321,6 +368,23 @@ fun LicenseDialog(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Phone Input
+            OutlinedTextField(
+                value = phone,
+                onValueChange = { phone = it },
+                label = { Text("رقم الهاتف (للتواصل واستلام الرمز)") },
+                placeholder = { Text("مثال: 773712030") },
+                leadingIcon = {
+                    Icon(Icons.Default.Phone, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             // 5. Detected Device Info Badge
             Row(
                 modifier = Modifier
@@ -432,8 +496,41 @@ fun LicenseDialog(
                         ) {
                             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("طلب رمز التفعيل عبر واتساب", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("طلب تفعيل عبر واتساب", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = { submitOnlineSubscriptionRequest() },
+                        enabled = !isRequestingOnline,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
+                    ) {
+                        if (isRequestingOnline) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("⚡ إرسال طلب اشتراك مباشر للإدارة (فايربيس)", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    if (requestSuccessMessage != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = requestSuccessMessage!!,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF16A34A),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            ),
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             }
