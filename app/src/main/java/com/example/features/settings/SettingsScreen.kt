@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.CloudDone
