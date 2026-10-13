@@ -28,6 +28,14 @@
       ".read": true,
       ".write": true
     },
+    "app_config": {
+      ".read": true,
+      ".write": true
+    },
+    "device_overrides": {
+      ".read": true,
+      ".write": true
+    },
     "fcm_tokens": {
       ".read": true,
       ".write": true

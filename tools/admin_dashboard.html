@@ -414,6 +414,101 @@
       padding: 9px 12px;
       font-size: 13px;
     }
+    .ops-bar-container {
+      width: 130px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      height: 8px;
+      overflow: hidden;
+      margin-top: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .ops-bar-fill {
+      height: 100%;
+      border-radius: 6px;
+      transition: width 0.3s ease;
+    }
+    .pill-filter {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .pill-filter-btn {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--card-border);
+      background: var(--input-bg);
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .pill-filter-btn:hover {
+      border-color: var(--primary);
+      color: var(--text);
+    }
+    .pill-filter-btn.active {
+      background: linear-gradient(135deg, var(--primary), #00BFA5);
+      color: white;
+      border-color: transparent;
+      box-shadow: 0 2px 8px rgba(0, 131, 143, 0.35);
+    }
+    .policy-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 13px 15px;
+      background: var(--input-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      margin-bottom: 12px;
+      gap: 12px;
+    }
+    .policy-info h4 {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-title);
+      margin-bottom: 3px;
+    }
+    .policy-info p {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 48px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #475569;
+      transition: .3s;
+      border-radius: 26px;
+    }
+    .slider:before {
+      position: absolute; content: "";
+      height: 20px; width: 20px;
+      left: 3px; bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--success); }
+    input:checked + .slider:before { transform: translateX(-22px); }
+
+    .btn-action-group {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+
     footer {
       text-align: center;
       margin-top: 36px;
@@ -532,6 +627,7 @@
   <div class="tabs">
     <button class="tab-btn" id="tabBtnRequests" onclick="switchTab('requests')">🔔 طلبات التفعيل <span id="badgeReqCount" class="badge badge-yearly" style="display:none; margin-right:4px;">0</span></button>
     <button class="tab-btn active" id="tabBtnUsers" onclick="switchTab('users')">👥 المستخدمون</button>
+    <button class="tab-btn" id="tabBtnPolicies" onclick="switchTab('policies')">⚙️ سياسات التطبيق السحابية</button>
     <button class="tab-btn" id="tabBtnPush" onclick="switchTab('push')">📲 إشعارات Push</button>
     <button class="tab-btn" id="tabBtnBroadcast" onclick="switchTab('broadcast')">📢 الإعلانات والتحديث</button>
     <button class="tab-btn" id="tabBtnGenerator" onclick="switchTab('generator')">🔑 توليد الرموز</button>
@@ -584,18 +680,28 @@
         </div>
       </div>
 
+      <!-- Quick Filter Pills -->
+      <div class="pill-filter">
+        <button class="pill-filter-btn active" id="filterAll" onclick="setUserFilter('ALL')">👥 الكل (<span id="countFilterAll">0</span>)</button>
+        <button class="pill-filter-btn" id="filterActive" onclick="setUserFilter('ACTIVE')">✅ المشتركون النشطون (<span id="countFilterActive">0</span>)</button>
+        <button class="pill-filter-btn" id="filterTrial" onclick="setUserFilter('TRIAL')">⏳ النسخ التجريبية (<span id="countFilterTrial">0</span>)</button>
+        <button class="pill-filter-btn" id="filterLocked" onclick="setUserFilter('LOCKED')">🔒 تجاوزوا الحد / مقفل (<span id="countFilterLocked">0</span>)</button>
+        <button class="pill-filter-btn" id="filterBackupLocked" onclick="setUserFilter('BACKUP_LOCKED')">🚫 معطل نسخهم الاحتياطي (<span id="countFilterBackupLocked">0</span>)</button>
+        <button class="pill-filter-btn" id="filterBlocked" onclick="setUserFilter('BLOCKED')">⛔ المحظورون (<span id="countFilterBlocked">0</span>)</button>
+      </div>
+
       <div class="table-container">
         <table>
           <thead>
             <tr>
-              <th>حساب Google</th>
-              <th>كود الجهاز</th>
-              <th>موديل الجهاز</th>
+              <th>حساب Google / الاسم</th>
+              <th>كود الجهاز والموديل</th>
               <th>الحالة</th>
               <th>الباقة</th>
-              <th>عدد العمليات</th>
+              <th>رصيد العمليات والحد 📊</th>
+              <th>النسخ الاحتياطي 🔒</th>
               <th>آخر ظهور</th>
-              <th>التحكم والإيقاف ⛔</th>
+              <th>إجراءات التحكم والردع 🛡️</th>
             </tr>
           </thead>
           <tbody id="usersTableBody">
@@ -606,8 +712,86 @@
     </div>
   </div>
 
+  <!-- Tab: Cloud App Policies (إعدادات وسياسات التطبيق السحابية) -->
+  <div id="tab-policies" style="display: none;">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">⚙️ السياسات العامة للنسخ المجانية والتطبيق عن بُعد</div>
+        
+        <div class="form-group">
+          <label for="policyFreeLimit">الحد الأقصى للعمليات المجانية لجميع النسخ غير المشتركة:</label>
+          <input type="number" id="policyFreeLimit" value="200" min="5" max="10000">
+          <small style="color: var(--text-muted); font-size: 11px;">العدد الذي إذا وصل إليه المستخدم غير المشترك، يُقفل عليه التطبيق ويطالبه بالاشتراك (افتراضياً 200).</small>
+        </div>
+
+        <div class="policy-item">
+          <div class="policy-info">
+            <h4>السماح بالنسخ الاحتياطي للنسخ المجانية</h4>
+            <p>عند إيقاف هذا الخيار، يتم تعطيل زر النسخ الاحتياطي والاستعادة لجميع غير المشتركين لمنع تلاعب مسح واستعادة البيانات.</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="policyBackupAllowed" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="policy-item">
+          <div class="policy-info">
+            <h4>السماح بالنسخ السحابي عبر Google Drive</h4>
+            <p>إتاحة أو تعطيل النسخ الاحتياطي السحابي عبر حساب Google لغير المشتركين.</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="policyDriveBackupAllowed" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="policy-item">
+          <div class="policy-info">
+            <h4>السماح بتصدير ملفات Excel للنسخ المجانية</h4>
+            <p>إتاحة أو تقييد ميزة استخراج كشوفات وتقارير Excel للنسخ التجريبية.</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="policyExcelExportAllowed" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="form-group" style="margin-top: 14px;">
+          <label for="policyGlobalNote">تنبيه أو إشعار عام يظهر لجميع المستخدمين التجريبيين (اختياري):</label>
+          <input type="text" id="policyGlobalNote" placeholder="مثال: خصم 30% على الاشتراك السنوي بمناسبة موسم السقي!">
+        </div>
+
+        <button class="btn" onclick="saveAppPolicies()">💾 حفظ وتطبيق السياسات فوراً على السحابة لجميع الهواتف</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">💡 مميزات نظام السياسات والتحكم عن بُعد</div>
+        <ul style="padding-right: 20px; line-height: 2.2; font-size: 13.5px; color: #B2DFDB;">
+          <li><b>تغيير الحد دون الحاجة لتحديث APK:</b> يمكنك خفض الحد إلى 50 أو رفعه إلى 500 في أي ثانية، وسيطبقه هاتف العميل تلقائياً عند اتصاله بالإنترنت!</li>
+          <li><b>ردع تحايل مسح البيانات:</b> إذا لاحظت محاولات تفريغ الحسابات واستعادتها لتخطي الحد، عطّل ميزة النسخ الاحتياطي للنسخ المجانية فجأة بنقرة زر واحدة.</li>
+          <li><b>تحكم استثنائي لكل جهاز:</b> من خلال جدول "المستخدمون"، يمكنك تخصيص حد أعلى لعميل معين أو قفل النسخ الاحتياطي لجهاز محدد دون التأثير على بقية المستخدمين.</li>
+        </ul>
+
+        <div style="margin-top: 18px; padding: 14px; background: var(--input-bg); border-radius: 12px; border: 1px dashed var(--card-border);">
+          <div style="font-size: 12.5px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">الحالة المسجلة حالياً على السحابة:</div>
+          <div id="policyCloudStatus" style="font-size: 13px; color: var(--success); font-weight: bold;">جاري القراءة...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Tab: Broadcast & Force Update -->
   <div id="tab-broadcast" style="display: none;">
+    <!-- Active Broadcast Preview Card -->
+    <div class="card" id="currentBroadcastCard" style="margin-bottom: 20px; border: 1px solid var(--accent); display: none;">
+      <div class="card-title" style="color: var(--accent); margin-bottom: 8px;">📢 الإعلان أو التحديث النشط حالياً على جميع الهواتف</div>
+      <div id="currentBroadcastContent" style="font-size: 13.5px; line-height: 1.8; color: var(--text);"></div>
+      <div style="display: flex; gap: 10px; margin-top: 12px;">
+        <button class="btn btn-outline" style="width: auto; padding: 6px 14px; font-size: 12.5px; color: var(--danger); border-color: var(--danger);" onclick="cancelBroadcast()">❌ إلغاء وتصفير هذا الإعلان فوراً</button>
+      </div>
+    </div>
+
     <div class="grid-2">
       <div class="card">
         <div class="card-title">📢 إرسال إعلان عام أو تفعيل التحديث الإجباري</div>
@@ -863,10 +1047,22 @@
     }
   }
 
+  let allOverrides = {};
+  let appConfig = {
+    freeOperationsLimit: 200,
+    isBackupAllowedForTrial: true,
+    isCloudBackupAllowed: true,
+    isExcelExportAllowedForTrial: true,
+    globalAnnouncementText: ""
+  };
+  let currentBroadcast = null;
+  let currentUserFilter = 'ALL';
+
   function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('tab-requests').style.display = 'none';
     document.getElementById('tab-users').style.display = 'none';
+    document.getElementById('tab-policies').style.display = 'none';
     document.getElementById('tab-push').style.display = 'none';
     document.getElementById('tab-broadcast').style.display = 'none';
     document.getElementById('tab-generator').style.display = 'none';
@@ -894,7 +1090,6 @@
     statusDiv.innerText = "جاري جلب أجهزة المستخدمين وإرسال الإشعار...";
 
     try {
-      // 1. Fetch tokens safely
       let tokens = [];
       try {
         const tokenRes = await fetch(`${FIREBASE_BASE_URL}/fcm_tokens.json`);
@@ -906,7 +1101,6 @@
         }
       } catch (_) {}
 
-      // 2. Always save to app_broadcast so all users see it immediately on phone
       const bcRes = await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -922,11 +1116,12 @@
       });
 
       if (!bcRes.ok) {
-        throw new Error(`خطأ من Firebase (${bcRes.status}): تأكد من إضافة قواعد app_broadcast في Firebase Console -> Realtime Database -> Rules`);
+        throw new Error(`خطأ من Firebase (${bcRes.status}): تأكد من إضافة قواعد app_broadcast`);
       }
 
       statusDiv.style.color = "var(--success)";
       statusDiv.innerHTML = `✅ تم نشر الإشعار والبث بنجاح إلى قاعدة البيانات ومتاح لجميع الأجهزة فور فتح التطبيق! (الأجهزة المسجلة بالتوكن: <b>${tokens.length}</b>)`;
+      loadFirebaseData();
     } catch (e) {
       statusDiv.style.color = "var(--danger)";
       statusDiv.innerText = "فشل الإرسال: " + e.message;
@@ -965,9 +1160,10 @@
         body: JSON.stringify(payload)
       });
       if (!res.ok) {
-        throw new Error(`رفض السيرفر النشر (${res.status}): يرجى التأكد من إضافة صلاحيات app_broadcast في تبويب Rules في Firebase Console`);
+        throw new Error(`رفض السيرفر النشر (${res.status}): يرجى التأكد من قواعد app_broadcast`);
       }
       alert(type === "UPDATE" ? "تم تفعيل التحديث الإجباري وقفل النسخ القديمة بنجاح!" : "تم نشر الإشعار لجميع المستخدمين بنجاح!");
+      loadFirebaseData();
     } catch (e) {
       alert("فشل النشر: " + e.message);
     }
@@ -978,9 +1174,83 @@
     try {
       await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, { method: "DELETE" });
       alert("تم إلغاء الإعلان بنجاح.");
+      loadFirebaseData();
     } catch (e) {
       alert("خطأ: " + e.message);
     }
+  }
+
+  async function saveAppPolicies() {
+    const freeLimit = parseInt(document.getElementById("policyFreeLimit").value) || 200;
+    const backupAllowed = document.getElementById("policyBackupAllowed").checked;
+    const driveBackupAllowed = document.getElementById("policyDriveBackupAllowed").checked;
+    const excelExportAllowed = document.getElementById("policyExcelExportAllowed").checked;
+    const note = document.getElementById("policyGlobalNote").value.trim();
+
+    const payload = {
+      freeOperationsLimit: freeLimit,
+      isBackupAllowedForTrial: backupAllowed,
+      isCloudBackupAllowed: driveBackupAllowed,
+      isExcelExportAllowedForTrial: excelExportAllowed,
+      globalAnnouncementText: note,
+      updatedAt: Date.now()
+    };
+
+    try {
+      const res = await fetch(`${FIREBASE_BASE_URL}/app_config.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error("رفض السيرفر الحفظ (" + res.status + ")");
+      appConfig = payload;
+      alert(`✅ تم حفظ السياسات بنجاح في السحابة!\n• الحد المجاني: ${freeLimit} عملية\n• النسخ للمجانيين: ${backupAllowed ? 'مسموح' : 'معطل'}\n• نسخ Drive: ${driveBackupAllowed ? 'مسموح' : 'معطل'}\nستطبق الهواتف هذه السياسات تلقائياً عند فتح التطبيق.`);
+      loadFirebaseData();
+    } catch (e) {
+      alert("فشل حفظ السياسات: " + e.message);
+    }
+  }
+
+  function renderAppPolicies() {
+    if (document.getElementById("policyFreeLimit")) {
+      document.getElementById("policyFreeLimit").value = appConfig.freeOperationsLimit || 200;
+      document.getElementById("policyBackupAllowed").checked = appConfig.isBackupAllowedForTrial !== false;
+      document.getElementById("policyDriveBackupAllowed").checked = appConfig.isCloudBackupAllowed !== false;
+      document.getElementById("policyExcelExportAllowed").checked = appConfig.isExcelExportAllowedForTrial !== false;
+      document.getElementById("policyGlobalNote").value = appConfig.globalAnnouncementText || "";
+
+      const updatedStr = appConfig.updatedAt ? new Date(appConfig.updatedAt).toLocaleString('ar-EG') : 'القيم الافتراضية';
+      document.getElementById("policyCloudStatus").innerHTML = `
+        حد العمليات: <b>${appConfig.freeOperationsLimit || 200}</b> • النسخ المجاني: <b>${appConfig.isBackupAllowedForTrial !== false ? 'متاح ✅' : 'معطل ❌'}</b><br>
+        <small style="color:var(--text-muted);">آخر تحديث للسياسات: ${updatedStr}</small>
+      `;
+    }
+  }
+
+  function renderActiveBroadcast() {
+    const card = document.getElementById("currentBroadcastCard");
+    const content = document.getElementById("currentBroadcastContent");
+    if (!card || !content) return;
+
+    if (!currentBroadcast || !currentBroadcast.title) {
+      card.style.display = "none";
+      return;
+    }
+
+    const isUpdate = currentBroadcast.type === 'UPDATE' || currentBroadcast.isForceUpdate;
+    const pubDate = currentBroadcast.publishedAt ? new Date(currentBroadcast.publishedAt).toLocaleString('ar-EG') : '';
+    content.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <span style="font-weight:bold; font-size:15px; color:${isUpdate ? 'var(--danger)' : 'var(--accent)'};">${currentBroadcast.title}</span>
+        <span class="badge ${isUpdate ? 'badge-blocked' : 'badge-active'}">${isUpdate ? 'تحديث إجباري وقفل' : 'إعلان توجيهي'}</span>
+      </div>
+      <div>${currentBroadcast.message || 'بدون تفاصيل'}</div>
+      <div style="font-size:12px; color:var(--text-muted); margin-top:6px;">
+        ${currentBroadcast.minRequiredVersionCode ? `الحد الأدنى للإصدار المسموح: <b>vCode ${currentBroadcast.minRequiredVersionCode}</b> • ` : ''}
+        تاريخ النشر: ${pubDate}
+      </div>
+    `;
+    card.style.display = "block";
   }
 
   async function loadFirebaseData() {
@@ -995,7 +1265,37 @@
       allUsers = users;
       allFeedbacks = fbs;
 
+      // Fetch app_config, device_overrides, app_broadcast
+      try {
+        const cfgRes = await fetch(`${FIREBASE_BASE_URL}/app_config.json`);
+        if (cfgRes.ok) {
+          const cfgData = await cfgRes.json();
+          if (cfgData && typeof cfgData === 'object') appConfig = { ...appConfig, ...cfgData };
+        }
+      } catch (_) {}
+
+      try {
+        const overRes = await fetch(`${FIREBASE_BASE_URL}/device_overrides.json`);
+        if (overRes.ok) {
+          const overData = await overRes.json();
+          if (overData && typeof overData === 'object') allOverrides = overData;
+        }
+      } catch (_) {}
+
+      try {
+        const bcRes = await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`);
+        if (bcRes.ok) {
+          currentBroadcast = await bcRes.json();
+        } else {
+          currentBroadcast = null;
+        }
+      } catch (_) {
+        currentBroadcast = null;
+      }
+
       updateStats();
+      renderAppPolicies();
+      renderActiveBroadcast();
       renderRequestsTable(allRequests);
       renderUsersTable(allUsers);
       renderFeedbacksTable(allFeedbacks);
@@ -1090,6 +1390,14 @@
     downloadCSV(csv, "mosarib_subscription_requests.csv");
   }
 
+  function setUserFilter(filter) {
+    currentUserFilter = filter;
+    document.querySelectorAll('.pill-filter-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById(`filter${filter.charAt(0) + filter.slice(1).toLowerCase().replace(/_([a-z])/g, (_, l) => l.toUpperCase())}`);
+    if (btn) btn.classList.add('active');
+    filterUsers();
+  }
+
   function renderUsersTable(users) {
     const tbody = document.getElementById("usersTableBody");
     if (!users || users.length === 0) {
@@ -1097,43 +1405,221 @@
       return;
     }
 
-    // Sort newest activity first
-    users.sort((a,b) => (b.lastActiveAt || 0) - (a.lastActiveAt || 0));
+    const globalLimit = appConfig.freeOperationsLimit || 200;
 
-    tbody.innerHTML = users.map(u => {
+    // Counters for pill filters
+    let countActive = 0, countTrial = 0, countLocked = 0, countBackupLocked = 0, countBlocked = 0;
+    users.forEach(u => {
       const isBlocked = u.isBlocked === true;
-      const statusBadge = isBlocked 
-        ? `<span class="badge badge-blocked">موقوف / محظور</span>` 
-        : (u.isActivated ? `<span class="badge badge-active">مشترك مفعّل</span>` : `<span class="badge badge-trial">تجريبي مجاني</span>`);
+      const isAct = u.isActivated === true && !isBlocked;
+      const devKey = u.cleanDeviceKey || (u.deviceCode ? u.deviceCode.replace(/-/g, "") : "");
+      const override = allOverrides[devKey] || {};
+      const limit = override.customOperationsLimit || globalLimit;
+      const ops = u.operationsCount || 0;
+      const isLocked = !isAct && (ops >= limit || u.isLocked);
+      const isBkLocked = override.isBackupLocked === true || (!isAct && appConfig.isBackupAllowedForTrial === false);
 
+      if (isBlocked) countBlocked++;
+      else if (isAct) countActive++;
+      else countTrial++;
+
+      if (isLocked) countLocked++;
+      if (isBkLocked) countBackupLocked++;
+    });
+
+    if (document.getElementById("countFilterAll")) document.getElementById("countFilterAll").innerText = users.length;
+    if (document.getElementById("countFilterActive")) document.getElementById("countFilterActive").innerText = countActive;
+    if (document.getElementById("countFilterTrial")) document.getElementById("countFilterTrial").innerText = countTrial;
+    if (document.getElementById("countFilterLocked")) document.getElementById("countFilterLocked").innerText = countLocked;
+    if (document.getElementById("countFilterBackupLocked")) document.getElementById("countFilterBackupLocked").innerText = countBackupLocked;
+    if (document.getElementById("countFilterBlocked")) document.getElementById("countFilterBlocked").innerText = countBlocked;
+
+    // Apply filter
+    let filteredList = users.filter(u => {
+      const isBlocked = u.isBlocked === true;
+      const isAct = u.isActivated === true && !isBlocked;
+      const devKey = u.cleanDeviceKey || (u.deviceCode ? u.deviceCode.replace(/-/g, "") : "");
+      const override = allOverrides[devKey] || {};
+      const limit = override.customOperationsLimit || globalLimit;
+      const ops = u.operationsCount || 0;
+      const isLocked = !isAct && (ops >= limit || u.isLocked);
+      const isBkLocked = override.isBackupLocked === true || (!isAct && appConfig.isBackupAllowedForTrial === false);
+
+      if (currentUserFilter === 'ACTIVE') return isAct;
+      if (currentUserFilter === 'TRIAL') return !isAct && !isBlocked;
+      if (currentUserFilter === 'LOCKED') return isLocked;
+      if (currentUserFilter === 'BACKUP_LOCKED') return isBkLocked;
+      if (currentUserFilter === 'BLOCKED') return isBlocked;
+      return true;
+    });
+
+    // Search query
+    const q = (document.getElementById("userSearch")?.value || "").trim().toLowerCase();
+    if (q) {
+      filteredList = filteredList.filter(u => 
+        (u.googleEmail && u.googleEmail.toLowerCase().includes(q)) ||
+        (u.googleDisplayName && u.googleDisplayName.toLowerCase().includes(q)) ||
+        (u.subscriberName && u.subscriberName.toLowerCase().includes(q)) ||
+        (u.phone && u.phone.includes(q)) ||
+        (u.deviceCode && u.deviceCode.toLowerCase().includes(q)) ||
+        (u.deviceModel && u.deviceModel.toLowerCase().includes(q))
+      );
+    }
+
+    filteredList.sort((a,b) => (b.lastActiveAt || 0) - (a.lastActiveAt || 0));
+
+    if (filteredList.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 20px;">لا توجد نتائج مطابقة للفلتر المختار</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filteredList.map(u => {
+      const devKey = u.cleanDeviceKey || (u.deviceCode ? u.deviceCode.replace(/-/g, "") : "");
+      const override = allOverrides[devKey] || {};
+      const limit = override.customOperationsLimit || globalLimit;
+      const ops = u.operationsCount || 0;
+      const isBlocked = u.isBlocked === true;
+      const isAct = u.isActivated === true && !isBlocked;
+      const isOverLimit = !isAct && ops >= limit;
+      const isDeviceBkLocked = override.isBackupLocked === true;
+
+      // Status Badge
+      let statusBadge;
+      if (isBlocked) statusBadge = `<span class="badge badge-blocked">⛔ محظور</span>`;
+      else if (isAct) statusBadge = `<span class="badge badge-active">✅ مشترك مفعّل</span>`;
+      else if (isOverLimit) statusBadge = `<span class="badge badge-blocked">🔒 تجاوز الحد (مقفل)</span>`;
+      else statusBadge = `<span class="badge badge-trial">⏳ تجريبي مجاني</span>`;
+
+      // Plan Badge
       const planBadge = u.plan === "YEARLY" 
-        ? `<span class="badge badge-yearly">سنوي</span>` 
+        ? `<span class="badge badge-yearly">سنوي ⭐</span>` 
         : (u.plan === "MONTHLY" ? `<span class="badge badge-monthly">شهري</span>` : `<span class="badge" style="background:#334155;color:#94a3b8;">تجربة</span>`);
+
+      // Operations Progress Bar
+      let pct = Math.min(100, Math.round((ops / limit) * 100));
+      let barColor = isAct ? "var(--success)" : (ops >= limit ? "var(--danger)" : (pct >= 75 ? "var(--accent)" : "var(--primary-light)"));
+      const customLimitNote = override.customOperationsLimit ? `<br><small style="color:var(--accent); font-weight:bold;">(حد خاص: ${override.customOperationsLimit})</small>` : '';
+      const opsHtml = isAct 
+        ? `<div><b>${ops}</b> عملية<br><small style="color:var(--success);">غير محدود (مشترك)</small></div>`
+        : `
+          <div>
+            <b>${ops}</b> / ${limit} عملية (${pct}%)${customLimitNote}
+            <div class="ops-bar-container">
+              <div class="ops-bar-fill" style="width: ${pct}%; background: ${barColor};"></div>
+            </div>
+          </div>
+        `;
+
+      // Backup Status Badge
+      let bkBadge;
+      if (isDeviceBkLocked) bkBadge = `<span class="badge badge-blocked" title="تم قفل النسخ لهذا الجهاز بالاسم">🚫 مقفول للجهاز</span>`;
+      else if (!isAct && appConfig.isBackupAllowedForTrial === false) bkBadge = `<span class="badge badge-trial" title="معطل عالمياً للمجانيين">⚠️ معطل للكل</span>`;
+      else bkBadge = `<span class="badge badge-active">✅ متاح</span>`;
 
       const lastSeen = u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleString('ar-EG') : 'غير محدد';
       const userName = u.subscriberName || u.googleDisplayName || 'مستخدم مسرّب';
       const userPhone = u.phone ? `<br><small style="color:#4ADE80; font-weight:600;">📞 ${u.phone}</small>` : '';
       const googleInfo = u.googleEmail 
         ? `<div><b>${userName}</b>${userPhone}<br><small style="color:#38BDF8;">${u.googleEmail}</small></div>`
-        : `<div><b>${userName}</b>${userPhone}<br><span style="color:#64748B; font-size:11px;">لم يسجل بجوجل</span></div>`;
+        : `<div><b>${userName}</b>${userPhone}<br><span style="color:#64748B; font-size:11px;">بدون بريد جوجل</span></div>`;
 
-      const blockActionBtn = isBlocked
-        ? `<button class="btn-sm btn-unblock" onclick="toggleBlockUser('${u.cleanDeviceKey}', '${u.googleEmail}', false)">إلغاء الحظر</button>`
-        : `<button class="btn-sm btn-block" onclick="toggleBlockUser('${u.cleanDeviceKey}', '${u.googleEmail}', true)">إيقاف التطبيق ⛔</button>`;
+      // Action Buttons
+      const blockBtn = isBlocked
+        ? `<button class="btn-sm btn-unblock" onclick="toggleBlockUser('${devKey}', '${u.googleEmail || ''}', false)">فك الحظر</button>`
+        : `<button class="btn-sm btn-block" onclick="toggleBlockUser('${devKey}', '${u.googleEmail || ''}', true)">حظر ⛔</button>`;
+
+      const bkLockBtn = isDeviceBkLocked
+        ? `<button class="btn-sm btn-unblock" onclick="toggleDeviceBackupLock('${devKey}', false)">فتح النسخ 🔓</button>`
+        : `<button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" onclick="toggleDeviceBackupLock('${devKey}', true)">قفل النسخ 🔒</button>`;
+
+      const customLimitBtn = `<button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" onclick="promptSetCustomLimit('${devKey}', ${limit})">تعديل الحد ⚙️</button>`;
+      const warnBtn = `<button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" onclick="promptSendDeviceWarning('${devKey}')">رسالة ⚠️</button>`;
+
+      const warningBadge = override.specialWarningMessage ? `<div style="margin-top:4px;"><small style="color:var(--accent); font-size:10px;">رسالة موجهة: ${override.specialWarningMessage}</small></div>` : '';
 
       return `
         <tr>
           <td>${googleInfo}</td>
-          <td><code>${u.deviceCode || u.cleanDeviceKey}</code></td>
-          <td><small>${u.deviceModel || '-'}<br>${u.androidVersion || ''}</small></td>
-          <td>${statusBadge}</td>
+          <td><code>${u.deviceCode || devKey}</code><br><small style="color:var(--text-muted);">${u.deviceModel || '-'}</small></td>
+          <td>${statusBadge}${warningBadge}</td>
           <td>${planBadge}</td>
-          <td><b>${u.operationsCount || 0}</b> عملية</td>
+          <td>${opsHtml}</td>
+          <td>${bkBadge}</td>
           <td><small>${lastSeen}</small></td>
-          <td>${blockActionBtn}</td>
+          <td>
+            <div class="btn-action-group">
+              ${blockBtn}
+              ${bkLockBtn}
+              ${customLimitBtn}
+              ${warnBtn}
+            </div>
+          </td>
         </tr>
       `;
     }).join('');
+  }
+
+  async function toggleDeviceBackupLock(cleanDeviceKey, lock) {
+    const text = lock ? "قفل ميزة النسخ الاحتياطي لهذا الجهاز تحديداً؟" : "إعادة السماح بالنسخ الاحتياطي لهذا الجهاز؟";
+    if (!confirm(text)) return;
+    try {
+      await fetch(`${FIREBASE_BASE_URL}/device_overrides/${cleanDeviceKey}/isBackupLocked.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(lock)
+      });
+      alert(lock ? "تم قفل النسخ الاحتياطي للجهاز بنجاح." : "تم فك قفل النسخ الاحتياطي بنجاح.");
+      loadFirebaseData();
+    } catch (e) {
+      alert("خطأ: " + e.message);
+    }
+  }
+
+  async function promptSetCustomLimit(cleanDeviceKey, currentLimit) {
+    const res = prompt(`أدخل حد العمليات المخصص لهذا الجهاز (الافتراضي الحالي: ${currentLimit}):\nاكتب 0 لإلغاء الحد المخصص والعودة للحد العام.`, currentLimit);
+    if (res === null) return;
+    const num = parseInt(res);
+    if (isNaN(num) || num < 0) return alert("يرجى إدخال رقم صحيح");
+
+    try {
+      if (num === 0) {
+        await fetch(`${FIREBASE_BASE_URL}/device_overrides/${cleanDeviceKey}/customOperationsLimit.json`, { method: "DELETE" });
+        alert("تم إلغاء الحد المخصص والعودة للحد العام.");
+      } else {
+        await fetch(`${FIREBASE_BASE_URL}/device_overrides/${cleanDeviceKey}/customOperationsLimit.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(num)
+        });
+        alert(`تم ضبط حد العمليات لهذا الجهاز إلى ${num} عملية بنجاح!`);
+      }
+      loadFirebaseData();
+    } catch (e) {
+      alert("خطأ: " + e.message);
+    }
+  }
+
+  async function promptSendDeviceWarning(cleanDeviceKey) {
+    const currentMsg = allOverrides[cleanDeviceKey]?.specialWarningMessage || "";
+    const msg = prompt("اكتب رسالة التنبيه التي ستظهر للمستخدم على شاشته فور فتح التطبيق:\n(اترك الحقل فارغاً لحذف الرسالة الحالية)", currentMsg);
+    if (msg === null) return;
+
+    try {
+      if (msg.trim().length === 0) {
+        await fetch(`${FIREBASE_BASE_URL}/device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" });
+        alert("تم حذف رسالة التنبيه الموجهة.");
+      } else {
+        await fetch(`${FIREBASE_BASE_URL}/device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(msg.trim())
+        });
+        alert("تم حفظ رسالة التنبيه وستظهر للمستخدم في هاتفه!");
+      }
+      loadFirebaseData();
+    } catch (e) {
+      alert("خطأ: " + e.message);
+    }
   }
 
   async function toggleBlockUser(cleanDeviceKey, email, block) {
@@ -1148,7 +1634,6 @@
     }
 
     try {
-      // 1. Update device status
       await fetch(`${FIREBASE_BASE_URL}/all_users/${cleanDeviceKey}/isBlocked.json`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -1160,7 +1645,6 @@
         body: JSON.stringify(reason)
       });
 
-      // 2. Block email globally if available
       if (email && email.includes("@")) {
         const safeEmailKey = email.replace(/\./g, "_").replace(/@/g, "_at_");
         if (block) {
@@ -1182,14 +1666,7 @@
   }
 
   function filterUsers() {
-    const q = document.getElementById("userSearch").value.trim().toLowerCase();
-    const filtered = allUsers.filter(u => 
-      (u.googleEmail && u.googleEmail.toLowerCase().includes(q)) ||
-      (u.googleDisplayName && u.googleDisplayName.toLowerCase().includes(q)) ||
-      (u.deviceCode && u.deviceCode.toLowerCase().includes(q)) ||
-      (u.deviceModel && u.deviceModel.toLowerCase().includes(q))
-    );
-    renderUsersTable(filtered);
+    renderUsersTable(allUsers);
   }
 
   function exportUsersCSV() {
