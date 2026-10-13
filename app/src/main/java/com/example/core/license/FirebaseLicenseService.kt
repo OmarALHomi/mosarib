@@ -209,6 +209,11 @@ object FirebaseLicenseService {
         }
     }
 
+    data class FeedbackSubmitResult(
+        val isSuccess: Boolean,
+        val errorMessage: String? = null
+    )
+
     /**
      * Submits user feedback directly to Firebase Realtime Database.
      */
@@ -219,26 +224,51 @@ object FirebaseLicenseService {
         category: String,
         message: String,
         deviceCode: String
-    ): Boolean = withContext(Dispatchers.IO) {
+    ): FeedbackSubmitResult = withContext(Dispatchers.IO) {
+        val timestamp = System.currentTimeMillis()
+        val feedbackId = "FB_${timestamp}_${deviceCode.takeLast(4)}"
+        val payload = JSONObject().apply {
+            put("id", feedbackId)
+            put("subscriberName", subscriberName)
+            put("phone", phone)
+            put("rating", rating)
+            put("category", category)
+            put("message", message)
+            put("deviceCode", deviceCode)
+            put("deviceModel", LicenseManager.getDeviceModelName())
+            put("androidVersion", LicenseManager.getAndroidVersionName())
+            put("timestamp", timestamp)
+        }
+
         try {
-            val timestamp = System.currentTimeMillis()
-            val feedbackId = "FB_${timestamp}_${deviceCode.takeLast(4)}"
-            val payload = JSONObject().apply {
-                put("id", feedbackId)
-                put("subscriberName", subscriberName)
-                put("phone", phone)
-                put("rating", rating)
-                put("category", category)
-                put("message", message)
-                put("deviceCode", deviceCode)
-                put("deviceModel", LicenseManager.getDeviceModelName())
-                put("androidVersion", LicenseManager.getAndroidVersionName())
-                put("timestamp", timestamp)
+            val url = URL("$FIREBASE_DB_URL/feedbacks/$feedbackId.json")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "PUT"
+                doOutput = true
+                connectTimeout = 10000
+                readTimeout = 10000
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
             }
-            putJson("feedbacks/$feedbackId.json", payload.toString())
+            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
+            val code = conn.responseCode
+            if (code in 200..299) {
+                FeedbackSubmitResult(isSuccess = true)
+            } else {
+                val errBody = conn.errorStream?.bufferedReader()?.readText() ?: ""
+                Log.e(TAG, "sendFeedbackOnline failed: HTTP $code, errorBody: $errBody")
+                val userMsg = when (code) {
+                    401, 403 -> "قواعد أمان Firebase ترفض الكتابة (Permission Denied). يرجى التأكد من نشر قواعد database.rules.json في Firebase Console."
+                    404 -> "قاعدة بيانات Realtime Database غير موجودة على Firebase بهذا الرابط ($FIREBASE_DB_URL)."
+                    else -> "فشل الإرسال عبر الخادم (كود الخطأ: $code)"
+                }
+                FeedbackSubmitResult(isSuccess = false, errorMessage = userMsg)
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to submit feedback: ${e.message}")
-            false
+            Log.e(TAG, "sendFeedbackOnline exception: ${e.message}", e)
+            FeedbackSubmitResult(
+                isSuccess = false,
+                errorMessage = "تعذر الاتصال بخادم Firebase (${e.localizedMessage ?: "انقطاع الاتصال"})."
+            )
         }
     }
 
@@ -253,8 +283,14 @@ object FirebaseLicenseService {
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
             }
             OutputStreamWriter(conn.outputStream).use { it.write(jsonString) }
-            conn.responseCode in 200..299
+            val code = conn.responseCode
+            if (code !in 200..299) {
+                val err = conn.errorStream?.bufferedReader()?.readText()
+                Log.e(TAG, "putJson failed for $path, code: $code, response: $err")
+            }
+            code in 200..299
         } catch (e: Exception) {
+            Log.e(TAG, "putJson exception for $path: ${e.message}", e)
             false
         }
     }

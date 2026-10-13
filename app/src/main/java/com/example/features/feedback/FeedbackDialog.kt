@@ -221,7 +221,7 @@ fun FeedbackDialog(
                     val deviceCode = LicenseManager.getDeviceCode(context)
 
                     coroutineScope.launch {
-                        val success = FirebaseLicenseService.sendFeedbackOnline(
+                        val result = FirebaseLicenseService.sendFeedbackOnline(
                             subscriberName = if (name.isBlank()) "مستخدم مُسَرِّب" else name.trim(),
                             phone = phone.trim(),
                             rating = rating,
@@ -230,11 +230,11 @@ fun FeedbackDialog(
                             deviceCode = deviceCode
                         )
                         isSubmitting = false
-                        if (success) {
+                        if (result.isSuccess) {
                             Toast.makeText(context, "شكراً لك! تم إرسال رسالتك بنجاح وسنأخذها بعين الاعتبار.", Toast.LENGTH_LONG).show()
                             onDismiss()
                         } else {
-                            errorMessage = "تعذر الإرسال حالياً، يرجى المحاولة لاحقاً أو مراسلتنا عبر واتساب."
+                            errorMessage = result.errorMessage ?: "تعذر الإرسال حالياً، يرجى المحاولة لاحقاً."
                         }
                     }
                 },
@@ -259,6 +259,38 @@ fun FeedbackDialog(
                         Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(20.dp))
                         Text("إرسال الملاحظات للمطور", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
+                }
+            }
+
+            if (errorMessage != null && !isSubmitting) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Button(
+                    onClick = {
+                        val deviceCode = LicenseManager.getDeviceCode(context)
+                        val waMessage = buildString {
+                            append("السلام عليكم م. عمر، لدي ملاحظة بخصوص تطبيق المُسَرِّب:\n\n")
+                            append("👤 الاسم: ${if (name.isBlank()) "مستخدم مُسَرِّب" else name.trim()}\n")
+                            if (phone.isNotBlank()) append("📞 الهاتف: ${phone.trim()}\n")
+                            append("⭐ التقييم: $rating / 5\n")
+                            append("🏷️ القسم: $category\n\n")
+                            append("📝 نص الرسالة:\n${message.trim()}\n\n")
+                            append("📱 معرّف الجهاز: $deviceCode")
+                        }
+                        val uri = android.net.Uri.parse("https://wa.me/967773712030?text=${android.net.Uri.encode(waMessage)}")
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+                        try {
+                            context.startActivity(intent)
+                        } catch (_: Exception) {
+                            Toast.makeText(context, "تطبيق واتساب غير مثبت على الجهاز", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                ) {
+                    Text("إرسال الملاحظة مباشرة عبر واتساب للمطور 💬", fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = Color.White)
                 }
             }
         }
