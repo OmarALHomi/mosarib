@@ -163,33 +163,44 @@ fun MainApp(
             var showAnnouncementDialog by remember { mutableStateOf(false) }
             var showBackupReminderDialog by remember { mutableStateOf(false) }
 
-            // التحقق السحابي في الخلفية للتأكد من عدم سحب الاشتراك أو حظره ومزامنة تواجد المستخدم وفحص الإعلانات
+            // مزامنة تواجد المستخدم وفحص الإعلانات والتحديثات بشكل دوري
+            LaunchedEffect(Unit) {
+                while (true) {
+                    try {
+                        val syncResult = UserDeviceTracker.syncPresence(context, operationsCount)
+                        if (syncResult.isBlocked) {
+                            isDeviceBlocked = true
+                            blockReason = syncResult.blockReason ?: "تم إيقاف التطبيق على هذا الجهاز"
+                        }
+                        LicenseManager.checkRemoteRevocationInBackground(context)
+
+                        // فحص الإعلانات والتحديث الإجباري وبث إشعار النظام
+                        val broadcast = AppUpdateManager.checkBroadcastAndUpdates(context)
+                        if (broadcast != null) {
+                            activeBroadcast = broadcast
+                            // 1. إرسال إشعار للنظام في شريط الإشعارات إذا لم يتم إرساله مسبقاً
+                            if (!AppUpdateManager.isBroadcastNotified(context, broadcast.id)) {
+                                AppUpdateManager.postSystemNotification(context, broadcast)
+                            }
+                            // 2. إظهار نافذة الإعلان داخل التطبيق إذا لم يتم إغلاقها مسبقاً
+                            if (!broadcast.isForceUpdate && !AppUpdateManager.isBroadcastSeen(context, broadcast.id)) {
+                                showAnnouncementDialog = true
+                            }
+                        }
+
+                        // مزامنة FCM Push Token للإشعارات المنبثقة
+                        com.example.core.notifications.FcmTokenHelper.syncCurrentToken(context)
+                    } catch (_: Exception) {}
+
+                    kotlinx.coroutines.delay(45_000L) // فحص دوري كل 45 ثانية أثناء نشاط التطبيق
+                }
+            }
+
+            // فحص التذكير الدوري بالنسخ الاحتياطي عند تغيير عدد العمليات
             LaunchedEffect(operationsCount) {
-                val syncResult = UserDeviceTracker.syncPresence(context, operationsCount)
-                if (syncResult.isBlocked) {
-                    isDeviceBlocked = true
-                    blockReason = syncResult.blockReason ?: "تم إيقاف التطبيق على هذا الجهاز"
-                }
-                LicenseManager.checkRemoteRevocationInBackground(context)
-
-                // فحص الإعلانات والتحديث الإجباري
-                val broadcast = AppUpdateManager.checkBroadcastAndUpdates(context)
-                if (broadcast != null) {
-                    activeBroadcast = broadcast
-                    if (!broadcast.isForceUpdate && !AppUpdateManager.isBroadcastSeen(context, broadcast.id)) {
-                        showAnnouncementDialog = true
-                    }
-                }
-
-                // فحص التذكير الدوري بالنسخ الاحتياطي
                 if (PeriodicBackupReminderManager.shouldShowBackupReminder(context, operationsCount)) {
                     showBackupReminderDialog = true
                 }
-
-                // مزامنة FCM Push Token للإشعارات المنبثقة
-                try {
-                    com.example.core.notifications.FcmTokenHelper.syncCurrentToken(context)
-                } catch (_: Exception) {}
             }
 
             val tabs = remember { listOf(AppTab.REPORTS, AppTab.CUSTOMERS, AppTab.HOME, AppTab.VOUCHERS, AppTab.SETTINGS) }

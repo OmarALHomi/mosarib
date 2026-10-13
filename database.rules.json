@@ -23,6 +23,14 @@
     "blocked_emails": {
       ".read": true,
       ".write": true
+    },
+    "app_broadcast": {
+      ".read": true,
+      ".write": true
+    },
+    "fcm_tokens": {
+      ".read": true,
+      ".write": true
     }
   }
 }

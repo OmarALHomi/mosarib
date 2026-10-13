@@ -52,6 +52,8 @@ class MosaribFirebaseMessagingService : FirebaseMessagingService() {
             val channel = NotificationChannel(channelId, channelName, importance).apply {
                 description = "قناة إشعارات التحديثات، التنبيهات والأخبار الميدانية"
                 enableVibration(true)
+                enableLights(true)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
             }
             notificationManager.createNotificationChannel(channel)
         }
@@ -78,6 +80,8 @@ class MosaribFirebaseMessagingService : FirebaseMessagingService() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(pendingIntent)
 
         notificationManager.notify(System.currentTimeMillis().toInt(), notificationBuilder.build())

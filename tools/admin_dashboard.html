@@ -894,19 +894,20 @@
     statusDiv.innerText = "جاري جلب أجهزة المستخدمين وإرسال الإشعار...";
 
     try {
-      // 1. Fetch tokens
-      const tokenRes = await fetch(`${FIREBASE_BASE_URL}/fcm_tokens.json`);
-      const tokenData = await tokenRes.json();
-      const tokens = tokenData ? Object.values(tokenData) : [];
+      // 1. Fetch tokens safely
+      let tokens = [];
+      try {
+        const tokenRes = await fetch(`${FIREBASE_BASE_URL}/fcm_tokens.json`);
+        if (tokenRes.ok) {
+          const tokenData = await tokenRes.json();
+          if (tokenData && !tokenData.error) {
+            tokens = Object.values(tokenData);
+          }
+        }
+      } catch (_) {}
 
-      if (tokens.length === 0) {
-        statusDiv.style.color = "var(--danger)";
-        statusDiv.innerText = "لم يتم تسجيل أي توكن أجهزة بعد. (ستظهر تلقائياً بمجرد فتح المستخدمين للتطبيق المُحدّث).";
-        return;
-      }
-
-      // Also save to app_broadcast as fallback so all users see it
-      await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, {
+      // 2. Always save to app_broadcast so all users see it immediately on phone
+      const bcRes = await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -920,8 +921,12 @@
         })
       });
 
+      if (!bcRes.ok) {
+        throw new Error(`خطأ من Firebase (${bcRes.status}): تأكد من إضافة قواعد app_broadcast في Firebase Console -> Realtime Database -> Rules`);
+      }
+
       statusDiv.style.color = "var(--success)";
-      statusDiv.innerHTML = `✅ تم جدولة وبث الإشعار بنجاح إلى <b>(${tokens.length})</b> جهاز مسجل!`;
+      statusDiv.innerHTML = `✅ تم نشر الإشعار والبث بنجاح إلى قاعدة البيانات ومتاح لجميع الأجهزة فور فتح التطبيق! (الأجهزة المسجلة بالتوكن: <b>${tokens.length}</b>)`;
     } catch (e) {
       statusDiv.style.color = "var(--danger)";
       statusDiv.innerText = "فشل الإرسال: " + e.message;
@@ -954,11 +959,14 @@
     };
 
     try {
-      await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, {
+      const res = await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      if (!res.ok) {
+        throw new Error(`رفض السيرفر النشر (${res.status}): يرجى التأكد من إضافة صلاحيات app_broadcast في تبويب Rules في Firebase Console`);
+      }
       alert(type === "UPDATE" ? "تم تفعيل التحديث الإجباري وقفل النسخ القديمة بنجاح!" : "تم نشر الإشعار لجميع المستخدمين بنجاح!");
     } catch (e) {
       alert("فشل النشر: " + e.message);

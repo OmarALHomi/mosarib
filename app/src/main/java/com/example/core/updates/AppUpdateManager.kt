@@ -11,6 +11,15 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import com.example.MainActivity
+import com.example.R
 
 data class AppBroadcast(
     val id: String = "",
@@ -72,6 +81,8 @@ object AppUpdateManager {
         }
     }
 
+    private const val KEY_LAST_NOTIFIED_BROADCAST_ID = "last_notified_broadcast_id"
+
     fun isBroadcastSeen(context: Context, broadcastId: String): Boolean {
         if (broadcastId.isBlank()) return true
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
@@ -81,5 +92,61 @@ object AppUpdateManager {
     fun markBroadcastSeen(context: Context, broadcastId: String) {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         sp.edit().putString(KEY_LAST_SEEN_BROADCAST_ID, broadcastId).apply()
+    }
+
+    fun isBroadcastNotified(context: Context, broadcastId: String): Boolean {
+        if (broadcastId.isBlank()) return true
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        return sp.getString(KEY_LAST_NOTIFIED_BROADCAST_ID, "") == broadcastId
+    }
+
+    fun markBroadcastNotified(context: Context, broadcastId: String) {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        sp.edit().putString(KEY_LAST_NOTIFIED_BROADCAST_ID, broadcastId).apply()
+    }
+
+    fun postSystemNotification(context: Context, broadcast: AppBroadcast) {
+        val channelId = "mosarib_broadcast_channel"
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channelName = "إعلانات وتحديثات مُسَرِّب"
+            val importance = NotificationManager.IMPORTANCE_HIGH
+            val channel = NotificationChannel(channelId, channelName, importance).apply {
+                description = "قناة إعلانات التحديثات والتنبيهات العامة"
+                enableVibration(true)
+                enableLights(true)
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val intent = if (broadcast.actionUrl.isNotBlank()) {
+            Intent(Intent.ACTION_VIEW, Uri.parse(broadcast.actionUrl))
+        } else {
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            broadcast.id.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(broadcast.title)
+            .setContentText(broadcast.message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(broadcast.message))
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        notificationManager.notify(broadcast.id.hashCode(), notification)
+        markBroadcastNotified(context, broadcast.id)
     }
 }
