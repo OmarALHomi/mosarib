@@ -84,12 +84,17 @@ object PdfReportGenerator {
         val page = document.startPage(pageInfo)
         val canvas: Canvas = page.canvas
 
-        val primaryColor = 0xFF007A87.toInt()
-        val darkTextColor = 0xFF132228.toInt()
-        val lightGray = 0xFFF0F4F7.toInt()
-        val dividerGray = 0xFFD2DFE5.toInt()
-        val debtRed = 0xFFD32F2F.toInt()
-        val paidGreen = 0xFF2E7D32.toInt()
+        val fontBold = PdfThemeHelper.getCairoBold(context)
+        val fontRegular = PdfThemeHelper.getCairoRegular(context)
+        val fontSemiBold = PdfThemeHelper.getCairoSemiBold(context)
+
+        val primaryColor = PdfThemeHelper.COLOR_PRIMARY
+        val primaryDark = PdfThemeHelper.COLOR_PRIMARY_DARK
+        val darkTextColor = PdfThemeHelper.COLOR_DARK_TEXT
+        val lightGray = PdfThemeHelper.COLOR_CARD_BG
+        val dividerGray = PdfThemeHelper.COLOR_BORDER
+        val debtRed = PdfThemeHelper.COLOR_DANGER
+        val paidGreen = PdfThemeHelper.COLOR_SUCCESS
 
         val paint = Paint().apply {
             isAntiAlias = true
@@ -97,41 +102,50 @@ object PdfReportGenerator {
 
         // Header Background Banner
         paint.color = primaryColor
-        canvas.drawRect(0f, 0f, pageWidth.toFloat(), 95f, paint)
+        canvas.drawRect(0f, 0f, pageWidth.toFloat(), 105f, paint)
+
+        // Subtle Gold accent bar under banner
+        paint.color = PdfThemeHelper.COLOR_GOLD
+        canvas.drawRect(0f, 102f, pageWidth.toFloat(), 105f, paint)
 
         // Header Title
         paint.color = Color.WHITE
-        paint.textSize = 20f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.textSize = 21f
+        paint.typeface = fontBold
         paint.textAlign = Paint.Align.CENTER
-        canvas.drawText(if (customer.isWellOwner) "كشف حساب صاحب بئر - حسابات مستقلة" else "كشف حساب عميل - توزيع مياه", pageWidth / 2f, 40f, paint)
+        canvas.drawText(if (customer.isWellOwner) "كشف حساب صاحب بئر ومطابقة مشتريات" else "كشف حساب عميل - توزيع مياه", pageWidth / 2f, 44f, paint)
 
         // Distributor Name & Phone
         paint.textSize = 12f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        canvas.drawText("${config.distributorName}  |  هاتف: ${config.distributorPhone}", pageWidth / 2f, 65f, paint)
+        paint.typeface = fontRegular
+        canvas.drawText("${config.distributorName}  |  هاتف: ${config.distributorPhone}", pageWidth / 2f, 72f, paint)
 
         // Customer Info Card
-        val cardRect = RectF(25f, 110f, pageWidth - 25f, 195f)
+        val cardRect = RectF(25f, 118f, pageWidth - 25f, 202f)
         paint.color = lightGray
-        canvas.drawRoundRect(cardRect, 8f, 8f, paint)
+        canvas.drawRoundRect(cardRect, 10f, 10f, paint)
+        paint.style = Paint.Style.STROKE
+        paint.color = dividerGray
+        paint.strokeWidth = 1f
+        canvas.drawRoundRect(cardRect, 10f, 10f, paint)
+        paint.style = Paint.Style.FILL
 
         // Customer details text (RTL align right)
         paint.color = darkTextColor
         paint.textAlign = Paint.Align.RIGHT
         paint.textSize = 13f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        canvas.drawText("${if (customer.isWellOwner) "صاحب البئر" else "العميل"}: ${customer.name}", pageWidth - 45f, 135f, paint)
+        paint.typeface = fontBold
+        canvas.drawText("${if (customer.isWellOwner) "صاحب البئر" else "العميل"}: ${customer.name}", pageWidth - 45f, 143f, paint)
 
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        paint.typeface = fontRegular
         paint.textSize = 11f
-        canvas.drawText("الهاتف: ${customer.phone.ifEmpty { "غير محدد" }}", pageWidth - 45f, 155f, paint)
-        canvas.drawText("المزرعة / الموقع: ${customer.farmName.ifEmpty { customer.location.ifEmpty { "عام" } }}", pageWidth - 45f, 175f, paint)
+        canvas.drawText("الهاتف: ${customer.phone.ifEmpty { "غير محدد" }}", pageWidth - 45f, 165f, paint)
+        canvas.drawText("المزرعة / الموقع: ${customer.farmName.ifEmpty { customer.location.ifEmpty { "عام" } }}", pageWidth - 45f, 185f, paint)
 
         // Date of statement on left
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("تاريخ التقرير: ${Formatters.formatDate(System.currentTimeMillis())}", 45f, 135f, paint)
-        canvas.drawText("العملة: ${config.currencySymbol}", 45f, 155f, paint)
+        canvas.drawText("تاريخ التقرير: ${Formatters.formatDate(System.currentTimeMillis())}", 45f, 143f, paint)
+        canvas.drawText("العملة: ${config.currencySymbol}", 45f, 165f, paint)
 
         // Financial summary: pure shared calculateCustomerBalance guarantees exact match with app
         val cwb = com.example.features.customers.calculateCustomerBalance(customer, sessions, vouchers, purchases = purchases)
@@ -1058,25 +1072,35 @@ object PdfReportGenerator {
         height: Float,
         title: String,
         value: String,
-        accentColor: Int
+        accentColor: Int,
+        fontBold: Typeface? = null,
+        fontRegular: Typeface? = null
     ) {
         val paint = Paint().apply { isAntiAlias = true }
         val rect = RectF(x, y, x + width, y + height)
 
-        paint.color = 0xFFF7FAFC.toInt()
-        canvas.drawRoundRect(rect, 6f, 6f, paint)
+        paint.color = PdfThemeHelper.COLOR_CARD_BG
+        canvas.drawRoundRect(rect, 8f, 8f, paint)
+
+        // Subtle border
+        paint.style = Paint.Style.STROKE
+        paint.color = PdfThemeHelper.COLOR_BORDER
+        paint.strokeWidth = 0.8f
+        canvas.drawRoundRect(rect, 8f, 8f, paint)
+        paint.style = Paint.Style.FILL
 
         // Top colored accent bar
         paint.color = accentColor
         canvas.drawRoundRect(RectF(x, y, x + width, y + 4f), 2f, 2f, paint)
 
-        paint.color = 0xFF546E7A.toInt()
+        paint.color = PdfThemeHelper.COLOR_MUTED_TEXT
         paint.textSize = 9.5f
+        paint.typeface = fontRegular ?: Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         paint.textAlign = Paint.Align.CENTER
         canvas.drawText(title, x + (width / 2f), y + 22f, paint)
 
         paint.color = accentColor
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.typeface = fontBold ?: Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textSize = 11.5f
         canvas.drawText(value, x + (width / 2f), y + 42f, paint)
     }
@@ -1088,14 +1112,15 @@ object PdfReportGenerator {
         canvas: Canvas,
         pageWidth: Int,
         pageHeight: Int,
-        pageNumber: Int? = null
+        pageNumber: Int? = null,
+        fontRegular: Typeface? = null
     ) {
         val paint = Paint().apply {
             isAntiAlias = true
             textSize = 8.5f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            typeface = fontRegular ?: Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
             textAlign = Paint.Align.CENTER
-            color = 0xFF64748B.toInt()
+            color = PdfThemeHelper.COLOR_MUTED_TEXT
         }
         val pageSuffix = if (pageNumber != null) "  |  صفحة $pageNumber" else ""
         val text = "تطبيق المُسَرِّبْ  •  تطوير: م. عمر الحومي  •  واتساب: wa.me/967773712030$pageSuffix"
