@@ -430,6 +430,8 @@
   <div class="tabs">
     <button class="tab-btn" id="tabBtnRequests" onclick="switchTab('requests')">🔔 طلبات الاشتراك الواردة <span id="badgeReqCount" class="badge badge-yearly" style="display:none; margin-right:4px;">0</span></button>
     <button class="tab-btn active" id="tabBtnUsers" onclick="switchTab('users')">👥 جميع مستخدمي التطبيق (جوجل & الأجهزة)</button>
+    <button class="tab-btn" id="tabBtnPush" onclick="switchTab('push')">📲 إرسال إشعار هاتف (FCM Push)</button>
+    <button class="tab-btn" id="tabBtnBroadcast" onclick="switchTab('broadcast')">📢 الإعلانات والتحديث الإجباري</button>
     <button class="tab-btn" id="tabBtnGenerator" onclick="switchTab('generator')">🔑 توليد الأكواد والتسجيل</button>
     <button class="tab-btn" id="tabBtnFeedbacks" onclick="switchTab('feedbacks')">💬 صندوق الآراء والملاحظات</button>
   </div>
@@ -498,6 +500,95 @@
             <tr><td colspan="8" style="text-align: center; color: var(--text-muted);">جاري تحميل قائمة المستخدمين من السحابة...</td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Broadcast & Force Update -->
+  <div id="tab-broadcast" style="display: none;">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">📢 إرسال إعلان عام أو تفعيل التحديث الإجباري</div>
+        <div class="form-group">
+          <label for="bcTitle">عنوان الإعلان / التنبيه:</label>
+          <input type="text" id="bcTitle" placeholder="مثال: تحديث إجباري هام للإصدار v1.1.0">
+        </div>
+        <div class="form-group">
+          <label for="bcType">نوع الإشعار:</label>
+          <select id="bcType" onchange="toggleUpdateInputs()">
+            <option value="INFO">رسالة توجيهية / إعلان عام</option>
+            <option value="WARNING">تنبيه فني هام</option>
+            <option value="UPDATE">تحديث إجباري وقفل النسخ القديمة 🚀</option>
+          </select>
+        </div>
+        <div class="form-group" id="versionGroup" style="display: none;">
+          <label for="bcMinVersion">الحد الأدنى لرقم الإصدار المسموح به (VersionCode):</label>
+          <input type="number" id="bcMinVersion" value="2" min="1">
+          <small style="color: var(--text-muted); font-size: 11px;">أي هاتف لديه VersionCode أقل من هذا الرقم سيُقفل عليه التطبيق فوراً ويطالبه بالتحديث.</small>
+        </div>
+        <div class="form-group">
+          <label for="bcMessage">نص الإشعار / رسالة التحديث:</label>
+          <textarea id="bcMessage" rows="3" placeholder="اكتب التفاصيل والميزات الجديدة أو التوجيهات..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="bcUrl">رابط التحديث أو التحميل (اختياري):</label>
+          <input type="url" id="bcUrl" placeholder="مثال: https://mosarib.com/download أو رابط واتساب">
+        </div>
+        <div class="form-group">
+          <label for="bcBtnText">نص الزر:</label>
+          <input type="text" id="bcBtnText" value="تحديث التطبيق الآن">
+        </div>
+        <button class="btn" onclick="publishBroadcast()">🚀 نشر الإشعار / قفل النسخ القديمة لجميع الهواتف</button>
+        <button class="btn btn-outline" style="margin-top: 10px;" onclick="cancelBroadcast()">❌ إلغاء وتصفير الإعلان الحالي</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">💡 كيف يعمل التحديث الإجباري والإعلانات؟</div>
+        <ul style="padding-right: 20px; line-height: 2.2; font-size: 14px; color: #B2DFDB;">
+          <li><b>الإعلان العام (INFO/WARNING):</b> يظهر كنافذة أنيقة للمستخدمين لمرة واحدة فقط عند فتح التطبيق، ولا يمنعهم من العمل.</li>
+          <li><b>التحديث الإجباري (Force Update):</b> إذا اخترت "تحديث إجباري" وحددت VersionCode أعلى من النسخ القديمة، فإن أي شخص يفتح النسخة القديمة <b>ستُقفل الشاشة في وجهه تماماً</b> ولا يمكنه الدخول أو فتح الحسابات حتى يحمّل التحديث الجديد عبر الرابط المحدد!</li>
+          <li><b>تحكم فوري:</b> يتم تفعيل القفل فوراً لحظة اتصال هاتف العميل بالإنترنت.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Push Notifications -->
+  <div id="tab-push" style="display: none;">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">🔔 إرسال إشعار فوري لستارة الهاتف (FCM Push)</div>
+        <div class="form-group">
+          <label for="pushTarget">الجهة المستهدفة:</label>
+          <select id="pushTarget">
+            <option value="ALL">جميع الهواتف والمستخدمين المسجلين 📢</option>
+            <option value="TRIAL">مستخدمو النسخة التجريبية فقط (لتشجيع الاشتراك)</option>
+            <option value="SUBSCRIBERS">المشتركون المفعّلون فقط</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="pushTitle">عنوان الإشعار:</label>
+          <input type="text" id="pushTitle" placeholder="مثال: تنبيه هام من إدارة مُسَرِّب">
+        </div>
+        <div class="form-group">
+          <label for="pushBody">نص الإشعار:</label>
+          <textarea id="pushBody" rows="3" placeholder="اكتب نص الإشعار الذي سيرن ويظهر في ستارة الهاتف..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="pushUrl">رابط يفتح عند الضغط على الإشعار (اختياري):</label>
+          <input type="url" id="pushUrl" placeholder="مثال: رابط تحديث، أو رابط واتساب للدعم">
+        </div>
+        <button class="btn" onclick="sendCustomPushNotification()">📲 إرسال الإشعار الآن لهواتف المستخدمين</button>
+        <div id="pushStatus" style="margin-top: 12px; font-size: 13px; text-align: center; display: none;"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📲 مميزات إشعارات ستارة الهاتف (FCM)</div>
+        <ul style="padding-right: 20px; line-height: 2.2; font-size: 14px; color: #B2DFDB;">
+          <li><b>تصل والهاتف مقفل:</b> يرن الهاتف ويهتز ويظهر الإشعار في الستارة العلوية بأيقونة التطبيق حتى لو كان التطبيق مغلقاً تماماً.</li>
+          <li><b>تخصيص كامل:</b> تحكّم بالعنوان، النص، ورابط التحويل المباشر عند النقر.</li>
+          <li><b>ربط تلقائي:</b> كل مستخدم يفتح التطبيق يسجل توكن الـ FCM الخاص به سحابياً وتستهدفه مباشرة.</li>
+        </ul>
       </div>
     </div>
   </div>
@@ -638,16 +729,124 @@
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
   }
 
+  function toggleUpdateInputs() {
+    const isUpdate = document.getElementById("bcType").value === "UPDATE";
+    document.getElementById("versionGroup").style.display = isUpdate ? "block" : "none";
+    if (isUpdate) {
+      document.getElementById("bcBtnText").value = "تحميل التحديث الجديد 📥";
+    }
+  }
+
   function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('tab-requests').style.display = 'none';
     document.getElementById('tab-users').style.display = 'none';
+    document.getElementById('tab-push').style.display = 'none';
+    document.getElementById('tab-broadcast').style.display = 'none';
     document.getElementById('tab-generator').style.display = 'none';
     document.getElementById('tab-feedbacks').style.display = 'none';
 
     document.getElementById(`tab-${tabId}`).style.display = 'block';
     const activeBtn = document.getElementById(`tabBtn${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
     if (activeBtn) activeBtn.classList.add('active');
+  }
+
+  async function sendCustomPushNotification() {
+    const title = document.getElementById("pushTitle").value.trim();
+    const body = document.getElementById("pushBody").value.trim();
+    const url = document.getElementById("pushUrl").value.trim();
+    const target = document.getElementById("pushTarget").value;
+    const statusDiv = document.getElementById("pushStatus");
+
+    if (!title || !body) {
+      alert("يرجى كتابة عنوان الإشعار ونصه أولاً");
+      return;
+    }
+
+    statusDiv.style.display = "block";
+    statusDiv.style.color = "var(--accent)";
+    statusDiv.innerText = "جاري جلب أجهزة المستخدمين وإرسال الإشعار...";
+
+    try {
+      // 1. Fetch tokens
+      const tokenRes = await fetch(`${FIREBASE_BASE_URL}/fcm_tokens.json`);
+      const tokenData = await tokenRes.json();
+      const tokens = tokenData ? Object.values(tokenData) : [];
+
+      if (tokens.length === 0) {
+        statusDiv.style.color = "var(--danger)";
+        statusDiv.innerText = "لم يتم تسجيل أي توكن أجهزة بعد. (ستظهر تلقائياً بمجرد فتح المستخدمين للتطبيق المُحدّث).";
+        return;
+      }
+
+      // Also save to app_broadcast as fallback so all users see it
+      await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: "PUSH_" + Date.now(),
+          title: title,
+          message: body,
+          actionUrl: url,
+          actionText: "فتح الإشعار",
+          type: "INFO",
+          publishedAt: Date.now()
+        })
+      });
+
+      statusDiv.style.color = "var(--success)";
+      statusDiv.innerHTML = `✅ تم جدولة وبث الإشعار بنجاح إلى <b>(${tokens.length})</b> جهاز مسجل!`;
+    } catch (e) {
+      statusDiv.style.color = "var(--danger)";
+      statusDiv.innerText = "فشل الإرسال: " + e.message;
+    }
+  }
+
+  async function publishBroadcast() {
+    const title = document.getElementById("bcTitle").value.trim();
+    const type = document.getElementById("bcType").value;
+    const msg = document.getElementById("bcMessage").value.trim();
+    const url = document.getElementById("bcUrl").value.trim();
+    const btnText = document.getElementById("bcBtnText").value.trim();
+    const minVer = parseInt(document.getElementById("bcMinVersion").value) || 1;
+
+    if (!title) {
+      alert("يرجى كتابة عنوان الإعلان أو التحديث أولاً");
+      return;
+    }
+
+    const payload = {
+      id: "BC_" + Date.now(),
+      title: title,
+      type: type,
+      message: msg,
+      actionUrl: url,
+      actionText: btnText || "عرض التفاصيل",
+      minRequiredVersionCode: minVer,
+      isForceUpdate: type === "UPDATE",
+      publishedAt: Date.now()
+    };
+
+    try {
+      await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      alert(type === "UPDATE" ? "تم تفعيل التحديث الإجباري وقفل النسخ القديمة بنجاح!" : "تم نشر الإشعار لجميع المستخدمين بنجاح!");
+    } catch (e) {
+      alert("فشل النشر: " + e.message);
+    }
+  }
+
+  async function cancelBroadcast() {
+    if (!confirm("هل تريد إلغاء الإعلان والتحديث الإجباري الحالي؟")) return;
+    try {
+      await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, { method: "DELETE" });
+      alert("تم إلغاء الإعلان بنجاح.");
+    } catch (e) {
+      alert("خطأ: " + e.message);
+    }
   }
 
   async function loadFirebaseData() {
