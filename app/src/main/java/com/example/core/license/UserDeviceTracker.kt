@@ -161,15 +161,46 @@ object UserDeviceTracker {
             }
 
             val putUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
-            val putConn = (putUrl.openConnection() as HttpURLConnection).apply {
-                requestMethod = "PUT"
-                doOutput = true
-                connectTimeout = 6000
-                readTimeout = 6000
-                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-            }
-            OutputStreamWriter(putConn.outputStream).use { it.write(payload.toString()) }
-            putConn.responseCode
+            try {
+                val putConn = (putUrl.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "PUT"
+                    doOutput = true
+                    connectTimeout = 5000
+                    readTimeout = 5000
+                    setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                }
+                OutputStreamWriter(putConn.outputStream).use { it.write(payload.toString()) }
+                putConn.responseCode
+            } catch (_: Exception) {}
+
+            // Mirror to Cloud Firestore REST API
+            try {
+                val firestoreUrl = URL("https://firestore.googleapis.com/v1/projects/mosarib/databases/(default)/documents/all_users?documentId=$cleanDeviceKey")
+                val fConn = (firestoreUrl.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    doOutput = true
+                    connectTimeout = 5000
+                    readTimeout = 5000
+                    setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                }
+                val fieldsJson = org.json.JSONObject().apply {
+                    put("deviceCode", org.json.JSONObject().put("stringValue", deviceCode))
+                    put("subscriberName", org.json.JSONObject().put("stringValue", regName))
+                    put("phone", org.json.JSONObject().put("stringValue", regPhone))
+                    put("googleEmail", org.json.JSONObject().put("stringValue", email))
+                    put("googleDisplayName", org.json.JSONObject().put("stringValue", displayName))
+                    put("deviceModel", org.json.JSONObject().put("stringValue", LicenseManager.getDeviceModelName()))
+                    put("androidVersion", org.json.JSONObject().put("stringValue", LicenseManager.getAndroidVersionName()))
+                    put("isActivated", org.json.JSONObject().put("booleanValue", isActivated))
+                    put("plan", org.json.JSONObject().put("stringValue", activePlan))
+                    put("operationsCount", org.json.JSONObject().put("integerValue", operationsCount.toString()))
+                    put("isBlocked", org.json.JSONObject().put("booleanValue", isBlocked))
+                    put("lastActiveAt", org.json.JSONObject().put("integerValue", now.toString()))
+                }
+                val rootDoc = org.json.JSONObject().put("fields", fieldsJson)
+                OutputStreamWriter(fConn.outputStream).use { it.write(rootDoc.toString()) }
+                fConn.responseCode
+            } catch (_: Exception) {}
 
             DeviceStatusResult(isBlocked = false)
         } catch (e: Exception) {

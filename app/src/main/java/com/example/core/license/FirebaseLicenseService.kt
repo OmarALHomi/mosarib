@@ -227,6 +227,26 @@ object FirebaseLicenseService {
     ): FeedbackSubmitResult = withContext(Dispatchers.IO) {
         val timestamp = System.currentTimeMillis()
         val feedbackId = "FB_${timestamp}_${deviceCode.takeLast(4)}"
+
+        // 1. First Attempt: Cloud Firestore REST API
+        val firestoreFields = mapOf(
+            "id" to feedbackId,
+            "subscriberName" to subscriberName,
+            "phone" to phone,
+            "rating" to rating,
+            "category" to category,
+            "message" to message,
+            "deviceCode" to deviceCode,
+            "deviceModel" to LicenseManager.getDeviceModelName(),
+            "androidVersion" to LicenseManager.getAndroidVersionName(),
+            "timestamp" to timestamp
+        )
+        if (sendToFirestore("feedbacks", feedbackId, firestoreFields)) {
+            Log.i(TAG, "Feedback successfully sent via Cloud Firestore REST API")
+            return@withContext FeedbackSubmitResult(isSuccess = true)
+        }
+
+        // 2. Second Attempt: Firebase Realtime Database
         val payload = JSONObject().apply {
             put("id", feedbackId)
             put("subscriberName", subscriberName)
@@ -245,8 +265,8 @@ object FirebaseLicenseService {
             val conn = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "PUT"
                 doOutput = true
-                connectTimeout = 10000
-                readTimeout = 10000
+                connectTimeout = 8000
+                readTimeout = 8000
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
             }
             OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
@@ -255,10 +275,10 @@ object FirebaseLicenseService {
                 FeedbackSubmitResult(isSuccess = true)
             } else {
                 val errBody = conn.errorStream?.bufferedReader()?.readText() ?: ""
-                Log.e(TAG, "sendFeedbackOnline failed: HTTP $code, errorBody: $errBody")
+                Log.e(TAG, "sendFeedbackOnline RTDB failed: HTTP $code, errorBody: $errBody")
                 val userMsg = when (code) {
-                    401, 403 -> "قواعد أمان Firebase ترفض الكتابة (Permission Denied). يرجى التأكد من نشر قواعد database.rules.json في Firebase Console."
-                    404 -> "قاعدة بيانات Realtime Database غير موجودة على Firebase بهذا الرابط ($FIREBASE_DB_URL)."
+                    401, 403 -> "قواعد أمان Firebase ترفض الكتابة (Permission Denied). يرجى التأكد من نشر القواعد في تبويب Rules في Firebase Console."
+                    404 -> "قاعدة بيانات Firebase غير موجودة بهذا الرابط ($FIREBASE_DB_URL)."
                     else -> "فشل الإرسال عبر الخادم (كود الخطأ: $code)"
                 }
                 FeedbackSubmitResult(isSuccess = false, errorMessage = userMsg)
@@ -269,6 +289,57 @@ object FirebaseLicenseService {
                 isSuccess = false,
                 errorMessage = "تعذر الاتصال بخادم Firebase (${e.localizedMessage ?: "انقطاع الاتصال"})."
             )
+        }
+    }
+
+    /**
+     * Posts a document directly to Cloud Firestore REST API.
+     */
+    private fun sendToFirestore(
+        collection: String,
+        documentId: String,
+        fields: Map<String, Any>
+    ): Boolean {
+        return try {
+            val projectId = "mosarib"
+            val urlStr = "https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents/$collection?documentId=$documentId"
+            val url = URL(urlStr)
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                doOutput = true
+                connectTimeout = 8000
+                readTimeout = 8000
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            }
+
+            val fieldsJson = JSONObject()
+            for ((key, value) in fields) {
+                val valueObj = JSONObject()
+                when (value) {
+                    is String -> valueObj.put("stringValue", value)
+                    is Number -> valueObj.put("integerValue", value.toString())
+                    is Boolean -> valueObj.put("booleanValue", value)
+                    else -> valueObj.put("stringValue", value.toString())
+                }
+                fieldsJson.put(key, valueObj)
+            }
+            val rootDoc = JSONObject().apply {
+                put("fields", fieldsJson)
+            }
+
+            OutputStreamWriter(conn.outputStream).use { it.write(rootDoc.toString()) }
+            val code = conn.responseCode
+            if (code in 200..299) {
+                Log.d(TAG, "sendToFirestore succeeded: HTTP $code")
+                true
+            } else {
+                val errBody = conn.errorStream?.bufferedReader()?.readText() ?: ""
+                Log.w(TAG, "sendToFirestore returned HTTP $code: $errBody")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "sendToFirestore failed: ${e.message}")
+            false
         }
     }
 
