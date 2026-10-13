@@ -1,0 +1,28 @@
+{
+  "rules": {
+    "subscription_requests": {
+      ".read": true,
+      ".write": true
+    },
+    "feedbacks": {
+      ".read": true,
+      ".write": true
+    },
+    "all_users": {
+      ".read": true,
+      ".write": true
+    },
+    "devices": {
+      ".read": true,
+      ".write": true
+    },
+    "licenses": {
+      ".read": true,
+      ".write": true
+    },
+    "blocked_emails": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

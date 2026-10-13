@@ -11,6 +11,7 @@ import com.example.core.ui.ToastType
 import com.example.core.license.LicenseManager
 import com.example.core.util.BackupManager
 import com.example.core.util.GoogleDriveBackupHelper
+import com.example.core.util.PeriodicBackupReminderManager
 import com.example.features.pumps.PumpSource
 import com.example.features.pumps.PumpSourceRepository
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
@@ -190,6 +191,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             try {
                 val backupFile: File = BackupManager.createBackupJson(getApplication(), db)
                 BackupManager.shareBackupToDriveOrApps(getApplication(), backupFile)
+                PeriodicBackupReminderManager.recordBackupPerformed(getApplication())
                 loadBackups()
                 showToast("تم إنشاء النسخة الاحتياطية بنجاح ومشاركتها", ToastType.SUCCESS)
             } catch (e: Exception) {
@@ -221,6 +223,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val result = BackupManager.saveBackupToPhoneDownloads(getApplication(), db)
             result.onSuccess { file ->
+                PeriodicBackupReminderManager.recordBackupPerformed(getApplication())
                 loadBackups()
                 showToast("تم حفظ النسخة بنجاح في مجلد التنزيلات بالهاتف", ToastType.SUCCESS)
             }.onFailure { e ->
@@ -236,6 +239,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val result = BackupManager.exportBackupToUri(getApplication(), db, uri)
             result.onSuccess {
+                PeriodicBackupReminderManager.recordBackupPerformed(getApplication())
                 loadBackups()
                 showToast("تم حفظ وتصدير النسخة الاحتياطية بنجاح في المكان المختار", ToastType.SUCCESS)
             }.onFailure { e ->
@@ -312,6 +316,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _googleAccount.value = account
         showToast("تم الاتصال بحساب Google: ${account.email}", ToastType.SUCCESS)
         loadDriveBackups()
+        viewModelScope.launch {
+            com.example.core.license.UserDeviceTracker.syncPresence(getApplication(), operationsCount.value)
+        }
     }
 
     fun onGoogleSignOut() {

@@ -36,6 +36,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.AttachMoney
@@ -1362,7 +1363,7 @@ fun AddEditSessionBottomSheet(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("المدة الإجمالية:", style = MaterialTheme.typography.bodyMedium)
+                        Text("المدة الكلية", style = MaterialTheme.typography.bodyMedium)
                         Text(Formatters.formatDurationArabic(grossMinutes), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                     }
 
@@ -1373,7 +1374,7 @@ fun AddEditSessionBottomSheet(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("الوقت المهدور المخصوم:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFFB923C) else Color(0xFFC2410C)))
+                            Text("الهدر", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFFB923C) else Color(0xFFC2410C)))
                             Text("- ${Formatters.formatDurationArabic(wastedTotalMinutes)}", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFFB923C) else Color(0xFFC2410C), fontWeight = FontWeight.Bold))
                         }
                     }
@@ -1384,7 +1385,7 @@ fun AddEditSessionBottomSheet(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("الساعات الصافية المفوترة:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("الصافي", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                         Text(Formatters.formatDurationArabic(netBillableMinutes), style = MaterialTheme.typography.titleMedium.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold))
                     }
 
@@ -1449,7 +1450,7 @@ fun AddEditSessionBottomSheet(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("المطلوب الصافي من العميل:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                                Text("صافي الدفع", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                                 Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.titleLarge.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold))
                             }
                             if (finalFarmerCharge > 0) {
@@ -1662,7 +1663,17 @@ fun AddEditSessionBottomSheet(
             }
 
             TextButton(onClick = { showNotes = !showNotes }) {
-                Text(if (showNotes) "إخفاء الملاحظات" else "إضافة ملاحظات (اختياري)")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = if (showNotes) Icons.Default.Close else Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(if (showNotes) "إخفاء الملاحظات" else "ملاحظة")
+                }
             }
             if (showNotes) {
                 MosaribTextField(

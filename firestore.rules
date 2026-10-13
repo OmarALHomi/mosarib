@@ -1,0 +1,110 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==============================================================
+    // 🛡️ دوال مساعدة للتحقق والأمان لتطبيق المُسَرِّب (Mosarib)
+    // ==============================================================
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // التحقق من صلاحية المشرف العام (م. عمر الحومي)
+    function isAdmin() {
+      return isSignedIn() && (request.auth.token.admin == true);
+    }
+
+    // ==============================================================
+    // 👤 1. بيانات المُسَرِّب / موزع الماء (Distributor Profile)
+    // ==============================================================
+    match /users/{userId} {
+      allow get, write: if isOwner(userId);
+      allow list: if isAdmin();
+    }
+
+    // ==============================================================
+    // 🌾 2. المزارعون والعملاء (Farmers & Customers)
+    // ==============================================================
+    match /customers/{customerId} {
+      allow get, list: if isSignedIn() && (resource.data.distributorId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.distributorId == request.auth.uid && isValidId(customerId);
+      allow update: if isSignedIn() && (resource.data.distributorId == request.auth.uid || isAdmin())
+        && request.resource.data.distributorId == resource.data.distributorId;
+      allow delete: if isSignedIn() && (resource.data.distributorId == request.auth.uid || isAdmin());
+    }
+
+    // ==============================================================
+    // 💧 3. مصادر الماء والآبار (Pumps & Wells)
+    // ==============================================================
+    match /pumps/{pumpId} {
+      allow get, list: if isSignedIn() && (resource.data.distributorId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.distributorId == request.auth.uid && isValidId(pumpId);
+      allow update: if isSignedIn() && (resource.data.distributorId == request.auth.uid || isAdmin())
+        && request.resource.data.distributorId == resource.data.distributorId;
+      allow delete: if isSignedIn() && (resource.data.distributorId == request.auth.uid || isAdmin());
+    }
+
+    // ==============================================================
+    // ⏱️ 4. دورات وجلسات السقي والري (Irrigation Sessions)
+    // ==============================================================
+    match /sessions/{sessionId} {
+      allow get, list: if isSignedIn() && (resource.data.distributorId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.distributorId == request.auth.uid && isValidId(sessionId);
+      allow update: if isSignedIn() && (resource.data.distributorId == request.auth.uid || isAdmin())
+        && request.resource.data.distributorId == resource.data.distributorId;
+      allow delete: if isSignedIn() && (resource.data.distributorId == request.auth.uid || isAdmin());
+    }
+
+    // ==============================================================
+    // 💵 5. السندات المالية: قبض وصرف (Financial Vouchers)
+    // ==============================================================
+    match /vouchers/{voucherId} {
+      allow get, list: if isSignedIn() && (resource.data.distributorId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.distributorId == request.auth.uid && isValidId(voucherId);
+      allow update: if isSignedIn() && (resource.data.distributorId == request.auth.uid || isAdmin())
+        && request.resource.data.distributorId == resource.data.distributorId;
+      allow delete: if isSignedIn() && (resource.data.distributorId == request.auth.uid || isAdmin());
+    }
+
+    // ==============================================================
+    // 🚜 6. حسابات ومشتريات أصحاب الآبار (Well Accounts & Purchases)
+    // ==============================================================
+    match /well_accounts/{accountId} {
+      allow get, list: if isSignedIn() && (resource.data.distributorId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.distributorId == request.auth.uid && isValidId(accountId);
+      allow update: if isSignedIn() && (resource.data.distributorId == request.auth.uid || isAdmin())
+        && request.resource.data.distributorId == resource.data.distributorId;
+      allow delete: if isSignedIn() && (resource.data.distributorId == request.auth.uid || isAdmin());
+    }
+
+    // ==============================================================
+    // ☁️ 7. النسخ الاحتياطي السحابي (Encrypted Cloud Backups)
+    // ==============================================================
+    match /backups/{backupId} {
+      allow get, list: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isSignedIn() 
+        && isValidId(backupId)
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+
+    // ==============================================================
+    // 🔔 9. طلبات الاشتراك الواردة من التطبيق (Subscription Requests)
+    // ==============================================================
+    match /subscription_requests/{requestId} {
+      allow create: if true;
+      allow read, update, delete: if true;
+    }
+  }
+}

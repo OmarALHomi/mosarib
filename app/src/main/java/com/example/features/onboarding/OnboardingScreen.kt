@@ -86,6 +86,8 @@ fun OnboardingScreen(
         mutableStateOf(GoogleDriveBackupHelper.getSignedInAccount(context))
     }
 
+    var showGoogleBackupDialog by remember { mutableStateOf(false) }
+
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -94,6 +96,9 @@ fun OnboardingScreen(
             val account = task.getResult(ApiException::class.java)
             if (account != null) {
                 signedInGoogleAccount = account
+                scope.launch {
+                    com.example.core.license.UserDeviceTracker.syncPresence(context, 0)
+                }
             }
         } catch (_: Exception) {}
     }
@@ -318,8 +323,7 @@ fun OnboardingScreen(
                                 } else {
                                     Button(
                                         onClick = {
-                                            val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
-                                            googleSignInLauncher.launch(client.signInIntent)
+                                            showGoogleBackupDialog = true
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
                                         shape = RoundedCornerShape(10.dp)
@@ -409,6 +413,28 @@ fun OnboardingScreen(
                     )
                 }
             }
+        }
+
+        if (showGoogleBackupDialog) {
+            val initialName = com.example.core.license.UserDeviceTracker.getRegisteredName(context).takeIf { it.isNotBlank() }
+                ?: com.example.core.license.LicenseManager.getActivationRecord(context)?.subscriberName
+                ?: ""
+
+            val initialPhone = com.example.core.license.UserDeviceTracker.getRegisteredPhone(context).takeIf { it.isNotBlank() }
+                ?: ""
+
+            com.example.core.ui.GoogleBackupAccountDialog(
+                initialName = initialName,
+                initialPhone = initialPhone,
+                currentGoogleAccount = signedInGoogleAccount,
+                onDismiss = { showGoogleBackupDialog = false },
+                onProceed = { name, phone, _ ->
+                    showGoogleBackupDialog = false
+                    com.example.core.license.UserDeviceTracker.saveUserRegistrationInfo(context, name, phone)
+                    val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
+                    googleSignInLauncher.launch(client.signInIntent)
+                }
+            )
         }
     }
 }

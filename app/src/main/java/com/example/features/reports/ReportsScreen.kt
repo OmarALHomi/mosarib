@@ -48,6 +48,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +65,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.core.ui.LuxuryToastNotification
+import com.example.core.ui.MosaribDatePickerDialog
+import com.example.core.ui.isAppDark
 import com.example.core.util.FileSharingHelper
 import com.example.core.util.Formatters
 import com.example.ui.theme.AccentEmerald
@@ -116,6 +122,9 @@ fun ReportsScreen(
     }
 
     val customDateRange by viewModel.customDateRange.collectAsStateWithLifecycle()
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
+    var tempStartTimestamp by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -169,38 +178,7 @@ fun ReportsScreen(
                         PeriodFilterChip(
                             label = customLabel,
                             selected = selectedPeriod == ReportPeriod.CUSTOM,
-                            onClick = {
-                                val cal = java.util.Calendar.getInstance()
-                                android.app.DatePickerDialog(
-                                    context,
-                                    { _, sYear, sMonth, sDay ->
-                                        val startCal = java.util.Calendar.getInstance().apply {
-                                            set(sYear, sMonth, sDay, 0, 0, 0)
-                                            set(java.util.Calendar.MILLISECOND, 0)
-                                        }
-                                        android.app.DatePickerDialog(
-                                            context,
-                                            { _, eYear, eMonth, eDay ->
-                                                val endCal = java.util.Calendar.getInstance().apply {
-                                                    set(eYear, eMonth, eDay, 23, 59, 59)
-                                                    set(java.util.Calendar.MILLISECOND, 999)
-                                                }
-                                                viewModel.setCustomDateRange(startCal.timeInMillis, endCal.timeInMillis)
-                                            },
-                                            sYear, sMonth, sDay
-                                        ).apply {
-                                            setTitle("إلى تاريخ")
-                                            show()
-                                        }
-                                    },
-                                    cal.get(java.util.Calendar.YEAR),
-                                    cal.get(java.util.Calendar.MONTH),
-                                    cal.get(java.util.Calendar.DAY_OF_MONTH)
-                                ).apply {
-                                    setTitle("من تاريخ")
-                                    show()
-                                }
-                            }
+                            onClick = { showStartDatePicker = true }
                         )
                     }
                 }
@@ -256,6 +234,47 @@ fun ReportsScreen(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 85.dp)
         )
+
+        // Unified Mosarib Date Pickers for custom range filter
+        if (showStartDatePicker) {
+            MosaribDatePickerDialog(
+                title = "تحديد تاريخ البداية",
+                initialTimestamp = customDateRange?.first ?: System.currentTimeMillis(),
+                onDismiss = { showStartDatePicker = false },
+                onDateSelected = { startTs ->
+                    val startCal = java.util.Calendar.getInstance().apply {
+                        timeInMillis = startTs
+                        set(java.util.Calendar.HOUR_OF_DAY, 0)
+                        set(java.util.Calendar.MINUTE, 0)
+                        set(java.util.Calendar.SECOND, 0)
+                        set(java.util.Calendar.MILLISECOND, 0)
+                    }
+                    tempStartTimestamp = startCal.timeInMillis
+                    showStartDatePicker = false
+                    showEndDatePicker = true
+                }
+            )
+        }
+
+        if (showEndDatePicker) {
+            MosaribDatePickerDialog(
+                title = "تحديد تاريخ النهاية",
+                initialTimestamp = customDateRange?.second ?: maxOf(tempStartTimestamp, System.currentTimeMillis()),
+                minTimestamp = tempStartTimestamp,
+                onDismiss = { showEndDatePicker = false },
+                onDateSelected = { endTs ->
+                    showEndDatePicker = false
+                    val endCal = java.util.Calendar.getInstance().apply {
+                        timeInMillis = endTs
+                        set(java.util.Calendar.HOUR_OF_DAY, 23)
+                        set(java.util.Calendar.MINUTE, 59)
+                        set(java.util.Calendar.SECOND, 59)
+                        set(java.util.Calendar.MILLISECOND, 999)
+                    }
+                    viewModel.setCustomDateRange(tempStartTimestamp, endCal.timeInMillis)
+                }
+            )
+        }
     }
 }
 
@@ -296,6 +315,7 @@ private fun HeroProfitCard(
     currencySymbol: String
 ) {
     val isProfit = stats.netOperatingProfit >= 0
+    val isDark = isAppDark()
     val totalRevenue = max(0.0, stats.totalRevenue)
     val wellCost = max(0.0, stats.totalWellCost)
     val expenses = max(0.0, stats.totalPumpExpenses)
@@ -340,13 +360,16 @@ private fun HeroProfitCard(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
-                                .background(if (isProfit) AccentEmerald.copy(alpha = 0.15f) else Color(0xFFFFEBEE)),
+                            .background(
+                                if (isProfit) (if (isDark) Color(0xFF132A1C) else AccentEmerald.copy(alpha = 0.15f))
+                                else (if (isDark) Color(0xFF2A1517) else Color(0xFFFFEBEE))
+                            ),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.TrendingUp,
                                 contentDescription = null,
-                                tint = if (isProfit) AccentEmerald else Color(0xFFE53935),
+                                tint = if (isProfit) (if (isDark) Color(0xFF4ADE80) else AccentEmerald) else (if (isDark) Color(0xFFF87171) else Color(0xFFE53935)),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -361,12 +384,14 @@ private fun HeroProfitCard(
                     }
 
                     Surface(
-                        color = if (isProfit) AccentEmerald.copy(alpha = 0.12f) else Color(0xFFFFEBEE),
+                        color = if (isProfit) (if (isDark) Color(0xFF132A1C) else AccentEmerald.copy(alpha = 0.12f))
+                        else (if (isDark) Color(0xFF2A1517) else Color(0xFFFFEBEE)),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
                             text = if (isProfit) "عائد إيجابي" else "عجز تشغيلي",
-                            color = if (isProfit) Color(0xFF1B5E20) else Color(0xFFC62828),
+                            color = if (isProfit) (if (isDark) Color(0xFF4ADE80) else Color(0xFF1B5E20))
+                            else (if (isDark) Color(0xFFF87171) else Color(0xFFC62828)),
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -497,6 +522,7 @@ private fun LiquidityCollectionCard(
     stats: GeneralReportStats,
     currencySymbol: String
 ) {
+    val isDark = isAppDark()
     val totalBilled = stats.totalCollectedCash + stats.totalOutstandingDebt
     val collectionPercent = if (totalBilled > 0) {
         ((stats.totalCollectedCash / totalBilled) * 100).toInt()
@@ -540,12 +566,20 @@ private fun LiquidityCollectionCard(
                 }
 
                 Surface(
-                    color = if (collectionPercent >= 70) AccentEmerald.copy(alpha = 0.12f) else Color(0xFFFFF3E0),
+                    color = if (isDark) {
+                        if (collectionPercent >= 70) Color(0xFF132A1C) else Color(0xFF2E1C0C)
+                    } else {
+                        if (collectionPercent >= 70) AccentEmerald.copy(alpha = 0.12f) else Color(0xFFFFF3E0)
+                    },
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
                         text = "$collectionPercent% تم تحصيله",
-                        color = if (collectionPercent >= 70) Color(0xFF1B5E20) else Color(0xFFE65100),
+                        color = if (isDark) {
+                            if (collectionPercent >= 70) Color(0xFF4ADE80) else Color(0xFFFBBF24)
+                        } else {
+                            if (collectionPercent >= 70) Color(0xFF1B5E20) else Color(0xFFE65100)
+                        },
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -564,7 +598,7 @@ private fun LiquidityCollectionCard(
                     .height(8.dp)
                     .clip(RoundedCornerShape(4.dp)),
                 color = AccentEmerald,
-                trackColor = Color(0xFFFFCDD2)
+                trackColor = if (isDark) Color(0xFF381A1A) else Color(0xFFFFCDD2)
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -601,7 +635,7 @@ private fun LiquidityCollectionCard(
                 // Outstanding Debt
                 Card(
                     modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                    colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF2A1517) else Color(0xFFFFEBEE)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
@@ -810,13 +844,22 @@ private fun WellOwnerAccountingCard(
                     )
                 }
 
+                val isDark = isAppDark()
                 Surface(
-                    color = if (stats.totalOwnerPayable <= 0) AccentEmerald.copy(alpha = 0.12f) else Color(0xFFFFEBEE),
+                    color = if (isDark) {
+                        if (stats.totalOwnerPayable <= 0) Color(0xFF132A1C) else Color(0xFF2A1517)
+                    } else {
+                        if (stats.totalOwnerPayable <= 0) AccentEmerald.copy(alpha = 0.12f) else Color(0xFFFFEBEE)
+                    },
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
                         text = if (stats.totalOwnerPayable <= 0) "خالص بالكامل" else "متبقي مستحقات",
-                        color = if (stats.totalOwnerPayable <= 0) Color(0xFF1B5E20) else Color(0xFFC62828),
+                        color = if (isDark) {
+                            if (stats.totalOwnerPayable <= 0) Color(0xFF4ADE80) else Color(0xFFF87171)
+                        } else {
+                            if (stats.totalOwnerPayable <= 0) Color(0xFF1B5E20) else Color(0xFFC62828)
+                        },
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)

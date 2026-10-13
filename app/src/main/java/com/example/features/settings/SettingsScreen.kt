@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.CloudDone
@@ -107,6 +108,7 @@ import com.example.features.pumps.PumpSource
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
+import com.example.features.feedback.FeedbackDialog
 import com.example.ui.theme.SecondaryAqua
 
 @Composable
@@ -119,6 +121,8 @@ fun SettingsScreen(
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val operationsCount by viewModel.operationsCount.collectAsStateWithLifecycle()
     val isActivated by viewModel.isActivated.collectAsStateWithLifecycle()
+
+    var showFeedbackDialog by remember { mutableStateOf(false) }
 
     var distributorName by remember(config.distributorName) { mutableStateOf(config.distributorName) }
     var distributorPhone by remember(config.distributorPhone) { mutableStateOf(config.distributorPhone) }
@@ -146,6 +150,7 @@ fun SettingsScreen(
     }
 
     val context = androidx.compose.ui.platform.LocalContext.current
+    val isDark = com.example.core.ui.isAppDark()
     val isBiometricAvailable = remember { BiometricHelper.isAvailable(context) }
     val deviceCode = remember { LicenseManager.getDeviceCode(context) }
     var showLicenseDialog by remember { mutableStateOf(false) }
@@ -171,6 +176,9 @@ fun SettingsScreen(
     var expandAllLocalBackups by remember { mutableStateOf(false) }
     var expandAllDriveBackups by remember { mutableStateOf(false) }
 
+    var showGoogleBackupAccountDialog by remember { mutableStateOf(false) }
+    var pendingAutoBackupAfterSignIn by remember { mutableStateOf(false) }
+
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -179,8 +187,13 @@ fun SettingsScreen(
             val account = task.getResult(ApiException::class.java)
             if (account != null) {
                 viewModel.onGoogleSignInSuccess(account)
+                if (pendingAutoBackupAfterSignIn) {
+                    pendingAutoBackupAfterSignIn = false
+                    viewModel.backupToGoogleDriveAppData()
+                }
             }
         } catch (e: Exception) {
+            pendingAutoBackupAfterSignIn = false
             viewModel.showToast("فشل تسجيل الدخول بحساب Google: ${com.example.core.util.GoogleDriveBackupHelper.getReadableErrorMessage(e)}", ToastType.ERROR)
         }
     }
@@ -761,33 +774,50 @@ fun SettingsScreen(
                                             Box(
                                                 modifier = Modifier
                                                     .clip(RoundedCornerShape(6.dp))
-                                                    .background(Color(0xFFFEF3C7))
+                                                    .background(if (isDark) Color(0xFF2B2111) else Color(0xFFFEF3C7))
                                                     .clickable { backupToRestore = backup }
                                                     .padding(horizontal = 7.dp, vertical = 3.dp)
                                             ) {
-                                                Text("استعادة", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFB45309), fontWeight = FontWeight.Bold, fontSize = 10.5.sp))
+                                                Text(
+                                                    "استعادة",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309),
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 10.5.sp
+                                                    )
+                                                )
                                             }
 
                                             Box(
                                                 modifier = Modifier
                                                     .size(24.dp)
                                                     .clip(RoundedCornerShape(6.dp))
-                                                    .background(Color(0xFFE8F5E9))
+                                                    .background(if (isDark) Color(0xFF132A1C) else Color(0xFFE8F5E9))
                                                     .clickable { viewModel.shareExistingBackup(backup.file) },
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Icon(Icons.Default.Share, contentDescription = "مشاركة", tint = Color(0xFF2E7D32), modifier = Modifier.size(12.dp))
+                                                Icon(
+                                                    Icons.Default.Share,
+                                                    contentDescription = "مشاركة",
+                                                    tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
+                                                    modifier = Modifier.size(12.dp)
+                                                )
                                             }
 
                                             Box(
                                                 modifier = Modifier
                                                     .size(24.dp)
                                                     .clip(RoundedCornerShape(6.dp))
-                                                    .background(Color(0xFFFFEBEE))
+                                                    .background(if (isDark) Color(0xFF2A1517) else Color(0xFFFFEBEE))
                                                     .clickable { backupToDelete = backup },
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Icon(Icons.Default.Delete, contentDescription = "حذف", tint = Color(0xFFE53935), modifier = Modifier.size(12.dp))
+                                                Icon(
+                                                    Icons.Default.Delete,
+                                                    contentDescription = "حذف",
+                                                    tint = if (isDark) Color(0xFFF87171) else Color(0xFFE53935),
+                                                    modifier = Modifier.size(12.dp)
+                                                )
                                             }
                                         }
                                     }
@@ -824,22 +854,28 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(0xFFF0FDF4))
+                                    .background(if (isDark) Color(0xFF14241B) else Color(0xFFF0FDF4))
                                     .padding(12.dp)
                             ) {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Text(
                                         text = "سحابة Google Drive (المجلد المحمي)",
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF166534))
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isDark) Color(0xFF4ADE80) else Color(0xFF166534)
+                                        )
                                     )
                                     Text(
                                         text = "احفظ نسخ بياناتك تلقائياً في سحابة خاصة لا يمكن حذفها أو العبث بها بالخطأ وتستعيدها في أي وقت.",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF475569), fontSize = 11.sp)
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569),
+                                            fontSize = 11.sp
+                                        )
                                     )
                                     Button(
                                         onClick = {
-                                            val signInIntent = GoogleDriveBackupHelper.getGoogleSignInClient(context).signInIntent
-                                            googleSignInLauncher.launch(signInIntent)
+                                            pendingAutoBackupAfterSignIn = false
+                                            showGoogleBackupAccountDialog = true
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
                                         shape = RoundedCornerShape(8.dp),
@@ -858,7 +894,7 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(0xFFF0FDF4))
+                                    .background(if (isDark) Color(0xFF14241B) else Color(0xFFF0FDF4))
                                     .padding(10.dp)
                             ) {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -875,21 +911,32 @@ fun SettingsScreen(
                                                 modifier = Modifier
                                                     .size(28.dp)
                                                     .clip(CircleShape)
-                                                    .background(Color(0xFFDCFCE7)),
+                                                    .background(if (isDark) Color(0xFF1E3A2B) else Color(0xFFDCFCE7)),
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Icon(Icons.Default.AccountCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(18.dp))
+                                                Icon(
+                                                    Icons.Default.AccountCircle,
+                                                    contentDescription = null,
+                                                    tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF16A34A),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
                                             }
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Column {
                                                 Text(
                                                     text = acc.email ?: "حساب Google",
-                                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF14532D)),
+                                                    style = MaterialTheme.typography.bodySmall.copy(
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (isDark) Color(0xFFF8FAFC) else Color(0xFF14532D)
+                                                    ),
                                                     maxLines = 1
                                                 )
                                                 Text(
                                                     text = "المجلد السحابي متصل بأمان",
-                                                    style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF16A34A), fontSize = 10.sp)
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = if (isDark) Color(0xFF4ADE80) else Color(0xFF16A34A),
+                                                        fontSize = 10.sp
+                                                    )
                                                 )
                                             }
                                         }
@@ -907,7 +954,10 @@ fun SettingsScreen(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         Button(
-                                            onClick = { viewModel.backupToGoogleDriveAppData() },
+                                            onClick = {
+                                                pendingAutoBackupAfterSignIn = true
+                                                showGoogleBackupAccountDialog = true
+                                            },
                                             enabled = !isDriveLoading,
                                             modifier = Modifier.weight(1f),
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
@@ -947,7 +997,7 @@ fun SettingsScreen(
                                                     modifier = Modifier
                                                         .fillMaxWidth()
                                                         .clip(RoundedCornerShape(8.dp))
-                                                        .background(Color.White)
+                                                        .background(if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f) else Color.White)
                                                         .padding(horizontal = 8.dp, vertical = 6.dp),
                                                     horizontalArrangement = Arrangement.SpaceBetween,
                                                     verticalAlignment = Alignment.CenterVertically
@@ -955,11 +1005,14 @@ fun SettingsScreen(
                                                     Column(modifier = Modifier.weight(1f)) {
                                                         Text(
                                                             text = cloudBackup.formattedDate,
-                                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.onSurface
+                                                            )
                                                         )
                                                         Text(
                                                             text = "${cloudBackup.sizeText} • سحابي",
-                                                            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B), fontSize = 10.sp),
+                                                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp),
                                                             maxLines = 1
                                                         )
                                                     }
@@ -968,22 +1021,34 @@ fun SettingsScreen(
                                                         Box(
                                                             modifier = Modifier
                                                                 .clip(RoundedCornerShape(6.dp))
-                                                                .background(Color(0xFFFEF3C7))
+                                                                .background(if (isDark) Color(0xFF2B2111) else Color(0xFFFEF3C7))
                                                                 .clickable { driveBackupToRestore = cloudBackup }
                                                                 .padding(horizontal = 7.dp, vertical = 3.dp)
                                                         ) {
-                                                            Text("استعادة", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFB45309), fontWeight = FontWeight.Bold, fontSize = 10.5.sp))
+                                                            Text(
+                                                                "استعادة",
+                                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                                    color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309),
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    fontSize = 10.5.sp
+                                                                )
+                                                            )
                                                         }
 
                                                         Box(
                                                             modifier = Modifier
                                                                 .size(24.dp)
                                                                 .clip(RoundedCornerShape(6.dp))
-                                                                .background(Color(0xFFFFEBEE))
+                                                                .background(if (isDark) Color(0xFF2A1517) else Color(0xFFFFEBEE))
                                                                 .clickable { driveBackupToDelete = cloudBackup },
                                                             contentAlignment = Alignment.Center
                                                         ) {
-                                                            Icon(Icons.Default.Delete, contentDescription = "حذف", tint = Color(0xFFE53935), modifier = Modifier.size(12.dp))
+                                                            Icon(
+                                                                Icons.Default.Delete,
+                                                                contentDescription = "حذف",
+                                                                tint = if (isDark) Color(0xFFF87171) else Color(0xFFE53935),
+                                                                modifier = Modifier.size(12.dp)
+                                                            )
                                                         }
                                                     }
                                                 }
@@ -1274,6 +1339,58 @@ fun SettingsScreen(
             }
         }
 
+        // Section: آراء وملاحظات المستخدمين
+        item {
+            Card(
+                onClick = { showFeedbackDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 5.dp)
+                    .shadow(1.5.dp, RoundedCornerShape(16.dp)),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(SecondaryAqua.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Star, contentDescription = null, tint = SecondaryAqua)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "شاركنا رأيك ومقترحاتك 💬",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "إرسال اقتراح، إبلاغ عن مشكلة، أو تقييم التجربة مباشرة للمطور",
+                                style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B))
+                            )
+                        }
+                    }
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "عرض",
+                        tint = Color(0xFF64748B),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
         // Section: عن التطبيق والمطور
         item {
             Card(
@@ -1325,6 +1442,10 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (showFeedbackDialog) {
+        FeedbackDialog(onDismiss = { showFeedbackDialog = false })
     }
 
     // Confirmation Dialogs for Restore with Critical Data Loss Warning
@@ -1505,6 +1626,40 @@ fun SettingsScreen(
     if (showTourDialog) {
         com.example.features.home.HomeShowcaseTourDialog(
             onDismiss = { showTourDialog = false }
+        )
+    }
+
+    // Google Drive Backup Account Dialog
+    if (showGoogleBackupAccountDialog) {
+        val initialDialogName = distributorName.takeIf { it.isNotBlank() && it != "موزع الماء / المسرب" }
+            ?: com.example.core.license.UserDeviceTracker.getRegisteredName(context).takeIf { it.isNotBlank() }
+            ?: com.example.core.license.LicenseManager.getActivationRecord(context)?.subscriberName
+            ?: ""
+
+        val initialDialogPhone = distributorPhone.takeIf { it.isNotBlank() && it != "777000000" }
+            ?: com.example.core.license.UserDeviceTracker.getRegisteredPhone(context).takeIf { it.isNotBlank() }
+            ?: ""
+
+        com.example.core.ui.GoogleBackupAccountDialog(
+            initialName = initialDialogName,
+            initialPhone = initialDialogPhone,
+            currentGoogleAccount = googleAccount,
+            onDismiss = {
+                showGoogleBackupAccountDialog = false
+                pendingAutoBackupAfterSignIn = false
+            },
+            onProceed = { name, phone, shouldLaunchSignIn ->
+                showGoogleBackupAccountDialog = false
+                com.example.core.license.UserDeviceTracker.saveUserRegistrationInfo(context, name, phone)
+                viewModel.updateDistributorInfo(name, phone)
+
+                if (shouldLaunchSignIn) {
+                    val signInIntent = GoogleDriveBackupHelper.getGoogleSignInClient(context).signInIntent
+                    googleSignInLauncher.launch(signInIntent)
+                } else {
+                    viewModel.backupToGoogleDriveAppData()
+                }
+            }
         )
     }
 }

@@ -6,6 +6,9 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.security.MessageDigest
 import java.util.Locale
 
@@ -13,6 +16,7 @@ import java.util.Locale
  * License and device activation manager with online registration verification.
  * Limits free usage to [FREE_OPERATIONS_LIMIT] operations.
  * Binds activation permanently to the specific device hardware and records subscriber & device details.
+ * Prevents time tampering, duplicate device usage, and supports remote subscription revocation via Firebase.
  */
 object LicenseManager {
 
@@ -33,10 +37,12 @@ object LicenseManager {
     private const val KEY_DEVICE_MODEL = "activation_device_model"
     private const val KEY_ANDROID_VERSION = "activation_android_version"
     private const val KEY_ACTIVATION_KEY_USED = "activation_key_used"
+    private const val KEY_LAST_KNOWN_TIMESTAMP = "last_known_safe_timestamp"
+    private const val KEY_IS_REVOKED_LOCALLY = "is_license_revoked_locally"
     const val KEY_ONBOARDING_COMPLETED = "is_onboarding_completed"
     const val KEY_HOME_TOUR_COMPLETED = "is_home_tour_completed_v2"
 
-    // Secret salts (never expose raw algorithms)
+    // Secret salts
     private const val DEVICE_CODE_SALT = "msrb_device_token_salt_v1"
     private const val SECRET_ACTIVATION_SALT = "mosarib_secure_license_secret_key_alhomi_2026_water_app"
 
@@ -60,6 +66,8 @@ object LicenseManager {
         object NoInternet : ActivationResult()
         object MissingSubscriberName : ActivationResult()
         object InvalidKey : ActivationResult()
+        data class BoundToOtherDevice(val boundDevice: String?) : ActivationResult()
+        object SubscriptionRevoked : ActivationResult()
     }
 
     private fun sha256(input: String): String {
@@ -110,8 +118,6 @@ object LicenseManager {
 
     /**
      * Mathematical generator to produce the activation key corresponding to a device code and plan.
-     * Monthly: ACTV-M-XXXX-XXXX
-     * Yearly: ACTV-Y-XXXX-XXXX
      */
     internal fun generateActivationKey(deviceCode: String, plan: SubscriptionPlan = SubscriptionPlan.MONTHLY): String {
         val cleanCode = deviceCode.replace("-", "").trim().uppercase()
@@ -122,17 +128,13 @@ object LicenseManager {
     }
 
     /**
-     * Verifies the activation key entered by the user with mandatory online connectivity check.
-     * Registers the subscriber name, phone model, OS version, and plan duration.
+     * Verifies the activation key entered by the user with online connectivity check and single device binding.
      */
-    fun verifyAndActivate(
+    suspend fun verifyAndActivateOnline(
         context: Context,
         enteredKey: String,
         subscriberName: String
     ): ActivationResult {
-        if (!isInternetAvailable(context)) {
-            return ActivationResult.NoInternet
-        }
         val cleanName = subscriberName.trim()
         if (cleanName.isBlank()) {
             return ActivationResult.MissingSubscriberName
@@ -141,58 +143,148 @@ object LicenseManager {
         val cleanEntered = enteredKey.replace("-", "").replace(" ", "").trim().uppercase()
         val currentDeviceCode = getDeviceCode(context)
 
+        // Find matching plan
+        var matchedPlan: SubscriptionPlan? = null
         for (plan in SubscriptionPlan.entries) {
             val expectedKey = generateActivationKey(currentDeviceCode, plan).replace("-", "").uppercase()
             val expectedKeyNoPrefix = expectedKey.removePrefix("ACTV")
             if (cleanEntered == expectedKey || cleanEntered == expectedKeyNoPrefix) {
-                val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
-                val currentExpiry = sp.getLong(KEY_EXPIRES_AT, 0L)
-                val baseTime = maxOf(System.currentTimeMillis(), currentExpiry)
-                val newExpiresAt = baseTime + (plan.durationDays * 24L * 3600L * 1000L)
-
-                val signature = sha256(currentDeviceCode + SECRET_ACTIVATION_SALT + plan.name + newExpiresAt)
-                val deviceModel = getDeviceModelName()
-                val androidVersion = getAndroidVersionName()
-                val now = System.currentTimeMillis()
-
-                sp.edit()
-                    .putBoolean(KEY_IS_ACTIVATED, true)
-                    .putString(KEY_SUBSCRIPTION_PLAN, plan.name)
-                    .putLong(KEY_EXPIRES_AT, newExpiresAt)
-                    .putString(KEY_ACTIVATION_SIGNATURE, signature)
-                    .putLong(KEY_ACTIVATED_AT, now)
-                    .putString(KEY_SUBSCRIBER_NAME, cleanName)
-                    .putString(KEY_DEVICE_MODEL, deviceModel)
-                    .putString(KEY_ANDROID_VERSION, androidVersion)
-                    .putString(KEY_ACTIVATION_KEY_USED, enteredKey.trim())
-                    .apply()
-
-                val record = ActivationRecord(
-                    subscriberName = cleanName,
-                    deviceModel = deviceModel,
-                    androidVersion = androidVersion,
-                    deviceCode = currentDeviceCode,
-                    plan = plan,
-                    activatedAt = now,
-                    expiresAt = newExpiresAt
-                )
-                return ActivationResult.Success(plan, record)
+                matchedPlan = plan
+                break
             }
         }
-        return ActivationResult.InvalidKey
+
+        if (matchedPlan == null) {
+            // Also check if entered key is formatted as ACTV-M-XXXX-XXXX or ACTV-Y-XXXX-XXXX
+            matchedPlan = if (cleanEntered.startsWith("ACTVM") || cleanEntered.startsWith("M")) {
+                SubscriptionPlan.MONTHLY
+            } else if (cleanEntered.startsWith("ACTVY") || cleanEntered.startsWith("Y")) {
+                SubscriptionPlan.YEARLY
+            } else {
+                SubscriptionPlan.MONTHLY
+            }
+        }
+
+        val expectedForDevice = generateActivationKey(currentDeviceCode, matchedPlan).replace("-", "").uppercase()
+        val expectedWithoutPrefix = expectedForDevice.removePrefix("ACTV")
+        val isMathValid = cleanEntered == expectedForDevice || cleanEntered == expectedWithoutPrefix
+        val hasInternet = isInternetAvailable(context)
+
+        var serverExpiresAt: Long? = null
+
+        if (hasInternet) {
+            // Verify with Firebase Cloud backend
+            val cloudCheck = FirebaseLicenseService.verifyAndBindKeyOnline(
+                key = cleanEntered,
+                currentDeviceCode = currentDeviceCode,
+                subscriberName = cleanName,
+                plan = matchedPlan,
+                durationDays = matchedPlan.durationDays
+            )
+
+            if (cloudCheck.isRevoked) {
+                revokeLicenseLocally(context)
+                return ActivationResult.SubscriptionRevoked
+            }
+
+            if (cloudCheck.isBoundToOtherDevice) {
+                return ActivationResult.BoundToOtherDevice(cloudCheck.boundDeviceCode)
+            }
+
+            if (!isMathValid && !cloudCheck.isValid) {
+                return ActivationResult.InvalidKey
+            }
+            serverExpiresAt = cloudCheck.serverExpiresAt
+        } else {
+            // Offline fallback: Must be mathematically valid for this device
+            if (!isMathValid) {
+                return ActivationResult.NoInternet
+            }
+        }
+
+        // Save activation locally
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        val currentExpiry = sp.getLong(KEY_EXPIRES_AT, 0L)
+        val now = System.currentTimeMillis()
+        val baseTime = maxOf(now, currentExpiry)
+        val newExpiresAt = serverExpiresAt ?: (baseTime + (matchedPlan.durationDays * 24L * 3600L * 1000L))
+
+        val signature = sha256(currentDeviceCode + SECRET_ACTIVATION_SALT + matchedPlan.name + newExpiresAt)
+        val deviceModel = getDeviceModelName()
+        val androidVersion = getAndroidVersionName()
+
+        sp.edit()
+            .putBoolean(KEY_IS_ACTIVATED, true)
+            .putBoolean(KEY_IS_REVOKED_LOCALLY, false)
+            .putString(KEY_SUBSCRIPTION_PLAN, matchedPlan.name)
+            .putLong(KEY_EXPIRES_AT, newExpiresAt)
+            .putString(KEY_ACTIVATION_SIGNATURE, signature)
+            .putLong(KEY_ACTIVATED_AT, now)
+            .putLong(KEY_LAST_KNOWN_TIMESTAMP, now)
+            .putString(KEY_SUBSCRIBER_NAME, cleanName)
+            .putString(KEY_DEVICE_MODEL, deviceModel)
+            .putString(KEY_ANDROID_VERSION, androidVersion)
+            .putString(KEY_ACTIVATION_KEY_USED, enteredKey.trim())
+            .apply()
+
+        val record = ActivationRecord(
+            subscriberName = cleanName,
+            deviceModel = deviceModel,
+            androidVersion = androidVersion,
+            deviceCode = currentDeviceCode,
+            plan = matchedPlan,
+            activatedAt = now,
+            expiresAt = newExpiresAt
+        )
+        return ActivationResult.Success(matchedPlan, record)
     }
 
     /**
-     * Backward-compatible overload for key verification.
+     * Synchronous fallback for legacy callers, calls verifyAndActivateOnline on IO scope.
      */
+    fun verifyAndActivate(context: Context, enteredKey: String, subscriberName: String): ActivationResult {
+        return kotlinx.coroutines.runBlocking {
+            verifyAndActivateOnline(context, enteredKey, subscriberName)
+        }
+    }
+
     fun verifyAndActivate(context: Context, enteredKey: String): SubscriptionPlan? {
-        val result = verifyAndActivate(context, enteredKey, "المشترك")
-        return if (result is ActivationResult.Success) result.plan else null
+        val res = verifyAndActivate(context, enteredKey, "المشترك")
+        return if (res is ActivationResult.Success) res.plan else null
     }
 
     /**
-     * Retrieves saved activation registration record, or null if unlicensed.
+     * Revokes license locally and blocks further usage.
      */
+    fun revokeLicenseLocally(context: Context) {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        sp.edit()
+            .putBoolean(KEY_IS_ACTIVATED, false)
+            .putBoolean(KEY_IS_REVOKED_LOCALLY, true)
+            .putLong(KEY_EXPIRES_AT, 0L)
+            .remove(KEY_ACTIVATION_SIGNATURE)
+            .apply()
+    }
+
+    /**
+     * Asynchronously triggers background license sync with Firebase to check for remote revocation.
+     */
+    fun checkRemoteRevocationInBackground(context: Context) {
+        if (!isInternetAvailable(context)) return
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        if (!sp.getBoolean(KEY_IS_ACTIVATED, false)) return
+
+        val deviceCode = getDeviceCode(context)
+        val keyUsed = sp.getString(KEY_ACTIVATION_KEY_USED, null)
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val isRevoked = FirebaseLicenseService.isDeviceRevokedOnline(deviceCode, keyUsed)
+            if (isRevoked) {
+                revokeLicenseLocally(context)
+            }
+        }
+    }
+
     fun getActivationRecord(context: Context): ActivationRecord? {
         if (!isActivated(context)) return null
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
@@ -238,9 +330,11 @@ object LicenseManager {
     /**
      * Returns true if this device has an ACTIVE, non-expired subscription.
      * Validates cryptographic signature against device hardware and expiration time.
+     * Also guards against backwards clock manipulation.
      */
     fun isActivated(context: Context): Boolean {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        if (sp.getBoolean(KEY_IS_REVOKED_LOCALLY, false)) return false
         val isActivated = sp.getBoolean(KEY_IS_ACTIVATED, false)
         if (!isActivated) return false
 
@@ -248,8 +342,22 @@ object LicenseManager {
         val storedPlan = sp.getString(KEY_SUBSCRIPTION_PLAN, null) ?: return false
         val storedExpiresAt = sp.getLong(KEY_EXPIRES_AT, 0L)
 
+        val now = System.currentTimeMillis()
+        val lastKnownTime = sp.getLong(KEY_LAST_KNOWN_TIMESTAMP, 0L)
+
+        // Anti-clock rollback: if current time is substantially in the past relative to last known time (> 2 hours)
+        if (lastKnownTime > 0L && now < (lastKnownTime - 2 * 3600 * 1000L)) {
+            // Clock was rolled backwards to cheat expiry!
+            return false
+        }
+
+        // Monotonically advance last known time
+        if (now > lastKnownTime) {
+            sp.edit().putLong(KEY_LAST_KNOWN_TIMESTAMP, now).apply()
+        }
+
         // Check expiration
-        if (System.currentTimeMillis() > storedExpiresAt) {
+        if (now > storedExpiresAt) {
             return false
         }
 
@@ -258,9 +366,6 @@ object LicenseManager {
         return storedSig == expectedSig
     }
 
-    /**
-     * Returns the currently active subscription plan, or null if expired/unlicensed.
-     */
     fun getActivePlan(context: Context): SubscriptionPlan? {
         if (!isActivated(context)) return null
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
@@ -268,10 +373,6 @@ object LicenseManager {
         return runCatching { SubscriptionPlan.valueOf(planName) }.getOrNull()
     }
 
-    /**
-     * Returns remaining days in the active subscription.
-     * Returns 0 if expired or not activated.
-     */
     fun getRemainingDays(context: Context): Int {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         val storedExpiresAt = sp.getLong(KEY_EXPIRES_AT, 0L)
@@ -284,11 +385,6 @@ object LicenseManager {
     private const val KEY_CUMULATIVE_OPS = "cumulative_ops_count"
     private const val TRIAL_WATERMARK_SALT = "msrb_trial_permanent_lock_salt_2026_alhomi"
 
-    /**
-     * Checks whether the trial period or free operations have already been consumed on this phone.
-     * Checks multiple persistent layers: internal prefs, external app dir, and public media watermark.
-     * Survives "Clear App Data" and app reinstalls on the same physical device.
-     */
     fun isTrialConsumed(context: Context): Boolean {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         if (sp.getBoolean(KEY_TRIAL_CONSUMED, false)) return true
@@ -296,7 +392,6 @@ object LicenseManager {
         val deviceCode = getDeviceCode(context)
         val expectedWatermark = sha256(deviceCode + TRIAL_WATERMARK_SALT)
 
-        // Layer 2: Check persistent file in external documents/downloads directory
         val externalDirs = listOfNotNull(
             context.getExternalFilesDir(null),
             android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
@@ -307,7 +402,6 @@ object LicenseManager {
             runCatching {
                 val tokenFile = java.io.File(dir, ".msrb_trial_signature")
                 if (tokenFile.exists() && tokenFile.readText(Charsets.UTF_8).trim() == expectedWatermark) {
-                    // Sync back to preferences
                     sp.edit().putBoolean(KEY_TRIAL_CONSUMED, true).apply()
                     return true
                 }
@@ -316,10 +410,6 @@ object LicenseManager {
         return false
     }
 
-    /**
-     * Permanently marks this physical device as having consumed its free trial.
-     * Writes cryptographic hardware-bound watermark across multiple persistent layers.
-     */
     fun markTrialAsConsumed(context: Context) {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         sp.edit().putBoolean(KEY_TRIAL_CONSUMED, true).apply()
@@ -342,9 +432,6 @@ object LicenseManager {
         }
     }
 
-    /**
-     * Records operation count monotonically so deleting database rows doesn't reset the counter.
-     */
     fun recordOperationPerformed(context: Context, currentDbCount: Int) {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         val storedCumulative = sp.getInt(KEY_CUMULATIVE_OPS, 0)
@@ -356,10 +443,6 @@ object LicenseManager {
         }
     }
 
-    /**
-     * Checks whether an operation (session or voucher) can be performed.
-     * True if active subscription, or if device has not consumed trial and operations count < limit.
-     */
     fun canPerformOperation(context: Context, currentOperationsCount: Int): Boolean {
         if (isActivated(context)) return true
         if (isTrialConsumed(context)) return false
@@ -373,9 +456,6 @@ object LicenseManager {
         return true
     }
 
-    /**
-     * Returns remaining free operations (0 if reached or unlimited if active subscription).
-     */
     fun getRemainingOperations(context: Context, currentOperationsCount: Int): Int {
         if (isActivated(context)) return Int.MAX_VALUE
         if (isTrialConsumed(context)) return 0
@@ -385,9 +465,6 @@ object LicenseManager {
         return (FREE_OPERATIONS_LIMIT - effectiveCount).coerceAtLeast(0)
     }
 
-    /**
-     * Formats WhatsApp message URL for sending the device code, subscriber name, and device model to the developer.
-     */
     fun getWhatsAppActivationUrl(
         deviceCode: String,
         subscriberName: String = "",

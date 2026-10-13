@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.People
@@ -42,6 +43,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +58,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import com.example.core.license.LicenseDialog
 import com.example.core.license.LicenseManager
+import com.example.core.license.UserDeviceTracker
+import com.example.core.ui.DeviceBlockedScreen
+import com.example.core.ui.BackupReminderDialog
+import com.example.core.updates.AppBroadcast
+import com.example.core.updates.AppUpdateManager
+import com.example.core.updates.BroadcastAnnouncementDialog
+import com.example.core.updates.ForceUpdateScreen
+import com.example.core.util.PeriodicBackupReminderManager
+import com.example.features.feedback.FeedbackDialog
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -132,6 +143,7 @@ fun MainApp(
             var selectedCustomerId by remember { mutableLongStateOf(0L) }
             var showAboutScreen by remember { mutableStateOf(false) }
             var showLicenseDialog by remember { mutableStateOf(false) }
+            var showFeedbackDialog by remember { mutableStateOf(false) }
             var showExitConfirmationDialog by remember { mutableStateOf(false) }
 
             // اعتراض زر التراجع لإظهار رسالة تأكيد الخروج من أي شاشة يؤدي التراجع منها للخروج من التطبيق
@@ -143,6 +155,43 @@ fun MainApp(
             val isActivated by settingsViewModel.isActivated.collectAsStateWithLifecycle()
             val operationsCount by settingsViewModel.operationsCount.collectAsStateWithLifecycle()
 
+            var isDeviceBlocked by remember { mutableStateOf(UserDeviceTracker.isDeviceBlockedLocally(context)) }
+            var blockReason by remember { mutableStateOf(UserDeviceTracker.getBlockReason(context)) }
+
+            // الإعلانات والتحديثات الإجبارية
+            var activeBroadcast by remember { mutableStateOf<AppBroadcast?>(null) }
+            var showAnnouncementDialog by remember { mutableStateOf(false) }
+            var showBackupReminderDialog by remember { mutableStateOf(false) }
+
+            // التحقق السحابي في الخلفية للتأكد من عدم سحب الاشتراك أو حظره ومزامنة تواجد المستخدم وفحص الإعلانات
+            LaunchedEffect(operationsCount) {
+                val syncResult = UserDeviceTracker.syncPresence(context, operationsCount)
+                if (syncResult.isBlocked) {
+                    isDeviceBlocked = true
+                    blockReason = syncResult.blockReason ?: "تم إيقاف التطبيق على هذا الجهاز"
+                }
+                LicenseManager.checkRemoteRevocationInBackground(context)
+
+                // فحص الإعلانات والتحديث الإجباري
+                val broadcast = AppUpdateManager.checkBroadcastAndUpdates(context)
+                if (broadcast != null) {
+                    activeBroadcast = broadcast
+                    if (!broadcast.isForceUpdate && !AppUpdateManager.isBroadcastSeen(context, broadcast.id)) {
+                        showAnnouncementDialog = true
+                    }
+                }
+
+                // فحص التذكير الدوري بالنسخ الاحتياطي
+                if (PeriodicBackupReminderManager.shouldShowBackupReminder(context, operationsCount)) {
+                    showBackupReminderDialog = true
+                }
+
+                // مزامنة FCM Push Token للإشعارات المنبثقة
+                try {
+                    com.example.core.notifications.FcmTokenHelper.syncCurrentToken(context)
+                } catch (_: Exception) {}
+            }
+
             val tabs = remember { listOf(AppTab.REPORTS, AppTab.CUSTOMERS, AppTab.HOME, AppTab.VOUCHERS, AppTab.SETTINGS) }
             val pagerState = rememberPagerState(initialPage = 2) { tabs.size }
             val coroutineScope = rememberCoroutineScope()
@@ -150,6 +199,10 @@ fun MainApp(
 
             if (showSplashScreen) {
                 SplashScreen(onTimeout = { showSplashScreen = false })
+            } else if (isDeviceBlocked) {
+                DeviceBlockedScreen(reason = blockReason)
+            } else if (activeBroadcast?.isForceUpdate == true) {
+                ForceUpdateScreen(broadcast = activeBroadcast!!)
             } else if (showOnboarding) {
                 OnboardingScreen(onFinish = { showOnboarding = false })
             } else if (appConfig.biometricEnabled && !isBiometricUnlocked) {
@@ -207,6 +260,16 @@ fun MainApp(
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text("تصدير PDF", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                         }
+                                    }
+
+                                    // زر الفيدباك والآراء السريع
+                                    IconButton(onClick = { showFeedbackDialog = true }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = "شاركنا رأيك",
+                                            tint = AccentGold,
+                                            modifier = Modifier.size(24.dp)
+                                        )
                                     }
 
                                     // أيقونة خط خارجي دائرية بعدد العمليات المتبقية يتغير لونها مع النفاذ
@@ -330,6 +393,39 @@ fun MainApp(
                 LicenseDialog(
                     onDismiss = { showLicenseDialog = false },
                     onActivated = { showLicenseDialog = false }
+                )
+            }
+
+            if (showFeedbackDialog) {
+                FeedbackDialog(
+                    onDismiss = { showFeedbackDialog = false }
+                )
+            }
+
+            // نافذة الإعلان / التحديث الاختياري
+            if (showAnnouncementDialog && activeBroadcast != null) {
+                BroadcastAnnouncementDialog(
+                    broadcast = activeBroadcast!!,
+                    onDismiss = {
+                        AppUpdateManager.markBroadcastSeen(context, activeBroadcast!!.id)
+                        showAnnouncementDialog = false
+                    }
+                )
+            }
+
+            // نافذة التذكير بالنسخ الاحتياطي
+            if (showBackupReminderDialog) {
+                BackupReminderDialog(
+                    onBackupNow = {
+                        showBackupReminderDialog = false
+                        PeriodicBackupReminderManager.recordBackupPerformed(context)
+                        // التنقل لتبويب الإعدادات لإجراء النسخ
+                        coroutineScope.launch { pagerState.animateScrollToPage(4) }
+                    },
+                    onRemindLater = {
+                        showBackupReminderDialog = false
+                        PeriodicBackupReminderManager.dismissReminderTemporarily(context)
+                    }
                 )
             }
 
