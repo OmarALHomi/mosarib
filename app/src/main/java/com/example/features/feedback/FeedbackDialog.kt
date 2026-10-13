@@ -8,8 +8,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
@@ -23,8 +23,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.example.core.license.FirebaseLicenseService
 import com.example.core.license.LicenseManager
+import com.example.core.license.UserDeviceTracker
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
 import kotlinx.coroutines.launch
@@ -35,17 +37,35 @@ fun FeedbackDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val isDark = isSystemInDarkTheme()
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
     val actRecord = remember { LicenseManager.getActivationRecord(context) }
-    var name by remember { mutableStateOf(actRecord?.subscriberName ?: "") }
-    var phone by remember { mutableStateOf("") }
+    var name by remember {
+        val registered = UserDeviceTracker.getRegisteredName(context)
+        mutableStateOf(if (actRecord?.subscriberName.isNullOrBlank()) registered else actRecord!!.subscriberName)
+    }
+    var phone by remember { mutableStateOf(UserDeviceTracker.getRegisteredPhone(context)) }
     var rating by remember { mutableIntStateOf(5) }
     var category by remember { mutableStateOf("اقتراح تحسين") }
     var message by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val textFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
+        unfocusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
+        focusedLabelColor = PrimaryTeal,
+        unfocusedLabelColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+        focusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
+        unfocusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
+        cursorColor = PrimaryTeal,
+        focusedBorderColor = PrimaryTeal,
+        unfocusedBorderColor = if (isDark) Color(0xFF334B56) else Color(0xFFCBD5E1),
+        focusedContainerColor = if (isDark) Color(0xFF162329) else Color(0xFFF8FAFC),
+        unfocusedContainerColor = if (isDark) Color(0xFF142026) else Color(0xFFF8FAFC)
+    )
 
     val categories = listOf("اقتراح تحسين", "إبلاغ عن مشكلة", "شكر وتقدير", "طلب ميزة جديدة")
 
@@ -166,7 +186,8 @@ fun FeedbackDialog(
                 label = { Text("الاسم الكريم") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = textFieldColors
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -178,7 +199,8 @@ fun FeedbackDialog(
                 label = { Text("رقم الهاتف أو الواتساب (اختياري للرد عليك)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = textFieldColors
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -191,7 +213,8 @@ fun FeedbackDialog(
                 minLines = 4,
                 maxLines = 6,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = textFieldColors
             )
 
             if (errorMessage != null) {
@@ -256,7 +279,7 @@ fun FeedbackDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(20.dp))
                         Text("إرسال الملاحظات للمطور", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
                 }

@@ -71,6 +71,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.OutlinedTextFieldDefaults
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LicenseDialog(
@@ -79,6 +82,7 @@ fun LicenseDialog(
     isMandatory: Boolean = false // If true, cannot dismiss until activated
 ) {
     val context = LocalContext.current
+    val isDark = isSystemInDarkTheme()
     val deviceCode = remember { LicenseManager.getDeviceCode(context) }
     val deviceModel = remember { LicenseManager.getDeviceModelName() }
     val androidVersion = remember { LicenseManager.getAndroidVersionName() }
@@ -96,6 +100,20 @@ fun LicenseDialog(
 
     var selectedPlan by remember { mutableStateOf(LicenseManager.SubscriptionPlan.MONTHLY) }
     var isOnline by remember { mutableStateOf(LicenseManager.isInternetAvailable(context)) }
+
+    val textFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
+        unfocusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
+        focusedLabelColor = PrimaryTeal,
+        unfocusedLabelColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+        focusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
+        unfocusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
+        cursorColor = PrimaryTeal,
+        focusedBorderColor = PrimaryTeal,
+        unfocusedBorderColor = if (isDark) Color(0xFF334B56) else Color(0xFFCBD5E1),
+        focusedContainerColor = if (isDark) Color(0xFF162329) else Color(0xFFF8FAFC),
+        unfocusedContainerColor = if (isDark) Color(0xFF142026) else Color(0xFFF8FAFC)
+    )
 
     fun refreshInternet() {
         isOnline = LicenseManager.isInternetAvailable(context)
@@ -261,7 +279,13 @@ fun LicenseDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (isOnline) Color(0xFFE8F5E9) else Color(0xFFFFEBEE))
+                    .background(
+                        if (isOnline) {
+                            if (isDark) Color(0xFF143022) else Color(0xFFE8F5E9)
+                        } else {
+                            if (isDark) Color(0xFF381A1A) else Color(0xFFFFEBEE)
+                        }
+                    )
                     .padding(horizontal = 12.dp, vertical = 7.dp)
             ) {
                 Row(
@@ -276,7 +300,7 @@ fun LicenseDialog(
                         Icon(
                             imageVector = if (isOnline) Icons.Default.Wifi else Icons.Default.WifiOff,
                             contentDescription = null,
-                            tint = if (isOnline) Color(0xFF2E7D32) else Color(0xFFD32F2F),
+                            tint = if (isOnline) (if (isDark) Color(0xFF86EFAC) else Color(0xFF2E7D32)) else (if (isDark) Color(0xFFFCA5A5) else Color(0xFFD32F2F)),
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -284,7 +308,7 @@ fun LicenseDialog(
                             text = if (isOnline) "متصل بالإنترنت • جاهز للتوثيق والتفعيل" else "غير متصل بالإنترنت • يلزم الاتصال لتوثيق التفعيل",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = if (isOnline) Color(0xFF2E7D32) else Color(0xFFD32F2F),
+                                color = if (isOnline) (if (isDark) Color(0xFF86EFAC) else Color(0xFF2E7D32)) else (if (isDark) Color(0xFFFCA5A5) else Color(0xFFD32F2F)),
                                 fontSize = 11.sp
                             )
                         )
@@ -295,7 +319,12 @@ fun LicenseDialog(
                             onClick = { refreshInternet() },
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                         ) {
-                            Text("إعادة فحص", fontSize = 10.5.sp, color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
+                            Text(
+                                "إعادة فحص",
+                                fontSize = 10.5.sp,
+                                color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFD32F2F),
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
@@ -363,6 +392,7 @@ fun LicenseDialog(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
+                colors = textFieldColors,
                 singleLine = true
             )
 
@@ -379,6 +409,7 @@ fun LicenseDialog(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
+                colors = textFieldColors,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true
             )
@@ -390,7 +421,7 @@ fun LicenseDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                    .background(if (isDark) Color(0xFF162329) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -399,7 +430,7 @@ fun LicenseDialog(
                 Text(
                     text = "جهازك المسجل: $deviceModel • $androidVersion",
                     style = MaterialTheme.typography.labelSmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (isDark) Color(0xFF94A3B8) else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 10.5.sp
                     )
                 )
@@ -544,6 +575,7 @@ fun LicenseDialog(
                 label = { Text("أدخل رمز التفعيل (ACTV-XXXX-XXXX)") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
+                colors = textFieldColors,
                 singleLine = true
             )
 
