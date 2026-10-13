@@ -131,6 +131,12 @@ fun LicenseDialog(
             is LicenseManager.ActivationResult.MissingSubscriberName -> {
                 errorMessage = "يرجى كتابة اسم المشترك / صاحب الحساب أولاً"
             }
+            is LicenseManager.ActivationResult.BoundToOtherDevice -> {
+                errorMessage = "عذراً! رمز التفعيل هذا مربوط ومستعمل لجهاز آخر مسبقاً، ولا يمكن تشغيله على أكثر من هاتف."
+            }
+            is LicenseManager.ActivationResult.SubscriptionRevoked -> {
+                errorMessage = "تم سحب أو إلغاء تفعيل هذا الاشتراك من قِبل إدارة التطبيق."
+            }
             is LicenseManager.ActivationResult.InvalidKey -> {
                 errorMessage = "رمز التفعيل غير صالح لهذا الجهاز، يرجى التأكد والتواصل مع المطور"
             }

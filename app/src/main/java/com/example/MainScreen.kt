@@ -56,6 +56,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import com.example.core.license.LicenseDialog
 import com.example.core.license.LicenseManager
+import com.example.core.license.UserDeviceTracker
+import com.example.core.ui.DeviceBlockedScreen
+import com.example.features.feedback.FeedbackDialog
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -132,6 +135,7 @@ fun MainApp(
             var selectedCustomerId by remember { mutableLongStateOf(0L) }
             var showAboutScreen by remember { mutableStateOf(false) }
             var showLicenseDialog by remember { mutableStateOf(false) }
+            var showFeedbackDialog by remember { mutableStateOf(false) }
             var showExitConfirmationDialog by remember { mutableStateOf(false) }
 
             // اعتراض زر التراجع لإظهار رسالة تأكيد الخروج من أي شاشة يؤدي التراجع منها للخروج من التطبيق
@@ -143,6 +147,19 @@ fun MainApp(
             val isActivated by settingsViewModel.isActivated.collectAsStateWithLifecycle()
             val operationsCount by settingsViewModel.operationsCount.collectAsStateWithLifecycle()
 
+            var isDeviceBlocked by remember { mutableStateOf(UserDeviceTracker.isDeviceBlockedLocally(context)) }
+            var blockReason by remember { mutableStateOf(UserDeviceTracker.getBlockReason(context)) }
+
+            // التحقق السحابي في الخلفية للتأكد من عدم سحب الاشتراك أو حظره ومزامنة تواجد المستخدم
+            LaunchedEffect(operationsCount) {
+                val syncResult = UserDeviceTracker.syncPresence(context, operationsCount)
+                if (syncResult.isBlocked) {
+                    isDeviceBlocked = true
+                    blockReason = syncResult.blockReason ?: "تم إيقاف التطبيق على هذا الجهاز"
+                }
+                LicenseManager.checkRemoteRevocationInBackground(context)
+            }
+
             val tabs = remember { listOf(AppTab.REPORTS, AppTab.CUSTOMERS, AppTab.HOME, AppTab.VOUCHERS, AppTab.SETTINGS) }
             val pagerState = rememberPagerState(initialPage = 2) { tabs.size }
             val coroutineScope = rememberCoroutineScope()
@@ -150,6 +167,8 @@ fun MainApp(
 
             if (showSplashScreen) {
                 SplashScreen(onTimeout = { showSplashScreen = false })
+            } else if (isDeviceBlocked) {
+                DeviceBlockedScreen(reason = blockReason)
             } else if (showOnboarding) {
                 OnboardingScreen(onFinish = { showOnboarding = false })
             } else if (appConfig.biometricEnabled && !isBiometricUnlocked) {
@@ -207,6 +226,16 @@ fun MainApp(
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text("تصدير PDF", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                         }
+                                    }
+
+                                    // زر الفيدباك والآراء السريع
+                                    IconButton(onClick = { showFeedbackDialog = true }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = "شاركنا رأيك",
+                                            tint = AccentGold,
+                                            modifier = Modifier.size(24.dp)
+                                        )
                                     }
 
                                     // أيقونة خط خارجي دائرية بعدد العمليات المتبقية يتغير لونها مع النفاذ
@@ -330,6 +359,12 @@ fun MainApp(
                 LicenseDialog(
                     onDismiss = { showLicenseDialog = false },
                     onActivated = { showLicenseDialog = false }
+                )
+            }
+
+            if (showFeedbackDialog) {
+                FeedbackDialog(
+                    onDismiss = { showFeedbackDialog = false }
                 )
             }
 

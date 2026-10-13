@@ -107,6 +107,7 @@ import com.example.features.pumps.PumpSource
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
+import com.example.features.feedback.FeedbackDialog
 import com.example.ui.theme.SecondaryAqua
 
 @Composable
@@ -119,6 +120,8 @@ fun SettingsScreen(
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val operationsCount by viewModel.operationsCount.collectAsStateWithLifecycle()
     val isActivated by viewModel.isActivated.collectAsStateWithLifecycle()
+
+    var showFeedbackDialog by remember { mutableStateOf(false) }
 
     var distributorName by remember(config.distributorName) { mutableStateOf(config.distributorName) }
     var distributorPhone by remember(config.distributorPhone) { mutableStateOf(config.distributorPhone) }
@@ -1274,6 +1277,58 @@ fun SettingsScreen(
             }
         }
 
+        // Section: آراء وملاحظات المستخدمين
+        item {
+            Card(
+                onClick = { showFeedbackDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 5.dp)
+                    .shadow(1.5.dp, RoundedCornerShape(16.dp)),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(SecondaryAqua.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Star, contentDescription = null, tint = SecondaryAqua)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "شاركنا رأيك ومقترحاتك 💬",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "إرسال اقتراح، إبلاغ عن مشكلة، أو تقييم التجربة مباشرة للمطور",
+                                style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B))
+                            )
+                        }
+                    }
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "عرض",
+                        tint = Color(0xFF64748B),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
         // Section: عن التطبيق والمطور
         item {
             Card(
@@ -1325,6 +1380,10 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (showFeedbackDialog) {
+        FeedbackDialog(onDismiss = { showFeedbackDialog = false })
     }
 
     // Confirmation Dialogs for Restore with Critical Data Loss Warning

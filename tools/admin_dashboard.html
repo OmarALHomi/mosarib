@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة تحكم وإدارة تراخيص ومستخدمي مُسَرِّب | م. عمر الحومي</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #00838F;
+      --primary-dark: #004D40;
+      --primary-light: #4FB3BF;
+      --accent: #FFB300;
+      --bg: #0B171D;
+      --card-bg: #12232B;
+      --card-border: rgba(0, 150, 166, 0.25);
+      --text: #E0F2F1;
+      --text-muted: #80CBC4;
+      --danger: #FF5252;
+      --success: #00E676;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
+    body {
+      background: radial-gradient(circle at top, #132A32, var(--bg));
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .container { max-width: 1250px; margin: 0 auto; }
+    
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand-icon {
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, var(--primary), #00BFA5);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      box-shadow: 0 8px 20px rgba(0, 191, 165, 0.35);
+    }
+    h1 { font-size: 24px; font-weight: 800; color: #FFF; }
+    .subtitle { font-size: 13px; color: var(--text-muted); }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 230, 118, 0.15);
+      color: var(--success);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid rgba(0, 230, 118, 0.3);
+    }
+    .status-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+    .stat-info h3 { font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
+    .stat-info .num { font-size: 28px; font-weight: 900; color: #FFF; }
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      background: rgba(0, 150, 166, 0.15);
+      color: var(--primary-light);
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 15px;
+      font-weight: 700;
+      padding: 10px 20px;
+      cursor: pointer;
+      border-radius: 10px;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: #FFF;
+      box-shadow: 0 4px 14px rgba(0, 131, 143, 0.4);
+    }
+
+    /* Cards */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 30px;
+    }
+    @media (max-width: 850px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+    .card-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #FFF;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; }
+    input, select, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(0, 150, 166, 0.4);
+      background: #081318;
+      color: #FFF;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--success); }
+    .btn {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--primary), #00BFA5);
+      color: white;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn:hover { opacity: 0.92; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--card-border);
+      color: var(--text);
+    }
+
+    .key-box {
+      margin-top: 18px;
+      background: #081318;
+      border: 1px dashed var(--accent);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      display: none;
+    }
+    .key-text {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: var(--success);
+      margin: 8px 0 12px;
+      user-select: all;
+    }
+
+    /* Tables */
+    .table-container {
+      overflow-x: auto;
+      border-radius: 14px;
+      border: 1px solid var(--card-border);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: right;
+      background: var(--card-bg);
+    }
+    th, td {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(0, 150, 166, 0.15);
+      font-size: 14px;
+    }
+    th {
+      background: rgba(0, 131, 143, 0.2);
+      color: var(--text-muted);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    tr:hover { background: rgba(0, 150, 166, 0.08); }
+    .badge {
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-block;
+    }
+    .badge-active { background: rgba(0, 230, 118, 0.15); color: var(--success); }
+    .badge-trial { background: rgba(255, 179, 0, 0.15); color: var(--accent); }
+    .badge-blocked { background: rgba(255, 82, 82, 0.15); color: var(--danger); }
+    .badge-monthly { background: rgba(0, 184, 212, 0.15); color: #00E5FF; }
+    .badge-yearly { background: rgba(255, 179, 0, 0.15); color: var(--accent); }
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      border: none;
+      font-weight: 700;
+      transition: 0.2s;
+    }
+    .btn-block { background: rgba(255, 82, 82, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+    .btn-block:hover { background: var(--danger); color: white; }
+    .btn-unblock { background: rgba(0, 230, 118, 0.2); color: var(--success); border: 1px solid var(--success); }
+    .btn-unblock:hover { background: var(--success); color: black; }
+
+    .rating-stars { color: var(--accent); letter-spacing: 2px; }
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .search-input {
+      width: 280px;
+      padding: 8px 14px;
+      font-size: 13px;
+    }
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 13px;
+      color: #546E7A;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">💧</div>
+      <div>
+        <h1>لوحة تحكم وإدارة تراخيص ومستخدمي مُسَرِّب</h1>
+        <p class="subtitle">تطوير المهندس عمر الحومي — تبع سوفت &copy; 2026</p>
+      </div>
+    </div>
+    <div class="status-badge" id="firebaseStatus">
+      <div class="status-dot"></div> متصل بقاعدة بيانات فايربيس (mosarib)
+    </div>
+  </header>
+
+  <!-- Stats Grid -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-info">
+        <h3>إجمالي مستخدمي التطبيق</h3>
+        <div class="num" id="statTotalUsers">0</div>
+      </div>
+      <div class="stat-icon">👥</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-info">
+        <h3>المشتركون المفعّلون</h3>
+        <div class="num" id="statActiveLicenses">0</div>
+      </div>
+      <div class="stat-icon" style="color: var(--success)">✅</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-info">
+        <h3>النسخ التجريبية المجانية</h3>
+        <div class="num" id="statTrialUsers">0</div>
+      </div>
+      <div class="stat-icon" style="color: var(--accent)">⏳</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-info">
+        <h3>الأجهزة المحظورة / الموقوفة</h3>
+        <div class="num" id="statBlockedUsers">0</div>
+      </div>
+      <div class="stat-icon" style="color: var(--danger)">⛔</div>
+    </div>
+  </div>
+
+  <!-- Tabs Navigation -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('users')">👥 جميع مستخدمي التطبيق (جوجل & الأجهزة)</button>
+    <button class="tab-btn" onclick="switchTab('generator')">🔑 توليد الأكواد والتسجيل</button>
+    <button class="tab-btn" onclick="switchTab('feedbacks')">💬 صندوق الآراء والملاحظات</button>
+  </div>
+
+  <!-- Tab 1: All Users (Both subscribed & trial, with Google Accounts & Instant Block) -->
+  <div id="tab-users">
+    <div class="card">
+      <div class="toolbar">
+        <div class="card-title" style="margin-bottom: 0;">📱 قائمة مستخدمي التطبيق ومراقبة التحايل</div>
+        <div style="display: flex; gap: 10px;">
+          <input type="text" class="search-input" id="userSearch" placeholder="بحث بحساب جوجل، الكود، الموديل..." oninput="filterUsers()">
+          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="loadFirebaseData()">🔄 تحديث</button>
+          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="exportUsersCSV()">📥 تصدير Excel/CSV</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>حساب Google</th>
+              <th>كود الجهاز</th>
+              <th>موديل الجهاز</th>
+              <th>الحالة</th>
+              <th>الباقة</th>
+              <th>عدد العمليات</th>
+              <th>آخر ظهور</th>
+              <th>التحكم والإيقاف ⛔</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr><td colspan="8" style="text-align: center; color: var(--text-muted);">جاري تحميل قائمة المستخدمين من السحابة...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 2: Generator -->
+  <div id="tab-generator" style="display: none;">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">✨ توليد رمز تفعيل وقفل لجهاز واحد</div>
+        <div class="form-group">
+          <label for="deviceCode">كود جهاز المزارع / العميل (Device Code):</label>
+          <input type="text" id="deviceCode" placeholder="MSRB-XXXX-XXXX" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="subscriberName">اسم المشترك / المسرّب:</label>
+          <input type="text" id="subscriberName" placeholder="مثال: المهندس / الأخ سالم">
+        </div>
+        <div class="form-group">
+          <label for="planSelect">نوع الاشتراك:</label>
+          <select id="planSelect">
+            <option value="MONTHLY">اشتراك شهري (30 يوماً)</option>
+            <option value="YEARLY">اشتراك سنوي (365 يوماً)</option>
+          </select>
+        </div>
+        <button class="btn" onclick="generateAndSaveKey()">⚡ توليد وحفظ في سحابة فايربيس</button>
+
+        <div class="key-box" id="keyBox">
+          <div style="font-size: 13px; color: var(--accent); font-weight: bold;">رمز التفعيل المقفل لهذا الهاتف:</div>
+          <div class="key-text" id="keyText">ACTV-M-XXXX-XXXX</div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-outline" style="flex: 1;" onclick="copyKey()">📋 نسخ الرمز</button>
+            <button class="btn" style="flex: 1; background: #25D366;" onclick="sendToWhatsApp()">💬 إرسال عبر واتساب</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🛡️ حماية متقدمة ومكافحة التحايل</div>
+        <ul style="padding-right: 20px; line-height: 2.2; font-size: 14px; color: #B2DFDB;">
+          <li><b>تسجيل كافة المستخدمين:</b> يظهر في لوحتك كل من قام بفتح التطبيق بحساب Google ومعرف جهازه وعدد عملياته، حتى وإن لم يشترك بعد!</li>
+          <li><b>إيقاف فوري بنقرة واحدة:</b> إذا لاحظت أن شخصاً يتلاعب أو يكرر مسح البيانات، يمكنك إيقاف التطبيق عليه وحظره فوراً برقم جهازه أو إيميله.</li>
+          <li><b>قفل عتادي:</b> الكود يرتبط ببصمة الهاتف ولا يمكن تشغيله على هاتفين إطلاقاً.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 3: Feedbacks -->
+  <div id="tab-feedbacks" style="display: none;">
+    <div class="card">
+      <div class="toolbar">
+        <div class="card-title" style="margin-bottom: 0;">💬 آراء وملاحظات المستخدمين الواردة من التطبيق</div>
+        <div style="display: flex; gap: 10px;">
+          <input type="text" class="search-input" id="feedbackSearch" placeholder="بحث بالرسائل أو الأسماء..." oninput="filterFeedbacks()">
+          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="loadFirebaseData()">🔄 تحديث</button>
+          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="exportFeedbacksCSV()">📥 تصدير Excel/CSV</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>تاريخ الإرسال</th>
+              <th>المرسل</th>
+              <th>رقم الهاتف</th>
+              <th>التقييم</th>
+              <th>نوع المشاركة</th>
+              <th>نص الرسالة / الملاحظة</th>
+              <th>الجهاز</th>
+              <th>إجراء</th>
+            </tr>
+          </thead>
+          <tbody id="feedbacksTableBody">
+            <tr><td colspan="8" style="text-align: center; color: var(--text-muted);">جاري تحميل الملاحظات...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    لوحة الإدارة والتحكم — المهندس عمر الحومي &copy; 2026 | جميع الحقوق محفوظة
+  </footer>
+</div>
+
+<script>
+  const FIREBASE_BASE_URL = "https://mosarib-default-rtdb.firebaseio.com";
+  const SECRET_SALT = "mosarib_secure_license_secret_key_alhomi_2026_water_app";
+
+  let allUsers = [];
+  let allFeedbacks = [];
+
+  async function sha256(message) {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('tab-users').style.display = 'none';
+    document.getElementById('tab-generator').style.display = 'none';
+    document.getElementById('tab-feedbacks').style.display = 'none';
+
+    document.getElementById(`tab-${tabId}`).style.display = 'block';
+    event.currentTarget.classList.add('active');
+  }
+
+  async function loadFirebaseData() {
+    try {
+      // 1. Load All Users (both trial and subscribed)
+      const usersRes = await fetch(`${FIREBASE_BASE_URL}/all_users.json`);
+      const usersData = await usersRes.json();
+      allUsers = usersData ? Object.values(usersData) : [];
+
+      // 2. Load Feedbacks
+      const fbRes = await fetch(`${FIREBASE_BASE_URL}/feedbacks.json`);
+      const fbData = await fbRes.json();
+      allFeedbacks = fbData ? Object.values(fbData) : [];
+
+      updateStats();
+      renderUsersTable(allUsers);
+      renderFeedbacksTable(allFeedbacks);
+    } catch (e) {
+      console.error("Error loading data from Firebase:", e);
+    }
+  }
+
+  function updateStats() {
+    document.getElementById("statTotalUsers").innerText = allUsers.length;
+    const activeLic = allUsers.filter(u => u.isActivated && !u.isBlocked).length;
+    const trial = allUsers.filter(u => !u.isActivated && !u.isBlocked).length;
+    const blocked = allUsers.filter(u => u.isBlocked).length;
+
+    document.getElementById("statActiveLicenses").innerText = activeLic;
+    document.getElementById("statTrialUsers").innerText = trial;
+    document.getElementById("statBlockedUsers").innerText = blocked;
+  }
+
+  function renderUsersTable(users) {
+    const tbody = document.getElementById("usersTableBody");
+    if (!users || users.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">لا يوجد مستخدمون مسجلون بعد (سيظهر كل من يفتح التطبيق هنا تلقائياً)</td></tr>`;
+      return;
+    }
+
+    // Sort newest activity first
+    users.sort((a,b) => (b.lastActiveAt || 0) - (a.lastActiveAt || 0));
+
+    tbody.innerHTML = users.map(u => {
+      const isBlocked = u.isBlocked === true;
+      const statusBadge = isBlocked 
+        ? `<span class="badge badge-blocked">موقوف / محظور</span>` 
+        : (u.isActivated ? `<span class="badge badge-active">مشترك مفعّل</span>` : `<span class="badge badge-trial">تجريبي مجاني</span>`);
+
+      const planBadge = u.plan === "YEARLY" 
+        ? `<span class="badge badge-yearly">سنوي</span>` 
+        : (u.plan === "MONTHLY" ? `<span class="badge badge-monthly">شهري</span>` : `<span class="badge" style="background:#334155;color:#94a3b8;">تجربة</span>`);
+
+      const lastSeen = u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleString('ar-EG') : 'غير محدد';
+      const googleInfo = u.googleEmail 
+        ? `<div><b>${u.googleDisplayName || ''}</b><br><small style="color:#38BDF8;">${u.googleEmail}</small></div>`
+        : `<span style="color:#64748B;">لم يسجل بجوجل</span>`;
+
+      const blockActionBtn = isBlocked
+        ? `<button class="btn-sm btn-unblock" onclick="toggleBlockUser('${u.cleanDeviceKey}', '${u.googleEmail}', false)">إلغاء الحظر</button>`
+        : `<button class="btn-sm btn-block" onclick="toggleBlockUser('${u.cleanDeviceKey}', '${u.googleEmail}', true)">إيقاف التطبيق ⛔</button>`;
+
+      return `
+        <tr>
+          <td>${googleInfo}</td>
+          <td><code>${u.deviceCode || u.cleanDeviceKey}</code></td>
+          <td><small>${u.deviceModel || '-'}<br>${u.androidVersion || ''}</small></td>
+          <td>${statusBadge}</td>
+          <td>${planBadge}</td>
+          <td><b>${u.operationsCount || 0}</b> عملية</td>
+          <td><small>${lastSeen}</small></td>
+          <td>${blockActionBtn}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  async function toggleBlockUser(cleanDeviceKey, email, block) {
+    const actionText = block ? "إيقاف وحظر التطبيق تماماً على هذا الجهاز أو المستخدم؟" : "إلغاء الحظر والسماح للمستخدم بالعمل؟";
+    let reason = "تم إيقاف التطبيق على هذا الجهاز لمخالفة شروط الاستخدام أو محاولة التحايل.";
+    if (block) {
+      const inputReason = prompt("اكتب سبب الإيقاف الذي سيظهر للمستخدم على شاشته:", reason);
+      if (inputReason === null) return;
+      if (inputReason.trim()) reason = inputReason.trim();
+    } else {
+      if (!confirm(`هل أنت متأكد من ${actionText}`)) return;
+    }
+
+    try {
+      // 1. Update device status
+      await fetch(`${FIREBASE_BASE_URL}/all_users/${cleanDeviceKey}/isBlocked.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(block)
+      });
+      await fetch(`${FIREBASE_BASE_URL}/all_users/${cleanDeviceKey}/blockReason.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reason)
+      });
+
+      // 2. Block email globally if available
+      if (email && email.includes("@")) {
+        const safeEmailKey = email.replace(/\./g, "_").replace(/@/g, "_at_");
+        if (block) {
+          await fetch(`${FIREBASE_BASE_URL}/blocked_emails/${safeEmailKey}.json`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email, blockedAt: Date.now(), reason: reason })
+          });
+        } else {
+          await fetch(`${FIREBASE_BASE_URL}/blocked_emails/${safeEmailKey}.json`, { method: "DELETE" });
+        }
+      }
+
+      alert(block ? "تم إيقاف وحظر التطبيق على المستخدم بنجاح." : "تم فك الحظر بنجاح.");
+      loadFirebaseData();
+    } catch (e) {
+      alert("حدث خطأ أثناء تعديل الحالة: " + e.message);
+    }
+  }
+
+  function filterUsers() {
+    const q = document.getElementById("userSearch").value.trim().toLowerCase();
+    const filtered = allUsers.filter(u => 
+      (u.googleEmail && u.googleEmail.toLowerCase().includes(q)) ||
+      (u.googleDisplayName && u.googleDisplayName.toLowerCase().includes(q)) ||
+      (u.deviceCode && u.deviceCode.toLowerCase().includes(q)) ||
+      (u.deviceModel && u.deviceModel.toLowerCase().includes(q))
+    );
+    renderUsersTable(filtered);
+  }
+
+  function exportUsersCSV() {
+    if (allUsers.length === 0) return alert("لا توجد بيانات لتصديرها");
+    let csv = "\uFEFFالاسم بجوجل,إيميل جوجل,كود الجهاز,الموديل,النظام,الحالة,الباقة,العمليات,آخر ظهور\n";
+    allUsers.forEach(u => {
+      const lastSeen = u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleString('ar-EG') : '';
+      const status = u.isBlocked ? "موقوف" : (u.isActivated ? "مشترك" : "تجريبي");
+      csv += `"${u.googleDisplayName || ''}","${u.googleEmail || ''}","${u.deviceCode || ''}","${u.deviceModel || ''}","${u.androidVersion || ''}","${status}","${u.plan || 'TRIAL'}","${u.operationsCount || 0}","${lastSeen}"\n`;
+    });
+    downloadCSV(csv, "mosarib_all_users.csv");
+  }
+
+  async function generateAndSaveKey() {
+    const devCode = document.getElementById("deviceCode").value.trim().toUpperCase();
+    const subName = document.getElementById("subscriberName").value.trim();
+    const plan = document.getElementById("planSelect").value;
+    const prefix = plan === "MONTHLY" ? "M" : "Y";
+    const durationDays = plan === "MONTHLY" ? 30 : 365;
+
+    if (!devCode) {
+      alert("يرجى كتابة كود جهاز العميل أولاً");
+      return;
+    }
+
+    const cleanCode = devCode.replace(/-/g, "").trim();
+    const hash = await sha256(cleanCode + SECRET_SALT + prefix);
+    const part1 = hash.substring(0, 4);
+    const part2 = hash.substring(4, 8);
+    const key = `ACTV-${prefix}-${part1}-${part2}`;
+    const cleanKey = key.replace(/-/g, "");
+
+    const now = Date.now();
+    const expiresAt = now + (durationDays * 24 * 3600 * 1000);
+
+    const payload = {
+      key: cleanKey,
+      displayKey: key,
+      deviceCode: devCode,
+      subscriberName: subName || "مشترك",
+      plan: plan,
+      activatedAt: now,
+      expiresAt: expiresAt,
+      isRevoked: false,
+      lastCheckedAt: now
+    };
+
+    try {
+      await fetch(`${FIREBASE_BASE_URL}/licenses/${cleanKey}.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      console.warn("Could not push to Firebase directly:", e);
+    }
+
+    document.getElementById("keyText").innerText = key;
+    document.getElementById("keyBox").style.display = "block";
+    loadFirebaseData();
+  }
+
+  function copyKey() {
+    const key = document.getElementById("keyText").innerText;
+    navigator.clipboard.writeText(key).then(() => alert("تم نسخ الكود بنجاح: " + key));
+  }
+
+  function sendToWhatsApp() {
+    const key = document.getElementById("keyText").innerText;
+    const name = document.getElementById("subscriberName").value.trim() || "عزيزنا المشترك";
+    const plan = document.getElementById("planSelect").value === "MONTHLY" ? "اشتراك شهري (30 يوماً)" : "اشتراك سنوي (365 يوماً)";
+    const text = `السلام عليكم ورحمة الله أخي ${name}،\nتم تفعيل اشتراكك في تطبيق المُسَرِّب (${plan}).\n\nرمز التفعيل لجهازك هو:\n${key}\n\nيرجى نسخه ولصقه في نافذة التفعيل بالتطبيق أثناء الاتصال بالإنترنت.`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  }
+
+  function renderFeedbacksTable(feedbacks) {
+    const tbody = document.getElementById("feedbacksTableBody");
+    if (!feedbacks || feedbacks.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">لا توجد رسائل ملاحظات واردة بعد</td></tr>`;
+      return;
+    }
+
+    feedbacks.sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    tbody.innerHTML = feedbacks.map(f => {
+      const dateStr = new Date(f.timestamp || Date.now()).toLocaleString('ar-EG');
+      const stars = "★".repeat(f.rating || 5) + "☆".repeat(5 - (f.rating || 5));
+      const phoneLink = f.phone ? `<a href="https://wa.me/${f.phone.replace(/[^0-9]/g, '')}" target="_blank" style="color:var(--success); font-weight:bold;">${f.phone}</a>` : '-';
+
+      return `
+        <tr>
+          <td><small>${dateStr}</small></td>
+          <td><b>${f.subscriberName || 'مستخدم'}</b></td>
+          <td>${phoneLink}</td>
+          <td><span class="rating-stars">${stars}</span></td>
+          <td><span class="badge badge-monthly">${f.category || 'اقتراح'}</span></td>
+          <td style="max-width: 320px; line-height: 1.6;">${f.message}</td>
+          <td><small>${f.deviceModel || f.deviceCode || '-'}</small></td>
+          <td>
+            ${f.phone ? `<button class="btn-sm btn-unblock" onclick="window.open('https://wa.me/${f.phone.replace(/[^0-9]/g, '')}', '_blank')">واتساب 💬</button>` : '-'}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function filterFeedbacks() {
+    const q = document.getElementById("feedbackSearch").value.trim().toLowerCase();
+    const filtered = allFeedbacks.filter(f => 
+      (f.subscriberName && f.subscriberName.toLowerCase().includes(q)) ||
+      (f.message && f.message.toLowerCase().includes(q)) ||
+      (f.phone && f.phone.includes(q))
+    );
+    renderFeedbacksTable(filtered);
+  }
+
+  function exportFeedbacksCSV() {
+    if (allFeedbacks.length === 0) return alert("لا توجد رسائل لتصديرها");
+    let csv = "\uFEFFالتاريخ,الاسم,الهاتف,التقييم,النوع,الرسالة,الجهاز\n";
+    allFeedbacks.forEach(f => {
+      const dateStr = new Date(f.timestamp || Date.now()).toLocaleString('ar-EG');
+      csv += `"${dateStr}","${f.subscriberName || ''}","${f.phone || ''}","${f.rating || 5}","${f.category || ''}","${(f.message || '').replace(/"/g, '""')}","${f.deviceModel || ''}"\n`;
+    });
+    downloadCSV(csv, "mosarib_feedbacks.csv");
+  }
+
+  function downloadCSV(csvContent, fileName) {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // Initial load
+  loadFirebaseData();
+</script>
+
+</body>
+</html>
