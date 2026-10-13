@@ -23,9 +23,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -67,8 +69,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,7 +105,7 @@ import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.SecondaryAqua
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SessionsScreen(
     viewModel: SessionsViewModel,
@@ -138,15 +142,26 @@ fun SessionsScreen(
         }
     }
 
+    val listState = rememberLazyListState()
+    val isStickyPinned by remember {
+        derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 20 }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 100.dp)
         ) {
 
-            // Search Bar & Filter Chips
-            item {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            // Search Bar & Filter Chips (Sticky Header تحت البوردر)
+            stickyHeader {
+                Surface(
+                    color = MaterialTheme.colorScheme.background,
+                    shadowElevation = if (isStickyPinned) 3.dp else 0.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { viewModel.setSearchQuery(it) },
@@ -211,6 +226,7 @@ fun SessionsScreen(
                     }
                 }
             }
+        }
 
 
 

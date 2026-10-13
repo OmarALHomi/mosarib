@@ -26,7 +26,7 @@ data class AppBroadcast(
 
 object AppUpdateManager {
     private const val TAG = "AppUpdateManager"
-    private const val FIREBASE_DB_URL = "https://mosarib-default-rtdb.firebaseio.com"
+    private const val FIREBASE_DB_URL = "https://mosarib-default-rtdb.asia-southeast1.firebasedatabase.app"
     private const val PREFS_FILE = "mosarib_license_prefs"
     private const val KEY_LAST_SEEN_BROADCAST_ID = "last_seen_broadcast_id"
 

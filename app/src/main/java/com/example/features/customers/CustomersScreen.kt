@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -62,6 +64,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,6 +74,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -95,6 +99,7 @@ import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.SecondaryAqua
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CustomersScreen(
     viewModel: CustomersViewModel,
@@ -155,8 +160,20 @@ fun CustomersScreen(
         }
     }
 
+    val listState = rememberLazyListState()
+    val isStickyPinned by remember {
+        derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 24 }
+    }
+    val topHeaderAlpha by remember {
+        derivedStateOf {
+            if (listState.firstVisibleItemIndex > 0) 0f
+            else (1f - (listState.firstVisibleItemScrollOffset / 55f)).coerceIn(0f, 1f)
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 120.dp)
         ) {
@@ -165,6 +182,11 @@ fun CustomersScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .graphicsLayer {
+                            alpha = topHeaderAlpha
+                            scaleY = 0.96f + (0.04f * topHeaderAlpha)
+                            scaleX = 0.98f + (0.02f * topHeaderAlpha)
+                        }
                         .padding(horizontal = 14.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -258,9 +280,14 @@ fun CustomersScreen(
                 }
             }
 
-            // 2. شريط الفلاتر المصغرة وحقل البحث المدمج وفلاتر الترتيب
-            item {
-                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)) {
+            // 2. شريط الفلاتر المصغرة وحقل البحث المدمج وفلاتر الترتيب (Sticky Header تحت البوردر)
+            stickyHeader {
+                Surface(
+                    color = MaterialTheme.colorScheme.background,
+                    shadowElevation = if (isStickyPinned) 3.dp else 0.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)) {
                     // أولاً: فلاتر الكل / المزارعون / أصحاب الآبار (مصغرة)
                     MosaribFilterRow(
                         modifier = Modifier.fillMaxWidth(),
@@ -368,6 +395,7 @@ fun CustomersScreen(
                     }
                 }
             }
+        }
 
             // 2. قائمة الحسابات المضغوطة (دفتر الحسابات)
             if (customersWithBalance.isEmpty()) {

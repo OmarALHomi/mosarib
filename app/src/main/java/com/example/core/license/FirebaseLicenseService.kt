@@ -18,7 +18,7 @@ import java.net.URL
 object FirebaseLicenseService {
     private const val TAG = "FirebaseLicenseService"
     // Firebase Realtime Database URL for project mosarib
-    private const val FIREBASE_DB_URL = "https://mosarib-default-rtdb.firebaseio.com"
+    private const val FIREBASE_DB_URL = "https://mosarib-default-rtdb.asia-southeast1.firebasedatabase.app"
 
     data class LicenseCheckResult(
         val isValid: Boolean,

@@ -19,7 +19,7 @@ import java.net.URL
  */
 object UserDeviceTracker {
     private const val TAG = "UserDeviceTracker"
-    private const val FIREBASE_DB_URL = "https://mosarib-default-rtdb.firebaseio.com"
+    private const val FIREBASE_DB_URL = "https://mosarib-default-rtdb.asia-southeast1.firebasedatabase.app"
     private const val PREFS_FILE = "mosarib_license_prefs"
     private const val KEY_IS_BLOCKED_LOCALLY = "is_device_blocked_by_admin"
     private const val KEY_BLOCK_REASON = "device_block_reason"

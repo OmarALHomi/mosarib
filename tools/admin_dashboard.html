@@ -779,8 +779,13 @@
 
 <script>
   const FIRESTORE_BASE_URL = "https://firestore.googleapis.com/v1/projects/mosarib/databases/(default)/documents";
-  const DEFAULT_RTDB_URL = "https://mosarib-default-rtdb.firebaseio.com";
-  let RTDB_BASE_URL = localStorage.getItem("mosarib_rtdb_url") || DEFAULT_RTDB_URL;
+  const DEFAULT_RTDB_URL = "https://mosarib-default-rtdb.asia-southeast1.firebasedatabase.app";
+  let storedUrl = localStorage.getItem("mosarib_rtdb_url");
+  if (!storedUrl || storedUrl.includes("firebaseio.com")) {
+    storedUrl = DEFAULT_RTDB_URL;
+    localStorage.setItem("mosarib_rtdb_url", storedUrl);
+  }
+  let RTDB_BASE_URL = storedUrl;
   let FIREBASE_BASE_URL = RTDB_BASE_URL;
   const SECRET_SALT = "mosarib_secure_license_secret_key_alhomi_2026_water_app";
 

@@ -88,7 +88,7 @@ class MosaribFirebaseMessagingService : FirebaseMessagingService() {
             try {
                 val deviceCode = LicenseManager.getDeviceCode(applicationContext)
                 val cleanKey = deviceCode.replace("-", "").trim()
-                val url = URL("https://mosarib-default-rtdb.firebaseio.com/fcm_tokens/$cleanKey.json")
+                val url = URL("https://mosarib-default-rtdb.asia-southeast1.firebasedatabase.app/fcm_tokens/$cleanKey.json")
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "PUT"
                     doOutput = true

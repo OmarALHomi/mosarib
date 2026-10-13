@@ -1,5 +1,6 @@
 package com.example.features.vouchers
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -130,6 +131,7 @@ import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun VouchersScreen(
     viewModel: VouchersViewModel,
@@ -175,6 +177,9 @@ fun VouchersScreen(
             if (firstIndex > 0) 0f
             else (1f - (firstOffset / 180f)).coerceIn(0f, 1f)
         }
+    }
+    val isStickyPinned by remember {
+        derivedStateOf { firstIndex > 0 || firstOffset > 90 }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -321,9 +326,14 @@ fun VouchersScreen(
                     }
                 }
 
-            // Search & Filters Row (Compact & Borderless)
-            item {
-                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
+            // Search & Filters Row (Sticky Header تحت البوردر)
+            stickyHeader {
+                Surface(
+                    color = MaterialTheme.colorScheme.background,
+                    shadowElevation = if (isStickyPinned) 3.dp else 0.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -435,6 +445,7 @@ fun VouchersScreen(
                     }
                 }
             }
+        }
 
             // Operations List (Combined: Sessions + Vouchers + Purchases)
             if (operations.isEmpty()) {
