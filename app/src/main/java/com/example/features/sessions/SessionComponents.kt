@@ -118,6 +118,7 @@ fun SessionCardItem(
 ) {
     val session = sessionWithCustomer.session
     val customer = sessionWithCustomer.customer
+    val isDark = com.example.core.ui.isAppDark()
     var menuExpanded by remember { mutableStateOf(false) }
     var isExpanded by remember { mutableStateOf(false) }
 
@@ -153,7 +154,8 @@ fun SessionCardItem(
                             .size(34.dp)
                             .clip(CircleShape)
                             .background(
-                                if (isWellOwner) Color(0xFFE1F5FE)
+                                if (isDark) Color(0xFF1E293B)
+                                else if (isWellOwner) Color(0xFFE1F5FE)
                                 else PrimaryTeal.copy(alpha = 0.12f)
                             ),
                         contentAlignment = Alignment.Center
@@ -161,7 +163,7 @@ fun SessionCardItem(
                         Icon(
                             imageVector = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Eco,
                             contentDescription = if (isWellOwner) "صاحب بئر" else "عميل",
-                            tint = if (isWellOwner) Color(0xFF0288D1) else PrimaryTeal,
+                            tint = if (isDark) Color.White else (if (isWellOwner) Color(0xFF0288D1) else PrimaryTeal),
                             modifier = Modifier.size(19.dp)
                         )
                     }
@@ -323,14 +325,14 @@ fun SessionCardItem(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFFE8F5E9))
+                                    .background(if (isDark) Color(0xFF132A1C) else Color(0xFFE8F5E9))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
                                     text = "خالص ومسدد",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF2E7D32),
+                                        color = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
                                         fontSize = 11.sp
                                     )
                                 )

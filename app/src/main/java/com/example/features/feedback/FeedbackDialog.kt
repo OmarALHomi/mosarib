@@ -23,7 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.core.ui.isAppDark
 import com.example.core.license.FirebaseLicenseService
 import com.example.core.license.LicenseManager
 import com.example.core.license.UserDeviceTracker
@@ -37,7 +37,7 @@ fun FeedbackDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppDark()
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
@@ -62,9 +62,9 @@ fun FeedbackDialog(
         unfocusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
         cursorColor = PrimaryTeal,
         focusedBorderColor = PrimaryTeal,
-        unfocusedBorderColor = if (isDark) Color(0xFF334B56) else Color(0xFFCBD5E1),
-        focusedContainerColor = if (isDark) Color(0xFF162329) else Color(0xFFF8FAFC),
-        unfocusedContainerColor = if (isDark) Color(0xFF142026) else Color(0xFFF8FAFC)
+        unfocusedBorderColor = if (isDark) Color(0xFF334B56) else MaterialTheme.colorScheme.outlineVariant,
+        focusedContainerColor = if (isDark) Color(0xFF162329) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        unfocusedContainerColor = if (isDark) Color(0xFF142026) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
     )
 
     val categories = listOf("اقتراح تحسين", "إبلاغ عن مشكلة", "شكر وتقدير", "طلب ميزة جديدة")
@@ -266,7 +266,10 @@ fun FeedbackDialog(
                     .fillMaxWidth()
                     .height(52.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PrimaryTeal,
+                    contentColor = Color.White
+                )
             ) {
                 if (isSubmitting) {
                     CircularProgressIndicator(

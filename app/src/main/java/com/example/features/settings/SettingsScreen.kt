@@ -150,6 +150,7 @@ fun SettingsScreen(
     }
 
     val context = androidx.compose.ui.platform.LocalContext.current
+    val isDark = com.example.core.ui.isAppDark()
     val isBiometricAvailable = remember { BiometricHelper.isAvailable(context) }
     val deviceCode = remember { LicenseManager.getDeviceCode(context) }
     var showLicenseDialog by remember { mutableStateOf(false) }
@@ -773,33 +774,50 @@ fun SettingsScreen(
                                             Box(
                                                 modifier = Modifier
                                                     .clip(RoundedCornerShape(6.dp))
-                                                    .background(Color(0xFFFEF3C7))
+                                                    .background(if (isDark) Color(0xFF2B2111) else Color(0xFFFEF3C7))
                                                     .clickable { backupToRestore = backup }
                                                     .padding(horizontal = 7.dp, vertical = 3.dp)
                                             ) {
-                                                Text("استعادة", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFB45309), fontWeight = FontWeight.Bold, fontSize = 10.5.sp))
+                                                Text(
+                                                    "استعادة",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309),
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 10.5.sp
+                                                    )
+                                                )
                                             }
 
                                             Box(
                                                 modifier = Modifier
                                                     .size(24.dp)
                                                     .clip(RoundedCornerShape(6.dp))
-                                                    .background(Color(0xFFE8F5E9))
+                                                    .background(if (isDark) Color(0xFF132A1C) else Color(0xFFE8F5E9))
                                                     .clickable { viewModel.shareExistingBackup(backup.file) },
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Icon(Icons.Default.Share, contentDescription = "مشاركة", tint = Color(0xFF2E7D32), modifier = Modifier.size(12.dp))
+                                                Icon(
+                                                    Icons.Default.Share,
+                                                    contentDescription = "مشاركة",
+                                                    tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
+                                                    modifier = Modifier.size(12.dp)
+                                                )
                                             }
 
                                             Box(
                                                 modifier = Modifier
                                                     .size(24.dp)
                                                     .clip(RoundedCornerShape(6.dp))
-                                                    .background(Color(0xFFFFEBEE))
+                                                    .background(if (isDark) Color(0xFF2A1517) else Color(0xFFFFEBEE))
                                                     .clickable { backupToDelete = backup },
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Icon(Icons.Default.Delete, contentDescription = "حذف", tint = Color(0xFFE53935), modifier = Modifier.size(12.dp))
+                                                Icon(
+                                                    Icons.Default.Delete,
+                                                    contentDescription = "حذف",
+                                                    tint = if (isDark) Color(0xFFF87171) else Color(0xFFE53935),
+                                                    modifier = Modifier.size(12.dp)
+                                                )
                                             }
                                         }
                                     }
@@ -836,17 +854,23 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(0xFFF0FDF4))
+                                    .background(if (isDark) Color(0xFF14241B) else Color(0xFFF0FDF4))
                                     .padding(12.dp)
                             ) {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Text(
                                         text = "سحابة Google Drive (المجلد المحمي)",
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF166534))
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isDark) Color(0xFF4ADE80) else Color(0xFF166534)
+                                        )
                                     )
                                     Text(
                                         text = "احفظ نسخ بياناتك تلقائياً في سحابة خاصة لا يمكن حذفها أو العبث بها بالخطأ وتستعيدها في أي وقت.",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF475569), fontSize = 11.sp)
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569),
+                                            fontSize = 11.sp
+                                        )
                                     )
                                     Button(
                                         onClick = {
@@ -870,7 +894,7 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(0xFFF0FDF4))
+                                    .background(if (isDark) Color(0xFF14241B) else Color(0xFFF0FDF4))
                                     .padding(10.dp)
                             ) {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -887,21 +911,32 @@ fun SettingsScreen(
                                                 modifier = Modifier
                                                     .size(28.dp)
                                                     .clip(CircleShape)
-                                                    .background(Color(0xFFDCFCE7)),
+                                                    .background(if (isDark) Color(0xFF1E3A2B) else Color(0xFFDCFCE7)),
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Icon(Icons.Default.AccountCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(18.dp))
+                                                Icon(
+                                                    Icons.Default.AccountCircle,
+                                                    contentDescription = null,
+                                                    tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF16A34A),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
                                             }
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Column {
                                                 Text(
                                                     text = acc.email ?: "حساب Google",
-                                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF14532D)),
+                                                    style = MaterialTheme.typography.bodySmall.copy(
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (isDark) Color(0xFFF8FAFC) else Color(0xFF14532D)
+                                                    ),
                                                     maxLines = 1
                                                 )
                                                 Text(
                                                     text = "المجلد السحابي متصل بأمان",
-                                                    style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF16A34A), fontSize = 10.sp)
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = if (isDark) Color(0xFF4ADE80) else Color(0xFF16A34A),
+                                                        fontSize = 10.sp
+                                                    )
                                                 )
                                             }
                                         }
@@ -962,7 +997,7 @@ fun SettingsScreen(
                                                     modifier = Modifier
                                                         .fillMaxWidth()
                                                         .clip(RoundedCornerShape(8.dp))
-                                                        .background(Color.White)
+                                                        .background(if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f) else Color.White)
                                                         .padding(horizontal = 8.dp, vertical = 6.dp),
                                                     horizontalArrangement = Arrangement.SpaceBetween,
                                                     verticalAlignment = Alignment.CenterVertically
@@ -970,11 +1005,14 @@ fun SettingsScreen(
                                                     Column(modifier = Modifier.weight(1f)) {
                                                         Text(
                                                             text = cloudBackup.formattedDate,
-                                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.onSurface
+                                                            )
                                                         )
                                                         Text(
                                                             text = "${cloudBackup.sizeText} • سحابي",
-                                                            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B), fontSize = 10.sp),
+                                                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp),
                                                             maxLines = 1
                                                         )
                                                     }
@@ -983,22 +1021,34 @@ fun SettingsScreen(
                                                         Box(
                                                             modifier = Modifier
                                                                 .clip(RoundedCornerShape(6.dp))
-                                                                .background(Color(0xFFFEF3C7))
+                                                                .background(if (isDark) Color(0xFF2B2111) else Color(0xFFFEF3C7))
                                                                 .clickable { driveBackupToRestore = cloudBackup }
                                                                 .padding(horizontal = 7.dp, vertical = 3.dp)
                                                         ) {
-                                                            Text("استعادة", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFB45309), fontWeight = FontWeight.Bold, fontSize = 10.5.sp))
+                                                            Text(
+                                                                "استعادة",
+                                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                                    color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309),
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    fontSize = 10.5.sp
+                                                                )
+                                                            )
                                                         }
 
                                                         Box(
                                                             modifier = Modifier
                                                                 .size(24.dp)
                                                                 .clip(RoundedCornerShape(6.dp))
-                                                                .background(Color(0xFFFFEBEE))
+                                                                .background(if (isDark) Color(0xFF2A1517) else Color(0xFFFFEBEE))
                                                                 .clickable { driveBackupToDelete = cloudBackup },
                                                             contentAlignment = Alignment.Center
                                                         ) {
-                                                            Icon(Icons.Default.Delete, contentDescription = "حذف", tint = Color(0xFFE53935), modifier = Modifier.size(12.dp))
+                                                            Icon(
+                                                                Icons.Default.Delete,
+                                                                contentDescription = "حذف",
+                                                                tint = if (isDark) Color(0xFFF87171) else Color(0xFFE53935),
+                                                                modifier = Modifier.size(12.dp)
+                                                            )
                                                         }
                                                     }
                                                 }

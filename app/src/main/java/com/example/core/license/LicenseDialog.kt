@@ -71,7 +71,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.core.ui.isAppDark
 import androidx.compose.material3.OutlinedTextFieldDefaults
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,7 +82,7 @@ fun LicenseDialog(
     isMandatory: Boolean = false // If true, cannot dismiss until activated
 ) {
     val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppDark()
     val deviceCode = remember { LicenseManager.getDeviceCode(context) }
     val deviceModel = remember { LicenseManager.getDeviceModelName() }
     val androidVersion = remember { LicenseManager.getAndroidVersionName() }
@@ -101,6 +101,11 @@ fun LicenseDialog(
     var selectedPlan by remember { mutableStateOf(LicenseManager.SubscriptionPlan.MONTHLY) }
     var isOnline by remember { mutableStateOf(LicenseManager.isInternetAvailable(context)) }
 
+    val isKeyFormatValid = remember(enteredKey) {
+        val clean = enteredKey.trim().uppercase()
+        clean.matches(Regex("""^ACTV(-[MY])?-[A-Z0-9]{4}-[A-Z0-9]{4}$"""))
+    }
+
     val textFieldColors = OutlinedTextFieldDefaults.colors(
         focusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
         unfocusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
@@ -110,9 +115,9 @@ fun LicenseDialog(
         unfocusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
         cursorColor = PrimaryTeal,
         focusedBorderColor = PrimaryTeal,
-        unfocusedBorderColor = if (isDark) Color(0xFF334B56) else Color(0xFFCBD5E1),
-        focusedContainerColor = if (isDark) Color(0xFF162329) else Color(0xFFF8FAFC),
-        unfocusedContainerColor = if (isDark) Color(0xFF142026) else Color(0xFFF8FAFC)
+        unfocusedBorderColor = if (isDark) Color(0xFF334B56) else MaterialTheme.colorScheme.outlineVariant,
+        focusedContainerColor = if (isDark) Color(0xFF162329) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        unfocusedContainerColor = if (isDark) Color(0xFF142026) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
     )
 
     fun refreshInternet() {
@@ -305,11 +310,11 @@ fun LicenseDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (isOnline) "متصل بالإنترنت • جاهز للتوثيق والتفعيل" else "غير متصل بالإنترنت • يلزم الاتصال لتوثيق التفعيل",
+                            text = if (isOnline) "متصل بالإنترنت" else "لا يوجد اتصال بالإنترنت",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = if (isOnline) (if (isDark) Color(0xFF86EFAC) else Color(0xFF2E7D32)) else (if (isDark) Color(0xFFFCA5A5) else Color(0xFFD32F2F)),
-                                fontSize = 11.sp
+                                fontSize = 11.5.sp
                             )
                         )
                     }
@@ -452,7 +457,7 @@ fun LicenseDialog(
                     ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("اشتراك شهري (30 يوماً)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("اشتراك شهري", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
 
                 Button(
@@ -464,7 +469,7 @@ fun LicenseDialog(
                     ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("اشتراك سنوي ⭐ (365 يوماً)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("اشتراك سنوي", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
 
@@ -540,14 +545,17 @@ fun LicenseDialog(
                             .fillMaxWidth()
                             .height(44.dp),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PrimaryTeal,
+                            contentColor = Color.White
+                        )
                     ) {
                         if (isRequestingOnline) {
                             CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
                         } else {
                             Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("⚡ إرسال طلب اشتراك مباشر للإدارة (فايربيس)", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                            Text("إرسال طلب اشتراك", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -592,14 +600,20 @@ fun LicenseDialog(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Submit Button
+            // Submit Button (only enabled if entered key matches format)
             Button(
                 onClick = { submitActivation() },
+                enabled = isKeyFormatValid,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PrimaryTeal,
+                    contentColor = Color.White,
+                    disabledContainerColor = PrimaryTeal.copy(alpha = 0.35f),
+                    disabledContentColor = Color.White.copy(alpha = 0.5f)
+                )
             ) {
                 Icon(
                     imageVector = Icons.Default.Verified,

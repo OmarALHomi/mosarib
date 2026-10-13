@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
@@ -83,6 +84,7 @@ import com.example.core.ui.EmptyStateView
 import com.example.core.ui.LuxuryToastNotification
 import com.example.core.ui.MosaribFilterChip
 import com.example.core.ui.MosaribFilterRow
+import com.example.core.ui.isAppDark
 import com.example.core.ui.MosaribTextField
 import com.example.core.ui.SendMessageChoiceDialog
 import com.example.core.ui.StatBoxCard
@@ -714,6 +716,7 @@ fun CustomerCardItem(
     onDeleteClick: () -> Unit
 ) {
     val customer = item.customer
+    val isDark = isAppDark()
     var menuExpanded by remember { mutableStateOf(false) }
 
     Card(
@@ -747,7 +750,8 @@ fun CustomerCardItem(
                             .size(34.dp)
                             .clip(CircleShape)
                             .background(
-                                if (customer.isWellOwner) Color(0xFFE1F5FE)
+                                if (isDark) Color(0xFF1E293B)
+                                else if (customer.isWellOwner) Color(0xFFE1F5FE)
                                 else PrimaryTeal.copy(alpha = 0.12f)
                             ),
                         contentAlignment = Alignment.Center
@@ -755,7 +759,7 @@ fun CustomerCardItem(
                         Icon(
                             imageVector = if (customer.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Eco,
                             contentDescription = if (customer.isWellOwner) "صاحب بئر" else "عميل مزارع",
-                            tint = if (customer.isWellOwner) Color(0xFF0288D1) else PrimaryTeal,
+                            tint = if (isDark) Color.White else (if (customer.isWellOwner) Color(0xFF0288D1) else PrimaryTeal),
                             modifier = Modifier.size(19.dp)
                         )
                     }
@@ -934,26 +938,43 @@ fun CustomerCardItem(
 
             Spacer(modifier = Modifier.height(7.dp))
 
-            // 3. الصف الثالث: المبلغ باللون الأحمر أو الأخضر أو مسدد (لا تعرض عدد الساعات فقط المبلغ بخط واضح وبولد)
+            // 3. الصف الثالث: المبلغ باللون الأحمر أو الأخضر أو مسدد (يتوسط البطاقة أفقياً)
             if (customer.isWellOwner) {
                 val hasPayable = item.payableBalance != 0.0
                 val hasReceivable = item.receivableBalance != 0.0
 
                 if (!hasPayable && !hasReceivable) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFFE8F5E9))
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "مسدد بالكامل",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF2E7D32),
-                                fontSize = 12.5.sp
-                            )
-                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (isDark) Color(0xFF132A1C) else Color(0xFFE8F5E9))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = AccentEmerald,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Text(
+                                    text = "مسدد",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = AccentEmerald,
+                                        fontSize = 12.5.sp
+                                    )
+                                )
+                            }
+                        }
                     }
                 } else {
                     Row(
@@ -1002,43 +1023,72 @@ fun CustomerCardItem(
                     }
                 }
             } else {
-                // عميل مزارع عادي
+                // عميل مزارع عادي - المبلغ المطلوب يتوسط البطاقة أفقياً
                 when {
                     item.receivableBalance > 0 -> {
-                        Text(
-                            text = "مطلوب منه: ${Formatters.formatCurrency(item.receivableBalance, currencySymbol)}",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFFE53935),
-                                fontSize = 14.sp
-                            )
-                        )
-                    }
-                    item.receivableBalance < 0 -> {
-                        Text(
-                            text = "له رصيد متبقي: ${Formatters.formatCurrency(-item.receivableBalance, currencySymbol)}",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFF2E7D32),
-                                fontSize = 14.sp
-                            )
-                        )
-                    }
-                    else -> {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFFE8F5E9))
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "مسدد بالكامل",
+                                text = "مطلوب منه: ${Formatters.formatCurrency(item.receivableBalance, currencySymbol)}",
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF2E7D32),
-                                    fontSize = 12.5.sp
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color(0xFFE53935),
+                                    fontSize = 14.5.sp
                                 )
                             )
+                        }
+                    }
+                    item.receivableBalance < 0 -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "له رصيد متبقي: ${Formatters.formatCurrency(-item.receivableBalance, currencySymbol)}",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color(0xFF2E7D32),
+                                    fontSize = 14.5.sp
+                                )
+                            )
+                        }
+                    }
+                    else -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (isDark) Color(0xFF132A1C) else Color(0xFFE8F5E9))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = AccentEmerald,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Text(
+                                        text = "مسدد",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = AccentEmerald,
+                                            fontSize = 12.5.sp
+                                        )
+                                    )
+                                }
+                            }
                         }
                     }
                 }

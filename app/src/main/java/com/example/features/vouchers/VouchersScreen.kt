@@ -148,6 +148,7 @@ fun VouchersScreen(
     val operationsCount by viewModel.operationsCount.collectAsStateWithLifecycle()
     val settlementResult by viewModel.settlementResult.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val isDark = isAppDark()
 
     var showActivationDialog by remember { mutableStateOf(false) }
     var showAddSheet by remember { mutableStateOf(false) }
@@ -276,7 +277,7 @@ fun VouchersScreen(
                                 // المصروف
                                 Card(
                                     modifier = Modifier.weight(1f),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                                    colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF2A1517) else Color(0xFFFFEBEE)),
                                     shape = RoundedCornerShape(10.dp)
                                 ) {
                                     Column(modifier = Modifier.padding(8.dp)) {
@@ -777,7 +778,7 @@ fun VouchersScreen(
                                                 modifier = Modifier
                                                     .size(26.dp)
                                                     .clip(RoundedCornerShape(6.dp))
-                                                    .background(Color(0xFFFFEBEE))
+                                                    .background(if (isDark) Color(0xFF2B1313) else Color(0xFFFFEBEE))
                                                     .clickable { voucherToDelete = voucher },
                                                 contentAlignment = Alignment.Center
                                             ) {
@@ -969,11 +970,11 @@ fun VouchersScreen(
                                                 }
                                             } else {
                                                 Surface(
-                                                    color = Color(0xFFE8F5E9),
+                                                    color = if (isDark) Color(0xFF132A1C) else Color(0xFFE8F5E9),
                                                     shape = RoundedCornerShape(4.dp)
                                                 ) {
                                                     Text(
-                                                        text = "مسدد بالكامل",
+                                                        text = "مسدد",
                                                         style = MaterialTheme.typography.labelSmall.copy(
                                                             fontWeight = FontWeight.Bold,
                                                             color = AccentEmerald,
@@ -1127,7 +1128,7 @@ fun VouchersScreen(
                                                 modifier = Modifier
                                                     .size(26.dp)
                                                     .clip(RoundedCornerShape(6.dp))
-                                                    .background(Color(0xFFFFEBEE))
+                                                    .background(if (isDark) Color(0xFF2B1313) else Color(0xFFFFEBEE))
                                                     .clickable { purchaseToDelete = purchase },
                                                 contentAlignment = Alignment.Center
                                             ) {

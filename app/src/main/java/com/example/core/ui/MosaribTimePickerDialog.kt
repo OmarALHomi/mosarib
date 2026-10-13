@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -51,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.ui.theme.PrimaryTeal
 import java.util.Calendar
 
@@ -82,243 +85,257 @@ fun MosaribTimePickerDialog(
     var selectedMinute by remember { mutableIntStateOf(initialMinute.coerceIn(0, 59)) }
     var isPm by remember { mutableStateOf(initIsPm) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    val configuration = LocalConfiguration.current
+    val isSmallScreen = configuration.screenWidthDp < 360
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
             Card(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
+                    .widthIn(max = 420.dp)
+                    .fillMaxWidth(if (isSmallScreen) 0.96f else 0.90f)
+                    .padding(horizontal = if (isSmallScreen) 4.dp else 8.dp),
                 shape = RoundedCornerShape(22.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF141F25) else Color.White
                 ),
-            border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                // شريط العنوان العلوي
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(PrimaryTeal.copy(alpha = if (isDark) 0.22f else 0.12f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AccessTime,
-                            contentDescription = null,
-                            tint = PrimaryTeal,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
-                        )
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                // عرض الوقت المختار بخط عريض وفخم (صباح/مساء على اليمين، ثم الساعة، ثم الدقائق على اليسار)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(if (isDark) Color(0xFF0D161B) else Color(0xFFF1F5F9))
-                        .border(1.dp, if (isDark) Color(0xFF23353E) else Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
-                        .padding(vertical = 12.dp, horizontal = 16.dp)
+                        .padding(if (isSmallScreen) 12.dp else 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = if (isPm) "مساءً (م)" else "صباحاً (ص)",
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = if (isPm) {
-                            if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706)
-                        } else {
-                            if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
-                        }
-                    )
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Text(
-                        text = String.format("%02d", selectedHour12),
-                        fontSize = 38.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = PrimaryTeal
-                    )
-                    Text(
-                        text = ":",
-                        fontSize = 34.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
-                        modifier = Modifier.padding(horizontal = 6.dp)
-                    )
-                    Text(
-                        text = String.format("%02d", selectedMinute),
-                        fontSize = 38.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = PrimaryTeal
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                // عناصر اختيار الوقت التفاعلية مرتبة من اليمين للشمال:
-                // (1) اختيار صباح أو مساء على اليمين، (2) الساعة في الوسط، (3) الدقائق على اليسار
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // 1. اختيار صباح أو مساء (على اليمين في RTL)
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    // شريط العنوان العلوي
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "الفترة",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
-                        )
-                        AmPmToggleCard(
-                            text = "صباحاً (ص)",
-                            isSelected = !isPm,
-                            activeColor = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
-                            modifier = Modifier.width(86.dp).height(56.dp),
-                            onClick = { isPm = false }
-                        )
-                        AmPmToggleCard(
-                            text = "مساءً (م)",
-                            isSelected = isPm,
-                            activeColor = if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706),
-                            modifier = Modifier.width(86.dp).height(56.dp),
-                            onClick = { isPm = true }
-                        )
-                    }
-
-                    // 2. الساعة (في الوسط في RTL)
-                    TimeCounterColumn(
-                        label = "الساعة",
-                        value = selectedHour12,
-                        minValue = 1,
-                        maxValue = 12,
-                        onIncrement = {
-                            selectedHour12 = if (selectedHour12 >= 12) 1 else selectedHour12 + 1
-                        },
-                        onDecrement = {
-                            selectedHour12 = if (selectedHour12 <= 1) 12 else selectedHour12 - 1
-                        }
-                    )
-
-                    // 3. الدقيقة (على اليسار في RTL)
-                    TimeCounterColumn(
-                        label = "الدقيقة",
-                        value = selectedMinute,
-                        minValue = 0,
-                        maxValue = 59,
-                        onIncrement = {
-                            selectedMinute = if (selectedMinute >= 59) 0 else selectedMinute + 1
-                        },
-                        onDecrement = {
-                            selectedMinute = if (selectedMinute <= 0) 59 else selectedMinute - 1
-                        }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // أزرار سريعة للدقائق الشائعة
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    listOf(0, 15, 30, 45).forEach { min ->
-                        val isSelected = selectedMinute == min
-                        val chipBg = when {
-                            isSelected -> PrimaryTeal
-                            isDark -> Color(0xFF1B2830)
-                            else -> Color(0xFFF1F5F9)
-                        }
-                        val chipText = when {
-                            isSelected -> Color.White
-                            isDark -> Color(0xFFCBD5E1)
-                            else -> Color(0xFF334155)
-                        }
-                        val chipBorder = when {
-                            isSelected -> PrimaryTeal
-                            isDark -> Color(0xFF2E404C)
-                            else -> Color(0xFFCBD5E1)
-                        }
-
                         Box(
                             modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(chipBg)
-                                .border(1.dp, chipBorder, RoundedCornerShape(8.dp))
-                                .clickable { selectedMinute = min }
-                                .padding(vertical = 7.dp),
+                                .size(if (isSmallScreen) 32.dp else 38.dp)
+                                .clip(CircleShape)
+                                .background(PrimaryTeal.copy(alpha = if (isDark) 0.22f else 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = ":${String.format("%02d", min)}",
-                                fontSize = 13.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = chipText
+                            Icon(
+                                imageVector = Icons.Default.AccessTime,
+                                contentDescription = null,
+                                tint = PrimaryTeal,
+                                modifier = Modifier.size(if (isSmallScreen) 16.dp else 20.dp)
                             )
                         }
+                        Text(
+                            text = title,
+                            style = (if (isSmallScreen) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium).copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
+                            )
+                        )
                     }
-                }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(if (isSmallScreen) 12.dp else 18.dp))
 
-                // أزرار الإجراءات (تأكيد / إلغاء)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    MosaribOutlinedButton(
-                        text = "إلغاء",
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        height = 46.dp
-                    )
-                    MosaribButton(
-                        text = "تأكيد الوقت",
-                        onClick = {
-                            val hour24 = when {
-                                isPm && selectedHour12 == 12 -> 12
-                                isPm -> selectedHour12 + 12
-                                !isPm && selectedHour12 == 12 -> 0
-                                else -> selectedHour12
+                    // عرض الوقت المختار بخط عريض وفخم (صباح/مساء على اليمين، ثم الساعة، ثم الدقائق على اليسار)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (isDark) Color(0xFF0D161B) else Color(0xFFF1F5F9))
+                            .border(1.dp, if (isDark) Color(0xFF23353E) else Color(0xFFE2E8F0), RoundedCornerShape(14.dp))
+                            .padding(vertical = if (isSmallScreen) 8.dp else 12.dp, horizontal = if (isSmallScreen) 8.dp else 16.dp)
+                    ) {
+                        Text(
+                            text = if (isPm) "مساءً (م)" else "صباحاً (ص)",
+                            fontSize = if (isSmallScreen) 14.sp else 17.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (isPm) {
+                                if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706)
+                            } else {
+                                if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
                             }
-                            onTimeSelected(hour24, selectedMinute)
-                            onDismiss()
-                        },
-                        modifier = Modifier.weight(1f),
-                        height = 46.dp
-                    )
+                        )
+                        Spacer(modifier = Modifier.width(if (isSmallScreen) 8.dp else 14.dp))
+                        Text(
+                            text = String.format("%02d", selectedHour12),
+                            fontSize = if (isSmallScreen) 28.sp else 38.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = PrimaryTeal
+                        )
+                        Text(
+                            text = ":",
+                            fontSize = if (isSmallScreen) 24.sp else 34.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
+                            modifier = Modifier.padding(horizontal = if (isSmallScreen) 3.dp else 6.dp)
+                        )
+                        Text(
+                            text = String.format("%02d", selectedMinute),
+                            fontSize = if (isSmallScreen) 28.sp else 38.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = PrimaryTeal
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(if (isSmallScreen) 12.dp else 18.dp))
+
+                    // عناصر اختيار الوقت التفاعلية مرتبة من اليمين للشمال:
+                    // (1) اختيار صباح أو مساء على اليمين، (2) الساعة في الوسط، (3) الدقائق على اليسار
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(if (isSmallScreen) 6.dp else 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 1. اختيار صباح أو مساء (على اليمين في RTL)
+                        Column(
+                            modifier = Modifier.weight(1.1f),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(if (isSmallScreen) 4.dp else 6.dp)
+                        ) {
+                            Text(
+                                text = "الفترة",
+                                fontSize = if (isSmallScreen) 11.sp else 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                            )
+                            AmPmToggleCard(
+                                text = "صباحاً (ص)",
+                                isSelected = !isPm,
+                                activeColor = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
+                                modifier = Modifier.fillMaxWidth().height(if (isSmallScreen) 44.dp else 56.dp),
+                                isSmall = isSmallScreen,
+                                onClick = { isPm = false }
+                            )
+                            AmPmToggleCard(
+                                text = "مساءً (م)",
+                                isSelected = isPm,
+                                activeColor = if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706),
+                                modifier = Modifier.fillMaxWidth().height(if (isSmallScreen) 44.dp else 56.dp),
+                                isSmall = isSmallScreen,
+                                onClick = { isPm = true }
+                            )
+                        }
+
+                        // 2. الساعة (في الوسط في RTL)
+                        TimeCounterColumn(
+                            modifier = Modifier.weight(1f),
+                            label = "الساعة",
+                            value = selectedHour12,
+                            minValue = 1,
+                            maxValue = 12,
+                            isSmall = isSmallScreen,
+                            onIncrement = {
+                                selectedHour12 = if (selectedHour12 >= 12) 1 else selectedHour12 + 1
+                            },
+                            onDecrement = {
+                                selectedHour12 = if (selectedHour12 <= 1) 12 else selectedHour12 - 1
+                            }
+                        )
+
+                        // 3. الدقيقة (على اليسار في RTL)
+                        TimeCounterColumn(
+                            modifier = Modifier.weight(1f),
+                            label = "الدقيقة",
+                            value = selectedMinute,
+                            minValue = 0,
+                            maxValue = 59,
+                            isSmall = isSmallScreen,
+                            onIncrement = {
+                                selectedMinute = if (selectedMinute >= 59) 0 else selectedMinute + 1
+                            },
+                            onDecrement = {
+                                selectedMinute = if (selectedMinute <= 0) 59 else selectedMinute - 1
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(if (isSmallScreen) 10.dp else 14.dp))
+
+                    // أزرار سريعة للدقائق الشائعة
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(if (isSmallScreen) 4.dp else 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        listOf(0, 15, 30, 45).forEach { min ->
+                            val isSelected = selectedMinute == min
+                            val chipBg = when {
+                                isSelected -> PrimaryTeal
+                                isDark -> Color(0xFF1B2830)
+                                else -> Color(0xFFF1F5F9)
+                            }
+                            val chipText = when {
+                                isSelected -> Color.White
+                                isDark -> Color(0xFFCBD5E1)
+                                else -> Color(0xFF334155)
+                            }
+                            val chipBorder = when {
+                                isSelected -> PrimaryTeal
+                                isDark -> Color(0xFF2E404C)
+                                else -> Color(0xFFCBD5E1)
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(chipBg)
+                                    .border(1.dp, chipBorder, RoundedCornerShape(8.dp))
+                                    .clickable { selectedMinute = min }
+                                    .padding(vertical = if (isSmallScreen) 5.dp else 7.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = ":${String.format("%02d", min)}",
+                                    fontSize = if (isSmallScreen) 11.5.sp else 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = chipText
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(if (isSmallScreen) 14.dp else 20.dp))
+
+                    // أزرار الإجراءات (تأكيد / إلغاء)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(if (isSmallScreen) 6.dp else 10.dp)
+                    ) {
+                        MosaribOutlinedButton(
+                            text = "إلغاء",
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f),
+                            height = if (isSmallScreen) 42.dp else 46.dp
+                        )
+                        MosaribButton(
+                            text = "تأكيد الوقت",
+                            onClick = {
+                                val hour24 = when {
+                                    isPm && selectedHour12 == 12 -> 12
+                                    isPm -> selectedHour12 + 12
+                                    !isPm && selectedHour12 == 12 -> 0
+                                    else -> selectedHour12
+                                }
+                                onTimeSelected(hour24, selectedMinute)
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f),
+                            height = if (isSmallScreen) 42.dp else 46.dp
+                        )
+                    }
                 }
             }
         }
     }
-}
 }
 
 @Composable
@@ -327,6 +344,7 @@ private fun AmPmToggleCard(
     isSelected: Boolean,
     activeColor: Color,
     modifier: Modifier = Modifier,
+    isSmall: Boolean = false,
     onClick: () -> Unit
 ) {
     val isDark = isAppDark()
@@ -345,18 +363,19 @@ private fun AmPmToggleCard(
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
-            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
             .clickable { onClick() }
-            .padding(vertical = 10.dp),
+            .padding(vertical = if (isSmall) 6.dp else 10.dp, horizontal = 2.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-            fontSize = 13.5.sp,
-            color = textColor
+            fontSize = if (isSmall) 11.5.sp else 13.5.sp,
+            color = textColor,
+            maxLines = 1
         )
     }
 }
@@ -367,18 +386,21 @@ private fun TimeCounterColumn(
     value: Int,
     minValue: Int,
     maxValue: Int,
+    modifier: Modifier = Modifier,
+    isSmall: Boolean = false,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit
 ) {
     val isDark = isAppDark()
 
     Column(
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(if (isSmall) 3.dp else 4.dp)
     ) {
         Text(
             text = label,
-            fontSize = 12.sp,
+            fontSize = if (isSmall) 11.sp else 12.sp,
             fontWeight = FontWeight.Bold,
             color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
         )
@@ -386,14 +408,14 @@ private fun TimeCounterColumn(
         IconButton(
             onClick = onIncrement,
             modifier = Modifier
-                .size(36.dp)
+                .size(if (isSmall) 32.dp else 36.dp)
                 .clip(CircleShape)
                 .background(if (isDark) Color(0xFF202F38) else Color(0xFFE2E8F0))
         ) {
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = "زيادة",
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(if (isSmall) 16.dp else 18.dp),
                 tint = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
             )
         }
@@ -402,7 +424,8 @@ private fun TimeCounterColumn(
 
         Box(
             modifier = Modifier
-                .size(width = 66.dp, height = 46.dp)
+                .fillMaxWidth()
+                .height(if (isSmall) 42.dp else 46.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(if (isDark) Color(0xFF0D161B) else Color(0xFFF8FAFC))
                 .border(1.dp, if (isDark) Color(0xFF2E404C) else Color(0xFFCBD5E1), RoundedCornerShape(10.dp))
@@ -429,7 +452,7 @@ private fun TimeCounterColumn(
         ) {
             Text(
                 text = String.format("%02d", value),
-                fontSize = 22.sp,
+                fontSize = if (isSmall) 19.sp else 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
             )
@@ -438,14 +461,14 @@ private fun TimeCounterColumn(
         IconButton(
             onClick = onDecrement,
             modifier = Modifier
-                .size(36.dp)
+                .size(if (isSmall) 32.dp else 36.dp)
                 .clip(CircleShape)
                 .background(if (isDark) Color(0xFF202F38) else Color(0xFFE2E8F0))
         ) {
             Icon(
                 imageVector = Icons.Default.Remove,
                 contentDescription = "إنقاص",
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(if (isSmall) 16.dp else 18.dp),
                 tint = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
             )
         }
@@ -480,203 +503,218 @@ fun MosaribDatePickerDialog(
         "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
     )
 
-    Dialog(onDismissRequest = onDismiss) {
+    val configuration = LocalConfiguration.current
+    val isSmallScreen = configuration.screenWidthDp < 360
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
             Card(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-            shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isDark) Color(0xFF141F25) else Color.White
-            ),
-            border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .widthIn(max = 420.dp)
+                    .fillMaxWidth(if (isSmallScreen) 0.96f else 0.90f)
+                    .padding(horizontal = if (isSmallScreen) 4.dp else 8.dp),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isDark) Color(0xFF141F25) else Color.White
+                ),
+                border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                // شريط العنوان
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(PrimaryTeal.copy(alpha = if (isDark) 0.22f else 0.12f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CalendarMonth,
-                            contentDescription = null,
-                            tint = PrimaryTeal,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
-                        )
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                // عرض التاريخ المختار
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(if (isDark) Color(0xFF0D161B) else Color(0xFFF1F5F9))
-                        .border(1.dp, if (isDark) Color(0xFF23353E) else Color(0xFFE2E8F0), RoundedCornerShape(14.dp))
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(if (isSmallScreen) 12.dp else 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "$selectedDay ${arabicMonths.getOrElse(selectedMonth) { "" }} $selectedYear",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryTeal
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                // عدادات اليوم والشهر والسنة
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // اليوم
-                    TimeCounterColumn(
-                        label = "اليوم",
-                        value = selectedDay,
-                        minValue = 1,
-                        maxValue = 31,
-                        onIncrement = {
-                            selectedDay = if (selectedDay >= 31) 1 else selectedDay + 1
-                        },
-                        onDecrement = {
-                            selectedDay = if (selectedDay <= 1) 31 else selectedDay - 1
-                        }
-                    )
-
-                    // الشهر
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    // شريط العنوان
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "الشهر",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
-                        )
-                        IconButton(
-                            onClick = { selectedMonth = if (selectedMonth >= 11) 0 else selectedMonth + 1 },
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(if (isDark) Color(0xFF202F38) else Color(0xFFE2E8F0))
-                        ) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = "زيادة الشهر",
-                                modifier = Modifier.size(18.dp),
-                                tint = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
-                            )
-                        }
                         Box(
                             modifier = Modifier
-                                .size(width = 96.dp, height = 44.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) Color(0xFF0D161B) else Color(0xFFF8FAFC))
-                                .border(1.dp, if (isDark) Color(0xFF2E404C) else Color(0xFFCBD5E1), RoundedCornerShape(10.dp)),
+                                .size(if (isSmallScreen) 32.dp else 38.dp)
+                                .clip(CircleShape)
+                                .background(PrimaryTeal.copy(alpha = if (isDark) 0.22f else 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = arabicMonths.getOrElse(selectedMonth) { "" },
-                                fontSize = 14.sp,
+                            Icon(
+                                imageVector = Icons.Default.CalendarMonth,
+                                contentDescription = null,
+                                tint = PrimaryTeal,
+                                modifier = Modifier.size(if (isSmallScreen) 16.dp else 20.dp)
+                            )
+                        }
+                        Text(
+                            text = title,
+                            style = (if (isSmallScreen) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium).copy(
                                 fontWeight = FontWeight.Bold,
                                 color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
                             )
-                        }
-                        IconButton(
-                            onClick = { selectedMonth = if (selectedMonth <= 0) 11 else selectedMonth - 1 },
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(if (isDark) Color(0xFF202F38) else Color(0xFFE2E8F0))
-                        ) {
-                            Icon(
-                                Icons.Default.Remove,
-                                contentDescription = "إنقاص الشهر",
-                                modifier = Modifier.size(18.dp),
-                                tint = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
-                            )
-                        }
+                        )
                     }
 
-                    // السنة
-                    TimeCounterColumn(
-                        label = "السنة",
-                        value = selectedYear,
-                        minValue = 2020,
-                        maxValue = 2035,
-                        onIncrement = { selectedYear++ },
-                        onDecrement = { if (selectedYear > 2020) selectedYear-- }
-                    )
-                }
+                    Spacer(modifier = Modifier.height(if (isSmallScreen) 12.dp else 18.dp))
 
-                Spacer(modifier = Modifier.height(22.dp))
+                    // عرض التاريخ المختار
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (isDark) Color(0xFF0D161B) else Color(0xFFF1F5F9))
+                            .border(1.dp, if (isDark) Color(0xFF23353E) else Color(0xFFE2E8F0), RoundedCornerShape(14.dp))
+                            .padding(vertical = if (isSmallScreen) 8.dp else 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "$selectedDay ${arabicMonths.getOrElse(selectedMonth) { "" }} $selectedYear",
+                            fontSize = if (isSmallScreen) 17.sp else 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryTeal
+                        )
+                    }
 
-                // أزرار الإجراءات
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    MosaribOutlinedButton(
-                        text = "إلغاء",
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        height = 46.dp
-                    )
-                    MosaribButton(
-                        text = "تأكيد التاريخ",
-                        onClick = {
-                            val targetCal = Calendar.getInstance().apply {
-                                set(selectedYear, selectedMonth, selectedDay, 0, 0, 0)
-                                set(Calendar.MILLISECOND, 0)
+                    Spacer(modifier = Modifier.height(if (isSmallScreen) 12.dp else 18.dp))
+
+                    // عدادات اليوم والشهر والسنة
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(if (isSmallScreen) 6.dp else 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // اليوم
+                        TimeCounterColumn(
+                            modifier = Modifier.weight(1f),
+                            label = "اليوم",
+                            value = selectedDay,
+                            minValue = 1,
+                            maxValue = 31,
+                            isSmall = isSmallScreen,
+                            onIncrement = {
+                                selectedDay = if (selectedDay >= 31) 1 else selectedDay + 1
+                            },
+                            onDecrement = {
+                                selectedDay = if (selectedDay <= 1) 31 else selectedDay - 1
                             }
-                            if (minTimestamp != null) {
-                                val minDayCal = Calendar.getInstance().apply {
-                                    timeInMillis = minTimestamp
-                                    set(get(Calendar.YEAR), get(Calendar.MONTH), get(Calendar.DAY_OF_MONTH), 0, 0, 0)
+                        )
+
+                        // الشهر
+                        Column(
+                            modifier = Modifier.weight(1.35f),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(if (isSmallScreen) 3.dp else 4.dp)
+                        ) {
+                            Text(
+                                text = "الشهر",
+                                fontSize = if (isSmallScreen) 11.sp else 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                            )
+                            IconButton(
+                                onClick = { selectedMonth = if (selectedMonth >= 11) 0 else selectedMonth + 1 },
+                                modifier = Modifier
+                                    .size(if (isSmallScreen) 32.dp else 36.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF202F38) else Color(0xFFE2E8F0))
+                            ) {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = "زيادة الشهر",
+                                    modifier = Modifier.size(if (isSmallScreen) 16.dp else 18.dp),
+                                    tint = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(if (isSmallScreen) 42.dp else 46.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isDark) Color(0xFF0D161B) else Color(0xFFF8FAFC))
+                                    .border(1.dp, if (isDark) Color(0xFF2E404C) else Color(0xFFCBD5E1), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 2.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = arabicMonths.getOrElse(selectedMonth) { "" },
+                                    fontSize = if (isSmallScreen) 12.sp else 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A),
+                                    maxLines = 1
+                                )
+                            }
+                            IconButton(
+                                onClick = { selectedMonth = if (selectedMonth <= 0) 11 else selectedMonth - 1 },
+                                modifier = Modifier
+                                    .size(if (isSmallScreen) 32.dp else 36.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF202F38) else Color(0xFFE2E8F0))
+                            ) {
+                                Icon(
+                                    Icons.Default.Remove,
+                                    contentDescription = "إنقاص الشهر",
+                                    modifier = Modifier.size(if (isSmallScreen) 16.dp else 18.dp),
+                                    tint = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
+                                )
+                            }
+                        }
+
+                        // السنة
+                        TimeCounterColumn(
+                            modifier = Modifier.weight(1.1f),
+                            label = "السنة",
+                            value = selectedYear,
+                            minValue = 2020,
+                            maxValue = 2035,
+                            isSmall = isSmallScreen,
+                            onIncrement = { selectedYear++ },
+                            onDecrement = { if (selectedYear > 2020) selectedYear-- }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(if (isSmallScreen) 16.dp else 22.dp))
+
+                    // أزرار الإجراءات
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(if (isSmallScreen) 6.dp else 10.dp)
+                    ) {
+                        MosaribOutlinedButton(
+                            text = "إلغاء",
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f),
+                            height = if (isSmallScreen) 42.dp else 46.dp
+                        )
+                        MosaribButton(
+                            text = "تأكيد التاريخ",
+                            onClick = {
+                                val targetCal = Calendar.getInstance().apply {
+                                    set(selectedYear, selectedMonth, selectedDay, 0, 0, 0)
                                     set(Calendar.MILLISECOND, 0)
                                 }
-                                if (targetCal.before(minDayCal)) {
-                                    Toast.makeText(context, "لا يمكن اختيار تاريخ انتهاء قبل تاريخ البدء", Toast.LENGTH_SHORT).show()
-                                    return@MosaribButton
+                                if (minTimestamp != null) {
+                                    val minDayCal = Calendar.getInstance().apply {
+                                        timeInMillis = minTimestamp
+                                        set(get(Calendar.YEAR), get(Calendar.MONTH), get(Calendar.DAY_OF_MONTH), 0, 0, 0)
+                                        set(Calendar.MILLISECOND, 0)
+                                    }
+                                    if (targetCal.before(minDayCal)) {
+                                        Toast.makeText(context, "لا يمكن اختيار تاريخ انتهاء قبل تاريخ البدء", Toast.LENGTH_SHORT).show()
+                                        return@MosaribButton
+                                    }
                                 }
-                            }
-                            onDateSelected(targetCal.timeInMillis)
-                            onDismiss()
-                        },
-                        modifier = Modifier.weight(1f),
-                        height = 46.dp
-                    )
+                                onDateSelected(targetCal.timeInMillis)
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f),
+                            height = if (isSmallScreen) 42.dp else 46.dp
+                        )
+                    }
                 }
             }
         }
     }
-}
 }
