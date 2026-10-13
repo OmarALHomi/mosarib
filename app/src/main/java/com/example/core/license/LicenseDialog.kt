@@ -73,13 +73,21 @@ import kotlinx.coroutines.launch
 
 import com.example.core.ui.isAppDark
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
+import androidx.activity.compose.BackHandler
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LicenseDialog(
     onDismiss: () -> Unit,
     onActivated: () -> Unit,
-    isMandatory: Boolean = false // If true, cannot dismiss until activated
+    isMandatory: Boolean = false, // If true, cannot dismiss until activated
+    mandatoryReason: String? = null
 ) {
     val context = LocalContext.current
     val isDark = isAppDark()
@@ -96,7 +104,18 @@ fun LicenseDialog(
     var requestSuccessMessage by remember { mutableStateOf<String?>(null) }
     var isRequestingOnline by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { sheetValue ->
+            if (isMandatory) sheetValue != androidx.compose.material3.SheetValue.Hidden else true
+        }
+    )
+
+    if (isMandatory) {
+        BackHandler {
+            (context as? android.app.Activity)?.finishAffinity()
+        }
+    }
 
     var selectedPlan by remember { mutableStateOf(LicenseManager.SubscriptionPlan.MONTHLY) }
     var isOnline by remember { mutableStateOf(LicenseManager.isInternetAvailable(context)) }
@@ -273,6 +292,49 @@ fun LicenseDialog(
                 if (!isMandatory) {
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "إغلاق")
+                    }
+                } else {
+                    TextButton(
+                        onClick = { (context as? android.app.Activity)?.finishAffinity() },
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF4444))
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "خروج", modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "خروج",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+            }
+
+            if (isMandatory) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isDark) Color(0xFF3B1E1E) else Color(0xFFFEF2F2),
+                    border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = mandatoryReason ?: "لقد تجاوزت الحد التجريبي المجاني (${LicenseManager.FREE_OPERATIONS_LIMIT} عملية) أو قمت باستعادة نسخة تتجاوزه. تم حفظ كافة بياناتك بأمان تام، ويرجى تفعيل الاشتراك لمتابعة العمل بالتطبيق.",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isDark) Color(0xFFFCA5A5) else Color(0xFF991B1B)
+                            )
+                        )
                     }
                 }
             }

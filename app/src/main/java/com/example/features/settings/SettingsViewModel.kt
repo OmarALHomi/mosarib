@@ -254,9 +254,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun restoreBackup(uri: Uri) {
         viewModelScope.launch {
             val result = BackupManager.restoreFromJson(getApplication(), db, uri)
-            result.onSuccess { count ->
-                loadBackups()
-                showToast("تم استعادة $count سجلاً بنجاح من النسخة الاحتياطية", ToastType.SUCCESS)
+            result.onSuccess { restoreResult ->
+                handlePostRestore(restoreResult)
             }.onFailure { e ->
                 showToast("فشل في استعادة البيانات: ${e.localizedMessage}", ToastType.ERROR)
             }
@@ -269,12 +268,38 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun restoreBackupFromFile(file: File) {
         viewModelScope.launch {
             val result = BackupManager.restoreFromFile(getApplication(), db, file)
-            result.onSuccess { count ->
-                loadBackups()
-                showToast("تم استعادة $count سجلاً بنجاح من النسخة الاحتياطية", ToastType.SUCCESS)
+            result.onSuccess { restoreResult ->
+                handlePostRestore(restoreResult)
             }.onFailure { e ->
                 showToast("فشل في استعادة البيانات: ${e.localizedMessage}", ToastType.ERROR)
             }
+        }
+    }
+
+    private suspend fun handlePostRestore(restoreResult: BackupManager.RestoreResult) {
+        loadBackups()
+        val totalDbOps = db.waterSessionDao().getSessionsCountDirect() +
+            db.voucherDao().getVouchersCountDirect() +
+            db.wellOwnerPurchaseDao().getPurchasesCountDirect()
+
+        val isAct = LicenseManager.isActivated(getApplication())
+        if (isAct) {
+            showToast("تم استعادة ${restoreResult.totalRecords} سجلاً بنجاح من النسخة الاحتياطية (${restoreResult.operationsCount} عملية)", ToastType.SUCCESS)
+            return
+        }
+
+        val limitExceeded = LicenseManager.syncOperationsAfterRestore(getApplication(), totalDbOps)
+        if (limitExceeded) {
+            showToast(
+                "تم استعادة كافة البيانات بأمان ($totalDbOps عملية). تجاوزت النسخة الحد المجاني (${LicenseManager.FREE_OPERATIONS_LIMIT} عملية)، يلزم الاشتراك للمتابعة.",
+                ToastType.WARNING
+            )
+        } else {
+            val remaining = (LicenseManager.FREE_OPERATIONS_LIMIT - totalDbOps).coerceAtLeast(0)
+            showToast(
+                "تم استعادة ${restoreResult.totalRecords} سجلاً بنجاح (المستندات المحتسبة: ${restoreResult.operationsCount}، المتبقي: $remaining عملية مجانية)",
+                ToastType.SUCCESS
+            )
         }
     }
 
@@ -398,9 +423,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 val dlResult = GoogleDriveBackupHelper.downloadAppDataBackup(getApplication(), account, driveFile.id, tempFile)
                 dlResult.onSuccess { file ->
                     val restoreResult = BackupManager.restoreFromFile(getApplication(), db, file)
-                    restoreResult.onSuccess { count ->
-                        loadBackups()
-                        showToast("تم استعادة $count سجلاً بنجاح من نسخة Google Drive السحابية", ToastType.SUCCESS)
+                    restoreResult.onSuccess { res ->
+                        handlePostRestore(res)
                     }.onFailure { e ->
                         showToast("فشل في تطبيق النسخة المستعادة: ${e.localizedMessage}", ToastType.ERROR)
                     }

@@ -389,10 +389,24 @@ fun MainApp(
                 }
             }
 
-            if (showLicenseDialog) {
+            val isTrialLimitExceeded = !isActivated && (
+                operationsCount >= LicenseManager.FREE_OPERATIONS_LIMIT ||
+                LicenseManager.isTrialConsumed(context)
+            )
+
+            if (showLicenseDialog || isTrialLimitExceeded) {
                 LicenseDialog(
-                    onDismiss = { showLicenseDialog = false },
-                    onActivated = { showLicenseDialog = false }
+                    onDismiss = {
+                        if (!isTrialLimitExceeded) showLicenseDialog = false
+                    },
+                    onActivated = {
+                        settingsViewModel.refreshActivationStatus()
+                        showLicenseDialog = false
+                    },
+                    isMandatory = isTrialLimitExceeded,
+                    mandatoryReason = if (isTrialLimitExceeded) {
+                        "لقد تجاوزت الحد التجريبي المجاني (${LicenseManager.FREE_OPERATIONS_LIMIT} عملية) أو قمت باستعادة نسخة تتجاوزه. تم حفظ بياناتك بأمان تام، ويرجى تفعيل الاشتراك لمتابعة العمل بالتطبيق."
+                    } else null
                 )
             }
 

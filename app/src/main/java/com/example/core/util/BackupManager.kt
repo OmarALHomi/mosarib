@@ -199,9 +199,19 @@ object BackupManager {
         return runCatching { if (file.exists()) file.delete() else false }.getOrDefault(false)
     }
 
+    data class RestoreResult(
+        val totalRecords: Int,
+        val operationsCount: Int,
+        val sessionsCount: Int,
+        val vouchersCount: Int,
+        val wellOwnerPurchasesCount: Int,
+        val customersCount: Int,
+        val pumpsCount: Int
+    )
+
     private const val MAX_BACKUP_SIZE_BYTES = 50L * 1024 * 1024 // 50 MB
 
-    suspend fun restoreFromFile(context: Context, database: AppDatabase, file: File): Result<Int> = withContext(Dispatchers.IO) {
+    suspend fun restoreFromFile(context: Context, database: AppDatabase, file: File): Result<RestoreResult> = withContext(Dispatchers.IO) {
         runCatching {
             if (file.length() > MAX_BACKUP_SIZE_BYTES) throw IllegalArgumentException("حجم ملف النسخة كبير جداً (أكثر من 50 ميجابايت)")
             val jsonString = file.readText(Charsets.UTF_8)
@@ -211,7 +221,7 @@ object BackupManager {
         }
     }
 
-    suspend fun restoreFromJson(context: Context, database: AppDatabase, uri: Uri): Result<Int> = withContext(Dispatchers.IO) {
+    suspend fun restoreFromJson(context: Context, database: AppDatabase, uri: Uri): Result<RestoreResult> = withContext(Dispatchers.IO) {
         runCatching {
             val stringBuilder = java.lang.StringBuilder()
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
@@ -240,8 +250,12 @@ object BackupManager {
         if (version < 1 || version > 10) throw IllegalArgumentException("إصدار النسخة الاحتياطية ($version) غير مدعوم")
     }
 
-    private suspend fun restoreFromJsonObject(database: AppDatabase, root: JSONObject): Int = database.withTransaction {
-        var count = 0
+    private suspend fun restoreFromJsonObject(database: AppDatabase, root: JSONObject): RestoreResult = database.withTransaction {
+        var customersCount = 0
+        var pumpsCount = 0
+        var sessionsCount = 0
+        var vouchersCount = 0
+        var wellOwnerPurchasesCount = 0
 
         // Restore Customers
         if (root.has("customers")) {
@@ -268,7 +282,7 @@ object BackupManager {
                 } else {
                     database.customerDao().insertCustomer(customer)
                 }
-                count++
+                customersCount++
             }
         }
 
@@ -292,7 +306,7 @@ object BackupManager {
                     ownerCustomerId = if (obj.has("ownerCustomerId") && !obj.isNull("ownerCustomerId")) obj.getLong("ownerCustomerId") else null
                 )
                 database.pumpSourceDao().insertPump(pump)
-                count++
+                pumpsCount++
             }
         }
 
@@ -323,7 +337,7 @@ object BackupManager {
                     createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                 )
                 database.waterSessionDao().insertSession(session)
-                count++
+                sessionsCount++
             }
         }
 
@@ -348,7 +362,7 @@ object BackupManager {
                     createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                 )
                 database.voucherDao().insertVoucher(voucher)
-                count++
+                vouchersCount++
             }
         }
 
@@ -370,7 +384,7 @@ object BackupManager {
                         createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                     )
                 )
-                count++
+                wellOwnerPurchasesCount++
             }
         }
 
@@ -385,7 +399,18 @@ object BackupManager {
             }
         }
 
-        count
+        val totalRecords = customersCount + pumpsCount + sessionsCount + vouchersCount + wellOwnerPurchasesCount
+        val operationsCount = sessionsCount + vouchersCount + wellOwnerPurchasesCount
+
+        RestoreResult(
+            totalRecords = totalRecords,
+            operationsCount = operationsCount,
+            sessionsCount = sessionsCount,
+            vouchersCount = vouchersCount,
+            wellOwnerPurchasesCount = wellOwnerPurchasesCount,
+            customersCount = customersCount,
+            pumpsCount = pumpsCount
+        )
     }
 
     fun shareBackupToDriveOrApps(context: Context, backupFile: File) {

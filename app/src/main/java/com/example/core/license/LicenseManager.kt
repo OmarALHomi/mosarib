@@ -443,6 +443,46 @@ object LicenseManager {
         }
     }
 
+    /**
+     * Synchronizes license usage and trial limits after restoring a backup.
+     * @return true if the restored operations count reaches or exceeds [FREE_OPERATIONS_LIMIT],
+     * meaning the trial is fully consumed and subscription is mandatory.
+     */
+    fun syncOperationsAfterRestore(context: Context, totalDbCount: Int): Boolean {
+        if (isActivated(context)) return false
+
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        sp.edit().putInt(KEY_CUMULATIVE_OPS, totalDbCount).apply()
+
+        return if (totalDbCount >= FREE_OPERATIONS_LIMIT) {
+            markTrialAsConsumed(context)
+            true
+        } else {
+            resetTrialConsumptionForRestore(context)
+            false
+        }
+    }
+
+    fun resetTrialConsumptionForRestore(context: Context) {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        sp.edit().putBoolean(KEY_TRIAL_CONSUMED, false).apply()
+
+        val externalDirs = listOfNotNull(
+            context.getExternalFilesDir(null),
+            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS)
+        )
+
+        for (dir in externalDirs) {
+            runCatching {
+                val tokenFile = java.io.File(dir, ".msrb_trial_signature")
+                if (tokenFile.exists()) {
+                    tokenFile.delete()
+                }
+            }
+        }
+    }
+
     fun canPerformOperation(context: Context, currentOperationsCount: Int): Boolean {
         if (isActivated(context)) return true
         if (isTrialConsumed(context)) return false

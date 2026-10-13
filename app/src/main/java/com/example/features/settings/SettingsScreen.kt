@@ -1611,7 +1611,12 @@ fun SettingsScreen(
     )
 
     // License Dialog
-    if (showLicenseDialog) {
+    val isTrialLimitExceeded = !isActivated && (
+        operationsCount >= LicenseManager.FREE_OPERATIONS_LIMIT ||
+        LicenseManager.isTrialConsumed(context)
+    )
+
+    if (showLicenseDialog && !isTrialLimitExceeded) {
         LicenseDialog(
             onDismiss = { showLicenseDialog = false },
             onActivated = {
