@@ -1,0 +1,33 @@
+{
+  "rules": {
+    "all_users": {
+      ".read": true,
+      "$deviceKey": {
+        ".write": "newData.exists()",
+        ".validate": "newData.hasChildren(['deviceCode', 'updatedAt'])"
+      }
+    },
+    "blocked_emails": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "licenses": {
+      ".read": true,
+      "$cleanKey": {
+        ".write": "!data.exists() || (data.child('deviceCode').val() === newData.child('deviceCode').val()) || (auth != null)"
+      }
+    },
+    "devices": {
+      ".read": true,
+      "$deviceCode": {
+        ".write": true
+      }
+    },
+    "feedbacks": {
+      ".read": "auth != null",
+      "$feedbackId": {
+        ".write": "!data.exists()"
+      }
+    }
+  }
+}
