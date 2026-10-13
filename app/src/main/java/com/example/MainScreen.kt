@@ -59,6 +59,8 @@ import kotlinx.coroutines.launch
 import com.example.core.license.LicenseDialog
 import com.example.core.license.LicenseManager
 import com.example.core.license.UserDeviceTracker
+import com.example.core.sync.AppSyncEngine
+import com.example.core.sync.StartupDialogType
 import com.example.core.ui.DeviceBlockedScreen
 import com.example.core.ui.BackupReminderDialog
 import com.example.core.updates.AppBroadcast
@@ -165,50 +167,32 @@ fun MainApp(
             var specialDeviceWarning by remember { mutableStateOf<String?>(null) }
             var showSpecialWarningDialog by remember { mutableStateOf(false) }
 
-            // مزامنة تواجد المستخدم وفحص الإعلانات والتحديثات بشكل دوري
+            // مزامنة موحدة ومنظمة مع السحابة بدون ضغط على الشبكة وطابور أولويات للنوافذ
             LaunchedEffect(Unit) {
-                while (true) {
-                    try {
-                        val syncResult = UserDeviceTracker.syncPresence(context, operationsCount)
-                        if (syncResult.isBlocked) {
-                            isDeviceBlocked = true
-                            blockReason = syncResult.blockReason ?: "تم إيقاف التطبيق على هذا الجهاز"
-                        }
-                        LicenseManager.checkRemoteRevocationInBackground(context)
-
-                        // فحص التنبيه الخاص بالجهاز
-                        val customWarn = com.example.core.license.RemoteConfigManager.getSpecialWarningMessage(context)
-                        if (!customWarn.isNullOrBlank() && customWarn != specialDeviceWarning) {
-                            specialDeviceWarning = customWarn
-                            showSpecialWarningDialog = true
-                        }
-
-                        // فحص الإعلانات والتحديث الإجباري وبث إشعار النظام
-                        val broadcast = AppUpdateManager.checkBroadcastAndUpdates(context)
-                        if (broadcast != null) {
-                            activeBroadcast = broadcast
-                            // 1. إرسال إشعار للنظام في شريط الإشعارات إذا لم يتم إرساله مسبقاً
-                            if (!AppUpdateManager.isBroadcastNotified(context, broadcast.id)) {
-                                AppUpdateManager.postSystemNotification(context, broadcast)
-                            }
-                            // 2. إظهار نافذة الإعلان داخل التطبيق إذا لم يتم إغلاقها مسبقاً
-                            if (!broadcast.isForceUpdate && !AppUpdateManager.isBroadcastSeen(context, broadcast.id)) {
-                                showAnnouncementDialog = true
-                            }
-                        }
-
-                        // مزامنة FCM Push Token للإشعارات المنبثقة
-                        com.example.core.notifications.FcmTokenHelper.syncCurrentToken(context)
-                    } catch (_: Exception) {}
-
-                    kotlinx.coroutines.delay(45_000L) // فحص دوري كل 45 ثانية أثناء نشاط التطبيق
+                val decision = AppSyncEngine.performConsolidatedStartupSync(context, operationsCount)
+                when (decision.dialogToShow) {
+                    StartupDialogType.FORCE_UPDATE -> {
+                        activeBroadcast = decision.forceUpdateBroadcast
+                    }
+                    StartupDialogType.DEVICE_BLOCKED -> {
+                        isDeviceBlocked = true
+                        blockReason = decision.blockReason
+                    }
+                    StartupDialogType.BACKUP_REMINDER -> {
+                        showBackupReminderDialog = true
+                    }
+                    StartupDialogType.ANNOUNCEMENT -> {
+                        activeBroadcast = decision.announcementBroadcast
+                        showAnnouncementDialog = true
+                    }
+                    StartupDialogType.NONE -> {}
                 }
-            }
 
-            // فحص التذكير الدوري بالنسخ الاحتياطي عند تغيير عدد العمليات
-            LaunchedEffect(operationsCount) {
-                if (PeriodicBackupReminderManager.shouldShowBackupReminder(context, operationsCount)) {
-                    showBackupReminderDialog = true
+                // فحص التنبيه الخاص بالجهاز إن وجد
+                val customWarn = com.example.core.license.RemoteConfigManager.getSpecialWarningMessage(context)
+                if (!customWarn.isNullOrBlank() && customWarn != specialDeviceWarning) {
+                    specialDeviceWarning = customWarn
+                    showSpecialWarningDialog = true
                 }
             }
 

@@ -574,6 +574,9 @@
       </div>
     </div>
     <div class="header-actions">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <input type="password" id="adminSecretKeyInput" placeholder="مفتاح الحماية السري (Secret)" style="width: 170px; padding: 6px 10px; font-size: 11px; border-radius: 8px; border: 1px solid var(--border);" onchange="saveAdminSecretKey()">
+      </div>
       <button id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleTheme()" title="تبديل المظهر">
         <span class="theme-icon" id="themeIcon">☀️</span>
         <span id="themeLabel">الوضع الفاتح</span>
@@ -971,7 +974,26 @@
   }
   let RTDB_BASE_URL = storedUrl;
   let FIREBASE_BASE_URL = RTDB_BASE_URL;
+  let adminSecretKey = localStorage.getItem("mosarib_admin_secret_key") || "";
   const SECRET_SALT = "mosarib_secure_license_secret_key_alhomi_2026_water_app";
+
+  function saveAdminSecretKey() {
+    adminSecretKey = document.getElementById("adminSecretKeyInput").value.trim();
+    localStorage.setItem("mosarib_admin_secret_key", adminSecretKey);
+    loadFirebaseData();
+  }
+
+  function getAuthenticatedUrl(path) {
+    const sep = path.includes("?") ? "&" : "?";
+    return adminSecretKey ? `${FIREBASE_BASE_URL}/${path}${sep}auth=${adminSecretKey}` : `${FIREBASE_BASE_URL}/${path}`;
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    if (adminSecretKey) {
+      const inp = document.getElementById("adminSecretKeyInput");
+      if (inp) inp.value = adminSecretKey;
+    }
+  });
 
   function promptConfigureFirebaseUrl() {
     const currentUrl = FIREBASE_BASE_URL;

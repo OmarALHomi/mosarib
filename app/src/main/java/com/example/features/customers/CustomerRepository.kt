@@ -4,6 +4,7 @@ import com.example.features.pumps.PumpSource
 import com.example.features.sessions.WaterSession
 import com.example.features.vouchers.Voucher
 import com.example.features.vouchers.VoucherType
+import com.example.core.util.MoneyPrecision
 import com.example.features.wellowners.WellOwnerPurchase
 import com.example.features.wellowners.WellOwnerPurchaseMath
 import kotlinx.coroutines.flow.Flow
@@ -90,13 +91,13 @@ fun calculateCustomerBalance(
     }
 
     val payable = if (customer.isWellOwner) {
-        if (netOwnerPayable > 0.0) netOwnerPayable else 0.0
+        if (netOwnerPayable > 0.0) MoneyPrecision.roundToCurrency(netOwnerPayable) else 0.0
     } else 0.0
 
     val receivable = if (customer.isWellOwner) {
-        if (netOwnerPayable < 0.0) -netOwnerPayable else 0.0
+        if (netOwnerPayable < 0.0) MoneyPrecision.roundToCurrency(-netOwnerPayable) else 0.0
     } else {
-        totalSales + customerSideDisbursements - collectedCash - standaloneDiscounts
+        MoneyPrecision.roundToCurrency(totalSales + customerSideDisbursements - collectedCash - standaloneDiscounts)
     }
 
     return CustomerWithBalance(
@@ -106,9 +107,9 @@ fun calculateCustomerBalance(
         totalVouchersCount = customerVouchers.size,
         totalOperationsCount = customerSessions.size + ownerPurchases.size + customerVouchers.size,
         totalMinutes = customerSessions.sumOf { it.durationMinutes.coerceAtLeast(0) },
-        totalBilledAmount = totalSales,
-        totalPaidAmount = collectedCash,
-        totalDisbursedAmount = totalDisbursed,
+        totalBilledAmount = MoneyPrecision.roundToCurrency(totalSales),
+        totalPaidAmount = MoneyPrecision.roundToCurrency(collectedCash),
+        totalDisbursedAmount = MoneyPrecision.roundToCurrency(totalDisbursed),
         balance = if (customer.isWellOwner) payable else receivable,
         receivableBalance = receivable,
         payableBalance = payable,

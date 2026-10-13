@@ -203,6 +203,8 @@ object Formatters {
         return String.format(Locale.US, "%02d:%02d س", hours, minutes)
     }
 
+    fun formatMinutesToHoursMinutes(totalMinutes: Int): String = formatDurationShort(totalMinutes)
+
     fun formatDurationCompact(totalMinutes: Int): String {
         val hours = totalMinutes / 60
         val mins = totalMinutes % 60
