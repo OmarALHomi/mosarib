@@ -76,48 +76,57 @@
       padding: 24px;
       transition: background 0.3s ease, color 0.3s ease;
     }
-    .container { max-width: 1250px; margin: 0 auto; }
+    .container { max-width: 1280px; margin: 0 auto; }
     
     /* Header */
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 24px;
+      padding-bottom: 20px;
       border-bottom: 1px solid var(--card-border);
-      margin-bottom: 24px;
+      margin-bottom: 22px;
       flex-wrap: wrap;
-      gap: 16px;
+      gap: 14px;
     }
     .brand { display: flex; align-items: center; gap: 14px; }
     .brand-icon {
-      width: 52px;
-      height: 52px;
+      width: 48px;
+      height: 48px;
       background: linear-gradient(135deg, var(--primary), #00BFA5);
-      border-radius: 16px;
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 26px;
-      box-shadow: 0 8px 20px rgba(0, 191, 165, 0.35);
+      font-size: 24px;
+      box-shadow: 0 8px 22px rgba(0, 191, 165, 0.35);
+      flex-shrink: 0;
     }
-    h1 { font-size: 24px; font-weight: 800; color: var(--text-title); transition: color 0.3s ease; }
-    .subtitle { font-size: 13px; color: var(--text-muted); }
+    h1 { font-size: 22px; font-weight: 800; color: var(--text-title); transition: color 0.3s ease; line-height: 1.2; }
+    .subtitle { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+
+    /* Header Actions */
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
 
     /* Theme Toggle Button */
     .theme-toggle-btn {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 7px;
       background: var(--theme-btn-bg);
       border: 1px solid var(--theme-btn-border);
       color: var(--theme-btn-color);
-      padding: 8px 16px;
+      padding: 7px 14px;
       border-radius: 20px;
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       transition: all 0.25s ease;
       user-select: none;
     }
@@ -126,7 +135,7 @@
       box-shadow: 0 4px 14px rgba(0, 131, 143, 0.25);
     }
     .theme-toggle-btn .theme-icon {
-      font-size: 16px;
+      font-size: 15px;
       display: inline-block;
       transition: transform 0.3s ease;
     }
@@ -138,123 +147,164 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      background: rgba(0, 230, 118, 0.15);
+      background: rgba(0, 230, 118, 0.14);
       color: var(--success);
-      padding: 6px 14px;
+      padding: 6px 12px;
       border-radius: 20px;
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 700;
       border: 1px solid rgba(0, 230, 118, 0.3);
     }
-    .status-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--success);
+      animation: pulseDot 2s infinite ease-in-out;
+    }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
 
     /* Stats Grid */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 28px;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
     }
     .stat-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 16px;
-      padding: 20px;
+      padding: 16px 18px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       box-shadow: var(--card-shadow);
-      transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
     }
-    .stat-info h3 { font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
-    .stat-info .num { font-size: 28px; font-weight: 900; color: var(--text-title); transition: color 0.3s ease; }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+      opacity: 0.5;
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 150, 166, 0.2);
+    }
+    .stat-info h3 { font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; }
+    .stat-info .num { font-size: 26px; font-weight: 900; color: var(--text-title); transition: color 0.3s ease; }
     .stat-icon {
-      width: 48px;
-      height: 48px;
+      width: 44px;
+      height: 44px;
       border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 22px;
+      font-size: 20px;
       background: var(--stat-icon-bg);
       color: var(--primary-light);
+      flex-shrink: 0;
     }
 
-    /* Tabs */
+    /* Responsive Pill Tabs */
     .tabs {
       display: flex;
-      gap: 12px;
+      gap: 8px;
       margin-bottom: 20px;
-      border-bottom: 1px solid var(--card-border);
-      padding-bottom: 8px;
-      flex-wrap: wrap;
+      padding-bottom: 6px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      white-space: nowrap;
     }
+    .tabs::-webkit-scrollbar { display: none; }
     .tab-btn {
-      background: none;
-      border: none;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
       color: var(--text-muted);
-      font-size: 15px;
+      font-size: 13.5px;
       font-weight: 700;
-      padding: 10px 20px;
+      padding: 9px 18px;
       cursor: pointer;
-      border-radius: 10px;
-      transition: all 0.2s;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+    }
+    .tab-btn:hover {
+      color: var(--text);
+      border-color: var(--primary);
     }
     .tab-btn.active {
-      background: var(--primary);
+      background: linear-gradient(135deg, var(--primary), #00BFA5);
+      border-color: transparent;
       color: #FFF;
-      box-shadow: 0 4px 14px rgba(0, 131, 143, 0.4);
+      box-shadow: 0 4px 14px rgba(0, 131, 143, 0.45);
     }
 
     /* Cards */
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 24px;
-      margin-bottom: 30px;
+      gap: 20px;
+      margin-bottom: 24px;
     }
-    @media (max-width: 850px) { .grid-2 { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
 
     .card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 18px;
-      padding: 24px;
+      padding: 22px;
       box-shadow: var(--card-shadow);
       transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     }
     .card-title {
-      font-size: 17px;
+      font-size: 16px;
       font-weight: 800;
       color: var(--text-title);
-      margin-bottom: 18px;
+      margin-bottom: 16px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       transition: color 0.3s ease;
     }
-    .form-group { margin-bottom: 16px; }
-    label { display: block; font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 12.5px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
     input, select, textarea {
       width: 100%;
-      padding: 12px 14px;
+      padding: 11px 13px;
       border-radius: 10px;
       border: 1px solid var(--input-border);
       background: var(--input-bg);
       color: var(--text);
-      font-size: 15px;
+      font-size: 14px;
       outline: none;
       transition: border-color 0.2s, background 0.3s ease, color 0.3s ease;
     }
-    input:focus, select:focus, textarea:focus { border-color: var(--success); }
+    input:focus, select:focus, textarea:focus { border-color: var(--primary-light); }
     .btn {
       width: 100%;
-      padding: 13px;
+      padding: 12px;
       border: none;
       border-radius: 10px;
       background: linear-gradient(135deg, var(--primary), #00BFA5);
       color: white;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 800;
       cursor: pointer;
       transition: all 0.2s;
@@ -270,23 +320,27 @@
       border: 1px solid var(--card-border);
       color: var(--text);
     }
+    .btn-outline:hover {
+      background: rgba(0, 150, 166, 0.1);
+      border-color: var(--primary);
+    }
 
     .key-box {
-      margin-top: 18px;
+      margin-top: 16px;
       background: var(--input-bg);
       border: 1px dashed var(--accent);
       border-radius: 12px;
-      padding: 16px;
+      padding: 14px;
       text-align: center;
       display: none;
       transition: background 0.3s ease;
     }
     .key-text {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 900;
       letter-spacing: 2px;
       color: var(--success);
-      margin: 8px 0 12px;
+      margin: 6px 0 10px;
       user-select: all;
     }
 
@@ -295,6 +349,7 @@
       overflow-x: auto;
       border-radius: 14px;
       border: 1px solid var(--card-border);
+      -webkit-overflow-scrolling: touch;
     }
     table {
       width: 100%;
@@ -302,11 +357,12 @@
       text-align: right;
       background: var(--card-bg);
       transition: background 0.3s ease;
+      min-width: 650px;
     }
     th, td {
-      padding: 14px 16px;
+      padding: 12px 14px;
       border-bottom: 1px solid var(--table-border);
-      font-size: 14px;
+      font-size: 13.5px;
     }
     th {
       background: var(--table-th-bg);
@@ -317,11 +373,12 @@
     }
     tr:hover { background: var(--table-hover); }
     .badge {
-      padding: 4px 10px;
-      border-radius: 8px;
-      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11.5px;
       font-weight: 700;
       display: inline-block;
+      white-space: nowrap;
     }
     .badge-active { background: rgba(0, 230, 118, 0.15); color: var(--success); }
     .badge-trial { background: rgba(255, 179, 0, 0.15); color: var(--accent); }
@@ -329,17 +386,18 @@
     .badge-monthly { background: rgba(0, 184, 212, 0.15); color: #00E5FF; }
     .badge-yearly { background: rgba(255, 179, 0, 0.15); color: var(--accent); }
     .btn-sm {
-      padding: 6px 12px;
-      font-size: 12px;
+      padding: 5px 10px;
+      font-size: 11.5px;
       border-radius: 6px;
       cursor: pointer;
       border: none;
       font-weight: 700;
       transition: 0.2s;
+      white-space: nowrap;
     }
-    .btn-block { background: rgba(255, 82, 82, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+    .btn-block { background: rgba(255, 82, 82, 0.15); color: var(--danger); border: 1px solid var(--danger); }
     .btn-block:hover { background: var(--danger); color: white; }
-    .btn-unblock { background: rgba(0, 230, 118, 0.2); color: var(--success); border: 1px solid var(--success); }
+    .btn-unblock { background: rgba(0, 230, 118, 0.15); color: var(--success); border: 1px solid var(--success); }
     .btn-unblock:hover { background: var(--success); color: black; }
 
     .rating-stars { color: var(--accent); letter-spacing: 2px; }
@@ -348,19 +406,63 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 14px;
-      gap: 12px;
+      gap: 10px;
       flex-wrap: wrap;
     }
     .search-input {
-      width: 280px;
-      padding: 8px 14px;
+      width: 260px;
+      padding: 9px 12px;
       font-size: 13px;
     }
     footer {
       text-align: center;
-      margin-top: 40px;
-      font-size: 13px;
+      margin-top: 36px;
+      font-size: 12.5px;
       color: var(--text-muted);
+    }
+
+    /* Mobile First Media Queries */
+    @media (max-width: 768px) {
+      body { padding: 12px 10px; }
+      header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        margin-bottom: 16px;
+        padding-bottom: 14px;
+      }
+      .brand { justify-content: flex-start; }
+      h1 { font-size: 19px; }
+      .header-actions {
+        justify-content: space-between;
+        width: 100%;
+      }
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+      .stat-card {
+        padding: 12px 14px;
+      }
+      .stat-info .num { font-size: 22px; }
+      .stat-icon { width: 38px; height: 38px; font-size: 18px; }
+      .card { padding: 16px; border-radius: 14px; }
+      .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .search-input { width: 100%; }
+      .toolbar-buttons {
+        display: flex;
+        gap: 8px;
+        width: 100%;
+      }
+      .toolbar-buttons .btn {
+        flex: 1;
+        font-size: 12.5px;
+        padding: 8px 10px;
+      }
     }
   </style>
 </head>
@@ -372,17 +474,17 @@
     <div class="brand">
       <div class="brand-icon">💧</div>
       <div>
-        <h1>لوحة تحكم وإدارة تراخيص ومستخدمي مُسَرِّب</h1>
-        <p class="subtitle">تطوير المهندس عمر الحومي — تبع سوفت &copy; 2026</p>
+        <h1>مُسَرِّب • لوحة الإدارة</h1>
+        <p class="subtitle">إدارة التراخيص والمستخدمين والإشعارات السحابية</p>
       </div>
     </div>
-    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-      <button id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleTheme()" title="تبديل الثيم (فاتح / ليلي)">
+    <div class="header-actions">
+      <button id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleTheme()" title="تبديل المظهر">
         <span class="theme-icon" id="themeIcon">☀️</span>
         <span id="themeLabel">الوضع الفاتح</span>
       </button>
       <div class="status-badge" id="firebaseStatus">
-        <div class="status-dot"></div> متصل بقاعدة بيانات فايربيس (mosarib)
+        <div class="status-dot"></div> سحابة فايربيس متصلة
       </div>
     </div>
   </header>
@@ -391,35 +493,35 @@
   <div class="stats-grid">
     <div class="stat-card">
       <div class="stat-info">
-        <h3>إجمالي مستخدمي التطبيق</h3>
+        <h3>المستخدمون</h3>
         <div class="num" id="statTotalUsers">0</div>
       </div>
       <div class="stat-icon">👥</div>
     </div>
     <div class="stat-card">
       <div class="stat-info">
-        <h3>المشتركون المفعّلون</h3>
+        <h3>المشتركون النشطون</h3>
         <div class="num" id="statActiveLicenses">0</div>
       </div>
       <div class="stat-icon" style="color: var(--success)">✅</div>
     </div>
     <div class="stat-card">
       <div class="stat-info">
-        <h3>النسخ التجريبية المجانية</h3>
+        <h3>النسخ التجريبية</h3>
         <div class="num" id="statTrialUsers">0</div>
       </div>
       <div class="stat-icon" style="color: var(--accent)">⏳</div>
     </div>
     <div class="stat-card" style="border: 1px solid rgba(255, 179, 0, 0.4); cursor: pointer;" onclick="switchTab('requests')">
       <div class="stat-info">
-        <h3>طلبات الاشتراك المعلقة</h3>
+        <h3>طلبات معلقة</h3>
         <div class="num" id="statPendingRequests" style="color: var(--accent);">0</div>
       </div>
       <div class="stat-icon" style="color: var(--accent)">🔔</div>
     </div>
     <div class="stat-card">
       <div class="stat-info">
-        <h3>الأجهزة المحظورة / الموقوفة</h3>
+        <h3>المحظورون</h3>
         <div class="num" id="statBlockedUsers">0</div>
       </div>
       <div class="stat-icon" style="color: var(--danger)">⛔</div>
@@ -428,12 +530,12 @@
 
   <!-- Tabs Navigation -->
   <div class="tabs">
-    <button class="tab-btn" id="tabBtnRequests" onclick="switchTab('requests')">🔔 طلبات الاشتراك الواردة <span id="badgeReqCount" class="badge badge-yearly" style="display:none; margin-right:4px;">0</span></button>
-    <button class="tab-btn active" id="tabBtnUsers" onclick="switchTab('users')">👥 جميع مستخدمي التطبيق (جوجل & الأجهزة)</button>
-    <button class="tab-btn" id="tabBtnPush" onclick="switchTab('push')">📲 إرسال إشعار هاتف (FCM Push)</button>
-    <button class="tab-btn" id="tabBtnBroadcast" onclick="switchTab('broadcast')">📢 الإعلانات والتحديث الإجباري</button>
-    <button class="tab-btn" id="tabBtnGenerator" onclick="switchTab('generator')">🔑 توليد الأكواد والتسجيل</button>
-    <button class="tab-btn" id="tabBtnFeedbacks" onclick="switchTab('feedbacks')">💬 صندوق الآراء والملاحظات</button>
+    <button class="tab-btn" id="tabBtnRequests" onclick="switchTab('requests')">🔔 طلبات التفعيل <span id="badgeReqCount" class="badge badge-yearly" style="display:none; margin-right:4px;">0</span></button>
+    <button class="tab-btn active" id="tabBtnUsers" onclick="switchTab('users')">👥 المستخدمون</button>
+    <button class="tab-btn" id="tabBtnPush" onclick="switchTab('push')">📲 إشعارات Push</button>
+    <button class="tab-btn" id="tabBtnBroadcast" onclick="switchTab('broadcast')">📢 الإعلانات والتحديث</button>
+    <button class="tab-btn" id="tabBtnGenerator" onclick="switchTab('generator')">🔑 توليد الرموز</button>
+    <button class="tab-btn" id="tabBtnFeedbacks" onclick="switchTab('feedbacks')">💬 الملاحظات</button>
   </div>
 
   <!-- Tab: Subscription Requests (طلبات الاشتراك الواردة من التطبيق) -->
