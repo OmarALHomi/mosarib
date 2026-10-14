@@ -268,7 +268,8 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         session: WaterSession,
         amountToPay: Double,
         paymentMethod: String = "نقداً",
-        notes: String = ""
+        notes: String = "",
+        discountAmount: Double = 0.0
     ) {
         addVoucher(
             type = VoucherType.RECEIPT,
@@ -277,7 +278,8 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
             category = "سداد سقي",
             paymentMethod = paymentMethod,
             notes = notes,
-            sessionId = session.id
+            sessionId = session.id,
+            discountAmount = discountAmount
         )
     }
 

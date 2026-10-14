@@ -1421,8 +1421,8 @@ fun VouchersScreen(
             customerName = cust?.name ?: "عميل غير محدد",
             currencySymbol = config.currencySymbol,
             onDismiss = { sessionToSettle = null },
-            onConfirmSettle = { amt, method, notes ->
-                viewModel.settleSessionDebt(s, amt, method, notes)
+            onConfirmSettle = { amt, discount, method, notes ->
+                viewModel.settleSessionDebt(s, amt, method, notes, discount)
             }
         )
     }

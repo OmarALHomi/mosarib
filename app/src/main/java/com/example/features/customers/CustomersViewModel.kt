@@ -12,6 +12,7 @@ import com.example.core.ui.ToastType
 import com.example.core.util.ComprehensiveCustomerRow
 import com.example.core.util.ComprehensiveReportTotals
 import com.example.core.util.FileSharingHelper
+import com.example.core.util.Formatters
 import com.example.core.util.PdfReportGenerator
 import com.example.features.sessions.WaterSession
 import com.example.features.sessions.WaterSessionRepository
@@ -903,7 +904,8 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         session: WaterSession,
         amount: Double,
         paymentMethod: String,
-        notes: String
+        notes: String,
+        discountAmount: Double = 0.0
     ) {
         viewModelScope.launch {
             val totalOps = db.waterSessionDao().getSessionsCountDirect() +
@@ -914,28 +916,57 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 return@launch
             }
 
-            val newAmountPaid = (session.amountPaid + amount).coerceAtMost(session.totalAmount)
-            val newDebt = (session.totalAmount - newAmountPaid).coerceAtLeast(0.0)
+            val roundedPayment = Formatters.roundMoney(amount)
+            val roundedDiscount = Formatters.roundMoney(discountAmount)
+            val newAmountPaid = (session.amountPaid + roundedPayment).coerceAtMost(session.totalAmount)
+            val newDiscount = (session.discountAmount + roundedDiscount).coerceAtMost(session.totalAmount)
+            val newDebt = (session.totalAmount - (newAmountPaid + newDiscount)).coerceAtLeast(0.0)
             val updatedSession = session.copy(
                 amountPaid = newAmountPaid,
+                discountAmount = newDiscount,
                 remainingDebt = newDebt
             )
             sessionRepo.updateSession(updatedSession)
 
-            val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(8)}"
-            val voucher = Voucher(
-                voucherNumber = vNumber,
-                type = VoucherType.RECEIPT,
-                customerId = session.billedToCustomerId ?: session.customerId,
-                sessionId = session.id,
-                amount = amount,
-                category = "سداد دورة سقي #${session.id}",
-                paymentMethod = paymentMethod,
-                date = System.currentTimeMillis(),
-                notes = notes.ifBlank { "سداد دورة ماء #${session.id}" }
-            )
-            voucherRepo.insertVoucher(voucher)
-            LicenseManager.recordOperationPerformed(getApplication(), totalOps)
+            val baseTime = System.currentTimeMillis()
+            var opsAdded = 0
+            if (roundedPayment > 0.0) {
+                val vNumber = "REC-${baseTime.toString().takeLast(8)}"
+                val voucher = Voucher(
+                    voucherNumber = vNumber,
+                    type = VoucherType.RECEIPT,
+                    customerId = session.billedToCustomerId ?: session.customerId,
+                    sessionId = session.id,
+                    amount = roundedPayment,
+                    category = "سداد دورة سقي #${session.id}",
+                    paymentMethod = paymentMethod,
+                    date = baseTime,
+                    notes = notes.ifBlank { "سداد دورة ماء #${session.id}" }
+                )
+                voucherRepo.insertVoucher(voucher)
+                opsAdded++
+            }
+
+            if (roundedDiscount > 0.0) {
+                val dNumber = "DSC-${baseTime.toString().takeLast(8)}"
+                val discVoucher = Voucher(
+                    voucherNumber = dNumber,
+                    type = VoucherType.DISCOUNT,
+                    customerId = session.billedToCustomerId ?: session.customerId,
+                    sessionId = session.id,
+                    amount = roundedDiscount,
+                    category = "خصم تسوية",
+                    paymentMethod = "تسوية ومسامحة",
+                    date = baseTime + 1,
+                    notes = "خصم تسوية دورة سقي #${session.id}"
+                )
+                voucherRepo.insertVoucher(discVoucher)
+                opsAdded++
+            }
+
+            if (opsAdded > 0) {
+                LicenseManager.recordOperationPerformed(getApplication(), totalOps)
+            }
             showToast("تم سداد المبلغ وقيد سند القبض وتحديث الرصيد", ToastType.SUCCESS)
         }
     }

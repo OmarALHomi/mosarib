@@ -2092,69 +2092,262 @@ fun SettleSessionDialog(
     customerName: String,
     currencySymbol: String,
     onDismiss: () -> Unit,
-    onConfirmSettle: (amount: Double, paymentMethod: String, notes: String) -> Unit
+    onConfirmSettle: (amount: Double, discount: Double, paymentMethod: String, notes: String) -> Unit
 ) {
     var amountStr by remember { mutableStateOf(Formatters.formatAmountInput(session.remainingDebt.toString())) }
+    var discountStr by remember { mutableStateOf("") }
     var paymentMethod by remember { mutableStateOf("نقداً") }
     var notes by remember { mutableStateOf("سداد دورة سقي #${session.id}") }
+
+    val parsedAmount = Formatters.parseAmountInput(amountStr)
+    val parsedDiscount = Formatters.parseAmountInput(discountStr)
+    val totalSettled = parsedAmount + parsedDiscount
+    val remainingAfter = (session.remainingDebt - totalSettled).coerceAtLeast(0.0)
+    val isAppDarkTheme = isAppDark()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("سداد المبلغ المؤخر", fontWeight = FontWeight.Bold)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(AccentEmerald.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Payments,
+                        contentDescription = null,
+                        tint = AccentEmerald,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column {
+                    Text(
+                        text = "سداد وتسوية السقي",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = "جلسة #${session.id} • العميل: $customerName",
+                        style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray),
+                        maxLines = 1
+                    )
+                }
             }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // بطاقة ملخص الجلسة
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // بطاقة ملخص الحساب
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                    )
                 ) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("العميل: $customerName", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                        Text("إجمالي الجلسة: ${Formatters.formatCurrency(session.totalAmount, currencySymbol)}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                        Text("المسدد سابقاً: ${Formatters.formatCurrency(session.amountPaid, currencySymbol)}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = AccentEmerald)
-                        Text(
-                            "المبلغ المؤخر المتبقي: ${Formatters.formatCurrency(session.remainingDebt, currencySymbol)}",
-                            fontWeight = FontWeight.ExtraBold,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFFE53935)
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "إجمالي قيمة الجلسة:",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                            )
+                            Text(
+                                text = Formatters.formatCurrency(session.totalAmount, currencySymbol),
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+
+                        if (session.amountPaid > 0) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "المسدد سابقاً:",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                                )
+                                Text(
+                                    text = Formatters.formatCurrency(session.amountPaid, currencySymbol),
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = AccentEmerald
+                                    )
+                                )
+                            }
+                        }
+
+                        if (session.discountAmount > 0) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "الخصم المسموح به سابقاً:",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                                )
+                                Text(
+                                    text = Formatters.formatCurrency(session.discountAmount, currencySymbol),
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            thickness = 0.5.dp
                         )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "المبلغ المطلوب حالياً (المؤخر):",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = Formatters.formatCurrency(session.remainingDebt, currencySymbol),
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color(0xFFE53935)
+                                )
+                            )
+                        }
                     }
                 }
 
+                // حقل المبلغ المراد تحصيله / سداده
                 MosaribTextField(
                     value = amountStr,
                     onValueChange = { amountStr = Formatters.formatAmountInput(it) },
-                    label = "المبلغ المراد سداده ($currencySymbol) *",
+                    label = "المبلغ المدفوع / المحصل ($currencySymbol)",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                val parsed = Formatters.parseAmountInput(amountStr)
-                if (parsed > 0) {
+                if (parsedAmount > 0) {
                     Text(
-                        Formatters.amountToArabicWords(parsed, currencySymbol),
-                        style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
+                        text = "فقط: ${Formatters.amountToArabicWords(parsedAmount, currencySymbol)}",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = AccentEmerald,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
                 }
 
-                // طرق الدفع
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("نقداً", "تحويل بنكي", "شبكة").forEach { method ->
-                        MosaribFilterChip(
-                            selected = paymentMethod == method,
-                            onClick = { paymentMethod = method },
-                            label = method
+                // حقل المسموح (الخصم / المسامحة لإغلاق الحساب)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "المسموح / الخصم ($currencySymbol):",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        // زر سريع لإسقاط الباقي في المسموح وتصفير الحساب
+                        val uncollected = (session.remainingDebt - parsedAmount).coerceAtLeast(0.0)
+                        if (uncollected > 0.0) {
+                            Text(
+                                text = "إسقاط الباقي (${Formatters.formatNumber(uncollected)})",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = PrimaryTeal,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(PrimaryTeal.copy(alpha = 0.10f))
+                                    .clickable {
+                                        discountStr = Formatters.formatAmountInput(uncollected.toString())
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+
+                    MosaribTextField(
+                        value = discountStr,
+                        onValueChange = { discountStr = Formatters.formatAmountInput(it) },
+                        label = "المبلغ المسموح به / الخصم للتسوية",
+                        placeholder = "0",
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // شريط معاينة حالة الحساب بعد السداد والمسموح
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (remainingAfter <= 0.0) {
+                        if (isAppDarkTheme) Color(0xFF132A1C) else Color(0xFFE8F5E9)
+                    } else {
+                        if (isAppDarkTheme) Color(0xFF2E1F12) else Color(0xFFFFF3E0)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (remainingAfter <= 0.0) Icons.Default.CheckCircle else Icons.Default.Info,
+                            contentDescription = null,
+                            tint = if (remainingAfter <= 0.0) AccentEmerald else Color(0xFFE65100),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = if (remainingAfter <= 0.0) {
+                                "سيتم تسوية وإغلاق حساب هذه الجلسة بالكامل (المتبقي: 0 $currencySymbol)"
+                            } else {
+                                "المتبقي بذمة العميل بعد السداد: ${Formatters.formatCurrency(remainingAfter, currencySymbol)}"
+                            },
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (remainingAfter <= 0.0) AccentEmerald else Color(0xFFE65100)
+                            )
                         )
                     }
                 }
 
+                // طرق الدفع
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "طريقة الدفع:",
+                        style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("نقداً", "تحويل بنكي", "شبكة").forEach { method ->
+                            MosaribFilterChip(
+                                selected = paymentMethod == method,
+                                onClick = { paymentMethod = method },
+                                label = method
+                            )
+                        }
+                    }
+                }
+
+                // البيان والملاحظات
                 MosaribTextField(
                     value = notes,
                     onValueChange = { notes = it },
@@ -2165,16 +2358,23 @@ fun SettleSessionDialog(
         },
         confirmButton = {
             MosaribButton(
-                text = "تأكيد السداد وإصدار السند",
+                text = "تأكيد السداد",
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
                 onClick = {
-                    val amt = Formatters.parseAmountInput(amountStr)
-                    if (amt > 0) {
-                        onConfirmSettle(amt, paymentMethod, notes)
+                    if (totalSettled > 0.0) {
+                        onConfirmSettle(parsedAmount, parsedDiscount, paymentMethod, notes)
                         onDismiss()
                     }
                 },
-                enabled = Formatters.parseAmountInput(amountStr) > 0,
+                enabled = totalSettled > 0.0,
                 containerColor = AccentEmerald,
+                height = 46.dp,
                 modifier = Modifier.fillMaxWidth()
             )
         },

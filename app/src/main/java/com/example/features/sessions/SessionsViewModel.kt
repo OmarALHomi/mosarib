@@ -329,7 +329,8 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
         session: WaterSession,
         amountToPay: Double,
         paymentMethod: String = "نقداً",
-        notes: String = ""
+        notes: String = "",
+        discountAmount: Double = 0.0
     ) {
         viewModelScope.launch {
             val totalOps = db.waterSessionDao().getSessionsCountDirect() +
@@ -340,30 +341,60 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
             }
 
             val roundedPayment = Formatters.roundMoney(amountToPay)
+            val roundedDiscount = Formatters.roundMoney(discountAmount)
             val newAmountPaid = Formatters.roundMoney(session.amountPaid + roundedPayment)
-            val newRemainingDebt = Formatters.roundMoney(Math.max(0.0, session.totalAmount - newAmountPaid))
+            val newDiscount = Formatters.roundMoney(session.discountAmount + roundedDiscount)
+            val newRemainingDebt = Formatters.roundMoney((session.totalAmount - newAmountPaid - newDiscount).coerceAtLeast(0.0))
             val updated = session.copy(
                 amountPaid = newAmountPaid,
+                discountAmount = newDiscount,
                 remainingDebt = newRemainingDebt
             )
             sessionRepo.updateSession(updated)
 
-            // توليد سند قبض رسمي مرتبط برقم الجلسة
-            val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(4)}"
-            val voucher = Voucher(
-                voucherNumber = vNumber,
-                type = VoucherType.RECEIPT,
-                customerId = session.billedToCustomerId ?: session.customerId,
-                sessionId = session.id,
-                amount = roundedPayment,
-                category = "سداد سقي",
-                paymentMethod = paymentMethod,
-                date = System.currentTimeMillis(),
-                notes = notes.ifBlank { "سداد دورة سقي #${session.id}" }
-            )
-            voucherRepo.insertVoucher(voucher)
-            LicenseManager.recordOperationPerformed(getApplication(), totalOps)
-            showToast("تم سداد المبلغ بنجاح وإصدار سند القبض المرتبط", ToastType.SUCCESS)
+            val baseTime = System.currentTimeMillis()
+            var opsAdded = 0
+
+            // توليد سند قبض رسمي مرتبط برقم الجلسة للمبلغ المدفوع
+            if (roundedPayment > 0.0) {
+                val vNumber = "REC-${baseTime.toString().takeLast(4)}"
+                val voucher = Voucher(
+                    voucherNumber = vNumber,
+                    type = VoucherType.RECEIPT,
+                    customerId = session.billedToCustomerId ?: session.customerId,
+                    sessionId = session.id,
+                    amount = roundedPayment,
+                    category = "سداد سقي",
+                    paymentMethod = paymentMethod,
+                    date = baseTime,
+                    notes = notes.ifBlank { "سداد دورة سقي #${session.id}" }
+                )
+                voucherRepo.insertVoucher(voucher)
+                opsAdded++
+            }
+
+            // توليد سند خصم ومسامحة للتسوية إن وجد
+            if (roundedDiscount > 0.0) {
+                val dNumber = "DSC-${baseTime.toString().takeLast(4)}"
+                val discVoucher = Voucher(
+                    voucherNumber = dNumber,
+                    type = VoucherType.DISCOUNT,
+                    customerId = session.billedToCustomerId ?: session.customerId,
+                    sessionId = session.id,
+                    amount = roundedDiscount,
+                    category = "خصم تسوية",
+                    paymentMethod = "تسوية ومسامحة",
+                    date = baseTime + 1,
+                    notes = "خصم ومسامحة تسوية دورة سقي #${session.id}"
+                )
+                voucherRepo.insertVoucher(discVoucher)
+                opsAdded++
+            }
+
+            if (opsAdded > 0) {
+                LicenseManager.recordOperationPerformed(getApplication(), totalOps)
+            }
+            showToast("تم سداد وتسوية حساب الجلسة بنجاح", ToastType.SUCCESS)
         }
     }
 
