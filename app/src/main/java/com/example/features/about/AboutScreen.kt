@@ -211,8 +211,9 @@ fun AboutScreen(
                                     .background(AccentEmerald.copy(alpha = 0.12f))
                                     .padding(horizontal = 10.dp, vertical = 4.dp)
                             ) {
+                                val freeLimit = com.example.core.license.LicenseManager.getFreeOperationsLimit(context)
                                 Text(
-                                    text = if (isActivated) "نسخة مفعّلة دائمًا" else "نسخة تجريبية (200 عملية)",
+                                    text = if (isActivated) "نسخة مفعّلة دائمًا" else "نسخة تجريبية ($freeLimit عملية)",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = if (isActivated) AccentEmerald else AccentGold,
                                         fontWeight = FontWeight.Bold

@@ -433,7 +433,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 db.voucherDao().getVouchersCountDirect() +
                 db.wellOwnerPurchaseDao().getPurchasesCountDirect()
             if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
-                showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
+                showToast(LicenseManager.getLimitReachedToastMessage(getApplication()), ToastType.ERROR)
                 return@launch
             }
 
@@ -581,7 +581,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             val totalOps = db.waterSessionDao().getSessionsCountDirect() +
                 db.voucherDao().getVouchersCountDirect() + db.wellOwnerPurchaseDao().getPurchasesCountDirect()
             if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
-                showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
+                showToast(LicenseManager.getLimitReachedToastMessage(getApplication()), ToastType.ERROR)
                 return@launch
             }
             val newSessionId = sessionRepo.insertSession(session)
@@ -848,7 +848,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 db.voucherDao().getVouchersCountDirect() +
                 db.wellOwnerPurchaseDao().getPurchasesCountDirect()
             if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
-                showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
+                showToast(LicenseManager.getLimitReachedToastMessage(getApplication()), ToastType.ERROR)
                 return@launch
             }
 
@@ -879,7 +879,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 db.voucherDao().getVouchersCountDirect() +
                 db.wellOwnerPurchaseDao().getPurchasesCountDirect()
             if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
-                showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
+                showToast(LicenseManager.getLimitReachedToastMessage(getApplication()), ToastType.ERROR)
                 return@launch
             }
 
@@ -912,7 +912,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 db.voucherDao().getVouchersCountDirect() +
                 db.wellOwnerPurchaseDao().getPurchasesCountDirect()
             if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
-                showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
+                showToast(LicenseManager.getLimitReachedToastMessage(getApplication()), ToastType.ERROR)
                 return@launch
             }
 

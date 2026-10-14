@@ -69,8 +69,8 @@ object AppSyncEngine {
                 )
             }
 
-            // 2. Check remote license revocation
-            LicenseManager.checkRemoteRevocationInBackground(context)
+            // 2. Check remote license revocation, auto-activation, and extension
+            LicenseManager.syncRemoteSubscriptionStatus(context)
 
             // 3. Fetch broadcasts, announcements, and force-update rules
             val broadcast = AppUpdateManager.checkBroadcastAndUpdates(context)

@@ -125,7 +125,7 @@ class ExampleUnitTest {
 
     @Test
     fun `test LicenseManager free operations limit constant`() {
-        assertEquals(200, com.example.core.license.LicenseManager.FREE_OPERATIONS_LIMIT)
+        assertEquals(50, com.example.core.license.LicenseManager.FREE_OPERATIONS_LIMIT)
     }
 
     @Test

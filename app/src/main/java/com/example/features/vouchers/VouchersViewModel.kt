@@ -298,7 +298,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
             val totalOps = db.waterSessionDao().getSessionsCountDirect() +
                 db.voucherDao().getVouchersCountDirect() + db.wellOwnerPurchaseDao().getPurchasesCountDirect()
             if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
-                showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
+                showToast(LicenseManager.getLimitReachedToastMessage(getApplication()), ToastType.ERROR)
                 return@launch
             }
 
@@ -616,7 +616,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                 db.voucherDao().getVouchersCountDirect() +
                 db.wellOwnerPurchaseDao().getPurchasesCountDirect()
             if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
-                showToast("استنفدت 200 عملية مجانية. يرجى تفعيل النسخة الكاملة للتطبيق", ToastType.ERROR)
+                showToast(LicenseManager.getLimitReachedToastMessage(getApplication()), ToastType.ERROR)
                 return@launch
             }
 

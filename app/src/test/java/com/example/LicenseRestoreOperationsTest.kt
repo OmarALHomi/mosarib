@@ -28,13 +28,13 @@ class LicenseRestoreOperationsTest {
 
     @Test
     fun testRestoreWithOperationsBelowLimitAllowsContinuation() {
-        val restoredOps = 60
+        val restoredOps = 20
         val limitExceeded = LicenseManager.syncOperationsAfterRestore(context, restoredOps)
 
-        assertFalse("Restoring 60 ops should NOT exceed limit", limitExceeded)
+        assertFalse("Restoring 20 ops should NOT exceed limit", limitExceeded)
         assertTrue("User should be allowed to perform operations", LicenseManager.canPerformOperation(context, restoredOps))
         assertEquals(
-            "Remaining operations should be 140",
+            "Remaining operations should be 30",
             LicenseManager.FREE_OPERATIONS_LIMIT - restoredOps,
             LicenseManager.getRemainingOperations(context, restoredOps)
         )

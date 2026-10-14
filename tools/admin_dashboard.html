@@ -723,8 +723,8 @@
         
         <div class="form-group">
           <label for="policyFreeLimit">الحد الأقصى للعمليات المجانية لجميع النسخ غير المشتركة:</label>
-          <input type="number" id="policyFreeLimit" value="200" min="5" max="10000">
-          <small style="color: var(--text-muted); font-size: 11px;">العدد الذي إذا وصل إليه المستخدم غير المشترك، يُقفل عليه التطبيق ويطالبه بالاشتراك (افتراضياً 200).</small>
+          <input type="number" id="policyFreeLimit" value="50" min="5" max="10000">
+          <small style="color: var(--text-muted); font-size: 11px;">العدد الذي إذا وصل إليه المستخدم غير المشترك، يُقفل عليه التطبيق ويطالبه بالاشتراك (افتراضياً 50).</small>
         </div>
 
         <div class="policy-item">
@@ -1071,7 +1071,7 @@
 
   let allOverrides = {};
   let appConfig = {
-    freeOperationsLimit: 200,
+    freeOperationsLimit: 50,
     isBackupAllowedForTrial: true,
     isCloudBackupAllowed: true,
     isExcelExportAllowedForTrial: true,
@@ -1203,7 +1203,7 @@
   }
 
   async function saveAppPolicies() {
-    const freeLimit = parseInt(document.getElementById("policyFreeLimit").value) || 200;
+    const freeLimit = parseInt(document.getElementById("policyFreeLimit").value) || 50;
     const backupAllowed = document.getElementById("policyBackupAllowed").checked;
     const driveBackupAllowed = document.getElementById("policyDriveBackupAllowed").checked;
     const excelExportAllowed = document.getElementById("policyExcelExportAllowed").checked;
@@ -1235,7 +1235,7 @@
 
   function renderAppPolicies() {
     if (document.getElementById("policyFreeLimit")) {
-      document.getElementById("policyFreeLimit").value = appConfig.freeOperationsLimit || 200;
+      document.getElementById("policyFreeLimit").value = appConfig.freeOperationsLimit || 50;
       document.getElementById("policyBackupAllowed").checked = appConfig.isBackupAllowedForTrial !== false;
       document.getElementById("policyDriveBackupAllowed").checked = appConfig.isCloudBackupAllowed !== false;
       document.getElementById("policyExcelExportAllowed").checked = appConfig.isExcelExportAllowedForTrial !== false;
@@ -1243,7 +1243,7 @@
 
       const updatedStr = appConfig.updatedAt ? new Date(appConfig.updatedAt).toLocaleString('ar-EG') : 'القيم الافتراضية';
       document.getElementById("policyCloudStatus").innerHTML = `
-        حد العمليات: <b>${appConfig.freeOperationsLimit || 200}</b> • النسخ المجاني: <b>${appConfig.isBackupAllowedForTrial !== false ? 'متاح ✅' : 'معطل ❌'}</b><br>
+        حد العمليات: <b>${appConfig.freeOperationsLimit || 50}</b> • النسخ المجاني: <b>${appConfig.isBackupAllowedForTrial !== false ? 'متاح ✅' : 'معطل ❌'}</b><br>
         <small style="color:var(--text-muted);">آخر تحديث للسياسات: ${updatedStr}</small>
       `;
     }
@@ -1427,7 +1427,7 @@
       return;
     }
 
-    const globalLimit = appConfig.freeOperationsLimit || 200;
+    const globalLimit = appConfig.freeOperationsLimit || 50;
 
     // Counters for pill filters
     let countActive = 0, countTrial = 0, countLocked = 0, countBackupLocked = 0, countBlocked = 0;

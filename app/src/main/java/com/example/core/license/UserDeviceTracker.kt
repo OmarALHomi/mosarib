@@ -108,6 +108,10 @@ object UserDeviceTracker {
             var isBlocked = false
             var blockReason = "تم حظر هذا الجهاز أو الحساب من قبل الإدارة"
 
+            var remoteOpsCount = 0
+            var remoteCumulativeOps = 0
+            var remoteTrialConsumed = false
+
             if (conn.responseCode == 200) {
                 val reader = BufferedReader(InputStreamReader(conn.inputStream))
                 val responseText = reader.readText().trim()
@@ -119,6 +123,9 @@ object UserDeviceTracker {
                         isBlocked = true
                         blockReason = existing.optString("blockReason", blockReason)
                     }
+                    remoteOpsCount = existing.optInt("operationsCount", 0)
+                    remoteCumulativeOps = existing.optInt("cumulativeOpsCount", 0)
+                    remoteTrialConsumed = existing.optBoolean("trialConsumed", false)
                 }
             }
 
@@ -154,10 +161,24 @@ object UserDeviceTracker {
                 return@withContext DeviceStatusResult(isBlocked = true, blockReason = blockReason)
             }
 
+            // Anti-cheat: restore consumed operations count from server if user cleared app data or reinstalled
+            val effectiveLimit = LicenseManager.getFreeOperationsLimit(context)
+            val effectiveRemoteOps = maxOf(remoteOpsCount, remoteCumulativeOps)
+            if (remoteTrialConsumed || effectiveRemoteOps >= effectiveLimit) {
+                LicenseManager.markTrialAsConsumed(context)
+            }
+            if (effectiveRemoteOps > 0) {
+                LicenseManager.syncCumulativeOperations(context, effectiveRemoteOps)
+            }
+
             val regName = getRegisteredName(context).ifBlank {
                 LicenseManager.getActivationRecord(context)?.subscriberName ?: displayName
             }
             val regPhone = getRegisteredPhone(context)
+
+            val highestOps = maxOf(operationsCount, remoteOpsCount)
+            val cumulativeOps = maxOf(LicenseManager.getCumulativeOperations(context), effectiveRemoteOps, highestOps)
+            val isTrialConsumed = LicenseManager.isTrialConsumed(context)
 
             // 2. Upload / update user data
             val payload = JSONObject().apply {
@@ -171,7 +192,9 @@ object UserDeviceTracker {
                 put("phone", regPhone)
                 put("isActivated", isActivated)
                 put("plan", activePlan)
-                put("operationsCount", operationsCount)
+                put("operationsCount", highestOps)
+                put("cumulativeOpsCount", cumulativeOps)
+                put("trialConsumed", isTrialConsumed)
                 put("isBlocked", false)
                 put("lastActiveAt", now)
             }

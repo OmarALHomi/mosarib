@@ -161,18 +161,23 @@ object FirebaseLicenseService {
         }
     }
 
-    /**
-     * Periodic background check for license revocation.
-     * If the developer revoked the license from the admin dashboard, returns true.
-     */
-    suspend fun isDeviceRevokedOnline(deviceCode: String, keyUsed: String?): Boolean = withContext(Dispatchers.IO) {
+    data class DeviceRemoteLicense(
+        val isFound: Boolean,
+        val isRevoked: Boolean,
+        val expiresAt: Long = 0L,
+        val plan: String = "MONTHLY",
+        val subscriberName: String = "",
+        val key: String = ""
+    )
+
+    suspend fun getDeviceRemoteLicense(deviceCode: String): DeviceRemoteLicense = withContext(Dispatchers.IO) {
         try {
-            // First check by device code
             val deviceUrl = URL("$FIREBASE_DB_URL/devices/$deviceCode.json")
             val conn = (deviceUrl.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
-                connectTimeout = 5000
-                readTimeout = 5000
+                connectTimeout = 6000
+                readTimeout = 6000
+                setRequestProperty("Accept", "application/json")
             }
             if (conn.responseCode == 200) {
                 val reader = BufferedReader(InputStreamReader(conn.inputStream))
@@ -180,8 +185,31 @@ object FirebaseLicenseService {
                 reader.close()
                 if (res != "null" && res.isNotBlank()) {
                     val obj = JSONObject(res)
-                    if (obj.optBoolean("isRevoked", false)) return@withContext true
+                    return@withContext DeviceRemoteLicense(
+                        isFound = true,
+                        isRevoked = obj.optBoolean("isRevoked", false),
+                        expiresAt = obj.optLong("expiresAt", 0L),
+                        plan = obj.optString("plan", "MONTHLY"),
+                        subscriberName = obj.optString("subscriberName", "المشترك"),
+                        key = obj.optString("key", obj.optString("displayKey", ""))
+                    )
                 }
+            }
+            DeviceRemoteLicense(isFound = false, isRevoked = false)
+        } catch (e: Exception) {
+            DeviceRemoteLicense(isFound = false, isRevoked = false)
+        }
+    }
+
+    /**
+     * Periodic background check for license revocation.
+     * If the developer revoked the license from the admin dashboard, returns true.
+     */
+    suspend fun isDeviceRevokedOnline(deviceCode: String, keyUsed: String?): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val remoteLicense = getDeviceRemoteLicense(deviceCode)
+            if (remoteLicense.isFound && remoteLicense.isRevoked) {
+                return@withContext true
             }
 
             // Also check by key if provided

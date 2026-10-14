@@ -20,7 +20,7 @@ import java.util.Locale
  */
 object LicenseManager {
 
-    const val FREE_OPERATIONS_LIMIT = 200
+    const val FREE_OPERATIONS_LIMIT = 50
     const val DEVELOPER_PHONE = "967773712030"
     const val DEVELOPER_NAME = "المهندس عمر الحومي"
     const val DEVELOPER_EMAIL = "mralhwmy@gmail.com"
@@ -267,21 +267,54 @@ object LicenseManager {
     }
 
     /**
-     * Asynchronously triggers background license sync with Firebase to check for remote revocation.
+     * Synchronizes subscription status with Firebase:
+     * - Checks for remote revocation.
+     * - Auto-activates or extends subscription if approved / renewed remotely via the admin dashboard.
      */
-    fun checkRemoteRevocationInBackground(context: Context) {
+    suspend fun syncRemoteSubscriptionStatus(context: Context) {
         if (!isInternetAvailable(context)) return
-        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
-        if (!sp.getBoolean(KEY_IS_ACTIVATED, false)) return
-
         val deviceCode = getDeviceCode(context)
-        val keyUsed = sp.getString(KEY_ACTIVATION_KEY_USED, null)
+        val license = FirebaseLicenseService.getDeviceRemoteLicense(deviceCode)
+        if (!license.isFound) return
 
-        CoroutineScope(Dispatchers.IO).launch {
-            val isRevoked = FirebaseLicenseService.isDeviceRevokedOnline(deviceCode, keyUsed)
-            if (isRevoked) {
-                revokeLicenseLocally(context)
+        if (license.isRevoked) {
+            revokeLicenseLocally(context)
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        if (license.expiresAt > now) {
+            val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+            val currentExpiresAt = sp.getLong(KEY_EXPIRES_AT, 0L)
+            val isLocallyActive = isActivated(context)
+
+            // If not active locally, or admin extended the subscription expiration
+            if (!isLocallyActive || license.expiresAt > currentExpiresAt) {
+                val plan = runCatching { SubscriptionPlan.valueOf(license.plan) }.getOrDefault(SubscriptionPlan.MONTHLY)
+                val signature = sha256(deviceCode + SECRET_ACTIVATION_SALT + plan.name + license.expiresAt)
+                val deviceModel = getDeviceModelName()
+                val androidVersion = getAndroidVersionName()
+
+                sp.edit()
+                    .putBoolean(KEY_IS_ACTIVATED, true)
+                    .putBoolean(KEY_IS_REVOKED_LOCALLY, false)
+                    .putString(KEY_SUBSCRIPTION_PLAN, plan.name)
+                    .putLong(KEY_EXPIRES_AT, license.expiresAt)
+                    .putString(KEY_ACTIVATION_SIGNATURE, signature)
+                    .putLong(KEY_ACTIVATED_AT, now)
+                    .putLong(KEY_LAST_KNOWN_TIMESTAMP, now)
+                    .putString(KEY_SUBSCRIBER_NAME, license.subscriberName.ifBlank { "المشترك" })
+                    .putString(KEY_DEVICE_MODEL, deviceModel)
+                    .putString(KEY_ANDROID_VERSION, androidVersion)
+                    .putString(KEY_ACTIVATION_KEY_USED, license.key)
+                    .apply()
             }
+        }
+    }
+
+    fun checkRemoteRevocationInBackground(context: Context) {
+        CoroutineScope(Dispatchers.IO).launch {
+            syncRemoteSubscriptionStatus(context)
         }
     }
 
@@ -464,6 +497,23 @@ object LicenseManager {
         }
     }
 
+    fun getCumulativeOperations(context: Context): Int {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        return sp.getInt(KEY_CUMULATIVE_OPS, 0)
+    }
+
+    fun syncCumulativeOperations(context: Context, serverCount: Int) {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        val current = sp.getInt(KEY_CUMULATIVE_OPS, 0)
+        if (serverCount > current) {
+            sp.edit().putInt(KEY_CUMULATIVE_OPS, serverCount).apply()
+            val effectiveLimit = getFreeOperationsLimit(context)
+            if (serverCount >= effectiveLimit) {
+                markTrialAsConsumed(context)
+            }
+        }
+    }
+
     /**
      * Synchronizes license usage and trial limits after restoring a backup.
      * @return true if the restored operations count reaches or exceeds the dynamic free operations limit,
@@ -518,6 +568,11 @@ object LicenseManager {
             return false
         }
         return true
+    }
+
+    fun getLimitReachedToastMessage(context: Context): String {
+        val limit = getFreeOperationsLimit(context)
+        return "استنفدت العمليات التجريبية المجانية ($limit عملية). يرجى تفعيل النسخة الكاملة للتطبيق"
     }
 
     fun getRemainingOperations(context: Context, currentOperationsCount: Int): Int {

@@ -578,6 +578,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     val isBackupAllowed = remember { com.example.core.license.RemoteConfigManager.isBackupAllowed(context) }
+                    val isCloudBackupAllowed = remember { com.example.core.license.RemoteConfigManager.isCloudBackupAllowed(context) }
 
                     if (!isBackupAllowed) {
                         androidx.compose.material3.Surface(
@@ -880,6 +881,30 @@ fun SettingsScreen(
                         }
                     } else {
                         // ─── محتوى سحابة Google Drive ───
+                        if (!isCloudBackupAllowed) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isDark) Color(0xFF3B1E1E) else Color(0xFFFEF2F2),
+                                border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFEF4444), modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "تم تعطيل ميزة النسخ السحابي عبر Drive من قِبل إدارة التطبيق.",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isDark) Color(0xFFFCA5A5) else Color(0xFF991B1B)
+                                        )
+                                    )
+                                }
+                            }
+                        }
+
                         val acc = googleAccount
                         if (acc == null) {
                             Box(
@@ -909,6 +934,7 @@ fun SettingsScreen(
                                             pendingAutoBackupAfterSignIn = false
                                             showGoogleBackupAccountDialog = true
                                         },
+                                        enabled = isCloudBackupAllowed,
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
                                         shape = RoundedCornerShape(8.dp),
                                         modifier = Modifier.fillMaxWidth(),
@@ -990,7 +1016,7 @@ fun SettingsScreen(
                                                 pendingAutoBackupAfterSignIn = true
                                                 showGoogleBackupAccountDialog = true
                                             },
-                                            enabled = !isDriveLoading,
+                                            enabled = !isDriveLoading && isCloudBackupAllowed,
                                             modifier = Modifier.weight(1f),
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
                                             shape = RoundedCornerShape(8.dp),
@@ -1153,8 +1179,9 @@ fun SettingsScreen(
                                     text = "الترخيص والتفعيل",
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                 )
+                                val headerLimit = LicenseManager.getFreeOperationsLimit(context)
                                 Text(
-                                    text = if (isActivated) "نسخة مفعلة بصفة دائمة" else "النسخة التجريبية (200 عملية)",
+                                    text = if (isActivated) "نسخة مفعلة بصفة دائمة" else "النسخة التجريبية ($headerLimit عملية)",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = if (isActivated) AccentEmerald else AccentGold,
                                         fontWeight = FontWeight.Bold
@@ -1259,7 +1286,7 @@ fun SettingsScreen(
                                 text = if (remaining > 0)
                                     "متبقي لديك $remaining عملية مجانية قبل الحاجة للتفعيل."
                                 else
-                                    "لقد استنفدت العمليات المجانية بالكامل (200/200). يرجى التفعيل للمتابعة.",
+                                    "لقد استنفدت العمليات المجانية بالكامل ($freeLimit/$freeLimit). يرجى التفعيل للمتابعة.",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = if (remaining == 0) Color(0xFFE53935) else Color(0xFF64748B),
                                     fontWeight = if (remaining == 0) FontWeight.Bold else FontWeight.Normal
