@@ -264,6 +264,22 @@ fun MainApp(
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text("تصدير PDF", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                         }
+                                    } else if (currentTab == AppTab.VOUCHERS) {
+                                        androidx.compose.material3.Button(
+                                            onClick = { vouchersViewModel.exportOperationsLogPdf(context) },
+                                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = AccentGold),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.PictureAsPdf,
+                                                contentDescription = null,
+                                                tint = Color.Black,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("طباعة السجل", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        }
                                     }
 
                                     // زر الفيدباك والآراء السريع

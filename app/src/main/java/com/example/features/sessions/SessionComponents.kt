@@ -315,12 +315,14 @@ fun SessionCardItem(
                         // المبلغ المتبقي
                         if (session.remainingDebt > 0) {
                             Text(
-                                text = "المتبقي: ${Formatters.formatCurrency(session.remainingDebt, currencySymbol)}",
+                                text = "متبقي: ${Formatters.formatCurrency(session.remainingDebt, currencySymbol)}",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Color(0xFFE53935),
-                                    fontSize = 13.sp
-                                )
+                                    fontSize = 11.5.sp
+                                ),
+                                maxLines = 1,
+                                softWrap = false
                             )
                         } else {
                             Box(
@@ -354,19 +356,19 @@ fun SessionCardItem(
                         // زر سداد وسهم التوسيع
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             if (session.remainingDebt > 0 && onSettleClick != null) {
                                 Button(
                                     onClick = onSettleClick,
                                     colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
                                     shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                                    modifier = Modifier.height(28.dp)
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(26.dp)
                                 ) {
-                                    Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(13.dp))
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text("سداد", fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
+                                    Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(12.dp))
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text("سداد", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                                 }
                             }
 

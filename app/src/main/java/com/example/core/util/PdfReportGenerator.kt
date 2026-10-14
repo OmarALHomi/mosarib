@@ -11,6 +11,7 @@ import androidx.core.content.FileProvider
 import com.example.features.customers.Customer
 import com.example.features.sessions.WaterSession
 import com.example.features.settings.AppConfig
+import com.example.features.vouchers.UnifiedOperation
 import com.example.features.vouchers.Voucher
 import com.example.features.vouchers.VoucherType
 import com.example.features.wellowners.WellOwnerPurchase
@@ -808,12 +809,12 @@ object PdfReportGenerator {
             paint.textSize = 9.5f
             paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             paint.textAlign = Paint.Align.RIGHT
-            canvas.drawText("العميل", pageWidth - 30f, curY + 16f, paint)
-            canvas.drawText("المزرعة / الهاتف", pageWidth - 145f, curY + 16f, paint)
-            canvas.drawText("السقي / صافي المدة", pageWidth - 265f, curY + 16f, paint)
-            canvas.drawText("المبلغ المطلوب", pageWidth - 375f, curY + 16f, paint)
-            canvas.drawText("المدفوع", pageWidth - 455f, curY + 16f, paint)
-            canvas.drawText("المتبقي بذمته", 30f, curY + 16f, paint)
+            canvas.drawText("العميل", 565f, curY + 16f, paint)
+            canvas.drawText("المزرعة / الهاتف", 435f, curY + 16f, paint)
+            canvas.drawText("السقي / صافي المدة", 335f, curY + 16f, paint)
+            canvas.drawText("المبلغ المطلوب", 250f, curY + 16f, paint)
+            canvas.drawText("المدفوع", 175f, curY + 16f, paint)
+            canvas.drawText("المتبقي بذمته", 95f, curY + 16f, paint)
 
             curY += 26f
             paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
@@ -923,16 +924,16 @@ object PdfReportGenerator {
                 paint.textAlign = Paint.Align.RIGHT
 
                 paint.color = darkTextColor
-                canvas.drawText(truncate(row.customerName, 20), pageWidth - 30f, curY + 15f, paint)
-                canvas.drawText(truncate(row.farmName.ifEmpty { row.phone.ifEmpty { "-" } }, 16), pageWidth - 150f, curY + 15f, paint)
-                canvas.drawText("${row.sessionsCount} (${row.waterMinutes} د)", pageWidth - 265f, curY + 15f, paint)
-                canvas.drawText(Formatters.formatNumber(row.billed), pageWidth - 375f, curY + 15f, paint)
+                canvas.drawText(truncate(row.customerName, 22), 565f, curY + 15f, paint)
+                canvas.drawText(truncate(row.farmName.ifEmpty { row.phone.ifEmpty { "-" } }, 18), 435f, curY + 15f, paint)
+                canvas.drawText("${row.sessionsCount} (${row.waterMinutes} د)", 335f, curY + 15f, paint)
+                canvas.drawText(Formatters.formatNumber(row.billed), 250f, curY + 15f, paint)
 
                 paint.color = paidGreen
-                canvas.drawText(Formatters.formatNumber(row.paid), pageWidth - 455f, curY + 15f, paint)
+                canvas.drawText(Formatters.formatNumber(row.paid), 175f, curY + 15f, paint)
 
                 paint.color = if (row.balance > 0.0) debtRed else paidGreen
-                canvas.drawText(Formatters.formatNumber(row.balance), 30f, curY + 15f, paint)
+                canvas.drawText(Formatters.formatNumber(row.balance), 95f, curY + 15f, paint)
 
                 curY += rowHeight
             }
@@ -950,14 +951,14 @@ object PdfReportGenerator {
             paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             paint.textSize = 10f
             paint.textAlign = Paint.Align.RIGHT
-            canvas.drawText("الإجمالي العام", pageWidth - 30f, curY + 16f, paint)
-            canvas.drawText(Formatters.formatNumber(totals.totalRevenue), pageWidth - 375f, curY + 16f, paint)
+            canvas.drawText("الإجمالي العام", 565f, curY + 16f, paint)
+            canvas.drawText(Formatters.formatNumber(totals.totalRevenue), 250f, curY + 16f, paint)
 
             paint.color = paidGreen
-            canvas.drawText(Formatters.formatNumber(totals.totalCollected), pageWidth - 455f, curY + 16f, paint)
+            canvas.drawText(Formatters.formatNumber(totals.totalCollected), 175f, curY + 16f, paint)
 
             paint.color = if (totals.totalOutstandingDebt > 0.0) debtRed else paidGreen
-            canvas.drawText(Formatters.formatNumber(totals.totalOutstandingDebt), 30f, curY + 16f, paint)
+            canvas.drawText(Formatters.formatNumber(totals.totalOutstandingDebt), 95f, curY + 16f, paint)
 
             paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
             curY += rowHeight + 3f
@@ -980,12 +981,12 @@ object PdfReportGenerator {
                 paint.textSize = 8.3f
                 paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 paint.textAlign = Paint.Align.RIGHT
-                canvas.drawText("صاحب البئر", pageWidth - 30f, curY + 16f, paint)
-                canvas.drawText("شراء: مسجل / محتسب / هدر", 420f, curY + 16f, paint)
-                canvas.drawText("صافي الشراء", 300f, curY + 16f, paint)
-                canvas.drawText("المسدد له", 220f, curY + 16f, paint)
-                canvas.drawText("متبقي له علينا", 120f, curY + 16f, paint)
-                canvas.drawText("دين السقي عليه", 35f, curY + 16f, paint)
+                canvas.drawText("صاحب البئر", 565f, curY + 16f, paint)
+                canvas.drawText("شراء: مسجل / محتسب / هدر", 435f, curY + 16f, paint)
+                canvas.drawText("صافي الشراء", 305f, curY + 16f, paint)
+                canvas.drawText("المسدد له", 230f, curY + 16f, paint)
+                canvas.drawText("متبقي له علينا", 160f, curY + 16f, paint)
+                canvas.drawText("دين السقي عليه", 90f, curY + 16f, paint)
                 curY += 25f
             }
 
@@ -1013,22 +1014,22 @@ object PdfReportGenerator {
                 paint.textAlign = Paint.Align.RIGHT
                 paint.textSize = 8.2f
                 paint.color = darkTextColor
-                canvas.drawText(truncate(row.customerName, 16), pageWidth - 30f, curY + 14f, paint)
+                canvas.drawText(truncate(row.customerName, 18), 565f, curY + 14f, paint)
                 val hoursText = "${Formatters.formatDurationShort(row.purchasedMinutes)} / ${Formatters.formatDurationShort(row.chargeablePurchasedMinutes)} / ${Formatters.formatDurationShort(row.ownerWasteMinutes)}"
-                canvas.drawText(truncate(hoursText, 25), 420f, curY + 14f, paint)
-                canvas.drawText(Formatters.formatNumber(row.purchaseAmount), 300f, curY + 14f, paint)
+                canvas.drawText(truncate(hoursText, 25), 435f, curY + 14f, paint)
+                canvas.drawText(Formatters.formatNumber(row.purchaseAmount), 305f, curY + 14f, paint)
                 paint.color = paidGreen
-                canvas.drawText(Formatters.formatNumber(row.ownerPayments), 220f, curY + 14f, paint)
+                canvas.drawText(Formatters.formatNumber(row.ownerPayments), 230f, curY + 14f, paint)
                 paint.color = if (row.payableBalance > 0) debtRed else paidGreen
-                canvas.drawText(Formatters.formatNumber(row.payableBalance), 120f, curY + 14f, paint)
+                canvas.drawText(Formatters.formatNumber(row.payableBalance), 160f, curY + 14f, paint)
                 paint.color = if (row.receivableBalance > 0) debtRed else paidGreen
-                canvas.drawText(Formatters.formatNumber(row.receivableBalance), 35f, curY + 14f, paint)
+                canvas.drawText(Formatters.formatNumber(row.receivableBalance), 90f, curY + 14f, paint)
 
                 paint.color = darkTextColor
                 paint.textSize = 8f
                 paint.textAlign = Paint.Align.RIGHT
                 val detail = "هدر صاحب البئر: ${Formatters.formatDurationShort(row.ownerWasteMinutes)} / خصمه ${Formatters.formatNumber(row.ownerWasteCredit)}  •  سقي له بعد هدر المسرب: ${Formatters.formatDurationShort(row.waterMinutes)} / بيع ${Formatters.formatNumber(row.billed)} / تحصيل ${Formatters.formatNumber(row.paid)}"
-                canvas.drawText(truncate(detail, 100), pageWidth - 30f, curY + 32f, paint)
+                canvas.drawText(truncate(detail, 100), 565f, curY + 32f, paint)
                 curY += ownerRowHeight
             }
         }
@@ -1060,6 +1061,524 @@ object PdfReportGenerator {
 
         return file
     }
+
+    /**
+     * كشف دليل وسجل العملاء وأرصدتهم (طباعة مخصصة لشاشة العملاء بدون تعقيدات أو حواشي مشوهة)
+     */
+    fun generateCustomerDirectoryPdf(
+        context: Context,
+        config: AppConfig,
+        customerRows: List<ComprehensiveCustomerRow>
+    ): File {
+        val document = PdfDocument()
+        val pageWidth = 595
+        val pageHeight = 842
+
+        val fontBold = PdfThemeHelper.getCairoBold(context)
+        val fontRegular = PdfThemeHelper.getCairoRegular(context)
+
+        val primaryColor = PdfThemeHelper.COLOR_PRIMARY
+        val darkTextColor = PdfThemeHelper.COLOR_DARK_TEXT
+        val lightGray = PdfThemeHelper.COLOR_CARD_BG
+        val dividerGray = PdfThemeHelper.COLOR_BORDER
+        val debtRed = PdfThemeHelper.COLOR_DANGER
+        val paidGreen = PdfThemeHelper.COLOR_SUCCESS
+        val goldAccent = PdfThemeHelper.COLOR_GOLD
+
+        val paint = Paint().apply { isAntiAlias = true }
+
+        var pageNumber = 1
+        var page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+        var canvas: Canvas = page.canvas
+
+        fun drawHeader() {
+            paint.color = primaryColor
+            canvas.drawRect(0f, 0f, pageWidth.toFloat(), 88f, paint)
+
+            paint.color = goldAccent
+            canvas.drawRect(0f, 85f, pageWidth.toFloat(), 88f, paint)
+
+            paint.color = Color.WHITE
+            paint.textSize = 18f
+            paint.typeface = fontBold
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("كشف وحسابات دليل العملاء", pageWidth / 2f, 38f, paint)
+
+            paint.textSize = 11f
+            paint.typeface = fontRegular
+            val subtitle = "${config.distributorName}  |  هاتف: ${config.distributorPhone.ifEmpty { "غير محدد" }}"
+            canvas.drawText(subtitle, pageWidth / 2f, 62f, paint)
+        }
+
+        val rowHeight = 22f
+        var curY = 225f
+
+        fun drawTableHeader() {
+            paint.color = primaryColor
+            canvas.drawRoundRect(RectF(20f, curY, pageWidth - 20f, curY + 24f), 4f, 4f, paint)
+
+            paint.color = Color.WHITE
+            paint.textSize = 9.5f
+            paint.typeface = fontBold
+            paint.textAlign = Paint.Align.RIGHT
+            canvas.drawText("م", 565f, curY + 16f, paint)
+            canvas.drawText("اسم العميل / المشترك", 540f, curY + 16f, paint)
+            canvas.drawText("المزرعة / الهاتف", 390f, curY + 16f, paint)
+            canvas.drawText("الجلسات", 295f, curY + 16f, paint)
+            canvas.drawText("المطلوب", 245f, curY + 16f, paint)
+            canvas.drawText("المسدد", 170f, curY + 16f, paint)
+            canvas.drawText("الرصيد المتبقي", 95f, curY + 16f, paint)
+
+            curY += 26f
+            paint.typeface = fontRegular
+        }
+
+        fun finishCurrentPage() {
+            drawDocumentFooter(canvas, pageWidth, pageHeight, pageNumber, fontRegular)
+            document.finishPage(page)
+        }
+
+        fun startNewPage() {
+            pageNumber++
+            page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+            canvas = page.canvas
+            drawHeader()
+            curY = 110f
+            drawTableHeader()
+        }
+
+        drawHeader()
+
+        // Metadata Bar
+        paint.color = darkTextColor
+        paint.textSize = 10f
+        paint.typeface = fontRegular
+        paint.textAlign = Paint.Align.RIGHT
+        canvas.drawText("تاريخ الكشف: ${Formatters.formatDate(System.currentTimeMillis())}", pageWidth - 25f, 110f, paint)
+
+        paint.textAlign = Paint.Align.LEFT
+        canvas.drawText("العملة: ${config.currencySymbol}", 25f, 110f, paint)
+
+        // Summary KPI Strip (4 cards)
+        val cardSpacing = 8f
+        val cardWidth4 = (pageWidth - 50f - (3 * cardSpacing)) / 4f
+        val cardH = 46f
+
+        val totalBilled = customerRows.sumOf { it.billed }
+        val totalPaid = customerRows.sumOf { it.paid }
+        val totalDebts = customerRows.sumOf { it.balance.coerceAtLeast(0.0) }
+
+        var startX = 25f
+        drawSummaryBox(canvas, startX, 126f, cardWidth4, cardH, "إجمالي العملاء", "${customerRows.size} عميل", primaryColor, fontBold, fontRegular)
+        startX += cardWidth4 + cardSpacing
+        drawSummaryBox(canvas, startX, 126f, cardWidth4, cardH, "إجمالي السقي", Formatters.formatCurrency(totalBilled, config.currencySymbol), darkTextColor, fontBold, fontRegular)
+        startX += cardWidth4 + cardSpacing
+        drawSummaryBox(canvas, startX, 126f, cardWidth4, cardH, "المسدد الفعلي", Formatters.formatCurrency(totalPaid, config.currencySymbol), paidGreen, fontBold, fontRegular)
+        startX += cardWidth4 + cardSpacing
+        drawSummaryBox(canvas, startX, 126f, cardWidth4, cardH, "صافي الديون المطلوبة", Formatters.formatCurrency(totalDebts, config.currencySymbol), debtRed, fontBold, fontRegular)
+
+        curY = 195f
+        paint.color = darkTextColor
+        paint.textSize = 11f
+        paint.typeface = fontBold
+        paint.textAlign = Paint.Align.RIGHT
+        canvas.drawText("جدول تفصيلي بأرصدة وحسابات العملاء:", pageWidth - 25f, curY - 6f, paint)
+
+        drawTableHeader()
+
+        if (customerRows.isEmpty()) {
+            paint.color = PdfThemeHelper.COLOR_MUTED_TEXT
+            paint.textSize = 11f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("لا يوجد عملاء مسجلون حتى الآن", pageWidth / 2f, curY + 24f, paint)
+            curY += 44f
+        } else {
+            customerRows.forEachIndexed { index, row ->
+                if (curY + rowHeight > pageHeight - 90f) {
+                    finishCurrentPage()
+                    startNewPage()
+                }
+
+                paint.color = if (index % 2 == 0) Color.WHITE else lightGray
+                canvas.drawRect(20f, curY, pageWidth - 20f, curY + rowHeight, paint)
+
+                paint.color = dividerGray
+                paint.strokeWidth = 0.5f
+                canvas.drawLine(20f, curY + rowHeight, pageWidth - 20f, curY + rowHeight, paint)
+
+                paint.textSize = 9f
+                paint.textAlign = Paint.Align.RIGHT
+
+                paint.color = darkTextColor
+                paint.typeface = fontRegular
+                canvas.drawText("${index + 1}", 565f, curY + 15f, paint)
+                canvas.drawText(truncate(row.customerName, 26), 540f, curY + 15f, paint)
+                val farmOrPhone = row.farmName.ifEmpty { row.phone.ifEmpty { "-" } }
+                canvas.drawText(truncate(farmOrPhone, 20), 390f, curY + 15f, paint)
+                canvas.drawText("${row.sessionsCount} (${row.waterMinutes} د)", 295f, curY + 15f, paint)
+                canvas.drawText(Formatters.formatNumber(row.billed), 245f, curY + 15f, paint)
+
+                paint.color = paidGreen
+                canvas.drawText(Formatters.formatNumber(row.paid), 170f, curY + 15f, paint)
+
+                paint.color = if (row.balance > 0.0) debtRed else paidGreen
+                canvas.drawText(Formatters.formatNumber(row.balance), 95f, curY + 15f, paint)
+
+                curY += rowHeight
+            }
+
+            // Grand Total Row
+            if (curY + rowHeight + 4f > pageHeight - 90f) {
+                finishCurrentPage()
+                startNewPage()
+            }
+
+            paint.color = 0xFFE0F2F1.toInt()
+            canvas.drawRect(20f, curY, pageWidth - 20f, curY + rowHeight + 3f, paint)
+
+            paint.color = darkTextColor
+            paint.typeface = fontBold
+            paint.textSize = 9.5f
+            paint.textAlign = Paint.Align.RIGHT
+            canvas.drawText("الإجمالي العام", 540f, curY + 16f, paint)
+            canvas.drawText(Formatters.formatNumber(totalBilled), 245f, curY + 16f, paint)
+
+            paint.color = paidGreen
+            canvas.drawText(Formatters.formatNumber(totalPaid), 170f, curY + 16f, paint)
+
+            paint.color = if (totalDebts > 0.0) debtRed else paidGreen
+            canvas.drawText(Formatters.formatNumber(totalDebts), 95f, curY + 16f, paint)
+
+            curY += rowHeight + 3f
+        }
+
+        // Signatures
+        if (curY + 70f < pageHeight - 60f) {
+            paint.color = dividerGray
+            paint.strokeWidth = 1f
+            canvas.drawLine(25f, pageHeight - 85f, pageWidth - 25f, pageHeight - 85f, paint)
+
+            paint.color = darkTextColor
+            paint.typeface = fontRegular
+            paint.textSize = 10f
+            paint.textAlign = Paint.Align.RIGHT
+            canvas.drawText("توقيع المسرب / الموزع: ....................", pageWidth - 40f, pageHeight - 60f, paint)
+
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("الختم: ....................", 40f, pageHeight - 60f, paint)
+        }
+
+        finishCurrentPage()
+
+        val reportDir = File(context.cacheDir, "reports")
+        if (!reportDir.exists()) reportDir.mkdirs()
+        val file = File(reportDir, "customer_directory_${System.currentTimeMillis()}.pdf")
+        val fos = FileOutputStream(file)
+        document.writeTo(fos)
+        fos.close()
+        document.close()
+
+        return file
+    }
+
+    /**
+     * كشف سجل العمليات والحركات (طباعة مخصصة لشاشة سجل العمليات بجميع أنواعها)
+     */
+    fun generateOperationsLogPdf(
+        context: Context,
+        config: AppConfig,
+        filterTitle: String,
+        operations: List<UnifiedOperation>
+    ): File {
+        val document = PdfDocument()
+        val pageWidth = 842  // A4 Landscape for comfortable table columns
+        val pageHeight = 595
+
+        val fontBold = PdfThemeHelper.getCairoBold(context)
+        val fontRegular = PdfThemeHelper.getCairoRegular(context)
+
+        val primaryColor = PdfThemeHelper.COLOR_PRIMARY
+        val darkTextColor = PdfThemeHelper.COLOR_DARK_TEXT
+        val lightGray = PdfThemeHelper.COLOR_CARD_BG
+        val dividerGray = PdfThemeHelper.COLOR_BORDER
+        val debtRed = PdfThemeHelper.COLOR_DANGER
+        val paidGreen = PdfThemeHelper.COLOR_SUCCESS
+        val goldAccent = PdfThemeHelper.COLOR_GOLD
+
+        val paint = Paint().apply { isAntiAlias = true }
+
+        var pageNumber = 1
+        var page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+        var canvas: Canvas = page.canvas
+
+        fun drawHeader() {
+            paint.color = primaryColor
+            canvas.drawRect(0f, 0f, pageWidth.toFloat(), 75f, paint)
+
+            paint.color = goldAccent
+            canvas.drawRect(0f, 72f, pageWidth.toFloat(), 75f, paint)
+
+            paint.color = Color.WHITE
+            paint.textSize = 17f
+            paint.typeface = fontBold
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("كشف سجل العمليات والحركات المالية", pageWidth / 2f, 32f, paint)
+
+            paint.textSize = 10.5f
+            paint.typeface = fontRegular
+            val subtitle = "${config.distributorName}  |  هاتف: ${config.distributorPhone.ifEmpty { "غير محدد" }}  |  فلترة: $filterTitle"
+            canvas.drawText(subtitle, pageWidth / 2f, 55f, paint)
+        }
+
+        val rowHeight = 22f
+        var curY = 195f
+
+        fun drawTableHeader() {
+            paint.color = primaryColor
+            canvas.drawRoundRect(RectF(20f, curY, pageWidth - 20f, curY + 24f), 4f, 4f, paint)
+
+            paint.color = Color.WHITE
+            paint.textSize = 9f
+            paint.typeface = fontBold
+            paint.textAlign = Paint.Align.RIGHT
+            canvas.drawText("م", 815f, curY + 16f, paint)
+            canvas.drawText("التاريخ والوقت", 785f, curY + 16f, paint)
+            canvas.drawText("نوع العملية", 685f, curY + 16f, paint)
+            canvas.drawText("العميل / الطرف", 605f, curY + 16f, paint)
+            canvas.drawText("البيان والتفاصيل", 450f, curY + 16f, paint)
+            canvas.drawText("المبلغ المطلوب", 255f, curY + 16f, paint)
+            canvas.drawText("المدفوع نقداً", 170f, curY + 16f, paint)
+            canvas.drawText("المتبقي / الرصيد", 90f, curY + 16f, paint)
+
+            curY += 26f
+            paint.typeface = fontRegular
+        }
+
+        fun finishCurrentPage() {
+            drawDocumentFooter(canvas, pageWidth, pageHeight, pageNumber, fontRegular)
+            document.finishPage(page)
+        }
+
+        fun startNewPage() {
+            pageNumber++
+            page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+            canvas = page.canvas
+            drawHeader()
+            curY = 95f
+            drawTableHeader()
+        }
+
+        drawHeader()
+
+        // Metadata Bar
+        paint.color = darkTextColor
+        paint.textSize = 10f
+        paint.typeface = fontRegular
+        paint.textAlign = Paint.Align.RIGHT
+        canvas.drawText("تاريخ التقرير: ${Formatters.formatDateTime(System.currentTimeMillis())}", pageWidth - 25f, 95f, paint)
+
+        paint.textAlign = Paint.Align.LEFT
+        canvas.drawText("العملة: ${config.currencySymbol}", 25f, 95f, paint)
+
+        // Summary Strip (4 cards)
+        var totalAmount = 0.0
+        var totalPaid = 0.0
+        var totalDebt = 0.0
+
+        operations.forEach { op ->
+            when (op) {
+                is UnifiedOperation.SessionOp -> {
+                    totalAmount += op.sessionWithCustomer.session.totalAmount
+                    totalPaid += op.sessionWithCustomer.session.amountPaid
+                    totalDebt += op.sessionWithCustomer.session.remainingDebt
+                }
+                is UnifiedOperation.VoucherOp -> {
+                    val v = op.voucherWithCustomer.voucher
+                    if (v.type == VoucherType.RECEIPT) {
+                        totalPaid += v.amount
+                    } else {
+                        totalAmount += v.amount
+                    }
+                }
+                is UnifiedOperation.PurchaseOp -> {
+                    val cost = WellOwnerPurchaseMath.payableAmount(op.purchase)
+                    totalAmount += cost
+                    totalPaid += op.purchase.amountPaid
+                    totalDebt += (cost - op.purchase.amountPaid).coerceAtLeast(0.0)
+                }
+            }
+        }
+
+        val cardSpacing = 10f
+        val cardWidth4 = (pageWidth - 50f - (3 * cardSpacing)) / 4f
+        val cardH = 44f
+
+        var startX = 25f
+        drawSummaryBox(canvas, startX, 110f, cardWidth4, cardH, "إجمالي العمليات", "${operations.size} عملية", primaryColor, fontBold, fontRegular)
+        startX += cardWidth4 + cardSpacing
+        drawSummaryBox(canvas, startX, 110f, cardWidth4, cardH, "المقبوضات", Formatters.formatCurrency(totalPaid, config.currencySymbol), paidGreen, fontBold, fontRegular)
+        startX += cardWidth4 + cardSpacing
+        drawSummaryBox(canvas, startX, 110f, cardWidth4, cardH, "إجمالي السقي والمصروف", Formatters.formatCurrency(totalAmount, config.currencySymbol), darkTextColor, fontBold, fontRegular)
+        startX += cardWidth4 + cardSpacing
+        drawSummaryBox(canvas, startX, 110f, cardWidth4, cardH, "إجمالي الديون / المتبقي", Formatters.formatCurrency(totalDebt, config.currencySymbol), debtRed, fontBold, fontRegular)
+
+        curY = 168f
+        paint.color = darkTextColor
+        paint.textSize = 10.5f
+        paint.typeface = fontBold
+        paint.textAlign = Paint.Align.RIGHT
+        canvas.drawText("تفاصيل الحركات المسجلة:", pageWidth - 25f, curY - 5f, paint)
+
+        drawTableHeader()
+
+        if (operations.isEmpty()) {
+            paint.color = PdfThemeHelper.COLOR_MUTED_TEXT
+            paint.textSize = 11f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("لا توجد عمليات تطابق الفلترة المحددة", pageWidth / 2f, curY + 24f, paint)
+            curY += 44f
+        } else {
+            operations.forEachIndexed { index, op ->
+                if (curY + rowHeight > pageHeight - 65f) {
+                    finishCurrentPage()
+                    startNewPage()
+                }
+
+                paint.color = if (index % 2 == 0) Color.WHITE else lightGray
+                canvas.drawRect(20f, curY, pageWidth - 20f, curY + rowHeight, paint)
+
+                paint.color = dividerGray
+                paint.strokeWidth = 0.5f
+                canvas.drawLine(20f, curY + rowHeight, pageWidth - 20f, curY + rowHeight, paint)
+
+                paint.textSize = 8.5f
+                paint.typeface = fontRegular
+                paint.textAlign = Paint.Align.RIGHT
+
+                // Extraction
+                val rowData = when (op) {
+                    is UnifiedOperation.SessionOp -> {
+                        val s = op.sessionWithCustomer.session
+                        val cName = op.sessionWithCustomer.customer?.name ?: "عميل غير محدد"
+                        val dStr = "${Formatters.formatDurationArabic(s.durationMinutes)}${if (s.wastedMinutes > 0) " (هدر: ${s.wastedMinutes}د)" else ""}"
+                        OperationRowData(
+                            dt = Formatters.formatDateTime(s.startTime),
+                            typeStr = "سقي ماء",
+                            party = cName,
+                            detail = dStr,
+                            opAmt = s.totalAmount,
+                            opPaid = s.amountPaid,
+                            opDebt = s.remainingDebt
+                        )
+                    }
+                    is UnifiedOperation.VoucherOp -> {
+                        val v = op.voucherWithCustomer.voucher
+                        val isRec = v.type == VoucherType.RECEIPT
+                        val cName = op.voucherWithCustomer.customer?.name ?: (if (isRec) "عميل نقدي" else v.category.ifEmpty { "مصروف عام" })
+                        val dStr = "#${v.voucherNumber} • ${v.paymentMethod}${if (v.notes.isNotBlank() && v.notes != "عام") " (${v.notes})" else ""}"
+                        OperationRowData(
+                            dt = Formatters.formatDateTime(v.date),
+                            typeStr = if (isRec) "سند قبض" else "سند صرف",
+                            party = cName,
+                            detail = dStr,
+                            opAmt = v.amount,
+                            opPaid = if (isRec) v.amount else 0.0,
+                            opDebt = 0.0
+                        )
+                    }
+                    is UnifiedOperation.PurchaseOp -> {
+                        val p = op.purchase
+                        val oName = op.owner?.name ?: "صاحب بئر #${p.ownerCustomerId}"
+                        val charged = WellOwnerPurchaseMath.chargeableMinutes(p)
+                        val cost = WellOwnerPurchaseMath.payableAmount(p)
+                        val waste = p.wastedMinutesOnOwner
+                        val dStr = "${Formatters.formatDurationArabic(charged)}${if (waste > 0) " (هدر: ${Formatters.formatDurationArabic(waste)})" else ""} • ${Formatters.formatNumber(p.purchaseRatePerHour)}/س"
+                        OperationRowData(
+                            dt = Formatters.formatDateTime(p.date),
+                            typeStr = "شراء ساعات",
+                            party = oName,
+                            detail = dStr,
+                            opAmt = cost,
+                            opPaid = p.amountPaid,
+                            opDebt = (cost - p.amountPaid).coerceAtLeast(0.0)
+                        )
+                    }
+                }
+
+                paint.color = darkTextColor
+                canvas.drawText("${index + 1}", 815f, curY + 15f, paint)
+                canvas.drawText(truncate(rowData.dt, 18), 785f, curY + 15f, paint)
+
+                paint.color = when (rowData.typeStr) {
+                    "سند قبض" -> paidGreen
+                    "سند صرف" -> debtRed
+                    "شراء ساعات" -> 0xFF0288D1.toInt()
+                    else -> primaryColor
+                }
+                canvas.drawText(rowData.typeStr, 685f, curY + 15f, paint)
+
+                paint.color = darkTextColor
+                canvas.drawText(truncate(rowData.party, 22), 605f, curY + 15f, paint)
+                canvas.drawText(truncate(rowData.detail, 32), 450f, curY + 15f, paint)
+
+                canvas.drawText(Formatters.formatNumber(rowData.opAmt), 255f, curY + 15f, paint)
+
+                paint.color = paidGreen
+                canvas.drawText(Formatters.formatNumber(rowData.opPaid), 170f, curY + 15f, paint)
+
+                paint.color = if (rowData.opDebt > 0.0) debtRed else paidGreen
+                canvas.drawText(Formatters.formatNumber(rowData.opDebt), 90f, curY + 15f, paint)
+
+                curY += rowHeight
+            }
+
+            // Grand Total Line
+            if (curY + rowHeight + 4f > pageHeight - 65f) {
+                finishCurrentPage()
+                startNewPage()
+            }
+
+            paint.color = 0xFFE0F2F1.toInt()
+            canvas.drawRect(20f, curY, pageWidth - 20f, curY + rowHeight + 3f, paint)
+
+            paint.color = darkTextColor
+            paint.typeface = fontBold
+            paint.textSize = 9f
+            paint.textAlign = Paint.Align.RIGHT
+            canvas.drawText("الإجمالي الكلي", 450f, curY + 16f, paint)
+            canvas.drawText(Formatters.formatNumber(totalAmount), 255f, curY + 16f, paint)
+
+            paint.color = paidGreen
+            canvas.drawText(Formatters.formatNumber(totalPaid), 170f, curY + 16f, paint)
+
+            paint.color = if (totalDebt > 0.0) debtRed else paidGreen
+            canvas.drawText(Formatters.formatNumber(totalDebt), 90f, curY + 16f, paint)
+
+            curY += rowHeight + 3f
+        }
+
+        finishCurrentPage()
+
+        val reportDir = File(context.cacheDir, "reports")
+        if (!reportDir.exists()) reportDir.mkdirs()
+        val file = File(reportDir, "operations_log_${System.currentTimeMillis()}.pdf")
+        val fos = FileOutputStream(file)
+        document.writeTo(fos)
+        fos.close()
+        document.close()
+
+        return file
+    }
+
+    private data class OperationRowData(
+        val dt: String,
+        val typeStr: String,
+        val party: String,
+        val detail: String,
+        val opAmt: Double,
+        val opPaid: Double,
+        val opDebt: Double
+    )
 
     private fun truncate(value: String, maxChars: Int): String =
         if (value.length <= maxChars) value else value.take(maxChars - 3) + "..."

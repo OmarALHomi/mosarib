@@ -1023,28 +1023,12 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                         receivableBalance = item.receivableBalance
                     )
                 }
-                val totals = ComprehensiveReportTotals(
-                    sessionsCount = list.sumOf { it.totalSessionsCount },
-                    waterMinutes = list.sumOf { it.totalMinutes },
-                    totalRevenue = list.sumOf { it.totalBilledAmount },
-                    totalCollected = list.sumOf { it.totalPaidAmount },
-                    totalOutstandingDebt = list.sumOf { it.receivableBalance.coerceAtLeast(0.0) },
-                    totalExpenses = list.sumOf { it.totalDisbursedAmount },
-                    netProfit = list.sumOf { it.totalPaidAmount } - list.sumOf { it.totalDisbursedAmount },
-                    purchasedMinutes = list.sumOf { it.totalPurchasedMinutes },
-                    chargeablePurchasedMinutes = list.sumOf { it.totalChargeablePurchasedMinutes },
-                    ownerPurchaseAmount = list.sumOf { it.totalPurchaseAmount },
-                    ownerWasteCredit = list.sumOf { it.totalOwnerWasteCredit },
-                    ownerPayable = list.sumOf { it.payableBalance }
-                )
-                val file = PdfReportGenerator.generateComprehensiveReportPdf(
+                val file = PdfReportGenerator.generateCustomerDirectoryPdf(
                     context = getApplication(),
                     config = config,
-                    periodTitle = "كشف حسابات العملاء الشامل",
-                    totals = totals,
                     customerRows = rows
                 )
-                _pdfReadyFile.value = Pair(file, "كشف حسابات العملاء الشامل")
+                _pdfReadyFile.value = Pair(file, "كشف وحسابات دليل العملاء")
             } catch (e: Exception) {
                 showToast("فشل في إنشاء التقرير: ${e.localizedMessage}", ToastType.ERROR)
             }

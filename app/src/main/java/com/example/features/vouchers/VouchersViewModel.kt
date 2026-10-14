@@ -22,9 +22,12 @@ import kotlinx.coroutines.launch
 
 import com.example.core.license.LicenseManager
 import com.example.core.util.Formatters
+import com.example.core.util.PdfReportGenerator
 import com.example.features.sessions.WaterSession
 import com.example.features.wellowners.WellOwnerPurchase
 import com.example.features.wellowners.WellOwnerPurchaseRepository
+import android.content.Context
+import java.io.File
 
 enum class OperationsFilter {
     ALL,        // الكل
@@ -215,6 +218,43 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
 
     fun dismissToast() {
         _toast.value = null
+    }
+
+    private val _pdfReadyFile = MutableStateFlow<Pair<File, String>?>(null)
+    val pdfReadyFile: StateFlow<Pair<File, String>?> = _pdfReadyFile.asStateFlow()
+
+    fun clearPdfReady() {
+        _pdfReadyFile.value = null
+    }
+
+    fun exportOperationsLogPdf(context: Context) {
+        viewModelScope.launch {
+            try {
+                val list = unifiedOperations.value
+                if (list.isEmpty()) {
+                    showToast("لا توجد عمليات لطباعتها في القائمة الحالية", ToastType.WARNING)
+                    return@launch
+                }
+                val config = appConfig.value
+                val filterName = when (_operationsFilter.value) {
+                    OperationsFilter.ALL -> "كافة العمليات"
+                    OperationsFilter.SESSIONS -> "جلسات السقي"
+                    OperationsFilter.RECEIPTS -> "سندات القبض"
+                    OperationsFilter.EXPENSES -> "سندات المصروفات"
+                    OperationsFilter.PURCHASES -> "شراء ساعات الآبار"
+                    OperationsFilter.DEFERRED -> "العمليات الآجلة والديون"
+                }
+                val file = PdfReportGenerator.generateOperationsLogPdf(
+                    context = context,
+                    config = config,
+                    filterTitle = filterName,
+                    operations = list
+                )
+                _pdfReadyFile.value = Pair(file, "سجل العمليات - $filterName")
+            } catch (e: Exception) {
+                showToast("فشل في إنشاء تقرير سجل العمليات: ${e.localizedMessage}", ToastType.ERROR)
+            }
+        }
     }
 
     private val _settlementResult = MutableStateFlow<SettlementResult?>(null)

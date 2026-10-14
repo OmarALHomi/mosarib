@@ -66,6 +66,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.PictureAsPdf
@@ -116,6 +117,7 @@ import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import com.example.core.util.Formatters
 import com.example.features.customers.Customer
@@ -168,6 +170,14 @@ fun VouchersScreen(
     var voucherMessageTarget by remember { mutableStateOf<Triple<Customer, String, String>?>(null) }
     var voucherPdfReady by remember { mutableStateOf<Pair<File, String>?>(null) }
     var selectedLinkedSession by remember { mutableStateOf<WaterSession?>(null) }
+
+    val vmPdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
+    LaunchedEffect(vmPdfReady) {
+        if (vmPdfReady != null) {
+            voucherPdfReady = vmPdfReady
+            viewModel.clearPdfReady()
+        }
+    }
 
     val listState = rememberLazyListState()
     val firstIndex by remember { derivedStateOf { listState.firstVisibleItemIndex } }
@@ -334,66 +344,88 @@ fun VouchersScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                            .padding(horizontal = 10.dp),
-                        contentAlignment = Alignment.CenterStart
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                                .padding(horizontal = 10.dp),
+                            contentAlignment = Alignment.CenterStart
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Box(
-                                modifier = Modifier.weight(1f),
-                                contentAlignment = Alignment.CenterStart
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                if (searchQuery.isEmpty()) {
-                                    Text(
-                                        text = "بحث بالعميل أو رقم السند...",
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier.weight(1f),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    if (searchQuery.isEmpty()) {
+                                        Text(
+                                            text = "بحث بالعميل أو رقم السند...",
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                                fontSize = 12.5.sp
+                                            ),
+                                            maxLines = 1
+                                        )
+                                    }
+                                    BasicTextField(
+                                        value = searchQuery,
+                                        onValueChange = { viewModel.setSearchQuery(it) },
+                                        singleLine = true,
+                                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             fontSize = 12.5.sp
                                         ),
-                                        maxLines = 1
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("operations_search_input")
                                     )
                                 }
-                                BasicTextField(
-                                    value = searchQuery,
-                                    onValueChange = { viewModel.setSearchQuery(it) },
-                                    singleLine = true,
-                                    textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontSize = 12.5.sp
-                                    ),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .testTag("operations_search_input")
-                                )
-                            }
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(
-                                    onClick = { viewModel.setSearchQuery("") },
-                                    modifier = Modifier.size(20.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "مسح",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(14.dp)
-                                    )
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(
+                                        onClick = { viewModel.setSearchQuery("") },
+                                        modifier = Modifier.size(20.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "مسح",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
                                 }
                             }
+                        }
+
+                        // زر طباعة كشف سجل العمليات PDF
+                        IconButton(
+                            onClick = { viewModel.exportOperationsLogPdf(context) },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(PrimaryTeal.copy(alpha = 0.12f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PictureAsPdf,
+                                contentDescription = "طباعة سجل العمليات PDF",
+                                tint = PrimaryTeal,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
 
@@ -557,11 +589,13 @@ fun VouchersScreen(
                                             Spacer(modifier = Modifier.width(7.dp))
 
                                             Column(
-                                                modifier = Modifier.clickable {
-                                                    if (voucher.customerId != null) {
-                                                        onNavigateToCustomer(voucher.customerId)
+                                                modifier = Modifier
+                                                    .weight(1f, fill = false)
+                                                    .clickable {
+                                                        if (voucher.customerId != null) {
+                                                            onNavigateToCustomer(voucher.customerId)
+                                                        }
                                                     }
-                                                }
                                             ) {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     Text(
@@ -570,9 +604,11 @@ fun VouchersScreen(
                                                             fontWeight = FontWeight.ExtraBold,
                                                             color = MaterialTheme.colorScheme.onSurface
                                                         ),
-                                                        maxLines = 1
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier.weight(1f, fill = false)
                                                     )
-                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Spacer(modifier = Modifier.width(5.dp))
                                                     Surface(
                                                         color = badgeColor.copy(alpha = 0.1f),
                                                         shape = RoundedCornerShape(4.dp)
@@ -584,6 +620,8 @@ fun VouchersScreen(
                                                                 fontWeight = FontWeight.Bold,
                                                                 fontSize = 9.sp
                                                             ),
+                                                            maxLines = 1,
+                                                            softWrap = false,
                                                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                                         )
                                                     }
@@ -594,23 +632,29 @@ fun VouchersScreen(
                                         Spacer(modifier = Modifier.width(8.dp))
 
                                         // اليسار: المبلغ المقبوض بخط عريض وواضح وتحته المبلغ كتابة
-                                        Column(horizontalAlignment = Alignment.End) {
+                                        Column(
+                                            horizontalAlignment = Alignment.End,
+                                            modifier = Modifier.weight(0.9f, fill = false)
+                                        ) {
                                             Text(
                                                 text = (if (isReceipt) "+ " else "- ") + Formatters.formatCurrency(voucher.amount, config.currencySymbol),
                                                 style = MaterialTheme.typography.titleMedium.copy(
                                                     fontWeight = FontWeight.ExtraBold,
                                                     color = badgeColor,
-                                                    fontSize = 16.sp
-                                                )
+                                                    fontSize = 15.sp
+                                                ),
+                                                maxLines = 1,
+                                                softWrap = false
                                             )
                                             Text(
                                                 text = Formatters.amountToArabicWords(voucher.amount, config.currencySymbol),
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     color = Color(0xFF64748B),
-                                                    fontSize = 9.5.sp,
+                                                    fontSize = 9.sp,
                                                     fontWeight = FontWeight.Medium
                                                 ),
                                                 maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
                                                 textAlign = TextAlign.End
                                             )
                                         }
@@ -856,9 +900,11 @@ fun VouchersScreen(
                                             Spacer(modifier = Modifier.width(7.dp))
 
                                             Column(
-                                                modifier = Modifier.clickable {
-                                                    onNavigateToCustomer(purchase.ownerCustomerId)
-                                                }
+                                                modifier = Modifier
+                                                    .weight(1f, fill = false)
+                                                    .clickable {
+                                                        onNavigateToCustomer(purchase.ownerCustomerId)
+                                                    }
                                             ) {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     Text(
@@ -867,9 +913,11 @@ fun VouchersScreen(
                                                             fontWeight = FontWeight.ExtraBold,
                                                             color = MaterialTheme.colorScheme.onSurface
                                                         ),
-                                                        maxLines = 1
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier.weight(1f, fill = false)
                                                     )
-                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Spacer(modifier = Modifier.width(5.dp))
                                                     Surface(
                                                         color = Color(0xFF0288D1).copy(alpha = 0.1f),
                                                         shape = RoundedCornerShape(4.dp)
@@ -881,6 +929,8 @@ fun VouchersScreen(
                                                                 fontWeight = FontWeight.Bold,
                                                                 fontSize = 9.sp
                                                             ),
+                                                            maxLines = 1,
+                                                            softWrap = false,
                                                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                                         )
                                                     }
@@ -891,14 +941,19 @@ fun VouchersScreen(
                                         Spacer(modifier = Modifier.width(8.dp))
 
                                         // اليسار: الإجمالي الكلي للشراء
-                                        Column(horizontalAlignment = Alignment.End) {
+                                        Column(
+                                            horizontalAlignment = Alignment.End,
+                                            modifier = Modifier.weight(0.9f, fill = false)
+                                        ) {
                                             Text(
                                                 text = Formatters.formatCurrency(totalAmount, config.currencySymbol),
                                                 style = MaterialTheme.typography.titleMedium.copy(
                                                     fontWeight = FontWeight.ExtraBold,
                                                     color = Color(0xFF0288D1),
-                                                    fontSize = 15.5.sp
-                                                )
+                                                    fontSize = 15.sp
+                                                ),
+                                                maxLines = 1,
+                                                softWrap = false
                                             )
                                             Text(
                                                 text = Formatters.amountToArabicWords(totalAmount, config.currencySymbol),
@@ -908,6 +963,7 @@ fun VouchersScreen(
                                                     fontWeight = FontWeight.Medium
                                                 ),
                                                 maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
                                                 textAlign = TextAlign.End
                                             )
                                         }
@@ -1010,15 +1066,17 @@ fun VouchersScreen(
                                         // التفاصيل والتاريخ في سطر أفقي مدمج
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                                             modifier = Modifier.weight(1f, fill = false)
                                         ) {
                                             Text(
                                                 text = Formatters.formatDateTime(purchase.date),
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     color = Color(0xFF64748B),
-                                                    fontSize = 9.5.sp
-                                                )
+                                                    fontSize = 9.sp
+                                                ),
+                                                maxLines = 1,
+                                                softWrap = false
                                             )
 
                                             Text(
@@ -1030,9 +1088,11 @@ fun VouchersScreen(
                                                 text = Formatters.formatDurationArabic(chargeable),
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     fontWeight = FontWeight.SemiBold,
-                                                    fontSize = 9.5.sp,
+                                                    fontSize = 9.sp,
                                                     color = MaterialTheme.colorScheme.onSurface
-                                                )
+                                                ),
+                                                maxLines = 1,
+                                                softWrap = false
                                             )
 
                                             if (waste > 0) {
@@ -1041,8 +1101,10 @@ fun VouchersScreen(
                                                     style = MaterialTheme.typography.labelSmall.copy(
                                                         color = Color(0xFFD32F2F),
                                                         fontWeight = FontWeight.Bold,
-                                                        fontSize = 9.sp
-                                                    )
+                                                        fontSize = 8.5.sp
+                                                    ),
+                                                    maxLines = 1,
+                                                    softWrap = false
                                                 )
                                             }
 
@@ -1052,11 +1114,14 @@ fun VouchersScreen(
                                             )
 
                                             Text(
-                                                text = "${Formatters.formatCurrency(purchase.purchaseRatePerHour, config.currencySymbol)}/س",
+                                                text = "${Formatters.formatNumber(purchase.purchaseRatePerHour)}/س",
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     color = Color(0xFF64748B),
-                                                    fontSize = 9.5.sp
-                                                )
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                ),
+                                                maxLines = 1,
+                                                softWrap = false
                                             )
 
                                             if (purchase.notes.isNotBlank()) {
@@ -1064,9 +1129,10 @@ fun VouchersScreen(
                                                     text = "(${purchase.notes})",
                                                     style = MaterialTheme.typography.labelSmall.copy(
                                                         color = Color(0xFF64748B),
-                                                        fontSize = 9.sp
+                                                        fontSize = 8.5.sp
                                                     ),
-                                                    maxLines = 1
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
                                             }
                                         }
@@ -1542,7 +1608,7 @@ fun VouchersScreen(
         AlertDialog(
             onDismissRequest = { voucherPdfReady = null },
             title = { Text("المستند جاهز", fontWeight = FontWeight.Bold) },
-            text = { Text("هل ترغب في فتح وعرض السند مباشرة أم مشاركته كملف PDF؟") },
+            text = { Text("هل ترغب في فتح وعرض المستند مباشرة أم مشاركته كملف PDF؟") },
             confirmButton = {
                 Button(
                     onClick = {
