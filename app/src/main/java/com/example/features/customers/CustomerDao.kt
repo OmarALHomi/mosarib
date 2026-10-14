@@ -42,4 +42,7 @@ interface CustomerDao {
 
     @Query("UPDATE customers SET isArchived = 1 WHERE id = :id")
     suspend fun archiveCustomer(id: Long)
+
+    @Query("DELETE FROM customers")
+    suspend fun clearAllCustomers()
 }

@@ -490,9 +490,10 @@ object LicenseManager {
     }
 
     fun canPerformOperation(context: Context, currentOperationsCount: Int): Boolean {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        if (com.example.BuildConfig.DEBUG && sp.getBoolean("debug_unlimited_ops", false)) return true
         if (isActivated(context)) return true
         if (isTrialConsumed(context)) return false
-        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         val storedOps = sp.getInt(KEY_CUMULATIVE_OPS, 0)
         val effectiveCount = maxOf(storedOps, currentOperationsCount)
         val effectiveLimit = getFreeOperationsLimit(context)
@@ -504,9 +505,10 @@ object LicenseManager {
     }
 
     fun getRemainingOperations(context: Context, currentOperationsCount: Int): Int {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        if (com.example.BuildConfig.DEBUG && sp.getBoolean("debug_unlimited_ops", false)) return 999999
         if (isActivated(context)) return Int.MAX_VALUE
         if (isTrialConsumed(context)) return 0
-        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         val storedOps = sp.getInt(KEY_CUMULATIVE_OPS, 0)
         val effectiveCount = maxOf(storedOps, currentOperationsCount)
         val effectiveLimit = getFreeOperationsLimit(context)

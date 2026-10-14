@@ -43,6 +43,9 @@ interface VoucherDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVoucher(voucher: Voucher): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertVouchers(vouchers: List<Voucher>): List<Long>
+
     @Update
     suspend fun updateVoucher(voucher: Voucher)
 
@@ -51,4 +54,7 @@ interface VoucherDao {
 
     @Query("DELETE FROM vouchers WHERE id = :id")
     suspend fun deleteVoucherById(id: Long)
+
+    @Query("DELETE FROM vouchers")
+    suspend fun clearAllVouchers()
 }

@@ -121,7 +121,10 @@ fun SettingsScreen(
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val operationsCount by viewModel.operationsCount.collectAsStateWithLifecycle()
     val isActivated by viewModel.isActivated.collectAsStateWithLifecycle()
+    val isSeedingData by viewModel.isSeedingData.collectAsStateWithLifecycle()
 
+    var showConfirmSeedDialog by remember { mutableStateOf(false) }
+    var showConfirmClearDialog by remember { mutableStateOf(false) }
     var showFeedbackDialog by remember { mutableStateOf(false) }
 
     var distributorName by remember(config.distributorName) { mutableStateOf(config.distributorName) }
@@ -1471,6 +1474,142 @@ fun SettingsScreen(
                 }
             }
         }
+
+        // Section: أدوات التطوير واختبار البيانات (تظهر فقط في نسخة Debug)
+        if (com.example.BuildConfig.DEBUG) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 5.dp)
+                        .shadow(1.5.dp, RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    ),
+                    border = BorderStroke(1.dp, AccentGold.copy(alpha = 0.35f))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(AccentGold.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Settings, contentDescription = null, tint = AccentGold)
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "أدوات المطور واختبار البيانات (Debug)",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = "بيانات تجريبية لـ 100 عميل و 1000 عملية لاختبار التطبيق الشامل",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (isSeedingData) {
+                            LinearProgressIndicator(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(4.dp))
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "جاري معالجة العمليات والبيانات... يرجى الانتظار",
+                                style = MaterialTheme.typography.bodySmall.copy(color = AccentGold),
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            )
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = { showConfirmSeedDialog = true },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("🌱 توليد 100عميل و1000عملية", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                OutlinedButton(
+                                    onClick = { showConfirmClearDialog = true },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("🧹 تصفير البيانات", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showConfirmSeedDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmSeedDialog = false },
+            title = { Text("توليد بيانات تجريبية ضخمة", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("سيتم توليد 100 عميل يمني، و 1,000 عملية متنوعة تشمل جلسات سقي، سندات قبض وصرف، وخصومات تسوية، ومشتريات ماء شبكة. هل تريد المتابعة؟")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showConfirmSeedDialog = false
+                        viewModel.seedDebugData()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("بدء التوليد", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmSeedDialog = false }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    if (showConfirmClearDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmClearDialog = false },
+            title = { Text("تأكيد تصفير البيانات", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("تنبيه: سيتم مسح كافة العملاء وجلسات السقي والسندات والمشتريات الحالية في قاعدة البيانات لاختبار بيئة نظيفة. هل أنت متأكد؟")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showConfirmClearDialog = false
+                        viewModel.clearAllDebugData()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("تصفير الكل", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmClearDialog = false }) {
+                    Text("إلغاء")
+                }
+            }
+        )
     }
 
     if (showFeedbackDialog) {

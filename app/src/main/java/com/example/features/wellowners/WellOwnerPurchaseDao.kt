@@ -31,9 +31,15 @@ interface WellOwnerPurchaseDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPurchase(purchase: WellOwnerPurchase): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPurchases(purchases: List<WellOwnerPurchase>): List<Long>
+
     @Update
     suspend fun updatePurchase(purchase: WellOwnerPurchase)
 
     @Delete
     suspend fun deletePurchase(purchase: WellOwnerPurchase)
+
+    @Query("DELETE FROM well_owner_purchases")
+    suspend fun clearAllPurchases()
 }

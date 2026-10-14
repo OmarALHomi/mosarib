@@ -1562,6 +1562,55 @@ fun AddEditSessionBottomSheet(
                     )
                 }
 
+                // تسوية وتصفير باقي الجلسة كخصم ومسامحة عند دفع مبلغ أقل من الإجمالي
+                val diffToSettle = Formatters.roundMoney(grossWaterAmount - amountPaid)
+                if (amountPaid > 0.0 && diffToSettle > 0.0 && discountAmount != diffToSettle) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                discountAmountStr = Formatters.formatAmountInput(diffToSettle.toString())
+                                showDiscountDetails = true
+                            }
+                            .background(
+                                color = if (isDark) Color(0xFF2E2415) else Color(0xFFFEF3C7),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = Color(0xFFF59E0B).copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                tint = Color(0xFFD97706),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "تسوية وتصفير باقي الجلسة كخصم:",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isDark) Color(0xFFFCD34D) else Color(0xFF92400E)
+                                )
+                            )
+                        }
+                        Text(
+                            text = Formatters.formatCurrency(diffToSettle, currencySymbol),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309)
+                            )
+                        )
+                    }
+                }
+
                 // إشعار الفائض النقدي وسند القبض المباشر
                 if (excessAmount > 0) {
                     Spacer(modifier = Modifier.height(6.dp))

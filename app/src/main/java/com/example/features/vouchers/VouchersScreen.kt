@@ -1368,8 +1368,8 @@ fun VouchersScreen(
             frequentDescriptions = frequentDescriptions,
             currencySymbol = config.currencySymbol,
             onDismiss = { showAddSheet = false },
-            onSave = { type, custId, amt, cat, method, notes, sessionId, selectedSessionIds ->
-                viewModel.addVoucher(type, custId, amt, cat, method, notes, sessionId, selectedSessionIds)
+            onSave = { type, custId, amt, cat, method, notes, sessionId, selectedSessionIds, disc ->
+                viewModel.addVoucher(type, custId, amt, cat, method, notes, sessionId, selectedSessionIds, disc)
             }
         )
     }
@@ -1497,7 +1497,7 @@ fun VouchersScreen(
             frequentDescriptions = frequentDescriptions,
             currencySymbol = config.currencySymbol,
             onDismiss = { voucherToEdit = null },
-            onSave = { type, custId, amt, cat, method, notes, sessionId, _ ->
+            onSave = { type, custId, amt, cat, method, notes, sessionId, _, _ ->
                 viewModel.updateVoucher(
                     voucher = v,
                     amount = amt,
@@ -1868,7 +1868,8 @@ fun AddVoucherBottomSheet(
         paymentMethod: String,
         notes: String,
         sessionId: Long?,
-        selectedSessionIds: List<Long>
+        selectedSessionIds: List<Long>,
+        discountAmount: Double
     ) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -1888,6 +1889,7 @@ fun AddVoucherBottomSheet(
     }
     var selectedSessionIds by remember { mutableStateOf(setOf<Long>()) }
     var amountStr by remember { mutableStateOf(if (initialVoucher != null && initialVoucher.amount > 0) initialVoucher.amount.toString() else "") }
+    var discountAmountStr by remember { mutableStateOf("") }
     var paymentMethod by remember { mutableStateOf(initialVoucher?.paymentMethod ?: "نقداً") }
     var notes by remember { mutableStateOf(initialVoucher?.notes ?: "") }
 
@@ -2060,16 +2062,11 @@ fun AddVoucherBottomSheet(
                             Spacer(modifier = Modifier.height(8.dp))
 
                             val parsedAmt = Formatters.parseAmountInput(amountStr)
+                            val parsedDisc = Formatters.parseAmountInput(discountAmountStr)
                             val sortedSelected = unsettledSessions.filter { selectedSessionIds.contains(it.id) }.sortedBy { it.startTime }
 
-                            var allocPool = parsedAmt
-                            val allocations = mutableMapOf<Long, Pair<Double, Double>>()
-                            for (s in sortedSelected) {
-                                val allocated = minOf(s.remainingDebt, maxOf(0.0, allocPool))
-                                val rem = maxOf(0.0, s.remainingDebt - allocated)
-                                allocations[s.id] = Pair(allocated, rem)
-                                allocPool = maxOf(0.0, allocPool - allocated)
-                            }
+                            val fifoPreview = calculateFifoAllocation(sortedSelected, parsedAmt, parsedDisc)
+                            val allocations = fifoPreview.steps.associate { it.session.id to Triple(it.allocatedAmount, it.allocatedDiscount, it.newDebt) }
 
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 unsettledSessions.forEach { session ->
@@ -2162,9 +2159,9 @@ fun AddVoucherBottomSheet(
                                             // شارة المعاينة الحية للسداد في حال اختيار الجلسة
                                             if (isSelected && allocInfo != null) {
                                                 Spacer(modifier = Modifier.height(6.dp))
-                                                val (allocated, remAfter) = allocInfo
+                                                val (allocatedCash, allocatedDisc, remAfter) = allocInfo
                                                 val (badgeBg, badgeTextColor, badgeText) = when {
-                                                    parsedAmt <= 0.0 -> Triple(
+                                                    parsedAmt <= 0.0 && parsedDisc <= 0.0 -> Triple(
                                                         if (isDark) Color(0xFF202A30) else Color(0xFFEEEEEE),
                                                         if (isDark) Color(0xFF94A3B8) else Color.DarkGray,
                                                         "أدخل المبلغ لمعاينة التوزيع"
@@ -2172,12 +2169,16 @@ fun AddVoucherBottomSheet(
                                                     remAfter == 0.0 -> Triple(
                                                         if (isDark) Color(0xFF11261B) else Color(0xFFE8F5E9),
                                                         if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
-                                                        "ستُسدد بالكامل (${Formatters.formatCurrency(allocated, currencySymbol)})"
+                                                        if (allocatedDisc > 0.0) {
+                                                            "ستُسدد بالكامل (${Formatters.formatCurrency(allocatedCash, currencySymbol)} نقد + ${Formatters.formatCurrency(allocatedDisc, currencySymbol)} خصم)"
+                                                        } else {
+                                                            "ستُسدد بالكامل (${Formatters.formatCurrency(allocatedCash, currencySymbol)})"
+                                                        }
                                                     )
-                                                    allocated > 0.0 -> Triple(
+                                                    allocatedCash > 0.0 || allocatedDisc > 0.0 -> Triple(
                                                         if (isDark) Color(0xFF2A2010) else Color(0xFFFFF8E1),
                                                         if (isDark) Color(0xFFFBBF24) else Color(0xFFF57F17),
-                                                        "سداد جزئي: ${Formatters.formatCurrency(allocated, currencySymbol)} (متبقي: ${Formatters.formatCurrency(remAfter, currencySymbol)})"
+                                                        "سداد جزئي: ${Formatters.formatCurrency(allocatedCash, currencySymbol)}${if (allocatedDisc > 0.0) " + خصم ${Formatters.formatCurrency(allocatedDisc, currencySymbol)}" else ""} (متبقي: ${Formatters.formatCurrency(remAfter, currencySymbol)})"
                                                     )
                                                     else -> Triple(
                                                         if (isDark) Color(0xFF2B1313) else Color(0xFFFFEBEE),
@@ -2348,6 +2349,71 @@ fun AddVoucherBottomSheet(
                 )
             }
 
+            if (type == VoucherType.RECEIPT) {
+                Spacer(modifier = Modifier.height(10.dp))
+                MosaribTextField(
+                    value = discountAmountStr,
+                    onValueChange = { discountAmountStr = Formatters.formatAmountInput(it) },
+                    label = "خصم تسوية ومسامحة ($currencySymbol) (اختياري)",
+                    placeholder = "0",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("voucher_discount_input")
+                )
+
+                val selectedDebtSum = unsettledSessions.filter { selectedSessionIds.contains(it.id) }.sumOf { it.remainingDebt }
+                val parsedDisc = Formatters.parseAmountInput(discountAmountStr)
+                if (selectedDebtSum > 0.0 && parsedAmt > 0.0 && parsedAmt < selectedDebtSum) {
+                    val diffToSettle = Formatters.roundMoney(selectedDebtSum - parsedAmt)
+                    if (diffToSettle > 0.0 && parsedDisc != diffToSettle) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    discountAmountStr = Formatters.formatAmountInput(diffToSettle.toString())
+                                }
+                                .background(
+                                    color = if (isDark) Color(0xFF2E2415) else Color(0xFFFEF3C7),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = Color(0xFFF59E0B).copy(alpha = 0.5f),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = null,
+                                    tint = Color(0xFFD97706),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "تسوية وتصفير باقي الدين كخصم:",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isDark) Color(0xFFFCD34D) else Color(0xFF92400E)
+                                    )
+                                )
+                            }
+                            Text(
+                                text = Formatters.formatCurrency(diffToSettle, currencySymbol),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309)
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             MosaribTextField(
@@ -2391,15 +2457,16 @@ fun AddVoucherBottomSheet(
                 text = if (initialVoucher != null) "حفظ التعديلات" else "حفظ وترحيل السند",
                 onClick = {
                     val amt = Formatters.parseAmountInput(amountStr)
-                    if (amt > 0) {
+                    val disc = Formatters.parseAmountInput(discountAmountStr)
+                    if (amt > 0 || (type == VoucherType.RECEIPT && disc > 0)) {
                         val custId = if (type == VoucherType.RECEIPT) selectedCustomerId else selectedBeneficiaryId
                         val cat = if (type == VoucherType.RECEIPT) "سداد حساب" else notes.ifBlank { "مصروف" }
                         val selList = if (type == VoucherType.RECEIPT) selectedSessionIds.toList() else emptyList()
-                        onSave(type, custId, amt, cat, paymentMethod, notes, null, selList)
+                        onSave(type, custId, amt, cat, paymentMethod, notes, null, selList, disc)
                         onDismiss()
                     }
                 },
-                enabled = Formatters.parseAmountInput(amountStr) > 0,
+                enabled = Formatters.parseAmountInput(amountStr) > 0 || (type == VoucherType.RECEIPT && Formatters.parseAmountInput(discountAmountStr) > 0),
                 containerColor = if (type == VoucherType.RECEIPT) AccentEmerald else PrimaryTeal,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2483,6 +2550,19 @@ fun SettlementResultDialog(
                                 color = AccentEmerald
                             )
                         }
+                        if (result.discountAmount > 0.0) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("خصم تسوية ومسامحة:", style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray))
+                                Text(
+                                    Formatters.formatCurrency(result.discountAmount, result.currencySymbol),
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFD97706)
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -2531,11 +2611,17 @@ fun SettlementResultDialog(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
+                                val paidDesc = buildString {
+                                    append("المسدد: ${Formatters.formatCurrency(item.allocatedAmount, result.currencySymbol)}")
+                                    if (item.allocatedDiscount > 0.0) {
+                                        append(" + خصم: ${Formatters.formatCurrency(item.allocatedDiscount, result.currencySymbol)}")
+                                    }
+                                }
                                 Text(
-                                    text = "المسدد: ${Formatters.formatCurrency(item.allocatedAmount, result.currencySymbol)}",
+                                    text = paidDesc,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
-                                    color = if (item.allocatedAmount > 0) PrimaryTeal else if (isDark) Color(0xFFF87171) else Color(0xFFC62828)
+                                    color = if (item.allocatedAmount > 0 || item.allocatedDiscount > 0) PrimaryTeal else if (isDark) Color(0xFFF87171) else Color(0xFFC62828)
                                 )
                                 if (item.isFullyPaid) {
                                     Row(

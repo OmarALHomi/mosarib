@@ -210,9 +210,10 @@ $remText
                 val status = if (item.isFullyPaid) "مسدد ✅" else "متبقي ${Formatters.formatNumber(item.remainingDebtAfter)}"
                 "• دورة #${item.sessionId}: ${Formatters.formatNumber(item.allocatedAmount)} ($status)"
             }
+            val discSms = if (result.discountAmount > 0.0) " (خصم تسوية: ${Formatters.formatNumber(result.discountAmount)})" else ""
             val msg = """
 🧾 تسوية سداد للأخ: ${result.customerName.take(18)}
-💵 المبلغ: ${Formatters.formatNumber(result.totalAmount)} $curr
+💵 المبلغ: ${Formatters.formatNumber(result.totalAmount)} $curr$discSms
 تم سداد:
 $lines
 📅 التاريخ: ${Formatters.formatDateShort(System.currentTimeMillis())}
@@ -222,13 +223,19 @@ $lines
             val sb = StringBuilder()
             sb.append("السلام عليكم ورحمة الله وبركاته\n")
             sb.append("الأخ/ ${result.customerName} المحترم\n")
-            sb.append("تم استلام وتسجيل سند قبض بمبلغ: ${Formatters.formatCurrency(result.totalAmount, curr)}\n\n")
-            sb.append("📋 تفاصيل تسديد الجلسات:\n")
+            sb.append("تم استلام وتسجيل سند قبض بمبلغ: ${Formatters.formatCurrency(result.totalAmount, curr)}\n")
+            if (result.discountAmount > 0.0) {
+                sb.append("🏷️ خصم تسوية ومسامحة: ${Formatters.formatCurrency(result.discountAmount, curr)}\n")
+            }
+            sb.append("\n📋 تفاصيل تسديد الجلسات:\n")
             result.items.forEach { item ->
                 val dateStr = Formatters.formatDate(item.date)
                 val status = if (item.isFullyPaid) "مسدد ✅" else "متبقي: ${Formatters.formatCurrency(item.remainingDebtAfter, curr)} ⏳"
                 sb.append("• دورة #${item.sessionId} ($dateStr):\n")
-                sb.append("   - المسدد: ${Formatters.formatCurrency(item.allocatedAmount, curr)}\n")
+                sb.append("   - المسدد نقد: ${Formatters.formatCurrency(item.allocatedAmount, curr)}\n")
+                if (item.allocatedDiscount > 0.0) {
+                    sb.append("   - خصم تسوية: ${Formatters.formatCurrency(item.allocatedDiscount, curr)}\n")
+                }
                 sb.append("   - الحالة: $status\n")
             }
             if (result.surplusAmount > 0.0) {

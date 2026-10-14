@@ -464,4 +464,36 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             _isDriveLoading.value = false
         }
     }
+
+    private val _isSeedingData = MutableStateFlow(false)
+    val isSeedingData: StateFlow<Boolean> = _isSeedingData.asStateFlow()
+
+    fun seedDebugData() {
+        if (!com.example.BuildConfig.DEBUG) return
+        viewModelScope.launch {
+            _isSeedingData.value = true
+            val result = com.example.core.database.DebugDataSeeder.seedDebugData(getApplication(), db)
+            _isSeedingData.value = false
+            result.onSuccess { (customers, ops) ->
+                showToast("تم توليد $customers عميل و $ops عملية تجريبية بنجاح!", ToastType.SUCCESS)
+            }.onFailure { e ->
+                showToast("فشل توليد البيانات: ${e.message}", ToastType.ERROR)
+            }
+        }
+    }
+
+    fun clearAllDebugData() {
+        if (!com.example.BuildConfig.DEBUG) return
+        viewModelScope.launch {
+            _isSeedingData.value = true
+            val result = com.example.core.database.DebugDataSeeder.clearAllDebugData(getApplication(), db)
+            _isSeedingData.value = false
+            result.onSuccess {
+                showToast("تم تصفير ومسح جميع البيانات التجريبية بنجاح!", ToastType.INFO)
+            }.onFailure { e ->
+                showToast("فشل مسح البيانات: ${e.message}", ToastType.ERROR)
+            }
+        }
+    }
 }
+

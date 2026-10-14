@@ -545,7 +545,7 @@ fun HomeScreen(
             allSessions = allSessions,
             currencySymbol = config.currencySymbol,
             onDismiss = { showAddVoucherSheet = false },
-            onSave = { type, customerId, amount, category, method, notes, sessionId, selectedSessionIds ->
+            onSave = { type, customerId, amount, category, method, notes, sessionId, selectedSessionIds, discountAmount ->
                 vouchersViewModel.addVoucher(
                     type = type,
                     customerId = customerId,
@@ -554,7 +554,8 @@ fun HomeScreen(
                     paymentMethod = method,
                     notes = notes,
                     sessionId = sessionId,
-                    selectedSessionIds = selectedSessionIds
+                    selectedSessionIds = selectedSessionIds,
+                    discountAmount = discountAmount
                 )
             }
         )

@@ -249,7 +249,8 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         paymentMethod: String,
         notes: String,
         sessionId: Long? = null,
-        selectedSessionIds: List<Long> = emptyList()
+        selectedSessionIds: List<Long> = emptyList(),
+        discountAmount: Double = 0.0
     ) {
         viewModelScope.launch {
             val totalOps = db.waterSessionDao().getSessionsCountDirect() +
@@ -260,6 +261,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
             }
 
             val roundedAmount = Formatters.roundMoney(amount)
+            val roundedDiscount = Formatters.roundMoney(discountAmount)
 
             val targetIds = when {
                 selectedSessionIds.isNotEmpty() -> selectedSessionIds
@@ -269,7 +271,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
 
             if (type == VoucherType.RECEIPT && targetIds.isNotEmpty()) {
                 val sessionsToSettle = targetIds.mapNotNull { sessionRepo.getSessionById(it) }
-                val fifoResult = calculateFifoAllocation(sessionsToSettle, roundedAmount)
+                val fifoResult = calculateFifoAllocation(sessionsToSettle, roundedAmount, roundedDiscount)
 
                 val baseTime = System.currentTimeMillis()
                 var voucherIdx = 0
@@ -277,36 +279,56 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
 
                 for (step in fifoResult.steps) {
                     val s = step.session
-                    if (step.allocatedAmount > 0.0) {
+                    if (step.allocatedAmount > 0.0 || step.allocatedDiscount > 0.0) {
                         sessionRepo.updateSession(
-                            s.copy(amountPaid = step.newPaid, remainingDebt = step.newDebt)
+                            s.copy(
+                                amountPaid = step.newPaid,
+                                discountAmount = step.newDiscount,
+                                remainingDebt = step.newDebt
+                            )
                         )
 
-                        voucherIdx++
-                        val vNum = if (fifoResult.steps.size == 1 && fifoResult.surplus <= 0.0) {
-                            "REC-${baseTime.toString().takeLast(4)}"
-                        } else {
-                            "REC-${baseTime.toString().takeLast(4)}-$voucherIdx"
+                        // 1. سند قبض للمبلغ النقدي المستلم
+                        if (step.allocatedAmount > 0.0) {
+                            voucherIdx++
+                            val vNum = "REC-${baseTime.toString().takeLast(4)}-$voucherIdx"
+                            val sessionNote = if (notes.isNotBlank()) {
+                                "$notes (سداد دورة #${s.id})"
+                            } else {
+                                "سداد دورة سقي #${s.id}"
+                            }
+
+                            val voucher = Voucher(
+                                voucherNumber = vNum,
+                                type = VoucherType.RECEIPT,
+                                customerId = customerId,
+                                sessionId = s.id,
+                                amount = step.allocatedAmount,
+                                category = "سداد سقي",
+                                paymentMethod = paymentMethod,
+                                date = baseTime + voucherIdx,
+                                notes = sessionNote
+                            )
+                            voucherRepo.insertVoucher(voucher)
                         }
 
-                        val sessionNote = if (notes.isNotBlank()) {
-                            "$notes (سداد دورة #${s.id})"
-                        } else {
-                            "سداد دورة سقي #${s.id}"
+                        // 2. سند تسوية / مسامحة لمبلغ الخصم
+                        if (step.allocatedDiscount > 0.0) {
+                            voucherIdx++
+                            val discNum = "DSC-${baseTime.toString().takeLast(4)}-$voucherIdx"
+                            val discVoucher = Voucher(
+                                voucherNumber = discNum,
+                                type = VoucherType.DISCOUNT,
+                                customerId = customerId,
+                                sessionId = s.id,
+                                amount = step.allocatedDiscount,
+                                category = "خصم تسوية",
+                                paymentMethod = "تسوية ومسامحة",
+                                date = baseTime + voucherIdx,
+                                notes = "خصم تسوية دورة سقي #${s.id}"
+                            )
+                            voucherRepo.insertVoucher(discVoucher)
                         }
-
-                        val voucher = Voucher(
-                            voucherNumber = vNum,
-                            type = VoucherType.RECEIPT,
-                            customerId = customerId,
-                            sessionId = s.id,
-                            amount = step.allocatedAmount,
-                            category = "سداد سقي",
-                            paymentMethod = paymentMethod,
-                            date = baseTime + voucherIdx,
-                            notes = sessionNote
-                        )
-                        voucherRepo.insertVoucher(voucher)
                     }
 
                     summaries.add(
@@ -315,13 +337,14 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                             date = s.startTime,
                             originalDebt = s.remainingDebt,
                             allocatedAmount = step.allocatedAmount,
+                            allocatedDiscount = step.allocatedDiscount,
                             remainingDebtAfter = step.newDebt,
                             isFullyPaid = step.isFullyPaid
                         )
                     )
                 }
 
-                // إذا دفع العميل مبلغاً فائضاً عن كامل ديون الجلسات المختارة
+                // إذا دفع العميل مبلغاً نقدياً فائضاً عن كامل ديون الجلسات المختارة
                 if (fifoResult.surplus > 0.0) {
                     voucherIdx++
                     val surplusVoucher = Voucher(
@@ -343,6 +366,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                     customerName = cust?.name ?: "عميل غير محدد",
                     customerPhone = cust?.phone ?: "",
                     totalAmount = roundedAmount,
+                    discountAmount = roundedDiscount,
                     items = summaries,
                     surplusAmount = fifoResult.surplus,
                     currencySymbol = appConfig.value.currencySymbol
@@ -365,6 +389,24 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                     notes = notes
                 )
                 voucherRepo.insertVoucher(voucher)
+
+                // إذا كان سند قبض عام بدون جلسات محددة ومعه خصم تسوية
+                if (type == VoucherType.RECEIPT && roundedDiscount > 0.0) {
+                    val discNum = "DSC-${System.currentTimeMillis().toString().takeLast(4)}"
+                    val discVoucher = Voucher(
+                        voucherNumber = discNum,
+                        type = VoucherType.DISCOUNT,
+                        customerId = customerId,
+                        sessionId = null,
+                        amount = roundedDiscount,
+                        category = "خصم تسوية",
+                        paymentMethod = "تسوية ومسامحة",
+                        date = System.currentTimeMillis() + 1,
+                        notes = if (notes.isNotBlank()) "$notes (خصم تسوية رصيد)" else "خصم تسوية ومسامحة في رصيد الحساب"
+                    )
+                    voucherRepo.insertVoucher(discVoucher)
+                }
+
                 LicenseManager.recordOperationPerformed(getApplication(), totalOps)
 
                 val title = if (type == VoucherType.RECEIPT) "سند القبض" else "سند الصرف"
@@ -643,72 +685,95 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
     }
 }
 
-data class SettlementItemSummary(
-    val sessionId: Long,
-    val date: Long,
-    val originalDebt: Double,
-    val allocatedAmount: Double,
-    val remainingDebtAfter: Double,
-    val isFullyPaid: Boolean
-)
-
 data class SettlementResult(
     val customerName: String,
     val customerPhone: String,
     val totalAmount: Double,
+    val discountAmount: Double = 0.0,
     val items: List<SettlementItemSummary>,
     val surplusAmount: Double = 0.0,
     val currencySymbol: String = "ر.ي"
 )
 
+data class SettlementItemSummary(
+    val sessionId: Long,
+    val date: Long,
+    val originalDebt: Double,
+    val allocatedAmount: Double,
+    val allocatedDiscount: Double = 0.0,
+    val remainingDebtAfter: Double,
+    val isFullyPaid: Boolean
+)
+
 data class AllocationStep(
     val session: WaterSession,
     val allocatedAmount: Double,
+    val allocatedDiscount: Double = 0.0,
     val newPaid: Double,
+    val newDiscount: Double = 0.0,
     val newDebt: Double,
     val isFullyPaid: Boolean
 )
 
 data class FifoAllocationResult(
     val steps: List<AllocationStep>,
-    val surplus: Double
+    val surplus: Double,
+    val surplusDiscount: Double = 0.0
 )
 
 fun calculateFifoAllocation(
     sessions: List<WaterSession>,
-    totalAmount: Double
+    totalAmount: Double,
+    discountAmount: Double = 0.0
 ): FifoAllocationResult {
-    var pool = Formatters.roundMoney(totalAmount)
+    var cashPool = Formatters.roundMoney(totalAmount)
+    var discountPool = Formatters.roundMoney(discountAmount)
     val sorted = sessions.sortedBy { it.startTime }
     val steps = mutableListOf<AllocationStep>()
+
     for (s in sorted) {
-        if (pool <= 0.0) {
+        val sDebt = Formatters.roundMoney(s.remainingDebt)
+        if (cashPool <= 0.0 && discountPool <= 0.0) {
             steps.add(
                 AllocationStep(
                     session = s,
                     allocatedAmount = 0.0,
+                    allocatedDiscount = 0.0,
                     newPaid = Formatters.roundMoney(s.amountPaid),
-                    newDebt = Formatters.roundMoney(s.remainingDebt),
-                    isFullyPaid = false
+                    newDiscount = Formatters.roundMoney(s.discountAmount),
+                    newDebt = sDebt,
+                    isFullyPaid = sDebt <= 0.0
                 )
             )
         } else {
-            val sDebt = Formatters.roundMoney(s.remainingDebt)
-            val allocated = Formatters.roundMoney(minOf(sDebt, pool))
-            val newPaid = Formatters.roundMoney((s.amountPaid + allocated).coerceAtMost(s.totalAmount))
-            val newDebt = Formatters.roundMoney((s.totalAmount - newPaid).coerceAtLeast(0.0))
-            pool = Formatters.roundMoney(pool - allocated)
+            val allocatedCash = Formatters.roundMoney(minOf(sDebt, maxOf(0.0, cashPool)))
+            val debtAfterCash = Formatters.roundMoney(maxOf(0.0, sDebt - allocatedCash))
+            cashPool = Formatters.roundMoney(maxOf(0.0, cashPool - allocatedCash))
+
+            val allocatedDiscount = Formatters.roundMoney(minOf(debtAfterCash, maxOf(0.0, discountPool)))
+            discountPool = Formatters.roundMoney(maxOf(0.0, discountPool - allocatedDiscount))
+
+            val newPaid = Formatters.roundMoney((s.amountPaid + allocatedCash).coerceAtMost(s.totalAmount))
+            val newDiscount = Formatters.roundMoney((s.discountAmount + allocatedDiscount).coerceAtMost(s.totalAmount))
+            val newDebt = Formatters.roundMoney((s.totalAmount - (newPaid + newDiscount)).coerceAtLeast(0.0))
+
             steps.add(
                 AllocationStep(
                     session = s,
-                    allocatedAmount = allocated,
+                    allocatedAmount = allocatedCash,
+                    allocatedDiscount = allocatedDiscount,
                     newPaid = newPaid,
+                    newDiscount = newDiscount,
                     newDebt = newDebt,
                     isFullyPaid = newDebt <= 0.0
                 )
             )
         }
     }
-    return FifoAllocationResult(steps = steps, surplus = maxOf(0.0, pool))
+    return FifoAllocationResult(
+        steps = steps,
+        surplus = maxOf(0.0, cashPool),
+        surplusDiscount = maxOf(0.0, discountPool)
+    )
 }
 

@@ -34,6 +34,9 @@ interface WaterSessionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: WaterSession): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSessions(sessions: List<WaterSession>): List<Long>
+
     @Update
     suspend fun updateSession(session: WaterSession)
 
@@ -42,4 +45,7 @@ interface WaterSessionDao {
 
     @Query("DELETE FROM water_sessions WHERE id = :id")
     suspend fun deleteSessionById(id: Long)
+
+    @Query("DELETE FROM water_sessions")
+    suspend fun clearAllSessions()
 }
