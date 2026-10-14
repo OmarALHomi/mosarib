@@ -1222,9 +1222,9 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     if (!isActivated) {
-                        val freeLimit = LicenseManager.FREE_OPERATIONS_LIMIT
-                        val progress = (operationsCount.toFloat() / freeLimit).coerceIn(0f, 1f)
-                        val remaining = (freeLimit - operationsCount).coerceAtLeast(0)
+                        val freeLimit = LicenseManager.getFreeOperationsLimit(context)
+                        val remaining = LicenseManager.getRemainingOperations(context, operationsCount)
+                        val progress = if (freeLimit > 0) (operationsCount.toFloat() / freeLimit).coerceIn(0f, 1f) else 1f
 
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Row(
@@ -1779,10 +1779,7 @@ fun SettingsScreen(
     )
 
     // License Dialog
-    val isTrialLimitExceeded = !isActivated && (
-        operationsCount >= LicenseManager.FREE_OPERATIONS_LIMIT ||
-        LicenseManager.isTrialConsumed(context)
-    )
+    val isTrialLimitExceeded = LicenseManager.isTrialLimitExceeded(context, operationsCount)
 
     if (showLicenseDialog && !isTrialLimitExceeded) {
         LicenseDialog(

@@ -278,8 +278,9 @@ fun MainApp(
 
                                     // أيقونة خط خارجي دائرية بعدد العمليات المتبقية يتغير لونها مع النفاذ
                                     if (!isActivated) {
-                                        val remaining = (LicenseManager.FREE_OPERATIONS_LIMIT - operationsCount).coerceAtLeast(0)
-                                        val progress = (operationsCount.toFloat() / LicenseManager.FREE_OPERATIONS_LIMIT).coerceIn(0f, 1f)
+                                        val freeLimit = LicenseManager.getFreeOperationsLimit(context)
+                                        val remaining = LicenseManager.getRemainingOperations(context, operationsCount)
+                                        val progress = if (freeLimit > 0) (operationsCount.toFloat() / freeLimit).coerceIn(0f, 1f) else 1f
                                         val indicatorColor = when {
                                             remaining <= 10 -> Color(0xFFE53935)
                                             remaining <= 40 -> Color(0xFFF57C00)
@@ -393,10 +394,7 @@ fun MainApp(
                 }
             }
 
-            val isTrialLimitExceeded = !isActivated && (
-                operationsCount >= LicenseManager.FREE_OPERATIONS_LIMIT ||
-                LicenseManager.isTrialConsumed(context)
-            )
+            val isTrialLimitExceeded = LicenseManager.isTrialLimitExceeded(context, operationsCount)
 
             if (showLicenseDialog || isTrialLimitExceeded) {
                 LicenseDialog(
@@ -409,7 +407,7 @@ fun MainApp(
                     },
                     isMandatory = isTrialLimitExceeded,
                     mandatoryReason = if (isTrialLimitExceeded) {
-                        "لقد تجاوزت الحد التجريبي المجاني (${LicenseManager.FREE_OPERATIONS_LIMIT} عملية) أو قمت باستعادة نسخة تتجاوزه. تم حفظ بياناتك بأمان تام، ويرجى تفعيل الاشتراك لمتابعة العمل بالتطبيق."
+                        "لقد تجاوزت الحد التجريبي المجاني (${LicenseManager.getFreeOperationsLimit(context)} عملية) أو قمت باستعادة نسخة تتجاوزه. تم حفظ بياناتك بأمان تام، ويرجى تفعيل الاشتراك لمتابعة العمل بالتطبيق."
                     } else null
                 )
             }

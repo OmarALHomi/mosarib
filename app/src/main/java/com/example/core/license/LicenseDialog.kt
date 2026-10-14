@@ -7,6 +7,8 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +16,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -308,6 +312,8 @@ fun LicenseDialog(
         }
     }
 
+    val sheetScrollState = rememberScrollState()
+
     ModalBottomSheet(
         onDismissRequest = {
             if (!isMandatory) onDismiss()
@@ -318,7 +324,10 @@ fun LicenseDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(sheetScrollState)
                 .padding(horizontal = 22.dp, vertical = 12.dp)
+                .imePadding()
+                .navigationBarsPadding()
         ) {
             // Header
             Row(
@@ -794,7 +803,7 @@ fun LicenseDialog(
                 )
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 

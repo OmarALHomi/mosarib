@@ -387,6 +387,7 @@ object LicenseManager {
 
     fun isTrialConsumed(context: Context): Boolean {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        if (com.example.BuildConfig.DEBUG && sp.getBoolean("debug_unlimited_ops", false)) return false
         if (sp.getBoolean(KEY_TRIAL_CONSUMED, false)) return true
 
         val deviceCode = getDeviceCode(context)
@@ -412,6 +413,7 @@ object LicenseManager {
 
     fun markTrialAsConsumed(context: Context) {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        if (com.example.BuildConfig.DEBUG && sp.getBoolean("debug_unlimited_ops", false)) return
         sp.edit().putBoolean(KEY_TRIAL_CONSUMED, true).apply()
 
         val deviceCode = getDeviceCode(context)
@@ -434,6 +436,20 @@ object LicenseManager {
 
     fun getFreeOperationsLimit(context: Context): Int {
         return RemoteConfigManager.getFreeOperationsLimit(context)
+    }
+
+    /**
+     * Checks if the trial limit has been exceeded, taking into account debug mode overrides.
+     */
+    fun isTrialLimitExceeded(context: Context, currentOperationsCount: Int): Boolean {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        if (com.example.BuildConfig.DEBUG && sp.getBoolean("debug_unlimited_ops", false)) return false
+        if (isActivated(context)) return false
+        if (isTrialConsumed(context)) return true
+        val storedOps = sp.getInt(KEY_CUMULATIVE_OPS, 0)
+        val effectiveCount = maxOf(storedOps, currentOperationsCount)
+        val effectiveLimit = getFreeOperationsLimit(context)
+        return effectiveCount >= effectiveLimit
     }
 
     fun recordOperationPerformed(context: Context, currentDbCount: Int) {

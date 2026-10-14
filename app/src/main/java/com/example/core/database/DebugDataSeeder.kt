@@ -278,6 +278,7 @@ object DebugDataSeeder {
 
             db.wellOwnerPurchaseDao().insertPurchases(purchasesToInsert)
 
+            com.example.core.license.LicenseManager.resetTrialConsumptionForRestore(context)
             context.getSharedPreferences("mosarib_license_prefs", Context.MODE_PRIVATE)
                 .edit()
                 .putBoolean("debug_unlimited_ops", true)
@@ -299,6 +300,7 @@ object DebugDataSeeder {
             db.voucherDao().clearAllVouchers()
             db.wellOwnerPurchaseDao().clearAllPurchases()
             db.customerDao().clearAllCustomers()
+            com.example.core.license.LicenseManager.resetTrialConsumptionForRestore(context)
             context.getSharedPreferences("mosarib_license_prefs", Context.MODE_PRIVATE)
                 .edit()
                 .remove("debug_unlimited_ops")

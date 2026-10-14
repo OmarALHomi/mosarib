@@ -450,7 +450,7 @@ fun SessionsScreen(
         LicenseDialog(
             onDismiss = { showActivationDialog = false },
             onActivated = { showActivationDialog = false },
-            isMandatory = operationsCount >= LicenseManager.FREE_OPERATIONS_LIMIT
+            isMandatory = LicenseManager.isTrialLimitExceeded(context, operationsCount)
         )
     }
 }
