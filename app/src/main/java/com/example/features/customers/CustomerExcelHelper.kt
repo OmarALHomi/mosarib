@@ -34,6 +34,8 @@ data class ImportedCustomerDraft(
     var location: String = "",
     var customPricePerHour: Double? = null,
     var isWellOwner: Boolean = false,
+    var initialBalance: Double = 0.0,
+    var isDebit: Boolean = true, // true = مدين (عليه دين)، false = دائن (له رصيد)
     var notes: String = "",
     var isSelected: Boolean = true,
     var isExistingInDb: Boolean = false,
@@ -45,21 +47,35 @@ data class ImportedCustomerDraft(
 object CustomerExcelHelper {
 
     private val NAME_KEYWORDS = listOf(
+        "اسم الحساب", "الحساب", "الطرف الثاني", "جهة التعامل", "الاسم / الحساب",
         "الاسم", "اسم العميل", "اسم المزارع", "العميل", "المزارع", "الزبون", "المستفيد",
-        "name", "customer", "farmer", "client", "full name", "fullname", "account"
+        "اسم الزبون", "اسم الشخص", "name", "customer", "farmer", "client", "full name", "fullname", "account", "party"
     )
     private val PHONE_KEYWORDS = listOf(
         "الهاتف", "رقم الهاتف", "الجوال", "الموبايل", "التلفون", "تلفون", "رقم الجوال",
-        "الاتصال", "واتساب", "phone", "mobile", "tel", "cell", "contact", "whatsapp"
+        "الاتصال", "واتساب", "رقم الاتصال", "phone", "mobile", "tel", "cell", "contact", "whatsapp"
     )
     private val FARM_KEYWORDS = listOf(
         "المزرعة", "اسم المزرعة", "الحقل", "البستان", "farm", "farm name", "field", "orchard"
     )
     private val LOCATION_KEYWORDS = listOf(
-        "الموقع", "العنوان", "المنطقة", "القرية", "البلاد", "المدينة", "location", "address", "area", "village", "city"
+        "العنوان", "الموقع", "المنطقة", "القرية", "البلاد", "المدينة", "المحافظة", "location", "address", "area", "village", "city"
+    )
+    private val BALANCE_KEYWORDS = listOf(
+        "الرصيد", "الرصيد الحالي", "رصيد الحساب", "الرصيد السابق", "الرصيد الافتتاحي",
+        "صافي الرصيد", "المبلغ المتبقي", "المتبقي", "رصيد", "balance", "current balance", "net balance", "due"
+    )
+    private val DEBIT_KEYWORDS = listOf(
+        "مدين", "عليه", "مطلوب منه", "debit"
+    )
+    private val CREDIT_KEYWORDS = listOf(
+        "دائن", "له", "مطلوب له", "credit"
+    )
+    private val BALANCE_TYPE_KEYWORDS = listOf(
+        "نوع الرصيد", "طبيعة الرصيد", "الحالة", "balance type", "status"
     )
     private val PRICE_KEYWORDS = listOf(
-        "سعر الساعة", "سعر الماء", "السعر", "التعرفة", "سعر خاص", "price", "hourly price", "rate", "hourly rate"
+        "سعر الساعة", "سعر الماء", "التعرفة", "سعر خاص", "hourly price", "hourly rate"
     )
     private val TYPE_KEYWORDS = listOf(
         "صاحب بئر", "نوع الحساب", "النوع", "مالك البئر", "بئر", "owner", "well owner", "type", "account type"
@@ -305,10 +321,23 @@ object CustomerExcelHelper {
         return tokens
     }
 
+    private fun matchesKeywordWordOrPhrase(cleanText: String, keywords: List<String>): Boolean {
+        val normalized = cleanText.replace(Regex("[^\\p{L}\\p{Nd}\\s]+"), " ").trim()
+        val words = normalized.split("\\s+".toRegex()).filter { it.isNotBlank() }
+        return keywords.any { kw ->
+            val normKw = normalizeArabicText(kw).replace(Regex("[^\\p{L}\\p{Nd}\\s]+"), " ").trim()
+            if (normKw.contains(" ")) {
+                normalized.contains(normKw)
+            } else {
+                words.contains(normKw)
+            }
+        }
+    }
+
     /**
      * تحليل ذكي للأعمدة والربط التلقائي بالحقول المناسبة.
      */
-    private fun mapRowsToDrafts(
+    internal fun mapRowsToDrafts(
         rawRows: List<List<String>>,
         existingCustomers: List<Customer>
     ): List<ImportedCustomerDraft> {
@@ -324,12 +353,15 @@ object CustomerExcelHelper {
             var score = 0
             for (cell in row) {
                 val clean = normalizeArabicText(cell)
-                if (NAME_KEYWORDS.any { clean.contains(it) }) score += 3
-                if (PHONE_KEYWORDS.any { clean.contains(it) }) score += 3
-                if (FARM_KEYWORDS.any { clean.contains(it) }) score += 2
-                if (LOCATION_KEYWORDS.any { clean.contains(it) }) score += 2
-                if (PRICE_KEYWORDS.any { clean.contains(it) }) score += 2
-                if (TYPE_KEYWORDS.any { clean.contains(it) }) score += 2
+                if (matchesKeywordWordOrPhrase(clean, NAME_KEYWORDS)) score += 3
+                if (matchesKeywordWordOrPhrase(clean, PHONE_KEYWORDS)) score += 3
+                if (matchesKeywordWordOrPhrase(clean, BALANCE_KEYWORDS)) score += 3
+                if (matchesKeywordWordOrPhrase(clean, DEBIT_KEYWORDS)) score += 2
+                if (matchesKeywordWordOrPhrase(clean, CREDIT_KEYWORDS)) score += 2
+                if (matchesKeywordWordOrPhrase(clean, FARM_KEYWORDS)) score += 2
+                if (matchesKeywordWordOrPhrase(clean, LOCATION_KEYWORDS)) score += 2
+                if (matchesKeywordWordOrPhrase(clean, PRICE_KEYWORDS)) score += 2
+                if (matchesKeywordWordOrPhrase(clean, TYPE_KEYWORDS)) score += 2
             }
             if (score > bestHeaderScore) {
                 bestHeaderScore = score
@@ -349,18 +381,26 @@ object CustomerExcelHelper {
         var priceCol = -1
         var typeCol = -1
         var notesCol = -1
+        var balanceCol = -1
+        var debitCol = -1
+        var creditCol = -1
+        var balanceTypeCol = -1
 
         if (hasHeader) {
             for (c in headerRow.indices) {
                 val clean = normalizeArabicText(headerRow[c])
                 when {
-                    nameCol == -1 && NAME_KEYWORDS.any { clean.contains(it) } -> nameCol = c
-                    phoneCol == -1 && PHONE_KEYWORDS.any { clean.contains(it) } -> phoneCol = c
-                    farmCol == -1 && FARM_KEYWORDS.any { clean.contains(it) } -> farmCol = c
-                    locationCol == -1 && LOCATION_KEYWORDS.any { clean.contains(it) } -> locationCol = c
-                    priceCol == -1 && PRICE_KEYWORDS.any { clean.contains(it) } -> priceCol = c
-                    typeCol == -1 && TYPE_KEYWORDS.any { clean.contains(it) } -> typeCol = c
-                    notesCol == -1 && NOTES_KEYWORDS.any { clean.contains(it) } -> notesCol = c
+                    nameCol == -1 && matchesKeywordWordOrPhrase(clean, NAME_KEYWORDS) -> nameCol = c
+                    phoneCol == -1 && matchesKeywordWordOrPhrase(clean, PHONE_KEYWORDS) -> phoneCol = c
+                    priceCol == -1 && matchesKeywordWordOrPhrase(clean, PRICE_KEYWORDS) -> priceCol = c
+                    debitCol == -1 && matchesKeywordWordOrPhrase(clean, DEBIT_KEYWORDS) -> debitCol = c
+                    creditCol == -1 && matchesKeywordWordOrPhrase(clean, CREDIT_KEYWORDS) -> creditCol = c
+                    balanceTypeCol == -1 && matchesKeywordWordOrPhrase(clean, BALANCE_TYPE_KEYWORDS) -> balanceTypeCol = c
+                    balanceCol == -1 && matchesKeywordWordOrPhrase(clean, BALANCE_KEYWORDS) -> balanceCol = c
+                    farmCol == -1 && matchesKeywordWordOrPhrase(clean, FARM_KEYWORDS) -> farmCol = c
+                    locationCol == -1 && matchesKeywordWordOrPhrase(clean, LOCATION_KEYWORDS) -> locationCol = c
+                    typeCol == -1 && matchesKeywordWordOrPhrase(clean, TYPE_KEYWORDS) -> typeCol = c
+                    notesCol == -1 && matchesKeywordWordOrPhrase(clean, NOTES_KEYWORDS) -> notesCol = c
                 }
             }
         }
@@ -395,6 +435,32 @@ object CustomerExcelHelper {
             val rawType = if (typeCol >= 0) row.getOrNull(typeCol).orEmpty() else ""
             val rawNotes = if (notesCol >= 0) row.getOrNull(notesCol)?.trim().orEmpty() else ""
 
+            // استخراج الرصيد الافتتاحي إن وجد (دفتر الحسابات أو التطبيقات المحاسبية)
+            var computedBalance = 0.0
+            var computedIsDebit = true // الافتراضي: مدين (عليه دين)
+
+            if (debitCol >= 0 || creditCol >= 0) {
+                val debitVal = if (debitCol >= 0) Formatters.parseAmountInput(row.getOrNull(debitCol).orEmpty()) else 0.0
+                val creditVal = if (creditCol >= 0) Formatters.parseAmountInput(row.getOrNull(creditCol).orEmpty()) else 0.0
+                if (debitVal > 0.0 && debitVal >= creditVal) {
+                    computedBalance = debitVal - creditVal
+                    computedIsDebit = true
+                } else if (creditVal > 0.0) {
+                    computedBalance = creditVal - debitVal
+                    computedIsDebit = false
+                }
+            } else if (balanceCol >= 0) {
+                val rawBalStr = row.getOrNull(balanceCol).orEmpty().trim()
+                val parsedBal = Formatters.parseAmountInput(rawBalStr)
+                val typeStr = if (balanceTypeCol >= 0) row.getOrNull(balanceTypeCol).orEmpty().trim() else ""
+                val cleanType = normalizeArabicText(typeStr)
+                val isCredit = matchesKeywordWordOrPhrase(cleanType, CREDIT_KEYWORDS) || rawBalStr.startsWith("-")
+                if (parsedBal > 0.0) {
+                    computedBalance = parsedBal
+                    computedIsDebit = !isCredit
+                }
+            }
+
             val isOwner = isWellOwnerString(rawType)
 
             // المطابقة مع العملاء المسجلين مسبقاً في قاعدة البيانات
@@ -415,6 +481,8 @@ object CustomerExcelHelper {
                     location = rawLocation,
                     customPricePerHour = if (rawPrice > 0.0) rawPrice else null,
                     isWellOwner = isOwner,
+                    initialBalance = computedBalance,
+                    isDebit = computedIsDebit,
                     notes = rawNotes,
                     isSelected = validationErr == null,
                     isExistingInDb = existingMatch != null,

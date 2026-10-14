@@ -49,4 +49,32 @@ class CustomerExcelTest {
         val clean2 = name2.replace("أ", "ا")
         assertEquals(clean1, clean2)
     }
+
+    @Test
+    fun testDaftareHesabatFormatParsing() {
+        val sampleRows = listOf(
+            listOf("م", "اسم الحساب", "رقم الهاتف", "العنوان", "الرصيد الحالي", "الحالة", "العملة", "تاريخ آخر حركة", "ملاحظات / البيان"),
+            listOf("1", "صالح أحمد بن علي العولقي", "771234001", "الحديدة - باجل", "45000", "مطلوب منه (مدين)", "ريال يمني", "2026/09/25", "باقي حساب سقي طماطم"),
+            listOf("2", "محمد يحيى بن سالم السالمي", "773456003", "صنعاء - بني حشيش", "15000", "مطلوب له (دائن)", "ريال يمني", "2026/10/03", "دفعة مقدمة تحت الحساب")
+        )
+
+        val drafts = CustomerExcelHelper.mapRowsToDrafts(sampleRows, emptyList())
+
+        assertEquals(2, drafts.size)
+
+        val draft1 = drafts[0]
+        assertEquals("صالح أحمد بن علي العولقي", draft1.name)
+        assertEquals("771234001", draft1.phone)
+        assertEquals("الحديدة - باجل", draft1.location)
+        assertEquals(45000.0, draft1.initialBalance, 0.001)
+        assertTrue("draft1 should be debit (عليه)", draft1.isDebit)
+        assertEquals("باقي حساب سقي طماطم", draft1.notes)
+
+        val draft2 = drafts[1]
+        assertEquals("محمد يحيى بن سالم السالمي", draft2.name)
+        assertEquals("773456003", draft2.phone)
+        assertEquals("صنعاء - بني حشيش", draft2.location)
+        assertEquals(15000.0, draft2.initialBalance, 0.001)
+        org.junit.Assert.assertFalse("draft2 should be credit (له)", draft2.isDebit)
+    }
 }

@@ -265,26 +265,58 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                         customerRepo.updateCustomer(updated)
                         updatedCount++
                     } else {
-                        toInsert.add(
-                            Customer(
-                                name = draft.name.trim(),
-                                phone = draft.phone.trim(),
-                                farmName = draft.farmName.trim(),
-                                location = draft.location.trim(),
-                                notes = draft.notes.trim(),
-                                customPricePerHour = draft.customPricePerHour,
-                                isWellOwner = draft.isWellOwner,
-                                isBeneficiary = false,
-                                createdAt = System.currentTimeMillis(),
-                                isArchived = false
-                            )
+                        val newCustomer = Customer(
+                            name = draft.name.trim(),
+                            phone = draft.phone.trim(),
+                            farmName = draft.farmName.trim(),
+                            location = draft.location.trim(),
+                            notes = draft.notes.trim(),
+                            customPricePerHour = draft.customPricePerHour,
+                            isWellOwner = draft.isWellOwner,
+                            isBeneficiary = false,
+                            createdAt = System.currentTimeMillis(),
+                            isArchived = false
                         )
-                    }
-                }
+                        val newId = db.customerDao().insertCustomer(newCustomer)
+                        insertedCount++
 
-                if (toInsert.isNotEmpty()) {
-                    customerRepo.insertCustomers(toInsert)
-                    insertedCount = toInsert.size
+                        // تسجيل الرصيد الافتتاحي المستورد (من دفتر الحسابات والتطبيقات الخارجية)
+                        if (draft.initialBalance > 0.0) {
+                            val now = System.currentTimeMillis()
+                            if (draft.isDebit) {
+                                // دين سابق مستحق على العميل (مدين)
+                                db.waterSessionDao().insertSession(
+                                    com.example.features.sessions.WaterSession(
+                                        customerId = newId,
+                                        pumpName = "رصيد افتتاحي",
+                                        startTime = now,
+                                        endTime = now,
+                                        durationMinutes = 0,
+                                        pricePerHour = 0.0,
+                                        totalAmount = draft.initialBalance,
+                                        amountPaid = 0.0,
+                                        remainingDebt = draft.initialBalance,
+                                        notes = if (draft.notes.isNotBlank()) "رصيد سابق: ${draft.notes}" else "رصيد ودين سابق مستورد من دفتر الحسابات",
+                                        createdAt = now
+                                    )
+                                )
+                            } else {
+                                // رصيد دائن / دفعة مقدمة (له)
+                                db.voucherDao().insertVoucher(
+                                    com.example.features.vouchers.Voucher(
+                                        type = com.example.features.vouchers.VoucherType.RECEIPT,
+                                        customerId = newId,
+                                        amount = draft.initialBalance,
+                                        category = "رصيد افتتاحي",
+                                        paymentMethod = "رصيد سابق",
+                                        date = now,
+                                        notes = if (draft.notes.isNotBlank()) "رصيد دائن: ${draft.notes}" else "رصيد دائن سابق مستورد من دفتر الحسابات",
+                                        createdAt = now
+                                    )
+                                )
+                            }
+                        }
+                    }
                 }
 
                 _importDrafts.value = null

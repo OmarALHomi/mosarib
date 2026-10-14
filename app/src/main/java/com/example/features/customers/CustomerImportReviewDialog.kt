@@ -65,6 +65,7 @@ import com.example.core.ui.MosaribTextField
 import com.example.core.ui.isAppDark
 import com.example.core.util.Formatters
 import com.example.ui.theme.PrimaryTeal
+import com.example.ui.theme.AccentEmerald
 
 private enum class DraftFilterTab {
     ALL, SELECTED, NEW_ONLY, EXISTING_ONLY
@@ -521,6 +522,19 @@ private fun ImportDraftCard(
                             )
                         )
                     }
+
+                    if (draft.initialBalance > 0.0) {
+                        val balColor = if (draft.isDebit) Color(0xFFEF4444) else AccentEmerald
+                        val balPrefix = if (draft.isDebit) "عليه: " else "له: "
+                        Text(
+                            text = "$balPrefix${Formatters.formatCurrency(draft.initialBalance, "ر.ي")}",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = balColor,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        )
+                    }
                 }
             }
 
@@ -563,6 +577,8 @@ private fun EditImportDraftDialog(
     var farmName by remember { mutableStateOf(draft.farmName) }
     var location by remember { mutableStateOf(draft.location) }
     var priceStr by remember { mutableStateOf(draft.customPricePerHour?.let { Formatters.formatAmountInput(it.toString()) } ?: "") }
+    var balanceStr by remember { mutableStateOf(if (draft.initialBalance > 0.0) Formatters.formatAmountInput(draft.initialBalance.toString()) else "") }
+    var isDebit by remember { mutableStateOf(draft.isDebit) }
     var isWellOwner by remember { mutableStateOf(draft.isWellOwner) }
     var notes by remember { mutableStateOf(draft.notes) }
 
@@ -621,14 +637,48 @@ private fun EditImportDraftDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                MosaribTextField(
-                    value = priceStr,
-                    onValueChange = { priceStr = Formatters.formatAmountInput(it) },
-                    label = "سعر الساعة المخصص (ر.ي)",
-                    placeholder = "اختياري",
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    MosaribTextField(
+                        value = priceStr,
+                        onValueChange = { priceStr = Formatters.formatAmountInput(it) },
+                        label = "سعر الساعة (ر.ي)",
+                        placeholder = "اختياري",
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                    MosaribTextField(
+                        value = balanceStr,
+                        onValueChange = { balanceStr = Formatters.formatAmountInput(it) },
+                        label = "الرصيد السابق (ر.ي)",
+                        placeholder = "اختياري",
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                if (balanceStr.isNotBlank() && Formatters.parseAmountInput(balanceStr) > 0.0) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("طبيعة الرصيد السابق:", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        FilterChip(
+                            selected = isDebit,
+                            onClick = { isDebit = true },
+                            label = { Text("عليه (مدين)", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                        )
+                        FilterChip(
+                            selected = !isDebit,
+                            onClick = { isDebit = false },
+                            label = { Text("له (دائن)", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
@@ -656,6 +706,7 @@ private fun EditImportDraftDialog(
                         text = "تم وحفظ",
                         onClick = {
                             val parsedPrice = Formatters.parseAmountInput(priceStr).takeIf { it > 0 }
+                            val parsedBal = Formatters.parseAmountInput(balanceStr)
                             val cleanName = name.trim()
                             val validationErr = if (cleanName.isBlank()) "اسم العميل مطلوب" else null
                             onSave(
@@ -666,6 +717,8 @@ private fun EditImportDraftDialog(
                                     location = location.trim(),
                                     customPricePerHour = parsedPrice,
                                     isWellOwner = isWellOwner,
+                                    initialBalance = parsedBal,
+                                    isDebit = isDebit,
                                     notes = notes.trim(),
                                     validationError = validationErr,
                                     isSelected = validationErr == null
