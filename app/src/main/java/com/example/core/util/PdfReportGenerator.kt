@@ -364,135 +364,330 @@ object PdfReportGenerator {
         session: WaterSession
     ): File {
         val document = PdfDocument()
-        val pageWidth = 595
-        val pageHeight = 650
+        val pageWidth = 595 // Standard A4 width
+        val pageHeight = 842 // Standard A4 height
         val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
         val page = document.startPage(pageInfo)
         val canvas: Canvas = page.canvas
 
-        val primaryColor = 0xFF007A87.toInt()
-        val darkTextColor = 0xFF132228.toInt()
-        val lightGray = 0xFFF5F9FA.toInt()
-        val dividerGray = 0xFFD2DFE5.toInt()
-        val debtRed = 0xFFD32F2F.toInt()
-        val paidGreen = 0xFF2E7D32.toInt()
+        val fontBold = PdfThemeHelper.getCairoBold(context)
+        val fontRegular = PdfThemeHelper.getCairoRegular(context)
+        val fontSemiBold = PdfThemeHelper.getCairoSemiBold(context)
+
+        val primaryColor = PdfThemeHelper.COLOR_PRIMARY
+        val darkTextColor = PdfThemeHelper.COLOR_DARK_TEXT
+        val mutedTextColor = PdfThemeHelper.COLOR_MUTED_TEXT
+        val cardBgColor = PdfThemeHelper.COLOR_CARD_BG
+        val borderColor = PdfThemeHelper.COLOR_BORDER
+        val debtRed = PdfThemeHelper.COLOR_DANGER
+        val paidGreen = PdfThemeHelper.COLOR_SUCCESS
+        val goldColor = PdfThemeHelper.COLOR_GOLD
 
         val paint = Paint().apply { isAntiAlias = true }
 
-        // Header
+        // 1. Header Banner
         paint.color = primaryColor
-        canvas.drawRect(0f, 0f, pageWidth.toFloat(), 90f, paint)
+        canvas.drawRect(0f, 0f, pageWidth.toFloat(), 105f, paint)
 
+        // Luxury Gold accent line
+        paint.color = goldColor
+        canvas.drawRect(0f, 102f, pageWidth.toFloat(), 105f, paint)
+
+        // Header Title
         paint.color = Color.WHITE
-        paint.textSize = 22f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.textSize = 21f
+        paint.typeface = fontBold
         paint.textAlign = Paint.Align.CENTER
         canvas.drawText("فاتورة توزيع وري مياه", pageWidth / 2f, 42f, paint)
 
-        paint.textSize = 12f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        canvas.drawText("${config.distributorName} - جوال: ${config.distributorPhone}", pageWidth / 2f, 68f, paint)
+        // Distributor Subtitle
+        paint.textSize = 11.5f
+        paint.typeface = fontRegular
+        val subText = "${config.distributorName}  •  جوال: ${config.distributorPhone.ifEmpty { "غير محدد" }}"
+        canvas.drawText(subText, pageWidth / 2f, 68f, paint)
 
-        // Invoice Number & Date
+        paint.textSize = 9.5f
+        paint.color = 0xD9FFFFFF.toInt()
+        canvas.drawText("سند وفاتورة محاسبية رسمية صادرة عن تطبيق المُسَرِّبْ", pageWidth / 2f, 88f, paint)
+
+        // 2. Metadata Strip
+        var curY = 130f
         paint.color = darkTextColor
-        paint.textSize = 12f
+        paint.textSize = 11.5f
+        paint.typeface = fontBold
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("رقم الفاتورة: #${session.id}", pageWidth - 35f, 120f, paint)
-        canvas.drawText("تاريخ الري: ${Formatters.formatDateTime(session.startTime)}", pageWidth - 35f, 140f, paint)
+        canvas.drawText("فاتورة رقم: #${session.id}", pageWidth - 30f, curY, paint)
 
-        paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("حالة السداد: ${if (session.remainingDebt <= 0) "مسدد" else "متبقي آجل"}", 35f, 130f, paint)
+        paint.textSize = 10f
+        paint.typeface = fontRegular
+        paint.color = mutedTextColor
+        canvas.drawText("تاريخ ووقت الري: ${Formatters.formatDateTime(session.startTime)}", pageWidth - 30f, curY + 18f, paint)
 
-        // Customer details block
-        val rectCustomer = RectF(30f, 160f, pageWidth - 30f, 225f)
-        paint.color = lightGray
-        canvas.drawRoundRect(rectCustomer, 8f, 8f, paint)
+        // Status Badge (Left)
+        val isSettled = session.remainingDebt <= 0
+        val badgeColor = if (isSettled) paidGreen else debtRed
+        val badgeBg = if (isSettled) 0xFFE8F5E9.toInt() else 0xFFFFEBEE.toInt()
+        val badgeText = if (isSettled) "مسدد بالكامل ✓" else "متبقي آجل بذمة العميل"
 
-        paint.color = darkTextColor
-        paint.textAlign = Paint.Align.RIGHT
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        paint.textSize = 13f
-        canvas.drawText("العميل: ${customer.name}", pageWidth - 45f, 185f, paint)
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        paint.textSize = 11f
-        canvas.drawText("المزرعة: ${customer.farmName.ifEmpty { "غير محدد" }}  |  الهاتف: ${customer.phone}", pageWidth - 45f, 207f, paint)
+        paint.color = badgeBg
+        val badgeRect = RectF(30f, curY - 14f, 180f, curY + 22f)
+        canvas.drawRoundRect(badgeRect, 6f, 6f, paint)
 
-        // Session Specs Table
-        var y = 250f
+        paint.style = Paint.Style.STROKE
+        paint.color = (badgeColor and 0x00FFFFFF) or 0x77000000
+        paint.strokeWidth = 0.8f
+        canvas.drawRoundRect(badgeRect, 6f, 6f, paint)
+        paint.style = Paint.Style.FILL
+
+        paint.color = badgeColor
+        paint.textSize = 10.5f
+        paint.typeface = fontBold
+        paint.textAlign = Paint.Align.CENTER
+        canvas.drawText(badgeText, badgeRect.centerX(), curY + 9f, paint)
+
+        // 3. Customer & Farm Details Card
+        curY += 45f
+        val custRect = RectF(30f, curY, pageWidth - 30f, curY + 75f)
+        paint.color = cardBgColor
+        canvas.drawRoundRect(custRect, 8f, 8f, paint)
+
+        paint.style = Paint.Style.STROKE
+        paint.color = borderColor
+        paint.strokeWidth = 0.8f
+        canvas.drawRoundRect(custRect, 8f, 8f, paint)
+        paint.style = Paint.Style.FILL
+
+        // Top edge accent in primary color
         paint.color = primaryColor
-        canvas.drawRect(30f, y, pageWidth - 30f, y + 25f, paint)
-        paint.color = Color.WHITE
-        paint.textSize = 11f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        canvas.drawRoundRect(RectF(30f, curY, pageWidth - 30f, curY + 3.5f), 2f, 2f, paint)
 
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("وقت البدء والانتهاء", pageWidth - 45f, y + 17f, paint)
-        canvas.drawText("المدة الإجمالية", pageWidth - 200f, y + 17f, paint)
-        canvas.drawText("سعر الساعة", pageWidth - 340f, y + 17f, paint)
-        canvas.drawText("المبلغ الإجمالي", 50f + 60f, y + 17f, paint)
-
-        y += 25f
-        paint.color = Color.WHITE
-        canvas.drawRect(30f, y, pageWidth - 30f, y + 35f, paint)
-        paint.color = dividerGray
-        paint.strokeWidth = 1f
-        canvas.drawLine(30f, y + 35f, pageWidth - 30f, y + 35f, paint)
+        paint.color = primaryColor
+        paint.textSize = 9.5f
+        paint.typeface = fontBold
+        canvas.drawText("بيانات العميل المستفيد:", pageWidth - 45f, curY + 18f, paint)
 
         paint.color = darkTextColor
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        paint.textSize = 11f
-        paint.textAlign = Paint.Align.RIGHT
+        paint.textSize = 13.5f
+        paint.typeface = fontBold
+        canvas.drawText(customer.name, pageWidth - 45f, curY + 40f, paint)
 
-        val timeRange = "${Formatters.formatTime(session.startTime)} - ${Formatters.formatTime(session.endTime)}"
-        canvas.drawText(timeRange, pageWidth - 45f, y + 22f, paint)
-        canvas.drawText(Formatters.formatDurationArabic(session.durationMinutes), pageWidth - 200f, y + 22f, paint)
-        canvas.drawText(Formatters.formatCurrency(session.pricePerHour, config.currencySymbol), pageWidth - 340f, y + 22f, paint)
+        paint.color = mutedTextColor
+        paint.textSize = 10f
+        paint.typeface = fontRegular
+        val farmPhone = "المزرعة: ${customer.farmName.ifEmpty { "عام / غير محدد" }}    |    الهاتف: ${customer.phone.ifEmpty { "غير مسجل" }}"
+        canvas.drawText(farmPhone, pageWidth - 45f, curY + 60f, paint)
 
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        canvas.drawText(Formatters.formatCurrency(session.totalAmount, config.currencySymbol), 50f + 60f, y + 22f, paint)
-
-        // Financial summary totals
-        y += 55f
-        val sumRect = RectF(pageWidth - 260f, y, pageWidth - 30f, y + 110f)
-        paint.color = lightGray
-        canvas.drawRoundRect(sumRect, 8f, 8f, paint)
-
-        paint.textAlign = Paint.Align.RIGHT
-        paint.color = darkTextColor
-        paint.textSize = 11f
-        canvas.drawText("إجمالي قيمة الري:", pageWidth - 45f, y + 28f, paint)
-        canvas.drawText(Formatters.formatCurrency(session.totalAmount, config.currencySymbol), pageWidth - 160f, y + 28f, paint)
-
-        paint.color = paidGreen
-        canvas.drawText("المبلغ المسدد مقدماً:", pageWidth - 45f, y + 58f, paint)
-        canvas.drawText(Formatters.formatCurrency(session.amountPaid, config.currencySymbol), pageWidth - 160f, y + 58f, paint)
-
-        paint.color = if (session.remainingDebt > 0) debtRed else paidGreen
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        canvas.drawText("المتبقي بذمة العميل:", pageWidth - 45f, y + 88f, paint)
-        canvas.drawText(Formatters.formatCurrency(session.remainingDebt, config.currencySymbol), pageWidth - 160f, y + 88f, paint)
-
-        // Notes box
-        if (session.notes.isNotEmpty()) {
-            paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        if (session.pumpName.isNotBlank()) {
+            paint.textAlign = Paint.Align.LEFT
             paint.color = darkTextColor
             paint.textSize = 10f
-            canvas.drawText("ملاحظات: ${session.notes}", 40f + 180f, y + 40f, paint)
+            paint.typeface = fontSemiBold
+            canvas.drawText("المضخة / البئر: ${session.pumpName}", 45f, curY + 60f, paint)
         }
 
-        // Footer
-        paint.color = dividerGray
-        canvas.drawLine(30f, pageHeight - 70f, pageWidth - 30f, pageHeight - 70f, paint)
+        // 4. Session Specifications Table Header
+        curY += 92f
+        paint.color = primaryColor
+        canvas.drawRoundRect(RectF(30f, curY, pageWidth - 30f, curY + 26f), 5f, 5f, paint)
+
+        paint.color = Color.WHITE
+        paint.textSize = 9.5f
+        paint.typeface = fontBold
+        paint.textAlign = Paint.Align.RIGHT
+
+        canvas.drawText("فترة السقي (البدء والانتهاء)", pageWidth - 45f, curY + 17f, paint)
+        canvas.drawText("المدة الإجمالية", pageWidth - 190f, curY + 17f, paint)
+        canvas.drawText("هدر معفى", pageWidth - 280f, curY + 17f, paint)
+        canvas.drawText("سعر الساعة", pageWidth - 365f, curY + 17f, paint)
+        canvas.drawText("الإجمالي قبل الخصم", 45f + 95f, curY + 17f, paint)
+
+        // Table Data Row
+        curY += 26f
+        paint.color = Color.WHITE
+        canvas.drawRect(30f, curY, pageWidth - 30f, curY + 36f, paint)
+
+        paint.color = borderColor
+        paint.strokeWidth = 0.8f
+        canvas.drawLine(30f, curY + 36f, pageWidth - 30f, curY + 36f, paint)
 
         paint.color = darkTextColor
         paint.textSize = 10f
+        paint.typeface = fontRegular
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("توقيع المستلم: ....................", pageWidth - 50f, pageHeight - 45f, paint)
 
+        val timeRange = "${Formatters.formatTime(session.startTime)} - ${Formatters.formatTime(session.endTime)}"
+        canvas.drawText(timeRange, pageWidth - 45f, curY + 22f, paint)
+
+        paint.typeface = fontSemiBold
+        canvas.drawText(Formatters.formatDurationArabic(session.durationMinutes), pageWidth - 190f, curY + 22f, paint)
+
+        paint.typeface = fontRegular
+        if (session.wastedMinutes > 0) {
+            paint.color = debtRed
+            canvas.drawText(Formatters.formatDurationArabic(session.wastedMinutes), pageWidth - 280f, curY + 22f, paint)
+            paint.color = darkTextColor
+        } else {
+            canvas.drawText("-", pageWidth - 280f, curY + 22f, paint)
+        }
+
+        canvas.drawText("${Formatters.formatNumber(session.pricePerHour)} ${config.currencySymbol}", pageWidth - 365f, curY + 22f, paint)
+
+        paint.typeface = fontBold
+        paint.color = primaryColor
+        canvas.drawText(Formatters.formatCurrency(session.totalAmount, config.currencySymbol), 45f + 95f, curY + 22f, paint)
+
+        // 5. Tafqeet Banner (المبلغ كتابة)
+        curY += 48f
+        val tafqeetRect = RectF(30f, curY, pageWidth - 30f, curY + 36f)
+        paint.color = 0xFFF8FAFC.toInt()
+        canvas.drawRoundRect(tafqeetRect, 6f, 6f, paint)
+
+        paint.style = Paint.Style.STROKE
+        paint.color = 0xFFE2E8F0.toInt()
+        paint.strokeWidth = 0.8f
+        canvas.drawRoundRect(tafqeetRect, 6f, 6f, paint)
+        paint.style = Paint.Style.FILL
+
+        // Left vertical indicator
+        paint.color = goldColor
+        canvas.drawRoundRect(RectF(pageWidth - 34f, curY, pageWidth - 30f, curY + 36f), 2f, 2f, paint)
+
+        paint.textAlign = Paint.Align.RIGHT
+        paint.color = darkTextColor
+        paint.textSize = 10f
+        paint.typeface = fontSemiBold
+        val words = Formatters.amountToArabicWords(session.totalAmount, config.currencySymbol)
+        canvas.drawText("المبلغ المطلوب كتابةً: فقط $words", pageWidth - 45f, curY + 22f, paint)
+
+        // 6. Financial Summary 3-Card Strip
+        curY += 50f
+        val cardW = (pageWidth - 60f - 20f) / 3f
+        val cardH = 65f
+
+        // Card 1: إجمالي قيمة السقي
+        var startX = 30f
+        drawSummaryBox(
+            canvas = canvas,
+            x = startX,
+            y = curY,
+            width = cardW,
+            height = cardH,
+            title = "إجمالي قيمة السقي",
+            value = Formatters.formatCurrency(session.totalAmount, config.currencySymbol),
+            accentColor = primaryColor,
+            fontBold = fontBold,
+            fontRegular = fontRegular
+        )
+
+        // Card 2: المدفوع نقداً / المسدد
+        startX += cardW + 10f
+        drawSummaryBox(
+            canvas = canvas,
+            x = startX,
+            y = curY,
+            width = cardW,
+            height = cardH,
+            title = "المسدد نقداً",
+            value = Formatters.formatCurrency(session.amountPaid, config.currencySymbol),
+            accentColor = paidGreen,
+            fontBold = fontBold,
+            fontRegular = fontRegular
+        )
+
+        // Card 3: المتبقي بذمته
+        startX += cardW + 10f
+        drawSummaryBox(
+            canvas = canvas,
+            x = startX,
+            y = curY,
+            width = cardW,
+            height = cardH,
+            title = if (session.remainingDebt > 0) "المتبقي بذمة العميل" else "حالة الرصيد",
+            value = if (session.remainingDebt > 0) Formatters.formatCurrency(session.remainingDebt, config.currencySymbol) else "خالص (مسدد)",
+            accentColor = if (session.remainingDebt > 0) debtRed else paidGreen,
+            fontBold = fontBold,
+            fontRegular = fontRegular
+        )
+
+        // If there's a discount, display a dedicated small banner below the cards
+        if (session.discountAmount > 0) {
+            curY += cardH + 10f
+            val discRect = RectF(30f, curY, pageWidth - 30f, curY + 24f)
+            paint.color = 0xFFFFF8E1.toInt()
+            canvas.drawRoundRect(discRect, 4f, 4f, paint)
+
+            paint.color = 0xFFF57F17.toInt()
+            paint.textSize = 9.5f
+            paint.typeface = fontBold
+            paint.textAlign = Paint.Align.RIGHT
+            canvas.drawText("★ تم منح خصم خاص للعميل بمبلغ: ${Formatters.formatCurrency(session.discountAmount, config.currencySymbol)}", pageWidth - 45f, curY + 16f, paint)
+        } else {
+            curY += cardH
+        }
+
+        // 7. Notes & Wasted Reason Block
+        val hasNotes = session.notes.isNotBlank()
+        val hasWasteReason = session.wastedReason.isNotBlank()
+        if (hasNotes || hasWasteReason) {
+            curY += 15f
+            val noteRect = RectF(30f, curY, pageWidth - 30f, curY + 45f)
+            paint.color = cardBgColor
+            canvas.drawRoundRect(noteRect, 6f, 6f, paint)
+
+            paint.style = Paint.Style.STROKE
+            paint.color = borderColor
+            paint.strokeWidth = 0.8f
+            canvas.drawRoundRect(noteRect, 6f, 6f, paint)
+            paint.style = Paint.Style.FILL
+
+            paint.textAlign = Paint.Align.RIGHT
+            paint.color = primaryColor
+            paint.textSize = 9f
+            paint.typeface = fontBold
+            canvas.drawText("ملاحظات وبيان العملية:", pageWidth - 45f, curY + 16f, paint)
+
+            paint.color = darkTextColor
+            paint.textSize = 9.5f
+            paint.typeface = fontRegular
+            val noteContent = buildString {
+                if (hasNotes) append(session.notes)
+                if (hasNotes && hasWasteReason) append("  |  ")
+                if (hasWasteReason) append("سبب الهدر: ${session.wastedReason}")
+            }
+            canvas.drawText(noteContent, pageWidth - 45f, curY + 33f, paint)
+            curY += 45f
+        }
+
+        // 8. Signatures Block
+        val sigY = pageHeight - 110f
+        paint.color = borderColor
+        paint.strokeWidth = 0.8f
+        canvas.drawLine(30f, sigY, pageWidth - 30f, sigY, paint)
+
+        paint.color = darkTextColor
+        paint.textSize = 10f
+        paint.typeface = fontBold
+        paint.textAlign = Paint.Align.RIGHT
+        canvas.drawText("توقيع واستلام العميل / المزارع:", pageWidth - 50f, sigY + 25f, paint)
+
+        paint.typeface = fontRegular
+        paint.color = mutedTextColor
+        canvas.drawText("الاسم: ......................................................", pageWidth - 50f, sigY + 45f, paint)
+        canvas.drawText("التوقيع: ....................................................", pageWidth - 50f, sigY + 65f, paint)
+
+        paint.color = darkTextColor
+        paint.typeface = fontBold
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("توقيع المسرب: ....................", 50f, pageHeight - 45f, paint)
+        canvas.drawText("توقيع وختم موزع المياه (المسرب):", 50f, sigY + 25f, paint)
 
-        drawDocumentFooter(canvas, pageWidth, pageHeight)
+        paint.typeface = fontRegular
+        paint.color = mutedTextColor
+        canvas.drawText("الاسم: ${config.distributorName.ifEmpty { ".............................." }}", 50f, sigY + 45f, paint)
+        canvas.drawText("التوقيع / الختم: .........................................", 50f, sigY + 65f, paint)
+
+        // 9. Standard Document Footer
+        drawDocumentFooter(canvas, pageWidth, pageHeight, null, fontRegular)
 
         document.finishPage(page)
 
