@@ -4,6 +4,10 @@
  * Supports uploading APK files, tracking versions, and setting Force Update
  */
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/auth.php';
+
+// Strict Security: All release operations require authenticated admin session
+requireAuth();
 
 $method = $_SERVER['REQUEST_METHOD'];
 $releasesFile = __DIR__ . '/../uploads/releases_index.json';

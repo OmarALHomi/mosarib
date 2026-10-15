@@ -4,6 +4,10 @@
  * Sends actual system push notifications to wake devices and display in status bar
  */
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/auth.php';
+
+// Strict Security: Sending push notifications requires authenticated admin session
+requireAuth();
 
 $method = $_SERVER['REQUEST_METHOD'];
 if ($method !== 'POST') {
