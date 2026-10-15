@@ -50,11 +50,13 @@ fun MosaribFileActionDialog(
     onShare: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
-    val bgColor = if (isDark) Color(0xFF101D22) else Color(0xFFFFFFFF)
-    val cardBg = if (isDark) Color(0xFF16252C) else Color(0xFFF8FAFC)
-    val textColor = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
-    val subtitleColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+    val isDark = isAppDark()
+    val colorScheme = MaterialTheme.colorScheme
+    val bgColor = colorScheme.surface
+    val cardBg = if (isDark) colorScheme.surfaceVariant.copy(alpha = 0.5f) else Color(0xFFF8FAFC)
+    val cardBorder = colorScheme.outline.copy(alpha = if (isDark) 0.35f else 0.25f)
+    val textColor = colorScheme.onSurface
+    val subtitleColor = colorScheme.onSurfaceVariant
 
     val (typeIcon, typeColor, typeBadge) = when {
         file.name.endsWith(".xlsx", true) || file.name.endsWith(".xls", true) || fileType.contains("Excel", true) -> {
@@ -83,21 +85,24 @@ fun MosaribFileActionDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .padding(vertical = 16.dp)
-                .shadow(24.dp, RoundedCornerShape(26.dp), spotColor = PrimaryTeal.copy(alpha = 0.35f))
-                .clip(RoundedCornerShape(26.dp))
-                .border(
-                    1.dp,
-                    Brush.verticalGradient(
-                        listOf(PrimaryTeal.copy(alpha = 0.6f), AccentGold.copy(alpha = 0.3f))
-                    ),
-                    RoundedCornerShape(26.dp)
-                ),
-            color = bgColor
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Rtl
         ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .padding(vertical = 16.dp)
+                    .shadow(24.dp, RoundedCornerShape(26.dp), spotColor = PrimaryTeal.copy(alpha = 0.35f))
+                    .clip(RoundedCornerShape(26.dp))
+                    .border(
+                        1.dp,
+                        Brush.verticalGradient(
+                            listOf(PrimaryTeal.copy(alpha = 0.6f), AccentGold.copy(alpha = 0.3f))
+                        ),
+                        RoundedCornerShape(26.dp)
+                    ),
+                color = bgColor
+            ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -218,7 +223,7 @@ fun MosaribFileActionDialog(
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                        imageVector = Icons.Default.OpenInNew,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
@@ -277,6 +282,7 @@ fun MosaribFileActionDialog(
         }
     }
 }
+}
 
 /**
  * نافذة تأكيد الخروج الفاخرة من التطبيق (Exit Confirmation Dialog).
@@ -286,117 +292,126 @@ fun MosaribExitConfirmDialog(
     onConfirmExit: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
-    val bgColor = if (isDark) Color(0xFF101D22) else Color(0xFFFFFFFF)
-    val textColor = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
-    val subtitleColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+    val isDark = isAppDark()
+    val colorScheme = MaterialTheme.colorScheme
+    val bgColor = colorScheme.surface
+    val textColor = colorScheme.onSurface
+    val subtitleColor = colorScheme.onSurfaceVariant
+    val exitRed = if (isDark) Color(0xFFFF5252) else Color(0xFFE53935)
 
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth(0.88f)
-                .padding(vertical = 16.dp)
-                .shadow(24.dp, RoundedCornerShape(26.dp), spotColor = Color(0xFFE53935).copy(alpha = 0.25f))
-                .clip(RoundedCornerShape(26.dp))
-                .border(
-                    1.dp,
-                    Brush.verticalGradient(
-                        listOf(Color(0xFFE53935).copy(alpha = 0.45f), PrimaryTeal.copy(alpha = 0.2f))
-                    ),
-                    RoundedCornerShape(26.dp)
-                ),
-            color = bgColor
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Rtl
         ) {
-            Column(
+            Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(22.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxWidth(0.88f)
+                    .padding(vertical = 16.dp)
+                    .shadow(24.dp, RoundedCornerShape(26.dp), spotColor = exitRed.copy(alpha = 0.25f))
+                    .clip(RoundedCornerShape(26.dp))
+                    .border(
+                        1.dp,
+                        Brush.verticalGradient(
+                            listOf(exitRed.copy(alpha = 0.45f), colorScheme.outline.copy(alpha = 0.25f))
+                        ),
+                        RoundedCornerShape(26.dp)
+                    ),
+                color = bgColor
             ) {
-                Box(
+                Column(
                     modifier = Modifier
-                        .size(54.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFE53935).copy(alpha = 0.12f))
-                        .border(1.dp, Color(0xFFE53935).copy(alpha = 0.3f), CircleShape),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(22.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                        contentDescription = null,
-                        tint = Color(0xFFE53935),
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Text(
-                    text = "الخروج من تطبيق المسرّب",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = textColor,
-                        fontSize = 17.sp
-                    ),
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "هل أنت متأكد من رغبتك في إغلاق التطبيق؟ جميع عملياتك وبياناتك محفوظة ومحمية بأمان.",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = subtitleColor,
-                        fontSize = 12.5.sp,
-                        lineHeight = 20.sp
-                    ),
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(22.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // إلغاء (البقاء)
-                    Button(
-                        onClick = onDismiss,
+                    Box(
                         modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(exitRed.copy(alpha = 0.12f))
+                            .border(1.dp, exitRed.copy(alpha = 0.3f), CircleShape),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "البقاء بالتطبيق",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                            contentDescription = null,
+                            tint = exitRed,
+                            modifier = Modifier.size(28.dp)
                         )
                     }
 
-                    // خروج
-                    OutlinedButton(
-                        onClick = onConfirmExit,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFE53935).copy(alpha = 0.7f)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE53935))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "الخروج من تطبيق المُسَرِّب",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = textColor,
+                            fontSize = 17.sp
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "هل أنت متأكد من رغبتك في إغلاق التطبيق؟ جميع عملياتك وبياناتك محفوظة بأمان.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = subtitleColor,
+                            fontSize = 12.5.sp,
+                            lineHeight = 20.sp
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(22.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(
-                            text = "نعم، خروج",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
+                        // إلغاء (البقاء)
+                        Button(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isDark) colorScheme.surfaceVariant else PrimaryTeal,
+                                contentColor = if (isDark) colorScheme.onSurface else Color.White
                             )
-                        )
+                        ) {
+                            Text(
+                                text = "البقاء بالتطبيق",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            )
+                        }
+
+                        // خروج
+                        OutlinedButton(
+                            onClick = onConfirmExit,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.2.dp, exitRed.copy(alpha = 0.7f)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = exitRed)
+                        ) {
+                            Text(
+                                text = "خروج",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -418,28 +433,32 @@ fun MosaribActionConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
-    val bgColor = if (isDark) Color(0xFF101D22) else Color(0xFFFFFFFF)
-    val textColor = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
-    val subtitleColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+    val isDark = isAppDark()
+    val colorScheme = MaterialTheme.colorScheme
+    val bgColor = colorScheme.surface
+    val textColor = colorScheme.onSurface
+    val subtitleColor = colorScheme.onSurfaceVariant
 
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth(0.88f)
-                .padding(vertical = 16.dp)
-                .shadow(20.dp, RoundedCornerShape(24.dp), spotColor = confirmColor.copy(alpha = 0.25f))
-                .clip(RoundedCornerShape(24.dp))
-                .border(
-                    1.dp,
-                    confirmColor.copy(alpha = 0.35f),
-                    RoundedCornerShape(24.dp)
-                ),
-            color = bgColor
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Rtl
         ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth(0.88f)
+                    .padding(vertical = 16.dp)
+                    .shadow(20.dp, RoundedCornerShape(24.dp), spotColor = confirmColor.copy(alpha = 0.25f))
+                    .clip(RoundedCornerShape(24.dp))
+                    .border(
+                        1.dp,
+                        confirmColor.copy(alpha = 0.35f),
+                        RoundedCornerShape(24.dp)
+                    ),
+                color = bgColor
+            ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -525,4 +544,5 @@ fun MosaribActionConfirmDialog(
             }
         }
     }
+}
 }

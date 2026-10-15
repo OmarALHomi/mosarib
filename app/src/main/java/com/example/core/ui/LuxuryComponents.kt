@@ -81,7 +81,8 @@ fun LuxuryToastNotification(
         }
     }
 
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppDark()
+    val colorScheme = MaterialTheme.colorScheme
 
     AnimatedVisibility(
         visible = toast != null,
@@ -97,75 +98,81 @@ fun LuxuryToastNotification(
     ) {
         toast?.let {
             val (accentColor, iconVector) = when (it.type) {
-                ToastType.SUCCESS -> Color(0xFF00E676) to Icons.Default.CheckCircle
-                ToastType.ERROR   -> Color(0xFFFF5252) to Icons.Default.ErrorOutline
-                ToastType.WARNING -> Color(0xFFFFD54F) to Icons.Default.Info
-                ToastType.INFO    -> Color(0xFF40C4FF) to Icons.Default.WaterDrop
+                ToastType.SUCCESS -> (if (isDark) Color(0xFF00E676) else Color(0xFF059669)) to Icons.Default.CheckCircle
+                ToastType.ERROR   -> (if (isDark) Color(0xFFFF5252) else Color(0xFFDC2626)) to Icons.Default.ErrorOutline
+                ToastType.WARNING -> (if (isDark) Color(0xFFFFD54F) else Color(0xFFD97706)) to Icons.Default.Info
+                ToastType.INFO    -> (if (isDark) Color(0xFF40C4FF) else Color(0xFF0284C7)) to Icons.Default.WaterDrop
             }
+
+            val cardBg = if (isDark) Color(0xFF111E24).copy(alpha = 0.96f) else Color(0xFFFFFFFF).copy(alpha = 0.98f)
+            val textColor = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
+            val closeTint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+            val shadowColor = if (isDark) accentColor.copy(alpha = 0.35f) else Color(0xFF0F172A).copy(alpha = 0.18f)
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .shadow(18.dp, RoundedCornerShape(20.dp), spotColor = accentColor.copy(alpha = 0.45f))
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(
-                        if (isDark) Color(0xFF0B171D).copy(alpha = 0.95f)
-                        else Color(0xFF132228).copy(alpha = 0.96f)
-                    )
+                    .shadow(16.dp, RoundedCornerShape(18.dp), spotColor = shadowColor)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(cardBg)
                     .border(
                         1.dp,
                         Brush.horizontalGradient(
                             listOf(
-                                accentColor.copy(alpha = 0.75f),
-                                Color.White.copy(alpha = 0.22f)
+                                accentColor.copy(alpha = if (isDark) 0.75f else 0.85f),
+                                if (isDark) colorScheme.outline.copy(alpha = 0.25f) else Color(0xFFE2E8F0)
                             )
                         ),
-                        RoundedCornerShape(20.dp)
+                        RoundedCornerShape(18.dp)
                     )
                     .clickable { onDismiss() }
                     .padding(horizontal = 14.dp, vertical = 11.dp)
                     .testTag("app_toast_surface"),
                 contentAlignment = Alignment.CenterStart
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+                androidx.compose.runtime.CompositionLocalProvider(
+                    androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Rtl
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(accentColor.copy(alpha = 0.18f)),
-                        contentAlignment = Alignment.Center
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = iconVector,
-                            contentDescription = null,
-                            tint = accentColor,
-                            modifier = Modifier.size(18.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(accentColor.copy(alpha = if (isDark) 0.18f else 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = iconVector,
+                                contentDescription = null,
+                                tint = accentColor,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = it.message,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = textColor,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.5.sp
+                            ),
+                            modifier = Modifier.weight(1f)
                         )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = it.message,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color.White,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.5.sp
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(24.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "إغلاق",
-                            tint = Color.White.copy(alpha = 0.6f),
-                            modifier = Modifier.size(14.dp)
-                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "إغلاق",
+                                tint = closeTint,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                     }
                 }
             }

@@ -114,6 +114,8 @@ import com.example.features.sessions.SettleSessionDialog
 import com.example.features.sessions.WaterSession
 import com.example.features.vouchers.Voucher
 import com.example.features.vouchers.VoucherType
+import com.example.features.vouchers.AddVoucherBottomSheet
+import com.example.features.vouchers.VouchersViewModel
 import com.example.features.sessions.AddEditSessionBottomSheet
 import com.example.features.wellowners.WellOwnerPurchase
 import com.example.features.wellowners.WellOwnerPurchaseMath
@@ -169,6 +171,7 @@ sealed class CustomerLedgerItem {
 fun CustomerDetailScreen(
     customerId: Long,
     viewModel: CustomersViewModel,
+    vouchersViewModel: VouchersViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     onBack: () -> Unit,
     onAddSessionForCustomer: (Customer) -> Unit
 ) {
@@ -197,6 +200,7 @@ fun CustomerDetailScreen(
     var purchaseToEdit by remember { mutableStateOf<WellOwnerPurchase?>(null) }
     var purchaseToDelete by remember { mutableStateOf<WellOwnerPurchase?>(null) }
     var voucherToDelete by remember { mutableStateOf<Voucher?>(null) }
+    var voucherToEdit by remember { mutableStateOf<Voucher?>(null) }
 
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     var localPdfReady by remember { mutableStateOf<Pair<File, String>?>(null) }
@@ -902,6 +906,9 @@ fun CustomerDetailScreen(
                                     onShareWhatsApp = {
                                         messageCustomTarget = "سند قبض #${ledgerItem.voucher.voucherNumber.ifEmpty { ledgerItem.voucher.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(ledgerItem.voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(ledgerItem.voucher.amount, config.currencySymbol)})\nطريقة الدفع: ${ledgerItem.voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(ledgerItem.voucher.date)}"
                                     },
+                                    onEditClick = {
+                                        voucherToEdit = ledgerItem.voucher
+                                    },
                                     onDeleteClick = {
                                         voucherToDelete = ledgerItem.voucher
                                     }
@@ -923,6 +930,9 @@ fun CustomerDetailScreen(
                                     },
                                     onShareWhatsApp = {
                                         messageCustomTarget = "سند صرف #${ledgerItem.voucher.voucherNumber.ifEmpty { ledgerItem.voucher.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ المصروف: ${Formatters.formatCurrency(ledgerItem.voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(ledgerItem.voucher.amount, config.currencySymbol)})\nالبيان: ${ledgerItem.voucher.notes.ifBlank { ledgerItem.voucher.category }}\nطريقة الصرف: ${ledgerItem.voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(ledgerItem.voucher.date)}"
+                                    },
+                                    onEditClick = {
+                                        voucherToEdit = ledgerItem.voucher
                                     },
                                     onDeleteClick = {
                                         voucherToDelete = ledgerItem.voucher
@@ -1106,97 +1116,125 @@ fun CustomerDetailScreen(
 
     // Delete Session Confirmation
     sessionToDelete?.let { s ->
-        AlertDialog(
-            onDismissRequest = { sessionToDelete = null },
-            title = { Text("تأكيد حذف دورة الماء", fontWeight = FontWeight.Bold) },
-            text = { Text("هل أنت متأكد من حذف هذه الدورة؟ سيتم إلغاء المبالغ المقيدة بها.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteSession(s)
-                        sessionToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
-                ) {
-                    Text("حذف الدورة", fontWeight = FontWeight.Bold)
-                }
+        com.example.core.ui.MosaribActionConfirmDialog(
+            title = "تأكيد حذف دورة الماء",
+            message = "هل أنت متأكد من حذف هذه الدورة؟ سيتم إلغاء المبالغ المقيدة بها وتحديث الحساب.",
+            confirmText = "حذف الدورة",
+            onConfirm = {
+                viewModel.deleteSession(s)
+                sessionToDelete = null
             },
-            dismissButton = {
-                TextButton(onClick = { sessionToDelete = null }) {
-                    Text("إلغاء", fontWeight = FontWeight.Bold)
-                }
-            }
+            onDismiss = { sessionToDelete = null }
         )
     }
 
     // Delete owner-purchase confirmation
     purchaseToDelete?.let { purchase ->
-        AlertDialog(
-            onDismissRequest = { purchaseToDelete = null },
-            title = { Text("حذف عملية شراء الساعات", fontWeight = FontWeight.Bold) },
-            text = { Text("سيُعاد احتساب مستحق صاحب البئر بعد حذف هذه الحركة. هل تريد المتابعة؟") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteOwnerPurchase(purchase)
-                        purchaseToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
-                ) { Text("حذف الحركة", fontWeight = FontWeight.Bold) }
+        com.example.core.ui.MosaribActionConfirmDialog(
+            title = "حذف عملية شراء الساعات",
+            message = "سيُعاد احتساب مستحق صاحب البئر بعد حذف هذه الحركة. هل تريد المتابعة؟",
+            confirmText = "حذف الحركة",
+            onConfirm = {
+                viewModel.deleteOwnerPurchase(purchase)
+                purchaseToDelete = null
             },
-            dismissButton = { TextButton(onClick = { purchaseToDelete = null }) { Text("إلغاء") } }
+            onDismiss = { purchaseToDelete = null }
         )
     }
 
     // Delete Voucher Confirmation
     voucherToDelete?.let { v ->
-        AlertDialog(
-            onDismissRequest = { voucherToDelete = null },
-            title = { Text("تأكيد حذف السند", fontWeight = FontWeight.Bold) },
-            text = { Text("هل أنت متأكد من حذف هذا السند؟ سيتم تحديث رصيد العميل فوراً.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteVoucher(v)
-                        voucherToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
-                ) {
-                    Text("حذف السند", fontWeight = FontWeight.Bold)
-                }
+        com.example.core.ui.MosaribActionConfirmDialog(
+            title = "تأكيد حذف السند",
+            message = "هل أنت متأكد من حذف هذا السند؟ سيتم تحديث رصيد العميل فوراً.",
+            confirmText = "حذف السند",
+            onConfirm = {
+                viewModel.deleteVoucher(v)
+                voucherToDelete = null
             },
-            dismissButton = {
-                TextButton(onClick = { voucherToDelete = null }) {
-                    Text("إلغاء", fontWeight = FontWeight.Bold)
+            onDismiss = { voucherToDelete = null }
+        )
+    }
+
+    // Add/Edit Receipt Voucher Sheet (نموذج سند القبض الموحد من شاشة العمليات)
+    if (showAddReceiptSheet || voucherToEdit != null) {
+        val editingVoucher = voucherToEdit
+        AddVoucherBottomSheet(
+            initialVoucher = editingVoucher ?: Voucher(
+                voucherNumber = "",
+                type = VoucherType.RECEIPT,
+                customerId = customer.id,
+                amount = 0.0,
+                category = "سداد حساب",
+                paymentMethod = "نقداً",
+                date = System.currentTimeMillis()
+            ),
+            initialType = editingVoucher?.type ?: VoucherType.RECEIPT,
+            customers = if (allCustomers.isNotEmpty()) allCustomers else listOf(customer),
+            allSessions = sessions,
+            currencySymbol = config.currencySymbol,
+            onDismiss = {
+                showAddReceiptSheet = false
+                voucherToEdit = null
+            },
+            onSave = { type, targetCustomerId, amount, category, method, notes, sessionId, selectedSessionIds, discountAmount ->
+                if (editingVoucher != null) {
+                    vouchersViewModel.updateVoucher(
+                        voucher = editingVoucher,
+                        amount = amount,
+                        paymentMethod = method,
+                        notes = notes,
+                        category = category,
+                        customerId = targetCustomerId ?: customer.id
+                    )
+                    voucherToEdit = null
+                } else {
+                    vouchersViewModel.addVoucher(
+                        type = type,
+                        customerId = targetCustomerId ?: customer.id,
+                        amount = amount,
+                        category = category,
+                        paymentMethod = method,
+                        notes = notes,
+                        sessionId = sessionId,
+                        selectedSessionIds = selectedSessionIds,
+                        discountAmount = discountAmount
+                    )
+                    showAddReceiptSheet = false
                 }
             }
         )
     }
 
-    // Add Receipt Sheet
-    if (showAddReceiptSheet) {
-        AddReceiptBottomSheet(
-            customer = customer,
-            currentBalance = customerWithBalance.receivableBalance,
-            currencySymbol = config.currencySymbol,
-            isWellOwner = customer.isWellOwner,
-            onDismiss = { showAddReceiptSheet = false },
-            onConfirm = { amount, method, notes ->
-                viewModel.addReceiptVoucher(customer.id, amount, method, notes)
-            }
-        )
-    }
-
-    // Add Disbursement Sheet (سند صرف للمستفيد)
+    // Add Disbursement Sheet (نموذج سند الصرف الموحد)
     if (showAddDisbursementSheet) {
-        AddDisbursementBottomSheet(
-            customer = customer,
+        AddVoucherBottomSheet(
+            initialVoucher = Voucher(
+                voucherNumber = "",
+                type = VoucherType.EXPENSE,
+                customerId = customer.id,
+                amount = 0.0,
+                category = if (customer.isWellOwner) "مستحقات صاحب بئر" else "صرف عام",
+                paymentMethod = "نقداً",
+                date = System.currentTimeMillis()
+            ),
+            initialType = VoucherType.EXPENSE,
+            customers = if (allCustomers.isNotEmpty()) allCustomers else listOf(customer),
             currencySymbol = config.currencySymbol,
-            isWellOwner = customer.isWellOwner,
-            currentBalance = customerWithBalance.payableBalance,
             onDismiss = { showAddDisbursementSheet = false },
-            onConfirm = { amount, method, description ->
-                viewModel.addExpenseVoucher(customer.id, amount, method, description)
+            onSave = { type, targetCustomerId, amount, category, method, notes, sessionId, selectedSessionIds, discountAmount ->
+                vouchersViewModel.addVoucher(
+                    type = type,
+                    customerId = targetCustomerId ?: customer.id,
+                    amount = amount,
+                    category = category,
+                    paymentMethod = method,
+                    notes = notes,
+                    sessionId = sessionId,
+                    selectedSessionIds = selectedSessionIds,
+                    discountAmount = discountAmount
+                )
+                showAddDisbursementSheet = false
             }
         )
     }
@@ -2085,6 +2123,7 @@ private fun CustomerReceiptCardItem(
     isWellOwner: Boolean = false,
     onPdfClick: () -> Unit,
     onShareWhatsApp: () -> Unit,
+    onEditClick: () -> Unit = {},
     onDeleteClick: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -2196,6 +2235,14 @@ private fun CustomerReceiptCardItem(
                         }
                         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                             DropdownMenuItem(
+                                text = { Text("تعديل السند", fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryTeal) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onEditClick()
+                                }
+                            )
+                            DropdownMenuItem(
                                 text = { Text("حذف السند", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
                                 leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
                                 onClick = {
@@ -2221,6 +2268,7 @@ private fun CustomerDisbursementCardItem(
     isWellOwner: Boolean = false,
     onPdfClick: () -> Unit,
     onShareWhatsApp: () -> Unit,
+    onEditClick: () -> Unit = {},
     onDeleteClick: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -2313,6 +2361,14 @@ private fun CustomerDisbursementCardItem(
                             Icon(Icons.Default.MoreVert, contentDescription = "خيارات", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
                         }
                         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text("تعديل السند", fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryTeal) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onEditClick()
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("حذف السند", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
                                 leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },

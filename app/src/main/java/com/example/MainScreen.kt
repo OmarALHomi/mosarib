@@ -221,6 +221,7 @@ fun MainApp(
                 CustomerDetailScreen(
                     customerId = selectedCustomerId,
                     viewModel = customersViewModel,
+                    vouchersViewModel = vouchersViewModel,
                     onBack = { selectedCustomerId = 0L },
                     onAddSessionForCustomer = { customer ->
                         sessionsViewModel.requestNewSessionForCustomer(customer.id)

@@ -614,15 +614,15 @@ fun VouchersScreen(
                                                         shape = RoundedCornerShape(4.dp)
                                                     ) {
                                                         Text(
-                                                            text = if (isReceipt) "قبض #${voucher.voucherNumber}" else "صرف #${voucher.voucherNumber}",
+                                                            text = if (isReceipt) "قبض" else if (voucher.type == VoucherType.DISCOUNT) "خصم" else "صرف",
                                                             style = MaterialTheme.typography.labelSmall.copy(
                                                                 color = badgeColor,
                                                                 fontWeight = FontWeight.Bold,
-                                                                fontSize = 9.sp
+                                                                fontSize = 9.5.sp
                                                             ),
                                                             maxLines = 1,
                                                             softWrap = false,
-                                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
                                                         )
                                                     }
                                                 }
@@ -631,7 +631,7 @@ fun VouchersScreen(
 
                                         Spacer(modifier = Modifier.width(8.dp))
 
-                                        // اليسار: المبلغ المقبوض بخط عريض وواضح وتحته المبلغ كتابة
+                                        // اليسار: المبلغ المقبوض بخط عريض وواضح
                                         Column(
                                             horizontalAlignment = Alignment.End,
                                             modifier = Modifier.weight(0.9f, fill = false)
@@ -645,17 +645,6 @@ fun VouchersScreen(
                                                 ),
                                                 maxLines = 1,
                                                 softWrap = false
-                                            )
-                                            Text(
-                                                text = Formatters.amountToArabicWords(voucher.amount, config.currencySymbol),
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    color = Color(0xFF64748B),
-                                                    fontSize = 9.sp,
-                                                    fontWeight = FontWeight.Medium
-                                                ),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                textAlign = TextAlign.End
                                             )
                                         }
                                     }
@@ -692,6 +681,20 @@ fun VouchersScreen(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     fontWeight = FontWeight.SemiBold,
                                                     fontSize = 9.5.sp
+                                                )
+                                            )
+
+                                            Text(
+                                                text = "•",
+                                                style = MaterialTheme.typography.labelSmall.copy(color = Color.LightGray)
+                                            )
+
+                                            Text(
+                                                text = "#${voucher.voucherNumber}",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    color = Color(0xFF64748B),
+                                                    fontWeight = FontWeight.Medium,
+                                                    fontSize = 9.sp
                                                 )
                                             )
 
@@ -923,15 +926,15 @@ fun VouchersScreen(
                                                         shape = RoundedCornerShape(4.dp)
                                                     ) {
                                                         Text(
-                                                            text = "شراء ساعات #${purchase.id}",
+                                                            text = "شراء ساعات",
                                                             style = MaterialTheme.typography.labelSmall.copy(
                                                                 color = Color(0xFF0288D1),
                                                                 fontWeight = FontWeight.Bold,
-                                                                fontSize = 9.sp
+                                                                fontSize = 9.5.sp
                                                             ),
                                                             maxLines = 1,
                                                             softWrap = false,
-                                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
                                                         )
                                                     }
                                                 }
@@ -954,17 +957,6 @@ fun VouchersScreen(
                                                 ),
                                                 maxLines = 1,
                                                 softWrap = false
-                                            )
-                                            Text(
-                                                text = Formatters.amountToArabicWords(totalAmount, config.currencySymbol),
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    color = Color(0xFF64748B),
-                                                    fontSize = 9.sp,
-                                                    fontWeight = FontWeight.Medium
-                                                ),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                textAlign = TextAlign.End
                                             )
                                         }
                                     }
@@ -1527,30 +1519,19 @@ fun VouchersScreen(
 
     // حذف دورة سقي من سجل العمليات
     sessionToDelete?.let { s ->
-        AlertDialog(
-            onDismissRequest = { sessionToDelete = null },
-            title = { Text("تأكيد حذف دورة السقي", fontWeight = FontWeight.Bold) },
-            text = { Text("هل تريد بالتأكيد حذف دورة السقي #${s.id}؟ سيتم فك ارتباط أي سندات قبض مسددة لها وتحويلها لدفعات على الحساب.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (sessionsViewModel != null) {
-                            sessionsViewModel.deleteSession(s)
-                        } else {
-                            viewModel.deleteSession(s)
-                        }
-                        sessionToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
-                ) {
-                    Text("حذف", fontWeight = FontWeight.Bold)
+        com.example.core.ui.MosaribActionConfirmDialog(
+            title = "تأكيد حذف دورة السقي",
+            message = "هل تريد بالتأكيد حذف دورة السقي #${s.id}؟ سيتم فك ارتباط أي سندات قبض مسددة لها وتحويلها لدفعات على الحساب.",
+            confirmText = "حذف الدورة",
+            onConfirm = {
+                if (sessionsViewModel != null) {
+                    sessionsViewModel.deleteSession(s)
+                } else {
+                    viewModel.deleteSession(s)
                 }
+                sessionToDelete = null
             },
-            dismissButton = {
-                TextButton(onClick = { sessionToDelete = null }) {
-                    Text("إلغاء", fontWeight = FontWeight.Bold)
-                }
-            }
+            onDismiss = { sessionToDelete = null }
         )
     }
 

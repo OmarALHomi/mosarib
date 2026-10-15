@@ -158,7 +158,7 @@ fun WellOwnerPurchaseBottomSheet(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        if (initialPurchase != null) "تعديل عملية شراء الساعات" else "شراء ساعات من صاحب البئر",
+                        if (initialPurchase != null) "تعديل شراء ساعات" else "شراء ساعات",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -205,11 +205,6 @@ fun WellOwnerPurchaseBottomSheet(
                     Icon(Icons.Default.Close, contentDescription = "إغلاق")
                 }
             }
-            Text(
-                "عملية شراء مستقلة عن سقي المزارعين؛ السداد يُسجّل من كشف صاحب البئر.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
 
             // زر تحديد التاريخ باستخدام النافذة المخصصة
             MosaribOutlinedButton(
@@ -241,7 +236,7 @@ fun WellOwnerPurchaseBottomSheet(
                 MosaribTextField(
                     value = wastedHoursText,
                     onValueChange = { wastedHoursText = it.filter(Char::isDigit).take(4) },
-                    label = "هدر على صاحب البئر (ساعات)",
+                    label = "ساعات الهدر",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f),
                     singleLine = true
@@ -249,7 +244,7 @@ fun WellOwnerPurchaseBottomSheet(
                 MosaribTextField(
                     value = wastedMinutesText,
                     onValueChange = { wastedMinutesText = it.filter(Char::isDigit).take(2) },
-                    label = "الهدر (دقائق)",
+                    label = "دقائق الهدر",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f),
                     singleLine = true
@@ -277,7 +272,7 @@ fun WellOwnerPurchaseBottomSheet(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "لا يمكن أن يكون الهدر أكبر من مدة الشراء! (المدة المشتراة: ${Formatters.formatDurationArabic(durationMinutes)})",
+                            text = "الهدر أكبر من مدة الشراء (${Formatters.formatDurationArabic(durationMinutes)})!",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
                                 fontWeight = FontWeight.Bold
@@ -287,90 +282,64 @@ fun WellOwnerPurchaseBottomSheet(
                 }
             }
 
-            Column {
+            MosaribTextField(
+                value = rateText,
+                onValueChange = { rateText = Formatters.formatAmountInput(it) },
+                label = "سعر الساعة ($currencySymbol) *",
+                leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null, tint = PrimaryTeal) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 MosaribTextField(
-                    value = rateText,
-                    onValueChange = { rateText = Formatters.formatAmountInput(it) },
-                    label = "سعر ساعة الشراء ($currencySymbol) *",
+                    value = amountPaidText,
+                    onValueChange = { amountPaidText = Formatters.formatAmountInput(it) },
+                    label = "المدفوع نقدياً ($currencySymbol)",
+                    placeholder = "0",
                     leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null, tint = PrimaryTeal) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.weight(1f),
                     singleLine = true
                 )
-                if (rate > 0) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = Formatters.amountToArabicWords(rate, currencySymbol),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                            fontWeight = FontWeight.Medium
-                        ),
-                        modifier = Modifier.padding(horizontal = 4.dp)
-                    )
-                }
-            }
-
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    MosaribTextField(
-                        value = amountPaidText,
-                        onValueChange = { amountPaidText = Formatters.formatAmountInput(it) },
-                        label = "المبلغ المسلَّم نقدياً فوراً ($currencySymbol)",
-                        placeholder = "0",
-                        leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null, tint = PrimaryTeal) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    if (payableAmount > 0) {
-                        val isFullPaid = amountPaid >= payableAmount
-                        Surface(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable {
-                                    amountPaidText = if (isFullPaid) "" else Formatters.formatAmountInput(payableAmount.toString())
-                                },
-                            color = if (isFullPaid) PrimaryTeal.copy(alpha = 0.12f) else (if (isDark) Color(0xFF141F25) else Color(0xFFF1F5F9)),
-                            border = BorderStroke(1.dp, if (isFullPaid) PrimaryTeal else (if (isDark) Color(0xFF2A3C45) else Color(0xFFCBD5E1))),
-                            shape = RoundedCornerShape(12.dp)
+                if (payableAmount > 0) {
+                    val isFullPaid = amountPaid >= payableAmount
+                    Surface(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                amountPaidText = if (isFullPaid) "" else Formatters.formatAmountInput(payableAmount.toString())
+                            },
+                        color = if (isFullPaid) PrimaryTeal.copy(alpha = 0.12f) else (if (isDark) Color(0xFF141F25) else Color(0xFFF1F5F9)),
+                        border = BorderStroke(1.dp, if (isFullPaid) PrimaryTeal else (if (isDark) Color(0xFF2A3C45) else Color(0xFFCBD5E1))),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                androidx.compose.material3.Checkbox(
-                                    checked = isFullPaid,
-                                    onCheckedChange = { checked ->
-                                        amountPaidText = if (checked) Formatters.formatAmountInput(payableAmount.toString()) else ""
-                                    },
-                                    modifier = Modifier.size(20.dp)
+                            androidx.compose.material3.Checkbox(
+                                checked = isFullPaid,
+                                onCheckedChange = { checked ->
+                                    amountPaidText = if (checked) Formatters.formatAmountInput(payableAmount.toString()) else ""
+                                },
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "دفع كامل",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isFullPaid) PrimaryTeal else MaterialTheme.colorScheme.onSurface
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "دفع كامل",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isFullPaid) PrimaryTeal else MaterialTheme.colorScheme.onSurface
-                                    )
-                                )
-                            }
+                            )
                         }
                     }
-                }
-                if (amountPaid > 0) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = Formatters.amountToArabicWords(amountPaid, currencySymbol),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = PrimaryTeal,
-                            fontWeight = FontWeight.Medium
-                        ),
-                        modifier = Modifier.padding(horizontal = 4.dp)
-                    )
                 }
             }
 
@@ -382,70 +351,49 @@ fun WellOwnerPurchaseBottomSheet(
                 ),
                 border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else PrimaryTeal.copy(alpha = 0.2f))
             ) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("المدة المسجلة")
+                        Text("المدة")
                         Text(Formatters.formatDurationArabic(durationMinutes), fontWeight = FontWeight.SemiBold)
                     }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("هدر محسوب لصاحب البئر", color = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F))
-                        Text("− ${Formatters.formatDurationArabic(wastedMinutes)}", color = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F), fontWeight = FontWeight.SemiBold)
+                    if (wastedMinutes > 0) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("الهدر", color = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F))
+                            Text("− ${Formatters.formatDurationArabic(wastedMinutes)}", color = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F), fontWeight = FontWeight.SemiBold)
+                        }
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("الساعات المحتسبة عليه", fontWeight = FontWeight.Bold)
+                        Text("الصافي المحتسب", fontWeight = FontWeight.Bold)
                         Text(Formatters.formatDurationArabic(chargeableMinutes), color = PrimaryTeal, fontWeight = FontWeight.Bold)
                     }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("قيمة الهدر المخصومة")
-                        Text(Formatters.formatCurrency(wasteCredit, currencySymbol), color = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F))
-                    }
-                    Column {
+                    if (wasteCredit > 0) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("المستحق الإجمالي لصاحب البئر", fontWeight = FontWeight.Bold)
-                            Text(Formatters.formatCurrency(payableAmount, currencySymbol), color = PrimaryTeal, fontWeight = FontWeight.Bold)
+                            Text("خصم الهدر")
+                            Text(Formatters.formatCurrency(wasteCredit, currencySymbol), color = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F))
                         }
-                        if (payableAmount > 0) {
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                Formatters.amountToArabicWords(payableAmount, currencySymbol),
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
-                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("المستحق", fontWeight = FontWeight.Bold)
+                        Text(Formatters.formatCurrency(payableAmount, currencySymbol), color = PrimaryTeal, fontWeight = FontWeight.Bold)
                     }
                     if (amountPaid > 0) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("المبلغ المسلَّم نقدياً", color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D), fontWeight = FontWeight.SemiBold)
+                            Text("المدفوع", color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D), fontWeight = FontWeight.SemiBold)
                             Text(Formatters.formatCurrency(amountPaid, currencySymbol), color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D), fontWeight = FontWeight.SemiBold)
                         }
                     }
                     HorizontalDivider(color = PrimaryTeal.copy(alpha = 0.2f), modifier = Modifier.padding(vertical = 2.dp))
-                    Column {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("الباقي لصالح صاحب البئر", fontWeight = FontWeight.ExtraBold)
-                            Text(
-                                Formatters.formatCurrency(remainingDueToOwner, currencySymbol),
-                                color = if (remainingDueToOwner > 0) {
-                                    if (isDark) Color(0xFFF87171) else Color(0xFFB91C1C)
-                                } else {
-                                    if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D)
-                                },
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                        if (remainingDueToOwner > 0) {
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                Formatters.amountToArabicWords(remainingDueToOwner, currencySymbol),
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 11.sp
-                                )
-                            )
-                        }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("المتبقي", fontWeight = FontWeight.ExtraBold)
+                        Text(
+                            Formatters.formatCurrency(remainingDueToOwner, currencySymbol),
+                            color = if (remainingDueToOwner > 0) {
+                                if (isDark) Color(0xFFF87171) else Color(0xFFB91C1C)
+                            } else {
+                                if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D)
+                            },
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     }
                 }
             }
