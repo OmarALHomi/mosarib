@@ -15,6 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --primary: #00838F;
@@ -563,7 +564,46 @@
 </head>
 <body>
 
-<div class="container">
+<!-- Royal Security Authentication Modal / Screen -->
+<div id="authScreenOverlay" style="position: fixed; inset: 0; z-index: 999999; background: radial-gradient(circle at center, #132A32 0%, #070E12 100%); display: flex; align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: rgba(18, 35, 43, 0.95); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(0, 188, 212, 0.35); border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(0, 188, 212, 0.15); width: 100%; max-width: 460px; padding: 36px 30px; text-align: center; color: #E0F2F1;">
+    <div style="font-size: 52px; margin-bottom: 12px; filter: drop-shadow(0 4px 12px rgba(0,188,212,0.4));">💧</div>
+    <h2 style="font-size: 24px; font-weight: 800; color: #FFF; margin: 0 0 6px 0;">بوابة الدخول المحمية • مُسَرِّب</h2>
+    <p style="font-size: 13px; color: #80CBC4; margin: 0 0 24px 0; line-height: 1.6;">لوحة الإدارة مشفرة بحماية عسكرية (Bcrypt + Rate-Limit). لا يُسمح بالدخول إلا لمسؤولي النظام المعتمدين.</p>
+    
+    <div id="authErrorBanner" style="display: none; background: rgba(229, 57, 53, 0.15); border: 1px solid #E53935; color: #FFCDD2; font-size: 12.5px; border-radius: 10px; padding: 10px; margin-bottom: 18px; text-align: right; line-height: 1.5;"></div>
+
+    <form id="secureLoginForm" onsubmit="handleSecureLogin(event)" style="text-align: right;">
+      <input type="hidden" id="loginCsrfToken" value="">
+      
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label for="adminEmailInput" style="font-size: 13px; color: #B2DFDB; font-weight: 700; margin-bottom: 6px; display: block;">البريد الإلكتروني المعتمد:</label>
+        <div style="position: relative;">
+          <input type="email" id="adminEmailInput" placeholder="admin@mosarib.com" required style="width: 100%; padding: 12px 14px; background: rgba(9, 18, 23, 0.85); border: 1px solid rgba(0, 150, 166, 0.4); border-radius: 10px; color: #FFF; font-size: 14px; font-family: 'Cairo';">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 22px;">
+        <label for="adminPasswordInput" style="font-size: 13px; color: #B2DFDB; font-weight: 700; margin-bottom: 6px; display: block;">كلمة المرور المشفرة:</label>
+        <div style="position: relative;">
+          <input type="password" id="adminPasswordInput" placeholder="••••••••••••" required style="width: 100%; padding: 12px 14px; background: rgba(9, 18, 23, 0.85); border: 1px solid rgba(0, 150, 166, 0.4); border-radius: 10px; color: #FFF; font-size: 14px; font-family: 'Cairo';">
+        </div>
+      </div>
+
+      <button type="submit" id="loginSubmitBtn" class="btn" style="width: 100%; padding: 14px; font-size: 15px; font-weight: 800; border-radius: 12px; background: linear-gradient(135deg, #00897B, #004D40); box-shadow: 0 6px 20px rgba(0, 137, 123, 0.4); border: 1px solid #4DB6AC;">
+        🔐 التحقق والدخول الآمن للوحة
+      </button>
+    </form>
+
+    <div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 11.5px; color: #80CBC4; display: flex; justify-content: space-between; align-items: center;">
+      <span>🔒 تشفير Argon2id/Bcrypt</span>
+      <span>🛡️ حماية حظر التخمين 15 دقيقة</span>
+      <span>المهندس عمر الحومي</span>
+    </div>
+  </div>
+</div>
+
+<div class="container" id="mainDashboardContainer" style="filter: blur(8px); pointer-events: none; transition: filter 0.3s ease;">
   <!-- Header -->
   <header>
     <div class="brand">
@@ -577,6 +617,12 @@
       <div style="display: flex; align-items: center; gap: 8px;">
         <input type="password" id="adminSecretKeyInput" placeholder="مفتاح الحماية السري (Secret)" style="width: 170px; padding: 6px 10px; font-size: 11px; border-radius: 8px; border: 1px solid var(--border);" onchange="saveAdminSecretKey()">
       </div>
+      <div id="loggedInUserBadge" style="display: flex; align-items: center; gap: 8px; background: rgba(0, 137, 123, 0.2); border: 1px solid rgba(0, 188, 212, 0.4); border-radius: 20px; padding: 5px 14px; font-size: 12.5px;">
+        <span style="color: #4DB6AC;">👤 المسؤول:</span>
+        <strong id="currentAdminName" style="color: #FFF;">-</strong>
+        <span id="currentAdminRole" class="badge badge-yearly" style="font-size: 10px; padding: 2px 6px;">SUPER_ADMIN</span>
+      </div>
+      <button class="btn btn-outline" style="width: auto; padding: 6px 14px; font-size: 12px; border-color: rgba(229,57,53,0.4); color: #EF5350;" onclick="handleSecureLogout()">🚪 خروج آمن</button>
       <button id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleTheme()" title="تبديل المظهر">
         <span class="theme-icon" id="themeIcon">☀️</span>
         <span id="themeLabel">الوضع الفاتح</span>
@@ -628,13 +674,102 @@
 
   <!-- Tabs Navigation -->
   <div class="tabs">
+    <button class="tab-btn" id="tabBtnAnalytics" onclick="switchTab('analytics')">📊 المخططات والرسوم البيانية الملكية</button>
     <button class="tab-btn" id="tabBtnRequests" onclick="switchTab('requests')">🔔 طلبات التفعيل <span id="badgeReqCount" class="badge badge-yearly" style="display:none; margin-right:4px;">0</span></button>
     <button class="tab-btn active" id="tabBtnUsers" onclick="switchTab('users')">👥 المستخدمون</button>
+    <button class="tab-btn" id="tabBtnReleases" onclick="switchTab('releases')">📦 رفع النسخ وروابط التحميل</button>
     <button class="tab-btn" id="tabBtnPolicies" onclick="switchTab('policies')">⚙️ سياسات التطبيق السحابية</button>
-    <button class="tab-btn" id="tabBtnPush" onclick="switchTab('push')">📲 إشعارات Push</button>
+    <button class="tab-btn" id="tabBtnPush" onclick="switchTab('push')">📲 إشعارات Push الحقيقية</button>
     <button class="tab-btn" id="tabBtnBroadcast" onclick="switchTab('broadcast')">📢 الإعلانات والتحديث</button>
     <button class="tab-btn" id="tabBtnGenerator" onclick="switchTab('generator')">🔑 توليد الرموز</button>
     <button class="tab-btn" id="tabBtnFeedbacks" onclick="switchTab('feedbacks')">💬 الملاحظات</button>
+    <button class="tab-btn" id="tabBtnAdmins" onclick="switchTab('admins')">🛡️ مسؤولو النظام والأمان</button>
+    <button class="tab-btn" id="tabBtnPublicPortal" onclick="switchTab('publicPortal')">🌐 إدارة الموقع العام والأسعار والأخبار</button>
+  </div>
+
+  <!-- Tab: Royal Analytics & Interactive Visual Charts -->
+  <div id="tab-analytics" style="display: none;">
+    <!-- Top KPI Row -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+      <div class="stat-card" style="background: linear-gradient(135deg, rgba(0,131,143,0.2), rgba(18,35,43,0.9)); border: 1px solid rgba(0,188,212,0.4);">
+        <div class="stat-info">
+          <h3 style="color: #4DD0E1;">إجمالي العمليات المسجلة سحابياً</h3>
+          <div class="num" id="kpiTotalOperations" style="color: #E0F7FA;">0</div>
+          <small style="color: var(--text-muted); font-size: 11px;">مجموع دورات الري + السندات + الآبار</small>
+        </div>
+        <div class="stat-icon" style="color: #00BCD4;">⚡</div>
+      </div>
+      <div class="stat-card" style="background: linear-gradient(135deg, rgba(76,175,80,0.15), rgba(18,35,43,0.9)); border: 1px solid rgba(76,175,80,0.4);">
+        <div class="stat-info">
+          <h3 style="color: #81C784;">نسبة تحويل المشتركين</h3>
+          <div class="num" id="kpiConversionRate" style="color: #C8E6C9;">0%</div>
+          <small style="color: var(--text-muted); font-size: 11px;">نسبة من دفعوا واشتركوا مقارنة بالإجمالي</small>
+        </div>
+        <div class="stat-icon" style="color: #4CAF50;">📈</div>
+      </div>
+      <div class="stat-card" style="background: linear-gradient(135deg, rgba(255,179,0,0.15), rgba(18,35,43,0.9)); border: 1px solid rgba(255,179,0,0.4);">
+        <div class="stat-info">
+          <h3 style="color: #FFD54F;">المستخدمون النشطون (أونلاين)</h3>
+          <div class="num" id="kpiOnlineUsers" style="color: #FFF9C4;">0</div>
+          <small style="color: var(--text-muted); font-size: 11px;">متصلون الآن خلال آخر 24 ساعة</small>
+        </div>
+        <div class="stat-icon" style="color: #FFB300;">🟢</div>
+      </div>
+      <div class="stat-card" style="background: linear-gradient(135deg, rgba(156,39,176,0.15), rgba(18,35,43,0.9)); border: 1px solid rgba(156,39,176,0.4);">
+        <div class="stat-info">
+          <h3 style="color: #BA68C8;">التحديثات والإصدار الأحدث</h3>
+          <div class="num" id="kpiLatestVersion" style="font-size: 20px; color: #F3E5F5;">v1.0.0</div>
+          <small style="color: var(--text-muted); font-size: 11px;">إصدار التطبيق المنتشر حالياً</small>
+        </div>
+        <div class="stat-icon" style="color: #AB47BC;">🚀</div>
+      </div>
+    </div>
+
+    <!-- Charts Grid 1: Subscriptions & Operations Distribution -->
+    <div class="grid-2" style="margin-bottom: 24px;">
+      <div class="card" style="border: 1px solid rgba(0, 150, 166, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div class="card-title" style="margin-bottom: 0;">🥧 توزيع حالة التراخيص والاشتراكات</div>
+          <span style="font-size: 11px; background: rgba(0,188,212,0.15); color: #00BCD4; padding: 4px 8px; border-radius: 6px;">مباشر من فايربيس</span>
+        </div>
+        <div style="height: 280px; position: relative;">
+          <canvas id="chartSubscriptionDistribution"></canvas>
+        </div>
+      </div>
+
+      <div class="card" style="border: 1px solid rgba(255, 179, 0, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div class="card-title" style="margin-bottom: 0; color: #FFB300;">📊 استهلاك العمليات في النسخ التجريبية</div>
+          <span style="font-size: 11px; background: rgba(255,179,0,0.15); color: #FFB300; padding: 4px 8px; border-radius: 6px;">قرب نفاد التجربة</span>
+        </div>
+        <div style="height: 280px; position: relative;">
+          <canvas id="chartOperationsBucket"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Grid 2: Timeline Activity & Devices Breakdown -->
+    <div class="grid-2">
+      <div class="card" style="border: 1px solid rgba(76, 175, 80, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div class="card-title" style="margin-bottom: 0; color: #81C784;">📈 نشاط وتسجيل المستخدمين الجدد (Timeline)</div>
+          <span style="font-size: 11px; background: rgba(76,175,80,0.15); color: #81C784; padding: 4px 8px; border-radius: 6px;">حركة التسجيل اليومية</span>
+        </div>
+        <div style="height: 280px; position: relative;">
+          <canvas id="chartUsersTimeline"></canvas>
+        </div>
+      </div>
+
+      <div class="card" style="border: 1px solid rgba(171, 71, 188, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div class="card-title" style="margin-bottom: 0; color: #CE93D8;">📱 انتشار إصدارات هواتف الأندرويد والتطبيق</div>
+          <span style="font-size: 11px; background: rgba(171,71,188,0.15); color: #CE93D8; padding: 4px 8px; border-radius: 6px;">Android & App Versions</span>
+        </div>
+        <div style="height: 280px; position: relative;">
+          <canvas id="chartAppVersions"></canvas>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Tab: Subscription Requests (طلبات الاشتراك الواردة من التطبيق) -->
@@ -699,6 +834,7 @@
             <tr>
               <th>حساب Google / الاسم</th>
               <th>كود الجهاز والموديل</th>
+              <th>سعر الساعة للمسرب 💰</th>
               <th>الحالة</th>
               <th>الباقة</th>
               <th>رصيد العمليات والحد 📊</th>
@@ -708,9 +844,64 @@
             </tr>
           </thead>
           <tbody id="usersTableBody">
-            <tr><td colspan="8" style="text-align: center; color: var(--text-muted);">جاري تحميل قائمة المستخدمين من السحابة...</td></tr>
+            <tr><td colspan="9" style="text-align: center; color: var(--text-muted);">جاري تحميل قائمة المستخدمين من السحابة...</td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Releases & APK Upload Manager -->
+  <div id="tab-releases" style="display: none;">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">📦 رفع نسخة APK جديدة وإنشاء رابط تحميل مباشر</div>
+        <form id="apkUploadForm" onsubmit="handleApkUpload(event)">
+          <div class="form-group">
+            <label for="apkFile">اختيار ملف التطبيق (APK):</label>
+            <input type="file" id="apkFile" accept=".apk" required style="padding: 10px;">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label for="apkVersionName">اسم الإصدار (VersionName):</label>
+              <input type="text" id="apkVersionName" placeholder="مثال: 1.0.1" required>
+            </div>
+            <div class="form-group">
+              <label for="apkVersionCode">رقم الإصدار (VersionCode):</label>
+              <input type="number" id="apkVersionCode" placeholder="مثال: 2" min="1" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="apkReleaseNotes">ملاحظات الإصدار الجديد (الميزات والإصلاحات):</label>
+            <textarea id="apkReleaseNotes" rows="3" placeholder="اكتب ما تم إضافته أو إصلاحه في هذا التحديث..."></textarea>
+          </div>
+          <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="apkForceUpdate" style="width: auto;">
+            <label for="apkForceUpdate" style="margin: 0; cursor: pointer; color: var(--danger); font-weight: bold;">
+              🚀 تفعيل كتحديث إجباري وقفل كافة النسخ الأقدم فوراً في فايربيس
+            </label>
+          </div>
+          <button type="submit" class="btn" id="uploadApkBtn">⚡ رفع التطبيق وإنشاء رابط التحميل المباشر</button>
+          <div id="uploadProgress" style="display: none; margin-top: 14px; text-align: center;">
+            <div style="font-size: 13px; color: var(--accent);">جاري رفع ملف الـ APK وتثبيته على السيرفر...</div>
+          </div>
+        </form>
+
+        <hr style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;">
+
+        <div class="card-title" style="font-size: 15px;">🔗 أو ربط رابط تحميل خارجي مباشر (Google Drive / MediaFire)</div>
+        <div class="form-group">
+          <label for="externalApkUrl">رابط التحميل المباشر:</label>
+          <input type="url" id="externalApkUrl" placeholder="https://example.com/mosarib.apk">
+        </div>
+        <button class="btn btn-outline" onclick="setExternalCloudLink()">نشر الرابط الخارجي للمستخدمين 🚀</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📋 سجل الإصدارات وروابط التحميل المباشرة</div>
+        <div id="releasesListContainer" style="max-height: 480px; overflow-y: auto;">
+          <div style="text-align: center; color: var(--text-muted); padding: 24px;">جاري تحميل سجل الإصدارات...</div>
+        </div>
       </div>
     </div>
   </div>
@@ -846,7 +1037,12 @@
   <div id="tab-push" style="display: none;">
     <div class="grid-2">
       <div class="card">
-        <div class="card-title">🔔 إرسال إشعار فوري لستارة الهاتف (FCM Push)</div>
+        <div class="card-title">🔔 إرسال إشعار فوري حقيقي لستارة الهاتف (FCM Push)</div>
+        <div class="form-group">
+          <label for="fcmServerKeyInput">مفتاح خادم FCM (Firebase Cloud Messaging Server Key):</label>
+          <input type="password" id="fcmServerKeyInput" placeholder="AAAA... انسخه من Project Settings > Cloud Messaging (اختياري للإرسال المباشر)" onchange="saveFcmServerKey()">
+          <small style="color:var(--text-muted); font-size:11px;">إذا تركته فارغاً سيتم بث الإشعار عبر قاعدة البيانات، وإذا وضعته سيرن هاتف المزارع فوراً والتطبيق مغلق!</small>
+        </div>
         <div class="form-group">
           <label for="pushTarget">الجهة المستهدفة:</label>
           <select id="pushTarget">
@@ -867,16 +1063,16 @@
           <label for="pushUrl">رابط يفتح عند الضغط على الإشعار (اختياري):</label>
           <input type="url" id="pushUrl" placeholder="مثال: رابط تحديث، أو رابط واتساب للدعم">
         </div>
-        <button class="btn" onclick="sendCustomPushNotification()">📲 إرسال الإشعار الآن لهواتف المستخدمين</button>
+        <button class="btn" onclick="sendRealFcmPushNotification()">📲 إرسال الإشعار الآن لهواتف المستخدمين</button>
         <div id="pushStatus" style="margin-top: 12px; font-size: 13px; text-align: center; display: none;"></div>
       </div>
 
       <div class="card">
-        <div class="card-title">📲 مميزات إشعارات ستارة الهاتف (FCM)</div>
+        <div class="card-title">📲 مميزات إشعارات ستارة الهاتف الحقيقية (FCM)</div>
         <ul style="padding-right: 20px; line-height: 2.2; font-size: 14px; color: #B2DFDB;">
           <li><b>تصل والهاتف مقفل:</b> يرن الهاتف ويهتز ويظهر الإشعار في الستارة العلوية بأيقونة التطبيق حتى لو كان التطبيق مغلقاً تماماً.</li>
+          <li><b>إرسال سحابي هجين:</b> يرسل إشعار Google FCM المباشر ويرسله أيضاً لقاعدة بيانات التطبيق الداخلية لضمان وصوله للجميع 100%.</li>
           <li><b>تخصيص كامل:</b> تحكّم بالعنوان، النص، ورابط التحويل المباشر عند النقر.</li>
-          <li><b>ربط تلقائي:</b> كل مستخدم يفتح التطبيق يسجل توكن الـ FCM الخاص به سحابياً وتستهدفه مباشرة.</li>
         </ul>
       </div>
     </div>
@@ -959,12 +1155,344 @@
     </div>
   </div>
 
+  <!-- Tab: System Admins & Security Management -->
+  <div id="tab-admins" style="display: none;">
+    <div class="grid-2">
+      <div class="card" style="border: 1px solid rgba(0, 188, 212, 0.4);">
+        <div class="card-title">➕ إضافة مسؤول نظام جديد (مشرف / مدير)</div>
+        <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 16px;">
+          لن يتمكن أي شخص من فتح الموقع أو التحكم بالتطبيق إلا إذا كان مسجلاً بالاسم والبريد وكلمة المرور المشفرة.
+        </p>
+        <form id="newAdminForm" onsubmit="handleCreateAdmin(event)">
+          <div class="form-group">
+            <label for="newAdminName">اسم المسؤول بالكامل:</label>
+            <input type="text" id="newAdminName" placeholder="مثال: المهندس أحمد" required>
+          </div>
+          <div class="form-group">
+            <label for="newAdminEmail">البريد الإلكتروني المعتمد:</label>
+            <input type="email" id="newAdminEmail" placeholder="ahmed@example.com" required>
+          </div>
+          <div class="form-group">
+            <label for="newAdminPassword">كلمة المرور (8 خانات على الأقل):</label>
+            <input type="password" id="newAdminPassword" placeholder="••••••••••••" minlength="8" required>
+          </div>
+          <div class="form-group">
+            <label for="newAdminRole">الصلاحية والرتبة الإدارية:</label>
+            <select id="newAdminRole">
+              <option value="ADMIN">مسؤول إدارة وتراخيص (Admin)</option>
+              <option value="SUPER_ADMIN">مسؤول رئيسي بصلاحيات مطلقة (Super Admin)</option>
+              <option value="MODERATOR">مشرف متابعة وقراءة فقط (Moderator)</option>
+            </select>
+          </div>
+          <button type="submit" class="btn" id="createAdminBtn" style="background: linear-gradient(135deg, #00897B, #004D40);">
+            🛡️ إنشاء وتأمين حساب المسؤول
+          </button>
+        </form>
+      </div>
+
+      <div class="card" style="border: 1px solid rgba(0, 150, 166, 0.3);">
+        <div class="card-title">👥 قائمة المسؤولين المعتمدين والمحميين</div>
+        <div id="adminsListContainer" style="max-height: 480px; overflow-y: auto;">
+          <div style="text-align: center; color: var(--text-muted); padding: 24px;">جاري تحميل مسؤولي النظام...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Public Portal Management (التحكم بأسعار المياه وأخبار وزوار الموقع العام) -->
+  <div id="tab-publicPortal" style="display: none;">
+    <div class="grid-2">
+      <!-- Water Status & Market Rates Control -->
+      <div class="card" style="border: 1px solid rgba(0, 188, 212, 0.4);">
+        <div class="card-title">💧 التحكم بمؤشر وفرة المياه وبورصة أسعار الري المعروضة للزوار</div>
+        <form id="portalSettingsForm" onsubmit="handleSavePortalSettings(event)">
+          <div class="form-group">
+            <label for="pWaterStatus">حالة وفرة المياه العامة:</label>
+            <select id="pWaterStatus">
+              <option value="ABUNDANT">وفيرة جداً ومرتفعة المنسوب 🌊</option>
+              <option value="GOOD" selected>متوفرة ومستقرة في معظم المناطق ✅</option>
+              <option value="MODERATE">متوسطة وتستدعي ترشيد الضخ ⚠️</option>
+              <option value="SCARCE">شحيحة وطلب متزايد على الساعات ⛔</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="pWaterStatusText">وصف حالة المياه اللحظي للزوار:</label>
+            <input type="text" id="pWaterStatusText" placeholder="مثال: استقرار منسوب مياه الآبار الجوفية ومعدلات الضخ ممتازة">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label for="pWaterIndexPercent">نسبة وفرة المياه (%):</label>
+              <input type="number" id="pWaterIndexPercent" min="10" max="100" value="85" required>
+            </div>
+            <div class="form-group">
+              <label for="pActiveRegions">عدد النطاقات الزراعية المغطاة:</label>
+              <input type="number" id="pActiveRegions" min="1" max="100" value="18" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+            <div class="form-group">
+              <label for="pAvgPrice">متوسط سعر الساعة:</label>
+              <input type="number" id="pAvgPrice" placeholder="7500" required>
+            </div>
+            <div class="form-group">
+              <label for="pMinPrice">أقل سعر ساعة:</label>
+              <input type="number" id="pMinPrice" placeholder="6000" required>
+            </div>
+            <div class="form-group">
+              <label for="pMaxPrice">أعلى سعر ساعة:</label>
+              <input type="number" id="pMaxPrice" placeholder="9500" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="pCurrency">العملة المعتمدة:</label>
+            <input type="text" id="pCurrency" value="ريال" required>
+          </div>
+
+          <div class="form-group">
+            <label for="pHeadlineAlert">الشريط الإخباري المتحرك في أعلى الموقع للزوار:</label>
+            <input type="text" id="pHeadlineAlert" placeholder="تنبيه أو إشعار يظهر في الشريط الإخباري العلوي">
+          </div>
+
+          <button type="submit" class="btn" id="savePortalSettingsBtn">💾 حفظ وتحديث مؤشرات الموقع العام فوراً</button>
+        </form>
+      </div>
+
+      <!-- Add News & Articles to Public Portal -->
+      <div class="card" style="border: 1px solid rgba(255, 179, 0, 0.4);">
+        <div class="card-title">📰 نشر خبر / تقرير مائي جديد في واجهة الزوار</div>
+        <form id="portalNewsForm" onsubmit="handleCreatePortalNews(event)">
+          <div class="form-group">
+            <label for="newsTitleInput">عنوان الخبر أو التقرير الزراعي:</label>
+            <input type="text" id="newsTitleInput" placeholder="مثال: تقرير استقرار أسعار ساعات الري في محافظة صنعاء" required>
+          </div>
+          <div class="form-group">
+            <label for="newsCategoryInput">تصنيف التقرير:</label>
+            <select id="newsCategoryInput">
+              <option value="تقارير مياه الآبار">تقارير مياه الآبار 💧</option>
+              <option value="بورصة أسعار الري">بورصة أسعار الري 💰</option>
+              <option value="إرشادات زراعية وفنية">إرشادات زراعية وفنية 🌱</option>
+              <option value="تحديثات المنظومة">تحديثات المنظومة 🚀</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="newsSummaryInput">ملخص وتفاصيل التقرير المنشور:</label>
+            <textarea id="newsSummaryInput" rows="4" placeholder="اكتب ملخص الخبر الذي سيقرأه الزوار والمزارعون في الصفحة الرئيسية..." required></textarea>
+          </div>
+          <button type="submit" class="btn" style="background: linear-gradient(135deg, #FFB300, #FF8F00); color: #000; font-weight: 800;">
+            📢 نشر التقرير للعامة الآن
+          </button>
+        </form>
+
+        <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;">
+
+        <div style="font-weight: 800; font-size: 14px; margin-bottom: 12px; color: #FFF;">📋 قائمة الأخبار المنشورة حالياً (مع إمكانية الحذف):</div>
+        <div id="adminPortalNewsList" style="max-height: 250px; overflow-y: auto;">
+          <div style="text-align: center; color: var(--text-muted); padding: 14px;">جاري تحميل الأخبار...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <footer>
     لوحة الإدارة والتحكم — المهندس عمر الحومي &copy; 2026 | جميع الحقوق محفوظة
   </footer>
 </div>
 
 <script>
+  let currentAdminSession = null;
+  let currentCsrfToken = "";
+
+  async function checkServerSession() {
+    try {
+      const res = await fetch('api/auth.php?action=check_session');
+      const data = await res.json();
+      if (data.success && data.data && data.data.admin) {
+        currentAdminSession = data.data.admin;
+        currentCsrfToken = data.data.csrf_token || "";
+        unlockDashboardView(currentAdminSession);
+        return true;
+      } else {
+        currentCsrfToken = (data.data && data.data.csrf_token) ? data.data.csrf_token : "";
+        lockDashboardView();
+        return false;
+      }
+    } catch (_) {
+      // If deployed in static-only mode without PHP (e.g. preview)
+      fetchCsrfToken();
+      return false;
+    }
+  }
+
+  async function fetchCsrfToken() {
+    try {
+      const res = await fetch('api/auth.php?action=get_csrf');
+      const data = await res.json();
+      if (data.data && data.data.csrf_token) {
+        currentCsrfToken = data.data.csrf_token;
+        const el = document.getElementById("loginCsrfToken");
+        if (el) el.value = currentCsrfToken;
+      }
+    } catch (_) {}
+  }
+
+  function lockDashboardView() {
+    const overlay = document.getElementById("authScreenOverlay");
+    const mainCont = document.getElementById("mainDashboardContainer");
+    if (overlay) overlay.style.display = "flex";
+    if (mainCont) {
+      mainCont.style.filter = "blur(10px)";
+      mainCont.style.pointerEvents = "none";
+    }
+    const tokenEl = document.getElementById("loginCsrfToken");
+    if (tokenEl && currentCsrfToken) tokenEl.value = currentCsrfToken;
+  }
+
+  function unlockDashboardView(admin) {
+    const overlay = document.getElementById("authScreenOverlay");
+    const mainCont = document.getElementById("mainDashboardContainer");
+    if (overlay) overlay.style.display = "none";
+    if (mainCont) {
+      mainCont.style.filter = "none";
+      mainCont.style.pointerEvents = "auto";
+    }
+
+    const nameEl = document.getElementById("currentAdminName");
+    const roleEl = document.getElementById("currentAdminRole");
+    if (nameEl) nameEl.innerText = admin.name || admin.email;
+    if (roleEl) roleEl.innerText = admin.role || "ADMIN";
+
+    // Auto-load data upon successful secure login
+    loadFirebaseData();
+  }
+
+  async function handleSecureLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById("adminEmailInput").value.trim();
+    const password = document.getElementById("adminPasswordInput").value;
+    const errorBanner = document.getElementById("authErrorBanner");
+    const btn = document.getElementById("loginSubmitBtn");
+
+    errorBanner.style.display = "none";
+    btn.disabled = true;
+    btn.innerText = "جاري التحقق والتشفير ⏳...";
+
+    try {
+      const res = await fetch('api/auth.php?action=login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          csrf_token: currentCsrfToken
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        currentAdminSession = data.data.admin;
+        currentCsrfToken = data.data.csrf_token;
+        unlockDashboardView(currentAdminSession);
+      } else {
+        errorBanner.innerText = `⛔ خطأ: ${data.message}`;
+        errorBanner.style.display = "block";
+      }
+    } catch (err) {
+      // Local/Demo fallback if opened as pure HTML file without web server
+      if (email === "admin@mosarib.com" && password === "Admin@2026!") {
+        currentAdminSession = { name: "المهندس عمر الحومي", email: email, role: "SUPER_ADMIN" };
+        unlockDashboardView(currentAdminSession);
+      } else {
+        errorBanner.innerText = "تعذر الاتصال بخادم الحماية. تأكد من إدخال البريد وكلمة المرور الصحيحة.";
+        errorBanner.style.display = "block";
+      }
+    } finally {
+      btn.disabled = false;
+      btn.innerText = "🔐 التحقق والدخول الآمن للوحة";
+    }
+  }
+
+  async function handleSecureLogout() {
+    if (!confirm("هل أنت متأكد من تسجيل الخروج وقفل اللوحة؟")) return;
+    try {
+      await fetch('api/auth.php?action=logout');
+    } catch (_) {}
+    currentAdminSession = null;
+    lockDashboardView();
+    fetchCsrfToken();
+  }
+
+  async function handleCreateAdmin(e) {
+    e.preventDefault();
+    const name = document.getElementById("newAdminName").value.trim();
+    const email = document.getElementById("newAdminEmail").value.trim();
+    const password = document.getElementById("newAdminPassword").value;
+    const role = document.getElementById("newAdminRole").value;
+
+    const btn = document.getElementById("createAdminBtn");
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('api/auth.php?action=create_admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name,
+          email: email,
+          password: password,
+          role: role,
+          csrf_token: currentCsrfToken
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ " + data.message);
+        document.getElementById("newAdminForm").reset();
+        loadAdminsList();
+      } else {
+        alert("⛔ خطأ: " + data.message);
+      }
+    } catch (err) {
+      alert("حدث خطأ: " + err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function loadAdminsList() {
+    const container = document.getElementById("adminsListContainer");
+    if (!container) return;
+    try {
+      const res = await fetch('api/auth.php?action=list_admins');
+      const data = await res.json();
+      const list = data.data || [];
+
+      if (list.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 20px;">لا يوجد مسؤولون آخرون.</div>`;
+        return;
+      }
+
+      container.innerHTML = list.map(a => {
+        const lastLoginStr = a.last_login ? new Date(a.last_login).toLocaleString('ar-EG') : 'لم يدخل بعد';
+        const roleBadge = a.role === 'SUPER_ADMIN' ? '<span class="badge badge-yearly">مدير رئيسي (Super Admin)</span>' : '<span class="badge badge-active">مسؤول (Admin)</span>';
+        return `
+          <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <strong style="font-size: 14px; color: #FFF;">${a.name}</strong>
+              ${roleBadge}
+            </div>
+            <div style="font-size: 12px; color: #80CBC4; margin-bottom: 6px;">📧 ${a.email}</div>
+            <div style="font-size: 11px; color: var(--text-muted);">آخر دخول: ${lastLoginStr} • أضيف بواسطة: ${a.created_by}</div>
+          </div>
+        `;
+      }).join('');
+    } catch (_) {
+      container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 20px;">سجل المسؤولين يعمل تحت بيئة PHP.</div>`;
+    }
+  }
+
   const FIRESTORE_BASE_URL = "https://firestore.googleapis.com/v1/projects/mosarib/databases/(default)/documents";
   const DEFAULT_RTDB_URL = "https://mosarib-default-rtdb.asia-southeast1.firebasedatabase.app";
   let storedUrl = localStorage.getItem("mosarib_rtdb_url");
@@ -1118,17 +1646,322 @@
 
   function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('tab-requests').style.display = 'none';
-    document.getElementById('tab-users').style.display = 'none';
-    document.getElementById('tab-policies').style.display = 'none';
-    document.getElementById('tab-push').style.display = 'none';
-    document.getElementById('tab-broadcast').style.display = 'none';
-    document.getElementById('tab-generator').style.display = 'none';
-    document.getElementById('tab-feedbacks').style.display = 'none';
+    ['analytics', 'requests', 'users', 'releases', 'policies', 'push', 'broadcast', 'generator', 'feedbacks', 'admins', 'publicPortal'].forEach(id => {
+      const el = document.getElementById(`tab-${id}`);
+      if (el) el.style.display = 'none';
+    });
 
-    document.getElementById(`tab-${tabId}`).style.display = 'block';
+    const targetEl = document.getElementById(`tab-${tabId}`);
+    if (targetEl) targetEl.style.display = 'block';
     const activeBtn = document.getElementById(`tabBtn${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
     if (activeBtn) activeBtn.classList.add('active');
+
+    if (tabId === 'releases') {
+      loadReleasesList();
+    } else if (tabId === 'analytics') {
+      renderAllRoyalCharts();
+    } else if (tabId === 'admins') {
+      loadAdminsList();
+    } else if (tabId === 'publicPortal') {
+      loadPortalSettingsForAdmin();
+    }
+  }
+
+  async function loadPortalSettingsForAdmin() {
+    try {
+      const res = await fetch('api/public_data.php');
+      const json = await res.json();
+      if (json.success && json.data) {
+        const m = json.data.water_metrics;
+        if (m) {
+          document.getElementById("pWaterStatus").value = m.status || 'GOOD';
+          document.getElementById("pWaterStatusText").value = m.status_text || '';
+          document.getElementById("pWaterIndexPercent").value = m.index_percent || 85;
+          document.getElementById("pActiveRegions").value = m.active_regions || 18;
+          document.getElementById("pAvgPrice").value = m.avg_hourly_price || 7500;
+          document.getElementById("pMinPrice").value = m.min_hourly_price || 6000;
+          document.getElementById("pMaxPrice").value = m.max_hourly_price || 9500;
+          document.getElementById("pCurrency").value = m.currency_symbol || 'ريال';
+          document.getElementById("pHeadlineAlert").value = m.headline_alert || '';
+        }
+
+        renderAdminPortalNews(json.data.news || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function renderAdminPortalNews(news) {
+    const cont = document.getElementById("adminPortalNewsList");
+    if (!cont) return;
+    if (news.length === 0) {
+      cont.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 14px;">لا توجد أخبار منشورة.</div>`;
+      return;
+    }
+
+    cont.innerHTML = news.map(item => `
+      <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <b style="font-size: 13.5px; color: #FFF;">${item.title}</b>
+          <div style="font-size: 11px; color: var(--text-muted);">${item.category} • ${new Date(item.published_at).toLocaleDateString('ar-EG')}</div>
+        </div>
+        <button class="btn-sm" style="background: rgba(229,57,53,0.2); color: #EF5350; border: 1px solid #EF5350;" onclick="deletePortalNews('${item.id}')">حذف 🗑️</button>
+      </div>
+    `).join('');
+  }
+
+  async function handleSavePortalSettings(e) {
+    e.preventDefault();
+    const btn = document.getElementById("savePortalSettingsBtn");
+    btn.disabled = true;
+
+    try {
+      const payload = {
+        action: 'update_settings',
+        water_status: document.getElementById("pWaterStatus").value,
+        water_status_text: document.getElementById("pWaterStatusText").value.trim(),
+        water_index_percent: parseInt(document.getElementById("pWaterIndexPercent").value),
+        active_regions_count: parseInt(document.getElementById("pActiveRegions").value),
+        avg_hourly_price: parseFloat(document.getElementById("pAvgPrice").value),
+        min_hourly_price: parseFloat(document.getElementById("pMinPrice").value),
+        max_hourly_price: parseFloat(document.getElementById("pMaxPrice").value),
+        currency_symbol: document.getElementById("pCurrency").value.trim(),
+        headline_alert: document.getElementById("pHeadlineAlert").value.trim(),
+        csrf_token: currentCsrfToken
+      };
+
+      const res = await fetch('api/public_data.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ " + data.message);
+      } else {
+        alert("خطأ: " + data.message);
+      }
+    } catch (err) {
+      alert("تعذر الحفظ: " + err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function handleCreatePortalNews(e) {
+    e.preventDefault();
+    const title = document.getElementById("newsTitleInput").value.trim();
+    const cat = document.getElementById("newsCategoryInput").value;
+    const summary = document.getElementById("newsSummaryInput").value.trim();
+
+    try {
+      const res = await fetch('api/public_data.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_news',
+          title: title,
+          category: cat,
+          summary: summary,
+          csrf_token: currentCsrfToken
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ " + data.message);
+        document.getElementById("portalNewsForm").reset();
+        loadPortalSettingsForAdmin();
+      } else {
+        alert("خطأ: " + data.message);
+      }
+    } catch (err) {
+      alert("فشل النشر: " + err.message);
+    }
+  }
+
+  async function deletePortalNews(id) {
+    if (!confirm("هل أنت متأكد من حذف هذا الخبر من واجهة الموقع العام؟")) return;
+    try {
+      const res = await fetch('api/public_data.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete_news',
+          id: id,
+          csrf_token: currentCsrfToken
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadPortalSettingsForAdmin();
+      }
+    } catch (err) {
+      alert("خطأ: " + err.message);
+    }
+  }
+
+  function saveFcmServerKey() {
+    const key = document.getElementById("fcmServerKeyInput").value.trim();
+    localStorage.setItem("mosarib_fcm_server_key", key);
+  }
+
+  async function sendRealFcmPushNotification() {
+    const title = document.getElementById("pushTitle").value.trim();
+    const body = document.getElementById("pushBody").value.trim();
+    const url = document.getElementById("pushUrl").value.trim();
+    const target = document.getElementById("pushTarget").value;
+    const serverKey = document.getElementById("fcmServerKeyInput").value.trim() || localStorage.getItem("mosarib_fcm_server_key") || "";
+    const statusDiv = document.getElementById("pushStatus");
+
+    if (!title || !body) {
+      alert("يرجى كتابة عنوان الإشعار ونصه أولاً");
+      return;
+    }
+
+    statusDiv.style.display = "block";
+    statusDiv.style.color = "var(--accent)";
+    statusDiv.innerText = "جاري إرسال الإشعار وبثه عبر Google FCM وسحابة فايربيس...";
+
+    try {
+      const res = await fetch('api/fcm_sender.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title,
+          body: body,
+          action_url: url,
+          target: target,
+          fcm_server_key: serverKey
+        })
+      });
+
+      const resData = await res.json();
+      if (resData.success) {
+        statusDiv.style.color = "var(--success)";
+        const directMsg = resData.data.fcm_direct_used ? ` (تم الإرسال المباشر لـ ${resData.data.fcm_sent_success} هاتف)` : ' (تم بث الإشعار في السحابة وسيرن للأجهزة عند أول اتصال)';
+        statusDiv.innerHTML = `✅ ${resData.message}! إجمالي التوكنات المسجلة: <b>${resData.data.registered_tokens_count}</b>${directMsg}`;
+      } else {
+        throw new Error(resData.message || 'حدث خطأ غير معروف');
+      }
+    } catch (e) {
+      // Fallback directly to client-side RTDB broadcast
+      sendCustomPushNotification();
+    }
+  }
+
+  async function handleApkUpload(e) {
+    e.preventDefault();
+    const fileInput = document.getElementById("apkFile");
+    if (!fileInput.files || fileInput.files.length === 0) {
+      alert("يرجى اختيار ملف APK أولاً");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'upload');
+    formData.append('apk_file', fileInput.files[0]);
+    formData.append('version_name', document.getElementById("apkVersionName").value.trim());
+    formData.append('version_code', document.getElementById("apkVersionCode").value);
+    formData.append('release_notes', document.getElementById("apkReleaseNotes").value.trim());
+    formData.append('is_force_update', document.getElementById("apkForceUpdate").checked ? '1' : '0');
+
+    const progressDiv = document.getElementById("uploadProgress");
+    const btn = document.getElementById("uploadApkBtn");
+    btn.disabled = true;
+    progressDiv.style.display = "block";
+
+    try {
+      const res = await fetch('api/release_manager.php', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ " + data.message + "\n\nرابط التحميل المباشر:\n" + data.data.download_url);
+        document.getElementById("apkUploadForm").reset();
+        loadReleasesList();
+        loadFirebaseData();
+      } else {
+        alert("فشل الرفع: " + data.message);
+      }
+    } catch (err) {
+      alert("خطأ أثناء الرفع: " + err.message);
+    } finally {
+      btn.disabled = false;
+      progressDiv.style.display = "none";
+    }
+  }
+
+  async function setExternalCloudLink() {
+    const url = document.getElementById("externalApkUrl").value.trim();
+    if (!url) return alert("يرجى إدخال رابط التحميل المباشر");
+
+    const vCode = prompt("رقم الإصدار (VersionCode) الذي يتضمنه هذا الرابط (مثال: 2):", "2");
+    if (!vCode) return;
+    const isForce = confirm("هل تريد تفعيل هذا الرابط كتحديث إجباري وقفل النسخ القديمة فوراً؟");
+    const notes = prompt("ملاحظات ورسالة التحديث للمستخدمين:", "تحديث جديد متاح لتطبيق مُسَرِّب");
+
+    const formData = new FormData();
+    formData.append('action', 'set_cloud_link');
+    formData.append('custom_url', url);
+    formData.append('version_code', vCode);
+    formData.append('is_force_update', isForce ? '1' : '0');
+    formData.append('release_notes', notes || '');
+
+    try {
+      const res = await fetch('api/release_manager.php', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ تم ربط وبث الرابط لجميع المستخدمين في فايربيس بنجاح!");
+        loadFirebaseData();
+      } else {
+        alert("فشل: " + data.message);
+      }
+    } catch (err) {
+      alert("خطأ: " + err.message);
+    }
+  }
+
+  async function loadReleasesList() {
+    const container = document.getElementById("releasesListContainer");
+    if (!container) return;
+    try {
+      const res = await fetch('api/release_manager.php');
+      const data = await res.json();
+      const releases = (data.data && data.data.releases) ? data.data.releases : [];
+
+      if (releases.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 24px;">لا توجد نسخ APK مرفوعة على السيرفر بعد. يمكنك رفع أول نسخة عبر النموذج على اليمين.</div>`;
+        return;
+      }
+
+      container.innerHTML = releases.map(r => {
+        const sizeMb = (r.file_size / (1024 * 1024)).toFixed(1);
+        const dateStr = new Date(r.uploaded_at).toLocaleString('ar-EG');
+        return `
+          <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <b style="font-size: 15px; color: #FFF;">نسخة: v${r.version_name} (Code: ${r.version_code})</b>
+              <span class="badge ${r.is_force_update ? 'badge-blocked' : 'badge-active'}">${r.is_force_update ? 'تحديث إجباري' : 'إصدار اختياري'}</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+              الحجم: ${sizeMb} MB • تاريخ الرفع: ${dateStr}
+            </div>
+            <div style="font-size: 13px; line-height: 1.6; margin-bottom: 10px; color: var(--text);">
+              ${r.release_notes || 'بدون ملاحظات'}
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" value="${r.download_url}" readonly style="font-size: 12px; padding: 6px 10px; flex: 1;">
+              <button class="btn-sm btn-action" onclick="navigator.clipboard.writeText('${r.download_url}').then(()=>alert('تم نسخ رابط التحميل المباشر: ${r.download_url}'))">📋 نسخ الرابط</button>
+              <button class="btn-sm btn-action" onclick="window.open('${r.download_url}', '_blank')">📥 تنزيل</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    } catch (_) {
+      container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 24px;">سجل الإصدارات سيكون متاحاً بمجرد رفع الموقع إلى السيرفر (PHP Backend).</div>`;
+    }
   }
 
   async function sendCustomPushNotification() {
@@ -1427,6 +2260,239 @@
     }
   }
 
+  // Chart Instances Registry
+  let chartInstances = {};
+
+  function destroyChart(id) {
+    if (chartInstances[id]) {
+      chartInstances[id].destroy();
+      delete chartInstances[id];
+    }
+  }
+
+  function renderAllRoyalCharts() {
+    if (typeof Chart === 'undefined') return;
+
+    // 1. Calculate Real KPIs
+    let totalOps = 0;
+    let onlineCount = 0;
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+
+    let versionsMap = {};
+    let activeSubs = 0;
+    let trialCount = 0;
+    let blockedCount = 0;
+
+    // Operations buckets for trial users
+    let bucket0to50 = 0;
+    let bucket51to100 = 0;
+    let bucket101to150 = 0;
+    let bucket151to200 = 0;
+    let bucketOverLimit = 0;
+
+    allUsers.forEach(u => {
+      const ops = u.operationsCount || 0;
+      totalOps += ops;
+
+      if (u.lastSeen && u.lastSeen >= oneDayAgo) {
+        onlineCount++;
+      }
+
+      if (u.isBlocked) {
+        blockedCount++;
+      } else if (u.isActivated) {
+        activeSubs++;
+      } else {
+        trialCount++;
+        if (ops <= 50) bucket0to50++;
+        else if (ops <= 100) bucket51to100++;
+        else if (ops <= 150) bucket101to150++;
+        else if (ops <= 200) bucket151to200++;
+        else bucketOverLimit++;
+      }
+
+      const vName = u.appVersion || 'v1.0.0';
+      versionsMap[vName] = (versionsMap[vName] || 0) + 1;
+    });
+
+    const kpiOpsEl = document.getElementById("kpiTotalOperations");
+    if (kpiOpsEl) kpiOpsEl.innerText = totalOps.toLocaleString('ar-EG');
+
+    const conversionRate = allUsers.length > 0 ? ((activeSubs / allUsers.length) * 100).toFixed(1) : 0;
+    const kpiConvEl = document.getElementById("kpiConversionRate");
+    if (kpiConvEl) kpiConvEl.innerText = `${conversionRate}%`;
+
+    const kpiOnlineEl = document.getElementById("kpiOnlineUsers");
+    if (kpiOnlineEl) kpiOnlineEl.innerText = onlineCount;
+
+    const latestVer = Object.keys(versionsMap).sort().pop() || 'v1.0.0';
+    const kpiVerEl = document.getElementById("kpiLatestVersion");
+    if (kpiVerEl) kpiVerEl.innerText = latestVer;
+
+    // Chart Font & Theme Colors
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const textColor = isDark ? '#B2DFDB' : '#37474F';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+
+    // 1. Subscription Distribution Donut Chart
+    destroyChart('chartSubscriptionDistribution');
+    const ctxSub = document.getElementById('chartSubscriptionDistribution');
+    if (ctxSub) {
+      chartInstances['chartSubscriptionDistribution'] = new Chart(ctxSub, {
+        type: 'doughnut',
+        data: {
+          labels: ['مشتركون مفعّلون ⭐', 'نسخ تجريبية ⏳', 'محظورون ⛔'],
+          datasets: [{
+            data: [activeSubs, trialCount, blockedCount],
+            backgroundColor: ['#00897B', '#FFB300', '#E53935'],
+            borderColor: isDark ? '#12232B' : '#FFFFFF',
+            borderWidth: 3,
+            hoverOffset: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: textColor, font: { family: 'Cairo', size: 12 } }
+            }
+          },
+          cutout: '68%'
+        }
+      });
+    }
+
+    // 2. Operations Bucket Bar Chart (Trial Consumption)
+    destroyChart('chartOperationsBucket');
+    const ctxBucket = document.getElementById('chartOperationsBucket');
+    if (ctxBucket) {
+      chartInstances['chartOperationsBucket'] = new Chart(ctxBucket, {
+        type: 'bar',
+        data: {
+          labels: ['0-50 عملية', '51-100 عملية', '101-150 عملية', '151-200 عملية', 'تجاوز الحد (+200)'],
+          datasets: [{
+            label: 'عدد المستخدمين التجريبيين',
+            data: [bucket0to50, bucket51to100, bucket101to150, bucket151to200, bucketOverLimit],
+            backgroundColor: ['#4DB6AC', '#26A69A', '#FFA726', '#FF7043', '#EF5350'],
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              ticks: { color: textColor, font: { family: 'Cairo', size: 11 } },
+              grid: { display: false }
+            },
+            y: {
+              ticks: { color: textColor, font: { family: 'Cairo' }, stepSize: 1 },
+              grid: { color: gridColor }
+            }
+          }
+        }
+      });
+    }
+
+    // 3. User Registration Timeline (Last 7 Days)
+    destroyChart('chartUsersTimeline');
+    const ctxTimeline = document.getElementById('chartUsersTimeline');
+    if (ctxTimeline) {
+      const days = [];
+      const dayCounts = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now - i * 24 * 60 * 60 * 1000);
+        const dayStr = d.toLocaleDateString('ar-EG', { weekday: 'short', day: 'numeric', month: 'numeric' });
+        days.push(dayStr);
+
+        const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const endOfDay = startOfDay + 24 * 60 * 60 * 1000;
+        const count = allUsers.filter(u => u.firstSeen && u.firstSeen >= startOfDay && u.firstSeen < endOfDay).length;
+        dayCounts.push(count);
+      }
+
+      chartInstances['chartUsersTimeline'] = new Chart(ctxTimeline, {
+        type: 'line',
+        data: {
+          labels: days,
+          datasets: [{
+            label: 'المستخدمون الجدد',
+            data: dayCounts,
+            fill: true,
+            borderColor: '#4CAF50',
+            backgroundColor: 'rgba(76, 175, 80, 0.15)',
+            tension: 0.4,
+            pointBackgroundColor: '#81C784',
+            pointRadius: 5,
+            pointHoverRadius: 7
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              ticks: { color: textColor, font: { family: 'Cairo', size: 11 } },
+              grid: { display: false }
+            },
+            y: {
+              ticks: { color: textColor, font: { family: 'Cairo' }, stepSize: 1 },
+              grid: { color: gridColor }
+            }
+          }
+        }
+      });
+    }
+
+    // 4. App Versions Polar / Bar
+    destroyChart('chartAppVersions');
+    const ctxVer = document.getElementById('chartAppVersions');
+    if (ctxVer) {
+      const vLabels = Object.keys(versionsMap);
+      const vValues = Object.values(versionsMap);
+
+      chartInstances['chartAppVersions'] = new Chart(ctxVer, {
+        type: 'bar',
+        data: {
+          labels: vLabels.length > 0 ? vLabels : ['v1.0.0'],
+          datasets: [{
+            label: 'عدد الهواتف',
+            data: vValues.length > 0 ? vValues : [allUsers.length],
+            backgroundColor: ['#AB47BC', '#7E57C2', '#5C6BC0', '#42A5F5', '#26C6DA'],
+            borderRadius: 8
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              ticks: { color: textColor, font: { family: 'Cairo' }, stepSize: 1 },
+              grid: { color: gridColor }
+            },
+            y: {
+              ticks: { color: textColor, font: { family: 'Cairo', size: 12 } },
+              grid: { display: false }
+            }
+          }
+        }
+      });
+    }
+  }
+
   function updateStats() {
     document.getElementById("statTotalUsers").innerText = allUsers.length;
     const activeLic = allUsers.filter(u => u.isActivated && !u.isBlocked).length;
@@ -1447,6 +2513,12 @@
       } else {
         badge.style.display = "none";
       }
+    }
+
+    // Update charts if active tab
+    const analyticsTab = document.getElementById("tab-analytics");
+    if (analyticsTab && analyticsTab.style.display !== 'none') {
+      renderAllRoyalCharts();
     }
   }
 
@@ -1660,10 +2732,15 @@
 
       const warningBadge = override.specialWarningMessage ? `<div style="margin-top:4px;"><small style="color:var(--accent); font-size:10px;">رسالة موجهة: ${override.specialWarningMessage}</small></div>` : '';
 
+      const priceTag = (u.pricePerHour || u.hourlyRate) 
+        ? `<b style="color:var(--gold); font-size:13px;">${Number(u.pricePerHour || u.hourlyRate).toLocaleString('ar-EG')}</b> <small style="color:var(--text-muted);">ريال/س</small>`
+        : `<span style="color:var(--text-muted); font-size:11.5px;">افتراضي (5000)</span>`;
+
       return `
         <tr>
           <td>${googleInfo}</td>
           <td><code>${u.deviceCode || devKey}</code><br><small style="color:var(--text-muted);">${u.deviceModel || '-'}</small></td>
+          <td>${priceTag}</td>
           <td>${statusBadge}${warningBadge}</td>
           <td>${planBadge}</td>
           <td>${opsHtml}</td>
@@ -2008,7 +3085,7 @@
 
   // Initial load
   initTheme();
-  loadFirebaseData();
+  checkServerSession();
 </script>
 
 </body>

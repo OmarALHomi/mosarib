@@ -195,7 +195,12 @@ object UserDeviceTracker {
             val cumulativeOps = maxOf(LicenseManager.getCumulativeOperations(context), effectiveRemoteOps, highestOps)
             val isTrialConsumed = LicenseManager.isTrialConsumed(context)
 
-            // 2. Upload / update user data
+            // Only attach price if user is an activated genuine subscriber and not blocked
+            val lastSyncedPrice = if (isActivated && !isBlocked) {
+                com.example.core.util.AppPriceHelper.getLastSyncedPrice(context)
+            } else null
+
+            // 1. Upload / update user presence data
             val payload = JSONObject().apply {
                 put("deviceCode", deviceCode)
                 put("cleanDeviceKey", cleanDeviceKey)
@@ -210,12 +215,16 @@ object UserDeviceTracker {
                 put("operationsCount", highestOps)
                 put("cumulativeOpsCount", cumulativeOps)
                 put("trialConsumed", isTrialConsumed)
+                if (lastSyncedPrice != null) {
+                    put("pricePerHour", lastSyncedPrice)
+                    put("hourlyRate", lastSyncedPrice)
+                }
                 put("isBlocked", false)
                 put("lastActiveAt", now)
             }
 
             // 1. Primary: Cloud Firestore REST API (Upsert via PATCH)
-            val fsPayload = mapOf(
+            val fsPayload = mutableMapOf<String, Any>(
                 "deviceCode" to deviceCode,
                 "cleanDeviceKey" to cleanDeviceKey,
                 "deviceModel" to LicenseManager.getDeviceModelName(),
@@ -232,6 +241,10 @@ object UserDeviceTracker {
                 "isBlocked" to isBlocked,
                 "lastActiveAt" to now
             )
+            if (lastSyncedPrice != null) {
+                fsPayload["pricePerHour"] = lastSyncedPrice
+                fsPayload["hourlyRate"] = lastSyncedPrice
+            }
             FirestoreRestHelper.patchDocument("all_users", cleanDeviceKey, fsPayload)
 
             // 2. Dual Write: Realtime Database
@@ -247,7 +260,6 @@ object UserDeviceTracker {
                 OutputStreamWriter(putConn.outputStream).use { it.write(payload.toString()) }
                 putConn.responseCode
             } catch (_: Exception) {}
-
             DeviceStatusResult(isBlocked = false)
         } catch (e: Exception) {
             Log.e(TAG, "Presence sync failed: ${e.message}")
