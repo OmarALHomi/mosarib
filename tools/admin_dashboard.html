@@ -1283,8 +1283,53 @@
         fetchCollection('feedbacks')
       ]);
 
+      // Cross-reference with licenses to ensure isActivated is 100% accurate even if user node lagged
+      let activeLicenseMap = {};
+      try {
+        const licRes = await fetch(`${FIREBASE_BASE_URL}/licenses.json`);
+        if (licRes.ok) {
+          const licData = await licRes.json();
+          if (licData && typeof licData === 'object') {
+            Object.values(licData).forEach(lic => {
+              if (lic && lic.deviceCode && !lic.isRevoked && (lic.expiresAt > Date.now())) {
+                const cleanCode = lic.deviceCode.replace(/-/g, "").trim();
+                activeLicenseMap[cleanCode] = lic;
+              }
+            });
+          }
+        }
+      } catch (_) {}
+
+      // Cross-reference with devices node as well
+      try {
+        const devRes = await fetch(`${FIREBASE_BASE_URL}/devices.json`);
+        if (devRes.ok) {
+          const devData = await devRes.json();
+          if (devData && typeof devData === 'object') {
+            Object.entries(devData).forEach(([dCode, dVal]) => {
+              if (dVal && !dVal.isRevoked && (dVal.expiresAt > Date.now())) {
+                const cleanCode = dCode.replace(/-/g, "").trim();
+                activeLicenseMap[cleanCode] = dVal;
+              }
+            });
+          }
+        }
+      } catch (_) {}
+
       allRequests = reqs;
-      allUsers = users;
+      allUsers = users.map(u => {
+        const devKey = u.cleanDeviceKey || (u.deviceCode ? u.deviceCode.replace(/-/g, "").trim() : "");
+        const verifiedLic = activeLicenseMap[devKey];
+        if (verifiedLic) {
+          return {
+            ...u,
+            isActivated: true,
+            plan: verifiedLic.plan || u.plan || 'MONTHLY',
+            subscriberName: u.subscriberName || verifiedLic.subscriberName
+          };
+        }
+        return u;
+      });
       allFeedbacks = fbs;
 
       // Fetch app_config, device_overrides, app_broadcast

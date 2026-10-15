@@ -86,6 +86,10 @@ object UserDeviceTracker {
         // Concurrently refresh remote policies
         RemoteConfigManager.syncRemotePolicies(context)
 
+        // Ensure exact database count is counted
+        val exactCount = com.example.core.util.AppOperationsCounter.getExactTotalOperations(context)
+        val finalOpsCount = maxOf(operationsCount, exactCount)
+
         val deviceCode = LicenseManager.getDeviceCode(context)
         val cleanDeviceKey = deviceCode.replace("-", "").trim()
         val isAuthed = isGoogleAccountAuthenticatedForApp(context)
@@ -93,7 +97,7 @@ object UserDeviceTracker {
         val email = googleAccount?.email ?: ""
         val displayName = googleAccount?.displayName ?: ""
         val isActivated = LicenseManager.isActivated(context)
-        val activePlan = LicenseManager.getActivePlan(context)?.name ?: "TRIAL"
+        val activePlan = LicenseManager.getActivePlan(context)?.name ?: (if (isActivated) "ACTIVATED" else "TRIAL")
         val now = System.currentTimeMillis()
 
         try {
@@ -171,7 +175,7 @@ object UserDeviceTracker {
                 put("phone", regPhone)
                 put("isActivated", isActivated)
                 put("plan", activePlan)
-                put("operationsCount", operationsCount)
+                put("operationsCount", finalOpsCount)
                 put("isBlocked", false)
                 put("lastActiveAt", now)
             }
@@ -209,7 +213,7 @@ object UserDeviceTracker {
                     put("androidVersion", org.json.JSONObject().put("stringValue", LicenseManager.getAndroidVersionName()))
                     put("isActivated", org.json.JSONObject().put("booleanValue", isActivated))
                     put("plan", org.json.JSONObject().put("stringValue", activePlan))
-                    put("operationsCount", org.json.JSONObject().put("integerValue", operationsCount.toString()))
+                    put("operationsCount", org.json.JSONObject().put("integerValue", finalOpsCount.toString()))
                     put("isBlocked", org.json.JSONObject().put("booleanValue", isBlocked))
                     put("lastActiveAt", org.json.JSONObject().put("integerValue", now.toString()))
                 }
