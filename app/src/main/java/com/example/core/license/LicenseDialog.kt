@@ -217,11 +217,20 @@ fun LicenseDialog(
     }
 
     val isExpired = remember { existingRecord != null && !isCurrentlyActivated }
+    val isRegistered = remember(isCurrentlyActivated, existingRecord) {
+        isCurrentlyActivated || existingRecord != null
+    }
+    val currentPlan = existingRecord?.plan
+    val isYearlySubscriber = remember(isRegistered, currentPlan) {
+        isRegistered && currentPlan == LicenseManager.SubscriptionPlan.YEARLY
+    }
     val isUpgrade = remember(selectedPlan, isCurrentlyActivated, existingRecord) {
         isCurrentlyActivated && existingRecord?.plan == LicenseManager.SubscriptionPlan.MONTHLY && selectedPlan == LicenseManager.SubscriptionPlan.YEARLY
     }
 
-    fun submitOnlineSubscriptionRequest() {
+    fun submitOnlineSubscriptionRequest(overridePlan: LicenseManager.SubscriptionPlan? = null, overrideIsUpgrade: Boolean? = null) {
+        val targetPlan = overridePlan ?: selectedPlan
+        val targetUpgrade = overrideIsUpgrade ?: isUpgrade
         val cleanName = subscriberName.trim()
         val cleanPhone = phone.trim()
         if (cleanName.isBlank()) {
@@ -229,7 +238,7 @@ fun LicenseDialog(
             return
         }
         val requestType = when {
-            isUpgrade -> "UPGRADE"
+            targetUpgrade -> "UPGRADE"
             isExpired || isCurrentlyActivated -> "RENEWAL"
             else -> "NEW"
         }
@@ -241,7 +250,7 @@ fun LicenseDialog(
             val res = FirebaseLicenseService.sendSubscriptionRequestOnline(
                 subscriberName = cleanName,
                 phone = cleanPhone,
-                plan = selectedPlan,
+                plan = targetPlan,
                 deviceCode = deviceCode,
                 requestType = requestType
             )
@@ -260,24 +269,26 @@ fun LicenseDialog(
         }
     }
 
-    fun openWhatsApp() {
+    fun openWhatsApp(overridePlan: LicenseManager.SubscriptionPlan? = null, overrideIsUpgrade: Boolean? = null) {
+        val targetPlan = overridePlan ?: selectedPlan
+        val targetUpgrade = overrideIsUpgrade ?: isUpgrade
         val cleanName = subscriberName.trim()
         val cleanPhone = phone.trim()
         val requestType = when {
-            isUpgrade -> "UPGRADE"
+            targetUpgrade -> "UPGRADE"
             isExpired || isCurrentlyActivated -> "RENEWAL"
             else -> "NEW"
         }
         if (cleanName.isNotBlank()) {
             coroutineScope.launch {
                 UserDeviceTracker.saveUserRegistrationInfo(context, cleanName, cleanPhone)
-                FirebaseLicenseService.sendSubscriptionRequestOnline(cleanName, cleanPhone, selectedPlan, deviceCode, requestType)
+                FirebaseLicenseService.sendSubscriptionRequestOnline(cleanName, cleanPhone, targetPlan, deviceCode, requestType)
             }
         }
         val url = if (isExpired || isCurrentlyActivated) {
-            LicenseManager.getWhatsAppRenewalUrl(deviceCode, subscriberName, selectedPlan, isUpgrade)
+            LicenseManager.getWhatsAppRenewalUrl(deviceCode, subscriberName, targetPlan, targetUpgrade)
         } else {
-            LicenseManager.getWhatsAppActivationUrl(deviceCode, subscriberName, selectedPlan)
+            LicenseManager.getWhatsAppActivationUrl(deviceCode, subscriberName, targetPlan)
         }
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -532,10 +543,11 @@ fun LicenseDialog(
             // 3. Explanation Text
             val dialogLimit = LicenseManager.getFreeOperationsLimit(context)
             Text(
-                text = if (isMandatory)
-                    "لقد استنفدت العمليات المجانية بالكامل ($dialogLimit عملية) في النسخة التجريبية. يرجى إدخال اسمك وطلب كود التفعيل عبر واتساب وتفعيله مع الاتصال بالإنترنت للاستمرار بلا حدود."
-                else
-                    "لتفعيل التطبيق، اكتب اسمك، واختر الباقة، ثم انسخ الكود وأرسله عبر الواتساب للمطور لاستلام رمز التفعيل وتأكيده مع توفر الإنترنت.",
+                text = when {
+                    isMandatory -> "لقد استنفدت العمليات المجانية بالكامل ($dialogLimit عملية) في النسخة التجريبية. يرجى إدخال اسمك وطلب كود التفعيل للاستمرار."
+                    isRegistered -> "بيانات اشتراكك مسجلة في النظام. يمكنك إرسال طلب تجديد اشتراكك أو ترقية الباقة مباشرة."
+                    else -> "لتفعيل التطبيق، اكتب اسمك، واختر الباقة، ثم انسخ الكود وأرسله عبر الواتساب للمطور لاستلام رمز التفعيل وتأكيده مع توفر الإنترنت."
+                },
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 18.sp,
@@ -602,79 +614,82 @@ fun LicenseDialog(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Plan Toggle Chips
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Button(
-                    onClick = { selectedPlan = LicenseManager.SubscriptionPlan.MONTHLY },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (selectedPlan == LicenseManager.SubscriptionPlan.MONTHLY) PrimaryTeal else MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = if (selectedPlan == LicenseManager.SubscriptionPlan.MONTHLY) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    shape = RoundedCornerShape(10.dp)
+            // If not registered: Show Plan Toggle Chips & Google Restore
+            if (!isRegistered) {
+                // Plan Toggle Chips
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text("اشتراك شهري", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
-
-                Button(
-                    onClick = { selectedPlan = LicenseManager.SubscriptionPlan.YEARLY },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (selectedPlan == LicenseManager.SubscriptionPlan.YEARLY) AccentGold else MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = if (selectedPlan == LicenseManager.SubscriptionPlan.YEARLY) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("اشتراك سنوي", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Google Account Restore Button
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                )
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "مسجل مسبقاً ولديك اشتراك؟",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
                     Button(
-                        onClick = {
-                            val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
-                            googleSignInLauncher.launch(client.signInIntent)
-                        },
-                        enabled = !isCheckingGoogleLogin,
-                        modifier = Modifier.fillMaxWidth().height(42.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F766E), contentColor = Color.White)
+                        onClick = { selectedPlan = LicenseManager.SubscriptionPlan.MONTHLY },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedPlan == LicenseManager.SubscriptionPlan.MONTHLY) PrimaryTeal else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (selectedPlan == LicenseManager.SubscriptionPlan.MONTHLY) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        shape = RoundedCornerShape(10.dp)
                     ) {
-                        if (isCheckingGoogleLogin) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("جاري فحص الحساب في السحابة...", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                        } else {
-                            Icon(Icons.Default.CloudDone, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("تسجيل الدخول واستعادة الحساب عبر Google", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text("اشتراك شهري", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+
+                    Button(
+                        onClick = { selectedPlan = LicenseManager.SubscriptionPlan.YEARLY },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedPlan == LicenseManager.SubscriptionPlan.YEARLY) AccentGold else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (selectedPlan == LicenseManager.SubscriptionPlan.YEARLY) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("اشتراك سنوي", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Google Account Restore Button
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "مسجل مسبقاً ولديك اشتراك؟",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
+                                googleSignInLauncher.launch(client.signInIntent)
+                            },
+                            enabled = !isCheckingGoogleLogin,
+                            modifier = Modifier.fillMaxWidth().height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F766E), contentColor = Color.White)
+                        ) {
+                            if (isCheckingGoogleLogin) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("جاري فحص الحساب في السحابة...", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                            } else {
+                                Icon(Icons.Default.CloudDone, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("تسجيل الدخول واستعادة الحساب عبر Google", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+            }
 
             // Device Code Card
             Card(
@@ -711,62 +726,176 @@ fun LicenseDialog(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = { copyDeviceCode() },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp)
+                    if (!isRegistered) {
+                        // User not registered: Standard copy + WhatsApp activation + Online subscription request
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("نسخ الكود", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                            OutlinedButton(
+                                onClick = { copyDeviceCode() },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("نسخ الكود", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = { openWhatsApp() },
+                                modifier = Modifier.weight(1.4f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("طلب تفعيل عبر واتساب", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
+
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         Button(
-                            onClick = { openWhatsApp() },
-                            modifier = Modifier.weight(1.4f),
+                            onClick = { submitOnlineSubscriptionRequest() },
+                            enabled = !isRequestingOnline,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp),
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PrimaryTeal,
+                                contentColor = Color.White
+                            )
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            val waText = when {
-                                isUpgrade -> "طلب ترقية عبر واتساب"
-                                isExpired -> "طلب تجديد عبر واتساب"
-                                else -> "طلب تفعيل عبر واتساب"
+                            if (isRequestingOnline) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("إرسال طلب اشتراك", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
-                            Text(waText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Button(
-                        onClick = { submitOnlineSubscriptionRequest() },
-                        enabled = !isRequestingOnline,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = PrimaryTeal,
-                            contentColor = Color.White
-                        )
-                    ) {
-                        if (isRequestingOnline) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            val onlineBtnText = when {
-                                isUpgrade -> "إرسال طلب ترقية الباقة"
-                                isExpired -> "إرسال طلب تجديد الاشتراك"
-                                else -> "إرسال طلب اشتراك"
+                    } else if (isYearlySubscriber) {
+                        // Yearly subscriber: ONLY Renewal option
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { copyDeviceCode() },
+                                modifier = Modifier.weight(0.9f),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("نسخ الكود", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
-                            Text(onlineBtnText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
+                            Button(
+                                onClick = { openWhatsApp(LicenseManager.SubscriptionPlan.YEARLY, overrideIsUpgrade = false) },
+                                modifier = Modifier.weight(1.1f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("تجديد عبر واتساب", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = { submitOnlineSubscriptionRequest(LicenseManager.SubscriptionPlan.YEARLY, overrideIsUpgrade = false) },
+                            enabled = !isRequestingOnline,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PrimaryTeal,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            if (isRequestingOnline) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("طلب تجديد الاشتراك", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    } else {
+                        // Monthly / non-yearly subscriber: Show TWO options: Renew OR Upgrade!
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { copyDeviceCode() },
+                                modifier = Modifier.weight(0.9f),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("نسخ الكود", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = { openWhatsApp(LicenseManager.SubscriptionPlan.MONTHLY, overrideIsUpgrade = false) },
+                                modifier = Modifier.weight(1.1f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("تجديد عبر واتساب", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Button 1: طلب تجديد الاشتراك (الشهري)
+                        Button(
+                            onClick = { submitOnlineSubscriptionRequest(LicenseManager.SubscriptionPlan.MONTHLY, overrideIsUpgrade = false) },
+                            enabled = !isRequestingOnline,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PrimaryTeal,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            if (isRequestingOnline) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("طلب تجديد الاشتراك", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Button 2: طلب ترقية الاشتراك إلى سنوي
+                        Button(
+                            onClick = { submitOnlineSubscriptionRequest(LicenseManager.SubscriptionPlan.YEARLY, overrideIsUpgrade = true) },
+                            enabled = !isRequestingOnline,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AccentGold,
+                                contentColor = Color.Black
+                            )
+                        ) {
+                            Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Black)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("طلب ترقية الاشتراك إلى سنوي", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -791,7 +920,7 @@ fun LicenseDialog(
             OutlinedTextField(
                 value = enteredKey,
                 onValueChange = { enteredKey = it.uppercase() },
-                label = { Text("أدخل رمز التفعيل (ACTV-XXXX-XXXX)") },
+                label = { Text(if (isRegistered) "أدخل رمز التجديد / الترقية المستلم (اختياري)" else "أدخل رمز التفعيل (ACTV-XXXX-XXXX)") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = textFieldColors,
@@ -833,7 +962,7 @@ fun LicenseDialog(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "تفعيل التطبيق الآن",
+                    text = if (isRegistered) "تأكيد رمز التجديد / الترقية" else "تفعيل التطبيق الآن",
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp
                 )
