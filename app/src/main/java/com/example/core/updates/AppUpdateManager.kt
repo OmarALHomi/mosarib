@@ -43,11 +43,32 @@ object AppUpdateManager {
         if (!LicenseManager.isInternetAvailable(context)) return@withContext null
 
         try {
+            // 1. Primary: Cloud Firestore REST API
+            val fsDoc = com.example.core.license.FirestoreRestHelper.getDocument("app_broadcast", "current")
+            if (fsDoc != null) {
+                val id = com.example.core.license.FirestoreRestHelper.getString(fsDoc, "id", "")
+                val minVersion = com.example.core.license.FirestoreRestHelper.getInt(fsDoc, "minRequiredVersionCode", 1)
+                val isForce = com.example.core.license.FirestoreRestHelper.getBoolean(fsDoc, "isForceUpdate", false) || (BuildConfig.VERSION_CODE < minVersion)
+
+                return@withContext AppBroadcast(
+                    id = id,
+                    title = com.example.core.license.FirestoreRestHelper.getString(fsDoc, "title", "تنبيه جديد"),
+                    message = com.example.core.license.FirestoreRestHelper.getString(fsDoc, "message", ""),
+                    type = com.example.core.license.FirestoreRestHelper.getString(fsDoc, "type", if (isForce) "UPDATE" else "INFO"),
+                    actionUrl = com.example.core.license.FirestoreRestHelper.getString(fsDoc, "actionUrl", ""),
+                    actionText = com.example.core.license.FirestoreRestHelper.getString(fsDoc, "actionText", if (isForce) "تحديث التطبيق الآن" else "عرض التفاصيل"),
+                    minRequiredVersionCode = minVersion,
+                    isForceUpdate = isForce,
+                    publishedAt = com.example.core.license.FirestoreRestHelper.getLong(fsDoc, "publishedAt", 0L)
+                )
+            }
+
+            // 2. Fallback: Realtime Database
             val url = URL("$FIREBASE_DB_URL/app_broadcast.json")
             val conn = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
-                connectTimeout = 5000
-                readTimeout = 5000
+                connectTimeout = 4000
+                readTimeout = 4000
             }
 
             if (conn.responseCode == 200) {

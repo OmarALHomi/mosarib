@@ -172,11 +172,25 @@ object FirebaseLicenseService {
 
     suspend fun getDeviceRemoteLicense(deviceCode: String): DeviceRemoteLicense = withContext(Dispatchers.IO) {
         try {
+            // 1. Primary: Cloud Firestore (devices/{deviceCode})
+            val fsDoc = FirestoreRestHelper.getDocument("devices", deviceCode)
+            if (fsDoc != null) {
+                return@withContext DeviceRemoteLicense(
+                    isFound = true,
+                    isRevoked = FirestoreRestHelper.getBoolean(fsDoc, "isRevoked", false),
+                    expiresAt = FirestoreRestHelper.getLong(fsDoc, "expiresAt", 0L),
+                    plan = FirestoreRestHelper.getString(fsDoc, "plan", "MONTHLY"),
+                    subscriberName = FirestoreRestHelper.getString(fsDoc, "subscriberName", "المشترك"),
+                    key = FirestoreRestHelper.getString(fsDoc, "key", "")
+                )
+            }
+
+            // 2. Fallback: Realtime Database
             val deviceUrl = URL("$FIREBASE_DB_URL/devices/$deviceCode.json")
             val conn = (deviceUrl.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
-                connectTimeout = 6000
-                readTimeout = 6000
+                connectTimeout = 4000
+                readTimeout = 4000
                 setRequestProperty("Accept", "application/json")
             }
             if (conn.responseCode == 200) {

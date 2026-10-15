@@ -41,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -92,7 +93,7 @@ fun LuxuryToastNotification(
             targetOffsetY = { it },
             animationSpec = tween(280, easing = FastOutSlowInEasing)
         ) + fadeOut(tween(250)) + scaleOut(targetScale = 0.9f, animationSpec = tween(250)),
-        modifier = modifier
+        modifier = modifier.zIndex(99f)
     ) {
         toast?.let {
             val (accentColor, iconVector) = when (it.type) {
@@ -105,25 +106,25 @@ fun LuxuryToastNotification(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 10.dp)
-                    .shadow(16.dp, RoundedCornerShape(20.dp), spotColor = accentColor.copy(alpha = 0.4f))
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .shadow(18.dp, RoundedCornerShape(20.dp), spotColor = accentColor.copy(alpha = 0.45f))
                     .clip(RoundedCornerShape(20.dp))
                     .background(
-                        if (isDark) Color(0xFF0B171D).copy(alpha = 0.90f)
-                        else Color(0xFF132228).copy(alpha = 0.92f)
+                        if (isDark) Color(0xFF0B171D).copy(alpha = 0.95f)
+                        else Color(0xFF132228).copy(alpha = 0.96f)
                     )
                     .border(
                         1.dp,
                         Brush.horizontalGradient(
                             listOf(
-                                accentColor.copy(alpha = 0.65f),
-                                Color.White.copy(alpha = 0.18f)
+                                accentColor.copy(alpha = 0.75f),
+                                Color.White.copy(alpha = 0.22f)
                             )
                         ),
                         RoundedCornerShape(20.dp)
                     )
                     .clickable { onDismiss() }
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 14.dp, vertical = 11.dp)
                     .testTag("app_toast_surface"),
                 contentAlignment = Alignment.CenterStart
             ) {
@@ -154,6 +155,18 @@ fun LuxuryToastNotification(
                         ),
                         modifier = Modifier.weight(1f)
                     )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "إغلاق",
+                            tint = Color.White.copy(alpha = 0.6f),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
         }

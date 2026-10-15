@@ -206,39 +206,23 @@ fun CustomerDetailScreen(
 
     // PDF Viewer / Share Dialog
     activePdf?.let { (file, title) ->
-        AlertDialog(
-            onDismissRequest = {
+        com.example.core.ui.MosaribFileActionDialog(
+            file = file,
+            title = title,
+            fileType = "PDF",
+            onOpen = {
+                FileSharingHelper.openPdf(context, file)
                 viewModel.clearPdfReady()
                 localPdfReady = null
             },
-            title = { Text("المستند جاهز", fontWeight = FontWeight.Bold) },
-            text = { Text("هل ترغب في فتح وعرض الملف مباشرة أم مشاركته؟") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        FileSharingHelper.openPdf(context, file)
-                        viewModel.clearPdfReady()
-                        localPdfReady = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
-                ) {
-                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("فتح / عرض", fontWeight = FontWeight.Bold)
-                }
+            onShare = {
+                FileSharingHelper.sharePdf(context, file, title)
+                viewModel.clearPdfReady()
+                localPdfReady = null
             },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = {
-                        FileSharingHelper.sharePdf(context, file, title)
-                        viewModel.clearPdfReady()
-                        localPdfReady = null
-                    }
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("مشاركة", fontWeight = FontWeight.Bold)
-                }
+            onDismiss = {
+                viewModel.clearPdfReady()
+                localPdfReady = null
             }
         )
     }

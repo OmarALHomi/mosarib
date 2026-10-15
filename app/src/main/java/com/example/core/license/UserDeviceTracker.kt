@@ -86,6 +86,10 @@ object UserDeviceTracker {
         // Concurrently refresh remote policies
         RemoteConfigManager.syncRemotePolicies(context)
 
+        // Ensure exact database count is counted
+        val exactCount = com.example.core.util.AppOperationsCounter.getExactTotalOperations(context)
+        val finalOpsCount = maxOf(operationsCount, exactCount)
+
         val deviceCode = LicenseManager.getDeviceCode(context)
         val cleanDeviceKey = deviceCode.replace("-", "").trim()
         val isAuthed = isGoogleAccountAuthenticatedForApp(context)
@@ -93,40 +97,51 @@ object UserDeviceTracker {
         val email = googleAccount?.email ?: ""
         val displayName = googleAccount?.displayName ?: ""
         val isActivated = LicenseManager.isActivated(context)
-        val activePlan = LicenseManager.getActivePlan(context)?.name ?: "TRIAL"
+        val activePlan = LicenseManager.getActivePlan(context)?.name ?: (if (isActivated) "ACTIVATED" else "TRIAL")
         val now = System.currentTimeMillis()
 
         try {
-            // 1. Check if device is marked as blocked on Firebase
-            val checkUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
-            val conn = (checkUrl.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 6000
-                readTimeout = 6000
-            }
-
             var isBlocked = false
             var blockReason = "تم حظر هذا الجهاز أو الحساب من قبل الإدارة"
-
             var remoteOpsCount = 0
             var remoteCumulativeOps = 0
             var remoteTrialConsumed = false
 
-            if (conn.responseCode == 200) {
-                val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                val responseText = reader.readText().trim()
-                reader.close()
-
-                if (responseText != "null" && responseText.isNotBlank()) {
-                    val existing = JSONObject(responseText)
-                    if (existing.optBoolean("isBlocked", false)) {
-                        isBlocked = true
-                        blockReason = existing.optString("blockReason", blockReason)
-                    }
-                    remoteOpsCount = existing.optInt("operationsCount", 0)
-                    remoteCumulativeOps = existing.optInt("cumulativeOpsCount", 0)
-                    remoteTrialConsumed = existing.optBoolean("trialConsumed", false)
+            // 1. Check Cloud Firestore directly (Primary backend)
+            val fsDoc = FirestoreRestHelper.getDocument("all_users", cleanDeviceKey)
+            if (fsDoc != null) {
+                if (FirestoreRestHelper.getBoolean(fsDoc, "isBlocked", false)) {
+                    isBlocked = true
+                    blockReason = FirestoreRestHelper.getString(fsDoc, "blockReason", blockReason)
                 }
+                remoteOpsCount = FirestoreRestHelper.getInt(fsDoc, "operationsCount", 0)
+                remoteCumulativeOps = FirestoreRestHelper.getInt(fsDoc, "cumulativeOpsCount", 0)
+                remoteTrialConsumed = FirestoreRestHelper.getBoolean(fsDoc, "trialConsumed", false)
+            } else {
+                // Realtime Database Fallback
+                try {
+                    val checkUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
+                    val conn = (checkUrl.openConnection() as HttpURLConnection).apply {
+                        requestMethod = "GET"
+                        connectTimeout = 4000
+                        readTimeout = 4000
+                    }
+                    if (conn.responseCode == 200) {
+                        val reader = BufferedReader(InputStreamReader(conn.inputStream))
+                        val responseText = reader.readText().trim()
+                        reader.close()
+                        if (responseText != "null" && responseText.isNotBlank()) {
+                            val existing = JSONObject(responseText)
+                            if (existing.optBoolean("isBlocked", false)) {
+                                isBlocked = true
+                                blockReason = existing.optString("blockReason", blockReason)
+                            }
+                            remoteOpsCount = existing.optInt("operationsCount", 0)
+                            remoteCumulativeOps = existing.optInt("cumulativeOpsCount", 0)
+                            remoteTrialConsumed = existing.optBoolean("trialConsumed", false)
+                        }
+                    }
+                } catch (_: Exception) {}
             }
 
             // Also check by Google Email if present
@@ -176,7 +191,7 @@ object UserDeviceTracker {
             }
             val regPhone = getRegisteredPhone(context)
 
-            val highestOps = maxOf(operationsCount, remoteOpsCount)
+            val highestOps = maxOf(finalOpsCount, remoteOpsCount)
             val cumulativeOps = maxOf(LicenseManager.getCumulativeOperations(context), effectiveRemoteOps, highestOps)
             val isTrialConsumed = LicenseManager.isTrialConsumed(context)
 
@@ -199,46 +214,38 @@ object UserDeviceTracker {
                 put("lastActiveAt", now)
             }
 
-            val putUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
+            // 1. Primary: Cloud Firestore REST API (Upsert via PATCH)
+            val fsPayload = mapOf(
+                "deviceCode" to deviceCode,
+                "cleanDeviceKey" to cleanDeviceKey,
+                "deviceModel" to LicenseManager.getDeviceModelName(),
+                "androidVersion" to LicenseManager.getAndroidVersionName(),
+                "googleEmail" to email,
+                "googleDisplayName" to displayName,
+                "subscriberName" to regName,
+                "phone" to regPhone,
+                "isActivated" to isActivated,
+                "plan" to activePlan,
+                "operationsCount" to highestOps,
+                "cumulativeOpsCount" to cumulativeOps,
+                "trialConsumed" to isTrialConsumed,
+                "isBlocked" to isBlocked,
+                "lastActiveAt" to now
+            )
+            FirestoreRestHelper.patchDocument("all_users", cleanDeviceKey, fsPayload)
+
+            // 2. Dual Write: Realtime Database
             try {
+                val putUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
                 val putConn = (putUrl.openConnection() as HttpURLConnection).apply {
                     requestMethod = "PUT"
                     doOutput = true
-                    connectTimeout = 5000
-                    readTimeout = 5000
+                    connectTimeout = 4000
+                    readTimeout = 4000
                     setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 }
                 OutputStreamWriter(putConn.outputStream).use { it.write(payload.toString()) }
                 putConn.responseCode
-            } catch (_: Exception) {}
-
-            // Mirror to Cloud Firestore REST API
-            try {
-                val firestoreUrl = URL("https://firestore.googleapis.com/v1/projects/mosarib/databases/(default)/documents/all_users?documentId=$cleanDeviceKey")
-                val fConn = (firestoreUrl.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
-                    doOutput = true
-                    connectTimeout = 5000
-                    readTimeout = 5000
-                    setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                }
-                val fieldsJson = org.json.JSONObject().apply {
-                    put("deviceCode", org.json.JSONObject().put("stringValue", deviceCode))
-                    put("subscriberName", org.json.JSONObject().put("stringValue", regName))
-                    put("phone", org.json.JSONObject().put("stringValue", regPhone))
-                    put("googleEmail", org.json.JSONObject().put("stringValue", email))
-                    put("googleDisplayName", org.json.JSONObject().put("stringValue", displayName))
-                    put("deviceModel", org.json.JSONObject().put("stringValue", LicenseManager.getDeviceModelName()))
-                    put("androidVersion", org.json.JSONObject().put("stringValue", LicenseManager.getAndroidVersionName()))
-                    put("isActivated", org.json.JSONObject().put("booleanValue", isActivated))
-                    put("plan", org.json.JSONObject().put("stringValue", activePlan))
-                    put("operationsCount", org.json.JSONObject().put("integerValue", operationsCount.toString()))
-                    put("isBlocked", org.json.JSONObject().put("booleanValue", isBlocked))
-                    put("lastActiveAt", org.json.JSONObject().put("integerValue", now.toString()))
-                }
-                val rootDoc = org.json.JSONObject().put("fields", fieldsJson)
-                OutputStreamWriter(fConn.outputStream).use { it.write(rootDoc.toString()) }
-                fConn.responseCode
             } catch (_: Exception) {}
 
             DeviceStatusResult(isBlocked = false)

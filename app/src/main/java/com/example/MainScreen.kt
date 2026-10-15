@@ -148,12 +148,6 @@ fun MainApp(
             var showFeedbackDialog by remember { mutableStateOf(false) }
             var showExitConfirmationDialog by remember { mutableStateOf(false) }
 
-            // اعتراض زر التراجع لإظهار رسالة تأكيد الخروج من أي شاشة يؤدي التراجع منها للخروج من التطبيق
-            val shouldInterceptExit = !showSplashScreen && !showOnboarding && !showAboutScreen && selectedCustomerId == 0L
-            BackHandler(enabled = shouldInterceptExit) {
-                showExitConfirmationDialog = true
-            }
-
             val isActivated by settingsViewModel.isActivated.collectAsStateWithLifecycle()
             val operationsCount by settingsViewModel.operationsCount.collectAsStateWithLifecycle()
 
@@ -200,6 +194,16 @@ fun MainApp(
             val pagerState = rememberPagerState(initialPage = 2) { tabs.size }
             val coroutineScope = rememberCoroutineScope()
             val currentTab = tabs[pagerState.currentPage]
+
+            // اعتراض زر التراجع: التبديل للرئيسية أولاً إن كان في شاشة فرعية، وتأكيد الخروج إن كان في الرئيسية
+            val shouldInterceptExit = !showSplashScreen && !showOnboarding && !showAboutScreen && selectedCustomerId == 0L
+            BackHandler(enabled = shouldInterceptExit) {
+                if (currentTab != AppTab.HOME) {
+                    coroutineScope.launch { pagerState.animateScrollToPage(2) }
+                } else {
+                    showExitConfirmationDialog = true
+                }
+            }
 
             if (showSplashScreen) {
                 SplashScreen(onTimeout = { showSplashScreen = false })
@@ -500,7 +504,7 @@ fun MainApp(
             if (showExitConfirmationDialog) {
                 val context = LocalContext.current
                 val activity = context as? Activity
-                ExitConfirmationDialog(
+                com.example.core.ui.MosaribExitConfirmDialog(
                     onConfirmExit = {
                         showExitConfirmationDialog = false
                         activity?.finishAffinity()
@@ -512,75 +516,4 @@ fun MainApp(
             }
         }
     }
-}
-
-@Composable
-fun ExitConfirmationDialog(
-    onConfirmExit: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = {
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFE53935).copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                    contentDescription = null,
-                    tint = Color(0xFFE53935),
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-        },
-        title = {
-            Text(
-                text = "تأكيد الخروج",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        text = {
-            Text(
-                text = "هل أنت متأكد من رغبتك في إغلاق والخروج من تطبيق المُسَرِّب؟",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirmExit,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("خروج", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            OutlinedButton(
-                onClick = onDismiss,
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("إلغاء", fontWeight = FontWeight.SemiBold)
-            }
-        },
-        shape = RoundedCornerShape(22.dp),
-        containerColor = MaterialTheme.colorScheme.surface
-    )
 }

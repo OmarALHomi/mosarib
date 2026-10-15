@@ -1605,83 +1605,45 @@ fun VouchersScreen(
 
     // حوار فتح ومشاركة ملف PDF
     voucherPdfReady?.let { (file, title) ->
-        AlertDialog(
-            onDismissRequest = { voucherPdfReady = null },
-            title = { Text("المستند جاهز", fontWeight = FontWeight.Bold) },
-            text = { Text("هل ترغب في فتح وعرض المستند مباشرة أم مشاركته كملف PDF؟") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        FileSharingHelper.openPdf(context, file)
-                        voucherPdfReady = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
-                ) {
-                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("فتح / عرض", fontWeight = FontWeight.Bold)
-                }
+        com.example.core.ui.MosaribFileActionDialog(
+            file = file,
+            title = title,
+            fileType = "PDF",
+            onOpen = {
+                FileSharingHelper.openPdf(context, file)
+                voucherPdfReady = null
             },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = {
-                        FileSharingHelper.sharePdf(context, file, title)
-                        voucherPdfReady = null
-                    }
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("مشاركة", fontWeight = FontWeight.Bold)
-                }
-            }
+            onShare = {
+                FileSharingHelper.sharePdf(context, file, title)
+                voucherPdfReady = null
+            },
+            onDismiss = { voucherPdfReady = null }
         )
     }
 
     voucherToDelete?.let { v ->
-        AlertDialog(
-            onDismissRequest = { voucherToDelete = null },
-            title = { Text("تأكيد الحذف", fontWeight = FontWeight.Bold) },
-            text = { Text("هل تريد بالتأكيد حذف هذا السند؟") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteVoucher(v)
-                        voucherToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
-                ) {
-                    Text("حذف", fontWeight = FontWeight.Bold)
-                }
+        com.example.core.ui.MosaribActionConfirmDialog(
+            title = "تأكيد حذف السند",
+            message = "هل تريد بالتأكيد حذف هذا السند؟ سيتم إلغاء تأثيره المالي وتحديث الأرصدة فورياً.",
+            confirmText = "حذف السند",
+            onConfirm = {
+                viewModel.deleteVoucher(v)
+                voucherToDelete = null
             },
-            dismissButton = {
-                TextButton(onClick = { voucherToDelete = null }) {
-                    Text("إلغاء", fontWeight = FontWeight.Bold)
-                }
-            }
+            onDismiss = { voucherToDelete = null }
         )
     }
 
     purchaseToDelete?.let { p ->
-        AlertDialog(
-            onDismissRequest = { purchaseToDelete = null },
-            title = { Text("تأكيد حذف عملية الشراء", fontWeight = FontWeight.Bold) },
-            text = { Text("هل تريد بالتأكيد حذف عملية شراء الساعات #${p.id}؟ سيتم إلغاء تأثيرها المالي على رصيد صاحب البئر فورياً.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteOwnerPurchase(p)
-                        purchaseToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
-                ) {
-                    Text("حذف", fontWeight = FontWeight.Bold)
-                }
+        com.example.core.ui.MosaribActionConfirmDialog(
+            title = "تأكيد حذف عملية الشراء",
+            message = "هل تريد بالتأكيد حذف عملية شراء الساعات #${p.id}؟ سيتم إلغاء تأثيرها المالي على رصيد صاحب البئر فورياً.",
+            confirmText = "حذف العملية",
+            onConfirm = {
+                viewModel.deleteOwnerPurchase(p)
+                purchaseToDelete = null
             },
-            dismissButton = {
-                TextButton(onClick = { purchaseToDelete = null }) {
-                    Text("إلغاء", fontWeight = FontWeight.Bold)
-                }
-            }
+            onDismiss = { purchaseToDelete = null }
         )
     }
 

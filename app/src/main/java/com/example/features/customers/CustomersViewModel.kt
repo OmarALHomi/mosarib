@@ -351,12 +351,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                     CustomerExcelHelper.exportCustomersToExcel(context, list, currency)
                 }
-                FileSharingHelper.shareFile(
-                    context = context,
-                    file = file,
-                    mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    title = "مشاركة قائمة العملاء والمزارع (Excel)"
-                )
+                _pdfReadyFile.value = Pair(file, "قائمة العملاء والمزارع (Excel)")
             } catch (e: Exception) {
                 showToast("فشل تصدير ملف الإكسل: ${e.localizedMessage}", ToastType.ERROR)
             }
@@ -375,12 +370,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                     CustomerExcelHelper.exportCustomersToCsv(context, list, currency)
                 }
-                FileSharingHelper.shareFile(
-                    context = context,
-                    file = file,
-                    mimeType = "text/csv",
-                    title = "مشاركة قائمة العملاء (CSV)"
-                )
+                _pdfReadyFile.value = Pair(file, "قائمة العملاء والمزارع (CSV)")
             } catch (e: Exception) {
                 showToast("فشل تصدير ملف CSV: ${e.localizedMessage}", ToastType.ERROR)
             }

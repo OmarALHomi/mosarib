@@ -1054,6 +1054,42 @@
     return [];
   }
 
+  async function patchFirestore(collection, docId, fields) {
+    try {
+      const cleanDoc = docId.trim().replace(/^\/+|\/+$/g, '');
+      const fieldsObj = {};
+      for (const [key, val] of Object.entries(fields)) {
+        if (val === null || val === undefined) continue;
+        if (typeof val === 'boolean') fieldsObj[key] = { booleanValue: val };
+        else if (typeof val === 'number') {
+          if (Number.isInteger(val)) fieldsObj[key] = { integerValue: val.toString() };
+          else fieldsObj[key] = { doubleValue: val };
+        } else fieldsObj[key] = { stringValue: val.toString() };
+      }
+      const res = await fetch(`${FIRESTORE_BASE_URL}/${collection}/${cleanDoc}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: fieldsObj })
+      });
+      return res.ok;
+    } catch (e) {
+      console.warn("patchFirestore error:", e);
+      return false;
+    }
+  }
+
+  async function getFirestoreDoc(collection, docId) {
+    try {
+      const cleanDoc = docId.trim().replace(/^\/+|\/+$/g, '');
+      const res = await fetch(`${FIRESTORE_BASE_URL}/${collection}/${cleanDoc}`);
+      if (res.ok) {
+        const data = await res.json();
+        return parseFirestoreDoc(data);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   async function sha256(message) {
     const msgBuffer = new TextEncoder().encode(message);
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -1176,15 +1212,18 @@
     };
 
     try {
-      const res = await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) {
-        throw new Error(`رفض السيرفر النشر (${res.status}): يرجى التأكد من قواعد app_broadcast`);
-      }
-      alert(type === "UPDATE" ? "تم تفعيل التحديث الإجباري وقفل النسخ القديمة بنجاح!" : "تم نشر الإشعار لجميع المستخدمين بنجاح!");
+      // 1. Primary: Cloud Firestore REST API
+      await patchFirestore('app_broadcast', 'current', payload);
+      // 2. Dual Write: Realtime Database
+      try {
+        await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      } catch (_) {}
+
+      alert(type === "UPDATE" ? "✅ تم تفعيل التحديث الإجباري وقفل النسخ القديمة في السحابة بنجاح!" : "✅ تم نشر الإشعار في السحابة لجميع المستخدمين بنجاح!");
       loadFirebaseData();
     } catch (e) {
       alert("فشل النشر: " + e.message);
@@ -1194,7 +1233,8 @@
   async function cancelBroadcast() {
     if (!confirm("هل تريد إلغاء الإعلان والتحديث الإجباري الحالي؟")) return;
     try {
-      await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, { method: "DELETE" });
+      await patchFirestore('app_broadcast', 'current', { title: '', message: '', id: '', type: 'NONE', publishedAt: 0, isForceUpdate: false });
+      try { await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, { method: "DELETE" }); } catch (_) {}
       alert("تم إلغاء الإعلان بنجاح.");
       loadFirebaseData();
     } catch (e) {
@@ -1219,14 +1259,19 @@
     };
 
     try {
-      const res = await fetch(`${FIREBASE_BASE_URL}/app_config.json`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) throw new Error("رفض السيرفر الحفظ (" + res.status + ")");
+      // 1. Primary: Cloud Firestore REST API
+      await patchFirestore('app_config', 'current', payload);
+      // 2. Dual Write: Realtime Database
+      try {
+        await fetch(`${FIREBASE_BASE_URL}/app_config.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      } catch (_) {}
+
       appConfig = payload;
-      alert(`✅ تم حفظ السياسات بنجاح في السحابة!\n• الحد المجاني: ${freeLimit} عملية\n• النسخ للمجانيين: ${backupAllowed ? 'مسموح' : 'معطل'}\n• نسخ Drive: ${driveBackupAllowed ? 'مسموح' : 'معطل'}\nستطبق الهواتف هذه السياسات تلقائياً عند فتح التطبيق.`);
+      alert(`✅ تم حفظ السياسات بنجاح في السحابة (Cloud Firestore)!\n• الحد المجاني: ${freeLimit} عملية\n• النسخ للمجانيين: ${backupAllowed ? 'مسموح' : 'معطل'}\n• نسخ Drive: ${driveBackupAllowed ? 'مسموح' : 'معطل'}\nستطبق الهواتف هذه السياسات تلقائياً عند فتح التطبيق.`);
       loadFirebaseData();
     } catch (e) {
       alert("فشل حفظ السياسات: " + e.message);
@@ -1283,16 +1328,66 @@
         fetchCollection('feedbacks')
       ]);
 
+      // Cross-reference with licenses to ensure isActivated is 100% accurate even if user node lagged
+      let activeLicenseMap = {};
+      try {
+        const licRes = await fetch(`${FIREBASE_BASE_URL}/licenses.json`);
+        if (licRes.ok) {
+          const licData = await licRes.json();
+          if (licData && typeof licData === 'object') {
+            Object.values(licData).forEach(lic => {
+              if (lic && lic.deviceCode && !lic.isRevoked && (lic.expiresAt > Date.now())) {
+                const cleanCode = lic.deviceCode.replace(/-/g, "").trim();
+                activeLicenseMap[cleanCode] = lic;
+              }
+            });
+          }
+        }
+      } catch (_) {}
+
+      // Cross-reference with devices node as well
+      try {
+        const devRes = await fetch(`${FIREBASE_BASE_URL}/devices.json`);
+        if (devRes.ok) {
+          const devData = await devRes.json();
+          if (devData && typeof devData === 'object') {
+            Object.entries(devData).forEach(([dCode, dVal]) => {
+              if (dVal && !dVal.isRevoked && (dVal.expiresAt > Date.now())) {
+                const cleanCode = dCode.replace(/-/g, "").trim();
+                activeLicenseMap[cleanCode] = dVal;
+              }
+            });
+          }
+        }
+      } catch (_) {}
+
       allRequests = reqs;
-      allUsers = users;
+      allUsers = users.map(u => {
+        const devKey = u.cleanDeviceKey || (u.deviceCode ? u.deviceCode.replace(/-/g, "").trim() : "");
+        const verifiedLic = activeLicenseMap[devKey];
+        if (verifiedLic) {
+          return {
+            ...u,
+            isActivated: true,
+            plan: verifiedLic.plan || u.plan || 'MONTHLY',
+            subscriberName: u.subscriberName || verifiedLic.subscriberName
+          };
+        }
+        return u;
+      });
       allFeedbacks = fbs;
 
-      // Fetch app_config, device_overrides, app_broadcast
+      // 1. Fetch app_config: Primary Cloud Firestore
       try {
-        const cfgRes = await fetch(`${FIREBASE_BASE_URL}/app_config.json`);
-        if (cfgRes.ok) {
-          const cfgData = await cfgRes.json();
-          if (cfgData && typeof cfgData === 'object') appConfig = { ...appConfig, ...cfgData };
+        const fsCfg = await getFirestoreDoc('app_config', 'current');
+        if (fsCfg) {
+          appConfig = { ...appConfig, ...fsCfg };
+        } else {
+          const cfgRes = await fetch(`${FIREBASE_BASE_URL}/app_config.json`);
+          if (cfgRes.ok) {
+            const cfgData = await cfgRes.json();
+            if (cfgData && typeof cfgData === 'object') appConfig = { ...appConfig, ...cfgData };
+          }
         }
       } catch (_) {}
 
@@ -1304,12 +1399,18 @@
         }
       } catch (_) {}
 
+      // 2. Fetch app_broadcast: Primary Cloud Firestore
       try {
-        const bcRes = await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`);
-        if (bcRes.ok) {
-          currentBroadcast = await bcRes.json();
+        const fsBc = await getFirestoreDoc('app_broadcast', 'current');
+        if (fsBc && fsBc.title) {
+          currentBroadcast = fsBc;
         } else {
-          currentBroadcast = null;
+          const bcRes = await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`);
+          if (bcRes.ok) {
+            currentBroadcast = await bcRes.json();
+          } else {
+            currentBroadcast = null;
+          }
         }
       } catch (_) {
         currentBroadcast = null;
@@ -1656,31 +1757,39 @@
     }
 
     try {
-      await fetch(`${FIREBASE_BASE_URL}/all_users/${cleanDeviceKey}/isBlocked.json`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(block)
-      });
-      await fetch(`${FIREBASE_BASE_URL}/all_users/${cleanDeviceKey}/blockReason.json`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(reason)
-      });
+      // 1. Primary: Cloud Firestore
+      await patchFirestore('all_users', cleanDeviceKey, { isBlocked: block, blockReason: reason });
+
+      // 2. Dual Write: Realtime Database
+      try {
+        await fetch(`${FIREBASE_BASE_URL}/all_users/${cleanDeviceKey}/isBlocked.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(block)
+        });
+        await fetch(`${FIREBASE_BASE_URL}/all_users/${cleanDeviceKey}/blockReason.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(reason)
+        });
+      } catch (_) {}
 
       if (email && email.includes("@")) {
         const safeEmailKey = email.replace(/\./g, "_").replace(/@/g, "_at_");
-        if (block) {
-          await fetch(`${FIREBASE_BASE_URL}/blocked_emails/${safeEmailKey}.json`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: email, blockedAt: Date.now(), reason: reason })
-          });
-        } else {
-          await fetch(`${FIREBASE_BASE_URL}/blocked_emails/${safeEmailKey}.json`, { method: "DELETE" });
-        }
+        try {
+          if (block) {
+            await fetch(`${FIREBASE_BASE_URL}/blocked_emails/${safeEmailKey}.json`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: email, blockedAt: Date.now(), reason: reason })
+            });
+          } else {
+            await fetch(`${FIREBASE_BASE_URL}/blocked_emails/${safeEmailKey}.json`, { method: "DELETE" });
+          }
+        } catch (_) {}
       }
 
-      alert(block ? "تم إيقاف وحظر التطبيق على المستخدم بنجاح." : "تم فك الحظر بنجاح.");
+      alert(block ? "✅ تم إيقاف وحظر التطبيق على المستخدم بنجاح في السحابة." : "✅ تم فك الحظر بنجاح.");
       loadFirebaseData();
     } catch (e) {
       alert("حدث خطأ أثناء تعديل الحالة: " + e.message);

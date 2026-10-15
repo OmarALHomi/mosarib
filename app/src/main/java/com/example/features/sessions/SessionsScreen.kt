@@ -344,28 +344,19 @@ fun SessionsScreen(
 
     // PDF Open / Share Dialog
     pdfReady?.let { (file, title) ->
-        AlertDialog(
-            onDismissRequest = { viewModel.clearPdfReady() },
-            title = { Text("الفاتورة جاهزة", fontWeight = FontWeight.Bold) },
-            text = { Text("ماذا تريد أن تفعل بهذه الفاتورة؟") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        com.example.core.util.FileSharingHelper.openPdf(context, file)
-                        viewModel.clearPdfReady()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
-                ) { Text("فتح / عرض") }
+        com.example.core.ui.MosaribFileActionDialog(
+            file = file,
+            title = title,
+            fileType = "PDF",
+            onOpen = {
+                com.example.core.util.FileSharingHelper.openPdf(context, file)
+                viewModel.clearPdfReady()
             },
-            dismissButton = {
-                Button(
-                    onClick = {
-                        com.example.core.util.FileSharingHelper.sharePdf(context, file, title)
-                        viewModel.clearPdfReady()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald)
-                ) { Text("مشاركة") }
-            }
+            onShare = {
+                com.example.core.util.FileSharingHelper.sharePdf(context, file, title)
+                viewModel.clearPdfReady()
+            },
+            onDismiss = { viewModel.clearPdfReady() }
         )
     }
 

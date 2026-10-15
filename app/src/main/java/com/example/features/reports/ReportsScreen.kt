@@ -89,35 +89,19 @@ fun ReportsScreen(
 
     // PDF Open / Share Dialog
     pdfReady?.let { (file, title) ->
-        AlertDialog(
-            onDismissRequest = { viewModel.clearPdfReady() },
-            title = { Text("تم إنشاء التقرير بنجاح", fontWeight = FontWeight.Bold) },
-            text = { Text("هل ترغب في فتح وعرض التقرير مباشرة أم مشاركته؟") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        FileSharingHelper.openPdf(context, file)
-                        viewModel.clearPdfReady()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
-                ) {
-                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("فتح / عرض")
-                }
+        com.example.core.ui.MosaribFileActionDialog(
+            file = file,
+            title = title,
+            fileType = "PDF",
+            onOpen = {
+                FileSharingHelper.openPdf(context, file)
+                viewModel.clearPdfReady()
             },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = {
-                        FileSharingHelper.sharePdf(context, file, title)
-                        viewModel.clearPdfReady()
-                    }
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("مشاركة")
-                }
-            }
+            onShare = {
+                FileSharingHelper.sharePdf(context, file, title)
+                viewModel.clearPdfReady()
+            },
+            onDismiss = { viewModel.clearPdfReady() }
         )
     }
 

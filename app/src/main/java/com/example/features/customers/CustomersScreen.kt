@@ -611,7 +611,7 @@ fun CustomersScreen(
             onDismiss = { viewModel.dismissToast() },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 75.dp)
+                .padding(bottom = 85.dp)
         )
     }
 
@@ -643,30 +643,37 @@ fun CustomersScreen(
         )
     }
 
-    // PDF Open / Share Dialog
+    // File Open / Share Dialog (PDF / Excel / CSV)
     pdfReady?.let { (file, title) ->
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { viewModel.clearPdfReady() },
-            title = { Text("كشف الحساب جاهز", fontWeight = FontWeight.Bold) },
-            text = { Text("هل ترغب في فتح وعرض كشف الحساب مباشرة أم مشاركته؟") },
-            confirmButton = {
-                androidx.compose.material3.Button(
-                    onClick = {
-                        com.example.core.util.FileSharingHelper.openPdf(context, file)
-                        viewModel.clearPdfReady()
-                    },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = PrimaryTeal)
-                ) { Text("فتح / عرض") }
+        com.example.core.ui.MosaribFileActionDialog(
+            file = file,
+            title = title,
+            fileType = when {
+                file.name.endsWith(".xlsx", true) -> "Excel"
+                file.name.endsWith(".csv", true) -> "CSV"
+                else -> "PDF"
             },
-            dismissButton = {
-                androidx.compose.material3.Button(
-                    onClick = {
-                        com.example.core.util.FileSharingHelper.sharePdf(context, file, title)
-                        viewModel.clearPdfReady()
-                    },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = AccentEmerald)
-                ) { Text("مشاركة") }
-            }
+            onOpen = {
+                if (file.name.endsWith(".xlsx", true)) {
+                    com.example.core.util.FileSharingHelper.openFile(context, file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                } else if (file.name.endsWith(".csv", true)) {
+                    com.example.core.util.FileSharingHelper.openFile(context, file, "text/csv")
+                } else {
+                    com.example.core.util.FileSharingHelper.openPdf(context, file)
+                }
+                viewModel.clearPdfReady()
+            },
+            onShare = {
+                if (file.name.endsWith(".xlsx", true)) {
+                    com.example.core.util.FileSharingHelper.shareFile(context, file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", title)
+                } else if (file.name.endsWith(".csv", true)) {
+                    com.example.core.util.FileSharingHelper.shareFile(context, file, "text/csv", title)
+                } else {
+                    com.example.core.util.FileSharingHelper.sharePdf(context, file, title)
+                }
+                viewModel.clearPdfReady()
+            },
+            onDismiss = { viewModel.clearPdfReady() }
         )
     }
 
