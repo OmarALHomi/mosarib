@@ -123,12 +123,13 @@ if ($method === 'GET') {
         }
 
         $hasRealRates = count($collectedRates) > 0;
-        $calculatedAvg = $hasRealRates ? round(array_sum($collectedRates) / count($collectedRates)) : floatval($settings['avg_hourly_price'] ?? 7500);
-        $calculatedMin = $hasRealRates ? round(min($collectedRates)) : floatval($settings['min_hourly_price'] ?? 6000);
-        $calculatedMax = $hasRealRates ? round(max($collectedRates)) : floatval($settings['max_hourly_price'] ?? 9500);
+        $calculatedAvg = $hasRealRates ? round(array_sum($collectedRates) / count($collectedRates)) : floatval($settings['avg_hourly_price'] ?? 0);
+        $calculatedMin = $hasRealRates ? round(min($collectedRates)) : floatval($settings['min_hourly_price'] ?? 0);
+        $calculatedMax = $hasRealRates ? round(max($collectedRates)) : floatval($settings['max_hourly_price'] ?? 0);
         $samplesCount = count($collectedRates);
-        $activeOperatorsCount = max($activeOperatorsCount, $samplesCount > 0 ? $samplesCount : 28);
-        $totalRegisteredCount = max($totalRegisteredCount, 85);
+
+        // Real counts directly from database without any inflated numbers
+        // $activeOperatorsCount and $totalRegisteredCount reflect actual database state
 
         // Save cache to disk
         file_put_contents($cacheFile, json_encode([
@@ -155,48 +156,102 @@ if ($method === 'GET') {
     $fbBroadcast = firebaseRequest('app_broadcast.json')['data'] ?? null;
     $finalDownloadUrl = !empty($latestRelease['download_url']) ? $latestRelease['download_url'] : ($fbBroadcast['actionUrl'] ?? $defaultDownloadUrl);
 
+    $apkLocalFile = __DIR__ . '/../uploads/Mosarib_Latest.apk';
+    $actualApkSizeMb = file_exists($apkLocalFile) ? round(filesize($apkLocalFile) / (1024 * 1024), 2) : 2.78;
+
+    // Portal & Downloads Analytics
+    $analyticsFile = __DIR__ . '/../data/portal_analytics.json';
+    $analytics = file_exists($analyticsFile) ? json_decode(file_get_contents($analyticsFile), true) : [];
+
     jsonResponse(true, 'بيانات المنصة العامة والتقرير المائي جاهز', [
         'water_metrics' => [
             'status' => $settings['water_status'] ?? 'GOOD',
             'status_text' => $settings['water_status_text'] ?? 'متوفر ومستقر',
-            'index_percent' => intval($settings['water_index_percent'] ?? 84),
+            'index_percent' => intval($settings['water_index_percent'] ?? 85),
             'avg_hourly_price' => $calculatedAvg,
             'min_hourly_price' => $calculatedMin,
             'max_hourly_price' => $calculatedMax,
             'is_live_synced' => $hasRealRates,
             'samples_count' => $samplesCount,
             'currency_symbol' => $settings['currency_symbol'] ?? 'ريال',
-            'active_regions' => intval($settings['active_regions_count'] ?? 18),
+            'active_regions' => intval($settings['active_regions_count'] ?? 0),
             'active_operators_now' => $activeOperatorsCount,
             'total_operators_registered' => $totalRegisteredCount,
             'headline_alert' => $settings['headline_alert'] ?? ''
         ],
+        'analytics' => [
+            'total_visitors' => intval($analytics['total_visitors'] ?? 0),
+            'today_visitors' => intval($analytics['today_visitors'] ?? 0),
+            'unique_visitors' => intval($analytics['unique_visitors'] ?? 0),
+            'total_downloads' => intval($analytics['total_downloads'] ?? 0),
+            'today_downloads' => intval($analytics['today_downloads'] ?? 0),
+            'last_visit_at' => intval($analytics['last_visit_at'] ?? 0),
+            'last_download_at' => intval($analytics['last_download_at'] ?? 0),
+            'daily_stats' => $analytics['daily_stats'] ?? []
+        ],
         'developer_info' => [
             'name' => 'المهندس عمر الحومي',
             'role' => 'المطور وصاحب مشروع مُسَرِّب (مؤسس TubbaSoft)',
-            'company' => 'طُبّع سوفت للحلول البرمجية الذكية (TubbaSoft)',
+            'company' => 'تُبع سوفت للحلول البرمجية الذكية (TubbaSoft)',
             'email' => 'omar@tubbasoft.com',
             'website' => 'https://tubbasoft.com',
             'support_message' => 'نسعد باستقبال استفسارات المزارعين وملاك الآبار ومطوري النظم الزراعية.'
         ],
         'news' => $newsList,
         'app_release' => [
-            'version_name' => $latestRelease['version_name'] ?? '1.1.0',
-            'version_code' => $latestRelease['version_code'] ?? 3,
-            'file_size_mb' => !empty($latestRelease['file_size']) ? round($latestRelease['file_size'] / (1024 * 1024), 1) : 24.5,
+            'version_name' => $latestRelease['version_name'] ?? '1.4.0',
+            'version_code' => $latestRelease['version_code'] ?? 4,
+            'file_size_mb' => $actualApkSizeMb,
             'download_url' => $finalDownloadUrl,
-            'release_notes' => $latestRelease['release_notes'] ?? 'تحديث متكامل ودعم كشوفات حساب ملاك الآبار وإشعارات الري الفورية.'
+            'release_notes' => $latestRelease['release_notes'] ?? 'الإصدار الرسمي النهائي لدعم إدارة الآبار وتدقيق ساعات الري وسندات القبض.'
         ]
     ]);
 }
 
 // Handle POST request (Requires Admin Authentication to update settings or publish news)
 if ($method === 'POST') {
+    $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+    $action = $input['action'] ?? ($_GET['action'] ?? '');
+
+    // 0. Public Download Tracking (No Admin Auth Required)
+    if ($action === 'track_download') {
+        $analyticsFile = __DIR__ . '/../data/portal_analytics.json';
+        $today = date('Y-m-d');
+        $analytics = [
+            'total_visitors' => 0,
+            'today_visitors' => 0,
+            'unique_visitors' => 0,
+            'last_visit_date' => $today,
+            'last_visit_at' => 0,
+            'total_downloads' => 0,
+            'today_downloads' => 0,
+            'last_download_date' => $today,
+            'last_download_at' => 0,
+            'daily_stats' => []
+        ];
+        if (file_exists($analyticsFile)) {
+            $existing = json_decode(file_get_contents($analyticsFile), true);
+            if (is_array($existing)) {
+                $analytics = array_merge($analytics, $existing);
+            }
+        }
+        if (($analytics['last_download_date'] ?? '') !== $today) {
+            $analytics['last_download_date'] = $today;
+            $analytics['today_downloads'] = 0;
+        }
+        $analytics['total_downloads']++;
+        $analytics['today_downloads']++;
+        $analytics['last_download_at'] = time();
+        if (!isset($analytics['daily_stats'][$today])) {
+            $analytics['daily_stats'][$today] = ['visitors' => 0, 'downloads' => 0];
+        }
+        $analytics['daily_stats'][$today]['downloads']++;
+        @file_put_contents($analyticsFile, json_encode($analytics, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        jsonResponse(true, 'تم تسجيل تنزيل التطبيق بنجاح', ['total_downloads' => $analytics['total_downloads']]);
+    }
+
     require_once __DIR__ . '/auth.php';
     requireAuth();
-
-    $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
-    $action = $input['action'] ?? '';
 
     // 1. Update Water & Market Settings
     if ($action === 'update_settings') {

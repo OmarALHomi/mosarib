@@ -567,9 +567,15 @@
 <!-- Royal Security Authentication Modal / Screen -->
 <div id="authScreenOverlay" style="position: fixed; inset: 0; z-index: 999999; background: radial-gradient(circle at center, #132A32 0%, #070E12 100%); display: flex; align-items: center; justify-content: center; padding: 20px;">
   <div style="background: rgba(18, 35, 43, 0.95); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(0, 188, 212, 0.35); border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(0, 188, 212, 0.15); width: 100%; max-width: 460px; padding: 36px 30px; text-align: center; color: #E0F2F1;">
-    <div style="font-size: 52px; margin-bottom: 12px; filter: drop-shadow(0 4px 12px rgba(0,188,212,0.4));">💧</div>
-    <h2 style="font-size: 24px; font-weight: 800; color: #FFF; margin: 0 0 6px 0;">بوابة الدخول المحمية • مُسَرِّب</h2>
-    <p style="font-size: 13px; color: #80CBC4; margin: 0 0 24px 0; line-height: 1.6;">لوحة الإدارة مشفرة بحماية عسكرية (Bcrypt + Rate-Limit). لا يُسمح بالدخول إلا لمسؤولي النظام المعتمدين.</p>
+    <div style="display: flex; justify-content: center; margin-bottom: 16px;">
+      <div style="width: 52px; height: 52px; border-radius: 14px; background: linear-gradient(135deg, #00838F, #004D40); display: flex; align-items: center; justify-content: center; color: #80DEEA; border: 1px solid rgba(0, 188, 212, 0.3);">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+        </svg>
+      </div>
+    </div>
+    <h2 style="font-size: 22px; font-weight: 800; color: #FFF; margin: 0 0 6px 0;">بوابة الدخول المحمية • مُسَرِّب</h2>
+    <p style="font-size: 13px; color: #80CBC4; margin: 0 0 24px 0; line-height: 1.6;">لوحة الإدارة مشفرة بحماية أمنية (Bcrypt + Rate-Limit). لا يُسمح بالدخول إلا لمسؤولي النظام المعتمدين.</p>
     
     <div id="authErrorBanner" style="display: none; background: rgba(229, 57, 53, 0.15); border: 1px solid #E53935; color: #FFCDD2; font-size: 12.5px; border-radius: 10px; padding: 10px; margin-bottom: 18px; text-align: right; line-height: 1.5;"></div>
 
@@ -590,15 +596,19 @@
         </div>
       </div>
 
-      <button type="submit" id="loginSubmitBtn" class="btn" style="width: 100%; padding: 14px; font-size: 15px; font-weight: 800; border-radius: 12px; background: linear-gradient(135deg, #00897B, #004D40); box-shadow: 0 6px 20px rgba(0, 137, 123, 0.4); border: 1px solid #4DB6AC;">
-        🔐 التحقق والدخول الآمن للوحة
+      <button type="submit" id="loginSubmitBtn" class="btn" style="width: 100%; padding: 14px; font-size: 14.5px; font-weight: 800; border-radius: 12px; background: linear-gradient(135deg, #00897B, #004D40); box-shadow: 0 6px 20px rgba(0, 137, 123, 0.4); border: 1px solid #4DB6AC; display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <span>التحقق والدخول الآمن</span>
       </button>
     </form>
 
     <div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 11.5px; color: #80CBC4; display: flex; justify-content: space-between; align-items: center;">
-      <span>🔒 تشفير Argon2id/Bcrypt</span>
-      <span>🛡️ حماية حظر التخمين 15 دقيقة</span>
-      <span>المهندس عمر الحومي</span>
+      <span>تشفير Argon2id / Bcrypt</span>
+      <span>حظر التخمين 15 دقيقة</span>
+      <span>م. عمر الحومي</span>
     </div>
   </div>
 </div>
@@ -607,7 +617,11 @@
   <!-- Header -->
   <header>
     <div class="brand">
-      <div class="brand-icon">💧</div>
+      <div class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+        </svg>
+      </div>
       <div>
         <h1>مُسَرِّب • لوحة الإدارة</h1>
         <p class="subtitle">إدارة التراخيص والمستخدمين والإشعارات السحابية</p>
@@ -615,17 +629,29 @@
     </div>
     <div class="header-actions">
       <div id="loggedInUserBadge" style="display: flex; align-items: center; gap: 8px; background: rgba(0, 137, 123, 0.2); border: 1px solid rgba(0, 188, 212, 0.4); border-radius: 20px; padding: 5px 14px; font-size: 12.5px;">
-        <span style="color: #4DB6AC;">👤 المسؤول:</span>
+        <span style="color: #4DB6AC;">المسؤول:</span>
         <strong id="currentAdminName" style="color: #FFF;">-</strong>
         <span id="currentAdminRole" class="badge badge-yearly" style="font-size: 10px; padding: 2px 6px;">SUPER_ADMIN</span>
       </div>
-      <button class="btn btn-outline" style="width: auto; padding: 6px 14px; font-size: 12px; border-color: rgba(229,57,53,0.4); color: #EF5350;" onclick="handleSecureLogout()">🚪 خروج آمن</button>
+      <button class="btn btn-outline" style="width: auto; padding: 6px 14px; font-size: 12px; border-color: rgba(229,57,53,0.4); color: #EF5350;" onclick="handleSecureLogout()">تسجيل الخروج</button>
       <button id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleTheme()" title="تبديل المظهر">
-        <span class="theme-icon" id="themeIcon">☀️</span>
+        <span class="theme-icon" id="themeIcon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+        </span>
         <span id="themeLabel">الوضع الفاتح</span>
       </button>
       <div class="status-badge" id="firebaseStatus" onclick="promptConfigureFirebaseUrl()" style="cursor: pointer;" title="انقر لعرض وفحص وتعديل رابط قاعدة بيانات فايربيس">
-        <div class="status-dot"></div> سحابة فايربيس ⚙️
+        <div class="status-dot"></div> سحابة فايربيس
       </div>
     </div>
   </header>
@@ -637,51 +663,105 @@
         <h3>المستخدمون</h3>
         <div class="num" id="statTotalUsers">0</div>
       </div>
-      <div class="stat-icon">👥</div>
+      <div class="stat-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+      </div>
     </div>
     <div class="stat-card">
       <div class="stat-info">
         <h3>المشتركون النشطون</h3>
         <div class="num" id="statActiveLicenses">0</div>
       </div>
-      <div class="stat-icon" style="color: var(--success)">✅</div>
+      <div class="stat-icon" style="color: var(--success)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </div>
     </div>
     <div class="stat-card">
       <div class="stat-info">
         <h3>النسخ التجريبية</h3>
         <div class="num" id="statTrialUsers">0</div>
       </div>
-      <div class="stat-icon" style="color: var(--accent)">⏳</div>
+      <div class="stat-icon" style="color: var(--accent)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      </div>
     </div>
     <div class="stat-card" style="border: 1px solid rgba(255, 179, 0, 0.4); cursor: pointer;" onclick="switchTab('requests')">
       <div class="stat-info">
         <h3>طلبات معلقة</h3>
         <div class="num" id="statPendingRequests" style="color: var(--accent);">0</div>
       </div>
-      <div class="stat-icon" style="color: var(--accent)">🔔</div>
+      <div class="stat-icon" style="color: var(--accent)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+      </div>
     </div>
     <div class="stat-card">
       <div class="stat-info">
         <h3>المحظورون</h3>
         <div class="num" id="statBlockedUsers">0</div>
       </div>
-      <div class="stat-icon" style="color: var(--danger)">⛔</div>
+      <div class="stat-icon" style="color: var(--danger)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+        </svg>
+      </div>
+    </div>
+    <div class="stat-card" style="border: 1px solid rgba(0, 188, 212, 0.4); cursor: pointer;" onclick="switchTab('publicPortal')">
+      <div class="stat-info">
+        <h3>زوار الموقع العام</h3>
+        <div class="num" id="statTotalVisitors" style="color: #4DD0E1;">0</div>
+        <small id="statTodayVisitorsBadge" style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px;">اليوم: 0</small>
+      </div>
+      <div class="stat-icon" style="color: #00BCD4;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+      </div>
+    </div>
+    <div class="stat-card" style="border: 1px solid rgba(0, 230, 118, 0.4); cursor: pointer;" onclick="switchTab('publicPortal')">
+      <div class="stat-info">
+        <h3>تنزيلات التطبيق</h3>
+        <div class="num" id="statTotalDownloads" style="color: #69F0AE;">0</div>
+        <small id="statTodayDownloadsBadge" style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px;">اليوم: 0</small>
+      </div>
+      <div class="stat-icon" style="color: var(--success);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+      </div>
     </div>
   </div>
 
   <!-- Tabs Navigation -->
   <div class="tabs">
-    <button class="tab-btn" id="tabBtnAnalytics" onclick="switchTab('analytics')">📊 المخططات والرسوم البيانية الملكية</button>
-    <button class="tab-btn" id="tabBtnRequests" onclick="switchTab('requests')">🔔 طلبات التفعيل <span id="badgeReqCount" class="badge badge-yearly" style="display:none; margin-right:4px;">0</span></button>
-    <button class="tab-btn active" id="tabBtnUsers" onclick="switchTab('users')">👥 المستخدمون</button>
-    <button class="tab-btn" id="tabBtnReleases" onclick="switchTab('releases')">📦 رفع النسخ وروابط التحميل</button>
-    <button class="tab-btn" id="tabBtnPolicies" onclick="switchTab('policies')">⚙️ سياسات التطبيق السحابية</button>
-    <button class="tab-btn" id="tabBtnPush" onclick="switchTab('push')">📲 إشعارات Push الحقيقية</button>
-    <button class="tab-btn" id="tabBtnBroadcast" onclick="switchTab('broadcast')">📢 الإعلانات والتحديث</button>
-    <button class="tab-btn" id="tabBtnGenerator" onclick="switchTab('generator')">🔑 توليد الرموز</button>
-    <button class="tab-btn" id="tabBtnFeedbacks" onclick="switchTab('feedbacks')">💬 الملاحظات</button>
-    <button class="tab-btn" id="tabBtnAdmins" onclick="switchTab('admins')">🛡️ مسؤولو النظام والأمان</button>
-    <button class="tab-btn" id="tabBtnPublicPortal" onclick="switchTab('publicPortal')">🌐 إدارة الموقع العام والأسعار والأخبار</button>
+    <button class="tab-btn" id="tabBtnAnalytics" onclick="switchTab('analytics')">المخططات والتحليلات</button>
+    <button class="tab-btn" id="tabBtnRequests" onclick="switchTab('requests')">طلبات التفعيل <span id="badgeReqCount" class="badge badge-yearly" style="display:none; margin-right:4px;">0</span></button>
+    <button class="tab-btn active" id="tabBtnUsers" onclick="switchTab('users')">المستخدمون</button>
+    <button class="tab-btn" id="tabBtnReleases" onclick="switchTab('releases')">الإصدارات والتحميل</button>
+    <button class="tab-btn" id="tabBtnPolicies" onclick="switchTab('policies')">سياسات التطبيق</button>
+    <button class="tab-btn" id="tabBtnPush" onclick="switchTab('push')">إشعارات Push</button>
+    <button class="tab-btn" id="tabBtnBroadcast" onclick="switchTab('broadcast')">إعلانات البث والتحديث</button>
+    <button class="tab-btn" id="tabBtnGenerator" onclick="switchTab('generator')">توليد التراخيص</button>
+    <button class="tab-btn" id="tabBtnFeedbacks" onclick="switchTab('feedbacks')">الملاحظات والتقييمات</button>
+    <button class="tab-btn" id="tabBtnAdmins" onclick="switchTab('admins')">المسؤولون والأمان</button>
+    <button class="tab-btn" id="tabBtnPublicPortal" onclick="switchTab('publicPortal')">بوابة الزوار والأسعار</button>
   </div>
 
   <!-- Tab: Royal Analytics & Interactive Visual Charts -->
@@ -694,7 +774,11 @@
           <div class="num" id="kpiTotalOperations" style="color: #E0F7FA;">0</div>
           <small style="color: var(--text-muted); font-size: 11px;">مجموع دورات الري + السندات + الآبار</small>
         </div>
-        <div class="stat-icon" style="color: #00BCD4;">⚡</div>
+        <div class="stat-icon" style="color: #00BCD4;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
       </div>
       <div class="stat-card" style="background: linear-gradient(135deg, rgba(76,175,80,0.15), rgba(18,35,43,0.9)); border: 1px solid rgba(76,175,80,0.4);">
         <div class="stat-info">
@@ -702,7 +786,12 @@
           <div class="num" id="kpiConversionRate" style="color: #C8E6C9;">0%</div>
           <small style="color: var(--text-muted); font-size: 11px;">نسبة من دفعوا واشتركوا مقارنة بالإجمالي</small>
         </div>
-        <div class="stat-icon" style="color: #4CAF50;">📈</div>
+        <div class="stat-icon" style="color: #4CAF50;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+            <polyline points="17 6 23 6 23 12"></polyline>
+          </svg>
+        </div>
       </div>
       <div class="stat-card" style="background: linear-gradient(135deg, rgba(255,179,0,0.15), rgba(18,35,43,0.9)); border: 1px solid rgba(255,179,0,0.4);">
         <div class="stat-info">
@@ -710,7 +799,11 @@
           <div class="num" id="kpiOnlineUsers" style="color: #FFF9C4;">0</div>
           <small style="color: var(--text-muted); font-size: 11px;">متصلون الآن خلال آخر 24 ساعة</small>
         </div>
-        <div class="stat-icon" style="color: #FFB300;">🟢</div>
+        <div class="stat-icon" style="color: #FFB300;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+          </svg>
+        </div>
       </div>
       <div class="stat-card" style="background: linear-gradient(135deg, rgba(156,39,176,0.15), rgba(18,35,43,0.9)); border: 1px solid rgba(156,39,176,0.4);">
         <div class="stat-info">
@@ -718,7 +811,13 @@
           <div class="num" id="kpiLatestVersion" style="font-size: 20px; color: #F3E5F5;">v1.0.0</div>
           <small style="color: var(--text-muted); font-size: 11px;">إصدار التطبيق المنتشر حالياً</small>
         </div>
-        <div class="stat-icon" style="color: #AB47BC;">🚀</div>
+        <div class="stat-icon" style="color: #AB47BC;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+        </div>
       </div>
     </div>
 
@@ -726,7 +825,7 @@
     <div class="grid-2" style="margin-bottom: 24px;">
       <div class="card" style="border: 1px solid rgba(0, 150, 166, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <div class="card-title" style="margin-bottom: 0;">🥧 توزيع حالة التراخيص والاشتراكات</div>
+          <div class="card-title" style="margin-bottom: 0;">توزيع حالة التراخيص والاشتراكات</div>
           <span style="font-size: 11px; background: rgba(0,188,212,0.15); color: #00BCD4; padding: 4px 8px; border-radius: 6px;">مباشر من فايربيس</span>
         </div>
         <div style="height: 280px; position: relative;">
@@ -736,7 +835,7 @@
 
       <div class="card" style="border: 1px solid rgba(255, 179, 0, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <div class="card-title" style="margin-bottom: 0; color: #FFB300;">📊 استهلاك العمليات في النسخ التجريبية</div>
+          <div class="card-title" style="margin-bottom: 0; color: #FFB300;">استهلاك العمليات في النسخ التجريبية</div>
           <span style="font-size: 11px; background: rgba(255,179,0,0.15); color: #FFB300; padding: 4px 8px; border-radius: 6px;">قرب نفاد التجربة</span>
         </div>
         <div style="height: 280px; position: relative;">
@@ -749,7 +848,7 @@
     <div class="grid-2">
       <div class="card" style="border: 1px solid rgba(76, 175, 80, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <div class="card-title" style="margin-bottom: 0; color: #81C784;">📈 نشاط وتسجيل المستخدمين الجدد (Timeline)</div>
+          <div class="card-title" style="margin-bottom: 0; color: #81C784;">نشاط وتسجيل المستخدمين الجدد (Timeline)</div>
           <span style="font-size: 11px; background: rgba(76,175,80,0.15); color: #81C784; padding: 4px 8px; border-radius: 6px;">حركة التسجيل اليومية</span>
         </div>
         <div style="height: 280px; position: relative;">
@@ -759,7 +858,7 @@
 
       <div class="card" style="border: 1px solid rgba(171, 71, 188, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <div class="card-title" style="margin-bottom: 0; color: #CE93D8;">📱 انتشار إصدارات هواتف الأندرويد والتطبيق</div>
+          <div class="card-title" style="margin-bottom: 0; color: #CE93D8;">انتشار إصدارات هواتف الأندرويد والتطبيق</div>
           <span style="font-size: 11px; background: rgba(171,71,188,0.15); color: #CE93D8; padding: 4px 8px; border-radius: 6px;">Android & App Versions</span>
         </div>
         <div style="height: 280px; position: relative;">
@@ -773,11 +872,11 @@
   <div id="tab-requests" style="display: none;">
     <div class="card">
       <div class="toolbar">
-        <div class="card-title" style="margin-bottom: 0;">🔔 طلبات الاشتراك الواردة مباشرة من هواتف العملاء</div>
+        <div class="card-title" style="margin-bottom: 0;">طلبات الاشتراك الواردة من هواتف العملاء</div>
         <div style="display: flex; gap: 10px;">
           <input type="text" class="search-input" id="requestSearch" placeholder="بحث باسم المشترك، الهاتف، الكود..." oninput="filterRequests()">
-          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="loadFirebaseData()">🔄 تحديث</button>
-          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="exportRequestsCSV()">📥 تصدير Excel</button>
+          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="loadFirebaseData()">تحديث</button>
+          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="exportRequestsCSV()">تصدير CSV</button>
         </div>
       </div>
 
@@ -807,22 +906,22 @@
   <div id="tab-users">
     <div class="card">
       <div class="toolbar">
-        <div class="card-title" style="margin-bottom: 0;">📱 قائمة مستخدمي التطبيق ومراقبة التحايل</div>
+        <div class="card-title" style="margin-bottom: 0;">قائمة مستخدمي التطبيق ومراقبة الأجهزة</div>
         <div style="display: flex; gap: 10px;">
           <input type="text" class="search-input" id="userSearch" placeholder="بحث بحساب جوجل، الكود، الموديل..." oninput="filterUsers()">
-          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="loadFirebaseData()">🔄 تحديث</button>
-          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="exportUsersCSV()">📥 تصدير Excel/CSV</button>
+          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="loadFirebaseData()">تحديث</button>
+          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="exportUsersCSV()">تصدير CSV</button>
         </div>
       </div>
 
       <!-- Quick Filter Pills -->
       <div class="pill-filter">
-        <button class="pill-filter-btn active" id="filterAll" onclick="setUserFilter('ALL')">👥 الكل (<span id="countFilterAll">0</span>)</button>
-        <button class="pill-filter-btn" id="filterActive" onclick="setUserFilter('ACTIVE')">✅ المشتركون النشطون (<span id="countFilterActive">0</span>)</button>
-        <button class="pill-filter-btn" id="filterTrial" onclick="setUserFilter('TRIAL')">⏳ النسخ التجريبية (<span id="countFilterTrial">0</span>)</button>
-        <button class="pill-filter-btn" id="filterLocked" onclick="setUserFilter('LOCKED')">🔒 تجاوزوا الحد / مقفل (<span id="countFilterLocked">0</span>)</button>
-        <button class="pill-filter-btn" id="filterBackupLocked" onclick="setUserFilter('BACKUP_LOCKED')">🚫 معطل نسخهم الاحتياطي (<span id="countFilterBackupLocked">0</span>)</button>
-        <button class="pill-filter-btn" id="filterBlocked" onclick="setUserFilter('BLOCKED')">⛔ المحظورون (<span id="countFilterBlocked">0</span>)</button>
+        <button class="pill-filter-btn active" id="filterAll" onclick="setUserFilter('ALL')">الكل (<span id="countFilterAll">0</span>)</button>
+        <button class="pill-filter-btn" id="filterActive" onclick="setUserFilter('ACTIVE')">المشتركون النشطون (<span id="countFilterActive">0</span>)</button>
+        <button class="pill-filter-btn" id="filterTrial" onclick="setUserFilter('TRIAL')">النسخ التجريبية (<span id="countFilterTrial">0</span>)</button>
+        <button class="pill-filter-btn" id="filterLocked" onclick="setUserFilter('LOCKED')">تجاوزوا الحد (<span id="countFilterLocked">0</span>)</button>
+        <button class="pill-filter-btn" id="filterBackupLocked" onclick="setUserFilter('BACKUP_LOCKED')">معطل نسخهم الاحتياطي (<span id="countFilterBackupLocked">0</span>)</button>
+        <button class="pill-filter-btn" id="filterBlocked" onclick="setUserFilter('BLOCKED')">المحظورون (<span id="countFilterBlocked">0</span>)</button>
       </div>
 
       <div class="table-container">
@@ -831,13 +930,13 @@
             <tr>
               <th>حساب Google / الاسم</th>
               <th>كود الجهاز والموديل</th>
-              <th>سعر الساعة للمسرب 💰</th>
+              <th>سعر الساعة للمسرب</th>
               <th>الحالة</th>
               <th>الباقة</th>
-              <th>رصيد العمليات والحد 📊</th>
-              <th>النسخ الاحتياطي 🔒</th>
+              <th>رصيد العمليات والحد</th>
+              <th>النسخ الاحتياطي</th>
               <th>آخر ظهور</th>
-              <th>إجراءات التحكم والردع 🛡️</th>
+              <th>إجراءات التحكم</th>
             </tr>
           </thead>
           <tbody id="usersTableBody">
@@ -852,7 +951,7 @@
   <div id="tab-releases" style="display: none;">
     <div class="grid-2">
       <div class="card">
-        <div class="card-title">📦 رفع نسخة APK جديدة وإنشاء رابط تحميل مباشر</div>
+        <div class="card-title">رفع نسخة APK جديدة وإنشاء رابط تحميل مباشر</div>
         <form id="apkUploadForm" onsubmit="handleApkUpload(event)">
           <div class="form-group">
             <label for="apkFile">اختيار ملف التطبيق (APK):</label>
@@ -875,10 +974,10 @@
           <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
             <input type="checkbox" id="apkForceUpdate" style="width: auto;">
             <label for="apkForceUpdate" style="margin: 0; cursor: pointer; color: var(--danger); font-weight: bold;">
-              🚀 تفعيل كتحديث إجباري وقفل كافة النسخ الأقدم فوراً في فايربيس
+              تفعيل كتحديث إجباري وقفل كافة النسخ الأقدم فوراً في فايربيس
             </label>
           </div>
-          <button type="submit" class="btn" id="uploadApkBtn">⚡ رفع التطبيق وإنشاء رابط التحميل المباشر</button>
+          <button type="submit" class="btn" id="uploadApkBtn">رفع التطبيق وإنشاء رابط التحميل المباشر</button>
           <div id="uploadProgress" style="display: none; margin-top: 14px; text-align: center;">
             <div style="font-size: 13px; color: var(--accent);">جاري رفع ملف الـ APK وتثبيته على السيرفر...</div>
           </div>
@@ -886,16 +985,16 @@
 
         <hr style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;">
 
-        <div class="card-title" style="font-size: 15px;">🔗 أو ربط رابط تحميل خارجي مباشر (Google Drive / MediaFire)</div>
+        <div class="card-title" style="font-size: 15px;">أو ربط رابط تحميل خارجي مباشر (Google Drive / MediaFire)</div>
         <div class="form-group">
           <label for="externalApkUrl">رابط التحميل المباشر:</label>
           <input type="url" id="externalApkUrl" placeholder="https://example.com/mosarib.apk">
         </div>
-        <button class="btn btn-outline" onclick="setExternalCloudLink()">نشر الرابط الخارجي للمستخدمين 🚀</button>
+        <button class="btn btn-outline" onclick="setExternalCloudLink()">نشر الرابط الخارجي للمستخدمين</button>
       </div>
 
       <div class="card">
-        <div class="card-title">📋 سجل الإصدارات وروابط التحميل المباشرة</div>
+        <div class="card-title">سجل الإصدارات وروابط التحميل المباشرة</div>
         <div id="releasesListContainer" style="max-height: 480px; overflow-y: auto;">
           <div style="text-align: center; color: var(--text-muted); padding: 24px;">جاري تحميل سجل الإصدارات...</div>
         </div>
@@ -907,7 +1006,7 @@
   <div id="tab-policies" style="display: none;">
     <div class="grid-2">
       <div class="card">
-        <div class="card-title">⚙️ السياسات العامة للنسخ المجانية والتطبيق عن بُعد</div>
+        <div class="card-title">السياسات العامة للنسخ المجانية والتطبيق عن بُعد</div>
         
         <div class="form-group">
           <label for="policyFreeLimit">الحد الأقصى للعمليات المجانية لجميع النسخ غير المشتركة:</label>
@@ -953,11 +1052,11 @@
           <input type="text" id="policyGlobalNote" placeholder="مثال: خصم 30% على الاشتراك السنوي بمناسبة موسم السقي!">
         </div>
 
-        <button class="btn" onclick="saveAppPolicies()">💾 حفظ وتطبيق السياسات فوراً على السحابة لجميع الهواتف</button>
+        <button class="btn" onclick="saveAppPolicies()">حفظ وتطبيق السياسات فوراً على السحابة</button>
       </div>
 
       <div class="card">
-        <div class="card-title">💡 مميزات نظام السياسات والتحكم عن بُعد</div>
+        <div class="card-title">مميزات نظام السياسات والتحكم عن بُعد</div>
         <ul style="padding-right: 20px; line-height: 2.2; font-size: 13.5px; color: #B2DFDB;">
           <li><b>تغيير الحد دون الحاجة لتحديث APK:</b> يمكنك خفض الحد إلى 50 أو رفعه إلى 500 في أي ثانية، وسيطبقه هاتف العميل تلقائياً عند اتصاله بالإنترنت!</li>
           <li><b>ردع تحايل مسح البيانات:</b> إذا لاحظت محاولات تفريغ الحسابات واستعادتها لتخطي الحد، عطّل ميزة النسخ الاحتياطي للنسخ المجانية فجأة بنقرة زر واحدة.</li>
@@ -976,16 +1075,16 @@
   <div id="tab-broadcast" style="display: none;">
     <!-- Active Broadcast Preview Card -->
     <div class="card" id="currentBroadcastCard" style="margin-bottom: 20px; border: 1px solid var(--accent); display: none;">
-      <div class="card-title" style="color: var(--accent); margin-bottom: 8px;">📢 الإعلان أو التحديث النشط حالياً على جميع الهواتف</div>
+      <div class="card-title" style="color: var(--accent); margin-bottom: 8px;">الإعلان أو التحديث النشط حالياً على جميع الهواتف</div>
       <div id="currentBroadcastContent" style="font-size: 13.5px; line-height: 1.8; color: var(--text);"></div>
       <div style="display: flex; gap: 10px; margin-top: 12px;">
-        <button class="btn btn-outline" style="width: auto; padding: 6px 14px; font-size: 12.5px; color: var(--danger); border-color: var(--danger);" onclick="cancelBroadcast()">❌ إلغاء وتصفير هذا الإعلان فوراً</button>
+        <button class="btn btn-outline" style="width: auto; padding: 6px 14px; font-size: 12.5px; color: var(--danger); border-color: var(--danger);" onclick="cancelBroadcast()">إلغاء وتصفير هذا الإعلان فوراً</button>
       </div>
     </div>
 
     <div class="grid-2">
       <div class="card">
-        <div class="card-title">📢 إرسال إعلان عام أو تفعيل التحديث الإجباري</div>
+        <div class="card-title">إرسال إعلان عام أو تفعيل التحديث الإجباري</div>
         <div class="form-group">
           <label for="bcTitle">عنوان الإعلان / التنبيه:</label>
           <input type="text" id="bcTitle" placeholder="مثال: تحديث إجباري هام للإصدار v1.1.0">
@@ -995,7 +1094,7 @@
           <select id="bcType" onchange="toggleUpdateInputs()">
             <option value="INFO">رسالة توجيهية / إعلان عام</option>
             <option value="WARNING">تنبيه فني هام</option>
-            <option value="UPDATE">تحديث إجباري وقفل النسخ القديمة 🚀</option>
+            <option value="UPDATE">تحديث إجباري وقفل النسخ القديمة</option>
           </select>
         </div>
         <div class="form-group" id="versionGroup" style="display: none;">
@@ -1015,12 +1114,12 @@
           <label for="bcBtnText">نص الزر:</label>
           <input type="text" id="bcBtnText" value="تحديث التطبيق الآن">
         </div>
-        <button class="btn" onclick="publishBroadcast()">🚀 نشر الإشعار / قفل النسخ القديمة لجميع الهواتف</button>
-        <button class="btn btn-outline" style="margin-top: 10px;" onclick="cancelBroadcast()">❌ إلغاء وتصفير الإعلان الحالي</button>
+        <button class="btn" onclick="publishBroadcast()">نشر الإشعار / قفل النسخ القديمة لجميع الهواتف</button>
+        <button class="btn btn-outline" style="margin-top: 10px;" onclick="cancelBroadcast()">إلغاء وتصفير الإعلان الحالي</button>
       </div>
 
       <div class="card">
-        <div class="card-title">💡 كيف يعمل التحديث الإجباري والإعلانات؟</div>
+        <div class="card-title">كيف يعمل التحديث الإجباري والإعلانات؟</div>
         <ul style="padding-right: 20px; line-height: 2.2; font-size: 14px; color: #B2DFDB;">
           <li><b>الإعلان العام (INFO/WARNING):</b> يظهر كنافذة أنيقة للمستخدمين لمرة واحدة فقط عند فتح التطبيق، ولا يمنعهم من العمل.</li>
           <li><b>التحديث الإجباري (Force Update):</b> إذا اخترت "تحديث إجباري" وحددت VersionCode أعلى من النسخ القديمة، فإن أي شخص يفتح النسخة القديمة <b>ستُقفل الشاشة في وجهه تماماً</b> ولا يمكنه الدخول أو فتح الحسابات حتى يحمّل التحديث الجديد عبر الرابط المحدد!</li>
@@ -1034,7 +1133,7 @@
   <div id="tab-push" style="display: none;">
     <div class="grid-2">
       <div class="card">
-        <div class="card-title">🔔 إرسال إشعار فوري حقيقي لستارة الهاتف (FCM Push)</div>
+        <div class="card-title">إرسال إشعار فوري لستارة الهاتف (FCM Push)</div>
         <div class="form-group">
           <label for="fcmServerKeyInput">مفتاح خادم FCM (Firebase Cloud Messaging Server Key):</label>
           <input type="password" id="fcmServerKeyInput" placeholder="AAAA... انسخه من Project Settings > Cloud Messaging (اختياري للإرسال المباشر)" onchange="saveFcmServerKey()">
@@ -1043,7 +1142,7 @@
         <div class="form-group">
           <label for="pushTarget">الجهة المستهدفة:</label>
           <select id="pushTarget">
-            <option value="ALL">جميع الهواتف والمستخدمين المسجلين 📢</option>
+            <option value="ALL">جميع الهواتف والمستخدمين المسجلين</option>
             <option value="TRIAL">مستخدمو النسخة التجريبية فقط (لتشجيع الاشتراك)</option>
             <option value="SUBSCRIBERS">المشتركون المفعّلون فقط</option>
           </select>
@@ -1060,12 +1159,12 @@
           <label for="pushUrl">رابط يفتح عند الضغط على الإشعار (اختياري):</label>
           <input type="url" id="pushUrl" placeholder="مثال: رابط تحديث، أو رابط واتساب للدعم">
         </div>
-        <button class="btn" onclick="sendRealFcmPushNotification()">📲 إرسال الإشعار الآن لهواتف المستخدمين</button>
+        <button class="btn" onclick="sendRealFcmPushNotification()">إرسال الإشعار الآن لهواتف المستخدمين</button>
         <div id="pushStatus" style="margin-top: 12px; font-size: 13px; text-align: center; display: none;"></div>
       </div>
 
       <div class="card">
-        <div class="card-title">📲 مميزات إشعارات ستارة الهاتف الحقيقية (FCM)</div>
+        <div class="card-title">مميزات إشعارات ستارة الهاتف (FCM)</div>
         <ul style="padding-right: 20px; line-height: 2.2; font-size: 14px; color: #B2DFDB;">
           <li><b>تصل والهاتف مقفل:</b> يرن الهاتف ويهتز ويظهر الإشعار في الستارة العلوية بأيقونة التطبيق حتى لو كان التطبيق مغلقاً تماماً.</li>
           <li><b>إرسال سحابي هجين:</b> يرسل إشعار Google FCM المباشر ويرسله أيضاً لقاعدة بيانات التطبيق الداخلية لضمان وصوله للجميع 100%.</li>
@@ -1079,7 +1178,7 @@
   <div id="tab-generator" style="display: none;">
     <div class="grid-2">
       <div class="card">
-        <div class="card-title">✨ توليد رمز تفعيل وقفل لجهاز واحد</div>
+        <div class="card-title">توليد رمز تفعيل وقفل لجهاز واحد</div>
         <div class="form-group">
           <label for="deviceCode">كود جهاز المزارع / العميل (Device Code):</label>
           <input type="text" id="deviceCode" placeholder="MSRB-XXXX-XXXX" autocomplete="off">
@@ -1095,20 +1194,20 @@
             <option value="YEARLY">اشتراك سنوي (365 يوماً)</option>
           </select>
         </div>
-        <button class="btn" onclick="generateAndSaveKey()">⚡ توليد وحفظ في سحابة فايربيس</button>
+        <button class="btn" onclick="generateAndSaveKey()">توليد وحفظ في سحابة فايربيس</button>
 
         <div class="key-box" id="keyBox">
           <div style="font-size: 13px; color: var(--accent); font-weight: bold;">رمز التفعيل المقفل لهذا الهاتف:</div>
           <div class="key-text" id="keyText">ACTV-M-XXXX-XXXX</div>
           <div style="display: flex; gap: 8px;">
-            <button class="btn btn-outline" style="flex: 1;" onclick="copyKey()">📋 نسخ الرمز</button>
-            <button class="btn" style="flex: 1; background: #25D366;" onclick="sendToWhatsApp()">💬 إرسال عبر واتساب</button>
+            <button class="btn btn-outline" style="flex: 1;" onclick="copyKey()">نسخ الرمز</button>
+            <button class="btn" style="flex: 1; background: #25D366;" onclick="sendToWhatsApp()">إرسال عبر واتساب</button>
           </div>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-title">🛡️ حماية متقدمة ومكافحة التحايل</div>
+        <div class="card-title">حماية متقدمة ومكافحة التحايل</div>
         <ul style="padding-right: 20px; line-height: 2.2; font-size: 14px; color: #B2DFDB;">
           <li><b>تسجيل كافة المستخدمين:</b> يظهر في لوحتك كل من قام بفتح التطبيق بحساب Google ومعرف جهازه وعدد عملياته، حتى وإن لم يشترك بعد!</li>
           <li><b>إيقاف فوري بنقرة واحدة:</b> إذا لاحظت أن شخصاً يتلاعب أو يكرر مسح البيانات، يمكنك إيقاف التطبيق عليه وحظره فوراً برقم جهازه أو إيميله.</li>
@@ -1122,11 +1221,11 @@
   <div id="tab-feedbacks" style="display: none;">
     <div class="card">
       <div class="toolbar">
-        <div class="card-title" style="margin-bottom: 0;">💬 آراء وملاحظات المستخدمين الواردة من التطبيق</div>
+        <div class="card-title" style="margin-bottom: 0;">آراء وملاحظات المستخدمين الواردة من التطبيق</div>
         <div style="display: flex; gap: 10px;">
           <input type="text" class="search-input" id="feedbackSearch" placeholder="بحث بالرسائل أو الأسماء..." oninput="filterFeedbacks()">
-          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="loadFirebaseData()">🔄 تحديث</button>
-          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="exportFeedbacksCSV()">📥 تصدير Excel/CSV</button>
+          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="loadFirebaseData()">تحديث</button>
+          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="exportFeedbacksCSV()">تصدير CSV</button>
         </div>
       </div>
 
@@ -1156,7 +1255,7 @@
   <div id="tab-admins" style="display: none;">
     <div class="grid-2">
       <div class="card" style="border: 1px solid rgba(0, 188, 212, 0.4);">
-        <div class="card-title">➕ إضافة مسؤول نظام جديد (مشرف / مدير)</div>
+        <div class="card-title">إضافة مسؤول نظام جديد</div>
         <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 16px;">
           لن يتمكن أي شخص من فتح الموقع أو التحكم بالتطبيق إلا إذا كان مسجلاً بالاسم والبريد وكلمة المرور المشفرة.
         </p>
@@ -1182,13 +1281,13 @@
             </select>
           </div>
           <button type="submit" class="btn" id="createAdminBtn" style="background: linear-gradient(135deg, #00897B, #004D40);">
-            🛡️ إنشاء وتأمين حساب المسؤول
+            إنشاء وتأمين حساب المسؤول
           </button>
         </form>
       </div>
 
       <div class="card" style="border: 1px solid rgba(0, 150, 166, 0.3);">
-        <div class="card-title">👥 قائمة المسؤولين المعتمدين والمحميين</div>
+        <div class="card-title">قائمة المسؤولين المعتمدين</div>
         <div id="adminsListContainer" style="max-height: 480px; overflow-y: auto;">
           <div style="text-align: center; color: var(--text-muted); padding: 24px;">جاري تحميل مسؤولي النظام...</div>
         </div>
@@ -1198,18 +1297,50 @@
 
   <!-- Tab: Public Portal Management (التحكم بأسعار المياه وأخبار وزوار الموقع العام) -->
   <div id="tab-publicPortal" style="display: none;">
+    <!-- Real Site Visitors & APK Downloads KPI Row -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 22px;">
+      <div class="stat-card" style="background: linear-gradient(135deg, rgba(0, 188, 212, 0.12), rgba(18, 35, 43, 0.95)); border: 1px solid rgba(0, 188, 212, 0.45); padding: 18px;">
+        <div class="stat-info">
+          <h3 style="color: #4DD0E1; font-size: 13.5px; font-weight: 700;">إجمالي زوار صفحة الزوار (بيانات حقيقية)</h3>
+          <div class="num" id="portalKpiTotalVisitors" style="color: #E0F7FA; font-size: 28px; margin: 4px 0;">0</div>
+          <small id="portalKpiTodayVisitors" style="color: #80CBC4; font-size: 12px; font-weight: 600;">زوار اليوم: 0 زائر فريد</small>
+        </div>
+        <div class="stat-icon" style="color: #00BCD4; width: 44px; height: 44px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </div>
+      </div>
+
+      <div class="stat-card" style="background: linear-gradient(135deg, rgba(0, 230, 118, 0.12), rgba(18, 35, 43, 0.95)); border: 1px solid rgba(0, 230, 118, 0.45); padding: 18px;">
+        <div class="stat-info">
+          <h3 style="color: #69F0AE; font-size: 13.5px; font-weight: 700;">عدد تنزيلات التطبيق من الموقع (APK)</h3>
+          <div class="num" id="portalKpiTotalDownloads" style="color: #E8F5E9; font-size: 28px; margin: 4px 0;">0</div>
+          <small id="portalKpiTodayDownloads" style="color: #A5D6A7; font-size: 12px; font-weight: 600;">تنزيلات اليوم: 0 تحميل مباشر</small>
+        </div>
+        <div class="stat-icon" style="color: var(--success); width: 44px; height: 44px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+        </div>
+      </div>
+    </div>
+
     <div class="grid-2">
       <!-- Water Status & Market Rates Control -->
       <div class="card" style="border: 1px solid rgba(0, 188, 212, 0.4);">
-        <div class="card-title">💧 التحكم بمؤشر وفرة المياه وبورصة أسعار الري المعروضة للزوار</div>
+        <div class="card-title">التحكم بمؤشر وفرة المياه وبورصة أسعار الري</div>
         <form id="portalSettingsForm" onsubmit="handleSavePortalSettings(event)">
           <div class="form-group">
             <label for="pWaterStatus">حالة وفرة المياه العامة:</label>
             <select id="pWaterStatus">
-              <option value="ABUNDANT">وفيرة جداً ومرتفعة المنسوب 🌊</option>
-              <option value="GOOD" selected>متوفرة ومستقرة في معظم المناطق ✅</option>
-              <option value="MODERATE">متوسطة وتستدعي ترشيد الضخ ⚠️</option>
-              <option value="SCARCE">شحيحة وطلب متزايد على الساعات ⛔</option>
+              <option value="ABUNDANT">وفيرة جداً ومرتفعة المنسوب</option>
+              <option value="GOOD" selected>متوفرة ومستقرة في معظم المناطق</option>
+              <option value="MODERATE">متوسطة وتستدعي ترشيد الضخ</option>
+              <option value="SCARCE">شحيحة وطلب متزايد على الساعات</option>
             </select>
           </div>
           <div class="form-group">
@@ -1252,13 +1383,13 @@
             <input type="text" id="pHeadlineAlert" placeholder="تنبيه أو إشعار يظهر في الشريط الإخباري العلوي">
           </div>
 
-          <button type="submit" class="btn" id="savePortalSettingsBtn">💾 حفظ وتحديث مؤشرات الموقع العام فوراً</button>
+          <button type="submit" class="btn" id="savePortalSettingsBtn">حفظ وتحديث مؤشرات الموقع العام</button>
         </form>
       </div>
 
       <!-- Add News & Articles to Public Portal -->
       <div class="card" style="border: 1px solid rgba(255, 179, 0, 0.4);">
-        <div class="card-title">📰 نشر خبر / تقرير مائي جديد في واجهة الزوار</div>
+        <div class="card-title">نشر خبر أو تقرير مائي جديد</div>
         <form id="portalNewsForm" onsubmit="handleCreatePortalNews(event)">
           <div class="form-group">
             <label for="newsTitleInput">عنوان الخبر أو التقرير الزراعي:</label>
@@ -1267,10 +1398,10 @@
           <div class="form-group">
             <label for="newsCategoryInput">تصنيف التقرير:</label>
             <select id="newsCategoryInput">
-              <option value="تقارير مياه الآبار">تقارير مياه الآبار 💧</option>
-              <option value="بورصة أسعار الري">بورصة أسعار الري 💰</option>
-              <option value="إرشادات زراعية وفنية">إرشادات زراعية وفنية 🌱</option>
-              <option value="تحديثات المنظومة">تحديثات المنظومة 🚀</option>
+              <option value="تقارير مياه الآبار">تقارير مياه الآبار</option>
+              <option value="بورصة أسعار الري">بورصة أسعار الري</option>
+              <option value="إرشادات زراعية وفنية">إرشادات زراعية وفنية</option>
+              <option value="تحديثات المنظومة">تحديثات المنظومة</option>
             </select>
           </div>
           <div class="form-group">
@@ -1278,13 +1409,13 @@
             <textarea id="newsSummaryInput" rows="4" placeholder="اكتب ملخص الخبر الذي سيقرأه الزوار والمزارعون في الصفحة الرئيسية..." required></textarea>
           </div>
           <button type="submit" class="btn" style="background: linear-gradient(135deg, #FFB300, #FF8F00); color: #000; font-weight: 800;">
-            📢 نشر التقرير للعامة الآن
+            نشر التقرير للعامة الآن
           </button>
         </form>
 
         <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;">
 
-        <div style="font-weight: 800; font-size: 14px; margin-bottom: 12px; color: #FFF;">📋 قائمة الأخبار المنشورة حالياً (مع إمكانية الحذف):</div>
+        <div style="font-weight: 800; font-size: 14px; margin-bottom: 12px; color: #FFF;">قائمة الأخبار المنشورة حالياً:</div>
         <div id="adminPortalNewsList" style="max-height: 250px; overflow-y: auto;">
           <div style="text-align: center; color: var(--text-muted); padding: 14px;">جاري تحميل الأخبار...</div>
         </div>
@@ -1644,6 +1775,32 @@
           document.getElementById("pMaxPrice").value = m.max_hourly_price || 9500;
           document.getElementById("pCurrency").value = m.currency_symbol || 'ريال';
           document.getElementById("pHeadlineAlert").value = m.headline_alert || '';
+        }
+
+        const an = json.data.analytics;
+        if (an) {
+          const totVis = an.total_visitors || 0;
+          const todVis = an.today_visitors || 0;
+          const totDl = an.total_downloads || 0;
+          const todDl = an.today_downloads || 0;
+
+          const elTotVis = document.getElementById("statTotalVisitors");
+          const elTodVis = document.getElementById("statTodayVisitorsBadge");
+          const elTotDl = document.getElementById("statTotalDownloads");
+          const elTodDl = document.getElementById("statTodayDownloadsBadge");
+          if (elTotVis) elTotVis.innerText = totVis.toLocaleString('ar-EG');
+          if (elTodVis) elTodVis.innerText = `اليوم: ${todVis.toLocaleString('ar-EG')}`;
+          if (elTotDl) elTotDl.innerText = totDl.toLocaleString('ar-EG');
+          if (elTodDl) elTodDl.innerText = `اليوم: ${todDl.toLocaleString('ar-EG')}`;
+
+          const pTotVis = document.getElementById("portalKpiTotalVisitors");
+          const pTodVis = document.getElementById("portalKpiTodayVisitors");
+          const pTotDl = document.getElementById("portalKpiTotalDownloads");
+          const pTodDl = document.getElementById("portalKpiTodayDownloads");
+          if (pTotVis) pTotVis.innerText = totVis.toLocaleString('ar-EG');
+          if (pTodVis) pTodVis.innerText = `زوار اليوم: ${todVis.toLocaleString('ar-EG')} زائر فريد`;
+          if (pTotDl) pTotDl.innerText = totDl.toLocaleString('ar-EG');
+          if (pTodDl) pTodDl.innerText = `تنزيلات اليوم: ${todDl.toLocaleString('ar-EG')} تحميل مباشر`;
         }
 
         renderAdminPortalNews(json.data.news || []);
@@ -2191,6 +2348,7 @@
       }
 
       updateStats();
+      loadPortalSettingsForAdmin();
       renderAppPolicies();
       renderActiveBroadcast();
       renderRequestsTable(allRequests);

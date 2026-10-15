@@ -268,16 +268,23 @@ object FirebaseLicenseService {
         subscriberName: String,
         phone: String,
         plan: LicenseManager.SubscriptionPlan,
-        deviceCode: String
+        deviceCode: String,
+        requestType: String = "NEW"
     ): SubscriptionRequestResult = withContext(Dispatchers.IO) {
         val timestamp = System.currentTimeMillis()
-        val requestId = "REQ_${timestamp}_${deviceCode.takeLast(4)}"
+        val prefix = when (requestType) {
+            "UPGRADE" -> "UPG"
+            "RENEWAL" -> "REN"
+            else -> "REQ"
+        }
+        val requestId = "${prefix}_${timestamp}_${deviceCode.takeLast(4)}"
 
         val firestoreFields = mapOf(
             "id" to requestId,
             "subscriberName" to subscriberName,
             "phone" to phone,
             "plan" to plan.name,
+            "requestType" to requestType,
             "deviceCode" to deviceCode,
             "deviceModel" to LicenseManager.getDeviceModelName(),
             "androidVersion" to LicenseManager.getAndroidVersionName(),
@@ -288,7 +295,7 @@ object FirebaseLicenseService {
         // 1. Cloud Firestore
         val firestoreSuccess = sendToFirestore("subscription_requests", requestId, firestoreFields)
         if (firestoreSuccess) {
-            Log.i(TAG, "Subscription request sent via Cloud Firestore")
+            Log.i(TAG, "Subscription request sent via Cloud Firestore ($requestType)")
             return@withContext SubscriptionRequestResult(isSuccess = true)
         }
 
@@ -298,6 +305,7 @@ object FirebaseLicenseService {
             put("subscriberName", subscriberName)
             put("phone", phone)
             put("plan", plan.name)
+            put("requestType", requestType)
             put("deviceCode", deviceCode)
             put("deviceModel", LicenseManager.getDeviceModelName())
             put("androidVersion", LicenseManager.getAndroidVersionName())

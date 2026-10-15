@@ -607,4 +607,33 @@ $deviceCode
     fun getWhatsAppActivationUrl(deviceCode: String, requestedPlan: SubscriptionPlan): String {
         return getWhatsAppActivationUrl(deviceCode, "", requestedPlan)
     }
+
+    fun getWhatsAppRenewalUrl(
+        deviceCode: String,
+        subscriberName: String = "",
+        requestedPlan: SubscriptionPlan = SubscriptionPlan.MONTHLY,
+        isUpgrade: Boolean = false
+    ): String {
+        val devModel = getDeviceModelName()
+        val nameLine = if (subscriberName.isNotBlank()) "اسم المشترك: $subscriberName\n" else ""
+        val msg = if (isUpgrade) {
+            """
+السلام عليكم يا باشمهندس عمر،
+أود ترقية اشتراكي في تطبيق المُسَرِّب من شهري إلى اشتراك سنوي (365 يوماً).
+${nameLine}نوع الجوال: $devModel
+كود جهازي هو:
+$deviceCode
+            """.trimIndent()
+        } else {
+            val planText = if (requestedPlan == SubscriptionPlan.MONTHLY) "اشتراك شهري (30 يوماً)" else "اشتراك سنوي (365 يوماً)"
+            """
+السلام عليكم يا باشمهندس عمر،
+أود تجديد اشتراكي في تطبيق المُسَرِّب للآبار والري ($planText).
+${nameLine}نوع الجوال: $devModel
+كود جهازي هو:
+$deviceCode
+            """.trimIndent()
+        }
+        return "https://wa.me/$DEVELOPER_PHONE?text=" + Uri.encode(msg)
+    }
 }

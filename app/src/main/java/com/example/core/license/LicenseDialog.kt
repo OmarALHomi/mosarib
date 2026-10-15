@@ -216,12 +216,22 @@ fun LicenseDialog(
         Toast.makeText(context, "تم نسخ كود الجهاز إلى الحافظة", Toast.LENGTH_SHORT).show()
     }
 
+    val isExpired = remember { existingRecord != null && !isCurrentlyActivated }
+    val isUpgrade = remember(selectedPlan, isCurrentlyActivated, existingRecord) {
+        isCurrentlyActivated && existingRecord?.plan == LicenseManager.SubscriptionPlan.MONTHLY && selectedPlan == LicenseManager.SubscriptionPlan.YEARLY
+    }
+
     fun submitOnlineSubscriptionRequest() {
         val cleanName = subscriberName.trim()
         val cleanPhone = phone.trim()
         if (cleanName.isBlank()) {
             errorMessage = "يرجى كتابة اسم المشترك أولاً لتوثيق طلب الاشتراك"
             return
+        }
+        val requestType = when {
+            isUpgrade -> "UPGRADE"
+            isExpired || isCurrentlyActivated -> "RENEWAL"
+            else -> "NEW"
         }
         isRequestingOnline = true
         errorMessage = null
@@ -232,12 +242,18 @@ fun LicenseDialog(
                 subscriberName = cleanName,
                 phone = cleanPhone,
                 plan = selectedPlan,
-                deviceCode = deviceCode
+                deviceCode = deviceCode,
+                requestType = requestType
             )
             isRequestingOnline = false
             if (res.isSuccess) {
-                requestSuccessMessage = "تم إرسال طلب اشتراكك إلى الإدارة بنجاح! سيصلك رمز التفعيل قريباً."
-                Toast.makeText(context, "تم إرسال طلب اشتراكك إلى الإدارة بنجاح!", Toast.LENGTH_LONG).show()
+                val successText = when (requestType) {
+                    "UPGRADE" -> "تم إرسال طلب ترقية اشتراكك إلى الإدارة بنجاح! سيتم مراجعة طلبك وتحديث الترخيص قريباً."
+                    "RENEWAL" -> "تم إرسال طلب تجديد اشتراكك إلى الإدارة بنجاح! سيصلك رمز التجديد قريباً."
+                    else -> "تم إرسال طلب اشتراكك إلى الإدارة بنجاح! سيصلك رمز التفعيل قريباً."
+                }
+                requestSuccessMessage = successText
+                Toast.makeText(context, successText, Toast.LENGTH_LONG).show()
             } else {
                 errorMessage = res.errorMessage ?: "تعذر إرسال الطلب، يمكنك إرساله عبر واتساب مباشرة."
             }
@@ -247,13 +263,22 @@ fun LicenseDialog(
     fun openWhatsApp() {
         val cleanName = subscriberName.trim()
         val cleanPhone = phone.trim()
+        val requestType = when {
+            isUpgrade -> "UPGRADE"
+            isExpired || isCurrentlyActivated -> "RENEWAL"
+            else -> "NEW"
+        }
         if (cleanName.isNotBlank()) {
             coroutineScope.launch {
                 UserDeviceTracker.saveUserRegistrationInfo(context, cleanName, cleanPhone)
-                FirebaseLicenseService.sendSubscriptionRequestOnline(cleanName, cleanPhone, selectedPlan, deviceCode)
+                FirebaseLicenseService.sendSubscriptionRequestOnline(cleanName, cleanPhone, selectedPlan, deviceCode, requestType)
             }
         }
-        val url = LicenseManager.getWhatsAppActivationUrl(deviceCode, subscriberName, selectedPlan)
+        val url = if (isExpired || isCurrentlyActivated) {
+            LicenseManager.getWhatsAppRenewalUrl(deviceCode, subscriberName, selectedPlan, isUpgrade)
+        } else {
+            LicenseManager.getWhatsAppActivationUrl(deviceCode, subscriberName, selectedPlan)
+        }
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
@@ -708,7 +733,12 @@ fun LicenseDialog(
                         ) {
                             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("طلب تفعيل عبر واتساب", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            val waText = when {
+                                isUpgrade -> "طلب ترقية عبر واتساب"
+                                isExpired -> "طلب تجديد عبر واتساب"
+                                else -> "طلب تفعيل عبر واتساب"
+                            }
+                            Text(waText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -731,7 +761,12 @@ fun LicenseDialog(
                         } else {
                             Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("إرسال طلب اشتراك", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            val onlineBtnText = when {
+                                isUpgrade -> "إرسال طلب ترقية الباقة"
+                                isExpired -> "إرسال طلب تجديد الاشتراك"
+                                else -> "إرسال طلب اشتراك"
+                            }
+                            Text(onlineBtnText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
