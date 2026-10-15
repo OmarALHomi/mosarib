@@ -681,6 +681,7 @@
     <button class="tab-btn" id="tabBtnGenerator" onclick="switchTab('generator')">🔑 توليد الرموز</button>
     <button class="tab-btn" id="tabBtnFeedbacks" onclick="switchTab('feedbacks')">💬 الملاحظات</button>
     <button class="tab-btn" id="tabBtnAdmins" onclick="switchTab('admins')">🛡️ مسؤولو النظام والأمان</button>
+    <button class="tab-btn" id="tabBtnPublicPortal" onclick="switchTab('publicPortal')">🌐 إدارة الموقع العام والأسعار والأخبار</button>
   </div>
 
   <!-- Tab: Royal Analytics & Interactive Visual Charts -->
@@ -1194,6 +1195,102 @@
     </div>
   </div>
 
+  <!-- Tab: Public Portal Management (التحكم بأسعار المياه وأخبار وزوار الموقع العام) -->
+  <div id="tab-publicPortal" style="display: none;">
+    <div class="grid-2">
+      <!-- Water Status & Market Rates Control -->
+      <div class="card" style="border: 1px solid rgba(0, 188, 212, 0.4);">
+        <div class="card-title">💧 التحكم بمؤشر وفرة المياه وبورصة أسعار الري المعروضة للزوار</div>
+        <form id="portalSettingsForm" onsubmit="handleSavePortalSettings(event)">
+          <div class="form-group">
+            <label for="pWaterStatus">حالة وفرة المياه العامة:</label>
+            <select id="pWaterStatus">
+              <option value="ABUNDANT">وفيرة جداً ومرتفعة المنسوب 🌊</option>
+              <option value="GOOD" selected>متوفرة ومستقرة في معظم المناطق ✅</option>
+              <option value="MODERATE">متوسطة وتستدعي ترشيد الضخ ⚠️</option>
+              <option value="SCARCE">شحيحة وطلب متزايد على الساعات ⛔</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="pWaterStatusText">وصف حالة المياه اللحظي للزوار:</label>
+            <input type="text" id="pWaterStatusText" placeholder="مثال: استقرار منسوب مياه الآبار الجوفية ومعدلات الضخ ممتازة">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label for="pWaterIndexPercent">نسبة وفرة المياه (%):</label>
+              <input type="number" id="pWaterIndexPercent" min="10" max="100" value="85" required>
+            </div>
+            <div class="form-group">
+              <label for="pActiveRegions">عدد النطاقات الزراعية المغطاة:</label>
+              <input type="number" id="pActiveRegions" min="1" max="100" value="18" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+            <div class="form-group">
+              <label for="pAvgPrice">متوسط سعر الساعة:</label>
+              <input type="number" id="pAvgPrice" placeholder="7500" required>
+            </div>
+            <div class="form-group">
+              <label for="pMinPrice">أقل سعر ساعة:</label>
+              <input type="number" id="pMinPrice" placeholder="6000" required>
+            </div>
+            <div class="form-group">
+              <label for="pMaxPrice">أعلى سعر ساعة:</label>
+              <input type="number" id="pMaxPrice" placeholder="9500" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="pCurrency">العملة المعتمدة:</label>
+            <input type="text" id="pCurrency" value="ريال" required>
+          </div>
+
+          <div class="form-group">
+            <label for="pHeadlineAlert">الشريط الإخباري المتحرك في أعلى الموقع للزوار:</label>
+            <input type="text" id="pHeadlineAlert" placeholder="تنبيه أو إشعار يظهر في الشريط الإخباري العلوي">
+          </div>
+
+          <button type="submit" class="btn" id="savePortalSettingsBtn">💾 حفظ وتحديث مؤشرات الموقع العام فوراً</button>
+        </form>
+      </div>
+
+      <!-- Add News & Articles to Public Portal -->
+      <div class="card" style="border: 1px solid rgba(255, 179, 0, 0.4);">
+        <div class="card-title">📰 نشر خبر / تقرير مائي جديد في واجهة الزوار</div>
+        <form id="portalNewsForm" onsubmit="handleCreatePortalNews(event)">
+          <div class="form-group">
+            <label for="newsTitleInput">عنوان الخبر أو التقرير الزراعي:</label>
+            <input type="text" id="newsTitleInput" placeholder="مثال: تقرير استقرار أسعار ساعات الري في محافظة صنعاء" required>
+          </div>
+          <div class="form-group">
+            <label for="newsCategoryInput">تصنيف التقرير:</label>
+            <select id="newsCategoryInput">
+              <option value="تقارير مياه الآبار">تقارير مياه الآبار 💧</option>
+              <option value="بورصة أسعار الري">بورصة أسعار الري 💰</option>
+              <option value="إرشادات زراعية وفنية">إرشادات زراعية وفنية 🌱</option>
+              <option value="تحديثات المنظومة">تحديثات المنظومة 🚀</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="newsSummaryInput">ملخص وتفاصيل التقرير المنشور:</label>
+            <textarea id="newsSummaryInput" rows="4" placeholder="اكتب ملخص الخبر الذي سيقرأه الزوار والمزارعون في الصفحة الرئيسية..." required></textarea>
+          </div>
+          <button type="submit" class="btn" style="background: linear-gradient(135deg, #FFB300, #FF8F00); color: #000; font-weight: 800;">
+            📢 نشر التقرير للعامة الآن
+          </button>
+        </form>
+
+        <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;">
+
+        <div style="font-weight: 800; font-size: 14px; margin-bottom: 12px; color: #FFF;">📋 قائمة الأخبار المنشورة حالياً (مع إمكانية الحذف):</div>
+        <div id="adminPortalNewsList" style="max-height: 250px; overflow-y: auto;">
+          <div style="text-align: center; color: var(--text-muted); padding: 14px;">جاري تحميل الأخبار...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <footer>
     لوحة الإدارة والتحكم — المهندس عمر الحومي &copy; 2026 | جميع الحقوق محفوظة
   </footer>
@@ -1509,7 +1606,7 @@
 
   function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    ['analytics', 'requests', 'users', 'releases', 'policies', 'push', 'broadcast', 'generator', 'feedbacks', 'admins'].forEach(id => {
+    ['analytics', 'requests', 'users', 'releases', 'policies', 'push', 'broadcast', 'generator', 'feedbacks', 'admins', 'publicPortal'].forEach(id => {
       const el = document.getElementById(`tab-${id}`);
       if (el) el.style.display = 'none';
     });
@@ -1525,6 +1622,142 @@
       renderAllRoyalCharts();
     } else if (tabId === 'admins') {
       loadAdminsList();
+    } else if (tabId === 'publicPortal') {
+      loadPortalSettingsForAdmin();
+    }
+  }
+
+  async function loadPortalSettingsForAdmin() {
+    try {
+      const res = await fetch('api/public_data.php');
+      const json = await res.json();
+      if (json.success && json.data) {
+        const m = json.data.water_metrics;
+        if (m) {
+          document.getElementById("pWaterStatus").value = m.status || 'GOOD';
+          document.getElementById("pWaterStatusText").value = m.status_text || '';
+          document.getElementById("pWaterIndexPercent").value = m.index_percent || 85;
+          document.getElementById("pActiveRegions").value = m.active_regions || 18;
+          document.getElementById("pAvgPrice").value = m.avg_hourly_price || 7500;
+          document.getElementById("pMinPrice").value = m.min_hourly_price || 6000;
+          document.getElementById("pMaxPrice").value = m.max_hourly_price || 9500;
+          document.getElementById("pCurrency").value = m.currency_symbol || 'ريال';
+          document.getElementById("pHeadlineAlert").value = m.headline_alert || '';
+        }
+
+        renderAdminPortalNews(json.data.news || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function renderAdminPortalNews(news) {
+    const cont = document.getElementById("adminPortalNewsList");
+    if (!cont) return;
+    if (news.length === 0) {
+      cont.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 14px;">لا توجد أخبار منشورة.</div>`;
+      return;
+    }
+
+    cont.innerHTML = news.map(item => `
+      <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <b style="font-size: 13.5px; color: #FFF;">${item.title}</b>
+          <div style="font-size: 11px; color: var(--text-muted);">${item.category} • ${new Date(item.published_at).toLocaleDateString('ar-EG')}</div>
+        </div>
+        <button class="btn-sm" style="background: rgba(229,57,53,0.2); color: #EF5350; border: 1px solid #EF5350;" onclick="deletePortalNews('${item.id}')">حذف 🗑️</button>
+      </div>
+    `).join('');
+  }
+
+  async function handleSavePortalSettings(e) {
+    e.preventDefault();
+    const btn = document.getElementById("savePortalSettingsBtn");
+    btn.disabled = true;
+
+    try {
+      const payload = {
+        action: 'update_settings',
+        water_status: document.getElementById("pWaterStatus").value,
+        water_status_text: document.getElementById("pWaterStatusText").value.trim(),
+        water_index_percent: parseInt(document.getElementById("pWaterIndexPercent").value),
+        active_regions_count: parseInt(document.getElementById("pActiveRegions").value),
+        avg_hourly_price: parseFloat(document.getElementById("pAvgPrice").value),
+        min_hourly_price: parseFloat(document.getElementById("pMinPrice").value),
+        max_hourly_price: parseFloat(document.getElementById("pMaxPrice").value),
+        currency_symbol: document.getElementById("pCurrency").value.trim(),
+        headline_alert: document.getElementById("pHeadlineAlert").value.trim(),
+        csrf_token: currentCsrfToken
+      };
+
+      const res = await fetch('api/public_data.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ " + data.message);
+      } else {
+        alert("خطأ: " + data.message);
+      }
+    } catch (err) {
+      alert("تعذر الحفظ: " + err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function handleCreatePortalNews(e) {
+    e.preventDefault();
+    const title = document.getElementById("newsTitleInput").value.trim();
+    const cat = document.getElementById("newsCategoryInput").value;
+    const summary = document.getElementById("newsSummaryInput").value.trim();
+
+    try {
+      const res = await fetch('api/public_data.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_news',
+          title: title,
+          category: cat,
+          summary: summary,
+          csrf_token: currentCsrfToken
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ " + data.message);
+        document.getElementById("portalNewsForm").reset();
+        loadPortalSettingsForAdmin();
+      } else {
+        alert("خطأ: " + data.message);
+      }
+    } catch (err) {
+      alert("فشل النشر: " + err.message);
+    }
+  }
+
+  async function deletePortalNews(id) {
+    if (!confirm("هل أنت متأكد من حذف هذا الخبر من واجهة الموقع العام؟")) return;
+    try {
+      const res = await fetch('api/public_data.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete_news',
+          id: id,
+          csrf_token: currentCsrfToken
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadPortalSettingsForAdmin();
+      }
+    } catch (err) {
+      alert("خطأ: " + err.message);
     }
   }
 
