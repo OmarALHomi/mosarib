@@ -15,6 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --primary: #00838F;
@@ -628,6 +629,7 @@
 
   <!-- Tabs Navigation -->
   <div class="tabs">
+    <button class="tab-btn" id="tabBtnAnalytics" onclick="switchTab('analytics')">📊 المخططات والرسوم البيانية الملكية</button>
     <button class="tab-btn" id="tabBtnRequests" onclick="switchTab('requests')">🔔 طلبات التفعيل <span id="badgeReqCount" class="badge badge-yearly" style="display:none; margin-right:4px;">0</span></button>
     <button class="tab-btn active" id="tabBtnUsers" onclick="switchTab('users')">👥 المستخدمون</button>
     <button class="tab-btn" id="tabBtnReleases" onclick="switchTab('releases')">📦 رفع النسخ وروابط التحميل</button>
@@ -636,6 +638,91 @@
     <button class="tab-btn" id="tabBtnBroadcast" onclick="switchTab('broadcast')">📢 الإعلانات والتحديث</button>
     <button class="tab-btn" id="tabBtnGenerator" onclick="switchTab('generator')">🔑 توليد الرموز</button>
     <button class="tab-btn" id="tabBtnFeedbacks" onclick="switchTab('feedbacks')">💬 الملاحظات</button>
+  </div>
+
+  <!-- Tab: Royal Analytics & Interactive Visual Charts -->
+  <div id="tab-analytics" style="display: none;">
+    <!-- Top KPI Row -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+      <div class="stat-card" style="background: linear-gradient(135deg, rgba(0,131,143,0.2), rgba(18,35,43,0.9)); border: 1px solid rgba(0,188,212,0.4);">
+        <div class="stat-info">
+          <h3 style="color: #4DD0E1;">إجمالي العمليات المسجلة سحابياً</h3>
+          <div class="num" id="kpiTotalOperations" style="color: #E0F7FA;">0</div>
+          <small style="color: var(--text-muted); font-size: 11px;">مجموع دورات الري + السندات + الآبار</small>
+        </div>
+        <div class="stat-icon" style="color: #00BCD4;">⚡</div>
+      </div>
+      <div class="stat-card" style="background: linear-gradient(135deg, rgba(76,175,80,0.15), rgba(18,35,43,0.9)); border: 1px solid rgba(76,175,80,0.4);">
+        <div class="stat-info">
+          <h3 style="color: #81C784;">نسبة تحويل المشتركين</h3>
+          <div class="num" id="kpiConversionRate" style="color: #C8E6C9;">0%</div>
+          <small style="color: var(--text-muted); font-size: 11px;">نسبة من دفعوا واشتركوا مقارنة بالإجمالي</small>
+        </div>
+        <div class="stat-icon" style="color: #4CAF50;">📈</div>
+      </div>
+      <div class="stat-card" style="background: linear-gradient(135deg, rgba(255,179,0,0.15), rgba(18,35,43,0.9)); border: 1px solid rgba(255,179,0,0.4);">
+        <div class="stat-info">
+          <h3 style="color: #FFD54F;">المستخدمون النشطون (أونلاين)</h3>
+          <div class="num" id="kpiOnlineUsers" style="color: #FFF9C4;">0</div>
+          <small style="color: var(--text-muted); font-size: 11px;">متصلون الآن خلال آخر 24 ساعة</small>
+        </div>
+        <div class="stat-icon" style="color: #FFB300;">🟢</div>
+      </div>
+      <div class="stat-card" style="background: linear-gradient(135deg, rgba(156,39,176,0.15), rgba(18,35,43,0.9)); border: 1px solid rgba(156,39,176,0.4);">
+        <div class="stat-info">
+          <h3 style="color: #BA68C8;">التحديثات والإصدار الأحدث</h3>
+          <div class="num" id="kpiLatestVersion" style="font-size: 20px; color: #F3E5F5;">v1.0.0</div>
+          <small style="color: var(--text-muted); font-size: 11px;">إصدار التطبيق المنتشر حالياً</small>
+        </div>
+        <div class="stat-icon" style="color: #AB47BC;">🚀</div>
+      </div>
+    </div>
+
+    <!-- Charts Grid 1: Subscriptions & Operations Distribution -->
+    <div class="grid-2" style="margin-bottom: 24px;">
+      <div class="card" style="border: 1px solid rgba(0, 150, 166, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div class="card-title" style="margin-bottom: 0;">🥧 توزيع حالة التراخيص والاشتراكات</div>
+          <span style="font-size: 11px; background: rgba(0,188,212,0.15); color: #00BCD4; padding: 4px 8px; border-radius: 6px;">مباشر من فايربيس</span>
+        </div>
+        <div style="height: 280px; position: relative;">
+          <canvas id="chartSubscriptionDistribution"></canvas>
+        </div>
+      </div>
+
+      <div class="card" style="border: 1px solid rgba(255, 179, 0, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div class="card-title" style="margin-bottom: 0; color: #FFB300;">📊 استهلاك العمليات في النسخ التجريبية</div>
+          <span style="font-size: 11px; background: rgba(255,179,0,0.15); color: #FFB300; padding: 4px 8px; border-radius: 6px;">قرب نفاد التجربة</span>
+        </div>
+        <div style="height: 280px; position: relative;">
+          <canvas id="chartOperationsBucket"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Grid 2: Timeline Activity & Devices Breakdown -->
+    <div class="grid-2">
+      <div class="card" style="border: 1px solid rgba(76, 175, 80, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div class="card-title" style="margin-bottom: 0; color: #81C784;">📈 نشاط وتسجيل المستخدمين الجدد (Timeline)</div>
+          <span style="font-size: 11px; background: rgba(76,175,80,0.15); color: #81C784; padding: 4px 8px; border-radius: 6px;">حركة التسجيل اليومية</span>
+        </div>
+        <div style="height: 280px; position: relative;">
+          <canvas id="chartUsersTimeline"></canvas>
+        </div>
+      </div>
+
+      <div class="card" style="border: 1px solid rgba(171, 71, 188, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div class="card-title" style="margin-bottom: 0; color: #CE93D8;">📱 انتشار إصدارات هواتف الأندرويد والتطبيق</div>
+          <span style="font-size: 11px; background: rgba(171,71,188,0.15); color: #CE93D8; padding: 4px 8px; border-radius: 6px;">Android & App Versions</span>
+        </div>
+        <div style="height: 280px; position: relative;">
+          <canvas id="chartAppVersions"></canvas>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Tab: Subscription Requests (طلبات الاشتراك الواردة من التطبيق) -->
@@ -1143,7 +1230,7 @@
 
   function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    ['requests', 'users', 'releases', 'policies', 'push', 'broadcast', 'generator', 'feedbacks'].forEach(id => {
+    ['analytics', 'requests', 'users', 'releases', 'policies', 'push', 'broadcast', 'generator', 'feedbacks'].forEach(id => {
       const el = document.getElementById(`tab-${id}`);
       if (el) el.style.display = 'none';
     });
@@ -1155,6 +1242,8 @@
 
     if (tabId === 'releases') {
       loadReleasesList();
+    } else if (tabId === 'analytics') {
+      renderAllRoyalCharts();
     }
   }
 
@@ -1597,6 +1686,239 @@
     }
   }
 
+  // Chart Instances Registry
+  let chartInstances = {};
+
+  function destroyChart(id) {
+    if (chartInstances[id]) {
+      chartInstances[id].destroy();
+      delete chartInstances[id];
+    }
+  }
+
+  function renderAllRoyalCharts() {
+    if (typeof Chart === 'undefined') return;
+
+    // 1. Calculate Real KPIs
+    let totalOps = 0;
+    let onlineCount = 0;
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+
+    let versionsMap = {};
+    let activeSubs = 0;
+    let trialCount = 0;
+    let blockedCount = 0;
+
+    // Operations buckets for trial users
+    let bucket0to50 = 0;
+    let bucket51to100 = 0;
+    let bucket101to150 = 0;
+    let bucket151to200 = 0;
+    let bucketOverLimit = 0;
+
+    allUsers.forEach(u => {
+      const ops = u.operationsCount || 0;
+      totalOps += ops;
+
+      if (u.lastSeen && u.lastSeen >= oneDayAgo) {
+        onlineCount++;
+      }
+
+      if (u.isBlocked) {
+        blockedCount++;
+      } else if (u.isActivated) {
+        activeSubs++;
+      } else {
+        trialCount++;
+        if (ops <= 50) bucket0to50++;
+        else if (ops <= 100) bucket51to100++;
+        else if (ops <= 150) bucket101to150++;
+        else if (ops <= 200) bucket151to200++;
+        else bucketOverLimit++;
+      }
+
+      const vName = u.appVersion || 'v1.0.0';
+      versionsMap[vName] = (versionsMap[vName] || 0) + 1;
+    });
+
+    const kpiOpsEl = document.getElementById("kpiTotalOperations");
+    if (kpiOpsEl) kpiOpsEl.innerText = totalOps.toLocaleString('ar-EG');
+
+    const conversionRate = allUsers.length > 0 ? ((activeSubs / allUsers.length) * 100).toFixed(1) : 0;
+    const kpiConvEl = document.getElementById("kpiConversionRate");
+    if (kpiConvEl) kpiConvEl.innerText = `${conversionRate}%`;
+
+    const kpiOnlineEl = document.getElementById("kpiOnlineUsers");
+    if (kpiOnlineEl) kpiOnlineEl.innerText = onlineCount;
+
+    const latestVer = Object.keys(versionsMap).sort().pop() || 'v1.0.0';
+    const kpiVerEl = document.getElementById("kpiLatestVersion");
+    if (kpiVerEl) kpiVerEl.innerText = latestVer;
+
+    // Chart Font & Theme Colors
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const textColor = isDark ? '#B2DFDB' : '#37474F';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+
+    // 1. Subscription Distribution Donut Chart
+    destroyChart('chartSubscriptionDistribution');
+    const ctxSub = document.getElementById('chartSubscriptionDistribution');
+    if (ctxSub) {
+      chartInstances['chartSubscriptionDistribution'] = new Chart(ctxSub, {
+        type: 'doughnut',
+        data: {
+          labels: ['مشتركون مفعّلون ⭐', 'نسخ تجريبية ⏳', 'محظورون ⛔'],
+          datasets: [{
+            data: [activeSubs, trialCount, blockedCount],
+            backgroundColor: ['#00897B', '#FFB300', '#E53935'],
+            borderColor: isDark ? '#12232B' : '#FFFFFF',
+            borderWidth: 3,
+            hoverOffset: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: textColor, font: { family: 'Cairo', size: 12 } }
+            }
+          },
+          cutout: '68%'
+        }
+      });
+    }
+
+    // 2. Operations Bucket Bar Chart (Trial Consumption)
+    destroyChart('chartOperationsBucket');
+    const ctxBucket = document.getElementById('chartOperationsBucket');
+    if (ctxBucket) {
+      chartInstances['chartOperationsBucket'] = new Chart(ctxBucket, {
+        type: 'bar',
+        data: {
+          labels: ['0-50 عملية', '51-100 عملية', '101-150 عملية', '151-200 عملية', 'تجاوز الحد (+200)'],
+          datasets: [{
+            label: 'عدد المستخدمين التجريبيين',
+            data: [bucket0to50, bucket51to100, bucket101to150, bucket151to200, bucketOverLimit],
+            backgroundColor: ['#4DB6AC', '#26A69A', '#FFA726', '#FF7043', '#EF5350'],
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              ticks: { color: textColor, font: { family: 'Cairo', size: 11 } },
+              grid: { display: false }
+            },
+            y: {
+              ticks: { color: textColor, font: { family: 'Cairo' }, stepSize: 1 },
+              grid: { color: gridColor }
+            }
+          }
+        }
+      });
+    }
+
+    // 3. User Registration Timeline (Last 7 Days)
+    destroyChart('chartUsersTimeline');
+    const ctxTimeline = document.getElementById('chartUsersTimeline');
+    if (ctxTimeline) {
+      const days = [];
+      const dayCounts = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now - i * 24 * 60 * 60 * 1000);
+        const dayStr = d.toLocaleDateString('ar-EG', { weekday: 'short', day: 'numeric', month: 'numeric' });
+        days.push(dayStr);
+
+        const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const endOfDay = startOfDay + 24 * 60 * 60 * 1000;
+        const count = allUsers.filter(u => u.firstSeen && u.firstSeen >= startOfDay && u.firstSeen < endOfDay).length;
+        dayCounts.push(count);
+      }
+
+      chartInstances['chartUsersTimeline'] = new Chart(ctxTimeline, {
+        type: 'line',
+        data: {
+          labels: days,
+          datasets: [{
+            label: 'المستخدمون الجدد',
+            data: dayCounts,
+            fill: true,
+            borderColor: '#4CAF50',
+            backgroundColor: 'rgba(76, 175, 80, 0.15)',
+            tension: 0.4,
+            pointBackgroundColor: '#81C784',
+            pointRadius: 5,
+            pointHoverRadius: 7
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              ticks: { color: textColor, font: { family: 'Cairo', size: 11 } },
+              grid: { display: false }
+            },
+            y: {
+              ticks: { color: textColor, font: { family: 'Cairo' }, stepSize: 1 },
+              grid: { color: gridColor }
+            }
+          }
+        }
+      });
+    }
+
+    // 4. App Versions Polar / Bar
+    destroyChart('chartAppVersions');
+    const ctxVer = document.getElementById('chartAppVersions');
+    if (ctxVer) {
+      const vLabels = Object.keys(versionsMap);
+      const vValues = Object.values(versionsMap);
+
+      chartInstances['chartAppVersions'] = new Chart(ctxVer, {
+        type: 'bar',
+        data: {
+          labels: vLabels.length > 0 ? vLabels : ['v1.0.0'],
+          datasets: [{
+            label: 'عدد الهواتف',
+            data: vValues.length > 0 ? vValues : [allUsers.length],
+            backgroundColor: ['#AB47BC', '#7E57C2', '#5C6BC0', '#42A5F5', '#26C6DA'],
+            borderRadius: 8
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              ticks: { color: textColor, font: { family: 'Cairo' }, stepSize: 1 },
+              grid: { color: gridColor }
+            },
+            y: {
+              ticks: { color: textColor, font: { family: 'Cairo', size: 12 } },
+              grid: { display: false }
+            }
+          }
+        }
+      });
+    }
+  }
+
   function updateStats() {
     document.getElementById("statTotalUsers").innerText = allUsers.length;
     const activeLic = allUsers.filter(u => u.isActivated && !u.isBlocked).length;
@@ -1617,6 +1939,12 @@
       } else {
         badge.style.display = "none";
       }
+    }
+
+    // Update charts if active tab
+    const analyticsTab = document.getElementById("tab-analytics");
+    if (analyticsTab && analyticsTab.style.display !== 'none') {
+      renderAllRoyalCharts();
     }
   }
 

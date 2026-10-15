@@ -15,6 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --primary: #00838F;
@@ -628,13 +629,100 @@
 
   <!-- Tabs Navigation -->
   <div class="tabs">
+    <button class="tab-btn" id="tabBtnAnalytics" onclick="switchTab('analytics')">📊 المخططات والرسوم البيانية الملكية</button>
     <button class="tab-btn" id="tabBtnRequests" onclick="switchTab('requests')">🔔 طلبات التفعيل <span id="badgeReqCount" class="badge badge-yearly" style="display:none; margin-right:4px;">0</span></button>
     <button class="tab-btn active" id="tabBtnUsers" onclick="switchTab('users')">👥 المستخدمون</button>
+    <button class="tab-btn" id="tabBtnReleases" onclick="switchTab('releases')">📦 رفع النسخ وروابط التحميل</button>
     <button class="tab-btn" id="tabBtnPolicies" onclick="switchTab('policies')">⚙️ سياسات التطبيق السحابية</button>
-    <button class="tab-btn" id="tabBtnPush" onclick="switchTab('push')">📲 إشعارات Push</button>
+    <button class="tab-btn" id="tabBtnPush" onclick="switchTab('push')">📲 إشعارات Push الحقيقية</button>
     <button class="tab-btn" id="tabBtnBroadcast" onclick="switchTab('broadcast')">📢 الإعلانات والتحديث</button>
     <button class="tab-btn" id="tabBtnGenerator" onclick="switchTab('generator')">🔑 توليد الرموز</button>
     <button class="tab-btn" id="tabBtnFeedbacks" onclick="switchTab('feedbacks')">💬 الملاحظات</button>
+  </div>
+
+  <!-- Tab: Royal Analytics & Interactive Visual Charts -->
+  <div id="tab-analytics" style="display: none;">
+    <!-- Top KPI Row -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+      <div class="stat-card" style="background: linear-gradient(135deg, rgba(0,131,143,0.2), rgba(18,35,43,0.9)); border: 1px solid rgba(0,188,212,0.4);">
+        <div class="stat-info">
+          <h3 style="color: #4DD0E1;">إجمالي العمليات المسجلة سحابياً</h3>
+          <div class="num" id="kpiTotalOperations" style="color: #E0F7FA;">0</div>
+          <small style="color: var(--text-muted); font-size: 11px;">مجموع دورات الري + السندات + الآبار</small>
+        </div>
+        <div class="stat-icon" style="color: #00BCD4;">⚡</div>
+      </div>
+      <div class="stat-card" style="background: linear-gradient(135deg, rgba(76,175,80,0.15), rgba(18,35,43,0.9)); border: 1px solid rgba(76,175,80,0.4);">
+        <div class="stat-info">
+          <h3 style="color: #81C784;">نسبة تحويل المشتركين</h3>
+          <div class="num" id="kpiConversionRate" style="color: #C8E6C9;">0%</div>
+          <small style="color: var(--text-muted); font-size: 11px;">نسبة من دفعوا واشتركوا مقارنة بالإجمالي</small>
+        </div>
+        <div class="stat-icon" style="color: #4CAF50;">📈</div>
+      </div>
+      <div class="stat-card" style="background: linear-gradient(135deg, rgba(255,179,0,0.15), rgba(18,35,43,0.9)); border: 1px solid rgba(255,179,0,0.4);">
+        <div class="stat-info">
+          <h3 style="color: #FFD54F;">المستخدمون النشطون (أونلاين)</h3>
+          <div class="num" id="kpiOnlineUsers" style="color: #FFF9C4;">0</div>
+          <small style="color: var(--text-muted); font-size: 11px;">متصلون الآن خلال آخر 24 ساعة</small>
+        </div>
+        <div class="stat-icon" style="color: #FFB300;">🟢</div>
+      </div>
+      <div class="stat-card" style="background: linear-gradient(135deg, rgba(156,39,176,0.15), rgba(18,35,43,0.9)); border: 1px solid rgba(156,39,176,0.4);">
+        <div class="stat-info">
+          <h3 style="color: #BA68C8;">التحديثات والإصدار الأحدث</h3>
+          <div class="num" id="kpiLatestVersion" style="font-size: 20px; color: #F3E5F5;">v1.0.0</div>
+          <small style="color: var(--text-muted); font-size: 11px;">إصدار التطبيق المنتشر حالياً</small>
+        </div>
+        <div class="stat-icon" style="color: #AB47BC;">🚀</div>
+      </div>
+    </div>
+
+    <!-- Charts Grid 1: Subscriptions & Operations Distribution -->
+    <div class="grid-2" style="margin-bottom: 24px;">
+      <div class="card" style="border: 1px solid rgba(0, 150, 166, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div class="card-title" style="margin-bottom: 0;">🥧 توزيع حالة التراخيص والاشتراكات</div>
+          <span style="font-size: 11px; background: rgba(0,188,212,0.15); color: #00BCD4; padding: 4px 8px; border-radius: 6px;">مباشر من فايربيس</span>
+        </div>
+        <div style="height: 280px; position: relative;">
+          <canvas id="chartSubscriptionDistribution"></canvas>
+        </div>
+      </div>
+
+      <div class="card" style="border: 1px solid rgba(255, 179, 0, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div class="card-title" style="margin-bottom: 0; color: #FFB300;">📊 استهلاك العمليات في النسخ التجريبية</div>
+          <span style="font-size: 11px; background: rgba(255,179,0,0.15); color: #FFB300; padding: 4px 8px; border-radius: 6px;">قرب نفاد التجربة</span>
+        </div>
+        <div style="height: 280px; position: relative;">
+          <canvas id="chartOperationsBucket"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Grid 2: Timeline Activity & Devices Breakdown -->
+    <div class="grid-2">
+      <div class="card" style="border: 1px solid rgba(76, 175, 80, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div class="card-title" style="margin-bottom: 0; color: #81C784;">📈 نشاط وتسجيل المستخدمين الجدد (Timeline)</div>
+          <span style="font-size: 11px; background: rgba(76,175,80,0.15); color: #81C784; padding: 4px 8px; border-radius: 6px;">حركة التسجيل اليومية</span>
+        </div>
+        <div style="height: 280px; position: relative;">
+          <canvas id="chartUsersTimeline"></canvas>
+        </div>
+      </div>
+
+      <div class="card" style="border: 1px solid rgba(171, 71, 188, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div class="card-title" style="margin-bottom: 0; color: #CE93D8;">📱 انتشار إصدارات هواتف الأندرويد والتطبيق</div>
+          <span style="font-size: 11px; background: rgba(171,71,188,0.15); color: #CE93D8; padding: 4px 8px; border-radius: 6px;">Android & App Versions</span>
+        </div>
+        <div style="height: 280px; position: relative;">
+          <canvas id="chartAppVersions"></canvas>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Tab: Subscription Requests (طلبات الاشتراك الواردة من التطبيق) -->
@@ -711,6 +799,61 @@
             <tr><td colspan="8" style="text-align: center; color: var(--text-muted);">جاري تحميل قائمة المستخدمين من السحابة...</td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Releases & APK Upload Manager -->
+  <div id="tab-releases" style="display: none;">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">📦 رفع نسخة APK جديدة وإنشاء رابط تحميل مباشر</div>
+        <form id="apkUploadForm" onsubmit="handleApkUpload(event)">
+          <div class="form-group">
+            <label for="apkFile">اختيار ملف التطبيق (APK):</label>
+            <input type="file" id="apkFile" accept=".apk" required style="padding: 10px;">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label for="apkVersionName">اسم الإصدار (VersionName):</label>
+              <input type="text" id="apkVersionName" placeholder="مثال: 1.0.1" required>
+            </div>
+            <div class="form-group">
+              <label for="apkVersionCode">رقم الإصدار (VersionCode):</label>
+              <input type="number" id="apkVersionCode" placeholder="مثال: 2" min="1" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="apkReleaseNotes">ملاحظات الإصدار الجديد (الميزات والإصلاحات):</label>
+            <textarea id="apkReleaseNotes" rows="3" placeholder="اكتب ما تم إضافته أو إصلاحه في هذا التحديث..."></textarea>
+          </div>
+          <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="apkForceUpdate" style="width: auto;">
+            <label for="apkForceUpdate" style="margin: 0; cursor: pointer; color: var(--danger); font-weight: bold;">
+              🚀 تفعيل كتحديث إجباري وقفل كافة النسخ الأقدم فوراً في فايربيس
+            </label>
+          </div>
+          <button type="submit" class="btn" id="uploadApkBtn">⚡ رفع التطبيق وإنشاء رابط التحميل المباشر</button>
+          <div id="uploadProgress" style="display: none; margin-top: 14px; text-align: center;">
+            <div style="font-size: 13px; color: var(--accent);">جاري رفع ملف الـ APK وتثبيته على السيرفر...</div>
+          </div>
+        </form>
+
+        <hr style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;">
+
+        <div class="card-title" style="font-size: 15px;">🔗 أو ربط رابط تحميل خارجي مباشر (Google Drive / MediaFire)</div>
+        <div class="form-group">
+          <label for="externalApkUrl">رابط التحميل المباشر:</label>
+          <input type="url" id="externalApkUrl" placeholder="https://example.com/mosarib.apk">
+        </div>
+        <button class="btn btn-outline" onclick="setExternalCloudLink()">نشر الرابط الخارجي للمستخدمين 🚀</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📋 سجل الإصدارات وروابط التحميل المباشرة</div>
+        <div id="releasesListContainer" style="max-height: 480px; overflow-y: auto;">
+          <div style="text-align: center; color: var(--text-muted); padding: 24px;">جاري تحميل سجل الإصدارات...</div>
+        </div>
       </div>
     </div>
   </div>
@@ -846,7 +989,12 @@
   <div id="tab-push" style="display: none;">
     <div class="grid-2">
       <div class="card">
-        <div class="card-title">🔔 إرسال إشعار فوري لستارة الهاتف (FCM Push)</div>
+        <div class="card-title">🔔 إرسال إشعار فوري حقيقي لستارة الهاتف (FCM Push)</div>
+        <div class="form-group">
+          <label for="fcmServerKeyInput">مفتاح خادم FCM (Firebase Cloud Messaging Server Key):</label>
+          <input type="password" id="fcmServerKeyInput" placeholder="AAAA... انسخه من Project Settings > Cloud Messaging (اختياري للإرسال المباشر)" onchange="saveFcmServerKey()">
+          <small style="color:var(--text-muted); font-size:11px;">إذا تركته فارغاً سيتم بث الإشعار عبر قاعدة البيانات، وإذا وضعته سيرن هاتف المزارع فوراً والتطبيق مغلق!</small>
+        </div>
         <div class="form-group">
           <label for="pushTarget">الجهة المستهدفة:</label>
           <select id="pushTarget">
@@ -867,16 +1015,16 @@
           <label for="pushUrl">رابط يفتح عند الضغط على الإشعار (اختياري):</label>
           <input type="url" id="pushUrl" placeholder="مثال: رابط تحديث، أو رابط واتساب للدعم">
         </div>
-        <button class="btn" onclick="sendCustomPushNotification()">📲 إرسال الإشعار الآن لهواتف المستخدمين</button>
+        <button class="btn" onclick="sendRealFcmPushNotification()">📲 إرسال الإشعار الآن لهواتف المستخدمين</button>
         <div id="pushStatus" style="margin-top: 12px; font-size: 13px; text-align: center; display: none;"></div>
       </div>
 
       <div class="card">
-        <div class="card-title">📲 مميزات إشعارات ستارة الهاتف (FCM)</div>
+        <div class="card-title">📲 مميزات إشعارات ستارة الهاتف الحقيقية (FCM)</div>
         <ul style="padding-right: 20px; line-height: 2.2; font-size: 14px; color: #B2DFDB;">
           <li><b>تصل والهاتف مقفل:</b> يرن الهاتف ويهتز ويظهر الإشعار في الستارة العلوية بأيقونة التطبيق حتى لو كان التطبيق مغلقاً تماماً.</li>
+          <li><b>إرسال سحابي هجين:</b> يرسل إشعار Google FCM المباشر ويرسله أيضاً لقاعدة بيانات التطبيق الداخلية لضمان وصوله للجميع 100%.</li>
           <li><b>تخصيص كامل:</b> تحكّم بالعنوان، النص، ورابط التحويل المباشر عند النقر.</li>
-          <li><b>ربط تلقائي:</b> كل مستخدم يفتح التطبيق يسجل توكن الـ FCM الخاص به سحابياً وتستهدفه مباشرة.</li>
         </ul>
       </div>
     </div>
@@ -1082,17 +1230,184 @@
 
   function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('tab-requests').style.display = 'none';
-    document.getElementById('tab-users').style.display = 'none';
-    document.getElementById('tab-policies').style.display = 'none';
-    document.getElementById('tab-push').style.display = 'none';
-    document.getElementById('tab-broadcast').style.display = 'none';
-    document.getElementById('tab-generator').style.display = 'none';
-    document.getElementById('tab-feedbacks').style.display = 'none';
+    ['analytics', 'requests', 'users', 'releases', 'policies', 'push', 'broadcast', 'generator', 'feedbacks'].forEach(id => {
+      const el = document.getElementById(`tab-${id}`);
+      if (el) el.style.display = 'none';
+    });
 
-    document.getElementById(`tab-${tabId}`).style.display = 'block';
+    const targetEl = document.getElementById(`tab-${tabId}`);
+    if (targetEl) targetEl.style.display = 'block';
     const activeBtn = document.getElementById(`tabBtn${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
     if (activeBtn) activeBtn.classList.add('active');
+
+    if (tabId === 'releases') {
+      loadReleasesList();
+    } else if (tabId === 'analytics') {
+      renderAllRoyalCharts();
+    }
+  }
+
+  function saveFcmServerKey() {
+    const key = document.getElementById("fcmServerKeyInput").value.trim();
+    localStorage.setItem("mosarib_fcm_server_key", key);
+  }
+
+  async function sendRealFcmPushNotification() {
+    const title = document.getElementById("pushTitle").value.trim();
+    const body = document.getElementById("pushBody").value.trim();
+    const url = document.getElementById("pushUrl").value.trim();
+    const target = document.getElementById("pushTarget").value;
+    const serverKey = document.getElementById("fcmServerKeyInput").value.trim() || localStorage.getItem("mosarib_fcm_server_key") || "";
+    const statusDiv = document.getElementById("pushStatus");
+
+    if (!title || !body) {
+      alert("يرجى كتابة عنوان الإشعار ونصه أولاً");
+      return;
+    }
+
+    statusDiv.style.display = "block";
+    statusDiv.style.color = "var(--accent)";
+    statusDiv.innerText = "جاري إرسال الإشعار وبثه عبر Google FCM وسحابة فايربيس...";
+
+    try {
+      const res = await fetch('api/fcm_sender.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title,
+          body: body,
+          action_url: url,
+          target: target,
+          fcm_server_key: serverKey
+        })
+      });
+
+      const resData = await res.json();
+      if (resData.success) {
+        statusDiv.style.color = "var(--success)";
+        const directMsg = resData.data.fcm_direct_used ? ` (تم الإرسال المباشر لـ ${resData.data.fcm_sent_success} هاتف)` : ' (تم بث الإشعار في السحابة وسيرن للأجهزة عند أول اتصال)';
+        statusDiv.innerHTML = `✅ ${resData.message}! إجمالي التوكنات المسجلة: <b>${resData.data.registered_tokens_count}</b>${directMsg}`;
+      } else {
+        throw new Error(resData.message || 'حدث خطأ غير معروف');
+      }
+    } catch (e) {
+      // Fallback directly to client-side RTDB broadcast
+      sendCustomPushNotification();
+    }
+  }
+
+  async function handleApkUpload(e) {
+    e.preventDefault();
+    const fileInput = document.getElementById("apkFile");
+    if (!fileInput.files || fileInput.files.length === 0) {
+      alert("يرجى اختيار ملف APK أولاً");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'upload');
+    formData.append('apk_file', fileInput.files[0]);
+    formData.append('version_name', document.getElementById("apkVersionName").value.trim());
+    formData.append('version_code', document.getElementById("apkVersionCode").value);
+    formData.append('release_notes', document.getElementById("apkReleaseNotes").value.trim());
+    formData.append('is_force_update', document.getElementById("apkForceUpdate").checked ? '1' : '0');
+
+    const progressDiv = document.getElementById("uploadProgress");
+    const btn = document.getElementById("uploadApkBtn");
+    btn.disabled = true;
+    progressDiv.style.display = "block";
+
+    try {
+      const res = await fetch('api/release_manager.php', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ " + data.message + "\n\nرابط التحميل المباشر:\n" + data.data.download_url);
+        document.getElementById("apkUploadForm").reset();
+        loadReleasesList();
+        loadFirebaseData();
+      } else {
+        alert("فشل الرفع: " + data.message);
+      }
+    } catch (err) {
+      alert("خطأ أثناء الرفع: " + err.message);
+    } finally {
+      btn.disabled = false;
+      progressDiv.style.display = "none";
+    }
+  }
+
+  async function setExternalCloudLink() {
+    const url = document.getElementById("externalApkUrl").value.trim();
+    if (!url) return alert("يرجى إدخال رابط التحميل المباشر");
+
+    const vCode = prompt("رقم الإصدار (VersionCode) الذي يتضمنه هذا الرابط (مثال: 2):", "2");
+    if (!vCode) return;
+    const isForce = confirm("هل تريد تفعيل هذا الرابط كتحديث إجباري وقفل النسخ القديمة فوراً؟");
+    const notes = prompt("ملاحظات ورسالة التحديث للمستخدمين:", "تحديث جديد متاح لتطبيق مُسَرِّب");
+
+    const formData = new FormData();
+    formData.append('action', 'set_cloud_link');
+    formData.append('custom_url', url);
+    formData.append('version_code', vCode);
+    formData.append('is_force_update', isForce ? '1' : '0');
+    formData.append('release_notes', notes || '');
+
+    try {
+      const res = await fetch('api/release_manager.php', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ تم ربط وبث الرابط لجميع المستخدمين في فايربيس بنجاح!");
+        loadFirebaseData();
+      } else {
+        alert("فشل: " + data.message);
+      }
+    } catch (err) {
+      alert("خطأ: " + err.message);
+    }
+  }
+
+  async function loadReleasesList() {
+    const container = document.getElementById("releasesListContainer");
+    if (!container) return;
+    try {
+      const res = await fetch('api/release_manager.php');
+      const data = await res.json();
+      const releases = (data.data && data.data.releases) ? data.data.releases : [];
+
+      if (releases.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 24px;">لا توجد نسخ APK مرفوعة على السيرفر بعد. يمكنك رفع أول نسخة عبر النموذج على اليمين.</div>`;
+        return;
+      }
+
+      container.innerHTML = releases.map(r => {
+        const sizeMb = (r.file_size / (1024 * 1024)).toFixed(1);
+        const dateStr = new Date(r.uploaded_at).toLocaleString('ar-EG');
+        return `
+          <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <b style="font-size: 15px; color: #FFF;">نسخة: v${r.version_name} (Code: ${r.version_code})</b>
+              <span class="badge ${r.is_force_update ? 'badge-blocked' : 'badge-active'}">${r.is_force_update ? 'تحديث إجباري' : 'إصدار اختياري'}</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+              الحجم: ${sizeMb} MB • تاريخ الرفع: ${dateStr}
+            </div>
+            <div style="font-size: 13px; line-height: 1.6; margin-bottom: 10px; color: var(--text);">
+              ${r.release_notes || 'بدون ملاحظات'}
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" value="${r.download_url}" readonly style="font-size: 12px; padding: 6px 10px; flex: 1;">
+              <button class="btn-sm btn-action" onclick="navigator.clipboard.writeText('${r.download_url}').then(()=>alert('تم نسخ رابط التحميل المباشر: ${r.download_url}'))">📋 نسخ الرابط</button>
+              <button class="btn-sm btn-action" onclick="window.open('${r.download_url}', '_blank')">📥 تنزيل</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    } catch (_) {
+      container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 24px;">سجل الإصدارات سيكون متاحاً بمجرد رفع الموقع إلى السيرفر (PHP Backend).</div>`;
+    }
   }
 
   async function sendCustomPushNotification() {
@@ -1371,6 +1686,239 @@
     }
   }
 
+  // Chart Instances Registry
+  let chartInstances = {};
+
+  function destroyChart(id) {
+    if (chartInstances[id]) {
+      chartInstances[id].destroy();
+      delete chartInstances[id];
+    }
+  }
+
+  function renderAllRoyalCharts() {
+    if (typeof Chart === 'undefined') return;
+
+    // 1. Calculate Real KPIs
+    let totalOps = 0;
+    let onlineCount = 0;
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+
+    let versionsMap = {};
+    let activeSubs = 0;
+    let trialCount = 0;
+    let blockedCount = 0;
+
+    // Operations buckets for trial users
+    let bucket0to50 = 0;
+    let bucket51to100 = 0;
+    let bucket101to150 = 0;
+    let bucket151to200 = 0;
+    let bucketOverLimit = 0;
+
+    allUsers.forEach(u => {
+      const ops = u.operationsCount || 0;
+      totalOps += ops;
+
+      if (u.lastSeen && u.lastSeen >= oneDayAgo) {
+        onlineCount++;
+      }
+
+      if (u.isBlocked) {
+        blockedCount++;
+      } else if (u.isActivated) {
+        activeSubs++;
+      } else {
+        trialCount++;
+        if (ops <= 50) bucket0to50++;
+        else if (ops <= 100) bucket51to100++;
+        else if (ops <= 150) bucket101to150++;
+        else if (ops <= 200) bucket151to200++;
+        else bucketOverLimit++;
+      }
+
+      const vName = u.appVersion || 'v1.0.0';
+      versionsMap[vName] = (versionsMap[vName] || 0) + 1;
+    });
+
+    const kpiOpsEl = document.getElementById("kpiTotalOperations");
+    if (kpiOpsEl) kpiOpsEl.innerText = totalOps.toLocaleString('ar-EG');
+
+    const conversionRate = allUsers.length > 0 ? ((activeSubs / allUsers.length) * 100).toFixed(1) : 0;
+    const kpiConvEl = document.getElementById("kpiConversionRate");
+    if (kpiConvEl) kpiConvEl.innerText = `${conversionRate}%`;
+
+    const kpiOnlineEl = document.getElementById("kpiOnlineUsers");
+    if (kpiOnlineEl) kpiOnlineEl.innerText = onlineCount;
+
+    const latestVer = Object.keys(versionsMap).sort().pop() || 'v1.0.0';
+    const kpiVerEl = document.getElementById("kpiLatestVersion");
+    if (kpiVerEl) kpiVerEl.innerText = latestVer;
+
+    // Chart Font & Theme Colors
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const textColor = isDark ? '#B2DFDB' : '#37474F';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+
+    // 1. Subscription Distribution Donut Chart
+    destroyChart('chartSubscriptionDistribution');
+    const ctxSub = document.getElementById('chartSubscriptionDistribution');
+    if (ctxSub) {
+      chartInstances['chartSubscriptionDistribution'] = new Chart(ctxSub, {
+        type: 'doughnut',
+        data: {
+          labels: ['مشتركون مفعّلون ⭐', 'نسخ تجريبية ⏳', 'محظورون ⛔'],
+          datasets: [{
+            data: [activeSubs, trialCount, blockedCount],
+            backgroundColor: ['#00897B', '#FFB300', '#E53935'],
+            borderColor: isDark ? '#12232B' : '#FFFFFF',
+            borderWidth: 3,
+            hoverOffset: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: textColor, font: { family: 'Cairo', size: 12 } }
+            }
+          },
+          cutout: '68%'
+        }
+      });
+    }
+
+    // 2. Operations Bucket Bar Chart (Trial Consumption)
+    destroyChart('chartOperationsBucket');
+    const ctxBucket = document.getElementById('chartOperationsBucket');
+    if (ctxBucket) {
+      chartInstances['chartOperationsBucket'] = new Chart(ctxBucket, {
+        type: 'bar',
+        data: {
+          labels: ['0-50 عملية', '51-100 عملية', '101-150 عملية', '151-200 عملية', 'تجاوز الحد (+200)'],
+          datasets: [{
+            label: 'عدد المستخدمين التجريبيين',
+            data: [bucket0to50, bucket51to100, bucket101to150, bucket151to200, bucketOverLimit],
+            backgroundColor: ['#4DB6AC', '#26A69A', '#FFA726', '#FF7043', '#EF5350'],
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              ticks: { color: textColor, font: { family: 'Cairo', size: 11 } },
+              grid: { display: false }
+            },
+            y: {
+              ticks: { color: textColor, font: { family: 'Cairo' }, stepSize: 1 },
+              grid: { color: gridColor }
+            }
+          }
+        }
+      });
+    }
+
+    // 3. User Registration Timeline (Last 7 Days)
+    destroyChart('chartUsersTimeline');
+    const ctxTimeline = document.getElementById('chartUsersTimeline');
+    if (ctxTimeline) {
+      const days = [];
+      const dayCounts = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now - i * 24 * 60 * 60 * 1000);
+        const dayStr = d.toLocaleDateString('ar-EG', { weekday: 'short', day: 'numeric', month: 'numeric' });
+        days.push(dayStr);
+
+        const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const endOfDay = startOfDay + 24 * 60 * 60 * 1000;
+        const count = allUsers.filter(u => u.firstSeen && u.firstSeen >= startOfDay && u.firstSeen < endOfDay).length;
+        dayCounts.push(count);
+      }
+
+      chartInstances['chartUsersTimeline'] = new Chart(ctxTimeline, {
+        type: 'line',
+        data: {
+          labels: days,
+          datasets: [{
+            label: 'المستخدمون الجدد',
+            data: dayCounts,
+            fill: true,
+            borderColor: '#4CAF50',
+            backgroundColor: 'rgba(76, 175, 80, 0.15)',
+            tension: 0.4,
+            pointBackgroundColor: '#81C784',
+            pointRadius: 5,
+            pointHoverRadius: 7
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              ticks: { color: textColor, font: { family: 'Cairo', size: 11 } },
+              grid: { display: false }
+            },
+            y: {
+              ticks: { color: textColor, font: { family: 'Cairo' }, stepSize: 1 },
+              grid: { color: gridColor }
+            }
+          }
+        }
+      });
+    }
+
+    // 4. App Versions Polar / Bar
+    destroyChart('chartAppVersions');
+    const ctxVer = document.getElementById('chartAppVersions');
+    if (ctxVer) {
+      const vLabels = Object.keys(versionsMap);
+      const vValues = Object.values(versionsMap);
+
+      chartInstances['chartAppVersions'] = new Chart(ctxVer, {
+        type: 'bar',
+        data: {
+          labels: vLabels.length > 0 ? vLabels : ['v1.0.0'],
+          datasets: [{
+            label: 'عدد الهواتف',
+            data: vValues.length > 0 ? vValues : [allUsers.length],
+            backgroundColor: ['#AB47BC', '#7E57C2', '#5C6BC0', '#42A5F5', '#26C6DA'],
+            borderRadius: 8
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              ticks: { color: textColor, font: { family: 'Cairo' }, stepSize: 1 },
+              grid: { color: gridColor }
+            },
+            y: {
+              ticks: { color: textColor, font: { family: 'Cairo', size: 12 } },
+              grid: { display: false }
+            }
+          }
+        }
+      });
+    }
+  }
+
   function updateStats() {
     document.getElementById("statTotalUsers").innerText = allUsers.length;
     const activeLic = allUsers.filter(u => u.isActivated && !u.isBlocked).length;
@@ -1391,6 +1939,12 @@
       } else {
         badge.style.display = "none";
       }
+    }
+
+    // Update charts if active tab
+    const analyticsTab = document.getElementById("tab-analytics");
+    if (analyticsTab && analyticsTab.style.display !== 'none') {
+      renderAllRoyalCharts();
     }
   }
 
