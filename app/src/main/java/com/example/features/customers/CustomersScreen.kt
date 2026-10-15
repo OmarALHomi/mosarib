@@ -627,19 +627,11 @@ fun CustomersScreen(
         )
     }
 
-    // مؤشر جاري قراءة ملف الإكسل بذكاء
+    // مؤشر جاري قراءة ملف الإكسل بذكاء بهوية مسرب المائية
     if (isImporting) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = {},
-            confirmButton = {},
-            title = { Text("قراءة ملف الإكسل", fontWeight = FontWeight.Bold) },
-            text = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = PrimaryTeal)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text("يتم فحص الأعمدة والبيانات بذكاء...")
-                }
-            }
+        com.example.core.ui.MosaribLoadingDialog(
+            title = "جاري قراءة ملف البيانات",
+            subTitle = "يتم فحص الأعمدة وتدفق البيانات بذكاء..."
         )
     }
 

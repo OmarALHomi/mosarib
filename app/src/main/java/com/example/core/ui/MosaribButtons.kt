@@ -66,10 +66,10 @@ fun MosaribButton(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
     ) {
         if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                color = contentColor,
-                strokeWidth = 2.dp
+            MosaribInlineLoading(
+                size = 20.dp,
+                primaryColor = contentColor,
+                accentColor = contentColor.copy(alpha = 0.5f)
             )
         } else {
             Row(

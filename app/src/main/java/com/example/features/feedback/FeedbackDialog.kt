@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.core.ui.MosaribInlineLoading
 import com.example.core.ui.isAppDark
 import com.example.core.license.FirebaseLicenseService
 import com.example.core.license.LicenseManager
@@ -272,10 +273,10 @@ fun FeedbackDialog(
                 )
             ) {
                 if (isSubmitting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
+                    MosaribInlineLoading(
+                        size = 22.dp,
+                        primaryColor = Color.White,
+                        accentColor = Color.White.copy(alpha = 0.5f)
                     )
                 } else {
                     Row(
