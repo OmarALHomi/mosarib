@@ -831,6 +831,7 @@
             <tr>
               <th>حساب Google / الاسم</th>
               <th>كود الجهاز والموديل</th>
+              <th>سعر الساعة للمسرب 💰</th>
               <th>الحالة</th>
               <th>الباقة</th>
               <th>رصيد العمليات والحد 📊</th>
@@ -840,7 +841,7 @@
             </tr>
           </thead>
           <tbody id="usersTableBody">
-            <tr><td colspan="8" style="text-align: center; color: var(--text-muted);">جاري تحميل قائمة المستخدمين من السحابة...</td></tr>
+            <tr><td colspan="9" style="text-align: center; color: var(--text-muted);">جاري تحميل قائمة المستخدمين من السحابة...</td></tr>
           </tbody>
         </table>
       </div>
@@ -2672,10 +2673,15 @@
 
       const warningBadge = override.specialWarningMessage ? `<div style="margin-top:4px;"><small style="color:var(--accent); font-size:10px;">رسالة موجهة: ${override.specialWarningMessage}</small></div>` : '';
 
+      const priceTag = (u.pricePerHour || u.hourlyRate) 
+        ? `<b style="color:var(--gold); font-size:13px;">${Number(u.pricePerHour || u.hourlyRate).toLocaleString('ar-EG')}</b> <small style="color:var(--text-muted);">ريال/س</small>`
+        : `<span style="color:var(--text-muted); font-size:11.5px;">افتراضي (5000)</span>`;
+
       return `
         <tr>
           <td>${googleInfo}</td>
           <td><code>${u.deviceCode || devKey}</code><br><small style="color:var(--text-muted);">${u.deviceModel || '-'}</small></td>
+          <td>${priceTag}</td>
           <td>${statusBadge}${warningBadge}</td>
           <td>${planBadge}</td>
           <td>${opsHtml}</td>

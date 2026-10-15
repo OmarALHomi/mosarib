@@ -732,6 +732,35 @@
       </div>
     </div>
 
+    <!-- Developer & Project Founder Royal Card -->
+    <section class="card" id="developer-section" style="background: linear-gradient(145deg, rgba(14, 29, 36, 0.9), rgba(6, 14, 18, 0.95)); border: 1px solid rgba(0, 188, 212, 0.4); border-radius: var(--radius-lg); padding: 35px; margin-bottom: 50px; box-shadow: 0 15px 40px rgba(0,0,0,0.5);">
+      <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center;">
+        <div style="width: 80px; height: 80px; border-radius: 20px; background: linear-gradient(135deg, #00BCD4, #004D40); display: flex; align-items: center; justify-content: center; font-size: 38px; border: 2px solid #80DEEA; box-shadow: 0 0 25px rgba(0, 188, 212, 0.4);">
+          👨‍💻
+        </div>
+        <div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+            <h3 style="font-size: 22px; font-weight: 900; color: #FFF;" id="devName">المهندس عمر الحومي</h3>
+            <span class="hero-badge" style="margin: 0; background: rgba(255, 179, 0, 0.15); border-color: var(--gold); color: var(--gold);">صاحب المشروع والمطور</span>
+          </div>
+          <div style="font-size: 14.5px; color: #4DD0E1; font-weight: 700; margin-bottom: 8px;" id="devCompany">
+            مؤسس طُبّع سوفت للحلول البرمجية الذكية (TubbaSoft)
+          </div>
+          <p style="font-size: 13.5px; color: #B2DFDB; line-height: 1.6; max-width: 650px;" id="devSupportMsg">
+            تم ابتكار وتطوير منظومة وتطبيق مُسَرِّب بهدف حوكمة إدارة مياه الآبار الزراعية وحفظ حقوق المسربين والمزارعين بأعلى دقة تقنية ومالية.
+          </p>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 220px;">
+          <a href="mailto:omar@tubbasoft.com" id="devEmailLink" style="display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(0, 188, 212, 0.12); border: 1px solid rgba(0, 188, 212, 0.4); color: #80DEEA; padding: 10px 16px; border-radius: var(--radius-md); font-size: 13px; font-weight: 700; text-decoration: none; transition: all 0.2s;">
+            <span>✉️</span> <span id="devEmailText">omar@tubbasoft.com</span>
+          </a>
+          <a href="https://tubbasoft.com" target="_blank" style="display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-light); color: #FFF; padding: 10px 16px; border-radius: var(--radius-md); font-size: 13px; font-weight: 700; text-decoration: none;">
+            <span>🌐</span> <span>زيارة موقع طُبّع سوفت</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
     <!-- Direct Download Call to Action -->
     <section class="cta-download-box" id="download-section">
       <h2>🚀 حمّل تطبيق مُسَرِّب الآن مجاناً وابدأ إدارة آبارك</h2>
@@ -792,10 +821,26 @@
           renderMetrics(d.water_metrics);
           renderNews(d.news);
           renderRelease(d.app_release);
+          renderDeveloper(d.developer_info);
         }
       } catch (err) {
         console.error("Failed to load public data:", err);
       }
+    }
+
+    function renderDeveloper(dev) {
+      if (!dev) return;
+      const nameEl = document.getElementById("devName");
+      const compEl = document.getElementById("devCompany");
+      const emailText = document.getElementById("devEmailText");
+      const emailLink = document.getElementById("devEmailLink");
+      const msgEl = document.getElementById("devSupportMsg");
+
+      if (nameEl) nameEl.innerText = dev.name || "المهندس عمر الحومي";
+      if (compEl) compEl.innerText = dev.company || "مؤسس طُبّع سوفت للحلول البرمجية الذكية (TubbaSoft)";
+      if (emailText) emailText.innerText = dev.email || "omar@tubbasoft.com";
+      if (emailLink) emailLink.href = `mailto:${dev.email || 'omar@tubbasoft.com'}`;
+      if (msgEl && dev.support_message) msgEl.innerText = dev.support_message;
     }
 
     function renderMetrics(m) {
@@ -813,7 +858,8 @@
       document.getElementById("currencyUnit").innerText = m.currency_symbol;
       document.getElementById("activeRegionsCount").innerHTML = `${m.active_regions} <small>منطقة زراعية</small>`;
 
-      document.getElementById("boxAvgPrice").innerHTML = `${m.avg_hourly_price.toLocaleString('ar-EG')} <span style="font-size: 14px; color: var(--gold);">${m.currency_symbol}/ساعة</span>`;
+      const liveSyncNote = m.is_live_synced ? `<div style="font-size: 11px; color: #4DD0E1; margin-top: 4px;">⚡ مباشر: محسوب من أسعار ${m.samples_count} مسرب متصل</div>` : '';
+      document.getElementById("boxAvgPrice").innerHTML = `${m.avg_hourly_price.toLocaleString('ar-EG')} <span style="font-size: 14px; color: var(--gold);">${m.currency_symbol}/ساعة</span>${liveSyncNote}`;
       document.getElementById("boxMinPrice").innerHTML = `${m.min_hourly_price.toLocaleString('ar-EG')} <span style="font-size: 14px; color: var(--gold);">${m.currency_symbol}/ساعة</span>`;
       document.getElementById("boxMaxPrice").innerHTML = `${m.max_hourly_price.toLocaleString('ar-EG')} <span style="font-size: 14px; color: var(--gold);">${m.currency_symbol}/ساعة</span>`;
     }

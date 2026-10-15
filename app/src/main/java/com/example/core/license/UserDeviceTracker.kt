@@ -163,6 +163,9 @@ object UserDeviceTracker {
             }
             val regPhone = getRegisteredPhone(context)
 
+            // Fetch effective hourly price set by this operator/user
+            val currentHourlyPrice = com.example.core.util.AppPriceHelper.getEffectiveHourlyPrice(context)
+
             // 2. Upload / update user data
             val payload = JSONObject().apply {
                 put("deviceCode", deviceCode)
@@ -176,6 +179,8 @@ object UserDeviceTracker {
                 put("isActivated", isActivated)
                 put("plan", activePlan)
                 put("operationsCount", finalOpsCount)
+                put("pricePerHour", currentHourlyPrice)
+                put("hourlyRate", currentHourlyPrice)
                 put("isBlocked", false)
                 put("lastActiveAt", now)
             }
@@ -214,6 +219,8 @@ object UserDeviceTracker {
                     put("isActivated", org.json.JSONObject().put("booleanValue", isActivated))
                     put("plan", org.json.JSONObject().put("stringValue", activePlan))
                     put("operationsCount", org.json.JSONObject().put("integerValue", finalOpsCount.toString()))
+                    put("pricePerHour", org.json.JSONObject().put("doubleValue", currentHourlyPrice))
+                    put("hourlyRate", org.json.JSONObject().put("doubleValue", currentHourlyPrice))
                     put("isBlocked", org.json.JSONObject().put("booleanValue", isBlocked))
                     put("lastActiveAt", org.json.JSONObject().put("integerValue", now.toString()))
                 }

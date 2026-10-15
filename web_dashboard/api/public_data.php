@@ -72,23 +72,46 @@ if ($method === 'GET') {
     $settings = json_decode(file_get_contents($settingsFile), true) ?: [];
     $newsList = json_decode(file_get_contents($newsFile), true) ?: [];
 
-    // Fetch live users and devices from Firebase to calculate dynamic live operators count
+    // Fetch live users and devices from Firebase to calculate dynamic live operators count and ACTUAL hourly rates
     $usersRes = firebaseRequest('all_users.json');
     $allUsers = $usersRes['data'] ?: [];
     $activeOperatorsCount = 0;
     $totalRegisteredCount = 0;
     $oneDayAgo = (time() - 86400) * 1000;
 
+    $collectedRates = [];
+
     if (is_array($allUsers)) {
         $totalRegisteredCount = count($allUsers);
         foreach ($allUsers as $u) {
-            if (!empty($u['lastSeen']) && $u['lastSeen'] >= $oneDayAgo && empty($u['isBlocked'])) {
+            $isOnline = (!empty($u['lastSeen']) && $u['lastSeen'] >= $oneDayAgo) ||
+                        (!empty($u['lastActiveAt']) && $u['lastActiveAt'] >= $oneDayAgo);
+            if ($isOnline && empty($u['isBlocked'])) {
                 $activeOperatorsCount++;
+            }
+
+            // Extract real hourly price submitted by this operator
+            $rate = null;
+            if (isset($u['pricePerHour']) && is_numeric($u['pricePerHour']) && $u['pricePerHour'] > 0) {
+                $rate = floatval($u['pricePerHour']);
+            } elseif (isset($u['hourlyRate']) && is_numeric($u['hourlyRate']) && $u['hourlyRate'] > 0) {
+                $rate = floatval($u['hourlyRate']);
+            }
+
+            if ($rate !== null && $rate >= 500 && $rate <= 50000) {
+                $collectedRates[] = $rate;
             }
         }
     }
-    // Base fallback realistic count
-    $activeOperatorsCount = max($activeOperatorsCount, 28);
+
+    // Dynamic price calculation from actual live user database
+    $hasRealRates = count($collectedRates) > 0;
+    $calculatedAvg = $hasRealRates ? round(array_sum($collectedRates) / count($collectedRates)) : floatval($settings['avg_hourly_price'] ?? 7500);
+    $calculatedMin = $hasRealRates ? round(min($collectedRates)) : floatval($settings['min_hourly_price'] ?? 6000);
+    $calculatedMax = $hasRealRates ? round(max($collectedRates)) : floatval($settings['max_hourly_price'] ?? 9500);
+
+    // Realistic baseline counts
+    $activeOperatorsCount = max($activeOperatorsCount, count($collectedRates) > 0 ? count($collectedRates) : 28);
     $totalRegisteredCount = max($totalRegisteredCount, 85);
 
     // Latest download release info
@@ -108,14 +131,24 @@ if ($method === 'GET') {
             'status' => $settings['water_status'] ?? 'GOOD',
             'status_text' => $settings['water_status_text'] ?? 'متوفر ومستقر',
             'index_percent' => intval($settings['water_index_percent'] ?? 84),
-            'avg_hourly_price' => floatval($settings['avg_hourly_price'] ?? 7500),
-            'min_hourly_price' => floatval($settings['min_hourly_price'] ?? 6000),
-            'max_hourly_price' => floatval($settings['max_hourly_price'] ?? 9500),
+            'avg_hourly_price' => $calculatedAvg,
+            'min_hourly_price' => $calculatedMin,
+            'max_hourly_price' => $calculatedMax,
+            'is_live_synced' => $hasRealRates,
+            'samples_count' => count($collectedRates),
             'currency_symbol' => $settings['currency_symbol'] ?? 'ريال',
             'active_regions' => intval($settings['active_regions_count'] ?? 18),
             'active_operators_now' => $activeOperatorsCount,
             'total_operators_registered' => $totalRegisteredCount,
             'headline_alert' => $settings['headline_alert'] ?? ''
+        ],
+        'developer_info' => [
+            'name' => 'المهندس عمر الحومي',
+            'role' => 'المطور وصاحب مشروع مُسَرِّب (مؤسس TubbaSoft)',
+            'company' => 'طُبّع سوفت للحلول البرمجية الذكية (TubbaSoft)',
+            'email' => 'omar@tubbasoft.com',
+            'website' => 'https://tubbasoft.com',
+            'support_message' => 'نسعد باستقبال استفسارات المزارعين وملاك الآبار ومطوري النظم الزراعية.'
         ],
         'news' => $newsList,
         'app_release' => [
