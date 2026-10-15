@@ -1,0 +1,21 @@
+# InfinityFree & Apache Deployment Configuration
+RewriteEngine On
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# Protect sensitive files
+<FilesMatch "(config\.json|service_account\.json|\.env|\.git)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Allow APK downloads with proper MIME type
+AddType application/vnd.android.package-archive .apk
+
+# Set directory index
+DirectoryIndex index.php index.html
