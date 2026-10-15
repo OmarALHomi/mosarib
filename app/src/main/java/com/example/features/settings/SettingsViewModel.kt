@@ -76,11 +76,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             settingsRepo.updateDefaultPricePerHour(price)
             showToast("تم تحديث سعر الساعة الافتراضي بنجاح (لا يؤثر على الجلسات السابقة)", ToastType.SUCCESS)
 
-            // Asynchronously sync the new price to the cloud so market averages update immediately
+            // Broadcast to cloud ONLY if price actually changed, saving Firebase quota (0 reads, 1 lightweight PATCH only on change)
             launch(Dispatchers.IO) {
                 try {
                     val app = getApplication<Application>()
-                    com.example.core.license.UserDeviceTracker.syncPresence(app, 0)
+                    com.example.core.util.AppPriceHelper.broadcastPriceIfChanged(app, price)
                 } catch (_: Exception) {}
             }
         }

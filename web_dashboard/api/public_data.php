@@ -67,52 +67,78 @@ if (!file_exists($newsFile)) {
 
 $method = $_SERVER['REQUEST_METHOD'];
 
-// Handle GET request (Publicly accessible)
+// Handle GET request (Publicly accessible with lightweight 5-minute cache to protect Firebase Read limits)
 if ($method === 'GET') {
     $settings = json_decode(file_get_contents($settingsFile), true) ?: [];
     $newsList = json_decode(file_get_contents($newsFile), true) ?: [];
 
-    // Fetch live users and devices from Firebase to calculate dynamic live operators count and ACTUAL hourly rates
-    $usersRes = firebaseRequest('all_users.json');
-    $allUsers = $usersRes['data'] ?: [];
-    $activeOperatorsCount = 0;
-    $totalRegisteredCount = 0;
-    $oneDayAgo = (time() - 86400) * 1000;
+    // Cache file for Firebase aggregated rates & counts
+    $cacheFile = __DIR__ . '/../data/market_cache.json';
+    $cacheLifetime = 300; // 5 minutes cache to prevent hitting Firebase read quotas on high visitor traffic
+    $cachedData = (file_exists($cacheFile) && (time() - filemtime($cacheFile) < $cacheLifetime)) 
+        ? json_decode(file_get_contents($cacheFile), true) 
+        : null;
 
-    $collectedRates = [];
+    if ($cachedData && is_array($cachedData)) {
+        $activeOperatorsCount = $cachedData['active_operators_count'];
+        $totalRegisteredCount = $cachedData['total_registered_count'];
+        $calculatedAvg = $cachedData['avg'];
+        $calculatedMin = $cachedData['min'];
+        $calculatedMax = $cachedData['max'];
+        $hasRealRates = $cachedData['has_real_rates'];
+        $samplesCount = $cachedData['samples_count'];
+    } else {
+        // Fetch live users and devices from Firebase only once every 5 minutes
+        $usersRes = firebaseRequest('all_users.json');
+        $allUsers = $usersRes['data'] ?: [];
+        $activeOperatorsCount = 0;
+        $totalRegisteredCount = 0;
+        $oneDayAgo = (time() - 86400) * 1000;
+        $collectedRates = [];
 
-    if (is_array($allUsers)) {
-        $totalRegisteredCount = count($allUsers);
-        foreach ($allUsers as $u) {
-            $isOnline = (!empty($u['lastSeen']) && $u['lastSeen'] >= $oneDayAgo) ||
-                        (!empty($u['lastActiveAt']) && $u['lastActiveAt'] >= $oneDayAgo);
-            if ($isOnline && empty($u['isBlocked'])) {
-                $activeOperatorsCount++;
-            }
+        if (is_array($allUsers)) {
+            $totalRegisteredCount = count($allUsers);
+            foreach ($allUsers as $u) {
+                $isOnline = (!empty($u['lastSeen']) && $u['lastSeen'] >= $oneDayAgo) ||
+                            (!empty($u['lastActiveAt']) && $u['lastActiveAt'] >= $oneDayAgo);
+                if ($isOnline && empty($u['isBlocked'])) {
+                    $activeOperatorsCount++;
+                }
 
-            // Extract real hourly price submitted by this operator
-            $rate = null;
-            if (isset($u['pricePerHour']) && is_numeric($u['pricePerHour']) && $u['pricePerHour'] > 0) {
-                $rate = floatval($u['pricePerHour']);
-            } elseif (isset($u['hourlyRate']) && is_numeric($u['hourlyRate']) && $u['hourlyRate'] > 0) {
-                $rate = floatval($u['hourlyRate']);
-            }
+                // Extract real hourly price submitted by this operator
+                $rate = null;
+                if (isset($u['pricePerHour']) && is_numeric($u['pricePerHour']) && $u['pricePerHour'] > 0) {
+                    $rate = floatval($u['pricePerHour']);
+                } elseif (isset($u['hourlyRate']) && is_numeric($u['hourlyRate']) && $u['hourlyRate'] > 0) {
+                    $rate = floatval($u['hourlyRate']);
+                }
 
-            if ($rate !== null && $rate >= 500 && $rate <= 50000) {
-                $collectedRates[] = $rate;
+                if ($rate !== null && $rate >= 500 && $rate <= 50000) {
+                    $collectedRates[] = $rate;
+                }
             }
         }
+
+        $hasRealRates = count($collectedRates) > 0;
+        $calculatedAvg = $hasRealRates ? round(array_sum($collectedRates) / count($collectedRates)) : floatval($settings['avg_hourly_price'] ?? 7500);
+        $calculatedMin = $hasRealRates ? round(min($collectedRates)) : floatval($settings['min_hourly_price'] ?? 6000);
+        $calculatedMax = $hasRealRates ? round(max($collectedRates)) : floatval($settings['max_hourly_price'] ?? 9500);
+        $samplesCount = count($collectedRates);
+        $activeOperatorsCount = max($activeOperatorsCount, $samplesCount > 0 ? $samplesCount : 28);
+        $totalRegisteredCount = max($totalRegisteredCount, 85);
+
+        // Save cache to disk
+        file_put_contents($cacheFile, json_encode([
+            'active_operators_count' => $activeOperatorsCount,
+            'total_registered_count' => $totalRegisteredCount,
+            'avg' => $calculatedAvg,
+            'min' => $calculatedMin,
+            'max' => $calculatedMax,
+            'has_real_rates' => $hasRealRates,
+            'samples_count' => $samplesCount,
+            'cached_at' => time()
+        ]));
     }
-
-    // Dynamic price calculation from actual live user database
-    $hasRealRates = count($collectedRates) > 0;
-    $calculatedAvg = $hasRealRates ? round(array_sum($collectedRates) / count($collectedRates)) : floatval($settings['avg_hourly_price'] ?? 7500);
-    $calculatedMin = $hasRealRates ? round(min($collectedRates)) : floatval($settings['min_hourly_price'] ?? 6000);
-    $calculatedMax = $hasRealRates ? round(max($collectedRates)) : floatval($settings['max_hourly_price'] ?? 9500);
-
-    // Realistic baseline counts
-    $activeOperatorsCount = max($activeOperatorsCount, count($collectedRates) > 0 ? count($collectedRates) : 28);
-    $totalRegisteredCount = max($totalRegisteredCount, 85);
 
     // Latest download release info
     $releasesFile = __DIR__ . '/../uploads/releases_index.json';
@@ -135,7 +161,7 @@ if ($method === 'GET') {
             'min_hourly_price' => $calculatedMin,
             'max_hourly_price' => $calculatedMax,
             'is_live_synced' => $hasRealRates,
-            'samples_count' => count($collectedRates),
+            'samples_count' => $samplesCount,
             'currency_symbol' => $settings['currency_symbol'] ?? 'ريال',
             'active_regions' => intval($settings['active_regions_count'] ?? 18),
             'active_operators_now' => $activeOperatorsCount,
@@ -183,6 +209,10 @@ if ($method === 'POST') {
             'headline_alert' => trim($input['headline_alert'] ?? '')
         ];
         file_put_contents($settingsFile, json_encode($settings, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        // Clear cache so admin updates show instantly
+        $cacheFile = __DIR__ . '/../data/market_cache.json';
+        if (file_exists($cacheFile)) @unlink($cacheFile);
+
         jsonResponse(true, 'تم تحديث مؤشرات سوق المياه والأسعار بنجاح في الصفحة العامة!', $settings);
     }
 

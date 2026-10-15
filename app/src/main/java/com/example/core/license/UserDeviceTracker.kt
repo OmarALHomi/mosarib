@@ -163,10 +163,7 @@ object UserDeviceTracker {
             }
             val regPhone = getRegisteredPhone(context)
 
-            // Fetch effective hourly price set by this operator/user
-            val currentHourlyPrice = com.example.core.util.AppPriceHelper.getEffectiveHourlyPrice(context)
-
-            // 2. Upload / update user data
+            // 2. Upload / update user presence data without repeating price unless changed
             val payload = JSONObject().apply {
                 put("deviceCode", deviceCode)
                 put("cleanDeviceKey", cleanDeviceKey)
@@ -179,10 +176,15 @@ object UserDeviceTracker {
                 put("isActivated", isActivated)
                 put("plan", activePlan)
                 put("operationsCount", finalOpsCount)
-                put("pricePerHour", currentHourlyPrice)
-                put("hourlyRate", currentHourlyPrice)
                 put("isBlocked", false)
                 put("lastActiveAt", now)
+            }
+
+            // Only attach price if previously recorded or locally modified to minimize payload & writes
+            val lastSyncedPrice = com.example.core.util.AppPriceHelper.getLastSyncedPrice(context)
+            if (lastSyncedPrice != null) {
+                payload.put("pricePerHour", lastSyncedPrice)
+                payload.put("hourlyRate", lastSyncedPrice)
             }
 
             val putUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
@@ -219,8 +221,10 @@ object UserDeviceTracker {
                     put("isActivated", org.json.JSONObject().put("booleanValue", isActivated))
                     put("plan", org.json.JSONObject().put("stringValue", activePlan))
                     put("operationsCount", org.json.JSONObject().put("integerValue", finalOpsCount.toString()))
-                    put("pricePerHour", org.json.JSONObject().put("doubleValue", currentHourlyPrice))
-                    put("hourlyRate", org.json.JSONObject().put("doubleValue", currentHourlyPrice))
+                    if (lastSyncedPrice != null) {
+                        put("pricePerHour", org.json.JSONObject().put("doubleValue", lastSyncedPrice))
+                        put("hourlyRate", org.json.JSONObject().put("doubleValue", lastSyncedPrice))
+                    }
                     put("isBlocked", org.json.JSONObject().put("booleanValue", isBlocked))
                     put("lastActiveAt", org.json.JSONObject().put("integerValue", now.toString()))
                 }
