@@ -8,6 +8,7 @@ import com.example.core.license.UserDeviceTracker
 import com.example.core.notifications.FcmTokenHelper
 import com.example.core.updates.AppBroadcast
 import com.example.core.updates.AppUpdateManager
+import com.example.core.util.AutoBackupEngine
 import com.example.core.util.PeriodicBackupReminderManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -45,6 +46,9 @@ object AppSyncEngine {
         context: Context,
         operationsCount: Int
     ): StartupDecision = withContext(Dispatchers.IO) {
+        // 0. Trigger daily silent rolling backup (keeps last 7 days)
+        AutoBackupEngine.performDailyAutoBackup(context, com.example.core.database.AppDatabase.getDatabase(context), operationsCount)
+
         if (!LicenseManager.isInternetAvailable(context)) {
             // Offline fallback
             if (UserDeviceTracker.isDeviceBlockedLocally(context)) {

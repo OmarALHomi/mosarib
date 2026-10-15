@@ -9,6 +9,7 @@ import com.example.core.database.AppDatabase
 import com.example.core.ui.ToastMessage
 import com.example.core.ui.ToastType
 import com.example.core.license.LicenseManager
+import com.example.core.util.AutoBackupEngine
 import com.example.core.util.BackupManager
 import com.example.core.util.GoogleDriveBackupHelper
 import com.example.core.util.PeriodicBackupReminderManager
@@ -145,6 +146,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _savedBackups = MutableStateFlow<List<BackupManager.BackupFileInfo>>(emptyList())
     val savedBackups: StateFlow<List<BackupManager.BackupFileInfo>> = _savedBackups.asStateFlow()
 
+    private val _autoBackups = MutableStateFlow<List<AutoBackupEngine.AutoBackupItem>>(emptyList())
+    val autoBackups: StateFlow<List<AutoBackupEngine.AutoBackupItem>> = _autoBackups.asStateFlow()
+
     private val _googleAccount = MutableStateFlow<GoogleSignInAccount?>(null)
     val googleAccount: StateFlow<GoogleSignInAccount?> = _googleAccount.asStateFlow()
 
@@ -188,6 +192,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun loadBackups() {
         viewModelScope.launch(Dispatchers.IO) {
             _savedBackups.value = BackupManager.getAvailableBackups(getApplication())
+            _autoBackups.value = AutoBackupEngine.getAvailableAutoBackups(getApplication())
         }
     }
 
@@ -261,6 +266,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      */
     fun restoreBackup(uri: Uri) {
         viewModelScope.launch {
+            // Safety checkpoint before modifying active database
+            com.example.core.util.AutoBackupEngine.createSafetyCheckpoint(getApplication(), db, "before_restore")
             val result = BackupManager.restoreFromJson(getApplication(), db, uri)
             result.onSuccess { restoreResult ->
                 handlePostRestore(restoreResult)
@@ -271,10 +278,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * Restore directly from an internal saved backup file
+     * Restore directly from an internal saved backup file or auto-backup
      */
     fun restoreBackupFromFile(file: File) {
         viewModelScope.launch {
+            // Safety checkpoint before modifying active database
+            com.example.core.util.AutoBackupEngine.createSafetyCheckpoint(getApplication(), db, "before_restore")
             val result = BackupManager.restoreFromFile(getApplication(), db, file)
             result.onSuccess { restoreResult ->
                 handlePostRestore(restoreResult)
@@ -430,6 +439,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 val tempFile = File(getApplication<Application>().cacheDir, driveFile.name)
                 val dlResult = GoogleDriveBackupHelper.downloadAppDataBackup(getApplication(), account, driveFile.id, tempFile)
                 dlResult.onSuccess { file ->
+                    // Safety checkpoint before applying restored cloud backup
+                    com.example.core.util.AutoBackupEngine.createSafetyCheckpoint(getApplication(), db, "before_drive_restore")
                     val restoreResult = BackupManager.restoreFromFile(getApplication(), db, file)
                     restoreResult.onSuccess { res ->
                         handlePostRestore(res)
@@ -494,6 +505,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         if (!com.example.BuildConfig.DEBUG) return
         viewModelScope.launch {
             _isSeedingData.value = true
+            // Safety checkpoint before clearing data
+            com.example.core.util.AutoBackupEngine.createSafetyCheckpoint(getApplication(), db, "before_clear_data")
             val result = com.example.core.database.DebugDataSeeder.clearAllDebugData(getApplication(), db)
             _isSeedingData.value = false
             result.onSuccess {

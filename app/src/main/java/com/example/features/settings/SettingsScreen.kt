@@ -58,11 +58,16 @@ import com.example.core.license.LicenseDialog
 import com.example.core.license.LicenseManager
 import com.example.core.security.BiometricHelper
 import com.example.core.ui.ToastType
+import com.example.core.util.AutoBackupEngine
 import com.example.core.util.BackupManager
 import com.example.core.util.GoogleDriveBackupHelper
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.ApiException
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.ExpandMore
@@ -159,7 +164,9 @@ fun SettingsScreen(
     var showLicenseDialog by remember { mutableStateOf(false) }
 
     val savedBackups by viewModel.savedBackups.collectAsStateWithLifecycle()
+    val autoBackups by viewModel.autoBackups.collectAsStateWithLifecycle()
     var backupToRestore by remember { mutableStateOf<BackupManager.BackupFileInfo?>(null) }
+    var autoBackupToRestore by remember { mutableStateOf<AutoBackupEngine.AutoBackupItem?>(null) }
     var backupToDelete by remember { mutableStateOf<BackupManager.BackupFileInfo?>(null) }
 
     val googleAccount by viewModel.googleAccount.collectAsStateWithLifecycle()
@@ -718,6 +725,92 @@ fun SettingsScreen(
 
                     // 4. المحتوى بحسب التبويب المختار
                     if (selectedBackupSourceTab == 0) {
+                        // ─── قسم النسخ التلقائي الدوّار (Rolling 7-Days) ───
+                        if (autoBackups.isNotEmpty()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.History, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "النسخ التلقائية الذكية (آخر 7 أيام):",
+                                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = AccentEmerald)
+                                        )
+                                    }
+                                }
+
+                                val displayedAuto = if (expandAllLocalBackups) autoBackups else autoBackups.take(2)
+                                displayedAuto.forEach { autoItem ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (autoItem.isSafetyCheckpoint) AccentGold.copy(alpha = 0.12f) else PrimaryTeal.copy(alpha = 0.08f))
+                                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(28.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(if (autoItem.isSafetyCheckpoint) AccentGold.copy(alpha = 0.2f) else AccentEmerald.copy(alpha = 0.15f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    if (autoItem.isSafetyCheckpoint) Icons.Default.Security else Icons.Default.CheckCircle,
+                                                    contentDescription = null,
+                                                    tint = if (autoItem.isSafetyCheckpoint) AccentGold else AccentEmerald,
+                                                    modifier = Modifier.size(15.dp)
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Column {
+                                                Text(
+                                                    text = autoItem.title,
+                                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                                )
+                                                Text(
+                                                    text = "${autoItem.formattedDate} • ${autoItem.sizeText}",
+                                                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp),
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        }
+
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(if (isDark) Color(0xFF2B2111) else Color(0xFFFEF3C7))
+                                                .clickable { autoBackupToRestore = autoItem }
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                "استعادة",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 11.sp
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+
                         // ─── محتوى النسخ المحفوظة على الهاتف ───
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -1655,6 +1748,20 @@ fun SettingsScreen(
                 backupToRestore = null
             },
             onDismiss = { backupToRestore = null }
+        )
+    }
+
+    val autoToRestore = autoBackupToRestore
+    if (autoToRestore != null) {
+        RestoreWarningDialog(
+            title = "استعادة " + autoToRestore.title,
+            backupDateOrName = autoToRestore.formattedDate,
+            additionalInfo = autoToRestore.sizeText,
+            onConfirm = {
+                viewModel.restoreBackupFromFile(autoToRestore.file)
+                autoBackupToRestore = null
+            },
+            onDismiss = { autoBackupToRestore = null }
         )
     }
 
