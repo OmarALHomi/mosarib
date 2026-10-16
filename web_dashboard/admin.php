@@ -1511,13 +1511,25 @@
 </div>
 
 <script>
+  async function safeJson(res) {
+    if (!res) return null;
+    try {
+      if (typeof res.text !== 'function') return res;
+      const text = await res.text();
+      if (!text || !text.trim()) return null;
+      return JSON.parse(text);
+    } catch (_) {
+      return null;
+    }
+  }
+
   let currentAdminSession = null;
   let currentCsrfToken = "";
 
   async function checkServerSession() {
     try {
       const res = await fetch('api/auth.php?action=check_session');
-      const data = await res.json();
+      const data = (await safeJson(res)) || {};
       if (data.success && data.data && data.data.admin) {
         currentAdminSession = data.data.admin;
         currentCsrfToken = data.data.csrf_token || "";
@@ -1538,7 +1550,7 @@
   async function fetchCsrfToken() {
     try {
       const res = await fetch('api/auth.php?action=get_csrf');
-      const data = await res.json();
+      const data = (await safeJson(res)) || {};
       if (data.data && data.data.csrf_token) {
         currentCsrfToken = data.data.csrf_token;
         const el = document.getElementById("loginCsrfToken");
@@ -1599,13 +1611,13 @@
         })
       });
 
-      const data = await res.json();
+      const data = (await safeJson(res)) || {};
       if (data.success) {
         currentAdminSession = data.data.admin;
         currentCsrfToken = data.data.csrf_token;
         unlockDashboardView(currentAdminSession);
       } else {
-        errorBanner.innerText = `⛔ خطأ: ${data.message}`;
+        errorBanner.innerText = `⛔ خطأ: ${data.message || 'بيانات الدخول غير صحيحة'}`;
         errorBanner.style.display = "block";
       }
     } catch (err) {
@@ -1656,13 +1668,13 @@
         })
       });
 
-      const data = await res.json();
+      const data = (await safeJson(res)) || {};
       if (data.success) {
         alert("✅ " + data.message);
         document.getElementById("newAdminForm").reset();
         loadAdminsList();
       } else {
-        alert("⛔ خطأ: " + data.message);
+        alert("⛔ خطأ: " + (data.message || 'تعذر إضافة المسؤول'));
       }
     } catch (err) {
       alert("حدث خطأ: " + err.message);
@@ -1676,7 +1688,7 @@
     if (!container) return;
     try {
       const res = await fetch('api/auth.php?action=list_admins');
-      const data = await res.json();
+      const data = (await safeJson(res)) || {};
       const list = data.data || [];
 
       if (list.length === 0) {
@@ -1749,27 +1761,36 @@
     const directUrl = getFirebaseUrl(path);
     try {
       const res = await fetch(directUrl, options);
-      if (res.status === 401) {
-        updateFirebaseStatusIndicator('AUTH_REQUIRED');
-      } else if (res.ok) {
+      if (res && res.ok) {
         updateFirebaseStatusIndicator('CONNECTED');
+        return res;
       }
-      return res;
-    } catch (err) {
-      // Browser direct fetch failed (e.g. CORS or network error), fallback to server-side PHP proxy
+      if (res && res.status === 401) {
+        updateFirebaseStatusIndicator('AUTH_REQUIRED');
+      }
+      // Direct fetch was not ok (e.g. 401 unauthorized or server error), try PHP proxy fallback
       try {
         const proxyUrl = `api/firebase_proxy.php?path=${encodeURIComponent(path)}${adminSecretKey ? `&auth=${encodeURIComponent(adminSecretKey)}` : ''}`;
         const proxyRes = await fetch(proxyUrl, options);
-        if (proxyRes.ok) {
-          const proxyJson = await proxyRes.clone().json().catch(() => null);
-          if (proxyJson && proxyJson.success) {
-            updateFirebaseStatusIndicator('CONNECTED');
-          }
+        if (proxyRes && proxyRes.ok) {
+          updateFirebaseStatusIndicator('CONNECTED');
+          return proxyRes;
+        }
+      } catch (_) {}
+      return res;
+    } catch (err) {
+      // Browser direct fetch failed with network/CORS error, fallback to server-side PHP proxy
+      try {
+        const proxyUrl = `api/firebase_proxy.php?path=${encodeURIComponent(path)}${adminSecretKey ? `&auth=${encodeURIComponent(adminSecretKey)}` : ''}`;
+        const proxyRes = await fetch(proxyUrl, options);
+        if (proxyRes && proxyRes.ok) {
+          updateFirebaseStatusIndicator('CONNECTED');
+          return proxyRes;
         }
         return proxyRes;
       } catch (_) {}
       updateFirebaseStatusIndicator('ERROR');
-      throw err;
+      return null;
     }
   }
 
@@ -1840,9 +1861,9 @@
     // 1. First Attempt: Realtime Database with auth and proxy fallback
     try {
       const res = await firebaseFetch(`${name}.json`);
-      if (res.ok) {
-        const data = await res.json();
-        const items = data.data ? data.data : data;
+      if (res && res.ok) {
+        const data = await safeJson(res);
+        const items = (data && data.data) ? data.data : data;
         if (items && typeof items === 'object') return Object.values(items);
       }
     } catch (_) {}
@@ -1850,8 +1871,8 @@
     // 2. Second Attempt: Cloud Firestore REST API
     try {
       const res = await fetch(`${FIRESTORE_BASE_URL}/${name}?pageSize=300`);
-      if (res.ok) {
-        const data = await res.json();
+      if (res && res.ok) {
+        const data = await safeJson(res);
         if (data && data.documents && Array.isArray(data.documents)) {
           return data.documents.map(parseFirestoreDoc);
         }
@@ -1913,7 +1934,7 @@
   async function loadPortalSettingsForAdmin() {
     try {
       const res = await fetch('api/public_data.php');
-      const json = await res.json();
+      const json = (await safeJson(res)) || {};
       if (json.success && json.data) {
         const ps = json.data.portal_settings || {};
         if (document.getElementById("pActiveRegionName")) {
@@ -2035,11 +2056,11 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const data = await res.json();
+      const data = (await safeJson(res)) || {};
       if (data.success) {
-        alert("✅ " + data.message);
+        alert("✅ " + (data.message || 'تم حفظ الإعدادات بنجاح'));
       } else {
-        alert("خطأ: " + data.message);
+        alert("خطأ: " + (data.message || 'تعذر حفظ الإعدادات'));
       }
     } catch (err) {
       alert("تعذر الحفظ: " + err.message);
@@ -2066,13 +2087,13 @@
           csrf_token: currentCsrfToken
         })
       });
-      const data = await res.json();
+      const data = (await safeJson(res)) || {};
       if (data.success) {
-        alert("✅ " + data.message);
+        alert("✅ " + (data.message || 'تم النشر بنجاح'));
         document.getElementById("portalNewsForm").reset();
         loadPortalSettingsForAdmin();
       } else {
-        alert("خطأ: " + data.message);
+        alert("خطأ: " + (data.message || 'تعذر النشر'));
       }
     } catch (err) {
       alert("فشل النشر: " + err.message);
@@ -2091,7 +2112,7 @@
           csrf_token: currentCsrfToken
         })
       });
-      const data = await res.json();
+      const data = (await safeJson(res)) || {};
       if (data.success) {
         loadPortalSettingsForAdmin();
       }
@@ -2135,11 +2156,11 @@
         })
       });
 
-      const resData = await res.json();
+      const resData = (await safeJson(res)) || {};
       if (resData.success) {
         statusDiv.style.color = "var(--success)";
-        const directMsg = resData.data.fcm_direct_used ? ` (تم الإرسال المباشر لـ ${resData.data.fcm_sent_success} هاتف)` : ' (تم بث الإشعار في السحابة وسيرن للأجهزة عند أول اتصال)';
-        statusDiv.innerHTML = `✅ ${resData.message}! إجمالي التوكنات المسجلة: <b>${resData.data.registered_tokens_count}</b>${directMsg}`;
+        const directMsg = (resData.data && resData.data.fcm_direct_used) ? ` (تم الإرسال المباشر لـ ${resData.data.fcm_sent_success} هاتف)` : ' (تم بث الإشعار في السحابة وسيرن للأجهزة عند أول اتصال)';
+        statusDiv.innerHTML = `✅ ${resData.message}! إجمالي التوكنات المسجلة: <b>${(resData.data && resData.data.registered_tokens_count) || 0}</b>${directMsg}`;
       } else {
         throw new Error(resData.message || 'حدث خطأ غير معروف');
       }
@@ -2175,14 +2196,14 @@
         method: 'POST',
         body: formData
       });
-      const data = await res.json();
+      const data = (await safeJson(res)) || {};
       if (data.success) {
-        alert("✅ " + data.message + "\n\nرابط التحميل المباشر:\n" + data.data.download_url);
+        alert("✅ " + (data.message || 'تم رفع ملف التحديث بنجاح') + "\n\nرابط التحميل المباشر:\n" + (data.data ? data.data.download_url : ''));
         document.getElementById("apkUploadForm").reset();
         loadReleasesList();
         loadFirebaseData();
       } else {
-        alert("فشل الرفع: " + data.message);
+        alert("فشل الرفع: " + (data.message || 'تعذر رفع الملف'));
       }
     } catch (err) {
       alert("خطأ أثناء الرفع: " + err.message);
@@ -2210,12 +2231,12 @@
 
     try {
       const res = await fetch('api/release_manager.php', { method: 'POST', body: formData });
-      const data = await res.json();
+      const data = (await safeJson(res)) || {};
       if (data.success) {
         alert("✅ تم ربط وبث الرابط لجميع المستخدمين في فايربيس بنجاح!");
         loadFirebaseData();
       } else {
-        alert("فشل: " + data.message);
+        alert("فشل: " + (data.message || 'تعذر حفظ الرابط'));
       }
     } catch (err) {
       alert("خطأ: " + err.message);
@@ -2227,7 +2248,7 @@
     if (!container) return;
     try {
       const res = await fetch('api/release_manager.php');
-      const data = await res.json();
+      const data = (await safeJson(res)) || {};
       const releases = (data.data && data.data.releases) ? data.data.releases : [];
 
       if (releases.length === 0) {
@@ -2283,9 +2304,9 @@
       let tokens = [];
       try {
         const tokenRes = await firebaseFetch('fcm_tokens.json');
-        if (tokenRes.ok) {
-          const tokenData = await tokenRes.json();
-          const tokenObj = tokenData.data ? tokenData.data : tokenData;
+        if (tokenRes && tokenRes.ok) {
+          const tokenData = await safeJson(tokenRes);
+          const tokenObj = (tokenData && tokenData.data !== undefined) ? tokenData.data : tokenData;
           if (tokenObj && !tokenObj.error) {
             tokens = Object.values(tokenObj);
           }
@@ -2456,9 +2477,9 @@
       let activeLicenseMap = {};
       try {
         const licRes = await firebaseFetch('licenses.json');
-        if (licRes.ok) {
-          const licData = await licRes.json();
-          const licObj = licData.data ? licData.data : licData;
+        if (licRes && licRes.ok) {
+          const licData = await safeJson(licRes);
+          const licObj = (licData && licData.data !== undefined) ? licData.data : licData;
           if (licObj && typeof licObj === 'object') {
             Object.values(licObj).forEach(lic => {
               if (lic && lic.deviceCode && !lic.isRevoked && (lic.expiresAt > Date.now())) {
@@ -2473,9 +2494,9 @@
       // Cross-reference with devices node as well
       try {
         const devRes = await firebaseFetch('devices.json');
-        if (devRes.ok) {
-          const devData = await devRes.json();
-          const devObj = devData.data ? devData.data : devData;
+        if (devRes && devRes.ok) {
+          const devData = await safeJson(devRes);
+          const devObj = (devData && devData.data !== undefined) ? devData.data : devData;
           if (devObj && typeof devObj === 'object') {
             Object.entries(devObj).forEach(([dCode, dVal]) => {
               if (dVal && !dVal.isRevoked && (dVal.expiresAt > Date.now())) {
@@ -2487,8 +2508,8 @@
         }
       } catch (_) {}
 
-      allRequests = reqs;
-      allUsers = users.map(u => {
+      allRequests = reqs || [];
+      allUsers = (users || []).map(u => {
         const devKey = u.cleanDeviceKey || (u.deviceCode ? u.deviceCode.replace(/-/g, "").trim() : "");
         const verifiedLic = activeLicenseMap[devKey];
         if (verifiedLic) {
@@ -2501,39 +2522,42 @@
         }
         return u;
       });
-      allFeedbacks = fbs;
+      allFeedbacks = fbs || [];
 
       // Fetch app_config, device_overrides, app_broadcast
       try {
         const cfgRes = await firebaseFetch('app_config.json');
-        if (cfgRes.ok) {
-          const cfgData = await cfgRes.json();
-          const cfgObj = cfgData.data ? cfgData.data : cfgData;
+        if (cfgRes && cfgRes.ok) {
+          const cfgData = await safeJson(cfgRes);
+          const cfgObj = (cfgData && cfgData.data !== undefined) ? cfgData.data : cfgData;
           if (cfgObj && typeof cfgObj === 'object') appConfig = { ...appConfig, ...cfgObj };
         }
       } catch (_) {}
 
       try {
         const overRes = await firebaseFetch('device_overrides.json');
-        if (overRes.ok) {
-          const overData = await overRes.json();
-          const overObj = overData.data ? overData.data : overData;
+        if (overRes && overRes.ok) {
+          const overData = await safeJson(overRes);
+          const overObj = (overData && overData.data !== undefined) ? overData.data : overData;
           if (overObj && typeof overObj === 'object') allOverrides = overObj;
         }
       } catch (_) {}
 
       try {
         const bcRes = await firebaseFetch('app_broadcast.json');
-        if (bcRes.ok) {
-          const bcData = await bcRes.json();
-          currentBroadcast = bcData.data ? bcData.data : bcData;
+        if (bcRes && bcRes.ok) {
+          const bcData = await safeJson(bcRes);
+          currentBroadcast = (bcData && bcData.data !== undefined) ? bcData.data : bcData;
         } else {
           currentBroadcast = null;
         }
       } catch (_) {
         currentBroadcast = null;
       }
-
+    } catch (e) {
+      console.error("Error loading data from Firebase:", e);
+    } finally {
+      // ALWAYS render tables and stats even if Firebase is unreachable or empty, preventing UI hang
       updateStats();
       loadPortalSettingsForAdmin();
       renderAppPolicies();
@@ -2541,8 +2565,6 @@
       renderRequestsTable(allRequests);
       renderUsersTable(allUsers);
       renderFeedbacksTable(allFeedbacks);
-    } catch (e) {
-      console.error("Error loading data from Firebase:", e);
     }
   }
 
