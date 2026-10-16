@@ -65,7 +65,7 @@ if (!file_exists($newsFile)) {
     file_put_contents($newsFile, json_encode($defaultNews, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 }
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 // Handle GET request (Publicly accessible with lightweight 5-minute cache to protect Firebase Read limits)
 if ($method === 'GET') {
@@ -149,8 +149,9 @@ if ($method === 'GET') {
     $releases = file_exists($releasesFile) ? json_decode(file_get_contents($releasesFile), true) : [];
     $latestRelease = !empty($releases) ? $releases[0] : null;
 
-    $serverUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'];
-    $defaultDownloadUrl = $serverUrl . dirname(dirname($_SERVER['PHP_SELF'])) . '/uploads/Mosarib_Latest.apk';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $serverUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $host;
+    $defaultDownloadUrl = 'api/download.php';
 
     // Cloud broadcast check
     $fbBroadcast = firebaseRequest('app_broadcast.json')['data'] ?? null;
@@ -163,21 +164,63 @@ if ($method === 'GET') {
     $analyticsFile = __DIR__ . '/../data/portal_analytics.json';
     $analytics = file_exists($analyticsFile) ? json_decode(file_get_contents($analyticsFile), true) : [];
 
+    $portalSettings = array_merge([
+        'active_region_name' => 'الجمهورية اليمنية (صنعاء، مأرب، الجوف، عمران، ذمار)',
+        'avg_hourly_price' => floatval($calculatedAvg ?: 7500),
+        'min_hourly_price' => floatval($calculatedMin ?: 5500),
+        'max_hourly_price' => floatval($calculatedMax ?: 9500),
+        'currency_symbol' => 'ريال',
+        'rates_note' => 'الأسعار تختلف بحسب عمق البئر، حجم المضخة، ونوع الطاقة المستخدمة (شمسية / ديزل).',
+        'water_status' => 'GOOD',
+        'water_status_text' => 'مستقر ومتاح في معظم المناطق الزراعية',
+        'water_index_percent' => 85,
+        'headline_alert' => 'منظومة مُسَرِّب الميدانية: تحديث لحظي لأسعار ساعات الري والتحميل المباشر للنسخة الأحدث.',
+        'hero_badge' => 'المنظومة الرقمية المعتمدة لملاك الآبار والموزعين',
+        'hero_title' => 'إدارة جلسات السقي وحسابات مياه الآبار بدقة واحترافية',
+        'hero_subtitle' => 'نظام ميداني متكامل يعمل بدون إنترنت لموزعي المياه وملاك الآبار الارتوازية: حساب أوقات السقي بالدقائق، إصدار سندات قبض وصرف فورية، وتوليد تقارير مالية PDF ومشاركتها عبر واتساب.',
+        'contact_whatsapp' => '967773712030',
+        'contact_phone' => '773712030',
+        'developer_name' => 'المهندس عمر الحومي',
+        'developer_company' => 'تُبع سوفت للحلول البرمجية الذكية (TubbaSoft)',
+        'developer_email' => 'omar@tubbasoft.com',
+        'developer_message' => 'تم ابتكار وتطوير منظومة وتطبيق مُسَرِّب لحوكمة مياه الآبار الزراعية وحفظ حقوق الموزعين والمزارعين بأعلى دقة تقنية ومالية.',
+        'show_top_ticker' => true,
+        'show_rates_section' => true,
+        'show_features_section' => true,
+        'show_plans_section' => true,
+        'show_developer_section' => true,
+        'show_download_cta' => true
+    ], $settings);
+
+    // If manual override was provided in settings, use it, otherwise fallback to calculated
+    if (isset($settings['avg_hourly_price']) && floatval($settings['avg_hourly_price']) > 0) {
+        $portalSettings['avg_hourly_price'] = floatval($settings['avg_hourly_price']);
+    } else {
+        $portalSettings['avg_hourly_price'] = floatval($calculatedAvg ?: 7500);
+    }
+    if (isset($settings['min_hourly_price']) && floatval($settings['min_hourly_price']) > 0) {
+        $portalSettings['min_hourly_price'] = floatval($settings['min_hourly_price']);
+    }
+    if (isset($settings['max_hourly_price']) && floatval($settings['max_hourly_price']) > 0) {
+        $portalSettings['max_hourly_price'] = floatval($settings['max_hourly_price']);
+    }
+
     jsonResponse(true, 'بيانات المنصة العامة والتقرير المائي جاهز', [
+        'portal_settings' => $portalSettings,
         'water_metrics' => [
-            'status' => $settings['water_status'] ?? 'GOOD',
-            'status_text' => $settings['water_status_text'] ?? 'متوفر ومستقر',
-            'index_percent' => intval($settings['water_index_percent'] ?? 85),
-            'avg_hourly_price' => $calculatedAvg,
-            'min_hourly_price' => $calculatedMin,
-            'max_hourly_price' => $calculatedMax,
-            'is_live_synced' => $hasRealRates,
-            'samples_count' => $samplesCount,
-            'currency_symbol' => $settings['currency_symbol'] ?? 'ريال',
-            'active_regions' => intval($settings['active_regions_count'] ?? 0),
+            'status' => $portalSettings['water_status'],
+            'status_text' => $portalSettings['water_status_text'],
+            'index_percent' => intval($portalSettings['water_index_percent']),
+            'avg_hourly_price' => $portalSettings['avg_hourly_price'],
+            'min_hourly_price' => $portalSettings['min_hourly_price'],
+            'max_hourly_price' => $portalSettings['max_hourly_price'],
+            'currency_symbol' => $portalSettings['currency_symbol'],
+            'active_region_name' => $portalSettings['active_region_name'],
+            'rates_note' => $portalSettings['rates_note'],
+            'active_regions' => intval($settings['active_regions_count'] ?? 18),
             'active_operators_now' => $activeOperatorsCount,
             'total_operators_registered' => $totalRegisteredCount,
-            'headline_alert' => $settings['headline_alert'] ?? ''
+            'headline_alert' => $portalSettings['headline_alert']
         ],
         'analytics' => [
             'total_visitors' => intval($analytics['total_visitors'] ?? 0),
@@ -190,12 +233,14 @@ if ($method === 'GET') {
             'daily_stats' => $analytics['daily_stats'] ?? []
         ],
         'developer_info' => [
-            'name' => 'المهندس عمر الحومي',
+            'name' => $portalSettings['developer_name'],
             'role' => 'المطور وصاحب مشروع مُسَرِّب (مؤسس TubbaSoft)',
-            'company' => 'تُبع سوفت للحلول البرمجية الذكية (TubbaSoft)',
-            'email' => 'omar@tubbasoft.com',
+            'company' => $portalSettings['developer_company'],
+            'email' => $portalSettings['developer_email'],
+            'phone' => $portalSettings['contact_phone'],
+            'whatsapp' => $portalSettings['contact_whatsapp'],
             'website' => 'https://tubbasoft.com',
-            'support_message' => 'نسعد باستقبال استفسارات المزارعين وملاك الآبار ومطوري النظم الزراعية.'
+            'support_message' => $portalSettings['developer_message']
         ],
         'news' => $newsList,
         'app_release' => [
@@ -255,23 +300,47 @@ if ($method === 'POST') {
 
     // 1. Update Water & Market Settings
     if ($action === 'update_settings') {
-        $settings = [
-            'water_status' => $input['water_status'] ?? 'GOOD',
-            'water_status_text' => trim($input['water_status_text'] ?? 'مستقر'),
-            'water_index_percent' => intval($input['water_index_percent'] ?? 80),
-            'avg_hourly_price' => floatval($input['avg_hourly_price'] ?? 7500),
-            'min_hourly_price' => floatval($input['min_hourly_price'] ?? 6000),
-            'max_hourly_price' => floatval($input['max_hourly_price'] ?? 9500),
-            'currency_symbol' => trim($input['currency_symbol'] ?? 'ريال'),
-            'active_regions_count' => intval($input['active_regions_count'] ?? 18),
-            'headline_alert' => trim($input['headline_alert'] ?? '')
-        ];
+        $existingSettings = file_exists($settingsFile) ? (json_decode(file_get_contents($settingsFile), true) ?: []) : [];
+
+        $settings = array_merge($existingSettings, [
+            'active_region_name' => trim($input['active_region_name'] ?? ($existingSettings['active_region_name'] ?? 'الجمهورية اليمنية (صنعاء، مأرب، الجوف، عمران، ذمار)')),
+            'avg_hourly_price' => floatval($input['avg_hourly_price'] ?? ($existingSettings['avg_hourly_price'] ?? 7500)),
+            'min_hourly_price' => floatval($input['min_hourly_price'] ?? ($existingSettings['min_hourly_price'] ?? 5500)),
+            'max_hourly_price' => floatval($input['max_hourly_price'] ?? ($existingSettings['max_hourly_price'] ?? 9500)),
+            'currency_symbol' => trim($input['currency_symbol'] ?? ($existingSettings['currency_symbol'] ?? 'ريال')),
+            'rates_note' => trim($input['rates_note'] ?? ($existingSettings['rates_note'] ?? 'الأسعار تختلف بحسب عمق البئر، حجم المضخة، ونوع الطاقة المستخدمة (شمسية / ديزل).')),
+            
+            'water_status' => $input['water_status'] ?? ($existingSettings['water_status'] ?? 'GOOD'),
+            'water_status_text' => trim($input['water_status_text'] ?? ($existingSettings['water_status_text'] ?? 'مستقر ومتاح في معظم المناطق الزراعية')),
+            'water_index_percent' => intval($input['water_index_percent'] ?? ($existingSettings['water_index_percent'] ?? 85)),
+            'active_regions_count' => intval($input['active_regions_count'] ?? ($existingSettings['active_regions_count'] ?? 18)),
+            'headline_alert' => trim($input['headline_alert'] ?? ($existingSettings['headline_alert'] ?? '')),
+
+            'hero_badge' => trim($input['hero_badge'] ?? ($existingSettings['hero_badge'] ?? 'المنظومة الرقمية المعتمدة لملاك الآبار والموزعين')),
+            'hero_title' => trim($input['hero_title'] ?? ($existingSettings['hero_title'] ?? 'إدارة جلسات السقي وحسابات مياه الآبار بدقة واحترافية')),
+            'hero_subtitle' => trim($input['hero_subtitle'] ?? ($existingSettings['hero_subtitle'] ?? 'نظام ميداني متكامل يعمل بدون إنترنت لموزعي المياه وملاك الآبار الارتوازية: حساب أوقات السقي بالدقائق، إصدار سندات قبض وصرف فورية، وتوليد تقارير مالية PDF ومشاركتها عبر واتساب.')),
+            
+            'contact_whatsapp' => trim($input['contact_whatsapp'] ?? ($existingSettings['contact_whatsapp'] ?? '967773712030')),
+            'contact_phone' => trim($input['contact_phone'] ?? ($existingSettings['contact_phone'] ?? '773712030')),
+            'developer_name' => trim($input['developer_name'] ?? ($existingSettings['developer_name'] ?? 'المهندس عمر الحومي')),
+            'developer_company' => trim($input['developer_company'] ?? ($existingSettings['developer_company'] ?? 'تُبع سوفت للحلول البرمجية الذكية (TubbaSoft)')),
+            'developer_email' => trim($input['developer_email'] ?? ($existingSettings['developer_email'] ?? 'omar@tubbasoft.com')),
+            'developer_message' => trim($input['developer_message'] ?? ($existingSettings['developer_message'] ?? 'تم ابتكار وتطوير منظومة وتطبيق مُسَرِّب لحوكمة مياه الآبار الزراعية وحفظ حقوق الموزعين والمزارعين بأعلى دقة تقنية ومالية.')),
+
+            'show_top_ticker' => isset($input['show_top_ticker']) ? filter_var($input['show_top_ticker'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_top_ticker'] ?? true),
+            'show_rates_section' => isset($input['show_rates_section']) ? filter_var($input['show_rates_section'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_rates_section'] ?? true),
+            'show_features_section' => isset($input['show_features_section']) ? filter_var($input['show_features_section'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_features_section'] ?? true),
+            'show_plans_section' => isset($input['show_plans_section']) ? filter_var($input['show_plans_section'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_plans_section'] ?? true),
+            'show_developer_section' => isset($input['show_developer_section']) ? filter_var($input['show_developer_section'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_developer_section'] ?? true),
+            'show_download_cta' => isset($input['show_download_cta']) ? filter_var($input['show_download_cta'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_download_cta'] ?? true)
+        ]);
+
         file_put_contents($settingsFile, json_encode($settings, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
         // Clear cache so admin updates show instantly
         $cacheFile = __DIR__ . '/../data/market_cache.json';
         if (file_exists($cacheFile)) @unlink($cacheFile);
 
-        jsonResponse(true, 'تم تحديث مؤشرات سوق المياه والأسعار بنجاح في الصفحة العامة!', $settings);
+        jsonResponse(true, 'تم حفظ وتحديث إعدادات ومحتوى الموقع العام بنجاح!', $settings);
     }
 
     // 2. Publish New Article / News

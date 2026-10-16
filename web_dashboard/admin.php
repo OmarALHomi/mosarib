@@ -1329,33 +1329,16 @@
       </div>
     </div>
 
-    <div class="grid-2">
-      <!-- Water Status & Market Rates Control -->
-      <div class="card" style="border: 1px solid rgba(0, 188, 212, 0.4);">
-        <div class="card-title">التحكم بمؤشر وفرة المياه وبورصة أسعار الري</div>
-        <form id="portalSettingsForm" onsubmit="handleSavePortalSettings(event)">
+    <!-- Full Website Content & Customization Control -->
+    <form id="portalSettingsForm" onsubmit="handleSavePortalSettings(event)">
+      <div class="grid-2">
+        <!-- 1. Water Rates & Active Geographic Region -->
+        <div class="card" style="border: 1px solid rgba(0, 188, 212, 0.45);">
+          <div class="card-title">💧 بورصة أسعار ساعات الري والنطاق الجغرافي</div>
+          
           <div class="form-group">
-            <label for="pWaterStatus">حالة وفرة المياه العامة:</label>
-            <select id="pWaterStatus">
-              <option value="ABUNDANT">وفيرة جداً ومرتفعة المنسوب</option>
-              <option value="GOOD" selected>متوفرة ومستقرة في معظم المناطق</option>
-              <option value="MODERATE">متوسطة وتستدعي ترشيد الضخ</option>
-              <option value="SCARCE">شحيحة وطلب متزايد على الساعات</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="pWaterStatusText">وصف حالة المياه اللحظي للزوار:</label>
-            <input type="text" id="pWaterStatusText" placeholder="مثال: استقرار منسوب مياه الآبار الجوفية ومعدلات الضخ ممتازة">
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div class="form-group">
-              <label for="pWaterIndexPercent">نسبة وفرة المياه (%):</label>
-              <input type="number" id="pWaterIndexPercent" min="10" max="100" value="85" required>
-            </div>
-            <div class="form-group">
-              <label for="pActiveRegions">عدد النطاقات الزراعية المغطاة:</label>
-              <input type="number" id="pActiveRegions" min="1" max="100" value="18" required>
-            </div>
+            <label for="pActiveRegionName">اسم المنطقة/المحافظات التي يعمل فيها التطبيق حالياً:</label>
+            <input type="text" id="pActiveRegionName" placeholder="مثال: الجمهورية اليمنية (صنعاء، مأرب، الجوف، عمران)" required>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
@@ -1364,28 +1347,127 @@
               <input type="number" id="pAvgPrice" placeholder="7500" required>
             </div>
             <div class="form-group">
-              <label for="pMinPrice">أقل سعر ساعة:</label>
-              <input type="number" id="pMinPrice" placeholder="6000" required>
+              <label for="pMinPrice">أقل سعر مسجل:</label>
+              <input type="number" id="pMinPrice" placeholder="5500" required>
             </div>
             <div class="form-group">
-              <label for="pMaxPrice">أعلى سعر ساعة:</label>
+              <label for="pMaxPrice">أعلى سعر مسجل:</label>
               <input type="number" id="pMaxPrice" placeholder="9500" required>
             </div>
           </div>
 
-          <div class="form-group">
-            <label for="pCurrency">العملة المعتمدة:</label>
-            <input type="text" id="pCurrency" value="ريال" required>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label for="pCurrency">العملة المعتمدة:</label>
+              <input type="text" id="pCurrency" value="ريال" required>
+            </div>
+            <div class="form-group">
+              <label for="pWaterStatus">حالة منسوب المياه:</label>
+              <select id="pWaterStatus">
+                <option value="ABUNDANT">وفيرة ومرتفعة المنسوب</option>
+                <option value="GOOD" selected>متوفرة ومستقرة</option>
+                <option value="MODERATE">متوسطة وتستدعي الترشيد</option>
+                <option value="SCARCE">شحيحة وطلب متزايد</option>
+              </select>
+            </div>
           </div>
 
           <div class="form-group">
-            <label for="pHeadlineAlert">الشريط الإخباري المتحرك في أعلى الموقع للزوار:</label>
+            <label for="pRatesNote">ملاحظة وتوضيح الأسعار في الموقع:</label>
+            <textarea id="pRatesNote" rows="2" placeholder="الأسعار تختلف بحسب عمق البئر، حجم المضخة، ونوع الطاقة المستخدمة (شمسية / ديزل)."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="pHeadlineAlert">الشريط الإخباري المتحرك أعلى الموقع للزوار:</label>
             <input type="text" id="pHeadlineAlert" placeholder="تنبيه أو إشعار يظهر في الشريط الإخباري العلوي">
           </div>
+        </div>
 
-          <button type="submit" class="btn" id="savePortalSettingsBtn">حفظ وتحديث مؤشرات الموقع العام</button>
-        </form>
+        <!-- 2. Hero Content & Direct Contacts -->
+        <div class="card" style="border: 1px solid rgba(0, 150, 166, 0.45);">
+          <div class="card-title">📝 نصوص وهوية الواجهة الرئيسية والتواصل</div>
+
+          <div class="form-group">
+            <label for="pHeroBadge">شارة الواجهة العلوية:</label>
+            <input type="text" id="pHeroBadge" placeholder="المنظومة الرقمية المعتمدة لملاك الآبار والموزعين">
+          </div>
+
+          <div class="form-group">
+            <label for="pHeroTitle">العنوان الرئيسي للموقع:</label>
+            <input type="text" id="pHeroTitle" placeholder="إدارة جلسات السقي وحسابات مياه الآبار بدقة واحترافية" required>
+          </div>
+
+          <div class="form-group">
+            <label for="pHeroSubtitle">الوصف التعريفي بالمنظومة والتطبيق:</label>
+            <textarea id="pHeroSubtitle" rows="3" placeholder="نظام ميداني متكامل يعمل بدون إنترنت لموزعي المياه وملاك الآبار الارتوازية..." required></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label for="pContactWhatsapp">رقم الواتساب للتفعيل والتواصل:</label>
+              <input type="text" id="pContactWhatsapp" placeholder="967773712030" required>
+            </div>
+            <div class="form-group">
+              <label for="pContactPhone">رقم الاتصال المباشر:</label>
+              <input type="text" id="pContactPhone" placeholder="773712030" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label for="pDeveloperName">اسم المطور / المالك:</label>
+              <input type="text" id="pDeveloperName" value="المهندس عمر الحومي">
+            </div>
+            <div class="form-group">
+              <label for="pDeveloperCompany">اسم المؤسسة / الشركة:</label>
+              <input type="text" id="pDeveloperCompany" value="تُبع سوفت للحلول البرمجية الذكية (TubbaSoft)">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="pDeveloperEmail">البريد الإلكتروني الرسمي:</label>
+            <input type="email" id="pDeveloperEmail" value="omar@tubbasoft.com">
+          </div>
+        </div>
       </div>
+
+      <!-- 3. Section Visibility Switches -->
+      <div class="card" style="margin-bottom: 24px; border: 1px solid rgba(0, 200, 83, 0.4);">
+        <div class="card-title">👁️ التحكم بإظهار وإخفاء أقسام الموقع العام (تشغيل / إيقاف)</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 10px 0;">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #FFF; font-weight: 700;">
+            <input type="checkbox" id="pShowTopTicker" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
+            <span>الشريط الإخباري العلوي</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #FFF; font-weight: 700;">
+            <input type="checkbox" id="pShowRatesSection" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
+            <span>قسم أسعار ساعات الري</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #FFF; font-weight: 700;">
+            <input type="checkbox" id="pShowFeaturesSection" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
+            <span>قسم مميزات التطبيق</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #FFF; font-weight: 700;">
+            <input type="checkbox" id="pShowPlansSection" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
+            <span>قسم خطط وتراخيص التطبيق</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #FFF; font-weight: 700;">
+            <input type="checkbox" id="pShowDeveloperSection" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
+            <span>قسم المطور والتواصل</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #FFF; font-weight: 700;">
+            <input type="checkbox" id="pShowDownloadCta" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
+            <span>صندوق التحميل المباشر السفلي</span>
+          </label>
+        </div>
+
+        <div style="margin-top: 18px; display: flex; justify-content: flex-end;">
+          <button type="submit" class="btn" id="savePortalSettingsBtn" style="width: auto; padding: 14px 38px; font-size: 15px; font-weight: 800; background: linear-gradient(135deg, #00BFA5, #00838F); box-shadow: 0 4px 18px rgba(0, 191, 165, 0.4);">
+            💾 حفظ وتطبيق كافة تعديلات الموقع العام فوراً
+          </button>
+        </div>
+      </div>
+    </form>
 
       <!-- Add News & Articles to Public Portal -->
       <div class="card" style="border: 1px solid rgba(255, 179, 0, 0.4);">
@@ -1616,8 +1698,8 @@
           </div>
         `;
       }).join('');
-    } catch (_) {
-      container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 20px;">سجل المسؤولين يعمل تحت بيئة PHP.</div>`;
+    } catch (e) {
+      container.innerHTML = `<div style="text-align: center; color: #EF5350; padding: 20px;">تعذر تحميل قائمة المسؤولين</div>`;
     }
   }
 
@@ -1764,17 +1846,32 @@
       const res = await fetch('api/public_data.php');
       const json = await res.json();
       if (json.success && json.data) {
-        const m = json.data.water_metrics;
-        if (m) {
-          document.getElementById("pWaterStatus").value = m.status || 'GOOD';
-          document.getElementById("pWaterStatusText").value = m.status_text || '';
-          document.getElementById("pWaterIndexPercent").value = m.index_percent || 85;
-          document.getElementById("pActiveRegions").value = m.active_regions || 18;
-          document.getElementById("pAvgPrice").value = m.avg_hourly_price || 7500;
-          document.getElementById("pMinPrice").value = m.min_hourly_price || 6000;
-          document.getElementById("pMaxPrice").value = m.max_hourly_price || 9500;
-          document.getElementById("pCurrency").value = m.currency_symbol || 'ريال';
-          document.getElementById("pHeadlineAlert").value = m.headline_alert || '';
+        const ps = json.data.portal_settings || {};
+        if (document.getElementById("pActiveRegionName")) {
+          document.getElementById("pActiveRegionName").value = ps.active_region_name || 'الجمهورية اليمنية (صنعاء، مأرب، الجوف، عمران)';
+          document.getElementById("pAvgPrice").value = ps.avg_hourly_price || 7500;
+          document.getElementById("pMinPrice").value = ps.min_hourly_price || 5500;
+          document.getElementById("pMaxPrice").value = ps.max_hourly_price || 9500;
+          document.getElementById("pCurrency").value = ps.currency_symbol || 'ريال';
+          document.getElementById("pWaterStatus").value = ps.water_status || 'GOOD';
+          document.getElementById("pRatesNote").value = ps.rates_note || '';
+          document.getElementById("pHeadlineAlert").value = ps.headline_alert || '';
+
+          document.getElementById("pHeroBadge").value = ps.hero_badge || '';
+          document.getElementById("pHeroTitle").value = ps.hero_title || '';
+          document.getElementById("pHeroSubtitle").value = ps.hero_subtitle || '';
+          document.getElementById("pContactWhatsapp").value = ps.contact_whatsapp || '967773712030';
+          document.getElementById("pContactPhone").value = ps.contact_phone || '773712030';
+          document.getElementById("pDeveloperName").value = ps.developer_name || 'المهندس عمر الحومي';
+          document.getElementById("pDeveloperCompany").value = ps.developer_company || 'تُبع سوفت للحلول البرمجية الذكية (TubbaSoft)';
+          document.getElementById("pDeveloperEmail").value = ps.developer_email || 'omar@tubbasoft.com';
+
+          document.getElementById("pShowTopTicker").checked = ps.show_top_ticker !== false;
+          document.getElementById("pShowRatesSection").checked = ps.show_rates_section !== false;
+          document.getElementById("pShowFeaturesSection").checked = ps.show_features_section !== false;
+          document.getElementById("pShowPlansSection").checked = ps.show_plans_section !== false;
+          document.getElementById("pShowDeveloperSection").checked = ps.show_developer_section !== false;
+          document.getElementById("pShowDownloadCta").checked = ps.show_download_cta !== false;
         }
 
         const an = json.data.analytics;
@@ -1837,15 +1934,30 @@
     try {
       const payload = {
         action: 'update_settings',
-        water_status: document.getElementById("pWaterStatus").value,
-        water_status_text: document.getElementById("pWaterStatusText").value.trim(),
-        water_index_percent: parseInt(document.getElementById("pWaterIndexPercent").value),
-        active_regions_count: parseInt(document.getElementById("pActiveRegions").value),
-        avg_hourly_price: parseFloat(document.getElementById("pAvgPrice").value),
-        min_hourly_price: parseFloat(document.getElementById("pMinPrice").value),
-        max_hourly_price: parseFloat(document.getElementById("pMaxPrice").value),
+        active_region_name: document.getElementById("pActiveRegionName").value.trim(),
+        avg_hourly_price: parseFloat(document.getElementById("pAvgPrice").value) || 0,
+        min_hourly_price: parseFloat(document.getElementById("pMinPrice").value) || 0,
+        max_hourly_price: parseFloat(document.getElementById("pMaxPrice").value) || 0,
         currency_symbol: document.getElementById("pCurrency").value.trim(),
+        water_status: document.getElementById("pWaterStatus").value,
+        rates_note: document.getElementById("pRatesNote").value.trim(),
         headline_alert: document.getElementById("pHeadlineAlert").value.trim(),
+
+        hero_badge: document.getElementById("pHeroBadge").value.trim(),
+        hero_title: document.getElementById("pHeroTitle").value.trim(),
+        hero_subtitle: document.getElementById("pHeroSubtitle").value.trim(),
+        contact_whatsapp: document.getElementById("pContactWhatsapp").value.trim(),
+        contact_phone: document.getElementById("pContactPhone").value.trim(),
+        developer_name: document.getElementById("pDeveloperName").value.trim(),
+        developer_company: document.getElementById("pDeveloperCompany").value.trim(),
+        developer_email: document.getElementById("pDeveloperEmail").value.trim(),
+
+        show_top_ticker: document.getElementById("pShowTopTicker").checked,
+        show_rates_section: document.getElementById("pShowRatesSection").checked,
+        show_features_section: document.getElementById("pShowFeaturesSection").checked,
+        show_plans_section: document.getElementById("pShowPlansSection").checked,
+        show_developer_section: document.getElementById("pShowDeveloperSection").checked,
+        show_download_cta: document.getElementById("pShowDownloadCta").checked,
         csrf_token: currentCsrfToken
       };
 

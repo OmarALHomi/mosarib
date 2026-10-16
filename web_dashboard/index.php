@@ -1,7 +1,10 @@
 <?php
 /**
- * Mosarib Public Portal - Real Visitor Analytics
+ * Mosarib Public Portal - Official Landing Page
+ * High-performance, responsive portal with dynamic admin customization
  */
+
+// 1. Visitor Analytics Tracking
 $analyticsFile = __DIR__ . '/data/portal_analytics.json';
 $today = date('Y-m-d');
 
@@ -54,36 +57,84 @@ if (count($analytics['daily_stats']) > 30) {
 }
 
 @file_put_contents($analyticsFile, json_encode($analytics, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+// 2. Load Portal Settings with default fallbacks
+$settingsFile = __DIR__ . '/data/portal_settings.json';
+$ps = [
+    'water_status' => 'GOOD',
+    'active_region_name' => 'الجمهورية اليمنية (صنعاء، مأرب، الجوف، عمران)',
+    'avg_hourly_price' => 7500,
+    'min_hourly_price' => 5500,
+    'max_hourly_price' => 9500,
+    'currency_symbol' => 'ريال',
+    'headline_alert' => 'منظومة مُسَرِّب: إدارة دقيقة لساعات الري وسندات القبض وحسابات المزارعين بالثواني والدقائق.',
+    'rates_note' => 'الأسعار تختلف بحسب نوع تشغيل البئر (منظومات طاقة شمسية أو محروقات ديزل) وطبيعة المنطقة الجغرافية.',
+    'hero_badge' => 'المنظومة الرقمية الميدانية لإدارة مياه الآبار',
+    'hero_title' => 'مُسَرِّب • حساب دقيق لمياه وساعات الري وحصص المزارعين',
+    'hero_subtitle' => 'تطبيق ذكي خفيف يعمل بدون إنترنت (Offline-First)، يدير جلسات الري بالثانية والدقيقة، يرسل سندات القبض عبر واتساب، ويحفظ بياناتك بأمان على Google Drive.',
+    'contact_whatsapp' => '967773712030',
+    'contact_phone' => '773712030',
+    'developer_name' => 'المهندس عمر الحومي',
+    'developer_company' => 'تُبع سوفت للحلول البرمجية الذكية (TubbaSoft)',
+    'developer_email' => 'omar@tubbasoft.com',
+    'developer_message' => 'تطبيق مُسَرِّب صُمم خصيصاً لتلبية احتياجات ملاك الآبار والمشتركين بدقة متناهية وسهولة مطلقة.',
+    'show_top_ticker' => true,
+    'show_rates_section' => true,
+    'show_features_section' => true,
+    'show_plans_section' => true,
+    'show_developer_section' => true,
+    'show_download_cta' => true
+];
+
+if (file_exists($settingsFile)) {
+    $savedSettings = json_decode(file_get_contents($settingsFile), true);
+    if (is_array($savedSettings)) {
+        $ps = array_merge($ps, $savedSettings);
+    }
+}
+
+// 3. Load App Release Info
+$releaseFile = __DIR__ . '/data/release_info.json';
+$release = [
+    'version_name' => '1.4.0',
+    'file_size_mb' => 2.80,
+    'download_url' => 'api/download.php'
+];
+if (file_exists($releaseFile)) {
+    $savedRel = json_decode(file_get_contents($releaseFile), true);
+    if (is_array($savedRel)) {
+        $release = array_merge($release, $savedRel);
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>مُسَرِّب • المنظومة الرائدة لإدارة مياه الآبار ودورات الري الزراعي</title>
-  <meta name="description" content="البوابة الرسمية لمنظومة مُسَرِّب: نبض سوق المياه، أسعار ساعات الري اللحظية، ومؤشرات وفرة المياه الجوفية والتحميل المباشر لتطبيق المزارعين وملاك الآبار.">
+  <title><?= htmlspecialchars($ps['hero_title']) ?> • البوابة الرسمية</title>
+  <meta name="description" content="<?= htmlspecialchars($ps['hero_subtitle']) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  
+
   <style>
     :root {
       --primary: #00838F;
       --primary-dark: #004D40;
       --primary-light: #26A69A;
       --accent: #00B4D8;
-      --gold: #F59E0B;
-      --gold-soft: rgba(245, 158, 11, 0.15);
+      --accent-glow: rgba(0, 180, 216, 0.25);
+      --gold: #FFB300;
+      --gold-soft: rgba(255, 179, 0, 0.15);
       --bg: #071015;
       --surface: #0E1D24;
-      --surface-elevated: #132731;
-      --surface-card: rgba(14, 29, 36, 0.7);
-      --border: rgba(0, 180, 216, 0.16);
+      --surface-card: rgba(14, 29, 36, 0.75);
+      --surface-border: rgba(0, 180, 216, 0.18);
       --border-subtle: rgba(255, 255, 255, 0.08);
       --text: #E0F2F1;
       --text-muted: #80CBC4;
-      --text-dim: #546E7A;
+      --text-dim: #607D8B;
       --text-heading: #FFFFFF;
       --radius-sm: 8px;
       --radius-md: 14px;
@@ -101,22 +152,28 @@ if (count($analytics['daily_stats']) > 30) {
     body {
       background-color: var(--bg);
       background-image: 
-        radial-gradient(circle at 10% 10%, rgba(0, 131, 143, 0.18) 0%, transparent 40%),
-        radial-gradient(circle at 90% 20%, rgba(0, 180, 216, 0.12) 0%, transparent 45%),
-        radial-gradient(circle at 50% 90%, rgba(38, 166, 154, 0.08) 0%, transparent 50%);
+        radial-gradient(circle at 15% 15%, rgba(0, 131, 143, 0.15) 0%, transparent 40%),
+        radial-gradient(circle at 85% 25%, rgba(0, 180, 216, 0.10) 0%, transparent 45%),
+        radial-gradient(circle at 50% 85%, rgba(0, 77, 64, 0.12) 0%, transparent 50%);
       background-attachment: fixed;
       color: var(--text);
-      line-height: 1.7;
+      line-height: 1.6;
       overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
     }
 
+    .container {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
     /* Top Live Alert Ticker */
     .top-ticker {
-      background: linear-gradient(90deg, #00332C, #004D40, #00332C);
+      background: linear-gradient(90deg, #002B24, #004D40, #002B24);
       color: #E0F7FA;
-      font-size: 12.5px;
-      padding: 7px 16px;
+      font-size: 13px;
+      padding: 8px 16px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -135,7 +192,7 @@ if (count($analytics['daily_stats']) > 30) {
     }
     @keyframes pulse {
       0% { transform: scale(0.9); opacity: 0.8; }
-      50% { transform: scale(1.25); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 1; }
       100% { transform: scale(0.9); opacity: 0.8; }
     }
 
@@ -144,50 +201,49 @@ if (count($analytics['daily_stats']) > 30) {
       position: sticky;
       top: 0;
       z-index: 1000;
-      background: rgba(7, 16, 21, 0.88);
+      background: rgba(7, 16, 21, 0.92);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border-subtle);
-      padding: 12px 24px;
+      padding: 12px 0;
     }
-    .header-container {
-      max-width: 1200px;
-      margin: 0 auto;
+    .header-content {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 20px;
     }
     .brand-logo {
       display: flex;
       align-items: center;
       gap: 12px;
       text-decoration: none;
-      color: #FFF;
     }
-    .logo-badge {
-      width: 42px;
-      height: 42px;
-      background: linear-gradient(135deg, #00838F, #004D40);
+    .brand-badge {
+      width: 44px;
+      height: 44px;
       border-radius: 12px;
+      background: linear-gradient(135deg, #00838F, #004D40);
+      border: 1px solid rgba(0, 180, 216, 0.4);
       display: flex;
       align-items: center;
       justify-content: center;
-      border: 1px solid rgba(255, 255, 255, 0.15);
       color: #80DEEA;
-      flex-shrink: 0;
+      box-shadow: 0 4px 14px rgba(0, 131, 143, 0.3);
     }
-    .brand-title {
+    .brand-text b {
+      color: #FFFFFF;
       font-size: 19px;
       font-weight: 900;
-      letter-spacing: -0.3px;
-      color: #FFFFFF;
+      letter-spacing: 0.5px;
+      display: block;
+      line-height: 1.2;
     }
-    .brand-sub {
-      font-size: 11px;
+    .brand-text span {
+      font-size: 11.5px;
       color: var(--text-muted);
-      font-weight: 500;
+      font-weight: 600;
     }
-
     .nav-links {
       display: flex;
       align-items: center;
@@ -195,19 +251,18 @@ if (count($analytics['daily_stats']) > 30) {
     }
     .nav-link {
       color: #B2DFDB;
-      text-decoration: none;
-      font-size: 13.5px;
+      font-size: 14px;
       font-weight: 600;
+      text-decoration: none;
       transition: color 0.2s ease;
     }
     .nav-link:hover {
       color: #FFFFFF;
     }
-
-    .btn-nav-download {
+    .btn-header-cta {
       background: linear-gradient(135deg, #00897B, #004D40);
-      border: 1px solid #4DB6AC;
       color: #FFFFFF;
+      border: 1px solid rgba(0, 180, 216, 0.4);
       padding: 8px 18px;
       border-radius: var(--radius-full);
       font-size: 13px;
@@ -215,251 +270,127 @@ if (count($analytics['daily_stats']) > 30) {
       text-decoration: none;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       transition: all 0.2s ease;
     }
-    .btn-nav-download:hover {
-      background: linear-gradient(135deg, #009688, #00695C);
+    .btn-header-cta:hover {
+      background: linear-gradient(135deg, #00BFA5, #00695C);
+      box-shadow: 0 4px 16px rgba(0, 191, 165, 0.3);
       transform: translateY(-1px);
     }
 
-    /* Container */
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 20px;
-    }
-
     /* Hero Section */
-    .hero {
-      padding: 60px 0 40px 0;
-      display: grid;
-      grid-template-columns: 1.15fr 0.85fr;
-      gap: 40px;
-      align-items: center;
+    .hero-section {
+      padding: 48px 0 36px 0;
+      text-align: center;
     }
-    .hero-badge {
+    .hero-badge-pill {
       display: inline-flex;
       align-items: center;
       gap: 8px;
       background: rgba(0, 180, 216, 0.1);
       border: 1px solid rgba(0, 180, 216, 0.25);
       color: #80DEEA;
-      padding: 5px 14px;
+      padding: 6px 16px;
       border-radius: var(--radius-full);
-      font-size: 12px;
+      font-size: 12.5px;
       font-weight: 700;
-      margin-bottom: 18px;
+      margin-bottom: 20px;
     }
     .hero-title {
-      font-size: 38px;
+      font-size: 34px;
       font-weight: 900;
-      line-height: 1.3;
       color: #FFFFFF;
-      margin-bottom: 18px;
-      letter-spacing: -0.5px;
+      line-height: 1.35;
+      margin-bottom: 16px;
+      max-width: 860px;
+      margin-left: auto;
+      margin-right: auto;
     }
-    .hero-title span {
-      color: #4DD0E1;
-    }
-    .hero-description {
-      font-size: 15.5px;
+    .hero-subtitle {
+      font-size: 16px;
       color: #B2DFDB;
-      line-height: 1.85;
-      margin-bottom: 30px;
-      max-width: 560px;
+      max-width: 760px;
+      margin: 0 auto 28px auto;
+      line-height: 1.7;
     }
     .hero-actions {
       display: flex;
-      flex-wrap: wrap;
+      justify-content: center;
       gap: 14px;
-      align-items: center;
-      margin-bottom: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 26px;
     }
     .btn-primary-action {
-      background: linear-gradient(135deg, #F59E0B, #D97706);
-      color: #05141A;
+      background: linear-gradient(135deg, #00897B, #004D40);
+      color: #FFFFFF;
+      border: 1px solid rgba(0, 230, 118, 0.4);
+      padding: 13px 28px;
+      border-radius: var(--radius-md);
       font-size: 15px;
       font-weight: 800;
-      padding: 13px 26px;
-      border-radius: var(--radius-md);
       text-decoration: none;
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      transition: all 0.25s ease;
-      box-shadow: 0 4px 16px rgba(245, 158, 11, 0.25);
+      box-shadow: 0 8px 24px rgba(0, 137, 123, 0.35);
+      transition: all 0.2s ease;
     }
     .btn-primary-action:hover {
+      background: linear-gradient(135deg, #00BFA5, #00796B);
       transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
-      background: linear-gradient(135deg, #FBBF24, #D97706);
+      box-shadow: 0 10px 28px rgba(0, 191, 165, 0.45);
     }
-    .btn-secondary-action {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border);
-      color: #E0F2F1;
-      font-size: 14.5px;
-      font-weight: 600;
-      padding: 12px 22px;
+    .btn-whatsapp-action {
+      background: rgba(37, 211, 102, 0.12);
+      border: 1px solid rgba(37, 211, 102, 0.35);
+      color: #69F0AE;
+      padding: 13px 24px;
       border-radius: var(--radius-md);
+      font-size: 15px;
+      font-weight: 800;
       text-decoration: none;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       transition: all 0.2s ease;
     }
-    .btn-secondary-action:hover {
-      background: rgba(0, 180, 216, 0.1);
-      border-color: rgba(0, 180, 216, 0.4);
-      color: #FFFFFF;
+    .btn-whatsapp-action:hover {
+      background: rgba(37, 211, 102, 0.22);
+      transform: translateY(-2px);
     }
-    .hero-trust {
+    .hero-trust-bar {
       display: flex;
+      justify-content: center;
       align-items: center;
       gap: 20px;
+      flex-wrap: wrap;
+      font-size: 12.5px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .hero-trust-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Section Styling */
+    section.portal-section {
+      padding: 38px 0;
+    }
+    .section-header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .section-tag {
       font-size: 12px;
-      color: var(--text-muted);
-    }
-    .trust-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    /* Live Water & Metrics Visual Card */
-    .hero-visual-card {
-      background: linear-gradient(160deg, rgba(19, 39, 49, 0.75), rgba(9, 18, 23, 0.9));
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 26px;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
-    }
-    .card-header-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border-subtle);
-    }
-    .card-title-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14.5px;
-      font-weight: 700;
-      color: #FFFFFF;
-    }
-    .status-badge {
-      font-size: 11.5px;
-      font-weight: 700;
-      padding: 3px 10px;
-      border-radius: var(--radius-full);
-      background: rgba(0, 200, 83, 0.12);
-      border: 1px solid rgba(0, 200, 83, 0.3);
-      color: #69F0AE;
-    }
-
-    /* Circular Water Gauge */
-    .gauge-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-bottom: 22px;
-    }
-    .gauge-wrapper {
-      position: relative;
-      width: 180px;
-      height: 95px;
-      overflow: hidden;
-    }
-    .gauge-semicircle {
-      width: 180px;
-      height: 180px;
-      border-radius: 50%;
-      border: 14px solid rgba(255, 255, 255, 0.06);
-      border-top-color: #00B4D8;
-      border-right-color: #26A69A;
-      border-left-color: #F59E0B;
-      transform: rotate(45deg);
-      box-sizing: border-box;
-    }
-    .gauge-center-text {
-      position: absolute;
-      bottom: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      text-align: center;
-    }
-    .gauge-percent {
-      font-size: 30px;
-      font-weight: 900;
-      color: #FFFFFF;
-      line-height: 1;
-    }
-    .gauge-sub {
-      font-size: 11px;
-      color: var(--text-muted);
-      font-weight: 600;
-      margin-top: 2px;
-    }
-    .gauge-status-desc {
-      text-align: center;
-      font-size: 13px;
-      color: #B2DFDB;
-      margin-top: 10px;
-    }
-
-    /* Key Live Indicators Grid */
-    .live-indicators {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-top: 16px;
-    }
-    .indicator-box {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      padding: 12px 14px;
-    }
-    .indicator-label {
-      font-size: 11.5px;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .indicator-val {
-      font-size: 17px;
       font-weight: 800;
-      color: #FFFFFF;
-    }
-    .indicator-val small {
-      font-size: 11.5px;
-      color: var(--gold);
-      font-weight: 600;
-      margin-right: 4px;
-    }
-
-    /* Section Headings */
-    .section-title-wrap {
-      text-align: center;
-      margin: 70px 0 35px 0;
-    }
-    .section-badge {
-      display: inline-block;
-      background: rgba(0, 180, 216, 0.1);
-      border: 1px solid rgba(0, 180, 216, 0.25);
-      color: #80DEEA;
-      padding: 4px 14px;
-      border-radius: var(--radius-full);
-      font-size: 11.5px;
-      font-weight: 700;
-      margin-bottom: 10px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+      display: block;
     }
     .section-title {
       font-size: 26px;
@@ -474,173 +405,282 @@ if (count($analytics['daily_stats']) > 30) {
       margin: 0 auto;
     }
 
-    /* Market Pulse Cards */
-    .market-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 18px;
-      margin-bottom: 35px;
-    }
-    .market-card {
+    /* Region & Rates Box */
+    .rates-box {
       background: var(--surface-card);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-lg);
+      padding: 26px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    }
+    .region-banner {
+      background: linear-gradient(135deg, rgba(0, 131, 143, 0.2), rgba(0, 77, 64, 0.3));
+      border: 1px solid rgba(0, 180, 216, 0.3);
       border-radius: var(--radius-md);
-      padding: 22px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 22px;
+      flex-wrap: wrap;
+    }
+    .region-info {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .region-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(0, 180, 216, 0.15);
+      border: 1px solid rgba(0, 180, 216, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #4DD0E1;
+      flex-shrink: 0;
+    }
+    .region-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .region-name {
+      font-size: 17px;
+      font-weight: 900;
+      color: #FFFFFF;
+    }
+    .region-badge {
+      background: rgba(0, 230, 118, 0.15);
+      border: 1px solid rgba(0, 230, 118, 0.4);
+      color: #69F0AE;
+      padding: 4px 12px;
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* Rates 3-Card Grid */
+    .rates-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .rate-card {
+      background: rgba(7, 16, 21, 0.65);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      text-align: center;
       transition: all 0.2s ease;
     }
-    .market-card:hover {
+    .rate-card:hover {
+      border-color: rgba(0, 180, 216, 0.35);
+      transform: translateY(-2px);
+    }
+    .rate-card-highlight {
+      background: linear-gradient(160deg, rgba(0, 131, 143, 0.18), rgba(7, 16, 21, 0.85));
+      border: 1px solid rgba(0, 180, 216, 0.4);
+      box-shadow: 0 4px 18px rgba(0, 131, 143, 0.15);
+    }
+    .rate-card-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .rate-card-value {
+      font-size: 30px;
+      font-weight: 900;
+      color: #FFFFFF;
+      margin-bottom: 4px;
+      line-height: 1.2;
+    }
+    .rate-card-value span {
+      font-size: 14px;
+      color: var(--gold);
+      font-weight: 700;
+      margin-right: 4px;
+    }
+    .rate-card-desc {
+      font-size: 11.5px;
+      color: var(--text-dim);
+    }
+    .rates-note-banner {
+      background: rgba(255, 179, 0, 0.08);
+      border: 1px solid rgba(255, 179, 0, 0.22);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12.5px;
+      color: #FFE082;
+    }
+
+    /* Features 4-Card Grid */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+    .feature-card {
+      background: var(--surface-card);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      transition: all 0.2s ease;
+    }
+    .feature-card:hover {
       border-color: rgba(0, 180, 216, 0.4);
       transform: translateY(-2px);
     }
-    .market-card-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-    .market-card-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
+    .feature-icon-badge {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
       background: rgba(0, 180, 216, 0.12);
       border: 1px solid rgba(0, 180, 216, 0.25);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #80DEEA;
+      font-size: 22px;
+      margin-bottom: 16px;
     }
-    .market-tag {
-      font-size: 11.5px;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-    .market-label {
-      font-size: 12.5px;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-    }
-    .market-price {
-      font-size: 24px;
-      font-weight: 900;
+    .feature-title {
+      font-size: 16.5px;
+      font-weight: 800;
       color: #FFFFFF;
       margin-bottom: 8px;
     }
-    .market-price span {
-      font-size: 13px;
-      color: var(--gold);
-      font-weight: 700;
-    }
-    .market-note {
-      font-size: 12px;
+    .feature-desc {
+      font-size: 13.5px;
       color: #B2DFDB;
-      line-height: 1.6;
+      line-height: 1.65;
     }
 
-    /* Chart Section */
-    .chart-box {
-      background: var(--surface-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 24px;
-      margin-bottom: 60px;
-    }
-    .chart-box-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 18px;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .chart-box-title {
-      font-size: 16px;
-      font-weight: 800;
-      color: #FFFFFF;
-    }
-    .chart-box-sub {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    /* News Grid */
-    .news-grid {
+    /* Subscription Plans Section */
+    .plans-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 20px;
-      margin-bottom: 60px;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 22px;
     }
-    .news-card {
-      background: linear-gradient(160deg, rgba(19, 39, 49, 0.6), rgba(9, 18, 23, 0.8));
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      padding: 22px;
+    .plan-card {
+      background: var(--surface-card);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      position: relative;
       transition: all 0.2s ease;
     }
-    .news-card:hover {
-      border-color: rgba(0, 180, 216, 0.35);
-      transform: translateY(-2px);
+    .plan-card:hover {
+      border-color: rgba(0, 180, 216, 0.4);
+      transform: translateY(-3px);
     }
-    .news-meta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 11.5px;
-      color: var(--text-muted);
-      margin-bottom: 12px;
+    .plan-card-popular {
+      background: linear-gradient(160deg, rgba(0, 131, 143, 0.25), rgba(14, 29, 36, 0.85));
+      border: 1px solid rgba(0, 230, 118, 0.45);
+      box-shadow: 0 8px 30px rgba(0, 131, 143, 0.25);
     }
-    .news-category-badge {
-      background: rgba(0, 137, 123, 0.2);
-      color: #4DB6AC;
-      border: 1px solid rgba(0, 137, 123, 0.3);
-      padding: 2px 10px;
-      border-radius: var(--radius-full);
-      font-weight: 700;
-      font-size: 11px;
-    }
-    .news-title {
-      font-size: 16px;
-      font-weight: 800;
+    .plan-badge {
+      position: absolute;
+      top: -12px;
+      left: 20px;
+      background: linear-gradient(135deg, #00C853, #00796B);
       color: #FFFFFF;
-      line-height: 1.5;
-      margin-bottom: 8px;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 12px;
+      border-radius: var(--radius-full);
+      box-shadow: 0 4px 10px rgba(0, 200, 83, 0.3);
     }
-    .news-summary {
+    .plan-name {
+      font-size: 19px;
+      font-weight: 900;
+      color: #FFFFFF;
+      margin-bottom: 6px;
+    }
+    .plan-subtitle {
       font-size: 13px;
-      color: #B2DFDB;
-      line-height: 1.7;
+      color: var(--text-muted);
       margin-bottom: 16px;
     }
-    .news-footer {
+    .plan-price {
+      font-size: 26px;
+      font-weight: 900;
+      color: #FFFFFF;
+      margin-bottom: 18px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .plan-price small {
+      font-size: 13px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+    .plan-features-list {
+      list-style: none;
+      margin-bottom: 24px;
+    }
+    .plan-features-list li {
+      font-size: 13.5px;
+      color: #E0F2F1;
+      margin-bottom: 10px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      border-top: 1px solid var(--border-subtle);
-      padding-top: 10px;
-      font-size: 11.5px;
-      color: var(--text-muted);
+      gap: 8px;
+    }
+    .plan-features-list li svg {
+      color: #00E676;
+      flex-shrink: 0;
+    }
+    .btn-plan {
+      background: rgba(0, 180, 216, 0.12);
+      border: 1px solid rgba(0, 180, 216, 0.3);
+      color: #80DEEA;
+      padding: 10px;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+      text-decoration: none;
+      display: block;
+      transition: all 0.2s ease;
+    }
+    .btn-plan:hover {
+      background: rgba(0, 180, 216, 0.22);
+    }
+    .btn-plan-popular {
+      background: linear-gradient(135deg, #00897B, #004D40);
+      color: #FFFFFF;
+      border: 1px solid rgba(0, 230, 118, 0.4);
+    }
+    .btn-plan-popular:hover {
+      background: linear-gradient(135deg, #00BFA5, #00695C);
     }
 
-    /* Developer Section */
-    .developer-section {
-      background: linear-gradient(150deg, rgba(14, 29, 36, 0.85), rgba(7, 16, 21, 0.95));
-      border: 1px solid var(--border);
+    /* Developer & Contact Card */
+    .developer-card {
+      background: linear-gradient(150deg, rgba(14, 29, 36, 0.9), rgba(7, 16, 21, 0.95));
+      border: 1px solid var(--surface-border);
       border-radius: var(--radius-lg);
-      padding: 30px;
-      margin-bottom: 50px;
+      padding: 28px;
     }
     .dev-grid {
       display: grid;
       grid-template-columns: auto 1fr auto;
-      gap: 24px;
+      gap: 22px;
       align-items: center;
     }
     .dev-avatar {
-      width: 68px;
-      height: 68px;
+      width: 64px;
+      height: 64px;
       border-radius: 16px;
       background: linear-gradient(135deg, #00838F, #004D40);
       border: 1px solid rgba(0, 180, 216, 0.4);
@@ -650,26 +690,11 @@ if (count($analytics['daily_stats']) > 30) {
       color: #80DEEA;
       flex-shrink: 0;
     }
-    .dev-name-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 4px;
-      flex-wrap: wrap;
-    }
     .dev-name {
-      font-size: 20px;
+      font-size: 19px;
       font-weight: 900;
       color: #FFFFFF;
-    }
-    .dev-role-badge {
-      background: rgba(245, 158, 11, 0.12);
-      border: 1px solid rgba(245, 158, 11, 0.3);
-      color: var(--gold);
-      padding: 2px 10px;
-      border-radius: var(--radius-full);
-      font-size: 11px;
-      font-weight: 700;
+      margin-bottom: 2px;
     }
     .dev-company {
       font-size: 13.5px;
@@ -680,432 +705,170 @@ if (count($analytics['daily_stats']) > 30) {
     .dev-desc {
       font-size: 13px;
       color: #B2DFDB;
-      line-height: 1.7;
-      max-width: 600px;
+      line-height: 1.6;
+      max-width: 580px;
     }
-    .dev-actions {
+    .dev-buttons {
       display: flex;
       flex-direction: column;
       gap: 10px;
       min-width: 200px;
     }
-    .dev-link {
+    .dev-btn {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
       padding: 9px 14px;
       border-radius: var(--radius-md);
-      font-size: 12.5px;
+      font-size: 13px;
       font-weight: 700;
       text-decoration: none;
       transition: all 0.2s ease;
     }
-    .dev-link-primary {
-      background: rgba(0, 180, 216, 0.1);
+    .dev-btn-whatsapp {
+      background: rgba(37, 211, 102, 0.15);
+      border: 1px solid rgba(37, 211, 102, 0.35);
+      color: #69F0AE;
+    }
+    .dev-btn-whatsapp:hover {
+      background: rgba(37, 211, 102, 0.25);
+    }
+    .dev-btn-phone {
+      background: rgba(0, 180, 216, 0.12);
       border: 1px solid rgba(0, 180, 216, 0.3);
       color: #80DEEA;
     }
-    .dev-link-primary:hover {
-      background: rgba(0, 180, 216, 0.2);
-    }
-    .dev-link-secondary {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border-subtle);
-      color: #FFFFFF;
-    }
-    .dev-link-secondary:hover {
-      background: rgba(255, 255, 255, 0.08);
+    .dev-btn-phone:hover {
+      background: rgba(0, 180, 216, 0.22);
     }
 
     /* Download Call to Action Box */
-    .cta-download-box {
-      background: linear-gradient(135deg, rgba(0, 77, 64, 0.8), rgba(0, 105, 115, 0.8));
+    .download-cta-box {
+      background: linear-gradient(135deg, rgba(0, 77, 64, 0.75), rgba(0, 105, 115, 0.75));
       border: 1px solid rgba(0, 180, 216, 0.35);
       border-radius: var(--radius-lg);
-      padding: 38px 24px;
+      padding: 34px 24px;
       text-align: center;
-      margin: 40px 0 70px 0;
+      margin: 10px 0 30px 0;
     }
-    .cta-title {
+    .download-cta-title {
       font-size: 24px;
       font-weight: 900;
       color: #FFFFFF;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
-    .cta-desc {
-      font-size: 14.5px;
+    .download-cta-desc {
+      font-size: 14px;
       color: #E0F2F1;
-      max-width: 620px;
-      margin: 0 auto 22px auto;
+      max-width: 600px;
+      margin: 0 auto 20px auto;
     }
-    .cta-specs {
+    .download-cta-specs {
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 20px;
-      font-size: 12.5px;
+      gap: 18px;
+      font-size: 12px;
       color: #B2DFDB;
       flex-wrap: wrap;
+      margin-top: 16px;
     }
 
     /* Footer */
-    footer.public-footer {
+    footer.main-footer {
       border-top: 1px solid var(--border-subtle);
-      background: #040A0D;
-      padding: 30px 0 20px 0;
-      font-size: 12.5px;
-      color: var(--text-muted);
+      padding: 24px 0;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-dim);
     }
     .footer-content {
       display: flex;
-      flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
-      gap: 18px;
-      margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 12px;
     }
 
-    /* Responsive */
-    @media (max-width: 880px) {
-      .hero {
-        grid-template-columns: 1fr;
-        padding: 35px 0;
-      }
-      .hero-title {
-        font-size: 30px;
-      }
-      .nav-links {
-        display: none;
-      }
-      .dev-grid {
-        grid-template-columns: 1fr;
-        text-align: center;
-      }
-      .dev-avatar {
-        margin: 0 auto;
-      }
-      .dev-name-row {
-        justify-content: center;
-      }
-      .dev-desc {
-        margin: 0 auto;
-      }
-      .dev-actions {
-        margin-top: 10px;
-      }
+    @media (max-width: 768px) {
+      .hero-title { font-size: 26px; }
+      .dev-grid { grid-template-columns: 1fr; text-align: center; }
+      .dev-avatar { margin: 0 auto; }
+      .dev-buttons { min-width: 100%; }
+      .nav-links { display: none; }
+      .rates-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Top Alert Ticker -->
-  <div class="top-ticker">
-    <div class="pulse-dot"></div>
-    <span id="topAlertMessage">مؤشر ري مباشر: متابعة فورية لمنسوب مياه الآبار الجوفية ومعدلات الضخ الزراعي.</span>
+  <!-- Top Alert Ticker (Controlled by Admin) -->
+  <?php if (!empty($ps['show_top_ticker'])): ?>
+  <div class="top-ticker" id="topTickerBar">
+    <span class="pulse-dot"></span>
+    <span id="topAlertText"><?= htmlspecialchars($ps['headline_alert']) ?></span>
   </div>
+  <?php endif; ?>
 
-  <!-- Main Header (Strictly public, NO admin link) -->
+  <!-- Main Header -->
   <header class="main-header">
-    <div class="header-container">
+    <div class="container header-content">
       <a href="index.php" class="brand-logo">
-        <div class="logo-badge">
-          <!-- Sleek Water Droplet SVG -->
+        <div class="brand-badge">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
           </svg>
         </div>
-        <div>
-          <div class="brand-title">مُسَرِّب • MOSARIB</div>
-          <div class="brand-sub">المنظومة الذكية لإدارة مياه الآبار وحسابات الري</div>
+        <div class="brand-text">
+          <b>مُسَرِّب • MOSARIB</b>
+          <span>إدارة آبار المياه ودورات الري</span>
         </div>
       </a>
 
       <nav class="nav-links">
-        <a href="#water-meter" class="nav-link">مؤشر وفرة المياه</a>
-        <a href="#market-pulse" class="nav-link">أسعار ساعة الري</a>
-        <a href="#portal-news" class="nav-link">تقارير وإرشادات</a>
-        <a href="#developer-section" class="nav-link">عن المنظومة</a>
+        <?php if (!empty($ps['show_rates_section'])): ?>
+        <a href="#rates-section" class="nav-link">بورصة الأسعار</a>
+        <?php endif; ?>
+        <?php if (!empty($ps['show_features_section'])): ?>
+        <a href="#features-section" class="nav-link">المميزات الميدانية</a>
+        <?php endif; ?>
+        <?php if (!empty($ps['show_plans_section'])): ?>
+        <a href="#plans-section" class="nav-link">باقات الاشتراك</a>
+        <?php endif; ?>
+        <?php if (!empty($ps['show_developer_section'])): ?>
+        <a href="#developer-section" class="nav-link">الدعم والمطور</a>
+        <?php endif; ?>
       </nav>
 
-      <div>
-        <a href="#download-section" class="btn-nav-download">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-          <span>تحميل التطبيق</span>
-        </a>
-      </div>
+      <a href="<?= htmlspecialchars($release['download_url']) ?>" class="btn-header-cta" onclick="trackDownloadMetric()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span>تحميل التطبيق APK</span>
+      </a>
     </div>
   </header>
 
+  <!-- Hero Section -->
   <main class="container">
-
-    <!-- Hero Section -->
-    <section class="hero">
-      <div>
-        <div class="hero-badge">
-          <span>المنظومة الرقمية الموثوقة لملاك الآبار والمزارعين</span>
-        </div>
-        <h1 class="hero-title">
-          نبض مياه الآبار <span>وساعات الري الزراعي</span> بدقة تقنية ومالية تامة
-        </h1>
-        <p class="hero-description">
-          تطبيق "مُسَرِّب" يربط شبكة الآبار ومسربي المياه وملاك الأراضي الزراعية في منظومة متكاملة: حساب كسور ساعات الري بدقة، تتبع الفاقد المائي، إصدار سندات قبض وحسابات آلية، ومتابعة فورية لمؤشرات سوق المياه.
-        </p>
-
-        <div class="hero-actions">
-          <a href="#" id="heroDirectDownloadBtn" class="btn-primary-action">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            <span>تحميل التطبيق المباشر (APK)</span>
-          </a>
-          <a href="#water-meter" class="btn-secondary-action">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="20" x2="18" y2="10"></line>
-              <line x1="12" y1="20" x2="12" y2="4"></line>
-              <line x1="6" y1="20" x2="6" y2="14"></line>
-            </svg>
-            <span>مؤشر المياه والأسعار</span>
-          </a>
-        </div>
-
-        <div class="hero-trust">
-          <div class="trust-item">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#26A69A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            <span>تحديث مباشر</span>
-          </div>
-          <div class="trust-item">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#26A69A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-            </svg>
-            <span>بيانات حقيقية موثوقة</span>
-          </div>
-          <div class="trust-item">
-            <span id="heroReleaseVer">الإصدار: v1.4.0</span>
-          </div>
-        </div>
+    <section class="hero-section">
+      <div class="hero-badge-pill">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polygon points="12 8 8 12 12 16 12 8"></polygon>
+        </svg>
+        <span id="heroBadgeText"><?= htmlspecialchars($ps['hero_badge']) ?></span>
       </div>
 
-      <!-- Live Water & Market Visual Card -->
-      <div class="hero-visual-card" id="water-meter">
-        <div class="card-header-bar">
-          <div class="card-title-group">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00B4D8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
-            </svg>
-            <span>مؤشر وفرة المياه الميداني</span>
-          </div>
-          <span class="status-badge" id="badgeWaterStatus">مستقر ومتاح</span>
-        </div>
+      <h1 class="hero-title" id="heroTitleText"><?= htmlspecialchars($ps['hero_title']) ?></h1>
+      <p class="hero-subtitle" id="heroSubtitleText"><?= htmlspecialchars($ps['hero_subtitle']) ?></p>
 
-        <div class="gauge-container">
-          <div class="gauge-wrapper">
-            <div class="gauge-semicircle" id="gaugeCircle"></div>
-            <div class="gauge-center-text">
-              <div class="gauge-percent" id="waterIndexPercent">85%</div>
-              <div class="gauge-sub">معدل الوفرة والتدفق</div>
-            </div>
-          </div>
-          <div class="gauge-status-desc" id="waterStatusTextDesc">
-            تدفق المياه الجوفية بحالة مستقرة في معظم المناطق الزراعية
-          </div>
-        </div>
-
-        <!-- Real-time key metrics -->
-        <div class="live-indicators">
-          <div class="indicator-box">
-            <div class="indicator-label">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                <circle cx="9" cy="7" r="4"></circle>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-              </svg>
-              <span>المسربون النشطون</span>
-            </div>
-            <div class="indicator-val" id="activeOperatorsNow">-- <small>مسرب متصل</small></div>
-          </div>
-
-          <div class="indicator-box">
-            <div class="indicator-label">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="4" width="20" height="16" rx="2"></rect>
-                <line x1="12" y1="8" x2="12" y2="16"></line>
-                <line x1="8" y1="12" x2="16" y2="12"></line>
-              </svg>
-              <span>إجمالي المشتركين</span>
-            </div>
-            <div class="indicator-val" id="totalRegisteredOperators">-- <small>مشترك مسجل</small></div>
-          </div>
-
-          <div class="indicator-box">
-            <div class="indicator-label">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="12" y1="1" x2="12" y2="23"></line>
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-              </svg>
-              <span>متوسط سعر الساعة</span>
-            </div>
-            <div class="indicator-val" id="avgHourlyPrice">-- <small id="currencyUnit">ريال</small></div>
-          </div>
-
-          <div class="indicator-box">
-            <div class="indicator-label">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-              <span>حالة التحديث</span>
-            </div>
-            <div class="indicator-val" id="syncStatusText" style="font-size: 14.5px; color: #4DD0E1;">لحظي مباشر</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Market Pulse Section -->
-    <div class="section-title-wrap" id="market-pulse">
-      <div class="section-badge">مؤشرات السوق الزراعي</div>
-      <h2 class="section-title">بورصة وأسعار ساعات الري</h2>
-      <p class="section-desc">إحصائيات حية مستمدة من واقع دورات وساعات الري المسجلة في تطبيق مُسَرِّب من قبل المسربين المعتمدين.</p>
-    </div>
-
-    <div class="market-grid">
-      <div class="market-card">
-        <div class="market-card-top">
-          <div class="market-card-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="20" x2="18" y2="10"></line>
-              <line x1="12" y1="20" x2="12" y2="4"></line>
-              <line x1="6" y1="20" x2="6" y2="14"></line>
-            </svg>
-          </div>
-          <span class="market-tag">السعر التوازني</span>
-        </div>
-        <div class="market-label">متوسط سعر الساعة العام</div>
-        <div class="market-price" id="boxAvgPrice">-- <span>ريال/ساعة</span></div>
-        <p class="market-note" id="boxAvgDesc">يمثل متوسط أسعار ساعات الري المسجلة فعلياً لدى المسربين النشطين في المنظومة.</p>
-      </div>
-
-      <div class="market-card">
-        <div class="market-card-top">
-          <div class="market-card-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline>
-              <polyline points="17 18 23 18 23 12"></polyline>
-            </svg>
-          </div>
-          <span class="market-tag">الأدنى تسجيلاً</span>
-        </div>
-        <div class="market-label">أقل سعر ساعة معتمد</div>
-        <div class="market-price" id="boxMinPrice">-- <span>ريال/ساعة</span></div>
-        <p class="market-note">يسجل غالباً في الآبار ذات التدفق العالي والمنظومات التي تعمل بالطاقة الشمسية منخفضة الكلفة.</p>
-      </div>
-
-      <div class="market-card">
-        <div class="market-card-top">
-          <div class="market-card-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-              <polyline points="17 6 23 6 23 12"></polyline>
-            </svg>
-          </div>
-          <span class="market-tag">الأعلى طلباً</span>
-        </div>
-        <div class="market-label">أعلى سعر ساعة مسجل</div>
-        <div class="market-price" id="boxMaxPrice">-- <span>ريال/ساعة</span></div>
-        <p class="market-note">في فترات ذروة ري المحاصيل الحساسة أو الآبار العميقة التي تعتمد على محروقات الديزل في فترات الجفاف.</p>
-      </div>
-    </div>
-
-    <!-- Chart: Price Stability -->
-    <div class="chart-box">
-      <div class="chart-box-header">
-        <div>
-          <h3 class="chart-box-title">حركة واستقرار مؤشر أسعار ساعات الري</h3>
-          <p class="chart-box-sub">رصد منحنى الأسعار وفق تعاقب مواسم الأمطار وفترات الجفاف الزراعي</p>
-        </div>
-        <span class="hero-badge" style="margin: 0;">بيانات تحليلية دورية</span>
-      </div>
-      <div style="height: 250px;">
-        <canvas id="marketTrendChart"></canvas>
-      </div>
-    </div>
-
-    <!-- News & Guidance Section -->
-    <div class="section-title-wrap" id="portal-news">
-      <div class="section-badge">الأخبار والإرشادات</div>
-      <h2 class="section-title">تقارير مياه الآبار والري الزراعي</h2>
-      <p class="section-desc">معلومات وتوجيهات فنية للمسربين وملاك الآبار لتحقيق أعلى كفاءة وضبط الفاقد المائي.</p>
-    </div>
-
-    <div class="news-grid" id="newsCardsContainer">
-      <div style="text-align: center; color: var(--text-muted); padding: 30px; grid-column: 1 / -1;">
-        جاري تحميل التقارير والأخبار...
-      </div>
-    </div>
-
-    <!-- Developer & Founder Official Card -->
-    <section class="developer-section" id="developer-section">
-      <div class="dev-grid">
-        <div class="dev-avatar">
-          <!-- Code/Brackets SVG -->
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="16 18 22 12 16 6"></polyline>
-            <polyline points="8 6 2 12 8 18"></polyline>
-          </svg>
-        </div>
-
-        <div>
-          <div class="dev-name-row">
-            <h3 class="dev-name" id="devName">المهندس عمر الحومي</h3>
-            <span class="dev-role-badge">صاحب المشروع والمطور</span>
-          </div>
-          <div class="dev-company" id="devCompany">
-            تُبع سوفت للحلول البرمجية الذكية (TubbaSoft)
-          </div>
-          <p class="dev-desc" id="devSupportMsg">
-            تم ابتكار وتطوير منظومة وتطبيق مُسَرِّب بهدف حوكمة إدارة مياه الآبار الزراعية وحفظ حقوق المسربين والمزارعين بأعلى دقة تقنية ومالية.
-          </p>
-        </div>
-
-        <div class="dev-actions">
-          <a href="mailto:omar@tubbasoft.com" id="devEmailLink" class="dev-link dev-link-primary">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-              <polyline points="22,6 12,13 2,6"></polyline>
-            </svg>
-            <span id="devEmailText">omar@tubbasoft.com</span>
-          </a>
-          <a href="https://tubbasoft.com" target="_blank" rel="noopener noreferrer" class="dev-link dev-link-secondary">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-            </svg>
-            <span>زيارة موقع تُبع سوفت</span>
-          </a>
-        </div>
-      </div>
-    </section>
-
-    <!-- Download Call to Action Box -->
-    <section class="cta-download-box" id="download-section">
-      <h2 class="cta-title">حمّل تطبيق مُسَرِّب وابدأ إدارة آبارك بدقة واحترافية</h2>
-      <p class="cta-desc">
-        احصل على النسخة الرسمية الأحدث مباشرة بصيغة APK دون وسيط، مع تجربة مجانية تشمل 200 عملية ري وسندات مالية وتقارير PDF كاملة.
-      </p>
-
-      <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-bottom: 20px;">
-        <a href="#" id="mainDownloadApkBtn" class="btn-primary-action" style="font-size: 16px; padding: 14px 34px;">
+      <div class="hero-actions">
+        <a href="<?= htmlspecialchars($release['download_url']) ?>" class="btn-primary-action" onclick="trackDownloadMetric()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="7 10 12 15 17 10"></polyline>
@@ -1113,236 +876,318 @@ if (count($analytics['daily_stats']) > 30) {
           </svg>
           <span>تحميل تطبيق مُسَرِّب (APK مباشر)</span>
         </a>
+
+        <?php if (!empty($ps['contact_whatsapp'])): ?>
+        <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>?text=<?= urlencode('السلام عليكم، أود الاستفسار عن ترخيص وتفعيل تطبيق مُسَرِّب لإدارة مياه الآبار') ?>" target="_blank" class="btn-whatsapp-action">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.073-2.125-.522-1.83-1.074-3.003-2.883-3.095-3.005-.091-.122-.736-.98-.736-1.87 0-.89.464-1.328.629-1.507.165-.18.36-.225.48-.225.12 0 .24.001.345.006.111.005.26-.042.406.31.15.361.51 1.246.555 1.337.045.09.075.195.015.315-.06.12-.09.195-.18.3-.09.105-.19.234-.27.315-.09.09-.184.187-.079.367.105.18.468.772 1.004 1.249.691.614 1.274.805 1.454.895.18.09.285.075.39-.045.105-.12.45-.525.57-.705.12-.18.24-.15.405-.09.165.06 1.05.495 1.23.585.18.09.3.135.345.21.045.075.045.435-.099.84z"/>
+          </svg>
+          <span>تواصل عبر واتساب</span>
+        </a>
+        <?php endif; ?>
       </div>
 
-      <div class="cta-specs">
-        <span id="footerVersionText">الإصدار: v1.4.0</span>
-        <span id="footerSizeText">الحجم: 2.78 MB</span>
-        <span style="display: inline-flex; align-items: center; gap: 5px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#26A69A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-          </svg>
-          فحص أمني معتمد وخالٍ من الفيروسات
-        </span>
+      <div class="hero-trust-bar">
+        <span class="hero-trust-item">⚡ يعمل 100% بدون إنترنت (Offline)</span>
+        <span class="hero-trust-item">•</span>
+        <span class="hero-trust-item">🛡️ فحص أمني معتمد وخالٍ من الفيروسات</span>
+        <span class="hero-trust-item">•</span>
+        <span class="hero-trust-item">☁️ نسخ احتياطي يومي على Google Drive</span>
+        <span class="hero-trust-item">•</span>
+        <span class="hero-trust-item">📦 الحجم: <?= htmlspecialchars($release['file_size_mb']) ?> MB</span>
       </div>
     </section>
 
-  </main>
+    <!-- Geographic Scope & Hourly Rates Section -->
+    <?php if (!empty($ps['show_rates_section'])): ?>
+    <section class="portal-section" id="rates-section">
+      <div class="section-header">
+        <span class="section-tag">النطاق والأسعار</span>
+        <h2 class="section-title">بورصة أسعار ساعات الري والنطاق الميداني</h2>
+        <p class="section-desc">مؤشرات الأسعار المعتمدة ونطاق تغطية المنظومة الميدانية الحالية</p>
+      </div>
 
-  <!-- Public Footer (Strictly public, NO admin link) -->
-  <footer class="public-footer">
-    <div class="container">
-      <div class="footer-content">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <div class="logo-badge" style="width: 34px; height: 34px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+      <div class="rates-box">
+        <!-- Active Geographic Coverage Card -->
+        <div class="region-banner">
+          <div class="region-info">
+            <div class="region-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+            </div>
+            <div>
+              <div class="region-label">نطاق العمل والتغطية الميدانية للتطبيق حالياً:</div>
+              <div class="region-name" id="activeRegionDisplay"><?= htmlspecialchars($ps['active_region_name']) ?></div>
+            </div>
+          </div>
+          <div class="region-badge">🟢 نطاق تغطية معتمد ومباشر</div>
+        </div>
+
+        <!-- 3 Hourly Rates Metric Cards -->
+        <div class="rates-grid">
+          <div class="rate-card rate-card-highlight">
+            <div class="rate-card-title">متوسط سعر الساعة</div>
+            <div class="rate-card-value" id="avgPriceDisplay">
+              <?= number_format($ps['avg_hourly_price']) ?>
+              <span><?= htmlspecialchars($ps['currency_symbol']) ?>/ساعة</span>
+            </div>
+            <div class="rate-card-desc">متوسط أسعار ساعات الري في المنطقة النشطة</div>
+          </div>
+
+          <div class="rate-card">
+            <div class="rate-card-title">أقل سعر مسجل</div>
+            <div class="rate-card-value" id="minPriceDisplay">
+              <?= number_format($ps['min_hourly_price']) ?>
+              <span><?= htmlspecialchars($ps['currency_symbol']) ?>/ساعة</span>
+            </div>
+            <div class="rate-card-desc">أدنى تسعيرة مسجلة لساعات السقي</div>
+          </div>
+
+          <div class="rate-card">
+            <div class="rate-card-title">أعلى سعر مسجل</div>
+            <div class="rate-card-value" id="maxPriceDisplay">
+              <?= number_format($ps['max_hourly_price']) ?>
+              <span><?= htmlspecialchars($ps['currency_symbol']) ?>/ساعة</span>
+            </div>
+            <div class="rate-card-desc">أعلى تسعيرة مسجلة بحسب طبيعة التشغيل</div>
+          </div>
+        </div>
+
+        <?php if (!empty($ps['rates_note'])): ?>
+        <div class="rates-note-banner" id="ratesNoteDisplay">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span><?= htmlspecialchars($ps['rates_note']) ?></span>
+        </div>
+        <?php endif; ?>
+      </div>
+    </section>
+    <?php endif; ?>
+
+    <!-- Core Features Section -->
+    <?php if (!empty($ps['show_features_section'])): ?>
+    <section class="portal-section" id="features-section">
+      <div class="section-header">
+        <span class="section-tag">الكفاءة والأمان</span>
+        <h2 class="section-title">لماذا يثق ملاك الآبار والمزارعون بتطبيق مُسَرِّب؟</h2>
+        <p class="section-desc">أدوات عملية تم تصميمها خصيصاً لمطابقة واقع إدارة الآبار والري في الميدان</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon-badge">⏱️</div>
+          <h3 class="feature-title">توقيت دقيق بالثانية والدقيقة</h3>
+          <p class="feature-desc">
+            عداد ري ذكي يحسب وقت السقي وتكلفته التلقائية بناءً على تسعيرة الساعة بدقة متناهية ودون أي أخطاء أو خلافات.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-badge">📲</div>
+          <h3 class="feature-title">سندات وفواتير فورية عبر واتساب</h3>
+          <p class="feature-desc">
+            إرسال إشعار فوري للعميل بالسند المالي أو كشف الحساب وتفاصيل السقية بنقرة زر واحدة عبر تطبيق واتساب.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-badge">⚡</div>
+          <h3 class="feature-title">يعمل 100% بدون إنترنت</h3>
+          <p class="feature-desc">
+            سجل عملياتك وتابع كشوفات ديون المشتركين في عمق المناطق الزراعية النائية بدون الحاجة لأي تغطية إنترنت.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-badge">☁️</div>
+          <h3 class="feature-title">نسخ احتياطي على Google Drive</h3>
+          <p class="feature-desc">
+            أمان كامل لسجلاتك المالية وعملياتك السابقة مع إمكانية استرجاع بياناتك بنقرة زر واحدة عند استبدال هاتفك.
+          </p>
+        </div>
+      </div>
+    </section>
+    <?php endif; ?>
+
+    <!-- Subscription Plans Section -->
+    <?php if (!empty($ps['show_plans_section'])): ?>
+    <section class="portal-section" id="plans-section">
+      <div class="section-header">
+        <span class="section-tag">التراخيص والباقات</span>
+        <h2 class="section-title">باقات واشتراكات منظومة مُسَرِّب</h2>
+        <p class="section-desc">خيارات مرنة ومناسبة لجميع ملاك الآبار والمشغلين مع دعم فني مستمر</p>
+      </div>
+
+      <div class="plans-grid">
+        <!-- Free Trial -->
+        <div class="plan-card">
+          <div>
+            <h3 class="plan-name">النسخة التجريبية</h3>
+            <div class="plan-subtitle">لتجربة التطبيق والتأكد من ملاءمته لمزرعتك</div>
+            <div class="plan-price">مجاناً <small>/ بدون بطاقة</small></div>
+            <ul class="plan-features-list">
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>200 عملية ري تجريبية كاملة</span>
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>إصدار سندات القبض وتقارير السقي</span>
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>النسخ الاحتياطي المحلي للهاتف</span>
+              </li>
+            </ul>
+          </div>
+          <a href="<?= htmlspecialchars($release['download_url']) ?>" class="btn-plan" onclick="trackDownloadMetric()">تحميل وبدء التجربة المجانية</a>
+        </div>
+
+        <!-- Annual Plan (Most Popular) -->
+        <div class="plan-card plan-card-popular">
+          <span class="plan-badge">الأكثر طلباً واعتماداً ⭐</span>
+          <div>
+            <h3 class="plan-name">الاشتراك السنوي الشامل</h3>
+            <div class="plan-subtitle">الترخيص المكتمل لمالك البئر لموسم زراعي كامل</div>
+            <div class="plan-price">رخصة سنوية <small>/ عام كامل</small></div>
+            <ul class="plan-features-list">
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>عمليات ري غير محدودة إطلاقاً</span>
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>النسخ الاحتياطي السحابي اليومي المباشر</span>
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>تصدير كشوفات الحسابات PDF وإكسل</span>
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>دعم فني وتحديثات مستمرة طوال العام</span>
+              </li>
+            </ul>
+          </div>
+          <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>?text=<?= urlencode('السلام عليكم، أريد طلب تفعيل رخصة الاشتراك السنوي لتطبيق مُسَرِّب') ?>" target="_blank" class="btn-plan btn-plan-popular">طلب التفعيل عبر واتساب ⚡</a>
+        </div>
+
+        <!-- Monthly Plan -->
+        <div class="plan-card">
+          <div>
+            <h3 class="plan-name">الاشتراك الشهري</h3>
+            <div class="plan-subtitle">مرونة في الاشتراك خلال مواسم الزراعة المحددة</div>
+            <div class="plan-price">تجديد شهري <small>/ شهر بشهر</small></div>
+            <ul class="plan-features-list">
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>عمليات ري غير محدودة خلال الشهر</span>
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>إرسال السندات المالية عبر واتساب</span>
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>تقارير الديون والإيرادات الإجمالية</span>
+              </li>
+            </ul>
+          </div>
+          <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>?text=<?= urlencode('السلام عليكم، أريد طلب تفعيل الاشتراك الشهري لتطبيق مُسَرِّب') ?>" target="_blank" class="btn-plan">طلب تفعيل شهري</a>
+        </div>
+      </div>
+    </section>
+    <?php endif; ?>
+
+    <!-- Developer & Support Section -->
+    <?php if (!empty($ps['show_developer_section'])): ?>
+    <section class="portal-section" id="developer-section">
+      <div class="developer-card">
+        <div class="dev-grid">
+          <div class="dev-avatar">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
             </svg>
           </div>
           <div>
-            <b style="color: #FFF; font-size: 14px;">مُسَرِّب (MOSARIB)</b>
-            <div style="font-size: 11px; color: var(--text-muted);">هندسة وبرمجة: المهندس عمر الحومي &copy; 2026</div>
+            <div class="dev-name" id="devNameDisplay"><?= htmlspecialchars($ps['developer_name']) ?></div>
+            <div class="dev-company" id="devCompanyDisplay"><?= htmlspecialchars($ps['developer_company']) ?></div>
+            <p class="dev-desc" id="devDescDisplay"><?= htmlspecialchars($ps['developer_message']) ?></p>
+          </div>
+          <div class="dev-buttons">
+            <?php if (!empty($ps['contact_whatsapp'])): ?>
+            <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>?text=<?= urlencode('السلام عليكم، أود التواصل مع المهندس مطور تطبيق مُسَرِّب') ?>" target="_blank" class="dev-btn dev-btn-whatsapp">
+              💬 مراسلة واتساب مباشرة
+            </a>
+            <?php endif; ?>
+            <?php if (!empty($ps['contact_phone'])): ?>
+            <a href="tel:<?= htmlspecialchars($ps['contact_phone']) ?>" class="dev-btn dev-btn-phone">
+              📞 اتصال: <?= htmlspecialchars($ps['contact_phone']) ?>
+            </a>
+            <?php endif; ?>
           </div>
         </div>
+      </div>
+    </section>
+    <?php endif; ?>
 
-        <div style="display: flex; gap: 20px;">
-          <a href="#water-meter" class="nav-link" style="font-size: 12.5px;">مؤشر المياه</a>
-          <a href="#market-pulse" class="nav-link" style="font-size: 12.5px;">أسعار الري</a>
-          <a href="#portal-news" class="nav-link" style="font-size: 12.5px;">التقارير</a>
-          <a href="#download-section" class="nav-link" style="font-size: 12.5px;">تحميل APK</a>
+    <!-- Direct Download CTA Box -->
+    <?php if (!empty($ps['show_download_cta'])): ?>
+    <section class="download-cta-box" id="download-section">
+      <h2 class="download-cta-title">حمّل تطبيق مُسَرِّب وابدأ تنظيم بئرك اليوم</h2>
+      <p class="download-cta-desc">
+        احصل على النسخة الرسمية الأحدث بصيغة APK مباشرة، مع تجربة مجانية تشمل 200 عملية ري وسندات وكشوفات حساب متكاملة.
+      </p>
+      <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+        <a href="<?= htmlspecialchars($release['download_url']) ?>" class="btn-primary-action" onclick="trackDownloadMetric()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>تحميل تطبيق مُسَرِّب (v<?= htmlspecialchars($release['version_name']) ?>)</span>
+        </a>
+      </div>
+      <div class="download-cta-specs">
+        <span>الإصدار: v<?= htmlspecialchars($release['version_name']) ?></span>
+        <span>•</span>
+        <span>الحجم: <?= htmlspecialchars($release['file_size_mb']) ?> MB</span>
+        <span>•</span>
+        <span>فحص أمني معتمد وخالٍ من الفيروسات</span>
+      </div>
+    </section>
+    <?php endif; ?>
+  </main>
+
+  <!-- Footer -->
+  <footer class="main-footer">
+    <div class="container">
+      <div class="footer-content">
+        <div style="font-weight: 700; color: #FFF;">
+          منظومة مُسَرِّب (MOSARIB) &copy; <?= date('Y') ?>
+        </div>
+        <div style="color: var(--text-muted);">
+          هندسة وبرمجة: <?= htmlspecialchars($ps['developer_name']) ?> • <?= htmlspecialchars($ps['developer_company']) ?>
         </div>
       </div>
-
-      <div style="text-align: center; font-size: 11.5px; color: rgba(255,255,255,0.35); border-top: 1px solid var(--border-subtle); padding-top: 16px;">
-        جميع الحقوق محفوظة &copy; 2026 م. عمر الحومي • شركة تُبع سوفت للحلول الذكية (TubbaSoft)
+      <div style="font-size: 11px; color: var(--text-dim);">
+        جميع الحقوق محفوظة للمطور • نظام تشغيل وإدارة آبار المياه ودورات الري الزراعي
       </div>
     </div>
   </footer>
 
   <script>
-    let globalDownloadUrl = "uploads/Mosarib_Latest.apk";
-
-    async function loadPublicData() {
-      try {
-        const res = await fetch('api/public_data.php');
-        const json = await res.json();
-        if (json.success && json.data) {
-          const d = json.data;
-          renderMetrics(d.water_metrics);
-          renderNews(d.news);
-          renderRelease(d.app_release);
-          renderDeveloper(d.developer_info);
-        }
-      } catch (err) {
-        console.error("Failed to load public data:", err);
-      }
-    }
-
-    function renderDeveloper(dev) {
-      if (!dev) return;
-      const nameEl = document.getElementById("devName");
-      const compEl = document.getElementById("devCompany");
-      const emailText = document.getElementById("devEmailText");
-      const emailLink = document.getElementById("devEmailLink");
-      const msgEl = document.getElementById("devSupportMsg");
-
-      if (nameEl) nameEl.innerText = dev.name || "المهندس عمر الحومي";
-      if (compEl) compEl.innerText = dev.company || "تُبع سوفت للحلول البرمجية الذكية (TubbaSoft)";
-      if (emailText) emailText.innerText = dev.email || "omar@tubbasoft.com";
-      if (emailLink) emailLink.href = `mailto:${dev.email || 'omar@tubbasoft.com'}`;
-      if (msgEl && dev.support_message) msgEl.innerText = dev.support_message;
-    }
-
-    function renderMetrics(m) {
-      if (!m) return;
-      if (m.headline_alert) {
-        document.getElementById("topAlertMessage").innerText = m.headline_alert;
-      }
-      
-      const p = m.index_percent || 85;
-      document.getElementById("waterIndexPercent").innerText = p + "%";
-      if (m.status_text) {
-        document.getElementById("waterStatusTextDesc").innerText = m.status_text;
-      }
-      document.getElementById("badgeWaterStatus").innerText = (m.status === 'ABUNDANT' ? 'وفيرة ومتاحة' : (m.status === 'GOOD' ? 'مستقر ومتاح' : 'متوسط التدفق'));
-
-      // Real subscriber & operator numbers
-      document.getElementById("activeOperatorsNow").innerHTML = `${m.active_operators_now || 0} <small>مسرب متصل</small>`;
-      document.getElementById("totalRegisteredOperators").innerHTML = `${m.total_operators_registered || 0} <small>مشترك مسجل</small>`;
-
-      // Real Price Metrics
-      const currency = m.currency_symbol || 'ريال';
-      document.getElementById("currencyUnit").innerText = currency;
-
-      if (m.is_live_synced && m.avg_hourly_price > 0) {
-        const avgFmt = Number(m.avg_hourly_price).toLocaleString('ar-EG');
-        const minFmt = Number(m.min_hourly_price).toLocaleString('ar-EG');
-        const maxFmt = Number(m.max_hourly_price).toLocaleString('ar-EG');
-
-        document.getElementById("avgHourlyPrice").innerHTML = `${avgFmt} <small>${currency}</small>`;
-        document.getElementById("boxAvgPrice").innerHTML = `${avgFmt} <span>${currency}/ساعة</span>`;
-        document.getElementById("boxMinPrice").innerHTML = `${minFmt} <span>${currency}/ساعة</span>`;
-        document.getElementById("boxMaxPrice").innerHTML = `${maxFmt} <span>${currency}/ساعة</span>`;
-        document.getElementById("boxAvgDesc").innerText = `محسوب لحظياً ومباشرة من واقع تسعيرات ${m.samples_count} مسرب فعّال مشترك بالنسخة الكاملة.`;
-        document.getElementById("syncStatusText").innerText = `مباشر (${m.samples_count} مسرب)`;
-      } else {
-        // No live prices published yet: display authentic placeholder without inventing fake numbers
-        document.getElementById("avgHourlyPrice").innerHTML = `-- <small>${currency}</small>`;
-        document.getElementById("boxAvgPrice").innerHTML = `-- <span>${currency}/ساعة</span>`;
-        document.getElementById("boxMinPrice").innerHTML = `-- <span>${currency}/ساعة</span>`;
-        document.getElementById("boxMaxPrice").innerHTML = `-- <span>${currency}/ساعة</span>`;
-        document.getElementById("boxAvgDesc").innerText = "يتم احتساب المتوسط التلقائي بمجرد تسجيل المشتركين النشطين لأسعارهم في التطبيق.";
-        document.getElementById("syncStatusText").innerText = "قيد الجمع والتحليل";
-      }
-    }
-
-    function renderNews(news) {
-      const container = document.getElementById("newsCardsContainer");
-      if (!container) return;
-      if (!news || news.length === 0) {
-        container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 30px; grid-column: 1 / -1;">لا توجد تقارير منشورة حالياً.</div>`;
-        return;
-      }
-
-      container.innerHTML = news.map(item => {
-        const dateStr = item.published_at ? new Date(item.published_at).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
-        return `
-          <article class="news-card">
-            <div>
-              <div class="news-meta">
-                <span class="news-category-badge">${item.category || 'تقارير المياه'}</span>
-                <span>${dateStr}</span>
-              </div>
-              <h3 class="news-title">${item.title}</h3>
-              <p class="news-summary">${item.summary}</p>
-            </div>
-            <div class="news-footer">
-              <span>${item.reads_count || 0} قراءة</span>
-              <span style="color: #4DB6AC; font-weight: 700;">منظومة مُسَرِّب</span>
-            </div>
-          </article>
-        `;
-      }).join('');
-    }
-
     function trackDownloadMetric() {
       try {
         fetch('api/public_data.php?action=track_download', { method: 'POST' }).catch(() => {});
       } catch (_) {}
     }
-
-    let globalDownloadUrl = "api/download.php";
-
-    function renderRelease(rel) {
-      if (!rel) return;
-      globalDownloadUrl = rel.download_url || "api/download.php";
-
-      const btn1 = document.getElementById("heroDirectDownloadBtn");
-      const btn2 = document.getElementById("mainDownloadApkBtn");
-      if (btn1) {
-        btn1.href = globalDownloadUrl;
-        btn1.onclick = trackDownloadMetric;
-      }
-      if (btn2) {
-        btn2.href = globalDownloadUrl;
-        btn2.onclick = trackDownloadMetric;
-      }
-
-      const vText = `الإصدار: v${rel.version_name || '1.4.0'}`;
-      const el1 = document.getElementById("heroReleaseVer");
-      const el2 = document.getElementById("footerVersionText");
-      const el3 = document.getElementById("footerSizeText");
-      if (el1) el1.innerText = vText;
-      if (el2) el2.innerText = `الإصدار: v${rel.version_name || '1.4.0'}`;
-      if (el3) el3.innerText = `الحجم: ${rel.file_size_mb || 2.78} MB`;
-    }
-
-    function initMarketChart() {
-      const ctx = document.getElementById('marketTrendChart');
-      if (!ctx) return;
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر'],
-          datasets: [{
-            label: 'متوسط مؤشر تسعير ساعة الري عبر الفصول',
-            data: [7200, 7100, 7400, 7800, 8500, 8800, 8200, 7600, 7400, 7500],
-            borderColor: '#00B4D8',
-            backgroundColor: 'rgba(0, 180, 216, 0.08)',
-            fill: true,
-            tension: 0.35,
-            pointBackgroundColor: '#F59E0B',
-            pointRadius: 3,
-            pointHoverRadius: 5
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              labels: { color: '#B2DFDB', font: { family: 'Cairo', size: 12 } }
-            }
-          },
-          scales: {
-            x: {
-              ticks: { color: '#80CBC4', font: { family: 'Cairo', size: 11 } },
-              grid: { display: false }
-            },
-            y: {
-              ticks: { color: '#80CBC4', font: { family: 'Cairo', size: 11 } },
-              grid: { color: 'rgba(255,255,255,0.05)' }
-            }
-          }
-        }
-      });
-    }
-
-    // Initialize on load
-    document.addEventListener("DOMContentLoaded", () => {
-      loadPublicData();
-      initMarketChart();
-    });
   </script>
 </body>
 </html>
