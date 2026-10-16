@@ -1715,37 +1715,105 @@
   let adminSecretKey = localStorage.getItem("mosarib_admin_secret_key") || "";
   const SECRET_SALT = "mosarib_secure_license_secret_key_alhomi_2026_water_app";
 
-  function saveAdminSecretKey() {
-    adminSecretKey = document.getElementById("adminSecretKeyInput").value.trim();
-    localStorage.setItem("mosarib_admin_secret_key", adminSecretKey);
-    loadFirebaseData();
+  function getFirebaseUrl(path) {
+    const cleanPath = path.replace(/^\/+/, '');
+    const sep = cleanPath.includes("?") ? "&" : "?";
+    return adminSecretKey ? `${FIREBASE_BASE_URL}/${cleanPath}${sep}auth=${encodeURIComponent(adminSecretKey)}` : `${FIREBASE_BASE_URL}/${cleanPath}`;
   }
 
-  function getAuthenticatedUrl(path) {
-    const sep = path.includes("?") ? "&" : "?";
-    return adminSecretKey ? `${FIREBASE_BASE_URL}/${path}${sep}auth=${adminSecretKey}` : `${FIREBASE_BASE_URL}/${path}`;
-  }
-
-  document.addEventListener("DOMContentLoaded", () => {
-    if (adminSecretKey) {
-      const inp = document.getElementById("adminSecretKeyInput");
-      if (inp) inp.value = adminSecretKey;
+  function updateFirebaseStatusIndicator(state, detail = '') {
+    const el = document.getElementById("firebaseStatus");
+    if (!el) return;
+    if (state === 'CONNECTED') {
+      el.className = "status-badge status-active";
+      el.style.borderColor = "rgba(0, 230, 118, 0.4)";
+      el.style.background = "rgba(0, 230, 118, 0.12)";
+      el.innerHTML = `<div class="status-dot" style="background:#00E676; box-shadow:0 0 8px #00E676;"></div> متصل بفايربيس`;
+      el.title = detail || "تم التحقق والاتصال بنجاح بسحابة فايربيس";
+    } else if (state === 'AUTH_REQUIRED') {
+      el.className = "status-badge";
+      el.style.borderColor = "rgba(255, 179, 0, 0.5)";
+      el.style.background = "rgba(255, 179, 0, 0.15)";
+      el.innerHTML = `<div class="status-dot" style="background:#FFB300; box-shadow:0 0 8px #FFB300;"></div> مفتاح الصلاحية مطلوب ⚠️`;
+      el.title = "قاعدة البيانات تتطلب مفتاح Database Secret أو تعديل القواعد في Firebase Console. انقر هنا للضبط.";
+    } else {
+      el.className = "status-badge";
+      el.style.borderColor = "rgba(239, 83, 80, 0.4)";
+      el.style.background = "rgba(239, 83, 80, 0.12)";
+      el.innerHTML = `<div class="status-dot" style="background:#EF5350; box-shadow:0 0 8px #EF5350;"></div> تعذر الاتصال بفايربيس ❌`;
+      el.title = detail || "تعذر الوصول لقاعدة البيانات. انقر هنا لفحص الرابط.";
     }
-  });
+  }
+
+  async function firebaseFetch(path, options = {}) {
+    const directUrl = getFirebaseUrl(path);
+    try {
+      const res = await fetch(directUrl, options);
+      if (res.status === 401) {
+        updateFirebaseStatusIndicator('AUTH_REQUIRED');
+      } else if (res.ok) {
+        updateFirebaseStatusIndicator('CONNECTED');
+      }
+      return res;
+    } catch (err) {
+      // Browser direct fetch failed (e.g. CORS or network error), fallback to server-side PHP proxy
+      try {
+        const proxyUrl = `api/firebase_proxy.php?path=${encodeURIComponent(path)}${adminSecretKey ? `&auth=${encodeURIComponent(adminSecretKey)}` : ''}`;
+        const proxyRes = await fetch(proxyUrl, options);
+        if (proxyRes.ok) {
+          const proxyJson = await proxyRes.clone().json().catch(() => null);
+          if (proxyJson && proxyJson.success) {
+            updateFirebaseStatusIndicator('CONNECTED');
+          }
+        }
+        return proxyRes;
+      } catch (_) {}
+      updateFirebaseStatusIndicator('ERROR');
+      throw err;
+    }
+  }
 
   function promptConfigureFirebaseUrl() {
-    const currentUrl = FIREBASE_BASE_URL;
-    const newUrl = prompt("رابط قاعدة بيانات فايربيس (Firebase Realtime Database URL):\nيمكنك نسخه مباشرة من Firebase Console:", currentUrl);
-    if (newUrl !== null && newUrl.trim().length > 0) {
-      let clean = newUrl.trim().replace(/\/+$/, '');
-      if (!clean.startsWith("http://") && !clean.startsWith("https://")) {
-        clean = "https://" + clean;
+    const choice = prompt(
+      "⚙️ إعدادات ربط قاعدة بيانات فايربيس (Firebase Settings):\n\n" +
+      "1. تعديل رابط Realtime Database\n" +
+      "2. إدخال/تعديل مفتاح الأمان (Database Secret)\n" +
+      "3. فحص الاتصال وتحديث البيانات الآن\n" +
+      "4. عرض إرشادات ضبط قواعد الحماية (Rules)\n\n" +
+      "اكتب رقم الخيار (1 أو 2 أو 3 أو 4):",
+      "1"
+    );
+
+    if (choice === "1") {
+      const newUrl = prompt("رابط قاعدة بيانات فايربيس الحالية:\nيمكنك نسخه من Firebase Console:", FIREBASE_BASE_URL);
+      if (newUrl !== null && newUrl.trim()) {
+        let clean = newUrl.trim().replace(/\/+$/, '');
+        if (!clean.startsWith("http://") && !clean.startsWith("https://")) clean = "https://" + clean;
+        RTDB_BASE_URL = clean;
+        FIREBASE_BASE_URL = clean;
+        localStorage.setItem("mosarib_rtdb_url", clean);
+        alert("✅ تم حفظ الرابط بنجاح.");
+        loadFirebaseData();
       }
-      RTDB_BASE_URL = clean;
-      FIREBASE_BASE_URL = clean;
-      localStorage.setItem("mosarib_rtdb_url", clean);
-      alert("✅ تم ضبط رابط فايربيس بنجاح إلى:\n" + clean);
+    } else if (choice === "2") {
+      const newSecret = prompt("أدخل مفتاح الأمان لقاعدة البيانات (Database Secret):\nتنسخه من Firebase Console > Project Settings > Service accounts > Database secrets:", adminSecretKey);
+      if (newSecret !== null) {
+        adminSecretKey = newSecret.trim();
+        localStorage.setItem("mosarib_admin_secret_key", adminSecretKey);
+        alert(adminSecretKey ? "✅ تم حفظ مفتاح الصلاحية بنجاح." : "تم مسح مفتاح الصلاحية.");
+        loadFirebaseData();
+      }
+    } else if (choice === "3") {
       loadFirebaseData();
+    } else if (choice === "4") {
+      alert(
+        "💡 لجعل قاعدة بيانات فايربيس تقبل القراءة والكتابة بدون الحاجة لمفتاح سري:\n\n" +
+        "1. افتح Firebase Console\n" +
+        "2. ادخل إلى Realtime Database > تبويب Rules (القواعد)\n" +
+        "3. ضع القواعد التالية:\n\n" +
+        '{\n  "rules": {\n    ".read": true,\n    ".write": true\n  }\n}\n\n' +
+        "4. اضغط Publish (نشر)."
+      );
     }
   }
 
@@ -1769,7 +1837,17 @@
   }
 
   async function fetchCollection(name) {
-    // 1. First Attempt: Cloud Firestore REST API
+    // 1. First Attempt: Realtime Database with auth and proxy fallback
+    try {
+      const res = await firebaseFetch(`${name}.json`);
+      if (res.ok) {
+        const data = await res.json();
+        const items = data.data ? data.data : data;
+        if (items && typeof items === 'object') return Object.values(items);
+      }
+    } catch (_) {}
+
+    // 2. Second Attempt: Cloud Firestore REST API
     try {
       const res = await fetch(`${FIRESTORE_BASE_URL}/${name}?pageSize=300`);
       if (res.ok) {
@@ -1777,15 +1855,6 @@
         if (data && data.documents && Array.isArray(data.documents)) {
           return data.documents.map(parseFirestoreDoc);
         }
-      }
-    } catch (_) {}
-
-    // 2. Second Attempt: Realtime Database Fallback
-    try {
-      const res = await fetch(`${RTDB_BASE_URL}/${name}.json`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data) return Object.values(data);
       }
     } catch (_) {}
 
@@ -2213,16 +2282,17 @@
     try {
       let tokens = [];
       try {
-        const tokenRes = await fetch(`${FIREBASE_BASE_URL}/fcm_tokens.json`);
+        const tokenRes = await firebaseFetch('fcm_tokens.json');
         if (tokenRes.ok) {
           const tokenData = await tokenRes.json();
-          if (tokenData && !tokenData.error) {
-            tokens = Object.values(tokenData);
+          const tokenObj = tokenData.data ? tokenData.data : tokenData;
+          if (tokenObj && !tokenObj.error) {
+            tokens = Object.values(tokenObj);
           }
         }
       } catch (_) {}
 
-      const bcRes = await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, {
+      const bcRes = await firebaseFetch('app_broadcast.json', {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2275,7 +2345,7 @@
     };
 
     try {
-      const res = await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, {
+      const res = await firebaseFetch('app_broadcast.json', {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -2293,7 +2363,7 @@
   async function cancelBroadcast() {
     if (!confirm("هل تريد إلغاء الإعلان والتحديث الإجباري الحالي؟")) return;
     try {
-      await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`, { method: "DELETE" });
+      await firebaseFetch('app_broadcast.json', { method: "DELETE" });
       alert("تم إلغاء الإعلان بنجاح.");
       loadFirebaseData();
     } catch (e) {
@@ -2318,7 +2388,7 @@
     };
 
     try {
-      const res = await fetch(`${FIREBASE_BASE_URL}/app_config.json`, {
+      const res = await firebaseFetch('app_config.json', {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -2385,11 +2455,12 @@
       // Cross-reference with licenses to ensure isActivated is 100% accurate even if user node lagged
       let activeLicenseMap = {};
       try {
-        const licRes = await fetch(`${FIREBASE_BASE_URL}/licenses.json`);
+        const licRes = await firebaseFetch('licenses.json');
         if (licRes.ok) {
           const licData = await licRes.json();
-          if (licData && typeof licData === 'object') {
-            Object.values(licData).forEach(lic => {
+          const licObj = licData.data ? licData.data : licData;
+          if (licObj && typeof licObj === 'object') {
+            Object.values(licObj).forEach(lic => {
               if (lic && lic.deviceCode && !lic.isRevoked && (lic.expiresAt > Date.now())) {
                 const cleanCode = lic.deviceCode.replace(/-/g, "").trim();
                 activeLicenseMap[cleanCode] = lic;
@@ -2401,11 +2472,12 @@
 
       // Cross-reference with devices node as well
       try {
-        const devRes = await fetch(`${FIREBASE_BASE_URL}/devices.json`);
+        const devRes = await firebaseFetch('devices.json');
         if (devRes.ok) {
           const devData = await devRes.json();
-          if (devData && typeof devData === 'object') {
-            Object.entries(devData).forEach(([dCode, dVal]) => {
+          const devObj = devData.data ? devData.data : devData;
+          if (devObj && typeof devObj === 'object') {
+            Object.entries(devObj).forEach(([dCode, dVal]) => {
               if (dVal && !dVal.isRevoked && (dVal.expiresAt > Date.now())) {
                 const cleanCode = dCode.replace(/-/g, "").trim();
                 activeLicenseMap[cleanCode] = dVal;
@@ -2433,25 +2505,28 @@
 
       // Fetch app_config, device_overrides, app_broadcast
       try {
-        const cfgRes = await fetch(`${FIREBASE_BASE_URL}/app_config.json`);
+        const cfgRes = await firebaseFetch('app_config.json');
         if (cfgRes.ok) {
           const cfgData = await cfgRes.json();
-          if (cfgData && typeof cfgData === 'object') appConfig = { ...appConfig, ...cfgData };
+          const cfgObj = cfgData.data ? cfgData.data : cfgData;
+          if (cfgObj && typeof cfgObj === 'object') appConfig = { ...appConfig, ...cfgObj };
         }
       } catch (_) {}
 
       try {
-        const overRes = await fetch(`${FIREBASE_BASE_URL}/device_overrides.json`);
+        const overRes = await firebaseFetch('device_overrides.json');
         if (overRes.ok) {
           const overData = await overRes.json();
-          if (overData && typeof overData === 'object') allOverrides = overData;
+          const overObj = overData.data ? overData.data : overData;
+          if (overObj && typeof overObj === 'object') allOverrides = overObj;
         }
       } catch (_) {}
 
       try {
-        const bcRes = await fetch(`${FIREBASE_BASE_URL}/app_broadcast.json`);
+        const bcRes = await firebaseFetch('app_broadcast.json');
         if (bcRes.ok) {
-          currentBroadcast = await bcRes.json();
+          const bcData = await bcRes.json();
+          currentBroadcast = bcData.data ? bcData.data : bcData;
         } else {
           currentBroadcast = null;
         }
@@ -2974,7 +3049,7 @@
     const text = lock ? "قفل ميزة النسخ الاحتياطي لهذا الجهاز تحديداً؟" : "إعادة السماح بالنسخ الاحتياطي لهذا الجهاز؟";
     if (!confirm(text)) return;
     try {
-      await fetch(`${FIREBASE_BASE_URL}/device_overrides/${cleanDeviceKey}/isBackupLocked.json`, {
+      await firebaseFetch(`device_overrides/${cleanDeviceKey}/isBackupLocked.json`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(lock)
@@ -2994,10 +3069,10 @@
 
     try {
       if (num === 0) {
-        await fetch(`${FIREBASE_BASE_URL}/device_overrides/${cleanDeviceKey}/customOperationsLimit.json`, { method: "DELETE" });
+        await firebaseFetch(`device_overrides/${cleanDeviceKey}/customOperationsLimit.json`, { method: "DELETE" });
         alert("تم إلغاء الحد المخصص والعودة للحد العام.");
       } else {
-        await fetch(`${FIREBASE_BASE_URL}/device_overrides/${cleanDeviceKey}/customOperationsLimit.json`, {
+        await firebaseFetch(`device_overrides/${cleanDeviceKey}/customOperationsLimit.json`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(num)
@@ -3017,10 +3092,10 @@
 
     try {
       if (msg.trim().length === 0) {
-        await fetch(`${FIREBASE_BASE_URL}/device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" });
+        await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" });
         alert("تم حذف رسالة التنبيه الموجهة.");
       } else {
-        await fetch(`${FIREBASE_BASE_URL}/device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, {
+        await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(msg.trim())
@@ -3045,12 +3120,12 @@
     }
 
     try {
-      await fetch(`${FIREBASE_BASE_URL}/all_users/${cleanDeviceKey}/isBlocked.json`, {
+      await firebaseFetch(`all_users/${cleanDeviceKey}/isBlocked.json`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(block)
       });
-      await fetch(`${FIREBASE_BASE_URL}/all_users/${cleanDeviceKey}/blockReason.json`, {
+      await firebaseFetch(`all_users/${cleanDeviceKey}/blockReason.json`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(reason)
@@ -3059,13 +3134,13 @@
       if (email && email.includes("@")) {
         const safeEmailKey = email.replace(/\./g, "_").replace(/@/g, "_at_");
         if (block) {
-          await fetch(`${FIREBASE_BASE_URL}/blocked_emails/${safeEmailKey}.json`, {
+          await firebaseFetch(`blocked_emails/${safeEmailKey}.json`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email: email, blockedAt: Date.now(), reason: reason })
           });
         } else {
-          await fetch(`${FIREBASE_BASE_URL}/blocked_emails/${safeEmailKey}.json`, { method: "DELETE" });
+          await firebaseFetch(`blocked_emails/${safeEmailKey}.json`, { method: "DELETE" });
         }
       }
 
@@ -3130,7 +3205,7 @@
 
     try {
       // 1. Save License to RTDB
-      const res = await fetch(`${FIREBASE_BASE_URL}/licenses/${cleanKey}.json`, {
+      const res = await firebaseFetch(`licenses/${cleanKey}.json`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -3142,7 +3217,7 @@
       }
 
       // 2. Also save to devices for fast device lookup
-      await fetch(`${FIREBASE_BASE_URL}/devices/${devCode}.json`, {
+      await firebaseFetch(`devices/${devCode}.json`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -3150,13 +3225,13 @@
 
       // 3. Mark subscription request as completed if applicable
       if (pendingRequestId) {
-        await fetch(`${FIREBASE_BASE_URL}/subscription_requests/${pendingRequestId}/status.json`, {
+        await firebaseFetch(`subscription_requests/${pendingRequestId}/status.json`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify("COMPLETED")
         }).catch(() => {});
 
-        await fetch(`${FIREBASE_BASE_URL}/subscription_requests/${pendingRequestId}/activationKey.json`, {
+        await firebaseFetch(`subscription_requests/${pendingRequestId}/activationKey.json`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(key)
