@@ -17,9 +17,22 @@ object AutoBackupEngine {
 
     private const val PREFS_FILE = "mosarib_auto_backup_prefs"
     private const val KEY_LAST_DAILY_BACKUP_DATE = "last_daily_backup_date"
+    private const val KEY_AUTO_BACKUP_ENABLED = "auto_backup_enabled"
     private const val AUTO_BACKUP_DIR_NAME = "auto_backups"
     private const val MAX_DAILY_BACKUPS = 7
     private const val MAX_SAFETY_CHECKPOINTS = 3
+
+    fun isAutoBackupEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+            .getBoolean(KEY_AUTO_BACKUP_ENABLED, true)
+    }
+
+    fun setAutoBackupEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_AUTO_BACKUP_ENABLED, enabled)
+            .apply()
+    }
 
     data class AutoBackupItem(
         val file: File,
@@ -40,6 +53,7 @@ object AutoBackupEngine {
      */
     suspend fun performDailyAutoBackup(context: Context, database: AppDatabase, operationsCount: Int): Boolean = withContext(Dispatchers.IO) {
         try {
+            if (!isAutoBackupEnabled(context)) return@withContext false
             // لا نأخذ نسخة فارغة إذا لم تكن هناك بيانات كافية
             if (operationsCount < 3) return@withContext false
 

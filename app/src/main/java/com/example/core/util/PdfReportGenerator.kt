@@ -1121,7 +1121,7 @@ object PdfReportGenerator {
                 paint.color = darkTextColor
                 canvas.drawText(truncate(row.customerName, 22), 565f, curY + 15f, paint)
                 canvas.drawText(truncate(row.farmName.ifEmpty { row.phone.ifEmpty { "-" } }, 18), 435f, curY + 15f, paint)
-                canvas.drawText("${row.sessionsCount} (${row.waterMinutes} د)", 335f, curY + 15f, paint)
+                canvas.drawText("${row.sessionsCount} (${Formatters.formatDurationFriendly(row.waterMinutes)})", 335f, curY + 15f, paint)
                 canvas.drawText(Formatters.formatNumber(row.billed), 250f, curY + 15f, paint)
 
                 paint.color = paidGreen
@@ -1410,7 +1410,7 @@ object PdfReportGenerator {
                 canvas.drawText(truncate(row.customerName, 26), 540f, curY + 15f, paint)
                 val farmOrPhone = row.farmName.ifEmpty { row.phone.ifEmpty { "-" } }
                 canvas.drawText(truncate(farmOrPhone, 20), 390f, curY + 15f, paint)
-                canvas.drawText("${row.sessionsCount} (${row.waterMinutes} د)", 295f, curY + 15f, paint)
+                canvas.drawText("${row.sessionsCount} (${Formatters.formatDurationFriendly(row.waterMinutes)})", 295f, curY + 15f, paint)
                 canvas.drawText(Formatters.formatNumber(row.billed), 245f, curY + 15f, paint)
 
                 paint.color = paidGreen
@@ -1655,7 +1655,7 @@ object PdfReportGenerator {
                     is UnifiedOperation.SessionOp -> {
                         val s = op.sessionWithCustomer.session
                         val cName = op.sessionWithCustomer.customer?.name ?: "عميل غير محدد"
-                        val dStr = "${Formatters.formatDurationArabic(s.durationMinutes)}${if (s.wastedMinutes > 0) " (هدر: ${s.wastedMinutes}د)" else ""}"
+                        val dStr = "${Formatters.formatDurationFriendly(s.durationMinutes)}${if (s.wastedMinutes > 0) " (هدر: ${Formatters.formatDurationFriendly(s.wastedMinutes)})" else ""}"
                         OperationRowData(
                             dt = Formatters.formatDateTime(s.startTime),
                             typeStr = "سقي ماء",

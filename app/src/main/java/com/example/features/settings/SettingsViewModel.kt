@@ -149,6 +149,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _autoBackups = MutableStateFlow<List<AutoBackupEngine.AutoBackupItem>>(emptyList())
     val autoBackups: StateFlow<List<AutoBackupEngine.AutoBackupItem>> = _autoBackups.asStateFlow()
 
+    private val _isAutoBackupEnabled = MutableStateFlow(AutoBackupEngine.isAutoBackupEnabled(application))
+    val isAutoBackupEnabled: StateFlow<Boolean> = _isAutoBackupEnabled.asStateFlow()
+
+    fun toggleAutoBackup(enabled: Boolean) {
+        AutoBackupEngine.setAutoBackupEnabled(getApplication(), enabled)
+        _isAutoBackupEnabled.value = enabled
+        showToast(if (enabled) "تم تفعيل النسخ الاحتياطي التلقائي اليومي بنجاح" else "تم إيقاف النسخ الاحتياطي التلقائي", ToastType.INFO)
+    }
+
     private val _googleAccount = MutableStateFlow<GoogleSignInAccount?>(null)
     val googleAccount: StateFlow<GoogleSignInAccount?> = _googleAccount.asStateFlow()
 

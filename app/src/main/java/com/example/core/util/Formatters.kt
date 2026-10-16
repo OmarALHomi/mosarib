@@ -197,6 +197,40 @@ object Formatters {
         }
     }
 
+    /**
+     * تنسيق سلس ومألوف للمدة بالعربية وفق ما يفضله المستخدم:
+     * أمثلة: "10 ساعات", "10 ونصف", "10س و 23د", "5س و 50د", "45 دقيقة", "نصف ساعة", "ساعة ونصف"
+     */
+    fun formatDurationFriendly(totalMinutes: Int): String {
+        if (totalMinutes <= 0) return "0 دقيقة"
+        val hours = totalMinutes / 60
+        val minutes = totalMinutes % 60
+
+        return when {
+            hours == 0 -> {
+                if (minutes == 30) "نصف ساعة" else "$minutes دقيقة"
+            }
+            minutes == 0 -> {
+                when (hours) {
+                    1 -> "ساعة واحدة"
+                    2 -> "ساعتان"
+                    in 3..10 -> "$hours ساعات"
+                    else -> "$hours ساعة"
+                }
+            }
+            minutes == 30 -> {
+                when (hours) {
+                    1 -> "ساعة ونصف"
+                    2 -> "ساعتان ونصف"
+                    else -> "$hours ونصف"
+                }
+            }
+            else -> {
+                "${hours}س و ${minutes}د"
+            }
+        }
+    }
+
     fun formatDurationShort(totalMinutes: Int): String {
         val hours = totalMinutes / 60
         val minutes = totalMinutes % 60

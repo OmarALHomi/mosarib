@@ -1,7 +1,11 @@
 package com.example.features.sessions
 
+import android.content.Intent
+import android.provider.ContactsContract
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.example.core.ui.MosaribAutoCompleteTextField
 import com.example.core.ui.MosaribButton
 import com.example.core.ui.MosaribDatePickerDialog
@@ -42,6 +46,7 @@ import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -164,7 +169,63 @@ fun AddEditSessionBottomSheet(
     val isDark = isAppDark()
 
     var selectedCustomerId by remember(initialSession?.customerId, defaultCustomerId) {
-        mutableLongStateOf(initialSession?.customerId ?: defaultCustomerId ?: customers.firstOrNull()?.id ?: 0L)
+        mutableLongStateOf(initialSession?.customerId ?: defaultCustomerId ?: 0L)
+    }
+
+    var quickName by remember { mutableStateOf("") }
+    var quickPhone by remember { mutableStateOf("") }
+    var quickIsWellOwner by remember { mutableStateOf(false) }
+
+    val contactPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val contactUri = result.data?.data
+            if (contactUri != null) {
+                try {
+                    val phoneUri = if (contactUri.toString().startsWith(ContactsContract.Contacts.CONTENT_URI.toString())) {
+                        val contactId = contactUri.lastPathSegment
+                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI.buildUpon()
+                            .appendQueryParameter(ContactsContract.CommonDataKinds.Phone.CONTACT_ID, contactId)
+                            .build()
+                    } else {
+                        contactUri
+                    }
+
+                    var cName: String? = null
+                    var cNum: String? = null
+
+                    context.contentResolver.query(
+                        phoneUri,
+                        arrayOf(
+                            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                            ContactsContract.CommonDataKinds.Phone.NUMBER
+                        ),
+                        null,
+                        null,
+                        null
+                    )?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                            val numIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                            if (nameIdx >= 0) cName = cursor.getString(nameIdx)
+                            if (numIdx >= 0) cNum = cursor.getString(numIdx)
+                        }
+                    }
+
+                    if (!cName.isNullOrBlank()) {
+                        quickName = cName.orEmpty().trim()
+                    }
+                    if (!cNum.isNullOrBlank()) {
+                        val clean = com.example.core.util.FileSharingHelper.convertArabicDigitsToAscii(cNum.orEmpty())
+                            .replace(Regex("[^0-9+]"), "").trim()
+                        quickPhone = clean
+                    }
+                } catch (_: Exception) {
+                    Toast.makeText(context, "تعذر قراءة جهة الاتصال", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     val legacyPumpName = initialSession?.pumpName.orEmpty()
@@ -511,6 +572,7 @@ fun AddEditSessionBottomSheet(
                     },
                     onAddNewClicked = {
                         customerSaveError = null
+                        quickName = customerInputText.trim()
                         showQuickCustomerDialog = true
                     },
                     addNewPrompt = "العميل غير مسجل: \"$customerInputText\"",
@@ -521,6 +583,7 @@ fun AddEditSessionBottomSheet(
                 IconButton(
                     onClick = {
                         customerSaveError = null
+                        quickName = customerInputText.trim()
                         showQuickCustomerDialog = true
                     },
                     modifier = Modifier.size(48.dp)
@@ -1903,8 +1966,6 @@ fun AddEditSessionBottomSheet(
     }
 
     if (showQuickCustomerDialog) {
-        var quickPhone by remember { mutableStateOf("") }
-        var quickIsWellOwner by remember { mutableStateOf(false) }
         var isQuickSubmitting by remember { mutableStateOf(false) }
 
         Dialog(onDismissRequest = { if (!isQuickSubmitting) showQuickCustomerDialog = false }) {
@@ -1939,7 +2000,7 @@ fun AddEditSessionBottomSheet(
                                 )
                             )
                             Text(
-                                text = "العميل غير مسجل من قبل، هل تريد حفظه؟",
+                                text = "تسجيل العميل واختياره فوراً لمتابعة السقي",
                                 style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
                             )
                         }
@@ -1949,9 +2010,14 @@ fun AddEditSessionBottomSheet(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    Text(
-                        text = "الاسم: ${customerInputText.trim()}",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal)
+                    MosaribTextField(
+                        value = quickName,
+                        onValueChange = { quickName = it },
+                        label = "اسم العميل *",
+                        placeholder = "اكتب اسم العميل...",
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal) },
+                        modifier = Modifier.fillMaxWidth(),
+                        isDense = true
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -1960,8 +2026,21 @@ fun AddEditSessionBottomSheet(
                         value = quickPhone,
                         onValueChange = { quickPhone = it },
                         label = "رقم الهاتف (اختياري)",
-                        placeholder = "05xxxxxxxx",
+                        placeholder = "777xxxxxx",
                         leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = Color.Gray) },
+                        trailingIcon = {
+                            IconButton(onClick = {
+                                val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
+                                contactPickerLauncher.launch(intent)
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Contacts,
+                                    contentDescription = "جهات الاتصال",
+                                    tint = PrimaryTeal,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth(),
                         isDense = true
@@ -2035,44 +2114,29 @@ fun AddEditSessionBottomSheet(
                             height = 46.dp
                         )
                         MosaribButton(
-                            text = "حفظ العميل وتسجيل السقي",
+                            text = "حفظ وتحديد العميل",
                             isLoading = isQuickSubmitting,
+                            enabled = quickName.isNotBlank() && !isQuickSubmitting,
                             onClick = {
-                                if (!isQuickSubmitting) {
-                                    isQuickSubmitting = true
-                                    coroutineScope.launch {
-                                        try {
-                                            val newCustomer = Customer(
-                                                name = customerInputText.trim(),
-                                                phone = quickPhone.trim(),
-                                                isWellOwner = quickIsWellOwner
-                                            )
-                                            val newId = onCreateCustomer(newCustomer)
-                                            showQuickCustomerDialog = false
-                                            // حفظ بيانات السقي مباشرة بعد الحفظ
-                                            onSave(
-                                                initialSession?.id ?: 0L,
-                                                newId,
-                                                legacyPumpName,
-                                                startCal.timeInMillis,
-                                                endCal.timeInMillis,
-                                                hours,
-                                                minutes,
-                                                pricePerHour,
-                                                amountPaid,
-                                                notes,
-                                                billedToCustomerId,
-                                                wastedTotalMinutes,
-                                                wastedReason,
-                                                discountAmount,
-                                                historicalCostPricePerHour,
-                                                initialSession?.pumpSourceId
-                                            )
-                                            onDismiss()
-                                        } catch (e: Exception) {
-                                            isQuickSubmitting = false
-                                            Toast.makeText(context, "فشل حفظ العميل: ${e.message}", Toast.LENGTH_SHORT).show()
-                                        }
+                                if (quickName.isBlank() || isQuickSubmitting) return@MosaribButton
+                                isQuickSubmitting = true
+                                coroutineScope.launch {
+                                    try {
+                                        val newCustomer = Customer(
+                                            name = quickName.trim(),
+                                            phone = quickPhone.trim(),
+                                            isWellOwner = quickIsWellOwner
+                                        )
+                                        val newId = onCreateCustomer(newCustomer)
+                                        selectedCustomerId = newId
+                                        customerInputText = quickName.trim()
+                                        val customerPrice = if (quickIsWellOwner) null else newCustomer.customPricePerHour
+                                        pricePerHourStr = Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
+                                        showQuickCustomerDialog = false
+                                        Toast.makeText(context, "تم حفظ وتحديد: ${quickName.trim()}", Toast.LENGTH_SHORT).show()
+                                    } catch (e: Exception) {
+                                        isQuickSubmitting = false
+                                        Toast.makeText(context, "فشل حفظ العميل: ${e.message}", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
