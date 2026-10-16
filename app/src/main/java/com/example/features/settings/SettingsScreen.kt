@@ -2037,13 +2037,13 @@ private fun RestoreWarningDialog(
                 modifier = Modifier
                     .size(46.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFFEE2E2)),
+                    .background(Color(0xFFE0F2FE)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Warning,
+                    imageVector = Icons.Default.Restore,
                     contentDescription = null,
-                    tint = Color(0xFFDC2626),
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(26.dp)
                 )
             }
@@ -2053,7 +2053,7 @@ private fun RestoreWarningDialog(
                 text = title,
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF991B1B)
+                    color = MaterialTheme.colorScheme.onSurface
                 ),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
@@ -2064,69 +2064,132 @@ private fun RestoreWarningDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    text = "النسخة: $backupDateOrName" + if (additionalInfo != null) " ($additionalInfo)" else "",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                )
-
+                // بطاقة بيانات النسخة المراد استعادتها
                 Surface(
-                    color = Color(0xFFFEF2F2),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Folder,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "النسخة: $backupDateOrName",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                            if (additionalInfo != null) {
+                                Text(
+                                    text = additionalInfo,
+                                    style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B))
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // بطاقة الأمان والحفظ المسبق
+                Surface(
+                    color = Color(0xFFF0FDF4),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
                         modifier = Modifier.padding(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.Warning,
+                                imageVector = Icons.Default.CheckCircle,
                                 contentDescription = null,
-                                tint = Color(0xFFDC2626),
+                                tint = Color(0xFF16A34A),
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "تحذير فقدان البيانات:",
+                                text = "حماية بياناتك الحالية مؤتمتة ومضمونة:",
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFFB91C1C)
+                                    color = Color(0xFF15803D)
                                 )
                             )
                         }
 
                         Text(
-                            text = "عملية الاستعادة ستقوم باستبدال قاعدة البيانات الحالية بالكامل ببيانات هذه النسخة.\n\n⚠️ أي جلسات سقي، سندات، أو عمليات شراء تم تسجيلها بعد تاريخ هذه النسخة سيتم حذفها نهائياً وفقدانها ولا يمكن التراجع عنها!",
+                            text = "لحمايتك من فقدان أي بيانات، سيقوم التطبيق تلقائياً بأخذ نقطة أمان احتياطية لبياناتك الحالية الآن قبل البدء وحفظها في قسم (النسخ التلقائي الدوري) باسم:\nmosarib_safety_before_restore_...\nبحيث يمكنك الرجوع إليها بالكامل في أي وقت بكل سهولة إن احتجت لذلك.",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF7F1D1D),
-                                lineHeight = 17.sp,
-                                fontSize = 11.5.sp
+                                color = Color(0xFF166534),
+                                lineHeight = 16.sp,
+                                fontSize = 11.sp
                             )
                         )
                     }
                 }
 
-                Text(
-                    text = "💡 نصيحة: إذا كانت لديك بيانات جديدة غير محفوظة في هذه النسخة، قم بإلغاء العملية واضغط 'نسخة جديدة' أولاً لحفظ نسخة احتياطية إضافية.",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = Color(0xFF64748B),
-                        lineHeight = 15.sp,
-                        fontSize = 10.5.sp
-                    )
-                )
+                // شريط التنبيه السفلي مع خط أحمر في الأسفل
+                Surface(
+                    color = Color(0xFFFFFBEB),
+                    shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 4.dp, bottomEnd = 4.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = Color(0xFFD97706),
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "تنبيه: ستصبح بيانات هذه النسخة هي النشطة، وأي عمليات جديدة بعدها ستجدها محفوظة بنقطة الأمان.",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = Color(0xFF92400E),
+                                    lineHeight = 15.sp,
+                                    fontSize = 10.5.sp
+                                )
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(3.dp)
+                                .background(Color(0xFFEF4444), shape = RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp))
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("نعم، استبدال واستعادة البيانات", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
+                Icon(
+                    imageVector = Icons.Default.Restore,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("تأكيد الاستعادة", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
             }
         },
         dismissButton = {
@@ -2134,8 +2197,9 @@ private fun RestoreWarningDialog(
                 onClick = onDismiss,
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("إلغاء التراجع", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                Text("إلغاء", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
             }
         }
     )
 }
+
