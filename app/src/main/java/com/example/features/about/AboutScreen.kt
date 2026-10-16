@@ -210,7 +210,7 @@ fun AboutScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                                                 .getFreeOperationsLimit(context)
                                 Text(
                                         text =
-                                                if (isActivated) "نسخة مفعّلة دائمًا"
+                                                if (isActivated) "نسخة مفعّلة"
                                                 else "نسخة تجريبية ($freeLimit عملية)",
                                         style =
                                                 MaterialTheme.typography.labelSmall.copy(

@@ -169,6 +169,7 @@ fun SettingsScreen(
     var backupToRestore by remember { mutableStateOf<BackupManager.BackupFileInfo?>(null) }
     var autoBackupToRestore by remember { mutableStateOf<AutoBackupEngine.AutoBackupItem?>(null) }
     var backupToDelete by remember { mutableStateOf<BackupManager.BackupFileInfo?>(null) }
+    var autoBackupToDelete by remember { mutableStateOf<AutoBackupEngine.AutoBackupItem?>(null) }
 
     val googleAccount by viewModel.googleAccount.collectAsStateWithLifecycle()
     val driveBackups by viewModel.driveBackups.collectAsStateWithLifecycle()
@@ -760,7 +761,7 @@ fun SettingsScreen(
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Column {
                                             Text(
-                                                text = "النسخ التلقائي الدوري (آخر 7 أيام)",
+                                                text = "النسخ الاحتياطي اليومي التلقائي",
                                                 style = MaterialTheme.typography.titleSmall.copy(
                                                     fontWeight = FontWeight.Bold,
                                                     color = MaterialTheme.colorScheme.onSurface
@@ -827,21 +828,45 @@ fun SettingsScreen(
                                                         }
                                                     }
 
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .clip(RoundedCornerShape(6.dp))
-                                                            .background(if (isDark) Color(0xFF2B2111) else Color(0xFFFEF3C7))
-                                                            .clickable { autoBackupToRestore = autoItem }
-                                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                                                     ) {
-                                                        Text(
-                                                            "استعادة",
-                                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                                color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309),
-                                                                fontWeight = FontWeight.Bold,
-                                                                fontSize = 11.sp
+                                                        if (autoItem.isSafetyCheckpoint) {
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .clip(RoundedCornerShape(6.dp))
+                                                                    .background(if (isDark) Color(0xFF3B1212) else Color(0xFFFEE2E2))
+                                                                    .clickable { autoBackupToDelete = autoItem }
+                                                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                            ) {
+                                                                Text(
+                                                                    "حذف",
+                                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                                        color = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
+                                                                        fontWeight = FontWeight.Bold,
+                                                                        fontSize = 11.sp
+                                                                    )
+                                                                )
+                                                            }
+                                                        }
+
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .clip(RoundedCornerShape(6.dp))
+                                                                .background(if (isDark) Color(0xFF2B2111) else Color(0xFFFEF3C7))
+                                                                .clickable { autoBackupToRestore = autoItem }
+                                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                        ) {
+                                                            Text(
+                                                                "استعادة",
+                                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                                    color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309),
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    fontSize = 11.sp
+                                                                )
                                                             )
-                                                        )
+                                                        }
                                                     }
                                                 }
                                             }
@@ -1327,7 +1352,7 @@ fun SettingsScreen(
                                 )
                                 val headerLimit = LicenseManager.getFreeOperationsLimit(context)
                                 Text(
-                                    text = if (isActivated) "نسخة مفعلة بصفة دائمة" else "النسخة التجريبية ($headerLimit عملية)",
+                                    text = if (isActivated) "نسخة مفعّلة" else "النسخة التجريبية ($headerLimit عملية)",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = if (isActivated) AccentEmerald else AccentGold,
                                         fontWeight = FontWeight.Bold
@@ -1815,6 +1840,34 @@ fun SettingsScreen(
                 autoBackupToRestore = null
             },
             onDismiss = { autoBackupToRestore = null }
+        )
+    }
+
+    val autoToDelete = autoBackupToDelete
+    if (autoToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { autoBackupToDelete = null },
+            title = { Text("تأكيد حذف نقطة الأمان", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("هل تريد حذف نقطة الأمان الوقائية (${autoToDelete.title}) نهائياً؟")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteBackupFile(autoToDelete.file)
+                        autoBackupToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("حذف", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { autoBackupToDelete = null }) {
+                    Text("إلغاء")
+                }
+            }
         )
     }
 

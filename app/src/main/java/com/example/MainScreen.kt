@@ -41,6 +41,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import com.example.features.home.LivingThemeToggleButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -111,10 +113,10 @@ enum class AppTab(
     val unselectedIcon: ImageVector,
     val testTag: String
 ) {
-    REPORTS("التقارير", Icons.Filled.Assessment, Icons.Default.Assessment, "tab_reports"),
-    CUSTOMERS("العملاء", Icons.Filled.People, Icons.Outlined.People, "tab_customers"),
+    REPORTS("إحصائيات", Icons.Filled.Assessment, Icons.Default.Assessment, "tab_reports"),
+    CUSTOMERS("إدارة العملاء", Icons.Filled.People, Icons.Outlined.People, "tab_customers"),
     HOME("الرئيسية", Icons.Filled.Home, Icons.Outlined.Home, "tab_home"),
-    VOUCHERS("سجل العمليات", Icons.AutoMirrored.Filled.ReceiptLong, Icons.AutoMirrored.Outlined.ReceiptLong, "tab_vouchers"),
+    VOUCHERS("العمليات", Icons.AutoMirrored.Filled.ReceiptLong, Icons.AutoMirrored.Outlined.ReceiptLong, "tab_vouchers"),
     SETTINGS("الإعدادات", Icons.Filled.Settings, Icons.Outlined.Settings, "tab_settings")
 }
 
@@ -233,14 +235,14 @@ fun MainApp(
                 Scaffold(
                     topBar = {
                         if (currentTab != AppTab.HOME) {
-                            TopAppBar(
+                            CenterAlignedTopAppBar(
                                 title = {
                                     Text(
                                         text = when (currentTab) {
-                                            AppTab.REPORTS -> "التقارير والإحصائيات"
-                                            AppTab.CUSTOMERS -> "إدارة العملاء والمزارع"
-                                            AppTab.VOUCHERS -> "سجل العمليات"
-                                            AppTab.SETTINGS -> "الإعدادات العامة"
+                                            AppTab.REPORTS -> "إحصائيات"
+                                            AppTab.CUSTOMERS -> "إدارة العملاء"
+                                            AppTab.VOUCHERS -> "العمليات"
+                                            AppTab.SETTINGS -> "الإعدادات"
                                             else -> ""
                                         },
                                         style = MaterialTheme.typography.titleLarge.copy(
@@ -249,9 +251,19 @@ fun MainApp(
                                         )
                                     )
                                 },
-                                colors = TopAppBarDefaults.topAppBarColors(
+                                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                                     containerColor = MaterialTheme.colorScheme.surface
                                 ),
+                                navigationIcon = {
+                                    LivingThemeToggleButton(
+                                        isDarkTheme = darkTheme,
+                                        onToggle = {
+                                            val nextMode = if (darkTheme) "LIGHT" else "DARK"
+                                            settingsViewModel.updateThemeMode(nextMode)
+                                        },
+                                        modifier = Modifier.padding(start = 8.dp)
+                                    )
+                                },
                                 actions = {
                                     if (currentTab == AppTab.REPORTS) {
                                         androidx.compose.material3.Button(
@@ -268,22 +280,6 @@ fun MainApp(
                                             )
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text("تصدير PDF", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                        }
-                                    } else if (currentTab == AppTab.VOUCHERS) {
-                                        androidx.compose.material3.Button(
-                                            onClick = { vouchersViewModel.exportOperationsLogPdf(context) },
-                                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = AccentGold),
-                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
-                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.PictureAsPdf,
-                                                contentDescription = null,
-                                                tint = Color.Black,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text("طباعة السجل", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                         }
                                     }
 

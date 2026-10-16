@@ -44,7 +44,7 @@ fun GoogleBackupAccountDialog(
     onDismiss: () -> Unit,
     onProceed: (name: String, phone: String, shouldLaunchSignIn: Boolean) -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppDark()
     var name by remember { mutableStateOf(initialName) }
     var phone by remember { mutableStateOf(initialPhone) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
