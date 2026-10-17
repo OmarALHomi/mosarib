@@ -591,9 +591,10 @@ object LicenseManager {
         subscriberName: String = "",
         requestedPlan: SubscriptionPlan = SubscriptionPlan.MONTHLY,
         receiptNumber: String = "",
-        region: String = ""
+        region: String = "",
+        customPlanText: String? = null
     ): String {
-        val planText = if (requestedPlan == SubscriptionPlan.MONTHLY) "اشتراك شهري 10$ (30 يوماً)" else "اشتراك سنوي 80$ (365 يوماً - وفر 40$)"
+        val planText = customPlanText ?: if (requestedPlan == SubscriptionPlan.MONTHLY) "اشتراك شهري 10$ (30 يوماً)" else "اشتراك سنوي 80$ (365 يوماً - وفر 40$)"
         val devModel = getDeviceModelName()
         val nameLine = if (subscriberName.isNotBlank()) "اسم المشترك: $subscriberName\n" else ""
         val regionLine = if (region.isNotBlank()) "المحافظة والمنطقة: $region\n" else ""
@@ -618,22 +619,24 @@ $deviceCode
         requestedPlan: SubscriptionPlan = SubscriptionPlan.MONTHLY,
         isUpgrade: Boolean = false,
         receiptNumber: String = "",
-        region: String = ""
+        region: String = "",
+        customPlanText: String? = null
     ): String {
         val devModel = getDeviceModelName()
         val nameLine = if (subscriberName.isNotBlank()) "اسم المشترك: $subscriberName\n" else ""
         val regionLine = if (region.isNotBlank()) "المحافظة والمنطقة: $region\n" else ""
         val receiptLine = if (receiptNumber.isNotBlank()) "رقم سند التحويل / الإيداع: $receiptNumber\n" else ""
         val msg = if (isUpgrade) {
+            val upgradeText = customPlanText ?: "اشتراك سنوي 80$ (365 يوماً)"
             """
 السلام عليكم يا باشمهندس عمر،
-أود ترقية اشتراكي في تطبيق المُسَرِّب من شهري إلى اشتراك سنوي 80$ (365 يوماً).
+أود ترقية اشتراكي في تطبيق المُسَرِّب من شهري إلى $upgradeText.
 ${nameLine}${regionLine}${receiptLine}نوع الجوال: $devModel
 كود جهازي هو:
 $deviceCode
             """.trimIndent()
         } else {
-            val planText = if (requestedPlan == SubscriptionPlan.MONTHLY) "اشتراك شهري 10$ (30 يوماً)" else "اشتراك سنوي 80$ (365 يوماً)"
+            val planText = customPlanText ?: if (requestedPlan == SubscriptionPlan.MONTHLY) "اشتراك شهري 10$ (30 يوماً)" else "اشتراك سنوي 80$ (365 يوماً)"
             """
 السلام عليكم يا باشمهندس عمر،
 أود تجديد اشتراكي في تطبيق المُسَرِّب للآبار والري ($planText).

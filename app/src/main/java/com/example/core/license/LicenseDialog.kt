@@ -125,6 +125,7 @@ fun LicenseDialog(
     var receiptNumber by remember { mutableStateOf("") }
     var paymentAccounts by remember { mutableStateOf<List<FirebaseLicenseService.PaymentAccount>>(emptyList()) }
     var isPaymentAccountsExpanded by remember { mutableStateOf(false) }
+    var pricing by remember { mutableStateOf(FirebaseLicenseService.SubscriptionPricing()) }
     var enteredKey by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var requestSuccessMessage by remember { mutableStateOf<String?>(null) }
@@ -135,6 +136,7 @@ fun LicenseDialog(
 
     LaunchedEffect(Unit) {
         paymentAccounts = FirebaseLicenseService.getPaymentMethods()
+        pricing = FirebaseLicenseService.getSubscriptionPricing()
     }
 
     val coroutineScope = rememberCoroutineScope()
@@ -313,6 +315,14 @@ fun LicenseDialog(
                 )
             }
         }
+        val planText = if (targetPlan == LicenseManager.SubscriptionPlan.MONTHLY) {
+            val disc = if (pricing.monthly.discountText.isNotBlank()) " - ${pricing.monthly.discountText}" else ""
+            "اشتراك شهري ${pricing.monthly.price}${pricing.monthly.currency} (30 يوماً$disc)"
+        } else {
+            val orig = if (pricing.yearly.originalPrice.isNotBlank()) " بدلاً من ${pricing.yearly.originalPrice}${pricing.yearly.currency}" else ""
+            val disc = if (pricing.yearly.discountText.isNotBlank()) " - ${pricing.yearly.discountText}" else ""
+            "اشتراك سنوي ${pricing.yearly.price}${pricing.yearly.currency}$orig (365 يوماً$disc)"
+        }
         val url = if (isExpired || isCurrentlyActivated) {
             LicenseManager.getWhatsAppRenewalUrl(
                 deviceCode = deviceCode,
@@ -320,7 +330,8 @@ fun LicenseDialog(
                 requestedPlan = targetPlan,
                 isUpgrade = targetUpgrade,
                 receiptNumber = receiptNumber.trim(),
-                region = region.trim()
+                region = region.trim(),
+                customPlanText = planText
             )
         } else {
             LicenseManager.getWhatsAppActivationUrl(
@@ -328,7 +339,8 @@ fun LicenseDialog(
                 subscriberName = subscriberName,
                 requestedPlan = targetPlan,
                 receiptNumber = receiptNumber.trim(),
-                region = region.trim()
+                region = region.trim(),
+                customPlanText = planText
             )
         }
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
@@ -707,7 +719,10 @@ fun LicenseDialog(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("اشتراك شهري", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            Text("10$ شهرياً", fontSize = 10.sp)
+                            Text("${pricing.monthly.price}${pricing.monthly.currency} شهرياً", fontSize = 10.sp)
+                            if (pricing.monthly.discountText.isNotBlank()) {
+                                Text(pricing.monthly.discountText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+                            }
                         }
                     }
 
@@ -722,7 +737,15 @@ fun LicenseDialog(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("اشتراك سنوي ⭐", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            Text("80$ (بدلاً من 120$)", fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold)
+                            val yearlySubText = if (pricing.yearly.originalPrice.isNotBlank()) {
+                                "${pricing.yearly.price}${pricing.yearly.currency} (بدلاً من ${pricing.yearly.originalPrice}${pricing.yearly.currency})"
+                            } else {
+                                "${pricing.yearly.price}${pricing.yearly.currency} سنوياً"
+                            }
+                            Text(yearlySubText, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold)
+                            if (pricing.yearly.discountText.isNotBlank()) {
+                                Text(pricing.yearly.discountText, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
@@ -1154,7 +1177,7 @@ fun LicenseDialog(
                         ) {
                             Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Black)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("طلب ترقية الاشتراك إلى سنوي (80$)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("طلب ترقية الاشتراك إلى سنوي (${pricing.yearly.price}${pricing.yearly.currency})", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 

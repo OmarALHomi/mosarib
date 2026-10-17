@@ -4,6 +4,9 @@
  * Light-Mode by Default with Dark Mode Switcher
  * Direct Subscription Request & Payment Accounts Integration
  */
+if (!headers_sent()) {
+    header('Content-Type: text/html; charset=UTF-8');
+}
 require_once __DIR__ . '/api/config.php';
 
 $analyticsFile = __DIR__ . '/data/portal_analytics.json';
@@ -93,6 +96,19 @@ if (file_exists($settingsFile)) {
 // Payment Methods
 $paymentMethodsFile = __DIR__ . '/data/payment_methods.json';
 $paymentMethods = file_exists($paymentMethodsFile) ? (json_decode(file_get_contents($paymentMethodsFile), true) ?: []) : [];
+
+// Subscription Pricing & Discounts
+$pricingFile = __DIR__ . '/data/subscription_pricing.json';
+$pricing = file_exists($pricingFile) ? (json_decode(file_get_contents($pricingFile), true) ?: []) : [];
+$monthlyPrice = !empty($pricing['monthly']['price']) ? $pricing['monthly']['price'] : '10';
+$monthlyOrig = !empty($pricing['monthly']['original_price']) ? $pricing['monthly']['original_price'] : '';
+$monthlyDisc = !empty($pricing['monthly']['discount_text']) ? $pricing['monthly']['discount_text'] : '';
+$monthlyCurrency = !empty($pricing['monthly']['currency']) ? $pricing['monthly']['currency'] : '$';
+
+$yearlyPrice = !empty($pricing['yearly']['price']) ? $pricing['yearly']['price'] : '80';
+$yearlyOrig = !empty($pricing['yearly']['original_price']) ? $pricing['yearly']['original_price'] : '120';
+$yearlyDisc = !empty($pricing['yearly']['discount_text']) ? $pricing['yearly']['discount_text'] : 'وفر 33% (خصم 40$)';
+$yearlyCurrency = !empty($pricing['yearly']['currency']) ? $pricing['yearly']['currency'] : '$';
 
 $releaseFile = __DIR__ . '/data/release_info.json';
 $release = [
@@ -1541,9 +1557,13 @@ if (file_exists($releaseFile)) {
             <h3 class="plan-name">الاشتراك السنوي الشامل</h3>
             <div class="plan-subtitle">الترخيص المكتمل لمالك البئر لموسم زراعي كامل</div>
             <div class="plan-price-wrap">
-              <span class="plan-old-price">120$</span>
-              <span class="plan-price">80$ <small>/ سنة كاملة</small></span>
-              <span class="plan-discount-badge">خصم 33% • وفر 40 دولار</span>
+              <?php if (!empty($yearlyOrig)): ?>
+              <span class="plan-old-price"><?= htmlspecialchars($yearlyOrig . $yearlyCurrency) ?></span>
+              <?php endif; ?>
+              <span class="plan-price"><?= htmlspecialchars($yearlyPrice . $yearlyCurrency) ?> <small>/ سنة كاملة</small></span>
+              <?php if (!empty($yearlyDisc)): ?>
+              <span class="plan-discount-badge"><?= htmlspecialchars($yearlyDisc) ?></span>
+              <?php endif; ?>
             </div>
             <ul class="plan-features-list">
               <li class="feature-highlight">
@@ -1574,7 +1594,7 @@ if (file_exists($releaseFile)) {
           </div>
           <div style="display:flex; flex-direction:column; gap:8px;">
             <button onclick="openSubscriptionModal('YEARLY')" class="btn-plan btn-plan-popular">طلب اشتراك وشراء مباشر ⚡</button>
-            <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>?text=<?= urlencode('السلام عليكم، أريد طلب تفعيل رخصة الاشتراك السنوي (80$) لتطبيق مُسَرِّب') ?>" target="_blank" class="btn-plan-sub">أو تفعيل عبر واتساب 💬</a>
+            <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>?text=<?= urlencode('السلام عليكم، أريد طلب تفعيل رخصة الاشتراك السنوي (' . $yearlyPrice . '$) لتطبيق مُسَرِّب') ?>" target="_blank" class="btn-plan-sub">أو تفعيل عبر واتساب 💬</a>
           </div>
         </div>
 
@@ -1584,7 +1604,13 @@ if (file_exists($releaseFile)) {
             <h3 class="plan-name">الاشتراك الشهري</h3>
             <div class="plan-subtitle">مرونة في الاشتراك بحسب فترات ومواسم السقي</div>
             <div class="plan-price-wrap">
-              <span class="plan-price">10$ <small>/ شهرياً</small></span>
+              <?php if (!empty($monthlyOrig)): ?>
+              <span class="plan-old-price"><?= htmlspecialchars($monthlyOrig . $monthlyCurrency) ?></span>
+              <?php endif; ?>
+              <span class="plan-price"><?= htmlspecialchars($monthlyPrice . $monthlyCurrency) ?> <small>/ شهرياً</small></span>
+              <?php if (!empty($monthlyDisc)): ?>
+              <span class="plan-discount-badge"><?= htmlspecialchars($monthlyDisc) ?></span>
+              <?php endif; ?>
             </div>
             <ul class="plan-features-list">
               <li class="feature-highlight">
@@ -1611,7 +1637,7 @@ if (file_exists($releaseFile)) {
           </div>
           <div style="display:flex; flex-direction:column; gap:8px;">
             <button onclick="openSubscriptionModal('MONTHLY')" class="btn-plan">طلب اشتراك وشراء مباشر ⚡</button>
-            <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>?text=<?= urlencode('السلام عليكم، أريد طلب تفعيل رخصة الاشتراك الشهري (10$) لتطبيق مُسَرِّب') ?>" target="_blank" class="btn-plan-sub">أو تفعيل عبر واتساب 💬</a>
+            <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>?text=<?= urlencode('السلام عليكم، أريد طلب تفعيل رخصة الاشتراك الشهري (' . $monthlyPrice . '$) لتطبيق مُسَرِّب') ?>" target="_blank" class="btn-plan-sub">أو تفعيل عبر واتساب 💬</a>
           </div>
         </div>
       </div>
@@ -1715,7 +1741,15 @@ if (file_exists($releaseFile)) {
             <input type="radio" name="modalPlanChoice" value="YEARLY" checked onchange="updateModalPlanSelection()">
             <div class="plan-radio-content">
               <div class="plan-radio-title">الاشتراك السنوي الشامل ⭐</div>
-              <div class="plan-radio-price"><b>80 دولار</b> <span class="old-price">120$</span> (وفر 33%)</div>
+              <div class="plan-radio-price">
+                <b><?= htmlspecialchars($yearlyPrice) ?> دولار</b>
+                <?php if (!empty($yearlyOrig)): ?>
+                  <span class="old-price"><?= htmlspecialchars($yearlyOrig . $yearlyCurrency) ?></span>
+                <?php endif; ?>
+                <?php if (!empty($yearlyDisc)): ?>
+                  (<?= htmlspecialchars($yearlyDisc) ?>)
+                <?php endif; ?>
+              </div>
               <div class="plan-radio-features">دعم فني • تحديثات فورية • نقل الاشتراك بأي وقت • عام كامل</div>
             </div>
           </label>
@@ -1723,7 +1757,15 @@ if (file_exists($releaseFile)) {
             <input type="radio" name="modalPlanChoice" value="MONTHLY" onchange="updateModalPlanSelection()">
             <div class="plan-radio-content">
               <div class="plan-radio-title">الاشتراك الشهري</div>
-              <div class="plan-radio-price"><b>10 دولار</b> / شهرياً</div>
+              <div class="plan-radio-price">
+                <b><?= htmlspecialchars($monthlyPrice) ?> دولار</b> / شهرياً
+                <?php if (!empty($monthlyOrig)): ?>
+                  <span class="old-price"><?= htmlspecialchars($monthlyOrig . $monthlyCurrency) ?></span>
+                <?php endif; ?>
+                <?php if (!empty($monthlyDisc)): ?>
+                  (<?= htmlspecialchars($monthlyDisc) ?>)
+                <?php endif; ?>
+              </div>
               <div class="plan-radio-features">دعم فني • تحديثات متواصلة • تجديد شهري مرن</div>
             </div>
           </label>
@@ -1962,8 +2004,8 @@ if (file_exists($releaseFile)) {
       const receipt = document.getElementById('subReceipt').value.trim() || '';
       const deviceCode = document.getElementById('subDeviceCode').value.trim() || 'لم يتم تحديده بعد';
       const radios = document.getElementsByName('modalPlanChoice');
-      let plan = 'سنوي (80$)';
-      radios.forEach(r => { if (r.checked) plan = (r.value === 'YEARLY' ? 'سنوي (80$)' : 'شهري (10$)'); });
+      let plan = 'سنوي (<?= $yearlyPrice ?>$)';
+      radios.forEach(r => { if (r.checked) plan = (r.value === 'YEARLY' ? 'سنوي (<?= $yearlyPrice ?>$)' : 'شهري (<?= $monthlyPrice ?>$)'); });
 
       const adminPhone = '<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>';
       const msg = 

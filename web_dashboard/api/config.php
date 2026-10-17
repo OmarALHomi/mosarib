@@ -5,8 +5,6 @@
  * Developed for Eng. Omar AL-Homi (TubbaSoft 2026)
  */
 
-header('Content-Type: application/json; charset=UTF-8');
-
 // Set error handling
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
@@ -25,6 +23,9 @@ define('MAX_UPLOAD_SIZE', 150 * 1024 * 1024); // 150MB for APKs
 
 // Helper for JSON response
 function jsonResponse($success, $message, $data = null, $statusCode = 200) {
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=UTF-8');
+    }
     http_response_code($statusCode);
     echo json_encode([
         'success' => $success,

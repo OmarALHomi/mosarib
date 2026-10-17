@@ -1,0 +1,15 @@
+{
+  "monthly": {
+    "price": "10",
+    "original_price": "",
+    "discount_text": "",
+    "currency": "$"
+  },
+  "yearly": {
+    "price": "80",
+    "original_price": "120",
+    "discount_text": "وفر 33% (خصم 40$)",
+    "currency": "$"
+  },
+  "updated_at": 1776388888000
+}

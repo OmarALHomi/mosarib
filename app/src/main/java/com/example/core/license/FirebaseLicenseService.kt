@@ -430,6 +430,55 @@ object FirebaseLicenseService {
         }
     }
 
+    data class PlanPricingInfo(
+        val price: String = "10",
+        val originalPrice: String = "",
+        val discountText: String = "",
+        val currency: String = "$"
+    )
+
+    data class SubscriptionPricing(
+        val monthly: PlanPricingInfo = PlanPricingInfo(price = "10", originalPrice = "", discountText = "", currency = "$"),
+        val yearly: PlanPricingInfo = PlanPricingInfo(price = "80", originalPrice = "120", discountText = "وفر 33% (خصم 40$)", currency = "$")
+    )
+
+    /**
+     * Fetches current subscription pricing and discounts from Firebase RTDB (/subscription_pricing.json).
+     * Falls back to standard default pricing if network is offline.
+     */
+    suspend fun getSubscriptionPricing(): SubscriptionPricing = withContext(Dispatchers.IO) {
+        val defaults = SubscriptionPricing()
+        try {
+            val jsonStr = fetchJson("subscription_pricing.json") ?: return@withContext defaults
+            val root = JSONObject(jsonStr)
+            val mObj = root.optJSONObject("monthly")
+            val yObj = root.optJSONObject("yearly")
+
+            val monthly = if (mObj != null) {
+                PlanPricingInfo(
+                    price = mObj.optString("price", "10"),
+                    originalPrice = mObj.optString("original_price", mObj.optString("originalPrice", "")),
+                    discountText = mObj.optString("discount_text", mObj.optString("discountText", "")),
+                    currency = mObj.optString("currency", "$")
+                )
+            } else defaults.monthly
+
+            val yearly = if (yObj != null) {
+                PlanPricingInfo(
+                    price = yObj.optString("price", "80"),
+                    originalPrice = yObj.optString("original_price", yObj.optString("originalPrice", "120")),
+                    discountText = yObj.optString("discount_text", yObj.optString("discountText", "وفر 33% (خصم 40$)")),
+                    currency = yObj.optString("currency", "$")
+                )
+            } else defaults.yearly
+
+            SubscriptionPricing(monthly = monthly, yearly = yearly)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching subscription pricing: ${e.message}")
+            defaults
+        }
+    }
+
     /**
      * Submits user feedback directly to Firebase Realtime Database.
      */

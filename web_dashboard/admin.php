@@ -1132,19 +1132,63 @@
 
   <!-- Tab: Push Notifications -->
   <div id="tab-push" style="display: none;">
+    <!-- FCM v1 Engine Status Banner -->
+    <div class="card" style="margin-bottom: 20px; border: 1px solid var(--accent); background: linear-gradient(135deg, rgba(0, 131, 143, 0.15), rgba(11, 23, 29, 0.9));">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <div style="font-weight: 800; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+            <span id="fcmEngineStatusBadge">⏳ جاري فحص محرك Google FCM HTTP v1...</span>
+          </div>
+          <div id="fcmEngineDetails" style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+            يفحص حالة ربط مفتاح الخدمة وإجمالي التوكنات المسجلة لهواتف العملاء...
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="toggleServiceAccountModal()">
+            ⚙️ إعداد / رفع مفتاح Google Service Account
+          </button>
+          <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="testFcmConnection()">
+            ⚡ اختبار الاتصال
+          </button>
+        </div>
+      </div>
+
+      <!-- Service Account Upload Panel (Collapsible) -->
+      <div id="serviceAccountPanel" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
+        <h4 style="color: var(--accent); margin-bottom: 8px; font-size: 14px;">🔑 ربط مفتاح خدمة Google Service Account (FCM HTTP v1):</h4>
+        <p style="font-size: 12px; color: #B2DFDB; line-height: 1.8; margin-bottom: 12px;">
+          لإرسال إشعارات ستارة حقيقية ترن وتهتز في هواتف المزارعين حتى <b>لو كان التطبيق مغلقاً تماماً</b>، يتطلب Google FCM الحديث مفتاح خدمة (Private Key):
+          <br>1. افتح <a href="https://console.firebase.google.com/project/mosarib/settings/serviceaccounts/adminsdk" target="_blank" style="color:var(--accent); text-decoration:underline;">Firebase Console > Service Accounts</a>.
+          <br>2. اضغط على الزر الأزرق <b>"Generate new private key"</b> وحمّل ملف JSON.
+          <br>3. ارفع الملف أدناه أو الصق محتواه واضغط "حفظ وتفعيل المفتاح".
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div>
+            <label style="font-size: 12px; font-weight: bold; margin-bottom: 4px; display: block;">اختيار ملف JSON من جهازك:</label>
+            <input type="file" id="saFileInput" accept=".json" style="font-size: 12px; padding: 6px; width: 100%; border: 1px dashed var(--accent); border-radius: 6px; background: rgba(0,0,0,0.2);">
+          </div>
+          <div>
+            <label style="font-size: 12px; font-weight: bold; margin-bottom: 4px; display: block;">أو لصق كود المفتاح JSON مباشرة:</label>
+            <textarea id="saJsonInput" rows="4" placeholder='{ "type": "service_account", "project_id": "mosarib", "private_key": "-----BEGIN PRIVATE KEY-----...", "client_email": "..." }' style="width: 100%; font-family: monospace; font-size: 11px;"></textarea>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn" onclick="saveServiceAccountKey()">💾 حفظ وتفعيل المفتاح الآن</button>
+            <button class="btn btn-secondary" onclick="toggleServiceAccountModal()">إغلاق النافذة</button>
+          </div>
+          <div id="saSaveStatus" style="font-size: 12px; display: none;"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="grid-2">
       <div class="card">
         <div class="card-title">إرسال إشعار فوري لستارة الهاتف (FCM Push)</div>
         <div class="form-group">
-          <label for="fcmServerKeyInput">مفتاح خادم FCM (Firebase Cloud Messaging Server Key):</label>
-          <input type="password" id="fcmServerKeyInput" placeholder="AAAA... انسخه من Project Settings > Cloud Messaging (اختياري للإرسال المباشر)" onchange="saveFcmServerKey()">
-          <small style="color:var(--text-muted); font-size:11px;">إذا تركته فارغاً سيتم بث الإشعار عبر قاعدة البيانات، وإذا وضعته سيرن هاتف المزارع فوراً والتطبيق مغلق!</small>
-        </div>
-        <div class="form-group">
           <label for="pushTarget">الجهة المستهدفة:</label>
           <select id="pushTarget">
             <option value="ALL">جميع الهواتف والمستخدمين المسجلين</option>
-            <option value="TRIAL">مستخدمو النسخة التجريبية فقط (لتشجيع الاشتراك)</option>
+            <option value="TRIAL">مستخدمو النسخة التجريبية فقط (لتشجيع الاشتراك والترقية)</option>
             <option value="SUBSCRIBERS">المشتركون المفعّلون فقط</option>
           </select>
         </div>
@@ -1160,16 +1204,17 @@
           <label for="pushUrl">رابط يفتح عند الضغط على الإشعار (اختياري):</label>
           <input type="url" id="pushUrl" placeholder="مثال: رابط تحديث، أو رابط واتساب للدعم">
         </div>
-        <button class="btn" onclick="sendRealFcmPushNotification()">إرسال الإشعار الآن لهواتف المستخدمين</button>
+        <button class="btn" id="btnSendPush" onclick="sendRealFcmPushNotification()">🚀 إرسال الإشعار الآن لهواتف المستخدمين</button>
         <div id="pushStatus" style="margin-top: 12px; font-size: 13px; text-align: center; display: none;"></div>
       </div>
 
       <div class="card">
-        <div class="card-title">مميزات إشعارات ستارة الهاتف (FCM)</div>
+        <div class="card-title">مميزات إشعارات ستارة الهاتف الحقيقية (FCM HTTP v1)</div>
         <ul style="padding-right: 20px; line-height: 2.2; font-size: 14px; color: #B2DFDB;">
-          <li><b>تصل والهاتف مقفل:</b> يرن الهاتف ويهتز ويظهر الإشعار في الستارة العلوية بأيقونة التطبيق حتى لو كان التطبيق مغلقاً تماماً.</li>
-          <li><b>إرسال سحابي هجين:</b> يرسل إشعار Google FCM المباشر ويرسله أيضاً لقاعدة بيانات التطبيق الداخلية لضمان وصوله للجميع 100%.</li>
-          <li><b>تخصيص كامل:</b> تحكّم بالعنوان، النص، ورابط التحويل المباشر عند النقر.</li>
+          <li><b>🔔 تصل والتطبيق مغلق:</b> بفضل محرك FCM HTTP v1 الرسمي، يتكفل نظام Android مباشرة برن الهاتف وإظهار الإشعار برمز مُسَرِّب في الستارة العلوية حتى لو تم إغلاق التطبيق نهائياً.</li>
+          <li><b>⚡ إرسال سحابي هجين:</b> يرسل إشعار Google FCM المباشر للأجهزة، ويحفظه في قاعدة البيانات السحابية لضمان ظهوره أيضاً عند فتح التطبيق.</li>
+          <li><b>🎯 استهداف دقيق:</b> يمكنك إرسال إشعار لكافة المستخدمين أو لمستخدمي النسخة التجريبية فقط لدعوتهم للاشتراك السنوي/الشهري.</li>
+          <li><b>🧹 تنظيف تلقائي:</b> يقوم النظام تلقائياً بتنظيف التوكنات القديمة أو المحذوفة من الأجهزة لضمان سرعة وكفاءة البث.</li>
         </ul>
       </div>
     </div>
@@ -1502,6 +1547,75 @@
         <div id="adminPortalNewsList" style="max-height: 250px; overflow-y: auto;">
           <div style="text-align: center; color: var(--text-muted); padding: 14px;">جاري تحميل الأخبار...</div>
         </div>
+      </div>
+
+      <!-- Manage Subscription Pricing & Discounts -->
+      <div class="card" style="border: 1px solid rgba(255, 179, 0, 0.45); margin-top: 24px; background: linear-gradient(135deg, rgba(255, 179, 0, 0.06), rgba(18, 35, 43, 0.95));">
+        <div class="card-title">🏷️ إدارة تسعير وباقات الاشتراك والخصومات (سنوي وشهرية)</div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+          الأسعار والخصومات المحددة هنا تُحفظ فوراً في قاعدة بيانات Firebase السحابية، وتنعكس مباشرة في كل من <b>الموقع الإلكتروني</b> و<b>تطبيق الأندرويد</b> و<b>رسائل طلبات الواتساب</b>.
+        </p>
+
+        <form id="subscriptionPricingForm" onsubmit="handleSaveSubscriptionPricing(event)">
+          <div class="grid-2">
+            <!-- Yearly Plan Pricing -->
+            <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 179, 0, 0.3); border-radius: 10px; padding: 16px;">
+              <h4 style="color: var(--accent); margin-bottom: 12px; font-size: 14px; font-weight: 800;">⭐ باقة الاشتراك السنوي الشامل:</h4>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="form-group">
+                  <label for="pricingYearlyPrice">السعر الفعلي المطلوب (بعد الخصم):</label>
+                  <input type="text" id="pricingYearlyPrice" placeholder="مثال: 80" required>
+                </div>
+                <div class="form-group">
+                  <label for="pricingYearlyOriginal">السعر السابق قبل الخصم (اختياري مشطوب):</label>
+                  <input type="text" id="pricingYearlyOriginal" placeholder="مثال: 120">
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+                <div class="form-group">
+                  <label for="pricingYearlyDiscount">نص شارة الخصم والتوفير:</label>
+                  <input type="text" id="pricingYearlyDiscount" placeholder="مثال: وفر 33% (خصم 40$)">
+                </div>
+                <div class="form-group">
+                  <label for="pricingYearlyCurrency">رمز العملة:</label>
+                  <input type="text" id="pricingYearlyCurrency" value="$">
+                </div>
+              </div>
+            </div>
+
+            <!-- Monthly Plan Pricing -->
+            <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(0, 188, 212, 0.3); border-radius: 10px; padding: 16px;">
+              <h4 style="color: #4DD0E1; margin-bottom: 12px; font-size: 14px; font-weight: 800;">📅 باقة الاشتراك الشهري:</h4>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="form-group">
+                  <label for="pricingMonthlyPrice">السعر الفعلي المطلوب (شهرياً):</label>
+                  <input type="text" id="pricingMonthlyPrice" placeholder="مثال: 10" required>
+                </div>
+                <div class="form-group">
+                  <label for="pricingMonthlyOriginal">السعر السابق قبل الخصم (اختياري مشطوب):</label>
+                  <input type="text" id="pricingMonthlyOriginal" placeholder="مثال: 15">
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+                <div class="form-group">
+                  <label for="pricingMonthlyDiscount">نص شارة الخصم (إن وجد):</label>
+                  <input type="text" id="pricingMonthlyDiscount" placeholder="مثال: عرض خاص">
+                </div>
+                <div class="form-group">
+                  <label for="pricingMonthlyCurrency">رمز العملة:</label>
+                  <input type="text" id="pricingMonthlyCurrency" value="$">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
+            <button type="submit" class="btn" id="btnSavePricing" style="width: auto; padding: 12px 30px; font-weight: 800; background: linear-gradient(135deg, #FFB300, #FF8F00); color: #000;">
+              💾 حفظ ونشر الأسعار والخصومات في فايربيس والتطبيق والموقع فوراً
+            </button>
+          </div>
+          <div id="pricingSaveStatus" style="margin-top: 10px; text-align: center; font-size: 13px; font-weight: bold; display: none;"></div>
+        </form>
       </div>
 
       <!-- Manage Payment Accounts & Wallets -->
@@ -1987,6 +2101,8 @@
       loadAdminsList();
     } else if (tabId === 'publicPortal') {
       loadPortalSettingsForAdmin();
+    } else if (tabId === 'push') {
+      loadFcmEngineStatus();
     }
   }
 
@@ -2021,6 +2137,21 @@
           document.getElementById("pShowPlansSection").checked = ps.show_plans_section !== false;
           document.getElementById("pShowDeveloperSection").checked = ps.show_developer_section !== false;
           document.getElementById("pShowDownloadCta").checked = ps.show_download_cta !== false;
+        }
+
+        const pricing = json.data.subscription_pricing || {};
+        const ym = pricing.yearly || {};
+        const mm = pricing.monthly || {};
+        if (document.getElementById("pricingYearlyPrice")) {
+          document.getElementById("pricingYearlyPrice").value = ym.price || '80';
+          document.getElementById("pricingYearlyOriginal").value = ym.original_price || '120';
+          document.getElementById("pricingYearlyDiscount").value = ym.discount_text || 'وفر 33% (خصم 40$)';
+          document.getElementById("pricingYearlyCurrency").value = ym.currency || '$';
+
+          document.getElementById("pricingMonthlyPrice").value = mm.price || '10';
+          document.getElementById("pricingMonthlyOriginal").value = mm.original_price || '';
+          document.getElementById("pricingMonthlyDiscount").value = mm.discount_text || '';
+          document.getElementById("pricingMonthlyCurrency").value = mm.currency || '$';
         }
 
         const an = json.data.analytics;
@@ -2183,9 +2314,99 @@
     }
   }
 
-  function saveFcmServerKey() {
-    const key = document.getElementById("fcmServerKeyInput").value.trim();
-    localStorage.setItem("mosarib_fcm_server_key", key);
+  async function loadFcmEngineStatus() {
+    const badge = document.getElementById("fcmEngineStatusBadge");
+    const details = document.getElementById("fcmEngineDetails");
+    if (!badge) return;
+    try {
+      const res = await fetch('api/fcm_sender.php');
+      const data = (await safeJson(res)) || {};
+      if (data.success && data.data) {
+        const d = data.data;
+        if (d.is_fcm_v1_configured) {
+          badge.innerHTML = '🟢 <span style="color:#10B981;">محرك Google FCM HTTP v1 نشط ومفعل</span>';
+          details.innerHTML = `المشروع: <b>${d.firebase_project}</b> • الحساب: <b>${d.service_account ? d.service_account.client_email : ''}</b> • الأجهزة المسجلة الجاهزة للاستقبال: <b>${d.registered_tokens_count} جهاز</b> (تصل والتطبيق مغلق ✅)`;
+        } else {
+          badge.innerHTML = '🟡 <span style="color:var(--accent);">محرك Google FCM HTTP v1 بحاجة لربط مفتاح الخدمة</span>';
+          details.innerHTML = `الأجهزة المسجلة في السحابة: <b>${d.registered_tokens_count} جهاز</b>. ليرن هاتف العميل والتطبيق مغلق تماماً، اضغط زر "إعداد / رفع مفتاح Google Service Account" أعلاه.`;
+        }
+      }
+    } catch (_) {}
+  }
+
+  function toggleServiceAccountModal() {
+    const panel = document.getElementById("serviceAccountPanel");
+    if (panel) {
+      panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
+    }
+  }
+
+  async function saveServiceAccountKey() {
+    const fileInput = document.getElementById("saFileInput");
+    const jsonInput = document.getElementById("saJsonInput").value.trim();
+    const statusDiv = document.getElementById("saSaveStatus");
+    statusDiv.style.display = "block";
+    statusDiv.style.color = "var(--accent)";
+    statusDiv.innerText = "جاري التحقق من المفتاح واختبار اتصاله بـ Google FCM... ⏳";
+
+    let payload = {};
+    if (fileInput.files && fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+      const text = await file.text();
+      payload = { action: 'save_service_account', service_account_json: text };
+    } else if (jsonInput) {
+      payload = { action: 'save_service_account', service_account_json: jsonInput };
+    } else {
+      statusDiv.style.color = "#EF4444";
+      statusDiv.innerText = "يرجى اختيار ملف JSON أو لصق محتواه أولاً";
+      return;
+    }
+
+    try {
+      const res = await fetch('api/fcm_sender.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = (await safeJson(res)) || {};
+      if (data.success) {
+        statusDiv.style.color = "#10B981";
+        statusDiv.innerText = "✅ " + data.message;
+        loadFcmEngineStatus();
+        setTimeout(() => { toggleServiceAccountModal(); }, 2500);
+      } else {
+        statusDiv.style.color = "#EF4444";
+        statusDiv.innerText = "❌ " + (data.message || "فشل التحقق من المفتاح");
+      }
+    } catch (err) {
+      statusDiv.style.color = "#EF4444";
+      statusDiv.innerText = "❌ حدث خطأ في الاتصال بالسيرفر";
+    }
+  }
+
+  async function testFcmConnection() {
+    const statusDiv = document.getElementById("pushStatus");
+    statusDiv.style.display = "block";
+    statusDiv.style.color = "var(--accent)";
+    statusDiv.innerText = "جاري فحص الاتصال بـ Google FCM... ⏳";
+    try {
+      const res = await fetch('api/fcm_sender.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'test_connection' })
+      });
+      const data = (await safeJson(res)) || {};
+      if (data.success) {
+        statusDiv.style.color = "#10B981";
+        statusDiv.innerText = "✅ " + data.message;
+      } else {
+        statusDiv.style.color = "#EF4444";
+        statusDiv.innerText = "❌ " + (data.message || "الاتصال غير جاهز");
+      }
+    } catch (_) {
+      statusDiv.style.color = "#EF4444";
+      statusDiv.innerText = "❌ تعذر الاتصال بالخادم";
+    }
   }
 
   async function sendRealFcmPushNotification() {
@@ -2193,8 +2414,8 @@
     const body = document.getElementById("pushBody").value.trim();
     const url = document.getElementById("pushUrl").value.trim();
     const target = document.getElementById("pushTarget").value;
-    const serverKey = document.getElementById("fcmServerKeyInput").value.trim() || localStorage.getItem("mosarib_fcm_server_key") || "";
     const statusDiv = document.getElementById("pushStatus");
+    const btn = document.getElementById("btnSendPush");
 
     if (!title || !body) {
       alert("يرجى كتابة عنوان الإشعار ونصه أولاً");
@@ -2203,32 +2424,80 @@
 
     statusDiv.style.display = "block";
     statusDiv.style.color = "var(--accent)";
-    statusDiv.innerText = "جاري إرسال الإشعار وبثه عبر Google FCM وسحابة فايربيس...";
+    statusDiv.innerText = "جاري إرسال الإشعار السحابي الفوري عبر Google FCM للأجهزة... ⏳";
+    if (btn) btn.disabled = true;
 
     try {
       const res = await fetch('api/fcm_sender.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'send',
           title: title,
           body: body,
           action_url: url,
-          target: target,
-          fcm_server_key: serverKey
+          target: target
         })
       });
 
       const resData = (await safeJson(res)) || {};
       if (resData.success) {
         statusDiv.style.color = "var(--success)";
-        const directMsg = (resData.data && resData.data.fcm_direct_used) ? ` (تم الإرسال المباشر لـ ${resData.data.fcm_sent_success} هاتف)` : ' (تم بث الإشعار في السحابة وسيرن للأجهزة عند أول اتصال)';
-        statusDiv.innerHTML = `✅ ${resData.message}! إجمالي التوكنات المسجلة: <b>${(resData.data && resData.data.registered_tokens_count) || 0}</b>${directMsg}`;
+        statusDiv.innerHTML = `✅ ${resData.message}`;
+        loadFcmEngineStatus();
       } else {
-        throw new Error(resData.message || 'حدث خطأ غير معروف');
+        throw new Error(resData.message || 'حدث خطأ في الإرسال');
       }
     } catch (e) {
+      statusDiv.style.color = "#EF4444";
+      statusDiv.innerText = "❌ " + e.message;
       // Fallback directly to client-side RTDB broadcast
       sendCustomPushNotification();
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function handleSaveSubscriptionPricing(e) {
+    e.preventDefault();
+    const btn = document.getElementById("btnSavePricing");
+    const statusDiv = document.getElementById("pricingSaveStatus");
+    if (btn) btn.disabled = true;
+    statusDiv.style.display = "block";
+    statusDiv.style.color = "var(--accent)";
+    statusDiv.innerText = "جاري حفظ ونشر أسعار وخصومات الاشتراكات في فايربيس... ⏳";
+
+    const payload = {
+      action: 'save_subscription_pricing',
+      yearly_price: document.getElementById("pricingYearlyPrice").value.trim(),
+      yearly_original_price: document.getElementById("pricingYearlyOriginal").value.trim(),
+      yearly_discount_text: document.getElementById("pricingYearlyDiscount").value.trim(),
+      yearly_currency: document.getElementById("pricingYearlyCurrency").value.trim(),
+
+      monthly_price: document.getElementById("pricingMonthlyPrice").value.trim(),
+      monthly_original_price: document.getElementById("pricingMonthlyOriginal").value.trim(),
+      monthly_discount_text: document.getElementById("pricingMonthlyDiscount").value.trim(),
+      monthly_currency: document.getElementById("pricingMonthlyCurrency").value.trim()
+    };
+
+    try {
+      const res = await fetch('api/public_data.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = (await safeJson(res)) || {};
+      if (data.success) {
+        statusDiv.style.color = "#10B981";
+        statusDiv.innerText = "✅ " + data.message;
+      } else {
+        throw new Error(data.message || "فشل الحفظ");
+      }
+    } catch (err) {
+      statusDiv.style.color = "#EF4444";
+      statusDiv.innerText = "❌ خطأ: " + err.message;
+    } finally {
+      if (btn) btn.disabled = false;
     }
   }
 

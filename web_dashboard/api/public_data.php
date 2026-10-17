@@ -9,6 +9,7 @@ require_once __DIR__ . '/config.php';
 $newsFile = __DIR__ . '/../data/portal_news.json';
 $settingsFile = __DIR__ . '/../data/portal_settings.json';
 $paymentMethodsFile = __DIR__ . '/../data/payment_methods.json';
+$pricingFile = __DIR__ . '/../data/subscription_pricing.json';
 
 // Ensure data folder exists
 if (!file_exists(__DIR__ . '/../data')) {
@@ -245,6 +246,13 @@ if ($method === 'GET') {
         ],
         'news' => $newsList,
         'payment_methods' => file_exists($paymentMethodsFile) ? (json_decode(file_get_contents($paymentMethodsFile), true) ?: []) : [],
+        'subscription_pricing' => file_exists($pricingFile) ? (json_decode(file_get_contents($pricingFile), true) ?: [
+            'monthly' => ['price' => '10', 'original_price' => '', 'discount_text' => '', 'currency' => '$'],
+            'yearly' => ['price' => '80', 'original_price' => '120', 'discount_text' => 'وفر 33% (خصم 40$)', 'currency' => '$']
+        ]) : [
+            'monthly' => ['price' => '10', 'original_price' => '', 'discount_text' => '', 'currency' => '$'],
+            'yearly' => ['price' => '80', 'original_price' => '120', 'discount_text' => 'وفر 33% (خصم 40$)', 'currency' => '$']
+        ],
         'app_release' => [
             'version_name' => $latestRelease['version_name'] ?? '1.4.0',
             'version_code' => $latestRelease['version_code'] ?? 4,
@@ -464,5 +472,40 @@ if ($method === 'POST') {
         }));
         file_put_contents($newsFile, json_encode($newsList, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
         jsonResponse(true, 'تم حذف الخبر بنجاح');
+    }
+
+    // 4. Save Subscription Pricing & Discounts (Monthly & Yearly)
+    if ($action === 'save_subscription_pricing') {
+        $monthlyPrice = trim($input['monthly_price'] ?? '10');
+        $monthlyOriginal = trim($input['monthly_original_price'] ?? '');
+        $monthlyDiscount = trim($input['monthly_discount_text'] ?? '');
+        $monthlyCurrency = trim($input['monthly_currency'] ?? '$');
+
+        $yearlyPrice = trim($input['yearly_price'] ?? '80');
+        $yearlyOriginal = trim($input['yearly_original_price'] ?? '120');
+        $yearlyDiscount = trim($input['yearly_discount_text'] ?? 'وفر 33% (خصم 40$)');
+        $yearlyCurrency = trim($input['yearly_currency'] ?? '$');
+
+        $pricingData = [
+            'monthly' => [
+                'price' => $monthlyPrice,
+                'original_price' => $monthlyOriginal,
+                'discount_text' => $monthlyDiscount,
+                'currency' => $monthlyCurrency
+            ],
+            'yearly' => [
+                'price' => $yearlyPrice,
+                'original_price' => $yearlyOriginal,
+                'discount_text' => $yearlyDiscount,
+                'currency' => $yearlyCurrency
+            ],
+            'updated_at' => round(microtime(true) * 1000)
+        ];
+
+        file_put_contents($pricingFile, json_encode($pricingData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        // Sync to Firebase Realtime Database
+        firebaseRequest('subscription_pricing.json', 'PUT', $pricingData);
+
+        jsonResponse(true, 'تم حفظ وتحديث أسعار وخصومات الاشتراكات في فايربيس والموقع والتطبيق بنجاح!', $pricingData);
     }
 }
