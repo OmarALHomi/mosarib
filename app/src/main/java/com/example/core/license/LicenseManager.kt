@@ -275,6 +275,12 @@ object LicenseManager {
         if (!isInternetAvailable(context)) return
         val deviceCode = getDeviceCode(context)
         val license = FirebaseLicenseService.getDeviceRemoteLicense(deviceCode)
+        // Also keep local pricing & payment methods cache fresh in the background
+        runCatching {
+            FirebaseLicenseService.getSubscriptionPricing(context)
+            FirebaseLicenseService.getPaymentMethods(context)
+        }
+
         if (!license.isFound) return
 
         if (license.isRevoked) {
@@ -592,17 +598,19 @@ object LicenseManager {
         requestedPlan: SubscriptionPlan = SubscriptionPlan.MONTHLY,
         receiptNumber: String = "",
         region: String = "",
-        customPlanText: String? = null
+        customPlanText: String? = null,
+        paymentMethod: String = ""
     ): String {
         val planText = customPlanText ?: if (requestedPlan == SubscriptionPlan.MONTHLY) "اشتراك شهري 10$ (30 يوماً)" else "اشتراك سنوي 80$ (365 يوماً - وفر 40$)"
         val devModel = getDeviceModelName()
         val nameLine = if (subscriberName.isNotBlank()) "اسم المشترك: $subscriberName\n" else ""
         val regionLine = if (region.isNotBlank()) "المحافظة والمنطقة: $region\n" else ""
+        val paymentLine = if (paymentMethod.isNotBlank()) "طريقة الدفع / المحفظة: $paymentMethod\n" else ""
         val receiptLine = if (receiptNumber.isNotBlank()) "رقم سند التحويل / الإيداع: $receiptNumber\n" else ""
         val msg = """
 السلام عليكم يا باشمهندس عمر،
 أود تفعيل تطبيق المُسَرِّب للآبار والري ($planText).
-${nameLine}${regionLine}${receiptLine}نوع الجوال: $devModel
+${nameLine}${regionLine}${paymentLine}${receiptLine}نوع الجوال: $devModel
 كود جهازي هو:
 $deviceCode
         """.trimIndent()
@@ -620,18 +628,20 @@ $deviceCode
         isUpgrade: Boolean = false,
         receiptNumber: String = "",
         region: String = "",
-        customPlanText: String? = null
+        customPlanText: String? = null,
+        paymentMethod: String = ""
     ): String {
         val devModel = getDeviceModelName()
         val nameLine = if (subscriberName.isNotBlank()) "اسم المشترك: $subscriberName\n" else ""
         val regionLine = if (region.isNotBlank()) "المحافظة والمنطقة: $region\n" else ""
+        val paymentLine = if (paymentMethod.isNotBlank()) "طريقة الدفع / المحفظة: $paymentMethod\n" else ""
         val receiptLine = if (receiptNumber.isNotBlank()) "رقم سند التحويل / الإيداع: $receiptNumber\n" else ""
         val msg = if (isUpgrade) {
             val upgradeText = customPlanText ?: "اشتراك سنوي 80$ (365 يوماً)"
             """
 السلام عليكم يا باشمهندس عمر،
 أود ترقية اشتراكي في تطبيق المُسَرِّب من شهري إلى $upgradeText.
-${nameLine}${regionLine}${receiptLine}نوع الجوال: $devModel
+${nameLine}${regionLine}${paymentLine}${receiptLine}نوع الجوال: $devModel
 كود جهازي هو:
 $deviceCode
             """.trimIndent()
@@ -640,7 +650,7 @@ $deviceCode
             """
 السلام عليكم يا باشمهندس عمر،
 أود تجديد اشتراكي في تطبيق المُسَرِّب للآبار والري ($planText).
-${nameLine}${regionLine}${receiptLine}نوع الجوال: $devModel
+${nameLine}${regionLine}${paymentLine}${receiptLine}نوع الجوال: $devModel
 كود جهازي هو:
 $deviceCode
             """.trimIndent()

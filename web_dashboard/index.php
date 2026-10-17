@@ -1828,14 +1828,29 @@ if (file_exists($releaseFile)) {
               <input type="text" id="subRegion" class="form-input" placeholder="مثال: مأرب - وادي عبيدة / صنعاء" required>
             </div>
             <div class="form-field">
-              <label class="field-label">رقم سند التحويل / الحوالة / الإيداع *</label>
-              <input type="text" id="subReceipt" class="form-input" placeholder="مثال: رقم إشعار كريمي أو جوالي أو رقم الإيداع" required>
+              <label class="field-label">طريقة التحويل / المحفظة البنكية *</label>
+              <select id="subPaymentMethod" class="form-input" style="cursor:pointer;" required>
+                <?php foreach ($paymentMethods as $pm): ?>
+                  <?php if (!empty($pm['is_active'])): ?>
+                    <option value="<?= htmlspecialchars($pm['bank_name'] . ' (' . ($pm['account_currency'] ?? 'YER') . ')') ?>">
+                      <?= htmlspecialchars($pm['bank_name']) ?> (<?= htmlspecialchars($pm['account_currency'] ?? 'YER') ?>)
+                    </option>
+                  <?php endif; ?>
+                <?php endforeach; ?>
+                <option value="حوالة صرافة / شبكة أخرى">حوالة عبر صراف آخر / شبكة صرافة</option>
+              </select>
             </div>
           </div>
 
-          <div class="form-field" style="margin-top: 10px;">
-            <label class="field-label">كود جهازك الفريد (Device Token) <small style="color:var(--text-dim);">(اختياري - إن كنت قمت بتنزيل التطبيق)</small></label>
-            <input type="text" id="subDeviceCode" class="form-input" placeholder="مثال: A1B2-C3D4-E5F6 (انسخه من شاشة التفعيل بالتطبيق)">
+          <div class="form-row-grid" style="margin-top: 10px;">
+            <div class="form-field">
+              <label class="field-label">رقم سند التحويل / الحوالة / الإيداع *</label>
+              <input type="text" id="subReceipt" class="form-input" placeholder="مثال: رقم إشعار كريمي أو جوالي أو رقم الإيداع" required>
+            </div>
+            <div class="form-field">
+              <label class="field-label">كود جهازك الفريد (Device Token) <small style="color:var(--text-dim);">(اختياري)</small></label>
+              <input type="text" id="subDeviceCode" class="form-input" placeholder="مثال: A1B2-C3D4-E5F6 (من شاشة التفعيل)">
+            </div>
           </div>
 
           <div id="subFormFeedback" style="display:none; margin-top:12px; padding:12px; border-radius:10px; font-weight:bold; font-size:13.5px; text-align:center;"></div>
@@ -1940,6 +1955,7 @@ if (file_exists($releaseFile)) {
       const name = document.getElementById('subFullName').value.trim();
       const phone = document.getElementById('subPhone').value.trim();
       const region = document.getElementById('subRegion').value.trim();
+      const paymentMethod = document.getElementById('subPaymentMethod') ? document.getElementById('subPaymentMethod').value.trim() : '';
       const receipt = document.getElementById('subReceipt').value.trim();
       const deviceCode = document.getElementById('subDeviceCode').value.trim();
       const radios = document.getElementsByName('modalPlanChoice');
@@ -1967,7 +1983,8 @@ if (file_exists($releaseFile)) {
             region: region,
             plan: plan,
             receipt_number: receipt,
-            device_code: deviceCode
+            device_code: deviceCode,
+            payment_method: paymentMethod
           })
         });
 
@@ -2001,6 +2018,7 @@ if (file_exists($releaseFile)) {
       const name = document.getElementById('subFullName').value.trim() || 'مشترك جديد';
       const phone = document.getElementById('subPhone').value.trim() || '';
       const region = document.getElementById('subRegion').value.trim() || '';
+      const paymentMethod = document.getElementById('subPaymentMethod') ? document.getElementById('subPaymentMethod').value.trim() : '';
       const receipt = document.getElementById('subReceipt').value.trim() || '';
       const deviceCode = document.getElementById('subDeviceCode').value.trim() || 'لم يتم تحديده بعد';
       const radios = document.getElementsByName('modalPlanChoice');
@@ -2008,6 +2026,7 @@ if (file_exists($releaseFile)) {
       radios.forEach(r => { if (r.checked) plan = (r.value === 'YEARLY' ? 'سنوي (<?= $yearlyPrice ?>$)' : 'شهري (<?= $monthlyPrice ?>$)'); });
 
       const adminPhone = '<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>';
+      const paymentLine = paymentMethod ? `• طريقة التحويل / المحفظة: ${paymentMethod}\n` : '';
       const msg = 
 `السلام عليكم يا باشمهندس عمر،
 أود تفعيل رخصة تطبيق مُسَرِّب:
@@ -2015,7 +2034,7 @@ if (file_exists($releaseFile)) {
 • اسم المشترك: ${name}
 • رقم الهاتف: ${phone}
 • المحافظة والمنطقة: ${region}
-• رقم سند التحويل / الإيداع: ${receipt}
+${paymentLine}• رقم سند التحويل / الإيداع: ${receipt}
 • كود جهازي: ${deviceCode}
 
 يرجى مراجعة الإيداع وتوليد رمز التفعيل، شكراً لك.`;

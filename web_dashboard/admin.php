@@ -3196,6 +3196,7 @@
             <div style="color: var(--accent); font-weight: 800; font-size: 11.5px; margin-top: 3px;">
               سند: <span style="background: rgba(0, 180, 216, 0.15); padding: 2px 6px; border-radius: 4px; border: 1px dashed var(--accent);">${receiptText}</span>
             </div>
+            ${r.paymentMethod ? `<div style="color: #6EE7B7; font-weight: 700; font-size: 11px; margin-top: 3px;">عبر: <b>${r.paymentMethod}</b></div>` : ''}
           </td>
           <td><code style="color: var(--accent); font-weight: bold; font-size: 13px;">${devCode}</code></td>
           <td>${sourceBadge}</td>
@@ -3782,6 +3783,16 @@
       (f.phone && f.phone.includes(q))
     );
     renderFeedbacksTable(filtered);
+  }
+
+  function exportRequestsCSV() {
+    if (allRequests.length === 0) return alert("لا توجد طلبات لتصديرها");
+    let csv = "\uFEFFالتاريخ,الاسم,الهاتف,الباقة,المنطقة,رقم السند,طريقة الدفع,كود الجهاز,المصدر,الحالة\n";
+    allRequests.forEach(r => {
+      const dateStr = r.timestamp ? new Date(r.timestamp).toLocaleString('ar-EG') : '';
+      csv += `"${dateStr}","${r.subscriberName || ''}","${r.phone || ''}","${r.plan || ''}","${r.region || ''}","${r.receiptNumber || ''}","${r.paymentMethod || ''}","${r.deviceCode || ''}","${r.requestType || ''}","${r.status || ''}"\n`;
+    });
+    downloadCSV(csv, "mosarib_subscription_requests.csv");
   }
 
   function exportFeedbacksCSV() {

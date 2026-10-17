@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +34,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -123,6 +126,8 @@ fun LicenseDialog(
     var phone by remember { mutableStateOf(UserDeviceTracker.getRegisteredPhone(context)) }
     var region by remember { mutableStateOf("") }
     var receiptNumber by remember { mutableStateOf("") }
+    var selectedPaymentMethod by remember { mutableStateOf("بنك الكريمي للتمويل الأصغر (YER)") }
+    var isPaymentDropdownExpanded by remember { mutableStateOf(false) }
     var paymentAccounts by remember { mutableStateOf<List<FirebaseLicenseService.PaymentAccount>>(emptyList()) }
     var isPaymentAccountsExpanded by remember { mutableStateOf(false) }
     var pricing by remember { mutableStateOf(FirebaseLicenseService.SubscriptionPricing()) }
@@ -135,8 +140,12 @@ fun LicenseDialog(
     var unregisteredEmailAttempt by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
-        paymentAccounts = FirebaseLicenseService.getPaymentMethods()
-        pricing = FirebaseLicenseService.getSubscriptionPricing()
+        val methods = FirebaseLicenseService.getPaymentMethods(context)
+        paymentAccounts = methods
+        if (methods.isNotEmpty()) {
+            selectedPaymentMethod = "${methods.first().bankName} (${methods.first().accountCurrency})"
+        }
+        pricing = FirebaseLicenseService.getSubscriptionPricing(context)
     }
 
     val coroutineScope = rememberCoroutineScope()
@@ -274,7 +283,8 @@ fun LicenseDialog(
                 deviceCode = deviceCode,
                 requestType = requestType,
                 receiptNumber = receiptNumber.trim(),
-                region = region.trim()
+                region = region.trim(),
+                paymentMethod = selectedPaymentMethod.trim()
             )
             isRequestingOnline = false
             if (res.isSuccess) {
@@ -311,7 +321,8 @@ fun LicenseDialog(
                     deviceCode = deviceCode,
                     requestType = requestType,
                     receiptNumber = receiptNumber.trim(),
-                    region = region.trim()
+                    region = region.trim(),
+                    paymentMethod = selectedPaymentMethod.trim()
                 )
             }
         }
@@ -331,7 +342,8 @@ fun LicenseDialog(
                 isUpgrade = targetUpgrade,
                 receiptNumber = receiptNumber.trim(),
                 region = region.trim(),
-                customPlanText = planText
+                customPlanText = planText,
+                paymentMethod = selectedPaymentMethod.trim()
             )
         } else {
             LicenseManager.getWhatsAppActivationUrl(
@@ -340,7 +352,8 @@ fun LicenseDialog(
                 requestedPlan = targetPlan,
                 receiptNumber = receiptNumber.trim(),
                 region = region.trim(),
-                customPlanText = planText
+                customPlanText = planText,
+                paymentMethod = selectedPaymentMethod.trim()
             )
         }
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
@@ -659,6 +672,82 @@ fun LicenseDialog(
                 colors = textFieldColors,
                 singleLine = true
             )
+
+            // Payment Method Selector (Combobox / Dropdown)
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = selectedPaymentMethod.ifBlank { "اختر البنك أو المحفظة المحول منها" },
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("طريقة التحويل / المحفظة البنكية *") },
+                    leadingIcon = {
+                        Icon(Icons.Default.AccountBalance, contentDescription = null, tint = AccentGold, modifier = Modifier.size(18.dp))
+                    },
+                    trailingIcon = {
+                        Icon(
+                            imageVector = if (isPaymentDropdownExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            tint = PrimaryTeal
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = textFieldColors,
+                    singleLine = true
+                )
+
+                // Transparent clickable overlay so tapping anywhere opens the dropdown menu
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { isPaymentDropdownExpanded = !isPaymentDropdownExpanded }
+                )
+
+                DropdownMenu(
+                    expanded = isPaymentDropdownExpanded,
+                    onDismissRequest = { isPaymentDropdownExpanded = false },
+                    modifier = Modifier.fillMaxWidth(0.9f)
+                ) {
+                    val availableMethods = if (paymentAccounts.isNotEmpty()) paymentAccounts else listOf(
+                        FirebaseLicenseService.PaymentAccount(bankName = "بنك الكريمي للتمويل الأصغر", accountNumber = "123456789", accountCurrency = "YER"),
+                        FirebaseLicenseService.PaymentAccount(bankName = "محفظة جوالي (Jawali)", accountNumber = "773712030", accountCurrency = "YER"),
+                        FirebaseLicenseService.PaymentAccount(bankName = "بنك التضامن الإسلامي", accountNumber = "987654321", accountCurrency = "USD"),
+                        FirebaseLicenseService.PaymentAccount(bankName = "محفظة ون كاش (OneCash)", accountNumber = "773712030", accountCurrency = "YER")
+                    )
+
+                    availableMethods.forEach { acc ->
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(acc.bankName, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                                    Text("${acc.accountNumber} (${acc.accountCurrency})", fontSize = 11.sp, color = PrimaryTeal)
+                                }
+                            },
+                            onClick = {
+                                selectedPaymentMethod = "${acc.bankName} (${acc.accountCurrency})"
+                                isPaymentDropdownExpanded = false
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.AccountBalance, contentDescription = null, tint = AccentGold, modifier = Modifier.size(16.dp))
+                            }
+                        )
+                    }
+
+                    DropdownMenuItem(
+                        text = {
+                            Text("حوالة عبر صراف آخر / شبكة صرافة", fontWeight = FontWeight.SemiBold, fontSize = 12.5.sp)
+                        },
+                        onClick = {
+                            selectedPaymentMethod = "حوالة صرافة / شبكة أخرى"
+                            isPaymentDropdownExpanded = false
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                        }
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 

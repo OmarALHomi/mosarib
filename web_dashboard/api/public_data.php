@@ -313,6 +313,7 @@ if ($method === 'POST') {
         $plan = strtoupper(trim($input['plan'] ?? 'YEARLY'));
         if (!in_array($plan, ['YEARLY', 'MONTHLY'])) $plan = 'YEARLY';
         $receipt = trim($input['receipt_number'] ?? ($input['receiptNumber'] ?? ''));
+        $paymentMethod = trim($input['payment_method'] ?? ($input['paymentMethod'] ?? ''));
         $deviceCode = trim($input['device_code'] ?? ($input['deviceCode'] ?? ''));
 
         if (empty($name)) {
@@ -332,6 +333,7 @@ if ($method === 'POST') {
             'region' => $region ?: 'غير محدد',
             'plan' => $plan,
             'receiptNumber' => $receipt ?: 'قيد التحويل',
+            'paymentMethod' => $paymentMethod ?: 'غير محدد',
             'deviceCode' => $deviceCode ?: 'طلب من الموقع',
             'deviceModel' => 'الموقع الرسمي (Web Direct)',
             'androidVersion' => 'Web Portal',

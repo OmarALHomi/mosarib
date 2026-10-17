@@ -1,5 +1,6 @@
 package com.example.core.license
 
+import android.content.Context
 import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
@@ -272,7 +273,8 @@ object FirebaseLicenseService {
         deviceCode: String,
         requestType: String = "NEW",
         receiptNumber: String = "",
-        region: String = ""
+        region: String = "",
+        paymentMethod: String = ""
     ): SubscriptionRequestResult = withContext(Dispatchers.IO) {
         val timestamp = System.currentTimeMillis()
         val prefix = when (requestType) {
@@ -294,6 +296,7 @@ object FirebaseLicenseService {
             "status" to "PENDING",
             "receiptNumber" to receiptNumber,
             "region" to region,
+            "paymentMethod" to paymentMethod,
             "timestamp" to timestamp
         )
 
@@ -317,6 +320,7 @@ object FirebaseLicenseService {
             put("status", "PENDING")
             put("receiptNumber", receiptNumber)
             put("region", region)
+            put("paymentMethod", paymentMethod)
             put("timestamp", timestamp)
         }
         val rtdbSuccess = putJson("subscription_requests/$requestId.json", payload.toString())
@@ -338,11 +342,58 @@ object FirebaseLicenseService {
         val isActive: Boolean = true
     )
 
+    private fun parsePaymentMethodsJson(jsonStr: String): List<PaymentAccount> {
+        val trimmed = jsonStr.trim()
+        val list = mutableListOf<PaymentAccount>()
+        if (trimmed.startsWith("[")) {
+            val array = JSONArray(trimmed)
+            for (i in 0 until array.length()) {
+                val obj = array.optJSONObject(i) ?: continue
+                val isActive = obj.optBoolean("is_active", true)
+                if (!isActive) continue
+                list.add(
+                    PaymentAccount(
+                        id = obj.optString("id", "PAY_$i"),
+                        bankName = obj.optString("bank_name", obj.optString("bankName", "")),
+                        accountNumber = obj.optString("account_number", obj.optString("accountNumber", "")),
+                        accountCurrency = obj.optString("account_currency", obj.optString("accountCurrency", "YER")),
+                        accountHolder = obj.optString("account_holder", obj.optString("accountHolder", "عمر الحومي")),
+                        notes = obj.optString("notes", ""),
+                        logoUrl = obj.optString("logo_url", obj.optString("logoUrl", "")),
+                        isActive = true
+                    )
+                )
+            }
+        } else if (trimmed.startsWith("{")) {
+            val mapObj = JSONObject(trimmed)
+            val keys = mapObj.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                val obj = mapObj.optJSONObject(k) ?: continue
+                val isActive = obj.optBoolean("is_active", true)
+                if (!isActive) continue
+                list.add(
+                    PaymentAccount(
+                        id = obj.optString("id", k),
+                        bankName = obj.optString("bank_name", obj.optString("bankName", "")),
+                        accountNumber = obj.optString("account_number", obj.optString("accountNumber", "")),
+                        accountCurrency = obj.optString("account_currency", obj.optString("accountCurrency", "YER")),
+                        accountHolder = obj.optString("account_holder", obj.optString("accountHolder", "عمر الحومي")),
+                        notes = obj.optString("notes", ""),
+                        logoUrl = obj.optString("logo_url", obj.optString("logoUrl", "")),
+                        isActive = true
+                    )
+                )
+            }
+        }
+        return list
+    }
+
     /**
      * Fetches official payment methods and accounts configured from Admin Dashboard.
-     * Falls back to standard default accounts if network is unavailable.
+     * Caches data locally in SharedPreferences for 100% offline access when network is unavailable.
      */
-    suspend fun getPaymentMethods(): List<PaymentAccount> = withContext(Dispatchers.IO) {
+    suspend fun getPaymentMethods(context: Context? = null): List<PaymentAccount> = withContext(Dispatchers.IO) {
         val defaults = listOf(
             PaymentAccount(
                 id = "PAY_1",
@@ -378,55 +429,23 @@ object FirebaseLicenseService {
             )
         )
 
+        val sp = context?.getSharedPreferences("mosarib_license_prefs", Context.MODE_PRIVATE)
+        val cachedJson = sp?.getString("cached_payment_methods", null)
+        val cachedList = if (!cachedJson.isNullOrBlank()) parsePaymentMethodsJson(cachedJson) else null
+
         try {
-            val jsonStr = fetchJson("payment_methods.json") ?: return@withContext defaults
-            val trimmed = jsonStr.trim()
-            val list = mutableListOf<PaymentAccount>()
-            if (trimmed.startsWith("[")) {
-                val array = JSONArray(trimmed)
-                for (i in 0 until array.length()) {
-                    val obj = array.optJSONObject(i) ?: continue
-                    val isActive = obj.optBoolean("is_active", true)
-                    if (!isActive) continue
-                    list.add(
-                        PaymentAccount(
-                            id = obj.optString("id", "PAY_$i"),
-                            bankName = obj.optString("bank_name", obj.optString("bankName", "")),
-                            accountNumber = obj.optString("account_number", obj.optString("accountNumber", "")),
-                            accountCurrency = obj.optString("account_currency", obj.optString("accountCurrency", "YER")),
-                            accountHolder = obj.optString("account_holder", obj.optString("accountHolder", "عمر الحومي")),
-                            notes = obj.optString("notes", ""),
-                            logoUrl = obj.optString("logo_url", obj.optString("logoUrl", "")),
-                            isActive = true
-                        )
-                    )
-                }
-            } else if (trimmed.startsWith("{")) {
-                val mapObj = JSONObject(trimmed)
-                val keys = mapObj.keys()
-                while (keys.hasNext()) {
-                    val k = keys.next()
-                    val obj = mapObj.optJSONObject(k) ?: continue
-                    val isActive = obj.optBoolean("is_active", true)
-                    if (!isActive) continue
-                    list.add(
-                        PaymentAccount(
-                            id = obj.optString("id", k),
-                            bankName = obj.optString("bank_name", obj.optString("bankName", "")),
-                            accountNumber = obj.optString("account_number", obj.optString("accountNumber", "")),
-                            accountCurrency = obj.optString("account_currency", obj.optString("accountCurrency", "YER")),
-                            accountHolder = obj.optString("account_holder", obj.optString("accountHolder", "عمر الحومي")),
-                            notes = obj.optString("notes", ""),
-                            logoUrl = obj.optString("logo_url", obj.optString("logoUrl", "")),
-                            isActive = true
-                        )
-                    )
+            val jsonStr = fetchJson("payment_methods.json")
+            if (jsonStr != null && jsonStr.isNotBlank()) {
+                val list = parsePaymentMethodsJson(jsonStr)
+                if (list.isNotEmpty()) {
+                    sp?.edit()?.putString("cached_payment_methods", jsonStr)?.apply()
+                    return@withContext list
                 }
             }
-            if (list.isNotEmpty()) list else defaults
+            if (!cachedList.isNullOrEmpty()) cachedList else defaults
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching payment methods: ${e.message}")
-            defaults
+            if (!cachedList.isNullOrEmpty()) cachedList else defaults
         }
     }
 
@@ -442,40 +461,56 @@ object FirebaseLicenseService {
         val yearly: PlanPricingInfo = PlanPricingInfo(price = "80", originalPrice = "120", discountText = "وفر 33% (خصم 40$)", currency = "$")
     )
 
+    private fun parseSubscriptionPricingJson(jsonStr: String, defaults: SubscriptionPricing): SubscriptionPricing {
+        val root = JSONObject(jsonStr)
+        val mObj = root.optJSONObject("monthly")
+        val yObj = root.optJSONObject("yearly")
+
+        val monthly = if (mObj != null) {
+            PlanPricingInfo(
+                price = mObj.optString("price", "10"),
+                originalPrice = mObj.optString("original_price", mObj.optString("originalPrice", "")),
+                discountText = mObj.optString("discount_text", mObj.optString("discountText", "")),
+                currency = mObj.optString("currency", "$")
+            )
+        } else defaults.monthly
+
+        val yearly = if (yObj != null) {
+            PlanPricingInfo(
+                price = yObj.optString("price", "80"),
+                originalPrice = yObj.optString("original_price", yObj.optString("originalPrice", "120")),
+                discountText = yObj.optString("discount_text", yObj.optString("discountText", "وفر 33% (خصم 40$)")),
+                currency = yObj.optString("currency", "$")
+            )
+        } else defaults.yearly
+
+        return SubscriptionPricing(monthly = monthly, yearly = yearly)
+    }
+
     /**
      * Fetches current subscription pricing and discounts from Firebase RTDB (/subscription_pricing.json).
-     * Falls back to standard default pricing if network is offline.
+     * Automatically caches the pricing locally in SharedPreferences for seamless offline display.
+     * When offline, returns the last synced admin pricing, or standard defaults if never connected.
      */
-    suspend fun getSubscriptionPricing(): SubscriptionPricing = withContext(Dispatchers.IO) {
+    suspend fun getSubscriptionPricing(context: Context? = null): SubscriptionPricing = withContext(Dispatchers.IO) {
         val defaults = SubscriptionPricing()
+        val sp = context?.getSharedPreferences("mosarib_license_prefs", Context.MODE_PRIVATE)
+        val cachedJson = sp?.getString("cached_subscription_pricing", null)
+        val cachedPricing = if (!cachedJson.isNullOrBlank()) {
+            try { parseSubscriptionPricingJson(cachedJson, defaults) } catch (_: Exception) { null }
+        } else null
+
         try {
-            val jsonStr = fetchJson("subscription_pricing.json") ?: return@withContext defaults
-            val root = JSONObject(jsonStr)
-            val mObj = root.optJSONObject("monthly")
-            val yObj = root.optJSONObject("yearly")
-
-            val monthly = if (mObj != null) {
-                PlanPricingInfo(
-                    price = mObj.optString("price", "10"),
-                    originalPrice = mObj.optString("original_price", mObj.optString("originalPrice", "")),
-                    discountText = mObj.optString("discount_text", mObj.optString("discountText", "")),
-                    currency = mObj.optString("currency", "$")
-                )
-            } else defaults.monthly
-
-            val yearly = if (yObj != null) {
-                PlanPricingInfo(
-                    price = yObj.optString("price", "80"),
-                    originalPrice = yObj.optString("original_price", yObj.optString("originalPrice", "120")),
-                    discountText = yObj.optString("discount_text", yObj.optString("discountText", "وفر 33% (خصم 40$)")),
-                    currency = yObj.optString("currency", "$")
-                )
-            } else defaults.yearly
-
-            SubscriptionPricing(monthly = monthly, yearly = yearly)
+            val jsonStr = fetchJson("subscription_pricing.json")
+            if (jsonStr != null && jsonStr.isNotBlank()) {
+                val parsed = parseSubscriptionPricingJson(jsonStr, defaults)
+                sp?.edit()?.putString("cached_subscription_pricing", jsonStr)?.apply()
+                return@withContext parsed
+            }
+            cachedPricing ?: defaults
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching subscription pricing: ${e.message}")
-            defaults
+            cachedPricing ?: defaults
         }
     }
 
