@@ -589,15 +589,19 @@ object LicenseManager {
     fun getWhatsAppActivationUrl(
         deviceCode: String,
         subscriberName: String = "",
-        requestedPlan: SubscriptionPlan = SubscriptionPlan.MONTHLY
+        requestedPlan: SubscriptionPlan = SubscriptionPlan.MONTHLY,
+        receiptNumber: String = "",
+        region: String = ""
     ): String {
-        val planText = if (requestedPlan == SubscriptionPlan.MONTHLY) "اشتراك شهري (30 يوماً)" else "اشتراك سنوي (365 يوماً)"
+        val planText = if (requestedPlan == SubscriptionPlan.MONTHLY) "اشتراك شهري 10$ (30 يوماً)" else "اشتراك سنوي 80$ (365 يوماً - وفر 40$)"
         val devModel = getDeviceModelName()
         val nameLine = if (subscriberName.isNotBlank()) "اسم المشترك: $subscriberName\n" else ""
+        val regionLine = if (region.isNotBlank()) "المحافظة والمنطقة: $region\n" else ""
+        val receiptLine = if (receiptNumber.isNotBlank()) "رقم سند التحويل / الإيداع: $receiptNumber\n" else ""
         val msg = """
 السلام عليكم يا باشمهندس عمر،
 أود تفعيل تطبيق المُسَرِّب للآبار والري ($planText).
-${nameLine}نوع الجوال: $devModel
+${nameLine}${regionLine}${receiptLine}نوع الجوال: $devModel
 كود جهازي هو:
 $deviceCode
         """.trimIndent()
@@ -612,24 +616,28 @@ $deviceCode
         deviceCode: String,
         subscriberName: String = "",
         requestedPlan: SubscriptionPlan = SubscriptionPlan.MONTHLY,
-        isUpgrade: Boolean = false
+        isUpgrade: Boolean = false,
+        receiptNumber: String = "",
+        region: String = ""
     ): String {
         val devModel = getDeviceModelName()
         val nameLine = if (subscriberName.isNotBlank()) "اسم المشترك: $subscriberName\n" else ""
+        val regionLine = if (region.isNotBlank()) "المحافظة والمنطقة: $region\n" else ""
+        val receiptLine = if (receiptNumber.isNotBlank()) "رقم سند التحويل / الإيداع: $receiptNumber\n" else ""
         val msg = if (isUpgrade) {
             """
 السلام عليكم يا باشمهندس عمر،
-أود ترقية اشتراكي في تطبيق المُسَرِّب من شهري إلى اشتراك سنوي (365 يوماً).
-${nameLine}نوع الجوال: $devModel
+أود ترقية اشتراكي في تطبيق المُسَرِّب من شهري إلى اشتراك سنوي 80$ (365 يوماً).
+${nameLine}${regionLine}${receiptLine}نوع الجوال: $devModel
 كود جهازي هو:
 $deviceCode
             """.trimIndent()
         } else {
-            val planText = if (requestedPlan == SubscriptionPlan.MONTHLY) "اشتراك شهري (30 يوماً)" else "اشتراك سنوي (365 يوماً)"
+            val planText = if (requestedPlan == SubscriptionPlan.MONTHLY) "اشتراك شهري 10$ (30 يوماً)" else "اشتراك سنوي 80$ (365 يوماً)"
             """
 السلام عليكم يا باشمهندس عمر،
 أود تجديد اشتراكي في تطبيق المُسَرِّب للآبار والري ($planText).
-${nameLine}نوع الجوال: $devModel
+${nameLine}${regionLine}${receiptLine}نوع الجوال: $devModel
 كود جهازي هو:
 $deviceCode
             """.trimIndent()

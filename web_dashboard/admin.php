@@ -888,14 +888,15 @@
               <th>اسم المشترك</th>
               <th>رقم الهاتف</th>
               <th>الباقة المطلوبة</th>
+              <th>المنطقة / رقم السند</th>
               <th>كود الجهاز</th>
-              <th>الموديل</th>
+              <th>المصدر</th>
               <th>الحالة</th>
               <th>إجراء فوري</th>
             </tr>
           </thead>
           <tbody id="requestsTableBody">
-            <tr><td colspan="8" style="text-align: center; color: var(--text-muted);">جاري تحميل طلبات الاشتراك...</td></tr>
+            <tr><td colspan="9" style="text-align: center; color: var(--text-muted);">جاري تحميل طلبات الاشتراك...</td></tr>
           </tbody>
         </table>
       </div>
@@ -1502,6 +1503,64 @@
           <div style="text-align: center; color: var(--text-muted); padding: 14px;">جاري تحميل الأخبار...</div>
         </div>
       </div>
+
+      <!-- Manage Payment Accounts & Wallets -->
+      <div class="card" style="border: 1px solid rgba(0, 191, 165, 0.4); margin-top: 24px;">
+        <div class="card-title">💳 إدارة حسابات وطرق الدفع والتحويل البنكي</div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+          الحسابات والمحافظ المسجلة هنا يتم رفعها ومزامنتها تلقائياً مع سحابة فايربيس، وتظهر للعملاء في نافذة طلب الاشتراك بالموقع الرسمي وفي شاشة التفعيل بالتطبيق مباشرة مع إمكانية النسخ الفوري.
+        </p>
+
+        <!-- Existing Accounts List -->
+        <div style="font-weight: 800; font-size: 14px; margin-bottom: 10px; color: #FFF;">قائمة الحسابات والمحافظ المتاحة حالياً:</div>
+        <div id="adminPaymentMethodsList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 20px;">
+          <div style="text-align: center; color: var(--text-muted); padding: 14px; grid-column: 1 / -1;">جاري تحميل الحسابات...</div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;">
+
+        <!-- Form to Add New Account -->
+        <div style="font-weight: 800; font-size: 14px; margin-bottom: 12px; color: var(--accent);">إضافة حساب أو محفظة بنكية جديدة:</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label>اسم البنك أو المحفظة *</label>
+            <input type="text" id="newPayBankName" placeholder="مثال: بنك الكريمي أو محفظة جوالي">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>نوع الحساب / العملة *</label>
+            <select id="newPayCurrency">
+              <option value="YER">ريال يمني (YER)</option>
+              <option value="USD">دولار أمريكي (USD)</option>
+              <option value="SAR">ريال سعودي (SAR)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>رقم الحساب / الآيبان / الهاتف *</label>
+            <input type="text" id="newPayAccountNumber" placeholder="مثال: 123456789 أو 773712030">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>اسم صاحب الحساب *</label>
+            <input type="text" id="newPayAccountHolder" value="عمر الحومي" placeholder="اسم المستفيد">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>رابط الشعار / الصورة (اختياري)</label>
+            <input type="url" id="newPayLogoUrl" placeholder="https://... (رابط صورة الشعار)">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>ملاحظات التحويل (اختياري)</label>
+            <input type="text" id="newPayNotes" placeholder="مثال: تحويل فوري عبر التطبيق">
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap;">
+          <button type="button" class="btn" onclick="addNewPaymentMethod()" style="width: auto; padding: 10px 24px; font-weight: 800; background: linear-gradient(135deg, #00BFA5, #00838F);">
+            ➕ إضافة الحساب إلى القائمة
+          </button>
+          <button type="button" class="btn" onclick="saveAllPaymentMethods()" style="width: auto; padding: 10px 28px; font-weight: 800; background: linear-gradient(135deg, #FFB300, #FF8F00); color: #000;">
+            💾 حفظ ونشر الحسابات في فايربيس
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1991,6 +2050,9 @@
         }
 
         renderAdminPortalNews(json.data.news || []);
+
+        adminPaymentMethods = json.data.payment_methods || [];
+        renderAdminPaymentMethods();
       }
     } catch (e) {
       console.error(e);
@@ -2833,7 +2895,7 @@
   function renderRequestsTable(requests) {
     const tbody = document.getElementById("requestsTableBody");
     if (!requests || requests.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">لا توجد طلبات اشتراك واردة حالياً (أي طلب يُرسل من التطبيق سيظهر هنا فوراً)</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 24px;">لا توجد طلبات اشتراك واردة حالياً (أي طلب يُرسل من الموقع أو التطبيق سيظهر هنا فوراً)</td></tr>`;
       return;
     }
 
@@ -2843,9 +2905,16 @@
       const dateStr = r.timestamp ? new Date(r.timestamp).toLocaleString('ar-EG') : 'الآن';
       const cleanPhone = (r.phone || '').replace(/[^0-9]/g, '');
       const phoneLink = cleanPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" style="color: var(--success); font-weight: bold;">${r.phone} 💬</a>` : '-';
-      const planBadge = r.plan === 'YEARLY' ? `<span class="badge badge-yearly">سنوي ⭐</span>` : `<span class="badge badge-monthly">شهري</span>`;
+      const planBadge = r.plan === 'YEARLY' ? `<span class="badge badge-yearly">سنوي 80$ ⭐</span>` : `<span class="badge badge-monthly">شهري 10$</span>`;
       const statusBadge = r.status === 'COMPLETED' ? `<span class="badge badge-active">تم التفعيل ✅</span>` : `<span class="badge badge-trial">جديد ⏳</span>`;
-      const devCode = r.deviceCode || '';
+      const devCode = r.deviceCode || '-';
+      const isWeb = r.requestType === 'WEB_DIRECT';
+      const sourceBadge = isWeb 
+        ? `<span class="badge" style="background:rgba(2, 132, 199, 0.15); color:#0284C7; border:1px solid rgba(2, 132, 199, 0.3);">الموقع 🌐</span>` 
+        : `<span class="badge badge-active">التطبيق 📱</span>`;
+      
+      const regionText = r.region || 'غير محدد';
+      const receiptText = r.receiptNumber || r.transferNumber || '-';
 
       return `
         <tr>
@@ -2853,15 +2922,130 @@
           <td><b>${r.subscriberName || 'مشترك جديد'}</b></td>
           <td>${phoneLink}</td>
           <td>${planBadge}</td>
+          <td>
+            <div style="font-weight: 700; font-size: 13px; color: #FFF;">${regionText}</div>
+            <div style="color: var(--accent); font-weight: 800; font-size: 11.5px; margin-top: 3px;">
+              سند: <span style="background: rgba(0, 180, 216, 0.15); padding: 2px 6px; border-radius: 4px; border: 1px dashed var(--accent);">${receiptText}</span>
+            </div>
+          </td>
           <td><code style="color: var(--accent); font-weight: bold; font-size: 13px;">${devCode}</code></td>
-          <td><small>${r.deviceModel || '-'}</small></td>
+          <td>${sourceBadge}</td>
           <td>${statusBadge}</td>
           <td>
-            <button class="btn-sm btn-unblock" onclick="quickActivateRequest('${devCode}', '${(r.subscriberName || '').replace(/'/g, "\\'")}', '${r.plan || 'MONTHLY'}', '${r.id || ''}')">⚡ تفعيل وتوليد الرمز</button>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn-sm btn-unblock" onclick="quickActivateRequest('${devCode}', '${(r.subscriberName || '').replace(/'/g, "\\'")}', '${r.plan || 'YEARLY'}', '${r.id || ''}')">⚡ تفعيل وتوليد الرمز</button>
+              ${cleanPhone ? `<button class="btn-sm btn-outline" onclick="notifySubscriberWhatsApp('${cleanPhone}', '${(r.subscriberName || '').replace(/'/g, "\\'")}', '${receiptText}')" title="تأكيد استلام السند عبر واتساب">💬</button>` : ''}
+            </div>
           </td>
         </tr>
       `;
     }).join('');
+  }
+
+  function notifySubscriberWhatsApp(phone, name, receipt) {
+    const text = `السلام عليكم ورحمة الله أخي ${name}،\nتم استلام سند التحويل (${receipt}) ومطابقة الإيداع بنجاح في منظومة مُسَرِّب.\nجاري الآن إصدار وتأكيد كود التفعيل الخاص بجهازك.`;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
+  }
+
+  let adminPaymentMethods = [];
+
+  function renderAdminPaymentMethods() {
+    const cont = document.getElementById("adminPaymentMethodsList");
+    if (!cont) return;
+    if (adminPaymentMethods.length === 0) {
+      cont.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 14px; grid-column: 1 / -1;">لا توجد حسابات مضافة بعد. يمكنك إضافة أول حساب من النموذج أدناه.</div>`;
+      return;
+    }
+
+    cont.innerHTML = adminPaymentMethods.map((pm, idx) => `
+      <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; position: relative;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <b style="font-size: 14px; color: #FFF;">${pm.bank_name || 'بدون اسم'}</b>
+          <span class="badge ${pm.account_currency === 'USD' ? 'badge-yearly' : 'badge-active'}">${pm.account_currency || 'YER'}</span>
+        </div>
+        <div style="font-family: monospace; font-size: 15px; font-weight: 800; color: var(--accent); margin-bottom: 6px; letter-spacing: 0.5px;">
+          ${pm.account_number}
+        </div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">
+          باسم: <b>${pm.account_holder || '-'}</b>
+        </div>
+        ${pm.notes ? `<div style="font-size: 11px; color: #80CBC4; margin-bottom: 8px;">${pm.notes}</div>` : ''}
+        <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+          <button type="button" class="btn-sm btn-delete" onclick="deleteAdminPaymentMethod(${idx})">حذف 🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function addNewPaymentMethod() {
+    const bank = document.getElementById("newPayBankName").value.trim();
+    const curr = document.getElementById("newPayCurrency").value;
+    const num = document.getElementById("newPayAccountNumber").value.trim();
+    const holder = document.getElementById("newPayAccountHolder").value.trim();
+    const logo = document.getElementById("newPayLogoUrl").value.trim();
+    const notes = document.getElementById("newPayNotes").value.trim();
+
+    if (!bank || !num) {
+      return alert("يرجى إدخال اسم البنك/المحفظة ورقم الحساب");
+    }
+
+    adminPaymentMethods.push({
+      id: "PAY_" + Date.now(),
+      bank_name: bank,
+      account_currency: curr,
+      account_number: num,
+      account_holder: holder || "عمر الحومي",
+      logo_url: logo,
+      notes: notes,
+      is_active: true
+    });
+
+    renderAdminPaymentMethods();
+
+    // Clear inputs
+    document.getElementById("newPayBankName").value = "";
+    document.getElementById("newPayAccountNumber").value = "";
+    document.getElementById("newPayLogoUrl").value = "";
+    document.getElementById("newPayNotes").value = "";
+
+    alert("✅ تمت إضافة الحساب إلى القائمة. اضغط على زر 'حفظ ونشر الحسابات في فايربيس' لاعتماده ونشره في السحابة والموقع والتطبيق.");
+  }
+
+  function deleteAdminPaymentMethod(idx) {
+    if (!confirm("هل أنت متأكد من حذف هذا الحساب؟")) return;
+    adminPaymentMethods.splice(idx, 1);
+    renderAdminPaymentMethods();
+  }
+
+  async function saveAllPaymentMethods() {
+    try {
+      // 1. Save locally via API
+      const res = await fetch('api/public_data.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_payment_methods',
+          payment_methods: adminPaymentMethods,
+          csrf_token: currentCsrfToken
+        })
+      });
+      const data = (await safeJson(res)) || {};
+
+      // 2. Direct Sync to Firebase RTDB
+      await firebaseFetch('payment_methods.json', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(adminPaymentMethods)
+      }).catch(() => {});
+
+      if (data.success) {
+        alert("✅ " + data.message + "\nتمت المزامنة بنجاح مع سحابة فايربيس وسيظهر للعملاء في الموقع والتطبيق فوراً.");
+      } else {
+        alert("خطأ: " + (data.message || 'تعذر الحفظ'));
+      }
+    } catch (err) {
+      alert("خطأ أثناء الحفظ: " + err.message);
+    }
   }
 
   function quickActivateRequest(code, name, plan, reqId) {

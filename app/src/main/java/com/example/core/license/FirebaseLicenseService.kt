@@ -4,6 +4,7 @@ import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -269,7 +270,9 @@ object FirebaseLicenseService {
         phone: String,
         plan: LicenseManager.SubscriptionPlan,
         deviceCode: String,
-        requestType: String = "NEW"
+        requestType: String = "NEW",
+        receiptNumber: String = "",
+        region: String = ""
     ): SubscriptionRequestResult = withContext(Dispatchers.IO) {
         val timestamp = System.currentTimeMillis()
         val prefix = when (requestType) {
@@ -289,6 +292,8 @@ object FirebaseLicenseService {
             "deviceModel" to LicenseManager.getDeviceModelName(),
             "androidVersion" to LicenseManager.getAndroidVersionName(),
             "status" to "PENDING",
+            "receiptNumber" to receiptNumber,
+            "region" to region,
             "timestamp" to timestamp
         )
 
@@ -310,6 +315,8 @@ object FirebaseLicenseService {
             put("deviceModel", LicenseManager.getDeviceModelName())
             put("androidVersion", LicenseManager.getAndroidVersionName())
             put("status", "PENDING")
+            put("receiptNumber", receiptNumber)
+            put("region", region)
             put("timestamp", timestamp)
         }
         val rtdbSuccess = putJson("subscription_requests/$requestId.json", payload.toString())
@@ -317,6 +324,109 @@ object FirebaseLicenseService {
             SubscriptionRequestResult(isSuccess = true)
         } else {
             SubscriptionRequestResult(isSuccess = false, errorMessage = "تعذر إرسال الطلب، تحقق من الاتصال")
+        }
+    }
+
+    data class PaymentAccount(
+        val id: String = "",
+        val bankName: String = "",
+        val accountNumber: String = "",
+        val accountCurrency: String = "YER",
+        val accountHolder: String = "",
+        val notes: String = "",
+        val logoUrl: String = "",
+        val isActive: Boolean = true
+    )
+
+    /**
+     * Fetches official payment methods and accounts configured from Admin Dashboard.
+     * Falls back to standard default accounts if network is unavailable.
+     */
+    suspend fun getPaymentMethods(): List<PaymentAccount> = withContext(Dispatchers.IO) {
+        val defaults = listOf(
+            PaymentAccount(
+                id = "PAY_1",
+                bankName = "بنك الكريمي للتمويل الأصغر الإسلامي",
+                accountNumber = "123456789",
+                accountCurrency = "YER",
+                accountHolder = "عمر الحومي",
+                notes = "إيداع أو تحويل عبر تطبيق كريمي جوال"
+            ),
+            PaymentAccount(
+                id = "PAY_2",
+                bankName = "محفظة جوالي (Jawali)",
+                accountNumber = "773712030",
+                accountCurrency = "YER",
+                accountHolder = "عمر الحومي",
+                notes = "تحويل فوري مباشر"
+            ),
+            PaymentAccount(
+                id = "PAY_3",
+                bankName = "بنك التضامن الإسلامي",
+                accountNumber = "987654321",
+                accountCurrency = "USD",
+                accountHolder = "عمر الحومي",
+                notes = "حساب دولار أو ما يعادله"
+            ),
+            PaymentAccount(
+                id = "PAY_4",
+                bankName = "محفظة ون كاش (OneCash)",
+                accountNumber = "773712030",
+                accountCurrency = "YER",
+                accountHolder = "عمر الحومي",
+                notes = "تحويل فوري عبر محفظة ون كاش"
+            )
+        )
+
+        try {
+            val jsonStr = fetchJson("payment_methods.json") ?: return@withContext defaults
+            val trimmed = jsonStr.trim()
+            val list = mutableListOf<PaymentAccount>()
+            if (trimmed.startsWith("[")) {
+                val array = JSONArray(trimmed)
+                for (i in 0 until array.length()) {
+                    val obj = array.optJSONObject(i) ?: continue
+                    val isActive = obj.optBoolean("is_active", true)
+                    if (!isActive) continue
+                    list.add(
+                        PaymentAccount(
+                            id = obj.optString("id", "PAY_$i"),
+                            bankName = obj.optString("bank_name", obj.optString("bankName", "")),
+                            accountNumber = obj.optString("account_number", obj.optString("accountNumber", "")),
+                            accountCurrency = obj.optString("account_currency", obj.optString("accountCurrency", "YER")),
+                            accountHolder = obj.optString("account_holder", obj.optString("accountHolder", "عمر الحومي")),
+                            notes = obj.optString("notes", ""),
+                            logoUrl = obj.optString("logo_url", obj.optString("logoUrl", "")),
+                            isActive = true
+                        )
+                    )
+                }
+            } else if (trimmed.startsWith("{")) {
+                val mapObj = JSONObject(trimmed)
+                val keys = mapObj.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    val obj = mapObj.optJSONObject(k) ?: continue
+                    val isActive = obj.optBoolean("is_active", true)
+                    if (!isActive) continue
+                    list.add(
+                        PaymentAccount(
+                            id = obj.optString("id", k),
+                            bankName = obj.optString("bank_name", obj.optString("bankName", "")),
+                            accountNumber = obj.optString("account_number", obj.optString("accountNumber", "")),
+                            accountCurrency = obj.optString("account_currency", obj.optString("accountCurrency", "YER")),
+                            accountHolder = obj.optString("account_holder", obj.optString("accountHolder", "عمر الحومي")),
+                            notes = obj.optString("notes", ""),
+                            logoUrl = obj.optString("logo_url", obj.optString("logoUrl", "")),
+                            isActive = true
+                        )
+                    )
+                }
+            }
+            if (list.isNotEmpty()) list else defaults
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching payment methods: ${e.message}")
+            defaults
         }
     }
 
@@ -446,6 +556,26 @@ object FirebaseLicenseService {
         } catch (e: Exception) {
             Log.e(TAG, "sendToFirestore failed: ${e.message}")
             false
+        }
+    }
+
+    private fun fetchJson(path: String): String? {
+        return try {
+            val url = URL("$FIREBASE_DB_URL/$path")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 8000
+                readTimeout = 8000
+                setRequestProperty("Accept", "application/json")
+            }
+            if (conn.responseCode == 200) {
+                conn.inputStream.bufferedReader().use { it.readText().trim() }
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "fetchJson exception for $path: ${e.message}")
+            null
         }
     }
 

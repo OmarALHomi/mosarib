@@ -88,8 +88,17 @@ import androidx.activity.compose.BackHandler
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.LaunchedEffect
 import com.example.core.util.GoogleDriveBackupHelper
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.ApiException
@@ -112,6 +121,10 @@ fun LicenseDialog(
 
     var subscriberName by remember { mutableStateOf(existingRecord?.subscriberName ?: UserDeviceTracker.getRegisteredName(context)) }
     var phone by remember { mutableStateOf(UserDeviceTracker.getRegisteredPhone(context)) }
+    var region by remember { mutableStateOf("") }
+    var receiptNumber by remember { mutableStateOf("") }
+    var paymentAccounts by remember { mutableStateOf<List<FirebaseLicenseService.PaymentAccount>>(emptyList()) }
+    var isPaymentAccountsExpanded by remember { mutableStateOf(false) }
     var enteredKey by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var requestSuccessMessage by remember { mutableStateOf<String?>(null) }
@@ -119,6 +132,10 @@ fun LicenseDialog(
     var isCheckingGoogleLogin by remember { mutableStateOf(false) }
     var showNotRegisteredDialog by remember { mutableStateOf(false) }
     var unregisteredEmailAttempt by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        paymentAccounts = FirebaseLicenseService.getPaymentMethods()
+    }
 
     val coroutineScope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(
@@ -184,7 +201,7 @@ fun LicenseDialog(
         }
     }
 
-    var selectedPlan by remember { mutableStateOf(LicenseManager.SubscriptionPlan.MONTHLY) }
+    var selectedPlan by remember { mutableStateOf(LicenseManager.SubscriptionPlan.YEARLY) }
     var isOnline by remember { mutableStateOf(LicenseManager.isInternetAvailable(context)) }
 
     val isKeyFormatValid = remember(enteredKey) {
@@ -253,7 +270,9 @@ fun LicenseDialog(
                 phone = cleanPhone,
                 plan = targetPlan,
                 deviceCode = deviceCode,
-                requestType = requestType
+                requestType = requestType,
+                receiptNumber = receiptNumber.trim(),
+                region = region.trim()
             )
             isRequestingOnline = false
             if (res.isSuccess) {
@@ -283,13 +302,34 @@ fun LicenseDialog(
         if (cleanName.isNotBlank()) {
             coroutineScope.launch {
                 UserDeviceTracker.saveUserRegistrationInfo(context, cleanName, cleanPhone)
-                FirebaseLicenseService.sendSubscriptionRequestOnline(cleanName, cleanPhone, targetPlan, deviceCode, requestType)
+                FirebaseLicenseService.sendSubscriptionRequestOnline(
+                    subscriberName = cleanName,
+                    phone = cleanPhone,
+                    plan = targetPlan,
+                    deviceCode = deviceCode,
+                    requestType = requestType,
+                    receiptNumber = receiptNumber.trim(),
+                    region = region.trim()
+                )
             }
         }
         val url = if (isExpired || isCurrentlyActivated) {
-            LicenseManager.getWhatsAppRenewalUrl(deviceCode, subscriberName, targetPlan, targetUpgrade)
+            LicenseManager.getWhatsAppRenewalUrl(
+                deviceCode = deviceCode,
+                subscriberName = subscriberName,
+                requestedPlan = targetPlan,
+                isUpgrade = targetUpgrade,
+                receiptNumber = receiptNumber.trim(),
+                region = region.trim()
+            )
         } else {
-            LicenseManager.getWhatsAppActivationUrl(deviceCode, subscriberName, targetPlan)
+            LicenseManager.getWhatsAppActivationUrl(
+                deviceCode = deviceCode,
+                subscriberName = subscriberName,
+                requestedPlan = targetPlan,
+                receiptNumber = receiptNumber.trim(),
+                region = region.trim()
+            )
         }
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -593,6 +633,40 @@ fun LicenseDialog(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Region Input
+            OutlinedTextField(
+                value = region,
+                onValueChange = { region = it },
+                label = { Text("المنطقة / المحافظة") },
+                placeholder = { Text("مثال: صنعاء / ذمار / إب / الحديدة") },
+                leadingIcon = {
+                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = textFieldColors,
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Receipt / Transfer Number Input
+            OutlinedTextField(
+                value = receiptNumber,
+                onValueChange = { receiptNumber = it },
+                label = { Text("رقم سند التحويل أو الإيداع (إن وجد)") },
+                placeholder = { Text("مثال: 94827103") },
+                leadingIcon = {
+                    Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = textFieldColors,
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             // 5. Detected Device Info Badge
             Row(
                 modifier = Modifier
@@ -631,19 +705,65 @@ fun LicenseDialog(
                         ),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("اشتراك شهري", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("اشتراك شهري", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("10$ شهرياً", fontSize = 10.sp)
+                        }
                     }
 
                     Button(
                         onClick = { selectedPlan = LicenseManager.SubscriptionPlan.YEARLY },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1.2f),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (selectedPlan == LicenseManager.SubscriptionPlan.YEARLY) AccentGold else MaterialTheme.colorScheme.surfaceVariant,
                             contentColor = if (selectedPlan == LicenseManager.SubscriptionPlan.YEARLY) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("اشتراك سنوي", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("اشتراك سنوي ⭐", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("80$ (بدلاً من 120$)", fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Perks / Features Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isDark) Color(0xFF132228) else Color(0xFFF0FDF4)
+                    ),
+                    border = BorderStroke(1.dp, if (isDark) Color(0xFF1E3A3A) else Color(0xFFBBF7D0))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "مميزات الاشتراك في تطبيق المُسَرِّب:",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (isDark) AccentEmerald else Color(0xFF15803D)
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.SupportAgent, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("دعم فني مخصص عند الحاجة", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold))
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Sync, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("تحديثات متواصلة وحل المشاكل بشكل فوري", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold))
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Smartphone, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("إمكانية تغيير الهاتف ونقل الاشتراك بأي وقت", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold))
+                        }
                     }
                 }
 
@@ -684,6 +804,144 @@ fun LicenseDialog(
                                 Icon(Icons.Default.CloudDone, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("تسجيل الدخول واستعادة الحساب عبر Google", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                // 💳 Payment Accounts Card (Collapsible)
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isPaymentAccountsExpanded = !isPaymentAccountsExpanded },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isDark) Color(0xFF1B2A32) else Color(0xFFF8FAFC)
+                    ),
+                    border = BorderStroke(1.dp, if (isDark) Color(0xFF2C3E49) else Color(0xFFE2E8F0))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.AccountBalance,
+                                    contentDescription = null,
+                                    tint = AccentGold,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "حسابات التحويل ومحافظ الدفع المعتمدة",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                            }
+                            Icon(
+                                imageVector = if (isPaymentAccountsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        if (isPaymentAccountsExpanded) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "يمكنك التحويل إلى أي من الحسابات المعتمدة التالية، ثم تدوين رقم السند:",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            val displayAccounts = if (paymentAccounts.isNotEmpty()) paymentAccounts else listOf(
+                                FirebaseLicenseService.PaymentAccount(
+                                    bankName = "بنك الكريمي للتمويل الأصغر",
+                                    accountNumber = "123456789",
+                                    accountCurrency = "YER",
+                                    accountHolder = "عمر الحومي",
+                                    notes = "إيداع أو تحويل عبر كريمي جوال"
+                                ),
+                                FirebaseLicenseService.PaymentAccount(
+                                    bankName = "محفظة جوالي (Jawali)",
+                                    accountNumber = "773712030",
+                                    accountCurrency = "YER",
+                                    accountHolder = "عمر الحومي",
+                                    notes = "تحويل فوري مباشر"
+                                )
+                            )
+
+                            displayAccounts.forEach { acc ->
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isDark) Color(0xFF142026) else Color(0xFFFFFFFF),
+                                    border = BorderStroke(1.dp, if (isDark) Color(0xFF263843) else Color(0xFFE2E8F0))
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(10.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = acc.bankName,
+                                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                                            )
+                                            Text(
+                                                text = "رقم الحساب: ${acc.accountNumber} (${acc.accountCurrency})",
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    color = PrimaryTeal,
+                                                    fontWeight = FontWeight.ExtraBold
+                                                )
+                                            )
+                                            if (acc.accountHolder.isNotBlank()) {
+                                                Text(
+                                                    text = "باسم: ${acc.accountHolder}",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        fontSize = 10.sp
+                                                    )
+                                                )
+                                            }
+                                            if (acc.notes.isNotBlank()) {
+                                                Text(
+                                                    text = acc.notes,
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        fontSize = 9.5.sp
+                                                    )
+                                                )
+                                            }
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                val clip = ClipData.newPlainText(acc.bankName, acc.accountNumber)
+                                                clipboard.setPrimaryClip(clip)
+                                                Toast.makeText(context, "تم نسخ رقم حساب ${acc.bankName}", Toast.LENGTH_SHORT).show()
+                                            }
+                                        ) {
+                                            Icon(
+                                                Icons.Default.ContentCopy,
+                                                contentDescription = "نسخ رقم الحساب",
+                                                tint = PrimaryTeal,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -896,7 +1154,7 @@ fun LicenseDialog(
                         ) {
                             Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Black)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("طلب ترقية الاشتراك إلى سنوي", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("طلب ترقية الاشتراك إلى سنوي (80$)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 

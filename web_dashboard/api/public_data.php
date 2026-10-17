@@ -8,6 +8,7 @@ require_once __DIR__ . '/config.php';
 
 $newsFile = __DIR__ . '/../data/portal_news.json';
 $settingsFile = __DIR__ . '/../data/portal_settings.json';
+$paymentMethodsFile = __DIR__ . '/../data/payment_methods.json';
 
 // Ensure data folder exists
 if (!file_exists(__DIR__ . '/../data')) {
@@ -243,6 +244,7 @@ if ($method === 'GET') {
             'support_message' => $portalSettings['developer_message']
         ],
         'news' => $newsList,
+        'payment_methods' => file_exists($paymentMethodsFile) ? (json_decode(file_get_contents($paymentMethodsFile), true) ?: []) : [],
         'app_release' => [
             'version_name' => $latestRelease['version_name'] ?? '1.4.0',
             'version_code' => $latestRelease['version_code'] ?? 4,
@@ -295,8 +297,92 @@ if ($method === 'POST') {
         jsonResponse(true, 'تم تسجيل تنزيل التطبيق بنجاح', ['total_downloads' => $analytics['total_downloads']]);
     }
 
+    // 0.1 Public Direct Subscription Request from Website (No Admin Auth Required)
+    if ($action === 'submit_subscription_request') {
+        $name = trim($input['subscriber_name'] ?? ($input['subscriberName'] ?? ''));
+        $phone = trim($input['phone'] ?? '');
+        $region = trim($input['region'] ?? '');
+        $plan = strtoupper(trim($input['plan'] ?? 'YEARLY'));
+        if (!in_array($plan, ['YEARLY', 'MONTHLY'])) $plan = 'YEARLY';
+        $receipt = trim($input['receipt_number'] ?? ($input['receiptNumber'] ?? ''));
+        $deviceCode = trim($input['device_code'] ?? ($input['deviceCode'] ?? ''));
+
+        if (empty($name)) {
+            jsonResponse(false, 'يرجى كتابة الاسم الكامل للمشترك');
+        }
+        if (empty($phone)) {
+            jsonResponse(false, 'يرجى إدخال رقم الهاتف للتواصل');
+        }
+
+        $timestamp = round(microtime(true) * 1000);
+        $reqId = 'WEB_' . time() . '_' . substr(md5(uniqid(mt_rand(), true)), 0, 4);
+
+        $requestData = [
+            'id' => $reqId,
+            'subscriberName' => $name,
+            'phone' => $phone,
+            'region' => $region ?: 'غير محدد',
+            'plan' => $plan,
+            'receiptNumber' => $receipt ?: 'قيد التحويل',
+            'deviceCode' => $deviceCode ?: 'طلب من الموقع',
+            'deviceModel' => 'الموقع الرسمي (Web Direct)',
+            'androidVersion' => 'Web Portal',
+            'requestType' => 'WEB_DIRECT',
+            'status' => 'PENDING',
+            'timestamp' => $timestamp
+        ];
+
+        // 1. Push to Firebase RTDB
+        firebaseRequest("subscription_requests/{$reqId}.json", 'PUT', $requestData);
+
+        // 2. Local File Backup
+        $webRequestsFile = __DIR__ . '/../data/web_subscription_requests.json';
+        $existingReqs = file_exists($webRequestsFile) ? (json_decode(file_get_contents($webRequestsFile), true) ?: []) : [];
+        array_unshift($existingReqs, $requestData);
+        if (count($existingReqs) > 500) $existingReqs = array_slice($existingReqs, 0, 500);
+        @file_put_contents($webRequestsFile, json_encode($existingReqs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+        jsonResponse(true, 'تم إرسال طلب تفعيل الاشتراك بنجاح! سيتم مراجعة إيداعك وتفعيل حسابك والتواصل معك فوراً.', [
+            'request_id' => $reqId,
+            'plan' => $plan
+        ]);
+    }
+
     require_once __DIR__ . '/auth.php';
     requireAuth();
+
+    // 1. Save / Update Payment Accounts (Admin Only)
+    if ($action === 'save_payment_methods') {
+        $methods = $input['payment_methods'] ?? [];
+        if (!is_array($methods)) $methods = [];
+
+        // Sanitize
+        $cleanMethods = [];
+        foreach ($methods as $idx => $m) {
+            $bankName = trim($m['bank_name'] ?? '');
+            $accNum = trim($m['account_number'] ?? '');
+            if (empty($bankName) && empty($accNum)) continue;
+
+            $cleanMethods[] = [
+                'id' => $m['id'] ?? ('PAY_' . ($idx + 1)),
+                'bank_name' => $bankName,
+                'account_number' => $accNum,
+                'account_currency' => trim($m['account_currency'] ?? 'YER'),
+                'account_holder' => trim($m['account_holder'] ?? 'عمر الحومي'),
+                'logo_url' => trim($m['logo_url'] ?? ''),
+                'notes' => trim($m['notes'] ?? ''),
+                'is_active' => isset($m['is_active']) ? filter_var($m['is_active'], FILTER_VALIDATE_BOOLEAN) : true
+            ];
+        }
+
+        // Save locally
+        file_put_contents($paymentMethodsFile, json_encode($cleanMethods, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+        // Push to Firebase Realtime Database
+        firebaseRequest('payment_methods.json', 'PUT', $cleanMethods);
+
+        jsonResponse(true, 'تم حفظ وتحديث حسابات وطرق الدفع والتحويل البنكي بنجاح!', $cleanMethods);
+    }
 
     // 1. Update Water & Market Settings
     if ($action === 'update_settings') {

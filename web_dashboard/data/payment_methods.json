@@ -1,0 +1,42 @@
+[
+  {
+    "id": "PAY_1",
+    "bank_name": "بنك الكريمي للتمويل الأصغر الإسلامي",
+    "account_number": "123456789",
+    "account_currency": "YER",
+    "account_holder": "عمر الحومي",
+    "logo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Kuraimi_Bank_Logo.png/640px-Kuraimi_Bank_Logo.png",
+    "notes": "التحويل عبر تطبيق كريمي جوال أو إيداع نقدي مباشر",
+    "is_active": true
+  },
+  {
+    "id": "PAY_2",
+    "bank_name": "محفظة جوالي (Jawali)",
+    "account_number": "773712030",
+    "account_currency": "YER",
+    "account_holder": "عمر الحومي",
+    "logo_url": "",
+    "notes": "تحويل فوري من أي محفظة جوالي",
+    "is_active": true
+  },
+  {
+    "id": "PAY_3",
+    "bank_name": "بنك التضامن الإسلامي",
+    "account_number": "987654321",
+    "account_currency": "USD",
+    "account_holder": "عمر الحومي",
+    "logo_url": "",
+    "notes": "حساب بالدولار الأمريكي أو ما يعادله",
+    "is_active": true
+  },
+  {
+    "id": "PAY_4",
+    "bank_name": "محفظة ون كاش (OneCash)",
+    "account_number": "773712030",
+    "account_currency": "YER",
+    "account_holder": "عمر الحومي",
+    "logo_url": "",
+    "notes": "تحويل فوري عبر وكلاء ون كاش",
+    "is_active": true
+  }
+]
