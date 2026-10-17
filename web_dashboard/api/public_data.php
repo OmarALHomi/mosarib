@@ -71,12 +71,14 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 // Handle GET request (Publicly accessible with lightweight 5-minute cache to protect Firebase Read limits)
 if ($method === 'GET') {
-    $settings = json_decode(file_get_contents($settingsFile), true) ?: [];
-    $newsList = json_decode(file_get_contents($newsFile), true) ?: [];
+    $settings = file_exists($settingsFile) ? (json_decode(file_get_contents($settingsFile), true) ?: []) : [];
+    $newsList = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile), true) ?: []) : [];
+    $pricing = file_exists($pricingFile) ? (json_decode(file_get_contents($pricingFile), true) ?: []) : [];
+    $paymentMethods = file_exists($paymentMethodsFile) ? (json_decode(file_get_contents($paymentMethodsFile), true) ?: []) : [];
 
     // Cache file for Firebase aggregated rates & counts
     $cacheFile = __DIR__ . '/../data/market_cache.json';
-    $cacheLifetime = 300; // 5 minutes cache to prevent hitting Firebase read quotas on high visitor traffic
+    $cacheLifetime = 180; // 3 minutes cache
     $cachedData = (file_exists($cacheFile) && (time() - filemtime($cacheFile) < $cacheLifetime)) 
         ? json_decode(file_get_contents($cacheFile), true) 
         : null;
@@ -90,7 +92,24 @@ if ($method === 'GET') {
         $hasRealRates = $cachedData['has_real_rates'];
         $samplesCount = $cachedData['samples_count'];
     } else {
-        // Fetch live users and devices from Firebase only once every 5 minutes
+        // Sync Firebase portal_settings & pricing with local storage
+        $fbSettings = firebaseRequest('portal_settings.json');
+        if (!empty($fbSettings['data']) && is_array($fbSettings['data'])) {
+            $settings = array_merge($settings, $fbSettings['data']);
+            @file_put_contents($settingsFile, json_encode($settings, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        }
+        $fbPricing = firebaseRequest('subscription_pricing.json');
+        if (!empty($fbPricing['data']) && is_array($fbPricing['data'])) {
+            $pricing = array_merge($pricing, $fbPricing['data']);
+            @file_put_contents($pricingFile, json_encode($pricing, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        }
+        $fbPay = firebaseRequest('payment_methods.json');
+        if (!empty($fbPay['data']) && is_array($fbPay['data'])) {
+            $paymentMethods = $fbPay['data'];
+            @file_put_contents($paymentMethodsFile, json_encode($paymentMethods, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        }
+
+        // Fetch live users and devices from Firebase only once every 3 minutes
         $usersRes = firebaseRequest('all_users.json');
         $allUsers = $usersRes['data'] ?: [];
         $activeOperatorsCount = 0;

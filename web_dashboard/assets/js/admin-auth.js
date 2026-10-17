@@ -280,13 +280,17 @@ function applyTheme(theme) {
     if (icon) icon.textContent = '🌙';
     if (label) label.textContent = 'الوضع الليلي';
   } else {
-    document.documentElement.removeAttribute('data-theme');
+    document.documentElement.setAttribute('data-theme', 'dark');
     if (icon) icon.textContent = '☀️';
     if (label) label.textContent = 'الوضع الفاتح';
   }
   try {
     localStorage.setItem('mosarib_admin_theme', theme);
   } catch(e) {}
+
+  if (typeof renderAllRoyalCharts === 'function') {
+    try { renderAllRoyalCharts(); } catch(_) {}
+  }
 }
 
 function toggleTheme() {

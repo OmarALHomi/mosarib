@@ -7,8 +7,8 @@
   <script>
     (function() {
       try {
-        const t = localStorage.getItem('mosarib_admin_theme');
-        if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+        const t = localStorage.getItem('mosarib_admin_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
       } catch(e) {}
     })();
   </script>

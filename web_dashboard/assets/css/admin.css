@@ -1,27 +1,27 @@
-    :root {
+    :root, [data-theme="dark"] {
       --primary: #00838F;
       --primary-dark: #004D40;
-      --primary-light: #4FB3BF;
+      --primary-light: #26A69A;
       --accent: #FFB300;
-      --bg: #0B171D;
-      --body-gradient: radial-gradient(circle at top, #132A32, var(--bg));
-      --card-bg: #12232B;
-      --card-border: rgba(0, 150, 166, 0.25);
-      --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-      --text: #E0F2F1;
+      --bg: #0F172A;
+      --body-gradient: radial-gradient(circle at top, #1E293B, #0F172A);
+      --card-bg: #1E293B;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+      --text: #F1F5F9;
       --text-title: #FFFFFF;
-      --text-muted: #80CBC4;
-      --danger: #FF5252;
-      --success: #00E676;
-      --input-bg: #081318;
-      --input-border: rgba(0, 150, 166, 0.4);
-      --table-th-bg: rgba(0, 131, 143, 0.2);
-      --table-hover: rgba(0, 150, 166, 0.08);
-      --table-border: rgba(0, 150, 166, 0.15);
-      --stat-icon-bg: rgba(0, 150, 166, 0.15);
+      --text-muted: #94A3B8;
+      --danger: #EF4444;
+      --success: #10B981;
+      --input-bg: #0B1120;
+      --input-border: rgba(255, 255, 255, 0.15);
+      --table-th-bg: rgba(15, 23, 42, 0.7);
+      --table-hover: rgba(255, 255, 255, 0.04);
+      --table-border: rgba(255, 255, 255, 0.08);
+      --stat-icon-bg: rgba(0, 131, 143, 0.2);
       --theme-btn-bg: rgba(255, 255, 255, 0.08);
       --theme-btn-border: rgba(255, 255, 255, 0.18);
-      --theme-btn-color: #E0F2F1;
+      --theme-btn-color: #F1F5F9;
     }
 
     [data-theme="light"] {
@@ -29,20 +29,20 @@
       --primary-dark: #004D40;
       --primary-light: #0097A7;
       --accent: #D97706;
-      --bg: #F4F7F8;
-      --body-gradient: radial-gradient(circle at top, #E2F1F3, #F4F7F8);
+      --bg: #F8FAFC;
+      --body-gradient: radial-gradient(circle at top, #E2F1F3, #F8FAFC);
       --card-bg: #FFFFFF;
-      --card-border: rgba(0, 131, 143, 0.18);
-      --card-shadow: 0 4px 20px rgba(0, 77, 64, 0.08);
+      --card-border: rgba(0, 131, 143, 0.15);
+      --card-shadow: 0 4px 20px rgba(0, 77, 64, 0.06);
       --text: #1E293B;
       --text-title: #0F172A;
-      --text-muted: #475569;
+      --text-muted: #64748B;
       --danger: #DC2626;
       --success: #16A34A;
       --input-bg: #F8FAFC;
       --input-border: #CBD5E1;
-      --table-th-bg: #E6F4F5;
-      --table-hover: #F1F8F8;
+      --table-th-bg: #F1F5F9;
+      --table-hover: #F8FAFC;
       --table-border: #E2E8F0;
       --stat-icon-bg: #E0F2F1;
       --theme-btn-bg: #FFFFFF;
