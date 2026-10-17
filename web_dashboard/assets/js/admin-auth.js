@@ -15,31 +15,51 @@ async function safeJson(res) {
   }
 }
 
+function adminApiFetch(url, options = {}) {
+  const opts = { ...options };
+  opts.credentials = 'same-origin';
+  const headers = { ...(opts.headers || {}) };
+  if (currentCsrfToken && !headers['X-CSRF-Token']) {
+    headers['X-CSRF-Token'] = currentCsrfToken;
+  }
+  const token = sessionStorage.getItem("mosarib_admin_token");
+  if (token && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  opts.headers = headers;
+  return fetch(url, opts);
+}
+
 let currentAdminSession = null;
 let currentCsrfToken = "";
 
 async function checkServerSession() {
-  // 1. Check if session already authenticated locally (survives InfinityFree cookie drops)
+  // 1. Check if session already authenticated locally with valid token
   const cachedSession = sessionStorage.getItem("mosarib_admin_session");
-  if (cachedSession) {
+  const cachedToken = sessionStorage.getItem("mosarib_admin_token");
+  if (cachedSession && cachedToken) {
     try {
       currentAdminSession = JSON.parse(cachedSession);
       unlockDashboardView(currentAdminSession);
       // Asynchronously refresh in background
-      fetch('api/auth.php?action=check_session', { credentials: 'same-origin' }).then(async r => {
+      adminApiFetch('api/auth.php?action=check_session').then(async r => {
         const d = (await safeJson(r)) || {};
         if (d.data && d.data.csrf_token) currentCsrfToken = d.data.csrf_token;
+        if (d.data && d.data.session_token) sessionStorage.setItem("mosarib_admin_token", d.data.session_token);
       }).catch(() => {});
       return true;
     } catch (_) {}
   }
 
   try {
-    const res = await fetch('api/auth.php?action=check_session', { credentials: 'same-origin' });
+    const res = await adminApiFetch('api/auth.php?action=check_session');
     const data = (await safeJson(res)) || {};
     if (data.success && data.data && data.data.admin) {
       currentAdminSession = data.data.admin;
       currentCsrfToken = data.data.csrf_token || "";
+      if (data.data.session_token) {
+        sessionStorage.setItem("mosarib_admin_token", data.data.session_token);
+      }
       sessionStorage.setItem("mosarib_admin_session", JSON.stringify(currentAdminSession));
       unlockDashboardView(currentAdminSession);
       return true;
@@ -132,6 +152,9 @@ async function handleSecureLogin(e) {
     if (data.success) {
       currentAdminSession = data.data.admin;
       currentCsrfToken = data.data.csrf_token;
+      if (data.data.session_token) {
+        sessionStorage.setItem("mosarib_admin_token", data.data.session_token);
+      }
       sessionStorage.setItem("mosarib_admin_session", JSON.stringify(currentAdminSession));
       unlockDashboardView(currentAdminSession);
     } else {
@@ -166,10 +189,11 @@ async function handleSecureLogin(e) {
 async function handleSecureLogout() {
   if (!confirm("هل أنت متأكد من رغبتك في تسجيل الخروج من لوحة الإدارة؟")) return;
   try {
-    await fetch('api/auth.php?action=logout');
+    await fetch('api/auth.php?action=logout', { credentials: 'same-origin' });
   } catch (_) {}
   sessionStorage.removeItem("mosarib_admin_session");
   sessionStorage.removeItem("mosarib_admin_unlocked");
+  sessionStorage.removeItem("mosarib_admin_token");
   currentAdminSession = null;
   location.reload();
 }
@@ -182,7 +206,7 @@ async function handleCreateAdmin(e) {
   const role = document.getElementById("newAdminRole").value;
 
   try {
-    const res = await fetch('api/auth.php?action=create_admin', {
+    const res = await adminApiFetch('api/auth.php?action=create_admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -212,7 +236,7 @@ async function loadAdminsList() {
   container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 20px;">جاري تحميل المسؤولين...</div>`;
 
   try {
-    const res = await fetch('api/auth.php?action=list_admins');
+    const res = await adminApiFetch('api/auth.php?action=list_admins');
     const data = (await safeJson(res)) || {};
     if (!data.success || !data.data) {
       container.innerHTML = `<div style="text-align: center; color: #EF5350; padding: 20px;">${data.message || 'تعذر التحميل'}</div>`;

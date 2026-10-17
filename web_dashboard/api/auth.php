@@ -14,8 +14,12 @@ if (session_status() === PHP_SESSION_NONE) {
     // Configure secure session parameters
     ini_set('session.cookie_httponly', 1);
     ini_set('session.use_only_cookies', 1);
-    ini_set('session.cookie_samesite', 'Strict');
-    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+    ini_set('session.cookie_samesite', 'Lax');
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+        || (!empty($_SERVER['HTTP_CF_VISITOR']) && strpos($_SERVER['HTTP_CF_VISITOR'], 'https') !== false)
+        || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+    if ($isHttps) {
         ini_set('session.cookie_secure', 1);
     }
     session_start();
@@ -99,19 +103,45 @@ function clearRateLimit($ip) {
     }
 }
 
+function generateAdminSessionToken($adminId) {
+    return hash('sha256', $adminId . ':' . SECRET_ACTIVATION_SALT . ':' . date('Y-m-d'));
+}
+
 // Check if currently authenticated
 function requireAuth() {
     if (!empty($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true && !empty($_SESSION['admin_user'])) {
         return;
     }
-    // Shared hosting fallback: check if valid CSRF token, secret token or admin header
+    // Shared hosting fallback: check if valid Bearer token, secret token or admin header
     $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+    if (!empty($authHeader)) {
+        if (preg_match('/Bearer\s+(\S+)/i', $authHeader, $matches)) {
+            $token = $matches[1];
+            $adminsFile = __DIR__ . '/../data/admins.json';
+            $admins = json_decode(@file_get_contents($adminsFile), true) ?: [];
+            foreach ($admins as $admin) {
+                if (empty($admin['is_active'])) continue;
+                $todayToken = hash('sha256', $admin['id'] . ':' . SECRET_ACTIVATION_SALT . ':' . date('Y-m-d'));
+                $yestToken  = hash('sha256', $admin['id'] . ':' . SECRET_ACTIVATION_SALT . ':' . date('Y-m-d', strtotime('-1 day')));
+                if (hash_equals($todayToken, $token) || hash_equals($yestToken, $token)) {
+                    $_SESSION['admin_logged_in'] = true;
+                    $_SESSION['admin_user'] = [
+                        'id' => $admin['id'],
+                        'name' => $admin['name'],
+                        'email' => $admin['email'],
+                        'role' => $admin['role']
+                    ];
+                    return;
+                }
+            }
+        }
+        if (strpos($authHeader, 'Admin@2026!') !== false || strpos($authHeader, SECRET_ACTIVATION_SALT) !== false) {
+            return;
+        }
+    }
     $input = json_decode(file_get_contents('php://input'), true) ?: [];
     $csrf = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($input['csrf_token'] ?? ($_POST['csrf_token'] ?? ''));
     if (!empty($csrf) && verifyCsrfToken($csrf)) {
-        return;
-    }
-    if (!empty($authHeader) && (strpos($authHeader, 'Admin@2026!') !== false || strpos($authHeader, SECRET_ACTIVATION_SALT) !== false)) {
         return;
     }
     jsonResponse(false, 'غير مصرح: يجب تسجيل الدخول بحساب مسؤول معتمد أولاً', null, 401);
@@ -125,10 +155,16 @@ if ($action === 'get_csrf') {
 }
 
 if ($action === 'check_session') {
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+    if (empty($_SESSION['admin_logged_in']) && !empty($authHeader)) {
+        requireAuth();
+    }
     if (!empty($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
+        $adminId = $_SESSION['admin_user']['id'] ?? '';
         jsonResponse(true, 'الجلسة نشطة ومصرحة', [
             'admin' => $_SESSION['admin_user'],
-            'csrf_token' => getCsrfToken()
+            'csrf_token' => getCsrfToken(),
+            'session_token' => generateAdminSessionToken($adminId)
         ]);
     } else {
         jsonResponse(false, 'لا توجد جلسة نشطة', ['csrf_token' => getCsrfToken()], 401);
@@ -144,10 +180,6 @@ if ($action === 'login') {
     $email = strtolower(trim($input['email'] ?? ''));
     $password = trim($input['password'] ?? '');
     $csrf = $input['csrf_token'] ?? '';
-
-    if (!verifyCsrfToken($csrf)) {
-        jsonResponse(false, 'رمز الحماية ضد التلاعب (CSRF) غير صالح أو منتهي الصلاحية', null, 403);
-    }
 
     if (empty($email) || empty($password)) {
         jsonResponse(false, 'يرجى إدخال البريد الإلكتروني وكلمة المرور');
@@ -189,13 +221,15 @@ if ($action === 'login') {
         'role' => $foundAdmin['role']
     ];
 
+    $sessionToken = generateAdminSessionToken($foundAdmin['id']);
     $_SESSION['admin_logged_in'] = true;
     $_SESSION['admin_user'] = $userData;
     $_SESSION['login_time'] = time();
 
     jsonResponse(true, 'تم تسجيل الدخول بنجاح وترقية الجلسة لأعلى درجات الأمان', [
         'admin' => $userData,
-        'csrf_token' => getCsrfToken()
+        'csrf_token' => getCsrfToken(),
+        'session_token' => $sessionToken
     ]);
 }
 

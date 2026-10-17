@@ -3,6 +3,7 @@
   let allRequests = [];
   let pendingRequestId = null;
   let adminPaymentMethods = [];
+  const apiFetch = (url, opts) => (typeof adminApiFetch === 'function') ? adminApiFetch(url, opts) : fetch(url, { credentials: 'same-origin', ...opts });
 
   function toggleUpdateInputs() {
     const isUpdate = document.getElementById("bcType").value === "UPDATE";
@@ -50,7 +51,7 @@
 
   async function loadPortalSettingsForAdmin() {
     try {
-      const res = await fetch('api/public_data.php');
+      const res = await apiFetch('api/public_data.php');
       const json = (await safeJson(res)) || {};
       if (json.success && json.data) {
         const ps = json.data.portal_settings || {};
@@ -203,7 +204,7 @@
 
     // 2. Also notify local API in background
     try {
-      await fetch('api/public_data.php', {
+      await apiFetch('api/public_data.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -226,7 +227,7 @@
     const summary = document.getElementById("newsSummaryInput").value.trim();
 
     try {
-      const res = await fetch('api/public_data.php', {
+      const res = await apiFetch('api/public_data.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -253,7 +254,7 @@
   async function deletePortalNews(id) {
     if (!confirm("هل أنت متأكد من حذف هذا الخبر من واجهة الموقع العام؟")) return;
     try {
-      const res = await fetch('api/public_data.php', {
+      const res = await apiFetch('api/public_data.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -276,7 +277,7 @@
     const details = document.getElementById("fcmEngineDetails");
     if (!badge) return;
     try {
-      const res = await fetch('api/fcm_sender.php');
+      const res = await apiFetch('api/fcm_sender.php');
       const data = (await safeJson(res)) || {};
       if (data.success && data.data) {
         const d = data.data;
@@ -320,7 +321,7 @@
     }
 
     try {
-      const res = await fetch('api/fcm_sender.php', {
+      const res = await apiFetch('api/fcm_sender.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -347,7 +348,7 @@
     statusDiv.style.color = "var(--accent)";
     statusDiv.innerText = "جاري فحص الاتصال بـ Google FCM... ⏳";
     try {
-      const res = await fetch('api/fcm_sender.php', {
+      const res = await apiFetch('api/fcm_sender.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'test_connection' })
@@ -385,7 +386,7 @@
     if (btn) btn.disabled = true;
 
     try {
-      const res = await fetch('api/fcm_sender.php', {
+      const res = await apiFetch('api/fcm_sender.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -476,7 +477,7 @@
 
     // 2. Also notify local API in background
     try {
-      await fetch('api/public_data.php', {
+      await apiFetch('api/public_data.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -520,7 +521,7 @@
     progressDiv.style.display = "block";
 
     try {
-      const res = await fetch('api/release_manager.php', {
+      const res = await apiFetch('api/release_manager.php', {
         method: 'POST',
         body: formData
       });
@@ -558,7 +559,7 @@
     formData.append('release_notes', notes || '');
 
     try {
-      const res = await fetch('api/release_manager.php', { method: 'POST', body: formData });
+      const res = await apiFetch('api/release_manager.php', { method: 'POST', body: formData });
       const data = (await safeJson(res)) || {};
       if (data.success) {
         alert("✅ تم ربط وبث الرابط لجميع المستخدمين في فايربيس بنجاح!");
@@ -575,7 +576,7 @@
     const container = document.getElementById("releasesListContainer");
     if (!container) return;
     try {
-      const res = await fetch('api/release_manager.php');
+      const res = await apiFetch('api/release_manager.php');
       const data = (await safeJson(res)) || {};
       const releases = (data.data && data.data.releases) ? data.data.releases : [];
 
@@ -1301,7 +1302,7 @@
 
     // 2. Also notify local API in background
     try {
-      await fetch('api/public_data.php', {
+      await apiFetch('api/public_data.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
