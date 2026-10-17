@@ -15,6 +15,13 @@ object FcmTokenHelper {
     private const val TAG = "FcmTokenHelper"
 
     fun syncCurrentToken(context: Context) {
+        try {
+            FirebaseMessaging.getInstance().subscribeToTopic("all")
+            FirebaseMessaging.getInstance().subscribeToTopic("mosarib_users")
+        } catch (e: Exception) {
+            Log.e(TAG, "Topic subscription error: ${e.message}")
+        }
+
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
                 Log.w(TAG, "Fetching FCM registration token failed", task.exception)

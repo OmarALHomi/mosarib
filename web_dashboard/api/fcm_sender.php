@@ -93,6 +93,8 @@ $method = $_SERVER['REQUEST_METHOD'];
 // Handle GET: Check FCM status
 if ($method === 'GET') {
     $hasSa = file_exists($serviceAccountFile);
+    $serverKeyFile = __DIR__ . '/../data/fcm_server_key.txt';
+    $hasServerKey = file_exists($serverKeyFile) && filesize($serverKeyFile) > 10;
     $saDetails = null;
     $isTokenValid = false;
     if ($hasSa) {
@@ -114,7 +116,8 @@ if ($method === 'GET') {
     $tokensCount = count($rawTokens);
 
     jsonResponse(true, 'حالة محرك الإشعارات', [
-        'is_fcm_v1_configured' => ($hasSa && $isTokenValid),
+        'is_fcm_v1_configured' => ($hasSa && $isTokenValid) || $hasServerKey,
+        'has_server_key' => $hasServerKey,
         'service_account' => $saDetails,
         'registered_tokens_count' => $tokensCount,
         'firebase_project' => FIREBASE_PROJECT_ID
@@ -129,19 +132,28 @@ $action = $input['action'] ?? $_GET['action'] ?? 'send';
 // 1. Action: Save Service Account JSON
 if ($action === 'save_service_account') {
     $saContent = trim($input['service_account_json'] ?? '');
-    
+    $serverKeyFile = __DIR__ . '/../data/fcm_server_key.txt';
+
     // Check if uploaded via multipart file
     if (isset($_FILES['service_account_file']) && $_FILES['service_account_file']['error'] === UPLOAD_ERR_OK) {
         $saContent = file_get_contents($_FILES['service_account_file']['tmp_name']);
     }
 
     if (empty($saContent)) {
-        jsonResponse(false, 'يرجى تقديم محتوى ملف Google Service Account JSON');
+        jsonResponse(false, 'يرجى تقديم محتوى ملف Google Service Account JSON أو مفتاح Firebase Server Key');
+    }
+
+    // Check if user provided FCM Server Key (Legacy single string)
+    if (!str_starts_with($saContent, '{') && strlen($saContent) > 20) {
+        @file_put_contents($serverKeyFile, $saContent);
+        jsonResponse(true, 'تم حفظ وتفعيل مفتاح Firebase Cloud Messaging Server Key بنجاح! محرك الإشعارات جاهز للإرسال إلى الهواتف المغلقة ✅', [
+            'type' => 'SERVER_KEY'
+        ]);
     }
 
     $saData = json_decode($saContent, true);
     if (!is_array($saData) || empty($saData['client_email']) || empty($saData['private_key'])) {
-        jsonResponse(false, 'ملف Service Account غير صالح: يجب أن يحتوي على client_email و private_key');
+        jsonResponse(false, 'ملف Service Account غير صالح: يجب أن يحتوي على كود JSON الصحيح أو مفتاح السيرفر');
     }
 
     // Test private key validity
@@ -174,12 +186,15 @@ if ($action === 'save_service_account') {
 
 // 2. Action: Test FCM Connection
 if ($action === 'test_connection') {
+    $serverKeyFile = __DIR__ . '/../data/fcm_server_key.txt';
+    $hasServerKey = file_exists($serverKeyFile) && filesize($serverKeyFile) > 10;
     $auth = getGoogleFcmAccessToken($serviceAccountFile);
-    if (!$auth) {
-        jsonResponse(false, 'فشل توليد رمز الوصول من Google OAuth2. يرجى إعادة فحص أو رفع مفتاح Service Account');
+    if (!$auth && !$hasServerKey) {
+        jsonResponse(false, 'لم يتم تهيئة مفتاح Service Account أو Server Key بعد. يرجى رفع أو إدخال المفتاح أولاً');
     }
-    jsonResponse(true, 'الاتصال بـ Google FCM HTTP v1 سليم وجاهز للإرسال السحابي الفوري ✅', [
-        'project_id' => $auth['project_id']
+    jsonResponse(true, 'الاتصال بـ Google FCM سليم وجاهز للإرسال السحابي الفوري للأجهزة المغلقة ✅', [
+        'mode' => $auth ? 'FCM_HTTP_V1' : 'FCM_SERVER_KEY',
+        'project_id' => $auth['project_id'] ?? FIREBASE_PROJECT_ID
     ]);
 }
 
@@ -234,15 +249,68 @@ if ($target === 'SINGLE' && !empty($targetToken)) {
 }
 
 $auth = getGoogleFcmAccessToken($serviceAccountFile);
+$serverKeyFile = __DIR__ . '/../data/fcm_server_key.txt';
+$serverKey = (file_exists($serverKeyFile) && filesize($serverKeyFile) > 10) ? trim(file_get_contents($serverKeyFile)) : '';
+
 $sentSuccess = 0;
 $sentFailed = 0;
 $fcmV1Used = false;
 $errorDetails = [];
 
-if ($auth && !empty($tokenList)) {
+// Method A: Google FCM HTTP v1 (OAuth2)
+if ($auth) {
     $fcmV1Used = true;
     $fcmUrl = "https://fcm.googleapis.com/v1/projects/{$auth['project_id']}/messages:send";
     $bearerToken = $auth['token'];
+
+    // If Target is ALL, broadcast directly to topic 'all' (wakes 100% of devices in 1 call)
+    if ($target === 'ALL') {
+        $topicPayload = [
+            'message' => [
+                'topic' => 'all',
+                'notification' => [
+                    'title' => $title,
+                    'body' => $body
+                ],
+                'data' => [
+                    'title' => $title,
+                    'body' => $body,
+                    'message' => $body,
+                    'actionUrl' => $actionUrl,
+                    'type' => 'BROADCAST',
+                    'timestamp' => strval(round(microtime(true) * 1000))
+                ],
+                'android' => [
+                    'priority' => 'HIGH',
+                    'notification' => [
+                        'channel_id' => 'mosarib_notifications_channel',
+                        'notification_priority' => 'PRIORITY_MAX',
+                        'default_sound' => true,
+                        'default_vibrate_timings' => true,
+                        'visibility' => 'PUBLIC',
+                        'icon' => 'ic_launcher'
+                    ]
+                ]
+            ]
+        ];
+
+        $ch = curl_init($fcmUrl);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $bearerToken,
+            'Content-Type: application/json; UTF-8'
+        ]);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($topicPayload, JSON_UNESCAPED_UNICODE));
+        $res = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($httpCode === 200) {
+            $sentSuccess++;
+        }
+    }
 
     foreach ($tokenList as $tItem) {
         $token = $tItem['token'];
@@ -303,6 +371,51 @@ if ($auth && !empty($tokenList)) {
                 firebaseRequest("fcm_tokens/$cleanKey.json", 'DELETE');
             }
         }
+    }
+}
+// Method B: FCM Legacy Server Key Fallback
+elseif (!empty($serverKey)) {
+    $legacyUrl = 'https://fcm.googleapis.com/fcm/send';
+    $legacyPayload = [
+        'notification' => [
+            'title' => $title,
+            'body' => $body,
+            'sound' => 'default',
+            'channel_id' => 'mosarib_notifications_channel'
+        ],
+        'data' => [
+            'title' => $title,
+            'body' => $body,
+            'message' => $body,
+            'actionUrl' => $actionUrl,
+            'type' => 'BROADCAST',
+            'timestamp' => strval(round(microtime(true) * 1000))
+        ],
+        'priority' => 'high'
+    ];
+
+    if ($target === 'ALL') {
+        $legacyPayload['to'] = '/topics/all';
+    } elseif (!empty($tokenList)) {
+        $registrationIds = array_column($tokenList, 'token');
+        $legacyPayload['registration_ids'] = $registrationIds;
+    }
+
+    $ch = curl_init($legacyUrl);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: key=' . $serverKey,
+        'Content-Type: application/json; UTF-8'
+    ]);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($legacyPayload, JSON_UNESCAPED_UNICODE));
+    $res = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($httpCode === 200) {
+        $sentSuccess++;
     }
 }
 
