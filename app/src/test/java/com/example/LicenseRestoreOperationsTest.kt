@@ -66,4 +66,38 @@ class LicenseRestoreOperationsTest {
         assertEquals(0, LicenseManager.getRemainingOperations(context, restoredOps))
         assertTrue("Trial MUST be marked as consumed", LicenseManager.isTrialConsumed(context))
     }
+
+    @Test
+    fun testIncrementalSecretOperationsPersistAcrossPrefsClear() {
+        // 1. Perform 35 operations
+        LicenseManager.recordOperationPerformed(context, 35)
+        assertEquals(35, LicenseManager.getCumulativeOperations(context))
+        assertEquals(15, LicenseManager.getRemainingOperations(context, 0))
+
+        // 2. Simulate user clearing app data / SharedPreferences
+        val sp = context.getSharedPreferences("mosarib_license_prefs", Context.MODE_PRIVATE)
+        sp.edit().clear().commit()
+        assertEquals(0, sp.getInt("cumulative_ops_count", 0))
+
+        // 3. LicenseManager must recover 35 from secret storage journal
+        assertEquals(35, LicenseManager.getCumulativeOperations(context))
+        assertEquals(15, LicenseManager.getRemainingOperations(context, 0))
+        assertTrue(LicenseManager.canPerformOperation(context, 0))
+
+        // 4. Perform 15 more operations to reach 50
+        for (i in 36..50) {
+            LicenseManager.recordOperationPerformed(context, i)
+        }
+
+        // 5. Must lock permanently
+        assertEquals(50, LicenseManager.getCumulativeOperations(context))
+        assertEquals(0, LicenseManager.getRemainingOperations(context, 0))
+        assertFalse(LicenseManager.canPerformOperation(context, 0))
+        assertTrue(LicenseManager.isTrialConsumed(context))
+
+        // 6. Even if cleared again, it must stay locked permanently
+        sp.edit().clear().commit()
+        assertTrue(LicenseManager.isTrialConsumed(context))
+        assertFalse(LicenseManager.canPerformOperation(context, 0))
+    }
 }
