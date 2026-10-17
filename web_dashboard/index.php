@@ -152,7 +152,7 @@ if (file_exists($releaseFile)) {
       --border-subtle: rgba(0, 0, 0, 0.08);
       --text: #1E293B;
       --text-muted: #0F766E;
-      --text-dim: #64748B;
+      --text-dim: #475569;
       --text-heading: #0F172A;
       --header-bg: rgba(255, 255, 255, 0.94);
       --ticker-bg: linear-gradient(90deg, #E0F2F1, #E0F7FA, #E0F2F1);
@@ -179,19 +179,19 @@ if (file_exists($releaseFile)) {
       --bg: #071015;
       --surface: #0E1D24;
       --surface-card: rgba(14, 29, 36, 0.85);
-      --surface-border: rgba(0, 180, 216, 0.18);
-      --border-subtle: rgba(255, 255, 255, 0.08);
-      --text: #E0F2F1;
-      --text-muted: #80CBC4;
-      --text-dim: #607D8B;
+      --surface-border: rgba(0, 180, 216, 0.22);
+      --border-subtle: rgba(255, 255, 255, 0.12);
+      --text: #F1F5F9;
+      --text-muted: #5EEAD4;
+      --text-dim: #94A3B8;
       --text-heading: #FFFFFF;
-      --header-bg: rgba(7, 16, 21, 0.92);
+      --header-bg: rgba(7, 16, 21, 0.94);
       --ticker-bg: linear-gradient(90deg, #002B24, #004D40, #002B24);
       --ticker-text: #E0F7FA;
-      --card-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
-      --input-bg: rgba(7, 16, 21, 0.8);
-      --input-border: rgba(0, 180, 216, 0.25);
-      --modal-overlay-bg: rgba(0, 0, 0, 0.8);
+      --card-shadow: 0 12px 35px rgba(0, 0, 0, 0.45);
+      --input-bg: rgba(7, 16, 21, 0.85);
+      --input-border: rgba(0, 180, 216, 0.35);
+      --modal-overlay-bg: rgba(0, 0, 0, 0.82);
     }
 
     * {
@@ -488,11 +488,27 @@ if (file_exists($releaseFile)) {
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 16px;
+      gap: 10px;
       flex-wrap: wrap;
-      font-size: 12.5px;
-      color: var(--text-dim);
+      margin-top: 18px;
+    }
+    .trust-pill {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-full);
+      padding: 6px 14px;
+      font-size: 12px;
       font-weight: 700;
+      color: var(--text-dim);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    [data-theme="dark"] .trust-pill {
+      background: rgba(14, 29, 36, 0.7);
+      border-color: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
     }
 
     /* Section Styling */
@@ -784,11 +800,15 @@ if (file_exists($releaseFile)) {
       margin-top: 3px;
     }
     .plan-features-list li.feature-highlight {
-      background: rgba(0, 131, 143, 0.06);
-      padding: 6px 10px;
+      background: rgba(0, 131, 143, 0.08);
+      padding: 7px 12px;
       border-radius: var(--radius-sm);
       border: 1px dashed var(--surface-border);
       font-weight: 700;
+    }
+    [data-theme="dark"] .plan-features-list li.feature-highlight {
+      background: rgba(0, 180, 216, 0.12);
+      border-color: rgba(0, 180, 216, 0.35);
     }
     .btn-plan {
       background: var(--surface);
@@ -1372,18 +1392,18 @@ if (file_exists($releaseFile)) {
       <p class="hero-subtitle" id="heroSubtitleText"><?= htmlspecialchars($ps['hero_subtitle']) ?></p>
 
       <div class="hero-actions">
-        <button onclick="openSubscriptionModal('YEARLY')" class="btn-sub-action">
-          <span>طلب اشتراك وشراء مباشر ⚡</span>
-        </button>
-
         <a href="<?= htmlspecialchars($release['download_url']) ?>" class="btn-primary-action" onclick="trackDownloadMetric()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="7 10 12 15 17 10"></polyline>
             <line x1="12" y1="15" x2="12" y2="3"></line>
           </svg>
-          <span>تحميل التطبيق مجاناً</span>
+          <span>تحميل التطبيق مجاناً (APK)</span>
         </a>
+
+        <button onclick="openSubscriptionModal('YEARLY')" class="btn-sub-action">
+          <span>طلب اشتراك وتفعيل ⚡</span>
+        </button>
 
         <?php if (!empty($ps['contact_whatsapp'])): ?>
         <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>?text=<?= urlencode('السلام عليكم، أود الاستفسار عن ترخيص وتفعيل تطبيق مُسَرِّب لإدارة مياه الآبار') ?>" target="_blank" class="btn-whatsapp-action">
@@ -1396,13 +1416,10 @@ if (file_exists($releaseFile)) {
       </div>
 
       <div class="hero-trust-bar">
-        <span>⚡ يعمل 100% بدون إنترنت (Offline)</span>
-        <span>•</span>
-        <span>🛡️ فحص أمني معتمد</span>
-        <span>•</span>
-        <span>☁️ نسخ احتياطي يومي Google Drive</span>
-        <span>•</span>
-        <span>📦 الحجم: <?= htmlspecialchars($release['file_size_mb']) ?> MB</span>
+        <span class="trust-pill">⚡ يعمل 100% بدون إنترنت</span>
+        <span class="trust-pill">🛡️ فحص أمني معتمد</span>
+        <span class="trust-pill">☁️ نسخ احتياطي Google Drive</span>
+        <span class="trust-pill">📦 حجم خفيف: <?= htmlspecialchars($release['file_size_mb']) ?> MB</span>
       </div>
     </section>
 
@@ -1568,32 +1585,28 @@ if (file_exists($releaseFile)) {
             <ul class="plan-features-list">
               <li class="feature-highlight">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span><b>دعم فني مباشر عند الحاجة 🛠️</b></span>
-              </li>
-              <li class="feature-highlight">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span><b>تحديثات متواصلة وحل مشاكل بشكل فوري ⚡</b></span>
-              </li>
-              <li class="feature-highlight">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span><b>إمكانية تغيير الهاتف ونقل الاشتراك بأي وقت 📱</b></span>
+                <span><b>ترخيص متكامل لموسم زراعي كامل (365 يوماً) ⭐</b></span>
               </li>
               <li>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>عمليات ري وسندات غير محدودة إطلاقاً</span>
+                <span>عمليات ري، سندات، وحسابات مزارعين غير محدودة</span>
               </li>
               <li>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>النسخ الاحتياطي السحابي اليومي على Google Drive</span>
+                <span>نسخ احتياطي سحابي يومي آمن على Google Drive</span>
               </li>
               <li>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 <span>تصدير كشوفات الحسابات PDF وإكسل Excel</span>
               </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>دعم فني مباشر مع إمكانية نقل الاشتراك لأي هاتف بديل</span>
+              </li>
             </ul>
           </div>
           <div style="display:flex; flex-direction:column; gap:8px;">
-            <button onclick="openSubscriptionModal('YEARLY')" class="btn-plan btn-plan-popular">طلب اشتراك وشراء مباشر ⚡</button>
+            <button onclick="openSubscriptionModal('YEARLY')" class="btn-plan btn-plan-popular">طلب اشتراك وتفعيل مباشر ⚡</button>
             <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>?text=<?= urlencode('السلام عليكم، أريد طلب تفعيل رخصة الاشتراك السنوي (' . $yearlyPrice . '$) لتطبيق مُسَرِّب') ?>" target="_blank" class="btn-plan-sub">أو تفعيل عبر واتساب 💬</a>
           </div>
         </div>
@@ -1615,15 +1628,7 @@ if (file_exists($releaseFile)) {
             <ul class="plan-features-list">
               <li class="feature-highlight">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span><b>دعم فني مباشر عند الحاجة 🛠️</b></span>
-              </li>
-              <li class="feature-highlight">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span><b>تحديثات متواصلة وحل مشاكل بشكل فوري ⚡</b></span>
-              </li>
-              <li class="feature-highlight">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span><b>إمكانية تغيير الهاتف ونقل الاشتراك بأي وقت 📱</b></span>
+                <span><b>صلاحية تفعيل كاملة لمدة 30 يوماً ⚡</b></span>
               </li>
               <li>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -1631,7 +1636,11 @@ if (file_exists($releaseFile)) {
               </li>
               <li>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>إرسال سندات القبض والتقارير عبر واتساب</span>
+                <span>مشاركة السندات والتقارير الفورية عبر واتساب</span>
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>حفظ البيانات محلياً مع دعم التحديثات والدعم الفني</span>
               </li>
             </ul>
           </div>
@@ -2028,7 +2037,7 @@ if (file_exists($releaseFile)) {
       const adminPhone = '<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>';
       const paymentLine = paymentMethod ? `• طريقة التحويل / المحفظة: ${paymentMethod}\n` : '';
       const msg = 
-`السلام عليكم يا باشمهندس عمر،
+`السلام عليكم يا مهندس عمر،
 أود تفعيل رخصة تطبيق مُسَرِّب:
 • نوع الاشتراك المطلوب: ${plan}
 • اسم المشترك: ${name}

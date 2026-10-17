@@ -39,6 +39,14 @@
     "fcm_tokens": {
       ".read": true,
       ".write": true
+    },
+    "portal_settings": {
+      ".read": true,
+      ".write": true
+    },
+    "subscription_pricing": {
+      ".read": true,
+      ".write": true
     }
   }
 }

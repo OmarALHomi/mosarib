@@ -9,5 +9,16 @@
         "created_at": 1792191859000,
         "last_login": null,
         "created_by": "SYSTEM"
+    },
+    {
+        "id": "ADMIN_omar_alhomi",
+        "name": "المهندس عمر الحومي",
+        "email": "omar@tubbasoft.com",
+        "password_hash": "$2y$10$q89bJeiXgvl.Fl4r3WQCPewE2btFasou1x2d9.FM.j0X6nUtSZpCC",
+        "role": "SUPER_ADMIN",
+        "is_active": true,
+        "created_at": 1792191859000,
+        "last_login": null,
+        "created_by": "SYSTEM"
     }
 ]

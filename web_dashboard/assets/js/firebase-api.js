@@ -153,7 +153,7 @@ async function firebaseFetch(path, options = {}) {
     // Direct fetch failed, try PHP proxy fallback if available
     try {
       const proxyUrl = `api/firebase_proxy.php?path=${encodeURIComponent(path)}${adminSecretKey ? `&auth=${encodeURIComponent(adminSecretKey)}` : ''}`;
-      const proxyRes = await fetch(proxyUrl, options);
+      const proxyRes = await fetch(proxyUrl, { ...options, credentials: 'same-origin' });
       if (proxyRes && proxyRes.ok) {
         updateFirebaseStatusIndicator('CONNECTED');
         return proxyRes;
@@ -164,7 +164,7 @@ async function firebaseFetch(path, options = {}) {
     // Browser direct fetch failed with network/CORS error, fallback to server-side PHP proxy
     try {
       const proxyUrl = `api/firebase_proxy.php?path=${encodeURIComponent(path)}${adminSecretKey ? `&auth=${encodeURIComponent(adminSecretKey)}` : ''}`;
-      const proxyRes = await fetch(proxyUrl, options);
+      const proxyRes = await fetch(proxyUrl, { ...options, credentials: 'same-origin' });
       if (proxyRes && proxyRes.ok) {
         updateFirebaseStatusIndicator('CONNECTED');
         return proxyRes;

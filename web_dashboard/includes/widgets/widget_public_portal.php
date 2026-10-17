@@ -1,11 +1,11 @@
   <div id="tab-publicPortal" style="display: none;">
     <!-- Real Site Visitors & APK Downloads KPI Row -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 22px;">
-      <div class="stat-card" style="background: linear-gradient(135deg, rgba(0, 188, 212, 0.12), rgba(18, 35, 43, 0.95)); border: 1px solid rgba(0, 188, 212, 0.45); padding: 18px;">
+      <div class="stat-card" style="background: var(--card-bg); border: 1px solid var(--card-border); padding: 18px;">
         <div class="stat-info">
-          <h3 style="color: #4DD0E1; font-size: 13.5px; font-weight: 700;">إجمالي زوار صفحة الزوار (بيانات حقيقية)</h3>
-          <div class="num" id="portalKpiTotalVisitors" style="color: #E0F7FA; font-size: 28px; margin: 4px 0;">0</div>
-          <small id="portalKpiTodayVisitors" style="color: #80CBC4; font-size: 12px; font-weight: 600;">زوار اليوم: 0 زائر فريد</small>
+          <h3 style="color: var(--primary); font-size: 13.5px; font-weight: 700;">إجمالي زوار صفحة الزوار (بيانات حقيقية)</h3>
+          <div class="num" id="portalKpiTotalVisitors" style="color: var(--text-title); font-size: 28px; margin: 4px 0;">0</div>
+          <small id="portalKpiTodayVisitors" style="color: var(--text-muted); font-size: 12px; font-weight: 600;">زوار اليوم: 0 زائر فريد</small>
         </div>
         <div class="stat-icon" style="color: #00BCD4; width: 44px; height: 44px;">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -15,11 +15,11 @@
         </div>
       </div>
 
-      <div class="stat-card" style="background: linear-gradient(135deg, rgba(0, 230, 118, 0.12), rgba(18, 35, 43, 0.95)); border: 1px solid rgba(0, 230, 118, 0.45); padding: 18px;">
+      <div class="stat-card" style="background: var(--card-bg); border: 1px solid var(--card-border); padding: 18px;">
         <div class="stat-info">
-          <h3 style="color: #69F0AE; font-size: 13.5px; font-weight: 700;">عدد تنزيلات التطبيق من الموقع (APK)</h3>
-          <div class="num" id="portalKpiTotalDownloads" style="color: #E8F5E9; font-size: 28px; margin: 4px 0;">0</div>
-          <small id="portalKpiTodayDownloads" style="color: #A5D6A7; font-size: 12px; font-weight: 600;">تنزيلات اليوم: 0 تحميل مباشر</small>
+          <h3 style="color: var(--success); font-size: 13.5px; font-weight: 700;">عدد تنزيلات التطبيق من الموقع (APK)</h3>
+          <div class="num" id="portalKpiTotalDownloads" style="color: var(--text-title); font-size: 28px; margin: 4px 0;">0</div>
+          <small id="portalKpiTodayDownloads" style="color: var(--text-muted); font-size: 12px; font-weight: 600;">تنزيلات اليوم: 0 تحميل مباشر</small>
         </div>
         <div class="stat-icon" style="color: var(--success); width: 44px; height: 44px;">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

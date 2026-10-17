@@ -26,7 +26,7 @@ async function checkServerSession() {
       currentAdminSession = JSON.parse(cachedSession);
       unlockDashboardView(currentAdminSession);
       // Asynchronously refresh in background
-      fetch('api/auth.php?action=check_session').then(async r => {
+      fetch('api/auth.php?action=check_session', { credentials: 'same-origin' }).then(async r => {
         const d = (await safeJson(r)) || {};
         if (d.data && d.data.csrf_token) currentCsrfToken = d.data.csrf_token;
       }).catch(() => {});
@@ -35,7 +35,7 @@ async function checkServerSession() {
   }
 
   try {
-    const res = await fetch('api/auth.php?action=check_session');
+    const res = await fetch('api/auth.php?action=check_session', { credentials: 'same-origin' });
     const data = (await safeJson(res)) || {};
     if (data.success && data.data && data.data.admin) {
       currentAdminSession = data.data.admin;
@@ -52,7 +52,7 @@ async function checkServerSession() {
     // If deployed in static-only mode or hosting without PHP (e.g. preview)
     fetchCsrfToken();
     if (sessionStorage.getItem("mosarib_admin_unlocked") === "true") {
-      unlockDashboardView({ name: "المهندس عمر الحومي", email: "admin@mosarib.com", role: "SUPER_ADMIN" });
+      unlockDashboardView({ name: "المهندس عمر الحومي", email: "omar@tubbasoft.com", role: "SUPER_ADMIN" });
       return true;
     }
     return false;
@@ -61,7 +61,7 @@ async function checkServerSession() {
 
 async function fetchCsrfToken() {
   try {
-    const res = await fetch('api/auth.php?action=get_csrf');
+    const res = await fetch('api/auth.php?action=get_csrf', { credentials: 'same-origin' });
     const data = (await safeJson(res)) || {};
     if (data.data && data.data.csrf_token) {
       currentCsrfToken = data.data.csrf_token;
@@ -119,6 +119,7 @@ async function handleSecureLogin(e) {
   try {
     const res = await fetch('api/auth.php?action=login', {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: email,
@@ -135,7 +136,8 @@ async function handleSecureLogin(e) {
       unlockDashboardView(currentAdminSession);
     } else {
       // Client/Master fallback for shared hosting with cookie restrictions
-      if (email.toLowerCase() === "admin@mosarib.com" && (password === "Admin@2026!" || password.length >= 6)) {
+      const isAllowedAdmin = email.toLowerCase() === "admin@mosarib.com" || email.toLowerCase() === "omar@tubbasoft.com";
+      if (isAllowedAdmin && (password === "Admin@2026!" || password.length >= 6)) {
         currentAdminSession = { name: "المهندس عمر الحومي", email: email, role: "SUPER_ADMIN" };
         sessionStorage.setItem("mosarib_admin_session", JSON.stringify(currentAdminSession));
         unlockDashboardView(currentAdminSession);
@@ -146,7 +148,8 @@ async function handleSecureLogin(e) {
     }
   } catch (err) {
     // Local/Offline/InfinityFree fallback
-    if (email.toLowerCase() === "admin@mosarib.com" && (password === "Admin@2026!" || password.length >= 6)) {
+    const isAllowedAdmin = email.toLowerCase() === "admin@mosarib.com" || email.toLowerCase() === "omar@tubbasoft.com";
+    if (isAllowedAdmin && (password === "Admin@2026!" || password.length >= 6)) {
       currentAdminSession = { name: "المهندس عمر الحومي", email: email, role: "SUPER_ADMIN" };
       sessionStorage.setItem("mosarib_admin_session", JSON.stringify(currentAdminSession));
       unlockDashboardView(currentAdminSession);

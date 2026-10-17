@@ -19,7 +19,7 @@
       <div class="form-group" style="margin-bottom: 16px;">
         <label for="adminEmailInput" style="font-size: 13px; color: #B2DFDB; font-weight: 700; margin-bottom: 6px; display: block;">البريد الإلكتروني المعتمد:</label>
         <div style="position: relative;">
-          <input type="email" id="adminEmailInput" placeholder="admin@mosarib.com" required style="width: 100%; padding: 12px 14px; background: rgba(9, 18, 23, 0.85); border: 1px solid rgba(0, 150, 166, 0.4); border-radius: 10px; color: #FFF; font-size: 14px; font-family: 'Cairo';">
+          <input type="email" id="adminEmailInput" placeholder="أدخل بريدك الإلكتروني المعتمد" required style="width: 100%; padding: 12px 14px; background: rgba(9, 18, 23, 0.85); border: 1px solid rgba(0, 150, 166, 0.4); border-radius: 10px; color: #FFF; font-size: 14px; font-family: 'Cairo';">
         </div>
       </div>
 
