@@ -556,6 +556,12 @@ object LicenseManager {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         if (com.example.BuildConfig.DEBUG && sp.getBoolean("debug_unlimited_ops", false))
                 return false
+        val customLimit = RemoteConfigManager.getCustomDeviceLimit(context)
+        if (customLimit > 0) {
+            val storedOps = getCumulativeOperations(context)
+            val effectiveCount = maxOf(storedOps, currentOperationsCount)
+            return effectiveCount >= customLimit
+        }
         if (isActivated(context)) return false
         if (isTrialConsumed(context)) return true
         val storedOps = getCumulativeOperations(context)
@@ -668,6 +674,12 @@ object LicenseManager {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         if (com.example.BuildConfig.DEBUG && sp.getBoolean("debug_unlimited_ops", false))
                 return 999999
+        val customLimit = RemoteConfigManager.getCustomDeviceLimit(context)
+        if (customLimit > 0) {
+            val storedOps = getCumulativeOperations(context)
+            val effectiveCount = maxOf(storedOps, currentOperationsCount)
+            return (customLimit - effectiveCount).coerceAtLeast(0)
+        }
         if (isActivated(context)) return Int.MAX_VALUE
         if (isTrialConsumed(context)) return 0
         val storedOps = getCumulativeOperations(context)

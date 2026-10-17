@@ -586,8 +586,9 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    val isBackupAllowed = remember { com.example.core.license.RemoteConfigManager.isBackupAllowed(context) }
-                    val isCloudBackupAllowed = remember { com.example.core.license.RemoteConfigManager.isCloudBackupAllowed(context) }
+                    val isBackupAllowed = com.example.core.license.RemoteConfigManager.isBackupAllowed(context)
+                    val isCloudBackupAllowed = com.example.core.license.RemoteConfigManager.isCloudBackupAllowed(context)
+                    val isDeviceBkLocked = com.example.core.license.RemoteConfigManager.isDeviceBackupLocked(context)
 
                     if (!isBackupAllowed) {
                         androidx.compose.material3.Surface(
@@ -603,7 +604,8 @@ fun SettingsScreen(
                                 Icon(Icons.Default.Key, contentDescription = null, tint = Color(0xFFEF4444), modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "تم إيقاف ميزة النسخ الاحتياطي للنسخ التجريبية من قِبل إدارة التطبيق.",
+                                    text = if (isDeviceBkLocked) "تم إيقاف ميزة النسخ الاحتياطي لهذا الجهاز من قِبل إدارة التطبيق."
+                                           else "تم إيقاف ميزة النسخ الاحتياطي للنسخ التجريبية من قِبل إدارة التطبيق.",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = if (isDark) Color(0xFFFCA5A5) else Color(0xFF991B1B)
@@ -1325,6 +1327,9 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
+                    val customDeviceLimit = com.example.core.license.RemoteConfigManager.getCustomDeviceLimit(context)
+                    val headerLimit = LicenseManager.getFreeOperationsLimit(context)
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1350,9 +1355,12 @@ fun SettingsScreen(
                                     text = "الترخيص والتفعيل",
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                 )
-                                val headerLimit = LicenseManager.getFreeOperationsLimit(context)
                                 Text(
-                                    text = if (isActivated) "نسخة مفعّلة" else "النسخة التجريبية ($headerLimit عملية)",
+                                    text = if (isActivated) {
+                                        if (customDeviceLimit > 0) "نسخة مفعّلة (حد مخصص: $customDeviceLimit عملية)" else "نسخة مفعّلة"
+                                    } else {
+                                        if (customDeviceLimit > 0) "نسخة تجريبية (حد مخصص: $customDeviceLimit عملية)" else "النسخة التجريبية ($headerLimit عملية)"
+                                    },
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = if (isActivated) AccentEmerald else AccentGold,
                                         fontWeight = FontWeight.Bold
@@ -1419,7 +1427,7 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    if (!isActivated) {
+                    if (!isActivated || customDeviceLimit > 0) {
                         val freeLimit = LicenseManager.getFreeOperationsLimit(context)
                         val remaining = LicenseManager.getRemainingOperations(context, operationsCount)
                         val progress = if (freeLimit > 0) (operationsCount.toFloat() / freeLimit).coerceIn(0f, 1f) else 1f
@@ -1430,7 +1438,7 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "العمليات المجانية المستخدمة:",
+                                    text = if (customDeviceLimit > 0) "العمليات المستخدمة من الحد المخصص:" else "العمليات المجانية المستخدمة:",
                                     style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 )
                                 Text(

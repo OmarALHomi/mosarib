@@ -107,41 +107,54 @@ object UserDeviceTracker {
             var remoteCumulativeOps = 0
             var remoteTrialConsumed = false
 
-            // 1. Check Cloud Firestore directly (Primary backend)
-            val fsDoc = FirestoreRestHelper.getDocument("all_users", cleanDeviceKey)
-            if (fsDoc != null) {
-                if (FirestoreRestHelper.getBoolean(fsDoc, "isBlocked", false)) {
-                    isBlocked = true
-                    blockReason = FirestoreRestHelper.getString(fsDoc, "blockReason", blockReason)
+            // 1. Primary: Check Realtime Database (/all_users/{cleanDeviceKey}.json)
+            try {
+                val checkUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
+                val conn = (checkUrl.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 4000
+                    readTimeout = 4000
+                    setRequestProperty("Accept", "application/json")
                 }
-                remoteOpsCount = FirestoreRestHelper.getInt(fsDoc, "operationsCount", 0)
-                remoteCumulativeOps = FirestoreRestHelper.getInt(fsDoc, "cumulativeOpsCount", 0)
-                remoteTrialConsumed = FirestoreRestHelper.getBoolean(fsDoc, "trialConsumed", false)
-            } else {
-                // Realtime Database Fallback
-                try {
-                    val checkUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
-                    val conn = (checkUrl.openConnection() as HttpURLConnection).apply {
-                        requestMethod = "GET"
-                        connectTimeout = 4000
-                        readTimeout = 4000
-                    }
-                    if (conn.responseCode == 200) {
-                        val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                        val responseText = reader.readText().trim()
-                        reader.close()
-                        if (responseText != "null" && responseText.isNotBlank()) {
-                            val existing = JSONObject(responseText)
-                            if (existing.optBoolean("isBlocked", false)) {
-                                isBlocked = true
-                                blockReason = existing.optString("blockReason", blockReason)
-                            }
-                            remoteOpsCount = existing.optInt("operationsCount", 0)
-                            remoteCumulativeOps = existing.optInt("cumulativeOpsCount", 0)
-                            remoteTrialConsumed = existing.optBoolean("trialConsumed", false)
+                if (conn.responseCode == 200) {
+                    val reader = BufferedReader(InputStreamReader(conn.inputStream))
+                    val responseText = reader.readText().trim()
+                    reader.close()
+                    if (responseText != "null" && responseText.isNotBlank()) {
+                        val existing = JSONObject(responseText)
+                        if (existing.optBoolean("isBlocked", false)) {
+                            isBlocked = true
+                            blockReason = existing.optString("blockReason", blockReason)
                         }
+                        if (existing.has("isBackupLocked") || existing.has("backupLocked")) {
+                            val isBkLocked = existing.optBoolean("isBackupLocked", existing.optBoolean("backupLocked", false))
+                            RemoteConfigManager.setDeviceBackupLocked(context, isBkLocked)
+                        }
+                        val customLim = existing.optInt("customOperationsLimit", existing.optInt("freeOperationsLimit", existing.optInt("operationsLimit", existing.optInt("limit", 0))))
+                        if (customLim > 0) {
+                            RemoteConfigManager.setDeviceCustomLimit(context, customLim)
+                        }
+                        remoteOpsCount = existing.optInt("operationsCount", 0)
+                        remoteCumulativeOps = existing.optInt("cumulativeOpsCount", 0)
+                        remoteTrialConsumed = existing.optBoolean("trialConsumed", false)
                     }
-                } catch (_: Exception) {}
+                }
+            } catch (_: Exception) {}
+
+            // 2. Also check Cloud Firestore
+            if (!isBlocked) {
+                val fsDoc = FirestoreRestHelper.getDocument("all_users", cleanDeviceKey)
+                if (fsDoc != null) {
+                    if (FirestoreRestHelper.getBoolean(fsDoc, "isBlocked", false)) {
+                        isBlocked = true
+                        blockReason = FirestoreRestHelper.getString(fsDoc, "blockReason", blockReason)
+                    }
+                    if (remoteOpsCount == 0) {
+                        remoteOpsCount = FirestoreRestHelper.getInt(fsDoc, "operationsCount", 0)
+                        remoteCumulativeOps = FirestoreRestHelper.getInt(fsDoc, "cumulativeOpsCount", 0)
+                        remoteTrialConsumed = FirestoreRestHelper.getBoolean(fsDoc, "trialConsumed", false)
+                    }
+                }
             }
 
             // Also check by Google Email if present
@@ -219,7 +232,6 @@ object UserDeviceTracker {
                     put("pricePerHour", lastSyncedPrice)
                     put("hourlyRate", lastSyncedPrice)
                 }
-                put("isBlocked", false)
                 put("lastActiveAt", now)
             }
 
@@ -238,7 +250,6 @@ object UserDeviceTracker {
                 "operationsCount" to highestOps,
                 "cumulativeOpsCount" to cumulativeOps,
                 "trialConsumed" to isTrialConsumed,
-                "isBlocked" to isBlocked,
                 "lastActiveAt" to now
             )
             if (lastSyncedPrice != null) {
@@ -247,18 +258,18 @@ object UserDeviceTracker {
             }
             FirestoreRestHelper.patchDocument("all_users", cleanDeviceKey, fsPayload)
 
-            // 2. Dual Write: Realtime Database
+            // 2. Dual Write: Realtime Database (Use PATCH to preserve admin fields like isBlocked/blockReason)
             try {
-                val putUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
-                val putConn = (putUrl.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "PUT"
+                val patchUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
+                val patchConn = (patchUrl.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "PATCH"
                     doOutput = true
                     connectTimeout = 4000
                     readTimeout = 4000
                     setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 }
-                OutputStreamWriter(putConn.outputStream).use { it.write(payload.toString()) }
-                putConn.responseCode
+                OutputStreamWriter(patchConn.outputStream).use { it.write(payload.toString()) }
+                patchConn.responseCode
             } catch (_: Exception) {}
             DeviceStatusResult(isBlocked = false)
         } catch (e: Exception) {

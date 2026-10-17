@@ -294,7 +294,8 @@ fun MainApp(
                                     }
 
                                     // أيقونة خط خارجي دائرية بعدد العمليات المتبقية يتغير لونها مع النفاذ
-                                    if (!isActivated) {
+                                    val customDevLimit = com.example.core.license.RemoteConfigManager.getCustomDeviceLimit(context)
+                                    if (!isActivated || customDevLimit > 0) {
                                         val freeLimit = LicenseManager.getFreeOperationsLimit(context)
                                         val remaining = LicenseManager.getRemainingOperations(context, operationsCount)
                                         val progress = if (freeLimit > 0) (operationsCount.toFloat() / freeLimit).coerceIn(0f, 1f) else 1f

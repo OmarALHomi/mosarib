@@ -43,7 +43,43 @@ object AppUpdateManager {
         if (!LicenseManager.isInternetAvailable(context)) return@withContext null
 
         try {
-            // 1. Primary: Cloud Firestore REST API
+            // 1. Primary: Realtime Database (/app_broadcast.json) - directly managed by Web Dashboard
+            try {
+                val url = URL("$FIREBASE_DB_URL/app_broadcast.json")
+                val conn = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 4000
+                    readTimeout = 4000
+                    setRequestProperty("Accept", "application/json")
+                }
+
+                if (conn.responseCode == 200) {
+                    val reader = BufferedReader(InputStreamReader(conn.inputStream))
+                    val res = reader.readText().trim()
+                    reader.close()
+
+                    if (res != "null" && res.isNotBlank()) {
+                        val obj = JSONObject(res)
+                        val id = obj.optString("id", "")
+                        val minVersion = obj.optInt("minRequiredVersionCode", 1)
+                        val isForceUpdate = obj.optBoolean("isForceUpdate", false) || (BuildConfig.VERSION_CODE < minVersion)
+
+                        return@withContext AppBroadcast(
+                            id = id,
+                            title = obj.optString("title", "تنبيه جديد"),
+                            message = obj.optString("message", ""),
+                            type = obj.optString("type", if (isForceUpdate) "UPDATE" else "INFO"),
+                            actionUrl = obj.optString("actionUrl", ""),
+                            actionText = obj.optString("actionText", if (isForceUpdate) "تحديث التطبيق الآن" else "عرض التفاصيل"),
+                            minRequiredVersionCode = minVersion,
+                            isForceUpdate = isForceUpdate,
+                            publishedAt = obj.optLong("publishedAt", 0L)
+                        )
+                    }
+                }
+            } catch (_: Exception) {}
+
+            // 2. Fallback: Cloud Firestore REST API (app_broadcast/current)
             val fsDoc = com.example.core.license.FirestoreRestHelper.getDocument("app_broadcast", "current")
             if (fsDoc != null) {
                 val id = com.example.core.license.FirestoreRestHelper.getString(fsDoc, "id", "")
@@ -63,38 +99,6 @@ object AppUpdateManager {
                 )
             }
 
-            // 2. Fallback: Realtime Database
-            val url = URL("$FIREBASE_DB_URL/app_broadcast.json")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 4000
-                readTimeout = 4000
-            }
-
-            if (conn.responseCode == 200) {
-                val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                val res = reader.readText().trim()
-                reader.close()
-
-                if (res != "null" && res.isNotBlank()) {
-                    val obj = JSONObject(res)
-                    val id = obj.optString("id", "")
-                    val minVersion = obj.optInt("minRequiredVersionCode", 1)
-                    val isForceUpdate = obj.optBoolean("isForceUpdate", false) || (BuildConfig.VERSION_CODE < minVersion)
-
-                    return@withContext AppBroadcast(
-                        id = id,
-                        title = obj.optString("title", "تنبيه جديد"),
-                        message = obj.optString("message", ""),
-                        type = obj.optString("type", if (isForceUpdate) "UPDATE" else "INFO"),
-                        actionUrl = obj.optString("actionUrl", ""),
-                        actionText = obj.optString("actionText", if (isForceUpdate) "تحديث التطبيق الآن" else "عرض التفاصيل"),
-                        minRequiredVersionCode = minVersion,
-                        isForceUpdate = isForceUpdate,
-                        publishedAt = obj.optLong("publishedAt", 0L)
-                    )
-                }
-            }
             null
         } catch (e: Exception) {
             Log.e(TAG, "Failed to fetch updates/broadcasts: ${e.message}")
