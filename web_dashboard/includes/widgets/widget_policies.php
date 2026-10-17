@@ -47,15 +47,15 @@
           <input type="text" id="policyGlobalNote" placeholder="مثال: خصم 30% على الاشتراك السنوي بمناسبة موسم السقي!">
         </div>
 
-        <button class="btn" onclick="saveAppPolicies()">حفظ وتطبيق السياسات فوراً على السحابة</button>
+        <button class="btn" style="width: auto; padding: 10px 24px; font-weight: 700;" onclick="saveAppPolicies()">💾 حفظ</button>
       </div>
 
       <div class="card">
-        <div class="card-title">مميزات نظام السياسات والتحكم عن بُعد</div>
-        <ul style="padding-right: 20px; line-height: 2.2; font-size: 13.5px; color: #B2DFDB;">
-          <li><b>تغيير الحد دون الحاجة لتحديث APK:</b> يمكنك خفض الحد إلى 50 أو رفعه إلى 500 في أي ثانية، وسيطبقه هاتف العميل تلقائياً عند اتصاله بالإنترنت!</li>
-          <li><b>ردع تحايل مسح البيانات:</b> إذا لاحظت محاولات تفريغ الحسابات واستعادتها لتخطي الحد، عطّل ميزة النسخ الاحتياطي للنسخ المجانية فجأة بنقرة زر واحدة.</li>
-          <li><b>تحكم استثنائي لكل جهاز:</b> من خلال جدول "المستخدمون"، يمكنك تخصيص حد أعلى لعميل معين أو قفل النسخ الاحتياطي لجهاز محدد دون التأثير على بقية المستخدمين.</li>
+        <div class="card-title">معلومات السياسات السحابية</div>
+        <ul style="padding-right: 20px; line-height: 2; font-size: 13.5px; color: var(--text-muted);">
+          <li><b>تحديث فوري:</b> يتم تطبيق حد العمليات والقيود تلقائياً على أجهزة المستخدمين عند اتصالهم بالإنترنت.</li>
+          <li><b>النسخ الاحتياطي:</b> يمكنك تفعيل أو تعطيل النسخ السحابي والمحلي لضبط الاستخدام التجريبي.</li>
+          <li><b>تخصيص فردي:</b> يمكن تعديل صلاحيات أو حد أي مستخدم بشكل منفصل من جدول المستخدمين.</li>
         </ul>
 
         <div style="margin-top: 18px; padding: 14px; background: var(--input-bg); border-radius: 12px; border: 1px dashed var(--card-border);">

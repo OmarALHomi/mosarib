@@ -40,8 +40,8 @@
             <textarea id="saJsonInput" rows="4" placeholder='{ "type": "service_account", "project_id": "mosarib", "private_key": "-----BEGIN PRIVATE KEY-----...", "client_email": "..." }' style="width: 100%; font-family: monospace; font-size: 11px;"></textarea>
           </div>
           <div style="display: flex; gap: 8px;">
-            <button class="btn" onclick="saveServiceAccountKey()">💾 حفظ وتفعيل المفتاح الآن</button>
-            <button class="btn btn-secondary" onclick="toggleServiceAccountModal()">إغلاق النافذة</button>
+            <button class="btn" style="width: auto; padding: 9px 20px; font-weight: 700;" onclick="saveServiceAccountKey()">💾 حفظ المفتاح</button>
+            <button class="btn btn-secondary" style="width: auto; padding: 9px 16px;" onclick="toggleServiceAccountModal()">إغلاق</button>
           </div>
           <div id="saSaveStatus" style="font-size: 12px; display: none;"></div>
         </div>
@@ -55,7 +55,7 @@
           <label for="pushTarget">الجهة المستهدفة:</label>
           <select id="pushTarget">
             <option value="ALL">جميع الهواتف والمستخدمين المسجلين</option>
-            <option value="TRIAL">مستخدمو النسخة التجريبية فقط (لتشجيع الاشتراك والترقية)</option>
+            <option value="TRIAL">مستخدمو النسخة التجريبية فقط</option>
             <option value="SUBSCRIBERS">المشتركون المفعّلون فقط</option>
           </select>
         </div>
@@ -65,23 +65,22 @@
         </div>
         <div class="form-group">
           <label for="pushBody">نص الإشعار:</label>
-          <textarea id="pushBody" rows="3" placeholder="اكتب نص الإشعار الذي سيرن ويظهر في ستارة الهاتف..."></textarea>
+          <textarea id="pushBody" rows="3" placeholder="اكتب نص الإشعار..."></textarea>
         </div>
         <div class="form-group">
           <label for="pushUrl">رابط يفتح عند الضغط على الإشعار (اختياري):</label>
-          <input type="url" id="pushUrl" placeholder="مثال: رابط تحديث، أو رابط واتساب للدعم">
+          <input type="url" id="pushUrl" placeholder="مثال: رابط تحديث أو واتساب">
         </div>
-        <button class="btn" id="btnSendPush" onclick="sendRealFcmPushNotification()">🚀 إرسال الإشعار الآن لهواتف المستخدمين</button>
+        <button class="btn" id="btnSendPush" style="width: auto; padding: 10px 24px; font-weight: 700;" onclick="sendRealFcmPushNotification()">🚀 إرسال الإشعار</button>
         <div id="pushStatus" style="margin-top: 12px; font-size: 13px; text-align: center; display: none;"></div>
       </div>
 
       <div class="card">
-        <div class="card-title">مميزات إشعارات ستارة الهاتف الحقيقية (FCM HTTP v1)</div>
-        <ul style="padding-right: 20px; line-height: 2.2; font-size: 14px; color: #B2DFDB;">
-          <li><b>🔔 تصل والتطبيق مغلق:</b> بفضل محرك FCM HTTP v1 الرسمي، يتكفل نظام Android مباشرة برن الهاتف وإظهار الإشعار برمز مُسَرِّب في الستارة العلوية حتى لو تم إغلاق التطبيق نهائياً.</li>
-          <li><b>⚡ إرسال سحابي هجين:</b> يرسل إشعار Google FCM المباشر للأجهزة، ويحفظه في قاعدة البيانات السحابية لضمان ظهوره أيضاً عند فتح التطبيق.</li>
-          <li><b>🎯 استهداف دقيق:</b> يمكنك إرسال إشعار لكافة المستخدمين أو لمستخدمي النسخة التجريبية فقط لدعوتهم للاشتراك السنوي/الشهري.</li>
-          <li><b>🧹 تنظيف تلقائي:</b> يقوم النظام تلقائياً بتنظيف التوكنات القديمة أو المحذوفة من الأجهزة لضمان سرعة وكفاءة البث.</li>
+        <div class="card-title">معلومات إشعارات FCM</div>
+        <ul style="padding-right: 20px; line-height: 2; font-size: 13.5px; color: var(--text-muted);">
+          <li><b>تصل والتطبيق مغلق:</b> يستقبل هاتف العميل الإشعار في الستارة العلوية عبر Google FCM مباشرة.</li>
+          <li><b>تخزين سحابي:</b> يحفظ الإشعار في قاعدة البيانات ليظهر أيضاً داخل صندوق الوارد بالتطبيق.</li>
+          <li><b>استهداف مرن:</b> إمكانية الإرسال لكافة المستخدمين أو لمجموعة محددة.</li>
         </ul>
       </div>
     </div>

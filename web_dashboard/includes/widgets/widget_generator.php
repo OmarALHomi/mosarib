@@ -17,7 +17,7 @@
             <option value="YEARLY">اشتراك سنوي (365 يوماً)</option>
           </select>
         </div>
-        <button class="btn" onclick="generateAndSaveKey()">توليد وحفظ في سحابة فايربيس</button>
+        <button class="btn" style="width: auto; padding: 10px 24px; font-weight: 700;" onclick="generateAndSaveKey()">⚡ توليد وحفظ</button>
 
         <div class="key-box" id="keyBox">
           <div style="font-size: 13px; color: var(--accent); font-weight: bold;">رمز التفعيل المقفل لهذا الهاتف:</div>
@@ -30,11 +30,11 @@
       </div>
 
       <div class="card">
-        <div class="card-title">حماية متقدمة ومكافحة التحايل</div>
-        <ul style="padding-right: 20px; line-height: 2.2; font-size: 14px; color: #B2DFDB;">
-          <li><b>تسجيل كافة المستخدمين:</b> يظهر في لوحتك كل من قام بفتح التطبيق بحساب Google ومعرف جهازه وعدد عملياته، حتى وإن لم يشترك بعد!</li>
-          <li><b>إيقاف فوري بنقرة واحدة:</b> إذا لاحظت أن شخصاً يتلاعب أو يكرر مسح البيانات، يمكنك إيقاف التطبيق عليه وحظره فوراً برقم جهازه أو إيميله.</li>
-          <li><b>قفل عتادي:</b> الكود يرتبط ببصمة الهاتف ولا يمكن تشغيله على هاتفين إطلاقاً.</li>
+        <div class="card-title">حماية التفعيل</div>
+        <ul style="padding-right: 20px; line-height: 2; font-size: 13.5px; color: var(--text-muted);">
+          <li><b>قفل عتادي:</b> يرتبط رمز التفعيل ببصمة الجهاز ولا يعمل على جهاز آخر.</li>
+          <li><b>سجل الأجهزة:</b> يتم تسجيل كافة الأجهزة المسجلة تلقائياً في شاشة المستخدمين.</li>
+          <li><b>إيقاف فوري:</b> يمكن حظر أو إلغاء تفعيل أي جهاز بضغطة زر واحدة.</li>
         </ul>
       </div>
     </div>

@@ -26,8 +26,8 @@
               <option value="MODERATOR">مشرف متابعة وقراءة فقط (Moderator)</option>
             </select>
           </div>
-          <button type="submit" class="btn" id="createAdminBtn" style="background: linear-gradient(135deg, #00897B, #004D40);">
-            إنشاء وتأمين حساب المسؤول
+          <button type="submit" class="btn" id="createAdminBtn" style="width: auto; padding: 10px 24px; font-weight: 700;">
+            ➕ إضافة مسؤول
           </button>
         </form>
       </div>

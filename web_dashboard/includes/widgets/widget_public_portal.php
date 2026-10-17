@@ -164,8 +164,8 @@
         </div>
 
         <div style="margin-top: 18px; display: flex; justify-content: flex-end;">
-          <button type="submit" class="btn" id="savePortalSettingsBtn" style="width: auto; padding: 14px 38px; font-size: 15px; font-weight: 800; background: linear-gradient(135deg, #00BFA5, #00838F); box-shadow: 0 4px 18px rgba(0, 191, 165, 0.4);">
-            💾 حفظ وتطبيق كافة تعديلات الموقع العام فوراً
+          <button type="submit" class="btn" id="savePortalSettingsBtn" style="width: auto; padding: 10px 24px; font-weight: 700;">
+            💾 حفظ
           </button>
         </div>
       </div>
@@ -192,8 +192,8 @@
             <label for="newsSummaryInput">ملخص وتفاصيل التقرير المنشور:</label>
             <textarea id="newsSummaryInput" rows="4" placeholder="اكتب ملخص الخبر الذي سيقرأه الزوار والمزارعون في الصفحة الرئيسية..." required></textarea>
           </div>
-          <button type="submit" class="btn" style="background: linear-gradient(135deg, #FFB300, #FF8F00); color: #000; font-weight: 800;">
-            نشر التقرير للعامة الآن
+          <button type="submit" class="btn" style="width: auto; padding: 10px 24px; font-weight: 700;">
+            📢 نشر
           </button>
         </form>
 
@@ -266,8 +266,8 @@
           </div>
 
           <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
-            <button type="submit" class="btn" id="btnSavePricing" style="width: auto; padding: 12px 30px; font-weight: 800; background: linear-gradient(135deg, #FFB300, #FF8F00); color: #000;">
-              💾 حفظ ونشر الأسعار والخصومات في فايربيس والتطبيق والموقع فوراً
+            <button type="submit" class="btn" id="btnSavePricing" style="width: auto; padding: 10px 24px; font-weight: 700;">
+              💾 حفظ
             </button>
           </div>
           <div id="pricingSaveStatus" style="margin-top: 10px; text-align: center; font-size: 13px; font-weight: bold; display: none;"></div>
@@ -275,14 +275,14 @@
       </div>
 
       <!-- Manage Payment Accounts & Wallets -->
-      <div class="card" style="border: 1px solid rgba(0, 191, 165, 0.4); margin-top: 24px;">
-        <div class="card-title">💳 إدارة حسابات وطرق الدفع والتحويل البنكي</div>
+      <div class="card" style="border: 1px solid var(--card-border); margin-top: 24px;">
+        <div class="card-title">💳 حسابات وطرق الدفع والتحويل</div>
         <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
-          الحسابات والمحافظ المسجلة هنا يتم رفعها ومزامنتها تلقائياً مع سحابة فايربيس، وتظهر للعملاء في نافذة طلب الاشتراك بالموقع الرسمي وفي شاشة التفعيل بالتطبيق مباشرة مع إمكانية النسخ الفوري.
+          يتم مزامنة هذه الحسابات تلقائياً مع واجهة الموقع وتطبيق الجوال.
         </p>
 
         <!-- Existing Accounts List -->
-        <div style="font-weight: 800; font-size: 14px; margin-bottom: 10px; color: #FFF;">قائمة الحسابات والمحافظ المتاحة حالياً:</div>
+        <div style="font-weight: 700; font-size: 14px; margin-bottom: 10px; color: var(--text-title);">الحسابات المتاحة حالياً:</div>
         <div id="adminPaymentMethodsList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 20px;">
           <div style="text-align: center; color: var(--text-muted); padding: 14px; grid-column: 1 / -1;">جاري تحميل الحسابات...</div>
         </div>
@@ -290,7 +290,7 @@
         <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;">
 
         <!-- Form to Add New Account -->
-        <div style="font-weight: 800; font-size: 14px; margin-bottom: 12px; color: var(--accent);">إضافة حساب أو محفظة بنكية جديدة:</div>
+        <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: var(--primary);">إضافة حساب جديد:</div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
           <div class="form-group" style="margin-bottom:0;">
             <label>اسم البنك أو المحفظة *</label>
@@ -306,7 +306,7 @@
           </div>
           <div class="form-group" style="margin-bottom:0;">
             <label>رقم الحساب / الآيبان / الهاتف *</label>
-            <input type="text" id="newPayAccountNumber" placeholder="مثال: 123456789 أو 773712030">
+            <input type="text" id="newPayAccountNumber" placeholder="مثال: 123456789">
           </div>
           <div class="form-group" style="margin-bottom:0;">
             <label>اسم صاحب الحساب *</label>
@@ -314,20 +314,20 @@
           </div>
           <div class="form-group" style="margin-bottom:0;">
             <label>رابط الشعار / الصورة (اختياري)</label>
-            <input type="url" id="newPayLogoUrl" placeholder="https://... (رابط صورة الشعار)">
+            <input type="url" id="newPayLogoUrl" placeholder="https://...">
           </div>
           <div class="form-group" style="margin-bottom:0;">
             <label>ملاحظات التحويل (اختياري)</label>
-            <input type="text" id="newPayNotes" placeholder="مثال: تحويل فوري عبر التطبيق">
+            <input type="text" id="newPayNotes" placeholder="مثال: تحويل فوري">
           </div>
         </div>
 
         <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap;">
-          <button type="button" class="btn" onclick="addNewPaymentMethod()" style="width: auto; padding: 10px 24px; font-weight: 800; background: linear-gradient(135deg, #00BFA5, #00838F);">
-            ➕ إضافة الحساب إلى القائمة
+          <button type="button" class="btn btn-secondary" onclick="addNewPaymentMethod()" style="width: auto; padding: 10px 20px; font-weight: 700;">
+            ➕ إضافة
           </button>
-          <button type="button" class="btn" onclick="saveAllPaymentMethods()" style="width: auto; padding: 10px 28px; font-weight: 800; background: linear-gradient(135deg, #FFB300, #FF8F00); color: #000;">
-            💾 حفظ ونشر الحسابات في فايربيس
+          <button type="button" class="btn" onclick="saveAllPaymentMethods()" style="width: auto; padding: 10px 24px; font-weight: 700;">
+            💾 حفظ
           </button>
         </div>
       </div>

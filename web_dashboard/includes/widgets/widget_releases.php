@@ -27,7 +27,7 @@
               تفعيل كتحديث إجباري وقفل كافة النسخ الأقدم فوراً في فايربيس
             </label>
           </div>
-          <button type="submit" class="btn" id="uploadApkBtn">رفع التطبيق وإنشاء رابط التحميل المباشر</button>
+          <button type="submit" class="btn" id="uploadApkBtn" style="width: auto; padding: 10px 24px; font-weight: 700;">📤 رفع التحديث</button>
           <div id="uploadProgress" style="display: none; margin-top: 14px; text-align: center;">
             <div style="font-size: 13px; color: var(--accent);">جاري رفع ملف الـ APK وتثبيته على السيرفر...</div>
           </div>
@@ -40,7 +40,7 @@
           <label for="externalApkUrl">رابط التحميل المباشر:</label>
           <input type="url" id="externalApkUrl" placeholder="https://example.com/mosarib.apk">
         </div>
-        <button class="btn btn-outline" onclick="setExternalCloudLink()">نشر الرابط الخارجي للمستخدمين</button>
+        <button class="btn btn-outline" style="width: auto; padding: 10px 20px;" onclick="setExternalCloudLink()">🔗 نشر الرابط</button>
       </div>
 
       <div class="card">
