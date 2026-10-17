@@ -601,7 +601,7 @@ object LicenseManager {
         customPlanText: String? = null,
         paymentMethod: String = ""
     ): String {
-        val planText = customPlanText ?: if (requestedPlan == SubscriptionPlan.MONTHLY) "اشتراك شهري 10$ (30 يوماً)" else "اشتراك سنوي 80$ (365 يوماً - وفر 40$)"
+        val planText = customPlanText ?: if (requestedPlan == SubscriptionPlan.MONTHLY) "اشتراك شهري (30 يوماً)" else "اشتراك سنوي (365 يوماً)"
         val devModel = getDeviceModelName()
         val nameLine = if (subscriberName.isNotBlank()) "اسم المشترك: $subscriberName\n" else ""
         val regionLine = if (region.isNotBlank()) "المحافظة والمنطقة: $region\n" else ""
@@ -637,7 +637,7 @@ $deviceCode
         val paymentLine = if (paymentMethod.isNotBlank()) "طريقة الدفع / المحفظة: $paymentMethod\n" else ""
         val receiptLine = if (receiptNumber.isNotBlank()) "رقم سند التحويل / الإيداع: $receiptNumber\n" else ""
         val msg = if (isUpgrade) {
-            val upgradeText = customPlanText ?: "اشتراك سنوي 80$ (365 يوماً)"
+            val upgradeText = customPlanText ?: "اشتراك سنوي (365 يوماً)"
             """
 السلام عليكم يا باشمهندس عمر،
 أود ترقية اشتراكي في تطبيق المُسَرِّب من شهري إلى $upgradeText.
@@ -646,7 +646,7 @@ ${nameLine}${regionLine}${paymentLine}${receiptLine}نوع الجوال: $devMod
 $deviceCode
             """.trimIndent()
         } else {
-            val planText = customPlanText ?: if (requestedPlan == SubscriptionPlan.MONTHLY) "اشتراك شهري 10$ (30 يوماً)" else "اشتراك سنوي 80$ (365 يوماً)"
+            val planText = customPlanText ?: if (requestedPlan == SubscriptionPlan.MONTHLY) "اشتراك شهري (30 يوماً)" else "اشتراك سنوي (365 يوماً)"
             """
 السلام عليكم يا باشمهندس عمر،
 أود تجديد اشتراكي في تطبيق المُسَرِّب للآبار والري ($planText).

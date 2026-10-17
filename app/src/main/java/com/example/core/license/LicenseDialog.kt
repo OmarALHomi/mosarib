@@ -98,10 +98,12 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.PaddingValues
 import com.example.core.util.GoogleDriveBackupHelper
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.ApiException
@@ -126,11 +128,12 @@ fun LicenseDialog(
     var phone by remember { mutableStateOf(UserDeviceTracker.getRegisteredPhone(context)) }
     var region by remember { mutableStateOf("") }
     var receiptNumber by remember { mutableStateOf("") }
-    var selectedPaymentMethod by remember { mutableStateOf("بنك الكريمي للتمويل الأصغر (YER)") }
+    var selectedPaymentMethod by remember { mutableStateOf("") }
     var isPaymentDropdownExpanded by remember { mutableStateOf(false) }
     var paymentAccounts by remember { mutableStateOf<List<FirebaseLicenseService.PaymentAccount>>(emptyList()) }
     var isPaymentAccountsExpanded by remember { mutableStateOf(false) }
     var pricing by remember { mutableStateOf(FirebaseLicenseService.SubscriptionPricing()) }
+    var isSyncingConfig by remember { mutableStateOf(false) }
     var enteredKey by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var requestSuccessMessage by remember { mutableStateOf<String?>(null) }
@@ -139,16 +142,22 @@ fun LicenseDialog(
     var showNotRegisteredDialog by remember { mutableStateOf(false) }
     var unregisteredEmailAttempt by remember { mutableStateOf("") }
 
-    LaunchedEffect(Unit) {
+    val coroutineScope = rememberCoroutineScope()
+
+    suspend fun refreshConfig() {
+        isSyncingConfig = true
         val methods = FirebaseLicenseService.getPaymentMethods(context)
         paymentAccounts = methods
-        if (methods.isNotEmpty()) {
+        if (methods.isNotEmpty() && selectedPaymentMethod.isBlank()) {
             selectedPaymentMethod = "${methods.first().bankName} (${methods.first().accountCurrency})"
         }
         pricing = FirebaseLicenseService.getSubscriptionPricing(context)
+        isSyncingConfig = false
     }
 
-    val coroutineScope = rememberCoroutineScope()
+    LaunchedEffect(Unit) {
+        refreshConfig()
+    }
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
         confirmValueChange = { sheetValue ->
@@ -676,7 +685,7 @@ fun LicenseDialog(
             // Payment Method Selector (Combobox / Dropdown)
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
-                    value = selectedPaymentMethod.ifBlank { "اختر البنك أو المحفظة المحول منها" },
+                    value = selectedPaymentMethod.ifBlank { if (isSyncingConfig) "جاري جلب طرق الدفع..." else "اختر طريقة الدفع / المحفظة" },
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("طريقة التحويل / المحفظة البنكية *") },
@@ -709,27 +718,38 @@ fun LicenseDialog(
                     onDismissRequest = { isPaymentDropdownExpanded = false },
                     modifier = Modifier.fillMaxWidth(0.9f)
                 ) {
-                    val availableMethods = if (paymentAccounts.isNotEmpty()) paymentAccounts else listOf(
-                        FirebaseLicenseService.PaymentAccount(bankName = "بنك الكريمي للتمويل الأصغر", accountNumber = "123456789", accountCurrency = "YER"),
-                        FirebaseLicenseService.PaymentAccount(bankName = "محفظة جوالي (Jawali)", accountNumber = "773712030", accountCurrency = "YER"),
-                        FirebaseLicenseService.PaymentAccount(bankName = "بنك التضامن الإسلامي", accountNumber = "987654321", accountCurrency = "USD"),
-                        FirebaseLicenseService.PaymentAccount(bankName = "محفظة ون كاش (OneCash)", accountNumber = "773712030", accountCurrency = "YER")
-                    )
-
-                    availableMethods.forEach { acc ->
+                    if (paymentAccounts.isNotEmpty()) {
+                        paymentAccounts.forEach { acc ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(acc.bankName, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                                        Text("${acc.accountNumber} (${acc.accountCurrency})", fontSize = 11.sp, color = PrimaryTeal)
+                                    }
+                                },
+                                onClick = {
+                                    selectedPaymentMethod = "${acc.bankName} (${acc.accountCurrency})"
+                                    isPaymentDropdownExpanded = false
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.AccountBalance, contentDescription = null, tint = AccentGold, modifier = Modifier.size(16.dp))
+                                }
+                            )
+                        }
+                    } else {
                         DropdownMenuItem(
                             text = {
-                                Column {
-                                    Text(acc.bankName, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
-                                    Text("${acc.accountNumber} (${acc.accountCurrency})", fontSize = 11.sp, color = PrimaryTeal)
-                                }
+                                Text(
+                                    if (isOnline) "جاري جلب طرق الدفع من الخادم..." else "يلزم توفر إنترنت لجلب الحسابات (إضغط للتحديث)",
+                                    fontSize = 11.5.sp,
+                                    color = MaterialTheme.colorScheme.error
+                                )
                             },
                             onClick = {
-                                selectedPaymentMethod = "${acc.bankName} (${acc.accountCurrency})"
-                                isPaymentDropdownExpanded = false
+                                coroutineScope.launch { refreshConfig() }
                             },
                             leadingIcon = {
-                                Icon(Icons.Default.AccountBalance, contentDescription = null, tint = AccentGold, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Refresh, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(16.dp))
                             }
                         )
                     }
@@ -797,6 +817,14 @@ fun LicenseDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    val monthlyPriceText = if (pricing.monthly.price.isNotBlank()) {
+                        "${pricing.monthly.price}${pricing.monthly.currency} شهرياً"
+                    } else if (isSyncingConfig) {
+                        "جاري التحميل..."
+                    } else {
+                        "باقة 30 يوماً"
+                    }
+
                     Button(
                         onClick = { selectedPlan = LicenseManager.SubscriptionPlan.MONTHLY },
                         modifier = Modifier.weight(1f),
@@ -808,11 +836,23 @@ fun LicenseDialog(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("اشتراك شهري", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            Text("${pricing.monthly.price}${pricing.monthly.currency} شهرياً", fontSize = 10.sp)
+                            Text(monthlyPriceText, fontSize = 10.sp)
                             if (pricing.monthly.discountText.isNotBlank()) {
                                 Text(pricing.monthly.discountText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
+                    }
+
+                    val yearlyPriceText = if (pricing.yearly.price.isNotBlank()) {
+                        if (pricing.yearly.originalPrice.isNotBlank()) {
+                            "${pricing.yearly.price}${pricing.yearly.currency} (بدلاً من ${pricing.yearly.originalPrice}${pricing.yearly.currency})"
+                        } else {
+                            "${pricing.yearly.price}${pricing.yearly.currency} سنوياً"
+                        }
+                    } else if (isSyncingConfig) {
+                        "جاري التحميل..."
+                    } else {
+                        "باقة 365 يوماً"
                     }
 
                     Button(
@@ -826,14 +866,36 @@ fun LicenseDialog(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("اشتراك سنوي ⭐", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            val yearlySubText = if (pricing.yearly.originalPrice.isNotBlank()) {
-                                "${pricing.yearly.price}${pricing.yearly.currency} (بدلاً من ${pricing.yearly.originalPrice}${pricing.yearly.currency})"
-                            } else {
-                                "${pricing.yearly.price}${pricing.yearly.currency} سنوياً"
-                            }
-                            Text(yearlySubText, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold)
+                            Text(yearlyPriceText, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold)
                             if (pricing.yearly.discountText.isNotBlank()) {
                                 Text(pricing.yearly.discountText, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                if (!pricing.isConfigured) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isDark) Color(0xFF1C242B) else Color(0xFFF1F5F9),
+                        border = BorderStroke(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = if (isOnline) "جاري تحديث الأسعار من السيرفر..." else "الأسعار تتطلب اتصالاً بالإنترنت لأول مرة",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp)
+                            )
+                            IconButton(
+                                onClick = { coroutineScope.launch { refreshConfig() } },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = "تحديث الأسعار", tint = PrimaryTeal, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -972,85 +1034,105 @@ fun LicenseDialog(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            val displayAccounts = if (paymentAccounts.isNotEmpty()) paymentAccounts else listOf(
-                                FirebaseLicenseService.PaymentAccount(
-                                    bankName = "بنك الكريمي للتمويل الأصغر",
-                                    accountNumber = "123456789",
-                                    accountCurrency = "YER",
-                                    accountHolder = "عمر الحومي",
-                                    notes = "إيداع أو تحويل عبر كريمي جوال"
-                                ),
-                                FirebaseLicenseService.PaymentAccount(
-                                    bankName = "محفظة جوالي (Jawali)",
-                                    accountNumber = "773712030",
-                                    accountCurrency = "YER",
-                                    accountHolder = "عمر الحومي",
-                                    notes = "تحويل فوري مباشر"
-                                )
-                            )
+                            if (paymentAccounts.isNotEmpty()) {
+                                paymentAccounts.forEach { acc ->
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isDark) Color(0xFF142026) else Color(0xFFFFFFFF),
+                                        border = BorderStroke(1.dp, if (isDark) Color(0xFF263843) else Color(0xFFE2E8F0))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(10.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = acc.bankName,
+                                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                                                )
+                                                Text(
+                                                    text = "رقم الحساب: ${acc.accountNumber} (${acc.accountCurrency})",
+                                                    style = MaterialTheme.typography.bodySmall.copy(
+                                                        color = PrimaryTeal,
+                                                        fontWeight = FontWeight.ExtraBold
+                                                    )
+                                                )
+                                                if (acc.accountHolder.isNotBlank()) {
+                                                    Text(
+                                                        text = "باسم: ${acc.accountHolder}",
+                                                        style = MaterialTheme.typography.labelSmall.copy(
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            fontSize = 10.sp
+                                                        )
+                                                    )
+                                                }
+                                                if (acc.notes.isNotBlank()) {
+                                                    Text(
+                                                        text = acc.notes,
+                                                        style = MaterialTheme.typography.labelSmall.copy(
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            fontSize = 9.5.sp
+                                                        )
+                                                    )
+                                                }
+                                            }
 
-                            displayAccounts.forEach { acc ->
+                                            IconButton(
+                                                onClick = {
+                                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                    val clip = ClipData.newPlainText(acc.bankName, acc.accountNumber)
+                                                    clipboard.setPrimaryClip(clip)
+                                                    Toast.makeText(context, "تم نسخ رقم حساب ${acc.bankName}", Toast.LENGTH_SHORT).show()
+                                                }
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.ContentCopy,
+                                                    contentDescription = "نسخ رقم الحساب",
+                                                    tint = PrimaryTeal,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 4.dp),
                                     shape = RoundedCornerShape(8.dp),
-                                    color = if (isDark) Color(0xFF142026) else Color(0xFFFFFFFF),
-                                    border = BorderStroke(1.dp, if (isDark) Color(0xFF263843) else Color(0xFFE2E8F0))
+                                    color = if (isDark) Color(0xFF1E2830) else Color(0xFFF8FAFC),
+                                    border = BorderStroke(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0))
                                 ) {
-                                    Row(
+                                    Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(10.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                            .padding(12.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = acc.bankName,
-                                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                                            )
-                                            Text(
-                                                text = "رقم الحساب: ${acc.accountNumber} (${acc.accountCurrency})",
-                                                style = MaterialTheme.typography.bodySmall.copy(
-                                                    color = PrimaryTeal,
-                                                    fontWeight = FontWeight.ExtraBold
-                                                )
-                                            )
-                                            if (acc.accountHolder.isNotBlank()) {
-                                                Text(
-                                                    text = "باسم: ${acc.accountHolder}",
-                                                    style = MaterialTheme.typography.labelSmall.copy(
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        fontSize = 10.sp
-                                                    )
-                                                )
-                                            }
-                                            if (acc.notes.isNotBlank()) {
-                                                Text(
-                                                    text = acc.notes,
-                                                    style = MaterialTheme.typography.labelSmall.copy(
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        fontSize = 9.5.sp
-                                                    )
-                                                )
-                                            }
-                                        }
-
-                                        IconButton(
-                                            onClick = {
-                                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                                val clip = ClipData.newPlainText(acc.bankName, acc.accountNumber)
-                                                clipboard.setPrimaryClip(clip)
-                                                Toast.makeText(context, "تم نسخ رقم حساب ${acc.bankName}", Toast.LENGTH_SHORT).show()
-                                            }
+                                        Text(
+                                            text = if (isOnline) "جاري مزامنة بيانات حسابات الدفع من السيرفر..." else "يلزم توفر إنترنت لأول مرة لجلب بيانات حسابات الدفع المعتمدة",
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            ),
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        OutlinedButton(
+                                            onClick = { coroutineScope.launch { refreshConfig() } },
+                                            modifier = Modifier.height(32.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
                                         ) {
-                                            Icon(
-                                                Icons.Default.ContentCopy,
-                                                contentDescription = "نسخ رقم الحساب",
-                                                tint = PrimaryTeal,
-                                                modifier = Modifier.size(18.dp)
-                                            )
+                                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("مزامنة الآن 🔄", fontSize = 11.sp)
                                         }
                                     }
                                 }

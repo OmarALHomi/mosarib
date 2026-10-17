@@ -392,43 +392,9 @@ object FirebaseLicenseService {
     /**
      * Fetches official payment methods and accounts configured from Admin Dashboard.
      * Caches data locally in SharedPreferences for 100% offline access when network is unavailable.
+     * ZERO hardcoded bank/wallet accounts: returns strictly what comes from Firebase / local cache.
      */
     suspend fun getPaymentMethods(context: Context? = null): List<PaymentAccount> = withContext(Dispatchers.IO) {
-        val defaults = listOf(
-            PaymentAccount(
-                id = "PAY_1",
-                bankName = "بنك الكريمي للتمويل الأصغر الإسلامي",
-                accountNumber = "123456789",
-                accountCurrency = "YER",
-                accountHolder = "عمر الحومي",
-                notes = "إيداع أو تحويل عبر تطبيق كريمي جوال"
-            ),
-            PaymentAccount(
-                id = "PAY_2",
-                bankName = "محفظة جوالي (Jawali)",
-                accountNumber = "773712030",
-                accountCurrency = "YER",
-                accountHolder = "عمر الحومي",
-                notes = "تحويل فوري مباشر"
-            ),
-            PaymentAccount(
-                id = "PAY_3",
-                bankName = "بنك التضامن الإسلامي",
-                accountNumber = "987654321",
-                accountCurrency = "USD",
-                accountHolder = "عمر الحومي",
-                notes = "حساب دولار أو ما يعادله"
-            ),
-            PaymentAccount(
-                id = "PAY_4",
-                bankName = "محفظة ون كاش (OneCash)",
-                accountNumber = "773712030",
-                accountCurrency = "YER",
-                accountHolder = "عمر الحومي",
-                notes = "تحويل فوري عبر محفظة ون كاش"
-            )
-        )
-
         val sp = context?.getSharedPreferences("mosarib_license_prefs", Context.MODE_PRIVATE)
         val cachedJson = sp?.getString("cached_payment_methods", null)
         val cachedList = if (!cachedJson.isNullOrBlank()) parsePaymentMethodsJson(cachedJson) else null
@@ -442,47 +408,50 @@ object FirebaseLicenseService {
                     return@withContext list
                 }
             }
-            if (!cachedList.isNullOrEmpty()) cachedList else defaults
+            cachedList ?: emptyList()
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching payment methods: ${e.message}")
-            if (!cachedList.isNullOrEmpty()) cachedList else defaults
+            cachedList ?: emptyList()
         }
     }
 
     data class PlanPricingInfo(
-        val price: String = "10",
+        val price: String = "",
         val originalPrice: String = "",
         val discountText: String = "",
         val currency: String = "$"
     )
 
     data class SubscriptionPricing(
-        val monthly: PlanPricingInfo = PlanPricingInfo(price = "10", originalPrice = "", discountText = "", currency = "$"),
-        val yearly: PlanPricingInfo = PlanPricingInfo(price = "80", originalPrice = "120", discountText = "وفر 33% (خصم 40$)", currency = "$")
-    )
+        val monthly: PlanPricingInfo = PlanPricingInfo(),
+        val yearly: PlanPricingInfo = PlanPricingInfo()
+    ) {
+        val isConfigured: Boolean
+            get() = monthly.price.isNotBlank() || yearly.price.isNotBlank()
+    }
 
-    private fun parseSubscriptionPricingJson(jsonStr: String, defaults: SubscriptionPricing): SubscriptionPricing {
+    private fun parseSubscriptionPricingJson(jsonStr: String): SubscriptionPricing {
         val root = JSONObject(jsonStr)
         val mObj = root.optJSONObject("monthly")
         val yObj = root.optJSONObject("yearly")
 
         val monthly = if (mObj != null) {
             PlanPricingInfo(
-                price = mObj.optString("price", "10"),
+                price = mObj.optString("price", ""),
                 originalPrice = mObj.optString("original_price", mObj.optString("originalPrice", "")),
                 discountText = mObj.optString("discount_text", mObj.optString("discountText", "")),
                 currency = mObj.optString("currency", "$")
             )
-        } else defaults.monthly
+        } else PlanPricingInfo()
 
         val yearly = if (yObj != null) {
             PlanPricingInfo(
-                price = yObj.optString("price", "80"),
-                originalPrice = yObj.optString("original_price", yObj.optString("originalPrice", "120")),
-                discountText = yObj.optString("discount_text", yObj.optString("discountText", "وفر 33% (خصم 40$)")),
+                price = yObj.optString("price", ""),
+                originalPrice = yObj.optString("original_price", yObj.optString("originalPrice", "")),
+                discountText = yObj.optString("discount_text", yObj.optString("discountText", "")),
                 currency = yObj.optString("currency", "$")
             )
-        } else defaults.yearly
+        } else PlanPricingInfo()
 
         return SubscriptionPricing(monthly = monthly, yearly = yearly)
     }
@@ -490,27 +459,28 @@ object FirebaseLicenseService {
     /**
      * Fetches current subscription pricing and discounts from Firebase RTDB (/subscription_pricing.json).
      * Automatically caches the pricing locally in SharedPreferences for seamless offline display.
-     * When offline, returns the last synced admin pricing, or standard defaults if never connected.
+     * ZERO hardcoded pricing: strictly loads from Firebase / local cache.
      */
     suspend fun getSubscriptionPricing(context: Context? = null): SubscriptionPricing = withContext(Dispatchers.IO) {
-        val defaults = SubscriptionPricing()
         val sp = context?.getSharedPreferences("mosarib_license_prefs", Context.MODE_PRIVATE)
         val cachedJson = sp?.getString("cached_subscription_pricing", null)
         val cachedPricing = if (!cachedJson.isNullOrBlank()) {
-            try { parseSubscriptionPricingJson(cachedJson, defaults) } catch (_: Exception) { null }
+            try { parseSubscriptionPricingJson(cachedJson) } catch (_: Exception) { null }
         } else null
 
         try {
             val jsonStr = fetchJson("subscription_pricing.json")
             if (jsonStr != null && jsonStr.isNotBlank()) {
-                val parsed = parseSubscriptionPricingJson(jsonStr, defaults)
-                sp?.edit()?.putString("cached_subscription_pricing", jsonStr)?.apply()
-                return@withContext parsed
+                val parsed = parseSubscriptionPricingJson(jsonStr)
+                if (parsed.isConfigured) {
+                    sp?.edit()?.putString("cached_subscription_pricing", jsonStr)?.apply()
+                    return@withContext parsed
+                }
             }
-            cachedPricing ?: defaults
+            cachedPricing ?: SubscriptionPricing()
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching subscription pricing: ${e.message}")
-            cachedPricing ?: defaults
+            cachedPricing ?: SubscriptionPricing()
         }
     }
 
