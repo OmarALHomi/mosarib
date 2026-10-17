@@ -1214,8 +1214,6 @@
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
   }
 
-  let adminPaymentMethods = [];
-
   function renderAdminPaymentMethods() {
     const cont = document.getElementById("adminPaymentMethodsList");
     if (!cont) return;
@@ -1338,16 +1336,6 @@
       (r.deviceCode && r.deviceCode.toLowerCase().includes(q))
     );
     renderRequestsTable(filtered);
-  }
-
-  function exportRequestsCSV() {
-    if (allRequests.length === 0) return alert("لا توجد طلبات لتصديرها");
-    let csv = "\uFEFFتاريخ الطلب,اسم المشترك,الهاتف,الباقة,كود الجهاز,الموديل,الحالة\n";
-    allRequests.forEach(r => {
-      const dateStr = new Date(r.timestamp || Date.now()).toLocaleString('ar-EG');
-      csv += `"${dateStr}","${r.subscriberName || ''}","${r.phone || ''}","${r.plan || 'MONTHLY'}","${r.deviceCode || ''}","${r.deviceModel || ''}","${r.status || 'PENDING'}"\n`;
-    });
-    downloadCSV(csv, "mosarib_subscription_requests.csv");
   }
 
   function setUserFilter(filter) {
@@ -1818,37 +1806,6 @@
     document.body.removeChild(link);
   }
 
-  // --- Theme Toggle Logic ---
-  function initTheme() {
-    try {
-      const savedTheme = localStorage.getItem('mosarib_admin_theme') || 'dark';
-      applyTheme(savedTheme);
-    } catch(e) {
-      applyTheme('dark');
-    }
-  }
-
-  function applyTheme(theme) {
-    const icon = document.getElementById('themeIcon');
-    const label = document.getElementById('themeLabel');
-    if (theme === 'light') {
-      document.documentElement.setAttribute('data-theme', 'light');
-      if (icon) icon.textContent = '🌙';
-      if (label) label.textContent = 'الوضع الليلي';
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-      if (icon) icon.textContent = '☀️';
-      if (label) label.textContent = 'الوضع الفاتح';
-    }
-    try {
-      localStorage.setItem('mosarib_admin_theme', theme);
-    } catch(e) {}
-  }
-
-  function toggleTheme() {
-    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    applyTheme(isLight ? 'dark' : 'light');
-  }
 
   // Initial load
   initTheme();

@@ -69,9 +69,9 @@
   </div>
 
   <!-- Unified Modular Scripts -->
-  <script src="assets/js/firebase-api.js"></script>
-  <script src="assets/js/admin-auth.js"></script>
-  <script src="assets/js/admin-core.js"></script>
+  <script src="assets/js/firebase-api.js?v=<?= @filemtime(__DIR__ . '/assets/js/firebase-api.js') ?: time() ?>"></script>
+  <script src="assets/js/admin-auth.js?v=<?= @filemtime(__DIR__ . '/assets/js/admin-auth.js') ?: time() ?>"></script>
+  <script src="assets/js/admin-core.js?v=<?= @filemtime(__DIR__ . '/assets/js/admin-core.js') ?: time() ?>"></script>
 
 </body>
 </html>
