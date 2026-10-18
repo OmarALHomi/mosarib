@@ -464,38 +464,17 @@ fun MainApp(
             }
 
             if (showSpecialWarningDialog && specialDeviceWarning != null) {
-                AlertDialog(
-                    onDismissRequest = { showSpecialWarningDialog = false },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            tint = Color(0xFFF59E0B),
-                            modifier = Modifier.size(32.dp)
-                        )
-                    },
-                    title = {
-                        Text(
-                            text = "تنبيه خاص من إدارة التطبيق",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            textAlign = TextAlign.Center
-                        )
-                    },
-                    text = {
-                        Text(
-                            text = specialDeviceWarning!!,
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center
-                        )
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = { showSpecialWarningDialog = false },
-                            colors = ButtonDefaults.buttonColors(containerColor = com.example.ui.theme.PrimaryTeal)
-                        ) {
-                            Text("حسناً، فهمت", fontWeight = FontWeight.Bold)
-                        }
-                    }
+                BroadcastAnnouncementDialog(
+                    broadcast = AppBroadcast(
+                        id = "SPECIAL_DEVICE_WARN",
+                        title = "تنبيه وتوجيه فني خاص بهذا الجهاز",
+                        message = specialDeviceWarning!!,
+                        type = "WARNING",
+                        actionText = "حسناً، فهمت ذلك",
+                        actionUrl = "",
+                        publishedAt = System.currentTimeMillis()
+                    ),
+                    onDismiss = { showSpecialWarningDialog = false }
                 )
             }
 
