@@ -16,13 +16,14 @@ require_once __DIR__ . '/api/config.php';
 // 1. Load Live Portal Settings (Sync with Firebase or fallback to local JSON)
 $settingsFile = __DIR__ . '/data/portal_settings.json';
 $ps = [
-    'active_region_name' => 'تعز - الحيمة العليا',
-    'avg_hourly_price' => 7500,
-    'min_hourly_price' => 5500,
-    'max_hourly_price' => 9500,
+    'active_region_name' => 'الحيمة العليا - تعز',
+    'avg_hourly_price' => 18000,
+    'min_hourly_price' => 1500,
+    'max_hourly_price' => 25000,
     'currency_symbol' => 'ريال',
     'water_status' => 'GOOD',
     'water_status_text' => 'مستقر ومتاح في معظم المناطق الزراعية',
+    'rates_note' => 'الأسعار تختلف بحسب عمق البئر ونوع الطاقة المستخدمة',
     'hero_badge' => 'المنظومة الميدانية لإدارة مياه الآبار',
     'hero_title' => 'مُسَرِّب • حساب دقيق لمياه وساعات الري وحصص المزارعين',
     'hero_subtitle' => 'تطبيق ذكي خفيف يعمل بدون إنترنت (Offline-First)، يدير جلسات الري بالثانية والدقيقة، يرسل سندات القبض عبر واتساب، ويحفظ بياناتك بأمان على Google Drive.',
@@ -44,11 +45,11 @@ if (file_exists($settingsFile)) {
 // 2. Load Subscription Pricing
 $pricingFile = __DIR__ . '/data/subscription_pricing.json';
 $pricing = file_exists($pricingFile) ? (json_decode(file_get_contents($pricingFile), true) ?: []) : [];
-$monthlyPrice = $pricing['monthly']['price'] ?? '10';
+$monthlyPrice = $pricing['monthly']['price'] ?? '8';
 $monthlyCurrency = $pricing['monthly']['currency'] ?? '$';
-$yearlyPrice = $pricing['yearly']['price'] ?? '80';
-$yearlyOrig = $pricing['yearly']['original_price'] ?? '120';
-$yearlyDisc = $pricing['yearly']['discount_text'] ?? 'وفر 33%';
+$yearlyPrice = $pricing['yearly']['price'] ?? '75';
+$yearlyOrig = $pricing['yearly']['original_price'] ?? '115';
+$yearlyDisc = $pricing['yearly']['discount_text'] ?? 'وفر 35% (خصم 40$)';
 $yearlyCurrency = $pricing['yearly']['currency'] ?? '$';
 
 // 3. Load Payment Methods
@@ -128,66 +129,76 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
 
   <!-- Hero Section -->
   <section class="hero container">
-    <div class="hero-pill" id="heroBadgeEl">
-      <span>💧</span>
-      <span id="heroBadgeText"><?= htmlspecialchars($ps['hero_badge']) ?></span>
-    </div>
-    <h1 id="heroTitleText"><?= htmlspecialchars($ps['hero_title']) ?></h1>
-    <p id="heroSubtitleText"><?= htmlspecialchars($ps['hero_subtitle']) ?></p>
+    <div class="hero-grid">
+      <div class="hero-content">
+        <div class="hero-pill" id="heroBadgeEl">
+          <span>💧</span>
+          <span id="heroBadgeText"><?= htmlspecialchars($ps['hero_badge']) ?></span>
+        </div>
+        <h1 id="heroTitleText"><?= htmlspecialchars($ps['hero_title']) ?></h1>
+        <p id="heroSubtitleText"><?= htmlspecialchars($ps['hero_subtitle']) ?></p>
 
-    <div class="hero-cta">
-      <a href="api/download.php" class="btn-primary" onclick="trackDownload()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        <span>تحميل التطبيق مجاناً (APK)</span>
-      </a>
-      <button onclick="openModal('YEARLY')" class="btn-secondary">
-        <span>طلب تفعيل الترخيص ⚡</span>
-      </button>
-      <?php if (!empty($ps['contact_whatsapp'])): ?>
-      <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>" target="_blank" class="btn-outline">
-        <span>محادثة واتساب 💬</span>
-      </a>
-      <?php endif; ?>
+        <div class="hero-cta">
+          <a href="api/download.php" class="btn-primary" onclick="trackDownload()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>تحميل التطبيق مجاناً (APK)</span>
+          </a>
+          <button onclick="openModal('YEARLY')" class="btn-secondary">
+            <span>طلب تفعيل الترخيص ⚡</span>
+          </button>
+          <?php if (!empty($ps['contact_whatsapp'])): ?>
+          <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>" target="_blank" class="btn-outline">
+            <span>محادثة واتساب 💬</span>
+          </a>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <div class="hero-mockup-frame">
+          <img src="assets/images/hero_phone_mockup.jpg" alt="تطبيق مُسَرِّب على الهاتف الذكي" class="hero-mockup-img" loading="eager">
+        </div>
+      </div>
     </div>
 
     <div class="trust-badges">
-      <div class="trust-item"><span>⚡</span> <span>يعمل 100% بدون إنترنت</span></div>
-      <div class="trust-item"><span>🧾</span> <span>سندات قبض فورية عبر واتساب</span></div>
-      <div class="trust-item"><span>☁️</span> <span>نسخ احتياطي آمن على Google Drive</span></div>
+      <div class="trust-item"><span class="trust-icon">⚡</span> <span>يعمل 100% بدون إنترنت</span></div>
+      <div class="trust-item"><span class="trust-icon">🧾</span> <span>سندات قبض فورية عبر واتساب</span></div>
+      <div class="trust-item"><span class="trust-icon">☁️</span> <span>نسخ احتياطي آمن على Google Drive</span></div>
     </div>
   </section>
 
   <!-- Hourly Rates Strip -->
   <?php if (!empty($ps['show_rates_section'])): ?>
-  <div class="container" id="rates" style="margin-bottom: 25px;">
+  <div class="container" id="rates" style="margin-bottom: 35px;">
     <div class="rates-strip">
-      <div class="rates-location">
+      <div class="rates-col rates-location">
         <div class="rates-location-icon">📍</div>
         <div>
-          <div style="font-size: 11.5px; color: var(--text-muted);">المنطقة الجغرافية المعتمدة:</div>
-          <strong style="font-size: 15px; color: var(--text-main);" id="regionNameEl"><?= htmlspecialchars($ps['active_region_name']) ?></strong>
+          <div class="rates-sub-lbl">المنطقة الجغرافية المعتمدة:</div>
+          <strong class="rates-reg-name" id="regionNameEl"><?= htmlspecialchars($ps['active_region_name']) ?></strong>
         </div>
       </div>
-      <div class="rates-prices">
-        <div class="price-item">
-          <div class="price-item-val" id="avgPriceEl"><?= number_format($ps['avg_hourly_price']) ?></div>
-          <div class="price-item-lbl">متوسط سعر الساعة (<?= htmlspecialchars($ps['currency_symbol']) ?>)</div>
+      <div class="rates-col rates-prices">
+        <div class="rates-main-price">
+          <span class="price-item-val" id="avgPriceEl"><?= number_format($ps['avg_hourly_price']) ?></span>
+          <span class="price-item-cur"><?= htmlspecialchars($ps['currency_symbol']) ?></span>
         </div>
-        <div class="price-item">
-          <div class="price-item-val" style="color: var(--text-body); font-size: 18px;" id="minPriceEl"><?= number_format($ps['min_hourly_price']) ?> - <?= number_format($ps['max_hourly_price']) ?></div>
-          <div class="price-item-lbl">النطاق السعري المسجل</div>
-        </div>
-        <div class="price-item">
-          <div class="price-item-val" style="color: var(--success); font-size: 15px;" id="waterStatusEl">💧 <?= htmlspecialchars($ps['water_status_text'] ?? 'مستقر ومتوفر') ?></div>
-          <div class="price-item-lbl">حالة منسوب المياه</div>
+        <div class="price-item-lbl">متوسط سعر الساعة</div>
+        <div class="rates-range-tag" id="minPriceEl">
+          <span>أعلى: <?= number_format($ps['max_hourly_price']) ?> ريال</span>
+          <span class="rates-sep">•</span>
+          <span>أقل: <?= number_format($ps['min_hourly_price']) ?> ريال</span>
         </div>
       </div>
+      <div class="rates-col rates-status-box">
+        <div class="rates-status-pill" id="waterStatusEl">💧 <?= htmlspecialchars($ps['water_status_text'] ?? 'مستقر ومتاح في معظم المناطق الزراعية') ?></div>
+        <div class="price-item-lbl">حالة منسوب المياه والضخ</div>
+      </div>
     </div>
-    <?php if (!empty($ps['rates_note'])): ?>
-    <div style="font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 10px;" id="ratesNoteEl">
-      ℹ️ <?= htmlspecialchars($ps['rates_note']) ?>
+    <div class="rates-note-msg" id="ratesNoteEl">
+      ℹ️ <?= htmlspecialchars($ps['rates_note'] ?? 'الأسعار تختلف بحسب عمق البئر ونوع الطاقة المستخدمة') ?>
     </div>
-    <?php endif; ?>
   </div>
   <?php endif; ?>
 
@@ -199,17 +210,23 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
     </div>
     <div class="features-grid">
       <div class="feature-box">
-        <div class="feature-icon">⏱️</div>
+        <div class="feature-icon-media">
+          <img src="assets/images/feat_hourglass.jpg" alt="حساب بالثواني والدقائق" class="feature-3d-img" loading="lazy">
+        </div>
         <h3>حساب بالثواني والدقائق</h3>
         <p>احتساب دقيق لكسور ساعات الضخ وحصص المزارعين مع ضبط الفاقد الزمني تلقائياً دون أي حسابات يدوية معقدة.</p>
       </div>
       <div class="feature-box">
-        <div class="feature-icon">🧾</div>
+        <div class="feature-icon-media">
+          <img src="assets/images/feat_receipt.jpg" alt="سندات قبض وتقارير فورية" class="feature-3d-img" loading="lazy">
+        </div>
         <h3>سندات قبض وتقارير فورية</h3>
         <p>إصدار سندات مالية وطباعتها أو إرسالها موثقة للمزارعين مباشرة عبر تطبيق واتساب فور انتهاء دورة السقي.</p>
       </div>
       <div class="feature-box">
-        <div class="feature-icon">🛡️</div>
+        <div class="feature-icon-media">
+          <img src="assets/images/feat_shield.jpg" alt="أمان تام بدون إنترنت" class="feature-3d-img" loading="lazy">
+        </div>
         <h3>أمان تام بدون إنترنت</h3>
         <p>يعمل في المزارع والمناطق النائية بدون شبكة، مع ميزة المزامنة والنسخ الاحتياطي السحابي على Google Drive.</p>
       </div>
@@ -218,7 +235,7 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
 
   <!-- Agricultural News & Water Reports -->
   <?php if (!empty($portalNews)): ?>
-  <section class="section container" id="news" style="margin-bottom: 30px;">
+  <section class="section container" id="news" style="margin-bottom: 40px;">
     <div class="section-head">
       <h2>مستجدات وبورصة مياه الآبار</h2>
       <p>تقارير ميدانية دورية حول حركة أسعار الري ومعدلات الضخ المائي</p>
@@ -226,9 +243,16 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
     <div class="news-grid">
       <?php foreach (array_slice($portalNews, 0, 3) as $nw): ?>
       <div class="news-card">
-        <span class="news-tag"><?= htmlspecialchars($nw['category'] ?? 'تقارير الآبار') ?></span>
-        <h3 class="news-title"><?= htmlspecialchars($nw['title']) ?></h3>
-        <p class="news-desc"><?= htmlspecialchars($nw['summary']) ?></p>
+        <?php if (!empty($nw['image'])): ?>
+        <div class="news-cover-wrap">
+          <img src="<?= htmlspecialchars($nw['image']) ?>" alt="<?= htmlspecialchars($nw['title']) ?>" class="news-cover-img" loading="lazy">
+        </div>
+        <?php endif; ?>
+        <div class="news-body-content">
+          <span class="news-tag"><?= htmlspecialchars($nw['category'] ?? 'تقارير الآبار') ?></span>
+          <h3 class="news-title"><?= htmlspecialchars($nw['title']) ?></h3>
+          <p class="news-desc"><?= htmlspecialchars($nw['summary']) ?></p>
+        </div>
       </div>
       <?php endforeach; ?>
     </div>
@@ -293,8 +317,16 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
   <?php endif; ?>
 
   <!-- Footer -->
-  <footer class="portal-footer container">
-    <div>تطبيق مُسَرِّب • تطوير <?= htmlspecialchars($ps['developer_name']) ?> (<?= htmlspecialchars($ps['developer_company']) ?>) &copy; <?= date('Y') ?></div>
+  <footer class="portal-footer">
+    <div class="container footer-content-wrap">
+      <div class="footer-logo-row">
+        <span class="footer-brand-title">مُسَرِّب • MOSARIB</span>
+        <span class="footer-tagline">منظومة إدارة مياه وساعات الري وحصص الآبار</span>
+      </div>
+      <div class="footer-copy-text">
+        جميع الحقوق محفوظة &copy; <?= date('Y') ?> • تطوير <?= htmlspecialchars($ps['developer_name']) ?> (<?= htmlspecialchars($ps['developer_company']) ?>)
+      </div>
+    </div>
   </footer>
 
   <!-- Modal -->
@@ -407,7 +439,7 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
           if (s.active_region_name && document.getElementById('regionNameEl')) document.getElementById('regionNameEl').textContent = s.active_region_name;
           if (s.avg_hourly_price && document.getElementById('avgPriceEl')) document.getElementById('avgPriceEl').textContent = Number(s.avg_hourly_price).toLocaleString();
           if (s.min_hourly_price && s.max_hourly_price && document.getElementById('minPriceEl')) {
-            document.getElementById('minPriceEl').textContent = Number(s.min_hourly_price).toLocaleString() + ' - ' + Number(s.max_hourly_price).toLocaleString();
+            document.getElementById('minPriceEl').innerHTML = '<span>أعلى: ' + Number(s.max_hourly_price).toLocaleString() + ' ريال</span><span class="rates-sep">•</span><span>أقل: ' + Number(s.min_hourly_price).toLocaleString() + ' ريال</span>';
           }
           if (s.hero_title && document.getElementById('heroTitleText')) document.getElementById('heroTitleText').textContent = s.hero_title;
           if (s.hero_subtitle && document.getElementById('heroSubtitleText')) document.getElementById('heroSubtitleText').textContent = s.hero_subtitle;
