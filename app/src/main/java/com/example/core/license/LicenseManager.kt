@@ -144,6 +144,9 @@ object LicenseManager {
             enteredKey: String,
             subscriberName: String
     ): ActivationResult {
+        if (UserDeviceTracker.isDeviceBlockedLocally(context)) {
+            return ActivationResult.SubscriptionRevoked
+        }
         val cleanName = subscriberName.trim()
         if (cleanName.isBlank()) {
             return ActivationResult.MissingSubscriberName
@@ -290,6 +293,10 @@ object LicenseManager {
      */
     suspend fun syncRemoteSubscriptionStatus(context: Context) {
         if (!isInternetAvailable(context)) return
+        if (UserDeviceTracker.isDeviceBlockedLocally(context)) {
+            revokeLicenseLocally(context)
+            return
+        }
         val deviceCode = getDeviceCode(context)
         val license = FirebaseLicenseService.getDeviceRemoteLicense(deviceCode)
         // Also keep local pricing & payment methods cache fresh in the background
@@ -393,6 +400,7 @@ object LicenseManager {
      * manipulation.
      */
     fun isActivated(context: Context): Boolean {
+        if (UserDeviceTracker.isDeviceBlockedLocally(context)) return false
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         if (sp.getBoolean(KEY_IS_REVOKED_LOCALLY, false)) return false
         val isActivated = sp.getBoolean(KEY_IS_ACTIVATED, false)

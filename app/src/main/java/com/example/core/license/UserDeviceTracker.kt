@@ -141,6 +141,37 @@ object UserDeviceTracker {
                 }
             } catch (_: Exception) {}
 
+            // 1.5. Also check Realtime Database (/device_overrides/{cleanDeviceKey}.json)
+            try {
+                val devUrl = URL("$FIREBASE_DB_URL/device_overrides/$cleanDeviceKey.json")
+                val devConn = (devUrl.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 4000
+                    readTimeout = 4000
+                    setRequestProperty("Accept", "application/json")
+                }
+                if (devConn.responseCode == 200) {
+                    val reader = BufferedReader(InputStreamReader(devConn.inputStream))
+                    val devText = reader.readText().trim()
+                    reader.close()
+                    if (devText != "null" && devText.isNotBlank()) {
+                        val devObj = JSONObject(devText)
+                        if (devObj.optBoolean("isBlocked", false)) {
+                            isBlocked = true
+                            blockReason = devObj.optString("blockReason", blockReason)
+                        }
+                        if (devObj.has("isBackupLocked") || devObj.has("backupLocked")) {
+                            val isBkLocked = devObj.optBoolean("isBackupLocked", devObj.optBoolean("backupLocked", false))
+                            RemoteConfigManager.setDeviceBackupLocked(context, isBkLocked)
+                        }
+                        val customLim = devObj.optInt("customOperationsLimit", devObj.optInt("freeOperationsLimit", devObj.optInt("operationsLimit", devObj.optInt("limit", 0))))
+                        if (customLim > 0) {
+                            RemoteConfigManager.setDeviceCustomLimit(context, customLim)
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+
             // 2. Also check Cloud Firestore
             if (!isBlocked) {
                 val fsDoc = FirestoreRestHelper.getDocument("all_users", cleanDeviceKey)

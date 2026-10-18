@@ -1627,6 +1627,11 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(lock)
       });
+      await firebaseFetch(`all_users/${cleanDeviceKey}/isBackupLocked.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(lock)
+      });
       alert(lock ? "تم قفل النسخ الاحتياطي للجهاز بنجاح." : "تم فك قفل النسخ الاحتياطي بنجاح.");
       loadFirebaseData();
     } catch (e) {
@@ -1643,9 +1648,15 @@
     try {
       if (num === 0) {
         await firebaseFetch(`device_overrides/${cleanDeviceKey}/customOperationsLimit.json`, { method: "DELETE" });
+        await firebaseFetch(`all_users/${cleanDeviceKey}/customOperationsLimit.json`, { method: "DELETE" });
         alert("تم إلغاء الحد المخصص والعودة للحد العام.");
       } else {
         await firebaseFetch(`device_overrides/${cleanDeviceKey}/customOperationsLimit.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(num)
+        });
+        await firebaseFetch(`all_users/${cleanDeviceKey}/customOperationsLimit.json`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(num)
@@ -1703,6 +1714,41 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(reason)
       });
+      await firebaseFetch(`device_overrides/${cleanDeviceKey}/isBlocked.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(block)
+      });
+      await firebaseFetch(`device_overrides/${cleanDeviceKey}/blockReason.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reason)
+      });
+
+      if (block) {
+        // Revoke any active licenses for this device in /licenses so it cannot auto-reactivate
+        try {
+          const licRes = await firebaseFetch('licenses.json');
+          if (licRes && licRes.ok) {
+            const licData = await safeJson(licRes);
+            const licObj = (licData && licData.data !== undefined) ? licData.data : licData;
+            if (licObj && typeof licObj === 'object') {
+              for (const [lKey, lic] of Object.entries(licObj)) {
+                if (lic && lic.deviceCode) {
+                  const licClean = lic.deviceCode.replace(/-/g, "").trim();
+                  if (licClean === cleanDeviceKey) {
+                    await firebaseFetch(`licenses/${lKey}/isRevoked.json`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(true)
+                    });
+                  }
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
 
       if (email && email.includes("@")) {
         const safeEmailKey = email.replace(/\./g, "_").replace(/@/g, "_at_");

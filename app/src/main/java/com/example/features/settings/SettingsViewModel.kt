@@ -9,6 +9,7 @@ import com.example.core.database.AppDatabase
 import com.example.core.ui.ToastMessage
 import com.example.core.ui.ToastType
 import com.example.core.license.LicenseManager
+import com.example.core.license.RemoteConfigManager
 import com.example.core.util.AutoBackupEngine
 import com.example.core.util.BackupManager
 import com.example.core.util.GoogleDriveBackupHelper
@@ -49,8 +50,21 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _isActivated = MutableStateFlow(LicenseManager.isActivated(application))
     val isActivated: StateFlow<Boolean> = _isActivated.asStateFlow()
 
+    private val _isBackupAllowed = MutableStateFlow(RemoteConfigManager.isBackupAllowed(application))
+    val isBackupAllowed: StateFlow<Boolean> = _isBackupAllowed.asStateFlow()
+
+    private val _isDeviceBackupLocked = MutableStateFlow(RemoteConfigManager.isDeviceBackupLocked(application))
+    val isDeviceBackupLocked: StateFlow<Boolean> = _isDeviceBackupLocked.asStateFlow()
+
     fun refreshActivationStatus() {
         _isActivated.value = LicenseManager.isActivated(getApplication())
+    }
+
+    fun refreshRemotePolicies() {
+        val app = getApplication<Application>()
+        _isBackupAllowed.value = RemoteConfigManager.isBackupAllowed(app)
+        _isDeviceBackupLocked.value = RemoteConfigManager.isDeviceBackupLocked(app)
+        _isActivated.value = LicenseManager.isActivated(app)
     }
 
     private val _toast = MutableStateFlow<ToastMessage?>(null)

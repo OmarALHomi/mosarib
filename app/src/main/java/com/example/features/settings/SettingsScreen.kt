@@ -143,6 +143,10 @@ fun SettingsScreen(
     var uriToRestore by remember { mutableStateOf<Uri?>(null) }
     var showTourDialog by remember { mutableStateOf(false) }
 
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.refreshRemotePolicies()
+    }
+
     // File Picker Launcher for JSON Database Restore
     val restoreFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -586,9 +590,9 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    val isBackupAllowed = com.example.core.license.RemoteConfigManager.isBackupAllowed(context)
-                    val isCloudBackupAllowed = com.example.core.license.RemoteConfigManager.isCloudBackupAllowed(context)
-                    val isDeviceBkLocked = com.example.core.license.RemoteConfigManager.isDeviceBackupLocked(context)
+                    val isBackupAllowed by viewModel.isBackupAllowed.collectAsStateWithLifecycle()
+                    val isDeviceBkLocked by viewModel.isDeviceBackupLocked.collectAsStateWithLifecycle()
+                    val isCloudBackupAllowed = isBackupAllowed && com.example.core.license.RemoteConfigManager.isCloudBackupAllowed(context)
 
                     if (!isBackupAllowed) {
                         androidx.compose.material3.Surface(

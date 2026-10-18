@@ -184,6 +184,9 @@ fun MainApp(
                     StartupDialogType.NONE -> {}
                 }
 
+                // تحديث الحالات النشطة للإعدادات فور اكتمال المزامنة
+                settingsViewModel.refreshRemotePolicies()
+
                 // فحص التنبيه الخاص بالجهاز إن وجد
                 val customWarn = com.example.core.license.RemoteConfigManager.getSpecialWarningMessage(context)
                 if (!customWarn.isNullOrBlank() && customWarn != specialDeviceWarning) {
