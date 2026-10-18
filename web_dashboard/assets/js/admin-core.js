@@ -933,7 +933,8 @@
       const ops = u.operationsCount || 0;
       totalOps += ops;
 
-      if (u.lastSeen && u.lastSeen >= oneDayAgo) {
+      const lastActive = u.lastActiveAt || u.lastSeen || 0;
+      if (lastActive >= oneDayAgo) {
         onlineCount++;
       }
 
@@ -1596,7 +1597,7 @@
         : `<span style="color:var(--text-muted); font-size:11.5px;">افتراضي (5000)</span>`;
 
       return `
-        <tr>
+        <tr onclick="openUserDetailModal('${devKey}')" title="انقر لعرض الملف الشامل، الرسائل الموجهة، وإرسال إشعار">
           <td>${googleInfo}</td>
           <td><code>${u.deviceCode || devKey}</code><br><small style="color:var(--text-muted);">${u.deviceModel || '-'}</small></td>
           <td>${priceTag}</td>
@@ -1606,7 +1607,8 @@
           <td>${bkBadge}</td>
           <td><small>${lastSeen}</small></td>
           <td>
-            <div class="btn-action-group">
+            <div class="btn-action-group" onclick="event.stopPropagation()">
+              <button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px; background: rgba(0, 131, 143, 0.12); color: var(--primary);" onclick="event.stopPropagation(); openUserDetailModal('${devKey}')">تفاصيل 👤</button>
               ${blockBtn}
               ${bkLockBtn}
               ${customLimitBtn}
@@ -1956,6 +1958,325 @@
     document.body.removeChild(link);
   }
 
+
+  // --- User Detail Modal & Targeted Messages Manager ---
+  let activeModalUserKey = null;
+
+  async function openUserDetailModal(cleanDeviceKey) {
+    activeModalUserKey = cleanDeviceKey;
+    const overlay = document.getElementById("userModalOverlay");
+    if (!overlay) return;
+
+    // Find user
+    const u = allUsers.find(item => {
+      const devKey = item.cleanDeviceKey || (item.deviceCode ? item.deviceCode.replace(/-/g, "") : "");
+      return devKey === cleanDeviceKey;
+    }) || { cleanDeviceKey: cleanDeviceKey, deviceCode: cleanDeviceKey };
+
+    const override = allOverrides[cleanDeviceKey] || {};
+    const limit = override.customOperationsLimit || globalLimit;
+    const ops = u.operationsCount || 0;
+    const isBlocked = u.isBlocked === true;
+    const isAct = u.isActivated === true && !isBlocked;
+    const isDeviceBkLocked = override.isBackupLocked === true;
+    const userName = u.subscriberName || u.googleDisplayName || 'مستخدم مسرّب';
+
+    // Set header
+    document.getElementById("modalUserName").innerText = userName;
+    document.getElementById("modalUserAvatar").innerText = isBlocked ? '⛔' : (isAct ? '⭐' : '👤');
+    
+    let statusBadge = isBlocked
+      ? `<span class="badge badge-blocked">⛔ محظور</span>`
+      : (isAct ? `<span class="badge badge-active">✅ مشترك مفعّل</span>` : `<span class="badge badge-trial">⏳ تجريبي</span>`);
+    document.getElementById("modalUserStatusBadge").innerHTML = statusBadge;
+
+    // Populate Info Pills
+    document.getElementById("modalDeviceCode").innerHTML = `<code>${u.deviceCode || cleanDeviceKey}</code>`;
+    document.getElementById("modalDeviceModel").innerText = u.deviceModel || 'غير محدد';
+    document.getElementById("modalAndroidVersion").innerText = u.androidVersion || 'Android';
+    document.getElementById("modalUserPhone").innerHTML = u.phone 
+      ? `<b style="color:#4ADE80;">${u.phone}</b>` 
+      : '<span style="color:var(--text-muted);">غير مسجل</span>';
+    document.getElementById("modalUserEmail").innerHTML = u.googleEmail 
+      ? `<span style="color:#38BDF8;">${u.googleEmail}</span>` 
+      : '<span style="color:var(--text-muted);">بدون بريد Google</span>';
+    
+    const price = (u.pricePerHour || u.hourlyRate);
+    document.getElementById("modalUserPrice").innerText = price ? `${Number(price).toLocaleString('ar-EG')} ريال/س` : 'الافتراضي (5000 ريال/س)';
+    document.getElementById("modalUserPlan").innerText = u.plan === "YEARLY" ? "سنوي ⭐" : (u.plan === "MONTHLY" ? "شهري" : "تجربة مجانية");
+    document.getElementById("modalUserLastActive").innerText = u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleString('ar-EG') : (u.lastSeen ? new Date(u.lastSeen).toLocaleString('ar-EG') : 'غير محدد');
+    document.getElementById("modalUserOps").innerText = isAct ? `${ops} عملية (غير محدود - مشترك)` : `${ops} / ${limit} عملية`;
+    document.getElementById("modalUserBackupStatus").innerHTML = isDeviceBkLocked 
+      ? `<span style="color:var(--danger); font-weight:bold;">🚫 مقفول للجهاز</span>`
+      : `<span style="color:var(--success); font-weight:bold;">✅ متاح</span>`;
+
+    // Action buttons in modal
+    const waBtn = document.getElementById("modalBtnWhatsApp");
+    if (u.phone && u.phone.trim().length > 5) {
+      waBtn.style.display = "inline-flex";
+      const cleanPhone = u.phone.replace(/[^0-9]/g, '');
+      const waLink = cleanPhone.startsWith('967') ? cleanPhone : '967' + cleanPhone.replace(/^0+/, '');
+      waBtn.onclick = () => window.open(`https://wa.me/${waLink}`, '_blank');
+    } else {
+      waBtn.style.display = "none";
+    }
+
+    const blockBtn = document.getElementById("modalBtnToggleBlock");
+    blockBtn.innerText = isBlocked ? "فك الحظر 🔓" : "حظر المستخدم ⛔";
+    blockBtn.onclick = async () => {
+      await toggleBlockUser(cleanDeviceKey, u.googleEmail || '', !isBlocked);
+      openUserDetailModal(cleanDeviceKey);
+    };
+
+    const bkBtn = document.getElementById("modalBtnToggleBackup");
+    bkBtn.innerText = isDeviceBkLocked ? "فتح النسخ 🔓" : "قفل النسخ 🔒";
+    bkBtn.onclick = async () => {
+      await toggleDeviceBackupLock(cleanDeviceKey, !isDeviceBkLocked);
+      openUserDetailModal(cleanDeviceKey);
+    };
+
+    const limitBtn = document.getElementById("modalBtnSetLimit");
+    limitBtn.onclick = async () => {
+      await promptSetCustomLimit(cleanDeviceKey, limit);
+      openUserDetailModal(cleanDeviceKey);
+    };
+
+    // Load targeted messages
+    loadUserMessagesList(cleanDeviceKey, override);
+
+    // Reset Push Form
+    document.getElementById("userPushTitle").value = "";
+    document.getElementById("userPushBody").value = "";
+    document.getElementById("userPushStatus").style.display = "none";
+
+    switchUserModalTab('profile');
+    overlay.classList.add("active");
+  }
+
+  function closeUserDetailModal(e) {
+    if (e && e.target !== e.currentTarget && !e.target.classList.contains("modal-close-btn")) return;
+    const overlay = document.getElementById("userModalOverlay");
+    if (overlay) overlay.classList.remove("active");
+    activeModalUserKey = null;
+  }
+
+  function switchUserModalTab(tabName) {
+    ['profile', 'messages', 'push'].forEach(t => {
+      const el = document.getElementById(`modalUserTab-${t}`);
+      const btn = document.getElementById(`modalTabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
+      if (el) el.style.display = (t === tabName) ? "block" : "none";
+      if (btn) btn.classList.toggle("active", t === tabName);
+    });
+  }
+
+  async function loadUserMessagesList(cleanDeviceKey, override) {
+    const tbody = document.getElementById("modalUserMessagesList");
+    const countBadge = document.getElementById("modalMessagesCount");
+    if (!tbody) return;
+
+    let messages = [];
+
+    try {
+      const res = await firebaseFetch(`device_overrides/${cleanDeviceKey}/messages.json`);
+      if (res && res.ok) {
+        const data = await safeJson(res);
+        const obj = (data && data.data !== undefined) ? data.data : data;
+        if (obj && typeof obj === 'object') {
+          Object.entries(obj).forEach(([mId, mVal]) => {
+            if (mVal && typeof mVal === 'object') {
+              messages.push({ id: mId, ...mVal });
+            }
+          });
+        }
+      }
+    } catch (_) {}
+
+    const legacyMsg = override.specialWarningMessage;
+    if (messages.length === 0 && legacyMsg) {
+      messages.push({
+        id: 'legacy_warning',
+        title: 'رسالة إدارية موجهة',
+        text: legacyMsg,
+        type: 'warning',
+        displays: '0',
+        active: true,
+        createdAt: override.updatedAt || Date.now()
+      });
+    }
+
+    if (countBadge) countBadge.innerText = messages.length;
+
+    if (messages.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 18px;">لا توجد أي رسائل موجهة لهذا الجهاز حالياً</td></tr>`;
+      return;
+    }
+
+    messages.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    tbody.innerHTML = messages.map(m => {
+      const typeIcons = { warning: '⚠️ تحذيري', info: 'ℹ️ إخباري', important: '📢 هام' };
+      const typeBadge = typeIcons[m.type] || 'تنبيه';
+      const dispText = m.displays == '1' ? 'مرة واحدة' : (m.displays == '3' ? '3 مرات' : 'دائم');
+      const activeBadge = m.active !== false
+        ? `<span class="badge badge-active">نشطة ومفعلة</span>`
+        : `<span class="badge badge-blocked">معطلة</span>`;
+      const dateStr = m.createdAt ? new Date(m.createdAt).toLocaleDateString('ar-EG') : 'الآن';
+
+      const toggleAction = m.active !== false
+        ? `<button class="btn-sm btn-outline" style="padding:3px 8px; font-size:10.5px;" onclick="toggleUserMessageState('${cleanDeviceKey}', '${m.id}', false)">تعطيل</button>`
+        : `<button class="btn-sm btn-unblock" style="padding:3px 8px; font-size:10.5px;" onclick="toggleUserMessageState('${cleanDeviceKey}', '${m.id}', true)">تفعيل</button>`;
+
+      const deleteBtn = `<button class="btn-sm btn-block" style="padding:3px 8px; font-size:10.5px;" onclick="deleteUserMessage('${cleanDeviceKey}', '${m.id}')">حذف</button>`;
+
+      return `
+        <tr>
+          <td><small style="color:var(--accent);">${typeBadge}</small><br><b>${m.title || 'بدون عنوان'}</b></td>
+          <td style="max-width: 260px; font-size: 12px; line-height: 1.4;">${m.text || ''}</td>
+          <td><small>${dispText}</small></td>
+          <td>${activeBadge}</td>
+          <td><small>${dateStr}</small></td>
+          <td>
+            <div style="display:flex; gap:4px;">
+              ${toggleAction}
+              ${deleteBtn}
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  async function saveNewUserMessage() {
+    if (!activeModalUserKey) return;
+    const title = (document.getElementById("newMsgTitle")?.value || "").trim();
+    const text = (document.getElementById("newMsgText")?.value || "").trim();
+    const type = document.getElementById("newMsgType")?.value || "warning";
+    const displays = document.getElementById("newMsgDisplays")?.value || "0";
+
+    if (!text) {
+      return alert("يرجى كتابة نص الرسالة أولاً");
+    }
+
+    const msgId = "msg_" + Date.now();
+    const msgPayload = {
+      title: title || "تنبيه من الإدارة",
+      text: text,
+      type: type,
+      displays: displays,
+      active: true,
+      createdAt: Date.now()
+    };
+
+    try {
+      await firebaseFetch(`device_overrides/${activeModalUserKey}/messages/${msgId}.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(msgPayload)
+      });
+
+      await firebaseFetch(`device_overrides/${activeModalUserKey}/specialWarningMessage.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(text)
+      });
+
+      document.getElementById("newMsgTitle").value = "";
+      document.getElementById("newMsgText").value = "";
+
+      alert("تم حفظ الرسالة الموجهة وستظهر للمستخدم في هاتفه بنجاح!");
+      loadFirebaseData();
+      loadUserMessagesList(activeModalUserKey, allOverrides[activeModalUserKey] || {});
+    } catch (e) {
+      alert("حدث خطأ أثناء حفظ الرسالة: " + e.message);
+    }
+  }
+
+  async function toggleUserMessageState(cleanDeviceKey, msgId, newState) {
+    try {
+      await firebaseFetch(`device_overrides/${cleanDeviceKey}/messages/${msgId}/active.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newState)
+      });
+
+      if (!newState) {
+        await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" });
+      }
+
+      loadFirebaseData();
+      loadUserMessagesList(cleanDeviceKey, allOverrides[cleanDeviceKey] || {});
+    } catch (e) {
+      alert("خطأ: " + e.message);
+    }
+  }
+
+  async function deleteUserMessage(cleanDeviceKey, msgId) {
+    if (!confirm("هل أنت متأكد من حذف هذه الرسالة نهائياً؟")) return;
+    try {
+      await firebaseFetch(`device_overrides/${cleanDeviceKey}/messages/${msgId}.json`, { method: "DELETE" });
+      await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" });
+      loadFirebaseData();
+      loadUserMessagesList(cleanDeviceKey, allOverrides[cleanDeviceKey] || {});
+    } catch (e) {
+      alert("خطأ: " + e.message);
+    }
+  }
+
+  async function sendDirectUserPushNotification() {
+    if (!activeModalUserKey) return;
+    const title = (document.getElementById("userPushTitle")?.value || "").trim();
+    const body = (document.getElementById("userPushBody")?.value || "").trim();
+    const url = (document.getElementById("userPushUrl")?.value || "").trim();
+    const statusEl = document.getElementById("userPushStatus");
+    const sendBtn = document.getElementById("btnSendDirectPush");
+
+    if (!title || !body) {
+      return alert("يرجى ملء عنوان ونص الإشعار");
+    }
+
+    const u = allUsers.find(item => {
+      const devKey = item.cleanDeviceKey || (item.deviceCode ? item.deviceCode.replace(/-/g, "") : "");
+      return devKey === activeModalUserKey;
+    });
+    const deviceCode = u?.deviceCode || activeModalUserKey;
+
+    sendBtn.disabled = true;
+    sendBtn.innerText = "جاري إرسال الإشعار...";
+    statusEl.style.display = "block";
+    statusEl.style.color = "var(--accent)";
+    statusEl.innerText = "جاري التوصيل لمحرك Google FCM...";
+
+    try {
+      const res = await fetch('api/fcm_sender.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send_push',
+          title: title,
+          body: body,
+          action_url: url,
+          target: 'DEVICE',
+          target_device_code: deviceCode
+        })
+      });
+
+      const data = await res.json();
+      if (data && data.success) {
+        statusEl.style.color = "var(--success)";
+        statusEl.innerText = `✅ ${data.message || 'تم إرسال الإشعار بنجاح!'}`;
+        alert("تم إرسال الإشعار لستارة هاتف المستخدم بنجاح!");
+      } else {
+        statusEl.style.color = "var(--danger)";
+        statusEl.innerText = `❌ ${data.message || 'تعذر الإرسال'}`;
+      }
+    } catch (e) {
+      statusEl.style.color = "var(--danger)";
+      statusEl.innerText = `❌ خطأ في الاتصال: ${e.message}`;
+    } finally {
+      sendBtn.disabled = false;
+      sendBtn.innerText = "🚀 إرسال الإشعار فوراً للهاتف";
+    }
+  }
 
   // Initial load
   initTheme();

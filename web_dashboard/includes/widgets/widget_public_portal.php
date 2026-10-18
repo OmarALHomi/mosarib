@@ -137,27 +137,27 @@
       <div class="card" style="margin-bottom: 24px; border: 1px solid rgba(0, 200, 83, 0.4);">
         <div class="card-title">👁️ التحكم بإظهار وإخفاء أقسام الموقع العام (تشغيل / إيقاف)</div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 10px 0;">
-          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #FFF; font-weight: 700;">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-title); font-weight: 700;">
             <input type="checkbox" id="pShowTopTicker" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
             <span>الشريط الإخباري العلوي</span>
           </label>
-          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #FFF; font-weight: 700;">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-title); font-weight: 700;">
             <input type="checkbox" id="pShowRatesSection" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
             <span>قسم أسعار ساعات الري</span>
           </label>
-          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #FFF; font-weight: 700;">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-title); font-weight: 700;">
             <input type="checkbox" id="pShowFeaturesSection" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
             <span>قسم مميزات التطبيق</span>
           </label>
-          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #FFF; font-weight: 700;">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-title); font-weight: 700;">
             <input type="checkbox" id="pShowPlansSection" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
             <span>قسم خطط وتراخيص التطبيق</span>
           </label>
-          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #FFF; font-weight: 700;">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-title); font-weight: 700;">
             <input type="checkbox" id="pShowDeveloperSection" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
             <span>قسم المطور والتواصل</span>
           </label>
-          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #FFF; font-weight: 700;">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-title); font-weight: 700;">
             <input type="checkbox" id="pShowDownloadCta" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
             <span>صندوق التحميل المباشر السفلي</span>
           </label>
@@ -199,14 +199,14 @@
 
         <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;">
 
-        <div style="font-weight: 800; font-size: 14px; margin-bottom: 12px; color: #FFF;">قائمة الأخبار المنشورة حالياً:</div>
+        <div style="font-weight: 800; font-size: 14px; margin-bottom: 12px; color: var(--text-title);">قائمة الأخبار المنشورة حالياً:</div>
         <div id="adminPortalNewsList" style="max-height: 250px; overflow-y: auto;">
           <div style="text-align: center; color: var(--text-muted); padding: 14px;">جاري تحميل الأخبار...</div>
         </div>
       </div>
 
       <!-- Manage Subscription Pricing & Discounts -->
-      <div class="card" style="border: 1px solid rgba(255, 179, 0, 0.45); margin-top: 24px; background: linear-gradient(135deg, rgba(255, 179, 0, 0.06), rgba(18, 35, 43, 0.95));">
+      <div class="card" style="border: 1px solid rgba(255, 179, 0, 0.45); margin-top: 24px; background: var(--card-bg);">
         <div class="card-title">🏷️ إدارة تسعير وباقات الاشتراك والخصومات (سنوي وشهرية)</div>
         <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
           الأسعار والخصومات المحددة هنا تُحفظ فوراً في قاعدة بيانات Firebase السحابية، وتنعكس مباشرة في كل من <b>الموقع الإلكتروني</b> و<b>تطبيق الأندرويد</b> و<b>رسائل طلبات الواتساب</b>.
@@ -215,7 +215,7 @@
         <form id="subscriptionPricingForm" onsubmit="handleSaveSubscriptionPricing(event)">
           <div class="grid-2">
             <!-- Yearly Plan Pricing -->
-            <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 179, 0, 0.3); border-radius: 10px; padding: 16px;">
+            <div style="background: var(--surface-alt, rgba(0, 0, 0, 0.03)); border: 1px solid rgba(255, 179, 0, 0.3); border-radius: 10px; padding: 16px;">
               <h4 style="color: var(--accent); margin-bottom: 12px; font-size: 14px; font-weight: 800;">⭐ باقة الاشتراك السنوي الشامل:</h4>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <div class="form-group">
@@ -240,8 +240,8 @@
             </div>
 
             <!-- Monthly Plan Pricing -->
-            <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(0, 188, 212, 0.3); border-radius: 10px; padding: 16px;">
-              <h4 style="color: #4DD0E1; margin-bottom: 12px; font-size: 14px; font-weight: 800;">📅 باقة الاشتراك الشهري:</h4>
+            <div style="background: var(--surface-alt, rgba(0, 0, 0, 0.03)); border: 1px solid rgba(0, 188, 212, 0.3); border-radius: 10px; padding: 16px;">
+              <h4 style="color: var(--primary); margin-bottom: 12px; font-size: 14px; font-weight: 800;">📅 باقة الاشتراك الشهري:</h4>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <div class="form-group">
                   <label for="pricingMonthlyPrice">السعر الفعلي المطلوب (شهرياً):</label>

@@ -248,6 +248,22 @@ if ($target === 'SINGLE' && !empty($targetToken)) {
     $tokenList = [['token' => $targetToken, 'deviceCode' => 'SINGLE']];
 }
 
+$targetDeviceCode = trim($input['target_device_code'] ?? '');
+if ($target === 'DEVICE' && !empty($targetDeviceCode)) {
+    $targetDeviceCodeClean = str_replace('-', '', $targetDeviceCode);
+    $filtered = [];
+    foreach ($tokenList as $t) {
+        $devClean = str_replace('-', '', $t['deviceCode'] ?? '');
+        if ($devClean === $targetDeviceCodeClean || ($t['deviceCode'] ?? '') === $targetDeviceCode) {
+            $filtered[] = $t;
+        }
+    }
+    $tokenList = $filtered;
+    if (empty($tokenList) && !empty($targetToken)) {
+        $tokenList = [['token' => $targetToken, 'deviceCode' => $targetDeviceCode]];
+    }
+}
+
 $auth = getGoogleFcmAccessToken($serviceAccountFile);
 $serverKeyFile = __DIR__ . '/../data/fcm_server_key.txt';
 $serverKey = (file_exists($serverKeyFile) && filesize($serverKeyFile) > 10) ? trim(file_get_contents($serverKeyFile)) : '';

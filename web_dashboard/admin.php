@@ -62,6 +62,9 @@
     <!-- Tab 11: Public Portal, Dynamic Pricing & Payment Methods Widget -->
     <?php include_once __DIR__ . '/includes/widgets/widget_public_portal.php'; ?>
 
+    <!-- User Profile & Deep Actions Modal -->
+    <?php include_once __DIR__ . '/includes/widgets/widget_user_detail_modal.php'; ?>
+
     <!-- Dashboard Footer -->
     <footer>
       لوحة الإدارة والتحكم — المهندس عمر الحومي &copy; 2026 | جميع الحقوق محفوظة

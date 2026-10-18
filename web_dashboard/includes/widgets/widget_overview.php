@@ -65,10 +65,10 @@
     <div class="stat-card" style="border: 1px solid rgba(0, 188, 212, 0.4); cursor: pointer;" onclick="switchTab('publicPortal')">
       <div class="stat-info">
         <h3>زوار الموقع العام</h3>
-        <div class="num" id="statTotalVisitors" style="color: #4DD0E1;">0</div>
+        <div class="num" id="statTotalVisitors" style="color: var(--primary);">0</div>
         <small id="statTodayVisitorsBadge" style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px;">اليوم: 0</small>
       </div>
-      <div class="stat-icon" style="color: #00BCD4;">
+      <div class="stat-icon" style="color: var(--primary);">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
           <circle cx="12" cy="12" r="3"></circle>
@@ -78,7 +78,7 @@
     <div class="stat-card" style="border: 1px solid rgba(0, 230, 118, 0.4); cursor: pointer;" onclick="switchTab('publicPortal')">
       <div class="stat-info">
         <h3>تنزيلات التطبيق</h3>
-        <div class="num" id="statTotalDownloads" style="color: #69F0AE;">0</div>
+        <div class="num" id="statTotalDownloads" style="color: var(--success);">0</div>
         <small id="statTodayDownloadsBadge" style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px;">اليوم: 0</small>
       </div>
       <div class="stat-icon" style="color: var(--success);">

@@ -593,9 +593,92 @@ footer.portal-footer {
   margin-top: 40px;
 }
 
+/* Ticker, News & Payment Methods */
+.top-ticker {
+  background: linear-gradient(90deg, var(--primary), #006978);
+  color: #FFFFFF;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.news-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.news-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.news-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.news-tag {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.news-title {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.news-desc {
+  font-size: 12.5px;
+  color: var(--text-body);
+  line-height: 1.6;
+}
+
+.pay-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  gap: 10px;
+}
+
+.pay-pill-bank {
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.pay-pill-num {
+  font-family: monospace;
+  font-size: 13.5px;
+  color: var(--primary);
+  font-weight: 700;
+  direction: ltr;
+}
+
 @media (max-width: 768px) {
   .nav-menu { display: none; }
   .hero h1 { font-size: 24px; }
   .rates-strip { flex-direction: column; text-align: center; }
   .rates-location { flex-direction: column; }
 }
+

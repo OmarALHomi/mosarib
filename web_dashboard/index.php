@@ -54,6 +54,10 @@ $yearlyCurrency = $pricing['yearly']['currency'] ?? '$';
 // 3. Load Payment Methods
 $paymentMethodsFile = __DIR__ . '/data/payment_methods.json';
 $paymentMethods = file_exists($paymentMethodsFile) ? (json_decode(file_get_contents($paymentMethodsFile), true) ?: []) : [];
+
+// 4. Load Public News / Bulletins
+$newsFile = __DIR__ . '/data/portal_news.json';
+$portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile), true) ?: []) : [];
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" data-theme="light">
@@ -71,11 +75,25 @@ $paymentMethods = file_exists($paymentMethodsFile) ? (json_decode(file_get_conte
       try {
         const t = localStorage.getItem('mosarib_portal_theme') || 'light';
         document.documentElement.setAttribute('data-theme', t);
+        document.addEventListener('DOMContentLoaded', function() {
+          const ic = document.getElementById('themeToggleIcon');
+          if (ic) ic.textContent = t === 'dark' ? '☀️' : '🌙';
+        });
       } catch(e) {}
     })();
   </script>
 </head>
 <body>
+
+  <!-- Top Ticker / Headline Alert -->
+  <?php if (!empty($ps['headline_alert']) && ($ps['show_top_ticker'] ?? true)): ?>
+  <div class="top-ticker" id="topTickerBar">
+    <div class="container" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+      <span>📢</span>
+      <span id="topTickerText"><?= htmlspecialchars($ps['headline_alert']) ?></span>
+    </div>
+  </div>
+  <?php endif; ?>
 
   <!-- Clean Header -->
   <header class="portal-nav">
@@ -159,8 +177,17 @@ $paymentMethods = file_exists($paymentMethodsFile) ? (json_decode(file_get_conte
           <div class="price-item-val" style="color: var(--text-body); font-size: 18px;" id="minPriceEl"><?= number_format($ps['min_hourly_price']) ?> - <?= number_format($ps['max_hourly_price']) ?></div>
           <div class="price-item-lbl">النطاق السعري المسجل</div>
         </div>
+        <div class="price-item">
+          <div class="price-item-val" style="color: var(--success); font-size: 15px;" id="waterStatusEl">💧 <?= htmlspecialchars($ps['water_status_text'] ?? 'مستقر ومتوفر') ?></div>
+          <div class="price-item-lbl">حالة منسوب المياه</div>
+        </div>
       </div>
     </div>
+    <?php if (!empty($ps['rates_note'])): ?>
+    <div style="font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 10px;" id="ratesNoteEl">
+      ℹ️ <?= htmlspecialchars($ps['rates_note']) ?>
+    </div>
+    <?php endif; ?>
   </div>
   <?php endif; ?>
 
@@ -188,6 +215,25 @@ $paymentMethods = file_exists($paymentMethodsFile) ? (json_decode(file_get_conte
       </div>
     </div>
   </section>
+
+  <!-- Agricultural News & Water Reports -->
+  <?php if (!empty($portalNews)): ?>
+  <section class="section container" id="news" style="margin-bottom: 30px;">
+    <div class="section-head">
+      <h2>مستجدات وبورصة مياه الآبار</h2>
+      <p>تقارير ميدانية دورية حول حركة أسعار الري ومعدلات الضخ المائي</p>
+    </div>
+    <div class="news-grid">
+      <?php foreach (array_slice($portalNews, 0, 3) as $nw): ?>
+      <div class="news-card">
+        <span class="news-tag"><?= htmlspecialchars($nw['category'] ?? 'تقارير الآبار') ?></span>
+        <h3 class="news-title"><?= htmlspecialchars($nw['title']) ?></h3>
+        <p class="news-desc"><?= htmlspecialchars($nw['summary']) ?></p>
+      </div>
+      <?php endforeach; ?>
+    </div>
+  </section>
+  <?php endif; ?>
 
   <!-- Pricing Plans Section -->
   <?php if (!empty($ps['show_plans_section'])): ?>
@@ -260,6 +306,18 @@ $paymentMethods = file_exists($paymentMethodsFile) ? (json_decode(file_get_conte
       </div>
 
       <div id="modalFeedback" style="display: none; padding: 10px; border-radius: 8px; font-size: 13px; margin-bottom: 14px;"></div>
+
+      <?php if (!empty($paymentMethods)): ?>
+      <div style="margin-bottom: 16px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px;">
+        <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px;">حسابات التحويل المعتمدة (اضغط للنسخ):</div>
+        <?php foreach ($paymentMethods as $pm): ?>
+        <div class="pay-pill" style="margin-bottom: 6px; padding: 6px 10px; cursor: pointer;" onclick="navigator.clipboard.writeText('<?= htmlspecialchars($pm['account_number']) ?>'); alert('تم نسخ رقم الحساب: <?= htmlspecialchars($pm['account_number']) ?>');" title="اضغط لنسخ رقم الحساب">
+          <span class="pay-pill-bank"><?= htmlspecialchars($pm['bank_name']) ?> (<?= htmlspecialchars($pm['account_holder'] ?? 'عمر الحومي') ?>)</span>
+          <span class="pay-pill-num">📋 <?= htmlspecialchars($pm['account_number']) ?></span>
+        </div>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
 
       <form id="orderForm" onsubmit="submitOrder(event)">
         <input type="hidden" id="selectedPlan" value="YEARLY">
@@ -346,19 +404,22 @@ $paymentMethods = file_exists($paymentMethodsFile) ? (json_decode(file_get_conte
           const s = json.data.portal_settings || {};
           const p = json.data.subscription_pricing || {};
           
-          if (s.active_region_name) document.getElementById('regionNameEl').textContent = s.active_region_name;
-          if (s.avg_hourly_price) document.getElementById('avgPriceEl').textContent = Number(s.avg_hourly_price).toLocaleString();
-          if (s.min_hourly_price && s.max_hourly_price) {
+          if (s.active_region_name && document.getElementById('regionNameEl')) document.getElementById('regionNameEl').textContent = s.active_region_name;
+          if (s.avg_hourly_price && document.getElementById('avgPriceEl')) document.getElementById('avgPriceEl').textContent = Number(s.avg_hourly_price).toLocaleString();
+          if (s.min_hourly_price && s.max_hourly_price && document.getElementById('minPriceEl')) {
             document.getElementById('minPriceEl').textContent = Number(s.min_hourly_price).toLocaleString() + ' - ' + Number(s.max_hourly_price).toLocaleString();
           }
-          if (s.hero_title) document.getElementById('heroTitleText').textContent = s.hero_title;
-          if (s.hero_subtitle) document.getElementById('heroSubtitleText').textContent = s.hero_subtitle;
-          if (s.hero_badge) document.getElementById('heroBadgeText').textContent = s.hero_badge;
+          if (s.hero_title && document.getElementById('heroTitleText')) document.getElementById('heroTitleText').textContent = s.hero_title;
+          if (s.hero_subtitle && document.getElementById('heroSubtitleText')) document.getElementById('heroSubtitleText').textContent = s.hero_subtitle;
+          if (s.hero_badge && document.getElementById('heroBadgeText')) document.getElementById('heroBadgeText').textContent = s.hero_badge;
+          if (s.headline_alert && document.getElementById('topTickerText')) document.getElementById('topTickerText').textContent = s.headline_alert;
+          if (s.water_status_text && document.getElementById('waterStatusEl')) document.getElementById('waterStatusEl').textContent = '💧 ' + s.water_status_text;
+          if (s.rates_note && document.getElementById('ratesNoteEl')) document.getElementById('ratesNoteEl').textContent = 'ℹ️ ' + s.rates_note;
 
-          if (p.yearly && p.yearly.price) {
+          if (p.yearly && p.yearly.price && document.getElementById('yearlyPriceEl')) {
             document.getElementById('yearlyPriceEl').textContent = p.yearly.price + (p.yearly.currency || '$');
           }
-          if (p.monthly && p.monthly.price) {
+          if (p.monthly && p.monthly.price && document.getElementById('monthlyPriceEl')) {
             document.getElementById('monthlyPriceEl').textContent = p.monthly.price + (p.monthly.currency || '$');
           }
         }
