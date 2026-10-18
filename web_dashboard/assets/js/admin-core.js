@@ -2247,7 +2247,7 @@
     statusEl.innerText = "جاري التوصيل لمحرك Google FCM...";
 
     try {
-      const res = await fetch('api/fcm_sender.php', {
+      const res = await apiFetch('api/fcm_sender.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2260,7 +2260,7 @@
         })
       });
 
-      const data = await res.json();
+      const data = (await safeJson(res)) || {};
       if (data && data.success) {
         statusEl.style.color = "var(--success)";
         statusEl.innerText = `✅ ${data.message || 'تم إرسال الإشعار بنجاح!'}`;

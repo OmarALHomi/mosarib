@@ -1,6 +1,10 @@
 # InfinityFree & Apache Deployment Configuration
 RewriteEngine On
 
+# Pass Authorization header to PHP in FastCGI / FPM environments
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+
 # Security headers
 <IfModule mod_headers.c>
     Header set X-Content-Type-Options "nosniff"
