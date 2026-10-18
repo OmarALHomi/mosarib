@@ -529,4 +529,34 @@ if ($method === 'POST') {
 
         jsonResponse(true, 'تم حفظ وتحديث أسعار وخصومات الاشتراكات في فايربيس والموقع والتطبيق بنجاح!', $pricingData);
     }
+
+    // 5. Delete Subscription Request
+    if ($action === 'delete_subscription_request') {
+        $reqId = $input['request_id'] ?? '';
+        if ($reqId) {
+            firebaseRequest("subscription_requests/{$reqId}.json", 'DELETE');
+            $webRequestsFile = __DIR__ . '/../data/web_subscription_requests.json';
+            if (file_exists($webRequestsFile)) {
+                $reqs = json_decode(file_get_contents($webRequestsFile), true) ?: [];
+                $reqs = array_values(array_filter($reqs, function($r) use ($reqId) {
+                    return ($r['id'] ?? '') !== $reqId;
+                }));
+                file_put_contents($webRequestsFile, json_encode($reqs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            }
+        }
+        jsonResponse(true, 'تم حذف الطلب بنجاح');
+    }
+
+    // 6. Clear Completed Requests
+    if ($action === 'clear_completed_requests') {
+        $webRequestsFile = __DIR__ . '/../data/web_subscription_requests.json';
+        if (file_exists($webRequestsFile)) {
+            $reqs = json_decode(file_get_contents($webRequestsFile), true) ?: [];
+            $reqs = array_values(array_filter($reqs, function($r) {
+                return ($r['status'] ?? '') !== 'COMPLETED';
+            }));
+            file_put_contents($webRequestsFile, json_encode($reqs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        }
+        jsonResponse(true, 'تم حذف كافة الطلبات المنفذة بنجاح');
+    }
 }

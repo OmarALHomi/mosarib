@@ -23,6 +23,7 @@
   };
   let currentBroadcast = null;
   let currentUserFilter = 'ALL';
+  let currentRequestFilter = 'PENDING';
 
   function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -891,7 +892,7 @@
       loadPortalSettingsForAdmin();
       renderAppPolicies();
       renderActiveBroadcast();
-      renderRequestsTable(allRequests);
+      filterRequests();
       renderUsersTable(allUsers);
       renderFeedbacksTable(allFeedbacks);
     }
@@ -1162,7 +1163,10 @@
   function renderRequestsTable(requests) {
     const tbody = document.getElementById("requestsTableBody");
     if (!requests || requests.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 24px;">لا توجد طلبات اشتراك واردة حالياً (أي طلب يُرسل من الموقع أو التطبيق سيظهر هنا فوراً)</td></tr>`;
+      const msg = currentRequestFilter === 'PENDING' 
+        ? "لا توجد طلبات جديدة معلقة حالياً ✅" 
+        : (currentRequestFilter === 'COMPLETED' ? "لا توجد طلبات منفذة" : "لا توجد طلبات اشتراك مسجلة");
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 24px;">${msg}</td></tr>`;
       return;
     }
 
@@ -1173,7 +1177,8 @@
       const cleanPhone = (r.phone || '').replace(/[^0-9]/g, '');
       const phoneLink = cleanPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" style="color: var(--success); font-weight: bold;">${r.phone} 💬</a>` : '-';
       const planBadge = r.plan === 'YEARLY' ? `<span class="badge badge-yearly">سنوي 80$ ⭐</span>` : `<span class="badge badge-monthly">شهري 10$</span>`;
-      const statusBadge = r.status === 'COMPLETED' ? `<span class="badge badge-active">تم التفعيل ✅</span>` : `<span class="badge badge-trial">جديد ⏳</span>`;
+      const isCompleted = r.status === 'COMPLETED';
+      const statusBadge = isCompleted ? `<span class="badge badge-active">تم التفعيل ✅</span>` : `<span class="badge badge-trial">جديد ⏳</span>`;
       const devCode = r.deviceCode || '-';
       const isWeb = r.requestType === 'WEB_DIRECT';
       const sourceBadge = isWeb 
@@ -1182,6 +1187,7 @@
       
       const regionText = r.region || 'غير محدد';
       const receiptText = r.receiptNumber || r.transferNumber || '-';
+      const reqId = r.id || r.requestId || '';
 
       return `
         <tr>
@@ -1200,9 +1206,13 @@
           <td>${sourceBadge}</td>
           <td>${statusBadge}</td>
           <td>
-            <div style="display: flex; gap: 6px;">
-              <button class="btn-sm btn-unblock" onclick="quickActivateRequest('${devCode}', '${(r.subscriberName || '').replace(/'/g, "\\'")}', '${r.plan || 'YEARLY'}', '${r.id || ''}')">⚡ تفعيل وتوليد الرمز</button>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              ${!isCompleted 
+                ? `<button class="btn-sm btn-unblock" onclick="quickActivateRequest('${devCode}', '${(r.subscriberName || '').replace(/'/g, "\\'")}', '${r.plan || 'YEARLY'}', '${reqId}')" title="تفعيل الاشتراك وتوليد الرمز">⚡ تفعيل</button>`
+                : `<span style="font-size: 11.5px; color: var(--success); font-weight: bold; padding: 2px 6px;">منفّذ ✅</span>`
+              }
               ${cleanPhone ? `<button class="btn-sm btn-outline" onclick="notifySubscriberWhatsApp('${cleanPhone}', '${(r.subscriberName || '').replace(/'/g, "\\'")}', '${receiptText}')" title="تأكيد استلام السند عبر واتساب">💬</button>` : ''}
+              <button class="btn-sm" style="background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.35); padding: 4px 8px; font-size: 12px;" onclick="deleteSubscriptionRequest('${reqId}')" title="حذف هذا الطلب">🗑️ حذف</button>
             </div>
           </td>
         </tr>
@@ -1329,14 +1339,109 @@
     generateAndSaveKey();
   }
 
+  function setRequestFilter(filter) {
+    currentRequestFilter = filter;
+    document.querySelectorAll('#reqFilterPending, #reqFilterCompleted, #reqFilterAll').forEach(b => b.classList.remove('active'));
+    if (filter === 'PENDING') document.getElementById('reqFilterPending')?.classList.add('active');
+    else if (filter === 'COMPLETED') document.getElementById('reqFilterCompleted')?.classList.add('active');
+    else if (filter === 'ALL') document.getElementById('reqFilterAll')?.classList.add('active');
+    filterRequests();
+  }
+
   function filterRequests() {
-    const q = document.getElementById("requestSearch").value.trim().toLowerCase();
-    const filtered = allRequests.filter(r => 
-      (r.subscriberName && r.subscriberName.toLowerCase().includes(q)) ||
-      (r.phone && r.phone.includes(q)) ||
-      (r.deviceCode && r.deviceCode.toLowerCase().includes(q))
-    );
+    const q = (document.getElementById("requestSearch")?.value || "").trim().toLowerCase();
+
+    // Update Request Count Badges
+    const countPending = allRequests.filter(r => r.status !== 'COMPLETED').length;
+    const countCompleted = allRequests.filter(r => r.status === 'COMPLETED').length;
+    const countAll = allRequests.length;
+
+    if (document.getElementById("countReqPending")) document.getElementById("countReqPending").innerText = countPending;
+    if (document.getElementById("countReqCompleted")) document.getElementById("countReqCompleted").innerText = countCompleted;
+    if (document.getElementById("countReqAll")) document.getElementById("countReqAll").innerText = countAll;
+
+    let filtered = allRequests.filter(r => {
+      const isCompleted = r.status === 'COMPLETED';
+      if (currentRequestFilter === 'PENDING') return !isCompleted;
+      if (currentRequestFilter === 'COMPLETED') return isCompleted;
+      return true; // ALL
+    });
+
+    if (q) {
+      filtered = filtered.filter(r => 
+        (r.subscriberName && r.subscriberName.toLowerCase().includes(q)) ||
+        (r.phone && r.phone.includes(q)) ||
+        (r.deviceCode && r.deviceCode.toLowerCase().includes(q)) ||
+        (r.receiptNumber && r.receiptNumber.toLowerCase().includes(q)) ||
+        (r.region && r.region.toLowerCase().includes(q))
+      );
+    }
+
     renderRequestsTable(filtered);
+  }
+
+  async function deleteSubscriptionRequest(reqId) {
+    if (!reqId) return alert("معرف الطلب غير متوفر لحذفه");
+    if (!confirm("هل أنت متأكد من حذف هذا الطلب نهائياً من قاعدة البيانات؟")) return;
+
+    try {
+      await firebaseFetch(`subscription_requests/${reqId}.json`, { method: "DELETE" });
+
+      try {
+        await apiFetch('api/public_data.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'delete_subscription_request',
+            request_id: reqId,
+            csrf_token: currentCsrfToken
+          })
+        });
+      } catch (_) {}
+
+      allRequests = allRequests.filter(r => (r.id || r.requestId) !== reqId);
+      updateStats();
+      filterRequests();
+    } catch (err) {
+      alert("خطأ أثناء الحذف: " + err.message);
+    }
+  }
+
+  async function deleteCompletedRequests() {
+    const completed = allRequests.filter(r => r.status === 'COMPLETED');
+    if (completed.length === 0) {
+      alert("لا توجد طلبات منفذة حالياً لحذفها.");
+      return;
+    }
+
+    if (!confirm(`هل أنت متأكد من حذف كافة الطلبات المنفذة (${completed.length} طلب) نهائياً من السحابة؟`)) return;
+
+    try {
+      for (const r of completed) {
+        const id = r.id || r.requestId;
+        if (id) {
+          await firebaseFetch(`subscription_requests/${id}.json`, { method: "DELETE" }).catch(() => {});
+        }
+      }
+
+      try {
+        await apiFetch('api/public_data.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'clear_completed_requests',
+            csrf_token: currentCsrfToken
+          })
+        });
+      } catch (_) {}
+
+      allRequests = allRequests.filter(r => r.status !== 'COMPLETED');
+      updateStats();
+      filterRequests();
+      alert("✅ تم حذف كافة الطلبات المنفذة بنجاح.");
+    } catch (err) {
+      alert("خطأ أثناء الحذف: " + err.message);
+    }
   }
 
   function setUserFilter(filter) {

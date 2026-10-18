@@ -245,7 +245,9 @@ async function fetchCollection(name) {
       if (val !== null && val !== undefined) {
         updateFirebaseStatusIndicator('CONNECTED');
         if (Array.isArray(val)) return val;
-        if (typeof val === 'object') return Object.values(val);
+        if (typeof val === 'object') {
+          return Object.entries(val).map(([k, v]) => (v && typeof v === 'object' ? { id: k, ...v } : v));
+        }
       }
     } catch (sdkErr) {
       console.warn(`Firebase SDK collection read warning for ${name}:`, sdkErr);
@@ -259,7 +261,9 @@ async function fetchCollection(name) {
       const data = await safeJson(res);
       const items = (data && data.data !== undefined) ? data.data : data;
       if (Array.isArray(items)) return items;
-      if (items && typeof items === 'object') return Object.values(items);
+      if (items && typeof items === 'object') {
+        return Object.entries(items).map(([k, v]) => (v && typeof v === 'object' ? { id: k, ...v } : v));
+      }
     }
   } catch (_) {}
 

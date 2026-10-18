@@ -9,6 +9,16 @@
         </div>
       </div>
 
+      <!-- Quick Filter Pills for Requests -->
+      <div class="pill-filter" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; margin-bottom: 12px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="pill-filter-btn active" id="reqFilterPending" onclick="setRequestFilter('PENDING')">الطلبات الجديدة المعلقة (<span id="countReqPending">0</span>)</button>
+          <button class="pill-filter-btn" id="reqFilterCompleted" onclick="setRequestFilter('COMPLETED')">الطلبات المنفذة (<span id="countReqCompleted">0</span>)</button>
+          <button class="pill-filter-btn" id="reqFilterAll" onclick="setRequestFilter('ALL')">كافة الطلبات (<span id="countReqAll">0</span>)</button>
+        </div>
+        <button class="btn btn-outline" style="width: auto; padding: 6px 14px; font-size: 12px; color: var(--danger); border-color: var(--danger);" onclick="deleteCompletedRequests()" title="حذف جميع الطلبات التي تم تفعيلها سابقاً">🗑️ حذف المنفذة</button>
+      </div>
+
       <div class="table-container">
         <table>
           <thead>
