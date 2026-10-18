@@ -1725,30 +1725,28 @@
         body: JSON.stringify(reason)
       });
 
-      if (block) {
-        // Revoke any active licenses for this device in /licenses so it cannot auto-reactivate
-        try {
-          const licRes = await firebaseFetch('licenses.json');
-          if (licRes && licRes.ok) {
-            const licData = await safeJson(licRes);
-            const licObj = (licData && licData.data !== undefined) ? licData.data : licData;
-            if (licObj && typeof licObj === 'object') {
-              for (const [lKey, lic] of Object.entries(licObj)) {
-                if (lic && lic.deviceCode) {
-                  const licClean = lic.deviceCode.replace(/-/g, "").trim();
-                  if (licClean === cleanDeviceKey) {
-                    await firebaseFetch(`licenses/${lKey}/isRevoked.json`, {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(true)
-                    });
-                  }
+      // Revoke or un-revoke active licenses for this device in /licenses
+      try {
+        const licRes = await firebaseFetch('licenses.json');
+        if (licRes && licRes.ok) {
+          const licData = await safeJson(licRes);
+          const licObj = (licData && licData.data !== undefined) ? licData.data : licData;
+          if (licObj && typeof licObj === 'object') {
+            for (const [lKey, lic] of Object.entries(licObj)) {
+              if (lic && lic.deviceCode) {
+                const licClean = lic.deviceCode.replace(/-/g, "").trim();
+                if (licClean === cleanDeviceKey) {
+                  await firebaseFetch(`licenses/${lKey}/isRevoked.json`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(block ? true : false)
+                  });
                 }
               }
             }
           }
-        } catch (_) {}
-      }
+        }
+      } catch (_) {}
 
       if (email && email.includes("@")) {
         const safeEmailKey = email.replace(/\./g, "_").replace(/@/g, "_at_");
