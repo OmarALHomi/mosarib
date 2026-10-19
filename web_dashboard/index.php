@@ -129,36 +129,26 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
 
   <!-- Hero Section -->
   <section class="hero container">
-    <div class="hero-grid">
-      <div class="hero-content">
-        <div class="hero-pill" id="heroBadgeEl">
-          <span>💧</span>
-          <span id="heroBadgeText"><?= htmlspecialchars($ps['hero_badge']) ?></span>
-        </div>
-        <h1 id="heroTitleText"><?= htmlspecialchars($ps['hero_title']) ?></h1>
-        <p id="heroSubtitleText"><?= htmlspecialchars($ps['hero_subtitle']) ?></p>
+    <div class="hero-pill" id="heroBadgeEl">
+      <span>💧</span>
+      <span id="heroBadgeText"><?= htmlspecialchars($ps['hero_badge']) ?></span>
+    </div>
+    <h1 id="heroTitleText"><?= htmlspecialchars($ps['hero_title']) ?></h1>
+    <p id="heroSubtitleText"><?= htmlspecialchars($ps['hero_subtitle']) ?></p>
 
-        <div class="hero-cta">
-          <a href="api/download.php" class="btn-primary" onclick="trackDownload()">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            <span>تحميل التطبيق مجاناً (APK)</span>
-          </a>
-          <button onclick="openModal('YEARLY')" class="btn-secondary">
-            <span>طلب تفعيل الترخيص ⚡</span>
-          </button>
-          <?php if (!empty($ps['contact_whatsapp'])): ?>
-          <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>" target="_blank" class="btn-outline">
-            <span>محادثة واتساب 💬</span>
-          </a>
-          <?php endif; ?>
-        </div>
-      </div>
-
-      <div class="hero-visual">
-        <div class="hero-mockup-frame">
-          <img src="assets/images/hero_phone_mockup.jpg" alt="تطبيق مُسَرِّب على الهاتف الذكي" class="hero-mockup-img" loading="eager">
-        </div>
-      </div>
+    <div class="hero-cta">
+      <a href="api/download.php" class="btn-primary" onclick="trackDownload()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        <span>تحميل التطبيق مجاناً (APK)</span>
+      </a>
+      <button onclick="openModal('YEARLY')" class="btn-secondary">
+        <span>طلب تفعيل الترخيص ⚡</span>
+      </button>
+      <?php if (!empty($ps['contact_whatsapp'])): ?>
+      <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>" target="_blank" class="btn-outline">
+        <span>محادثة واتساب 💬</span>
+      </a>
+      <?php endif; ?>
     </div>
 
     <div class="trust-badges">
@@ -233,32 +223,6 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
     </div>
   </section>
 
-  <!-- Agricultural News & Water Reports -->
-  <?php if (!empty($portalNews)): ?>
-  <section class="section container" id="news" style="margin-bottom: 40px;">
-    <div class="section-head">
-      <h2>مستجدات وبورصة مياه الآبار</h2>
-      <p>تقارير ميدانية دورية حول حركة أسعار الري ومعدلات الضخ المائي</p>
-    </div>
-    <div class="news-grid">
-      <?php foreach (array_slice($portalNews, 0, 3) as $nw): ?>
-      <div class="news-card">
-        <?php if (!empty($nw['image'])): ?>
-        <div class="news-cover-wrap">
-          <img src="<?= htmlspecialchars($nw['image']) ?>" alt="<?= htmlspecialchars($nw['title']) ?>" class="news-cover-img" loading="lazy">
-        </div>
-        <?php endif; ?>
-        <div class="news-body-content">
-          <span class="news-tag"><?= htmlspecialchars($nw['category'] ?? 'تقارير الآبار') ?></span>
-          <h3 class="news-title"><?= htmlspecialchars($nw['title']) ?></h3>
-          <p class="news-desc"><?= htmlspecialchars($nw['summary']) ?></p>
-        </div>
-      </div>
-      <?php endforeach; ?>
-    </div>
-  </section>
-  <?php endif; ?>
-
   <!-- Pricing Plans Section -->
   <?php if (!empty($ps['show_plans_section'])): ?>
   <section class="section container" id="plans">
@@ -312,6 +276,32 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
         </div>
         <button onclick="openModal('MONTHLY')" class="btn-outline" style="width: 100%; justify-content: center;">طلب تفعيل الباقة الشهرية</button>
       </div>
+    </div>
+  </section>
+  <?php endif; ?>
+
+  <!-- Agricultural News & Water Reports -->
+  <?php if (!empty($portalNews)): ?>
+  <section class="section container" id="news" style="margin-bottom: 40px;">
+    <div class="section-head">
+      <h2>مستجدات وبورصة مياه الآبار</h2>
+      <p>تقارير ميدانية دورية حول حركة أسعار الري ومعدلات الضخ المائي</p>
+    </div>
+    <div class="news-grid">
+      <?php foreach (array_slice($portalNews, 0, 3) as $nw): ?>
+      <div class="news-card">
+        <?php if (!empty($nw['image'])): ?>
+        <div class="news-cover-wrap">
+          <img src="<?= htmlspecialchars($nw['image']) ?>" alt="<?= htmlspecialchars($nw['title']) ?>" class="news-cover-img" loading="lazy">
+        </div>
+        <?php endif; ?>
+        <div class="news-body-content">
+          <span class="news-tag"><?= htmlspecialchars($nw['category'] ?? 'تقارير الآبار') ?></span>
+          <h3 class="news-title"><?= htmlspecialchars($nw['title']) ?></h3>
+          <p class="news-desc"><?= htmlspecialchars($nw['summary']) ?></p>
+        </div>
+      </div>
+      <?php endforeach; ?>
     </div>
   </section>
   <?php endif; ?>
