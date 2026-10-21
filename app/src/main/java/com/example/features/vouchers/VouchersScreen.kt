@@ -92,6 +92,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -185,6 +187,10 @@ fun VouchersScreen(
         }
     }
 
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isCompactHeight = configuration.screenHeightDp < 520 || isLandscape
+
     val listState = rememberLazyListState()
     val firstIndex by remember { derivedStateOf { listState.firstVisibleItemIndex } }
     val firstOffset by remember { derivedStateOf { listState.firstVisibleItemScrollOffset } }
@@ -202,7 +208,7 @@ fun VouchersScreen(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 110.dp)
+            contentPadding = PaddingValues(top = 8.dp, bottom = if (isCompactHeight) 80.dp else 110.dp)
         ) {
             // Merged Integrated Financial Summary Card (يتلاشى بسلاسة تامة مع التمرير دون قفز)
             item {
@@ -342,149 +348,302 @@ fun VouchersScreen(
                     }
                 }
 
-            // Search & Filters Row (Sticky Header تحت البوردر)
-            stickyHeader {
-                Surface(
-                    color = MaterialTheme.colorScheme.background,
-                    shadowElevation = if (isStickyPinned) 3.dp else 0.dp,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            if (isCompactHeight) {
+                // في الوضع الأفقي: دمج حقل البحث وزر التصدير والفلاتر في صف أفقي واحد مدمج
+                item {
+                    Surface(
+                        color = MaterialTheme.colorScheme.background,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Box(
+                        Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                                .padding(horizontal = 10.dp),
-                            contentAlignment = Alignment.CenterStart
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
+                            Box(
+                                modifier = Modifier
+                                    .weight(1.1f)
+                                    .height(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                                    .padding(horizontal = 8.dp),
+                                contentAlignment = Alignment.CenterStart
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.CenterStart
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    if (searchQuery.isEmpty()) {
-                                        Text(
-                                            text = "بحث بالعميل أو رقم السند...",
-                                            style = MaterialTheme.typography.bodyMedium.copy(
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                                                fontSize = 12.5.sp
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Box(
+                                        modifier = Modifier.weight(1f),
+                                        contentAlignment = Alignment.CenterStart
+                                    ) {
+                                        if (searchQuery.isEmpty()) {
+                                            Text(
+                                                text = "بحث...",
+                                                style = MaterialTheme.typography.bodyMedium.copy(
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                                    fontSize = 11.5.sp
+                                                ),
+                                                maxLines = 1
+                                            )
+                                        }
+                                        BasicTextField(
+                                            value = searchQuery,
+                                            onValueChange = { viewModel.setSearchQuery(it) },
+                                            singleLine = true,
+                                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontSize = 11.5.sp
                                             ),
-                                            maxLines = 1
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("operations_search_input")
                                         )
                                     }
-                                    BasicTextField(
-                                        value = searchQuery,
-                                        onValueChange = { viewModel.setSearchQuery(it) },
-                                        singleLine = true,
-                                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 12.5.sp
-                                        ),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .testTag("operations_search_input")
-                                    )
-                                }
-                                if (searchQuery.isNotEmpty()) {
-                                    IconButton(
-                                        onClick = { viewModel.setSearchQuery("") },
-                                        modifier = Modifier.size(20.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = "مسح",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(14.dp)
-                                        )
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(
+                                            onClick = { viewModel.setSearchQuery("") },
+                                            modifier = Modifier.size(18.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "مسح",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        // زر طباعة سجل العمليات كتقرير PDF
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                                .clickable { viewModel.exportOperationsLogPdf(context) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PictureAsPdf,
-                                contentDescription = "طباعة سجل العمليات PDF",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            // زر طباعة سجل العمليات كتقرير PDF
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                                    .clickable { viewModel.exportOperationsLogPdf(context) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PictureAsPdf,
+                                    contentDescription = "طباعة سجل العمليات PDF",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            LazyRow(
+                                modifier = Modifier.weight(1.9f),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                item {
+                                    MosaribFilterChip(
+                                        selected = operationsFilter == OperationsFilter.ALL,
+                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.ALL) },
+                                        label = "الكل",
+                                        isCompact = true
+                                    )
+                                }
+                                item {
+                                    MosaribFilterChip(
+                                        selected = operationsFilter == OperationsFilter.SESSIONS,
+                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.SESSIONS) },
+                                        label = "سقي",
+                                        isCompact = true
+                                    )
+                                }
+                                item {
+                                    MosaribFilterChip(
+                                        selected = operationsFilter == OperationsFilter.RECEIPTS,
+                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.RECEIPTS) },
+                                        label = "مقبوضات",
+                                        isCompact = true
+                                    )
+                                }
+                                item {
+                                    MosaribFilterChip(
+                                        selected = operationsFilter == OperationsFilter.EXPENSES,
+                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.EXPENSES) },
+                                        label = "مصروفات",
+                                        isCompact = true
+                                    )
+                                }
+                                item {
+                                    MosaribFilterChip(
+                                        selected = operationsFilter == OperationsFilter.DEFERRED,
+                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.DEFERRED) },
+                                        label = "آجل / ديون",
+                                        isCompact = true
+                                    )
+                                }
+                                item {
+                                    MosaribFilterChip(
+                                        selected = operationsFilter == OperationsFilter.PURCHASES,
+                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.PURCHASES) },
+                                        label = "شراء ساعات",
+                                        isCompact = true
+                                    )
+                                }
+                            }
                         }
                     }
+                }
+            } else {
+                // Search & Filters Row (Sticky Header تحت البوردر)
+                stickyHeader {
+                    Surface(
+                        color = MaterialTheme.colorScheme.background,
+                        shadowElevation = if (isStickyPinned) 3.dp else 0.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(40.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                                        .padding(horizontal = 10.dp),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Search,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Box(
+                                            modifier = Modifier.weight(1f),
+                                            contentAlignment = Alignment.CenterStart
+                                        ) {
+                                            if (searchQuery.isEmpty()) {
+                                                Text(
+                                                    text = "بحث بالعميل أو رقم السند...",
+                                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                                        fontSize = 12.5.sp
+                                                    ),
+                                                    maxLines = 1
+                                                )
+                                            }
+                                            BasicTextField(
+                                                value = searchQuery,
+                                                onValueChange = { viewModel.setSearchQuery(it) },
+                                                singleLine = true,
+                                                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    fontSize = 12.5.sp
+                                                ),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .testTag("operations_search_input")
+                                            )
+                                        }
+                                        if (searchQuery.isNotEmpty()) {
+                                            IconButton(
+                                                onClick = { viewModel.setSearchQuery("") },
+                                                modifier = Modifier.size(20.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "مسح",
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                                // زر طباعة سجل العمليات كتقرير PDF
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                                        .clickable { viewModel.exportOperationsLogPdf(context) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PictureAsPdf,
+                                        contentDescription = "طباعة سجل العمليات PDF",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
 
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        item {
-                            MosaribFilterChip(
-                                selected = operationsFilter == OperationsFilter.ALL,
-                                onClick = { viewModel.setOperationsFilter(OperationsFilter.ALL) },
-                                label = "الكل"
-                            )
-                        }
-                        item {
-                            MosaribFilterChip(
-                                selected = operationsFilter == OperationsFilter.SESSIONS,
-                                onClick = { viewModel.setOperationsFilter(OperationsFilter.SESSIONS) },
-                                label = "سقي"
-                            )
-                        }
-                        item {
-                            MosaribFilterChip(
-                                selected = operationsFilter == OperationsFilter.RECEIPTS,
-                                onClick = { viewModel.setOperationsFilter(OperationsFilter.RECEIPTS) },
-                                label = "مقبوضات"
-                            )
-                        }
-                        item {
-                            MosaribFilterChip(
-                                selected = operationsFilter == OperationsFilter.EXPENSES,
-                                onClick = { viewModel.setOperationsFilter(OperationsFilter.EXPENSES) },
-                                label = "مصروفات"
-                            )
-                        }
-                        item {
-                            MosaribFilterChip(
-                                selected = operationsFilter == OperationsFilter.DEFERRED,
-                                onClick = { viewModel.setOperationsFilter(OperationsFilter.DEFERRED) },
-                                label = "آجل / ديون"
-                            )
-                        }
-                        item {
-                            MosaribFilterChip(
-                                selected = operationsFilter == OperationsFilter.PURCHASES,
-                                onClick = { viewModel.setOperationsFilter(OperationsFilter.PURCHASES) },
-                                label = "شراء ساعات"
-                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                item {
+                                    MosaribFilterChip(
+                                        selected = operationsFilter == OperationsFilter.ALL,
+                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.ALL) },
+                                        label = "الكل"
+                                    )
+                                }
+                                item {
+                                    MosaribFilterChip(
+                                        selected = operationsFilter == OperationsFilter.SESSIONS,
+                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.SESSIONS) },
+                                        label = "سقي"
+                                    )
+                                }
+                                item {
+                                    MosaribFilterChip(
+                                        selected = operationsFilter == OperationsFilter.RECEIPTS,
+                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.RECEIPTS) },
+                                        label = "مقبوضات"
+                                    )
+                                }
+                                item {
+                                    MosaribFilterChip(
+                                        selected = operationsFilter == OperationsFilter.EXPENSES,
+                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.EXPENSES) },
+                                        label = "مصروفات"
+                                    )
+                                }
+                                item {
+                                    MosaribFilterChip(
+                                        selected = operationsFilter == OperationsFilter.DEFERRED,
+                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.DEFERRED) },
+                                        label = "آجل / ديون"
+                                    )
+                                }
+                                item {
+                                    MosaribFilterChip(
+                                        selected = operationsFilter == OperationsFilter.PURCHASES,
+                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.PURCHASES) },
+                                        label = "شراء ساعات"
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
-        }
 
             // Operations List (Combined: Sessions + Vouchers + Purchases)
             if (operations.isEmpty()) {
@@ -1238,7 +1397,7 @@ fun VouchersScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 16.dp, bottom = 16.dp)
+                .padding(start = 16.dp, bottom = if (isCompactHeight) 10.dp else 16.dp)
         ) {
             AnimatedVisibility(
                 visible = speedDialOpen,
@@ -1392,7 +1551,7 @@ fun VouchersScreen(
             FloatingActionButton(
                 onClick = { speedDialOpen = !speedDialOpen },
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(if (isCompactHeight) 44.dp else 48.dp)
                     .testTag("fab_add_operation"),
                 shape = CircleShape,
                 containerColor = PrimaryTeal,

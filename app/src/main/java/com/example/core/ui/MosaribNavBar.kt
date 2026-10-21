@@ -34,6 +34,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -600,24 +602,43 @@ fun MosaribNavBar(
         label = "crest_sliding_x"
     )
 
-    val crestedShape = remember(animatedFraction) {
-        DynamicCrestedBarShape(
-            centerFraction = animatedFraction,
-            flatTopDp = 26f,
-            crestPeakDp = 5f,
-            crestHalfWDp = 50f
-        )
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isCompactHeight = configuration.screenHeightDp < 520 || isLandscape
+
+    val barHeight = if (isCompactHeight) 56.dp else 90.dp
+    val rowHeight = if (isCompactHeight) 48.dp else 64.dp
+    val circleSize = if (isCompactHeight) 42.dp else 60.dp
+    val circleYOffset = if (isCompactHeight) (-8).dp else (-12).dp
+    val unselectedIconSize = if (isCompactHeight) 20.dp else 28.dp
+    val circleIconSize = if (isCompactHeight) 22.dp else 32.dp
+
+    val crestedShape = remember(animatedFraction, isCompactHeight) {
+        if (isCompactHeight) {
+            DynamicCrestedBarShape(
+                centerFraction = animatedFraction,
+                flatTopDp = 16f,
+                crestPeakDp = 3f,
+                crestHalfWDp = 36f
+            )
+        } else {
+            DynamicCrestedBarShape(
+                centerFraction = animatedFraction,
+                flatTopDp = 26f,
+                crestPeakDp = 5f,
+                crestHalfWDp = 50f
+            )
+        }
     }
 
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .height(90.dp)
+            .height(barHeight)
             .navigationBarsPadding(),
         contentAlignment = Alignment.BottomCenter
     ) {
         val totalWidth = maxWidth
-        val circleSize = 60.dp
         // In RTL, Alignment.TopStart is anchored at the right edge, so distance from start is (1f - fraction)
         val circleX = if (isRtl) {
             (totalWidth * (1f - animatedFraction)) - (circleSize / 2)
@@ -645,9 +666,9 @@ fun MosaribNavBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
+                .height(rowHeight)
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 6.dp),
+                .padding(bottom = if (isCompactHeight) 2.dp else 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             mosaribNavItems.forEachIndexed { index, item ->
@@ -680,31 +701,38 @@ fun MosaribNavBar(
                         exit = fadeOut(tween(140)) + scaleOut(targetScale = 0.8f)
                     ) {
                         Box(
-                            modifier = Modifier.size(28.dp),
+                            modifier = Modifier.size(unselectedIconSize),
                             contentAlignment = Alignment.Center
                         ) {
                             when (index) {
-                                0 -> AnalyticsChartIcon(tint = currentTint, modifier = Modifier.size(28.dp))
-                                1 -> CustomersBadgeIcon(tint = currentTint, modifier = Modifier.size(28.dp))
-                                2 -> HomeDropHouseIcon(dropTint = currentTint, houseTint = barBg, modifier = Modifier.size(28.dp))
-                                3 -> OperationsClipboardIcon(tint = currentTint, modifier = Modifier.size(28.dp))
-                                4 -> SettingsMaintenanceIcon(tint = currentTint, modifier = Modifier.size(28.dp))
+                                0 -> AnalyticsChartIcon(tint = currentTint, modifier = Modifier.size(unselectedIconSize))
+                                1 -> CustomersBadgeIcon(tint = currentTint, modifier = Modifier.size(unselectedIconSize))
+                                2 -> HomeDropHouseIcon(dropTint = currentTint, houseTint = barBg, modifier = Modifier.size(unselectedIconSize))
+                                3 -> OperationsClipboardIcon(tint = currentTint, modifier = Modifier.size(unselectedIconSize))
+                                4 -> SettingsMaintenanceIcon(tint = currentTint, modifier = Modifier.size(unselectedIconSize))
                             }
                         }
                     }
 
                     if (isSelected) {
-                        Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(if (isCompactHeight) 10.dp else 18.dp))
                     } else {
                         Spacer(modifier = Modifier.height(2.dp))
                     }
 
                     // Text label (supports 2 lines with proper line height to avoid clipping)
+                    val baseFontSize = if (isCompactHeight) 8.sp else 9.sp
+                    val selectedFontSize = if (isCompactHeight) 8.5.sp else 9.5.sp
+                    val singleLineFontSize = if (isSelected) {
+                        if (isCompactHeight) 9.5.sp else 10.5.sp
+                    } else {
+                        if (isCompactHeight) 8.5.sp else 9.5.sp
+                    }
                     if (item.labelLine2 != null) {
                         Text(
                             text = "${item.labelLine1}\n${item.labelLine2}",
-                            fontSize = if (isSelected) 9.5.sp else 9.sp,
-                            lineHeight = 10.5.sp,
+                            fontSize = if (isSelected) selectedFontSize else baseFontSize,
+                            lineHeight = if (isCompactHeight) 9.5.sp else 10.5.sp,
                             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
                             color = currentTint,
                             textAlign = TextAlign.Center,
@@ -713,7 +741,7 @@ fun MosaribNavBar(
                     } else {
                         Text(
                             text = item.labelLine1,
-                            fontSize = if (isSelected) 10.5.sp else 9.5.sp,
+                            fontSize = singleLineFontSize,
                             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
                             color = currentTint,
                             textAlign = TextAlign.Center,
@@ -729,7 +757,7 @@ fun MosaribNavBar(
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = circleX, y = (-12).dp)
+                .offset(x = circleX, y = circleYOffset)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = ripple(bounded = false, radius = 36.dp),
@@ -742,7 +770,7 @@ fun MosaribNavBar(
                 modifier = Modifier
                     .size(circleSize)
                     .shadow(
-                        elevation = 12.dp,
+                        elevation = if (isCompactHeight) 8.dp else 12.dp,
                         shape = CircleShape,
                         spotColor = shadowColor.copy(alpha = if (isDark) 0.45f else 0.35f),
                         ambientColor = shadowColor.copy(alpha = 0.20f)
@@ -765,16 +793,17 @@ fun MosaribNavBar(
                     },
                     label = "floating_circle_icon"
                 ) { targetIndex ->
+                    val activeIconSize = if (targetIndex == 2) (circleIconSize + 4.dp) else circleIconSize
                     when (targetIndex) {
-                        0 -> AnalyticsChartIcon(tint = Color.White, modifier = Modifier.size(32.dp))
-                        1 -> CustomersBadgeIcon(tint = Color.White, modifier = Modifier.size(32.dp))
+                        0 -> AnalyticsChartIcon(tint = Color.White, modifier = Modifier.size(activeIconSize))
+                        1 -> CustomersBadgeIcon(tint = Color.White, modifier = Modifier.size(activeIconSize))
                         2 -> HomeDropHouseIcon(
                             dropTint = homeDropSilhouette,
                             houseTint = Color.White,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(activeIconSize)
                         )
-                        3 -> OperationsClipboardIcon(tint = Color.White, modifier = Modifier.size(32.dp))
-                        4 -> SettingsMaintenanceIcon(tint = Color.White, modifier = Modifier.size(32.dp))
+                        3 -> OperationsClipboardIcon(tint = Color.White, modifier = Modifier.size(activeIconSize))
+                        4 -> SettingsMaintenanceIcon(tint = Color.White, modifier = Modifier.size(activeIconSize))
                     }
                 }
             }

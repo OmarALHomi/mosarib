@@ -75,6 +75,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -160,6 +162,10 @@ fun CustomersScreen(
         }
     }
 
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isCompactHeight = configuration.screenHeightDp < 520 || isLandscape
+
     val listState = rememberLazyListState()
     val isStickyPinned by remember {
         derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 24 }
@@ -175,9 +181,9 @@ fun CustomersScreen(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 120.dp)
+            contentPadding = PaddingValues(bottom = if (isCompactHeight) 80.dp else 120.dp)
         ) {
-            // 1. شريط الترويسة العلوي (App Bar) مع أزرار الإجراءات (استيراد إكسل، تصدير إكسل، طباعة كشف PDF)
+            // 1. شريط الترويسة العلوي (App Bar) مع أزرار الإجراءات (استيراد إكسل، تصدير إكسل، طباعة كشف PDF) + ملخص المركز المالي في الشاشات العريضة
             item {
                 Row(
                     modifier = Modifier
@@ -199,6 +205,50 @@ fun CustomersScreen(
                             fontSize = 17.sp
                         )
                     )
+
+                    // في الشاشات العريضة / الوضع الأفقي: عرض شريط المركز المالي هنا بشكل مدمج وأنيق
+                    if (isCompactHeight) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFFE53935)))
+                                    Text(
+                                        text = "عليك:",
+                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFE53935), fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
+                                    )
+                                    Text(
+                                        text = Formatters.formatCurrency(cardOwedByUs, config.currencySymbol),
+                                        style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFFE53935), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                                    )
+                                }
+                                Box(modifier = Modifier.width(1.dp).height(12.dp).background(Color.Gray.copy(alpha = 0.3f)))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF2E7D32)))
+                                    Text(
+                                        text = "لك:",
+                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
+                                    )
+                                    Text(
+                                        text = Formatters.formatCurrency(cardOwedToUs, config.currencySymbol),
+                                        style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFF2E7D32), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                                    )
+                                }
+                            }
+                        }
+                    }
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -280,122 +330,237 @@ fun CustomersScreen(
                 }
             }
 
-            // 2. شريط الفلاتر المصغرة وحقل البحث المدمج وفلاتر الترتيب (Sticky Header تحت البوردر)
-            stickyHeader {
-                Surface(
-                    color = MaterialTheme.colorScheme.background,
-                    shadowElevation = if (isStickyPinned) 3.dp else 0.dp,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)) {
-                    // أولاً: فلاتر الكل / المزارعون / أصحاب الآبار (مصغرة)
-                    MosaribFilterRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(0.dp)
+            // 2. شريط الفلاتر المصغرة وحقل البحث المدمج وفلاتر الترتيب المتجاوبة
+            if (isCompactHeight) {
+                // في الوضع الأفقي: دمج حقل البحث وفلاتر الحساب في سطر واحد مضغوط لتوفير المساحة الرأسية بالكامل
+                item {
+                    Surface(
+                        color = MaterialTheme.colorScheme.background,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        MosaribFilterChip(
-                            selected = accountFilter == AccountFilter.ALL,
-                            onClick = { viewModel.setAccountFilter(AccountFilter.ALL) },
-                            label = "الكل",
-                            badgeCount = rawCustomers.size,
-                            isCompact = true
-                        )
-
-                        MosaribFilterChip(
-                            selected = accountFilter == AccountFilter.FARMERS,
-                            onClick = { viewModel.setAccountFilter(AccountFilter.FARMERS) },
-                            label = "المزارعون",
-                            badgeCount = rawCustomers.count { !it.customer.isWellOwner },
-                            isCompact = true,
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Eco,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = if (accountFilter == AccountFilter.FARMERS) Color.White else PrimaryTeal
+                        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                MosaribTextField(
+                                    value = searchQuery,
+                                    onValueChange = { viewModel.setSearchQuery(it) },
+                                    placeholder = "بحث بالاسم، المزرعة، أو الهاتف...",
+                                    isDense = true,
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Search,
+                                            contentDescription = null,
+                                            tint = PrimaryTeal,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    },
+                                    trailingIcon = if (searchQuery.isNotEmpty()) {
+                                        {
+                                            IconButton(onClick = { viewModel.setSearchQuery("") }, modifier = Modifier.size(24.dp)) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "مسح",
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
+                                    } else null,
+                                    modifier = Modifier
+                                        .weight(1.3f)
+                                        .testTag("customers_search_input"),
+                                    singleLine = true
                                 )
-                            }
-                        )
 
-                        MosaribFilterChip(
-                            selected = accountFilter == AccountFilter.WELL_OWNERS,
-                            onClick = { viewModel.setAccountFilter(AccountFilter.WELL_OWNERS) },
-                            label = "أصحاب الآبار",
-                            badgeCount = rawCustomers.count { it.customer.isWellOwner },
-                            isCompact = true,
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.WaterDrop,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = if (accountFilter == AccountFilter.WELL_OWNERS) Color.White else PrimaryTeal
-                                )
-                            }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    // ثانياً: حقل البحث مصغر ومدمج بكامل العرض وبدون أزرار ضخمة بجانبه
-                    MosaribTextField(
-                        value = searchQuery,
-                        onValueChange = { viewModel.setSearchQuery(it) },
-                        placeholder = "بحث بالاسم، المزرعة، أو الهاتف...",
-                        isDense = true,
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                tint = PrimaryTeal,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        },
-                        trailingIcon = if (searchQuery.isNotEmpty()) {
-                            {
-                                IconButton(onClick = { viewModel.setSearchQuery("") }, modifier = Modifier.size(24.dp)) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "مسح",
-                                        modifier = Modifier.size(16.dp)
+                                MosaribFilterRow(
+                                    modifier = Modifier.weight(1.7f),
+                                    contentPadding = PaddingValues(0.dp)
+                                ) {
+                                    MosaribFilterChip(
+                                        selected = accountFilter == AccountFilter.ALL,
+                                        onClick = { viewModel.setAccountFilter(AccountFilter.ALL) },
+                                        label = "الكل",
+                                        badgeCount = rawCustomers.size,
+                                        isCompact = true
+                                    )
+                                    MosaribFilterChip(
+                                        selected = accountFilter == AccountFilter.FARMERS,
+                                        onClick = { viewModel.setAccountFilter(AccountFilter.FARMERS) },
+                                        label = "المزارعون",
+                                        badgeCount = rawCustomers.count { !it.customer.isWellOwner },
+                                        isCompact = true,
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Eco,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp),
+                                                tint = if (accountFilter == AccountFilter.FARMERS) Color.White else PrimaryTeal
+                                            )
+                                        }
+                                    )
+                                    MosaribFilterChip(
+                                        selected = accountFilter == AccountFilter.WELL_OWNERS,
+                                        onClick = { viewModel.setAccountFilter(AccountFilter.WELL_OWNERS) },
+                                        label = "أصحاب الآبار",
+                                        badgeCount = rawCustomers.count { it.customer.isWellOwner },
+                                        isCompact = true,
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.WaterDrop,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp),
+                                                tint = if (accountFilter == AccountFilter.WELL_OWNERS) Color.White else PrimaryTeal
+                                            )
+                                        }
                                     )
                                 }
                             }
-                        } else null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("customers_search_input"),
-                        singleLine = true
-                    )
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(3.dp))
 
-                    // ثالثاً: فلاتر الترتيب (مصغرة)
-                    MosaribFilterRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(0.dp)
+                            MosaribFilterRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                MosaribFilterChip(
+                                    selected = sortType == CustomerSort.NAME,
+                                    onClick = { viewModel.setSortType(CustomerSort.NAME) },
+                                    label = "أبجدياً (الاسم)",
+                                    isCompact = true
+                                )
+                                MosaribFilterChip(
+                                    selected = sortType == CustomerSort.HIGHEST_DEBT,
+                                    onClick = { viewModel.setSortType(CustomerSort.HIGHEST_DEBT) },
+                                    label = "الأعلى رصيداً",
+                                    isCompact = true
+                                )
+                                MosaribFilterChip(
+                                    selected = sortType == CustomerSort.MOST_WATER_HOURS,
+                                    onClick = { viewModel.setSortType(CustomerSort.MOST_WATER_HOURS) },
+                                    label = "الأكثر استهلاكاً / ضخاً",
+                                    isCompact = true
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // في الوضع الرأسي: StickyHeader مع مسافات مدمجة ومحكمة
+                stickyHeader {
+                    Surface(
+                        color = MaterialTheme.colorScheme.background,
+                        shadowElevation = if (isStickyPinned) 3.dp else 0.dp,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        MosaribFilterChip(
-                            selected = sortType == CustomerSort.NAME,
-                            onClick = { viewModel.setSortType(CustomerSort.NAME) },
-                            label = "أبجدياً (الاسم)",
-                            isCompact = true
-                        )
-                        MosaribFilterChip(
-                            selected = sortType == CustomerSort.HIGHEST_DEBT,
-                            onClick = { viewModel.setSortType(CustomerSort.HIGHEST_DEBT) },
-                            label = "الأعلى رصيداً",
-                            isCompact = true
-                        )
-                        MosaribFilterChip(
-                            selected = sortType == CustomerSort.MOST_WATER_HOURS,
-                            onClick = { viewModel.setSortType(CustomerSort.MOST_WATER_HOURS) },
-                            label = "الأكثر استهلاكاً / ضخاً",
-                            isCompact = true
-                        )
+                        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)) {
+                            MosaribFilterRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                MosaribFilterChip(
+                                    selected = accountFilter == AccountFilter.ALL,
+                                    onClick = { viewModel.setAccountFilter(AccountFilter.ALL) },
+                                    label = "الكل",
+                                    badgeCount = rawCustomers.size,
+                                    isCompact = true
+                                )
+
+                                MosaribFilterChip(
+                                    selected = accountFilter == AccountFilter.FARMERS,
+                                    onClick = { viewModel.setAccountFilter(AccountFilter.FARMERS) },
+                                    label = "المزارعون",
+                                    badgeCount = rawCustomers.count { !it.customer.isWellOwner },
+                                    isCompact = true,
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Eco,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = if (accountFilter == AccountFilter.FARMERS) Color.White else PrimaryTeal
+                                        )
+                                    }
+                                )
+
+                                MosaribFilterChip(
+                                    selected = accountFilter == AccountFilter.WELL_OWNERS,
+                                    onClick = { viewModel.setAccountFilter(AccountFilter.WELL_OWNERS) },
+                                    label = "أصحاب الآبار",
+                                    badgeCount = rawCustomers.count { it.customer.isWellOwner },
+                                    isCompact = true,
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.WaterDrop,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = if (accountFilter == AccountFilter.WELL_OWNERS) Color.White else PrimaryTeal
+                                        )
+                                    }
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            MosaribTextField(
+                                value = searchQuery,
+                                onValueChange = { viewModel.setSearchQuery(it) },
+                                placeholder = "بحث بالاسم، المزرعة، أو الهاتف...",
+                                isDense = true,
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null,
+                                        tint = PrimaryTeal,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                trailingIcon = if (searchQuery.isNotEmpty()) {
+                                    {
+                                        IconButton(onClick = { viewModel.setSearchQuery("") }, modifier = Modifier.size(24.dp)) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "مسح",
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                } else null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("customers_search_input"),
+                                singleLine = true
+                            )
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            MosaribFilterRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                MosaribFilterChip(
+                                    selected = sortType == CustomerSort.NAME,
+                                    onClick = { viewModel.setSortType(CustomerSort.NAME) },
+                                    label = "أبجدياً (الاسم)",
+                                    isCompact = true
+                                )
+                                MosaribFilterChip(
+                                    selected = sortType == CustomerSort.HIGHEST_DEBT,
+                                    onClick = { viewModel.setSortType(CustomerSort.HIGHEST_DEBT) },
+                                    label = "الأعلى رصيداً",
+                                    isCompact = true
+                                )
+                                MosaribFilterChip(
+                                    selected = sortType == CustomerSort.MOST_WATER_HOURS,
+                                    onClick = { viewModel.setSortType(CustomerSort.MOST_WATER_HOURS) },
+                                    label = "الأكثر استهلاكاً / ضخاً",
+                                    isCompact = true
+                                )
+                            }
+                        }
                     }
                 }
             }
-        }
 
             // 2. قائمة الحسابات المضغوطة (دفتر الحسابات)
             if (customersWithBalance.isEmpty()) {
@@ -422,187 +587,208 @@ fun CustomersScreen(
             }
         }
 
-        // 3. الشريط المالي السفلي الثابت (دفتر الحسابات) التفاعلي: عليك | (+) | لك
-        Card(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 14.dp, vertical = 8.dp)
-                .fillMaxWidth()
-                .shadow(8.dp, RoundedCornerShape(20.dp)),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Box(
+        if (!isCompactHeight) {
+            // 3. الشريط المالي السفلي الثابت (دفتر الحسابات) التفاعلي: عليك | (+) | لك
+            Card(
                 modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center
+                    .shadow(8.dp, RoundedCornerShape(20.dp)),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // مستحقات عليك (مختلفة تفاعلياً حسب الفلتر المختار)
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(7.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFE53935))
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            when (accountFilter) {
-                                AccountFilter.ALL -> {
-                                    Text(
-                                        text = "عليك",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Color(0xFFE53935),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 11.5.sp
-                                        )
-                                    )
-                                }
-                                AccountFilter.FARMERS -> {
-                                    Icon(
-                                        imageVector = Icons.Default.Eco,
-                                        contentDescription = null,
-                                        tint = Color(0xFFE53935),
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text(
-                                        text = "عليك",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Color(0xFFE53935),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 11.5.sp
-                                        )
-                                    )
-                                }
-                                AccountFilter.WELL_OWNERS -> {
-                                    Icon(
-                                        imageVector = Icons.Default.WaterDrop,
-                                        contentDescription = null,
-                                        tint = Color(0xFFE53935),
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text(
-                                        text = "عليك",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Color(0xFFE53935),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 11.5.sp
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                        Text(
-                            text = Formatters.formatCurrency(cardOwedByUs, config.currencySymbol),
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = Color(0xFFE53935),
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 15.sp
-                            )
-                        )
-                    }
-
-                    // مساحة مخصصة للزر العائم لضمان عدم التداخل والتوسيط التام
-                    Spacer(modifier = Modifier.width(56.dp))
-
-                    // مستحقات لك (مختلفة تفاعلياً حسب الفلتر المختار)
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.End
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            when (accountFilter) {
-                                AccountFilter.ALL -> {
-                                    Text(
-                                        text = "لك",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Color(0xFF2E7D32),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 11.5.sp
-                                        )
-                                    )
-                                }
-                                AccountFilter.FARMERS -> {
-                                    Text(
-                                        text = "لك",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Color(0xFF2E7D32),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 11.5.sp
-                                        )
-                                    )
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Icon(
-                                        imageVector = Icons.Default.Eco,
-                                        contentDescription = null,
-                                        tint = Color(0xFF2E7D32),
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                }
-                                AccountFilter.WELL_OWNERS -> {
-                                    Text(
-                                        text = "لك",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Color(0xFF2E7D32),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 11.5.sp
-                                        )
-                                    )
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Icon(
-                                        imageVector = Icons.Default.WaterDrop,
-                                        contentDescription = null,
-                                        tint = Color(0xFF2E7D32),
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Box(
-                                modifier = Modifier
-                                    .size(7.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF2E7D32))
-                            )
-                        }
-                        Text(
-                            text = Formatters.formatCurrency(cardOwedToUs, config.currencySymbol),
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = Color(0xFF2E7D32),
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 15.sp
-                            )
-                        )
-                    }
-                }
-
-                // زر الإضافة السريع (+) الدائري في المنتصف الهندسي الدقيق للكرت دائماً
-                FloatingActionButton(
-                    onClick = { showAddSheet = true },
-                    containerColor = PrimaryTeal,
-                    contentColor = Color.White,
-                    shape = CircleShape,
+                Box(
                     modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(48.dp)
-                        .testTag("fab_add_customer")
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "إضافة حساب جديد",
-                        modifier = Modifier.size(26.dp)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // مستحقات عليك (مختلفة تفاعلياً حسب الفلتر المختار)
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFE53935))
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                when (accountFilter) {
+                                    AccountFilter.ALL -> {
+                                        Text(
+                                            text = "عليك",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = Color(0xFFE53935),
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 11.5.sp
+                                            )
+                                        )
+                                    }
+                                    AccountFilter.FARMERS -> {
+                                        Icon(
+                                            imageVector = Icons.Default.Eco,
+                                            contentDescription = null,
+                                            tint = Color(0xFFE53935),
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        Text(
+                                            text = "عليك",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = Color(0xFFE53935),
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 11.5.sp
+                                            )
+                                        )
+                                    }
+                                    AccountFilter.WELL_OWNERS -> {
+                                        Icon(
+                                            imageVector = Icons.Default.WaterDrop,
+                                            contentDescription = null,
+                                            tint = Color(0xFFE53935),
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        Text(
+                                            text = "عليك",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = Color(0xFFE53935),
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 11.5.sp
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                            Text(
+                                text = Formatters.formatCurrency(cardOwedByUs, config.currencySymbol),
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    color = Color(0xFFE53935),
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 15.sp
+                                )
+                            )
+                        }
+
+                        // مساحة مخصصة للزر العائم لضمان عدم التداخل والتوسيط التام
+                        Spacer(modifier = Modifier.width(56.dp))
+
+                        // مستحقات لك (مختلفة تفاعلياً حسب الفلتر المختار)
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.End
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                when (accountFilter) {
+                                    AccountFilter.ALL -> {
+                                        Text(
+                                            text = "لك",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = Color(0xFF2E7D32),
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 11.5.sp
+                                            )
+                                        )
+                                    }
+                                    AccountFilter.FARMERS -> {
+                                        Text(
+                                            text = "لك",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = Color(0xFF2E7D32),
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 11.5.sp
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.Eco,
+                                            contentDescription = null,
+                                            tint = Color(0xFF2E7D32),
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                    }
+                                    AccountFilter.WELL_OWNERS -> {
+                                        Text(
+                                            text = "لك",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = Color(0xFF2E7D32),
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 11.5.sp
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.WaterDrop,
+                                            contentDescription = null,
+                                            tint = Color(0xFF2E7D32),
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF2E7D32))
+                                )
+                            }
+                            Text(
+                                text = Formatters.formatCurrency(cardOwedToUs, config.currencySymbol),
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    color = Color(0xFF2E7D32),
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 15.sp
+                                )
+                            )
+                        }
+                    }
+
+                    // زر الإضافة السريع (+) الدائري في المنتصف الهندسي الدقيق للكرت دائماً
+                    FloatingActionButton(
+                        onClick = { showAddSheet = true },
+                        containerColor = PrimaryTeal,
+                        contentColor = Color.White,
+                        shape = CircleShape,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(48.dp)
+                            .testTag("fab_add_customer")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "إضافة حساب جديد",
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
                 }
+            }
+        } else {
+            // في الوضع الأفقي / الشاشات المضغوطة: زر عائم مدمج أنيق في الزاوية دون حجب أي كرت
+            FloatingActionButton(
+                onClick = { showAddSheet = true },
+                containerColor = PrimaryTeal,
+                contentColor = Color.White,
+                shape = CircleShape,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 16.dp, bottom = 12.dp)
+                    .size(46.dp)
+                    .testTag("fab_add_customer")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "إضافة حساب جديد",
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
 
