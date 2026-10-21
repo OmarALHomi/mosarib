@@ -127,6 +127,9 @@ import com.example.features.sessions.SessionCardItem
 import com.example.features.sessions.SessionsViewModel
 import com.example.features.sessions.SettleSessionDialog
 import com.example.features.sessions.WaterSession
+import com.example.features.sessions.WaterSessionWithCustomer
+import com.example.core.ui.SessionDetailBottomSheet
+import com.example.core.ui.VoucherDetailBottomSheet
 import com.example.features.wellowners.WellOwnerPurchase
 import com.example.features.wellowners.WellOwnerPurchaseBottomSheet
 import com.example.features.wellowners.WellOwnerPurchaseMath
@@ -171,6 +174,8 @@ fun VouchersScreen(
     var voucherMessageTarget by remember { mutableStateOf<Triple<Customer, String, String>?>(null) }
     var voucherPdfReady by remember { mutableStateOf<Pair<File, String>?>(null) }
     var selectedLinkedSession by remember { mutableStateOf<WaterSession?>(null) }
+    var sessionForDetails by remember { mutableStateOf<WaterSessionWithCustomer?>(null) }
+    var voucherForDetails by remember { mutableStateOf<VoucherWithCustomer?>(null) }
 
     val vmPdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     LaunchedEffect(vmPdfReady) {
@@ -504,6 +509,7 @@ fun VouchersScreen(
                                 sessionWithCustomer = op.sessionWithCustomer,
                                 currencySymbol = config.currencySymbol,
                                 linkedVouchers = op.linkedVouchers,
+                                onCardClick = { sessionForDetails = op.sessionWithCustomer },
                                 onCustomerClick = { onNavigateToCustomer(op.sessionWithCustomer.session.customerId) },
                                 onEditClick = { sessionToEdit = op.sessionWithCustomer.session },
                                 onDeleteClick = { sessionToDelete = op.sessionWithCustomer.session },
@@ -553,7 +559,8 @@ fun VouchersScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
-                                    .shadow(1.dp, RoundedCornerShape(12.dp)),
+                                    .shadow(1.dp, RoundedCornerShape(12.dp))
+                                    .clickable { voucherForDetails = op.voucherWithCustomer },
                                 shape = RoundedCornerShape(12.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                             ) {
@@ -1408,6 +1415,122 @@ fun VouchersScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 85.dp)
+        )
+    }
+
+    // Floating Detail BottomSheet for Water Session
+    sessionForDetails?.let { item ->
+        val s = item.session
+        val c = item.customer
+        val linked = allVouchers.filter { it.sessionId == s.id }
+        SessionDetailBottomSheet(
+            session = s,
+            customer = c,
+            currencySymbol = config.currencySymbol,
+            linkedVouchers = linked,
+            isWellOwner = c?.isWellOwner == true,
+            onDismiss = { sessionForDetails = null },
+            onEdit = {
+                sessionForDetails = null
+                sessionToEdit = s
+            },
+            onDelete = {
+                sessionForDetails = null
+                sessionToDelete = s
+            },
+            onPdf = {
+                sessionForDetails = null
+                val file = PdfReportGenerator.generateSessionInvoicePdf(
+                    context = context,
+                    config = config,
+                    customer = c ?: Customer(name = "عميل غير محدد"),
+                    session = s
+                )
+                voucherPdfReady = Pair(file, "فاتورة ري #${s.id}")
+            },
+            onMessage = {
+                sessionForDetails = null
+                if (c != null) {
+                    val waMsg = MessageFormatHelper.buildSessionBill(s, c, config, isSms = false)
+                    val smsMsg = MessageFormatHelper.buildSessionBill(s, c, config, isSms = true)
+                    voucherMessageTarget = Triple(c, waMsg, smsMsg)
+                }
+            },
+            onSettle = if (s.remainingDebt > 0) {
+                {
+                    sessionForDetails = null
+                    sessionToSettle = s
+                }
+            } else null,
+            onShareVoucher = { v ->
+                if (c != null) {
+                    val waMsg = MessageFormatHelper.buildReceiptVoucher(v, c, s.id, config, isSms = false)
+                    val smsMsg = MessageFormatHelper.buildReceiptVoucher(v, c, s.id, config, isSms = true)
+                    voucherMessageTarget = Triple(c, waMsg, smsMsg)
+                }
+            }
+        )
+    }
+
+    // Floating Detail BottomSheet for Voucher
+    voucherForDetails?.let { vWithCust ->
+        val v = vWithCust.voucher
+        val c = vWithCust.customer
+        VoucherDetailBottomSheet(
+            voucher = v,
+            customer = c,
+            currencySymbol = config.currencySymbol,
+            onDismiss = { voucherForDetails = null },
+            onEdit = {
+                voucherForDetails = null
+                voucherToEdit = v
+            },
+            onDelete = {
+                voucherForDetails = null
+                voucherToDelete = v
+            },
+            onPdf = {
+                voucherForDetails = null
+                val file = if (v.type == VoucherType.RECEIPT) {
+                    PdfReportGenerator.generateReceiptVoucherPdf(
+                        context = context,
+                        config = config,
+                        customer = c ?: Customer(name = "عميل نقدي"),
+                        voucher = v
+                    )
+                } else {
+                    PdfReportGenerator.generateExpenseVoucherPdf(
+                        context = context,
+                        config = config,
+                        customer = c ?: Customer(name = "مصروف عام"),
+                        voucher = v
+                    )
+                }
+                voucherPdfReady = Pair(file, "سند #${v.voucherNumber.ifEmpty { v.id.toString() }}")
+            },
+            onShare = {
+                voucherForDetails = null
+                if (c != null) {
+                    val waMsg = if (v.type == VoucherType.RECEIPT) {
+                        MessageFormatHelper.buildReceiptVoucher(v, c, v.sessionId ?: 0L, config, isSms = false)
+                    } else {
+                        MessageFormatHelper.buildDisbursementVoucher(v, c, config, isSms = false)
+                    }
+                    val smsMsg = if (v.type == VoucherType.RECEIPT) {
+                        MessageFormatHelper.buildReceiptVoucher(v, c, v.sessionId ?: 0L, config, isSms = true)
+                    } else {
+                        MessageFormatHelper.buildDisbursementVoucher(v, c, config, isSms = true)
+                    }
+                    voucherMessageTarget = Triple(c, waMsg, smsMsg)
+                } else {
+                    val shareText = if (v.type == VoucherType.RECEIPT) {
+                        "سند قبض #${v.voucherNumber.ifEmpty { v.id.toString() }}\nالمبلغ: ${Formatters.formatCurrency(v.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(v.amount, config.currencySymbol)})\nطريقة الدفع: ${v.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(v.date)}"
+                    } else {
+                        "سند صرف #${v.voucherNumber.ifEmpty { v.id.toString() }}\nالمبلغ المصروف: ${Formatters.formatCurrency(v.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(v.amount, config.currencySymbol)})\nالبيان: ${v.notes.ifBlank { v.category }}\nطريقة الصرف: ${v.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(v.date)}"
+                    }
+                    FileSharingHelper.shareText(context, shareText, "مشاركة السند")
+                }
+            }
         )
     }
 

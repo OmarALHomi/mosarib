@@ -115,7 +115,8 @@ fun SessionCardItem(
     onPdfClick: () -> Unit,
     onMessageClick: () -> Unit,
     onSettleClick: (() -> Unit)? = null,
-    onShareVoucher: ((Voucher) -> Unit)? = null
+    onShareVoucher: ((Voucher) -> Unit)? = null,
+    onCardClick: (() -> Unit)? = null
 ) {
     val session = sessionWithCustomer.session
     val customer = sessionWithCustomer.customer
@@ -127,7 +128,8 @@ fun SessionCardItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 10.dp, vertical = 4.dp)
-            .shadow(1.5.dp, RoundedCornerShape(16.dp)),
+            .shadow(1.5.dp, RoundedCornerShape(16.dp))
+            .clickable(enabled = onCardClick != null) { onCardClick?.invoke() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
@@ -312,45 +314,56 @@ fun SessionCardItem(
                             )
                         }
 
-                        // المبلغ المتبقي
-                        if (session.remainingDebt > 0) {
-                            Text(
-                                text = "متبقي: ${Formatters.formatCurrency(session.remainingDebt, currencySymbol)}",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFFE53935),
-                                    fontSize = 11.5.sp
-                                ),
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(if (isDark) Color(0xFF132A1C) else Color(0xFFE8F5E9))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        // المبلغ المطلوب أو المتبقي ومعه سعر الساعة تحته
+                        Column(horizontalAlignment = Alignment.End) {
+                            if (session.remainingDebt > 0) {
+                                Text(
+                                    text = "متبقي: ${Formatters.formatCurrency(session.remainingDebt, currencySymbol)}",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFFE53935),
+                                        fontSize = 11.5.sp
+                                    ),
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (isDark) Color(0xFF132A1C) else Color(0xFFE8F5E9))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Text(
-                                        text = "مسدد",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
-                                            fontSize = 11.sp
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
+                                            modifier = Modifier.size(12.dp)
                                         )
-                                    )
+                                        Text(
+                                            text = "مسدد: ${Formatters.formatCurrency(session.totalAmount, currencySymbol)}",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
+                                                fontSize = 11.sp
+                                            )
+                                        )
+                                    }
                                 }
                             }
+                            Text(
+                                text = "سعر الساعة: ${Formatters.formatCurrency(session.pricePerHour, currencySymbol)}",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 10.sp
+                                ),
+                                maxLines = 1
+                            )
                         }
 
                         // زر سداد وسهم التوسيع

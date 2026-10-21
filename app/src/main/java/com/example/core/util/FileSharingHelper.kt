@@ -59,6 +59,22 @@ object FileSharingHelper {
         openFile(context, file, "application/pdf", "فتح ملف PDF")
     }
 
+    fun shareText(context: Context, text: String, title: String = "مشاركة") {
+        try {
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                putExtra(Intent.EXTRA_TEXT, attachMessageFooter(text))
+                type = "text/plain"
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            val shareIntent = Intent.createChooser(sendIntent, title).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(shareIntent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "تعذر مشاركة النص: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     const val MESSAGE_FOOTER = "\n\n---\nتطبيق المسرّب | م. عمر الحومي\nwa.me/967773712030"
 
     /**

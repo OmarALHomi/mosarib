@@ -33,6 +33,9 @@ object UserDeviceTracker {
     )
 
     private const val KEY_IS_GOOGLE_ACCOUNT_AUTHED = "is_google_account_authenticated_for_app"
+    private const val KEY_IS_REGISTERED_ONLINE = "is_device_registered_online"
+    private const val KEY_LAST_SYNCED_OPS = "last_synced_operations_count"
+    private const val KEY_LAST_SYNCED_TIME = "last_synced_presence_time"
 
     fun setGoogleAccountAuthenticatedForApp(context: Context, isAuthed: Boolean) {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
@@ -42,6 +45,30 @@ object UserDeviceTracker {
     fun isGoogleAccountAuthenticatedForApp(context: Context): Boolean {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         return sp.getBoolean(KEY_IS_GOOGLE_ACCOUNT_AUTHED, false)
+    }
+
+    fun isDeviceRegisteredOnline(context: Context): Boolean {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        return sp.getBoolean(KEY_IS_REGISTERED_ONLINE, false)
+    }
+
+    fun getLastSyncedOperations(context: Context): Int {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        return sp.getInt(KEY_LAST_SYNCED_OPS, 0)
+    }
+
+    fun getLastSyncedTime(context: Context): Long {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        return sp.getLong(KEY_LAST_SYNCED_TIME, 0L)
+    }
+
+    fun setRegistrationSuccess(context: Context, opsCount: Int) {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        sp.edit()
+            .putBoolean(KEY_IS_REGISTERED_ONLINE, true)
+            .putInt(KEY_LAST_SYNCED_OPS, opsCount)
+            .putLong(KEY_LAST_SYNCED_TIME, System.currentTimeMillis())
+            .apply()
     }
 
     fun saveUserRegistrationInfo(context: Context, name: String, phone: String) {
@@ -271,7 +298,9 @@ object UserDeviceTracker {
                 }
                 OutputStreamWriter(patchConn.outputStream).use { it.write(payload.toString()) }
                 val code = patchConn.responseCode
-                if (code !in 200..299) {
+                if (code in 200..299) {
+                    setRegistrationSuccess(context, highestOps)
+                } else {
                     val errBody = patchConn.errorStream?.bufferedReader()?.readText() ?: ""
                     Log.w(TAG, "RTDB presence write failed: HTTP $code, error: $errBody")
                 }
@@ -283,5 +312,28 @@ object UserDeviceTracker {
             Log.e(TAG, "Presence sync failed: ${e.message}")
             DeviceStatusResult(isDeviceBlockedLocally(context), getBlockReason(context))
         }
+    }
+
+    /**
+     * Smart Network Connectivity Handler:
+     * 1. If device is never registered online -> registers immediately to ensure visibility in dashboard.
+     * 2. If registered already:
+     *    - Only syncs if there are new unsynced operations (currentOps > lastSyncedOps), OR
+     *    - If more than 1 hour passed since last sync (to refresh presence/lastActiveAt).
+     * 3. Otherwise -> silently ignores to save battery & data.
+     */
+    suspend fun onNetworkAvailable(context: Context, currentOperationsCount: Int): Boolean = withContext(Dispatchers.IO) {
+        val exactCount = com.example.core.util.AppOperationsCounter.getExactTotalOperations(context)
+        val finalOps = maxOf(currentOperationsCount, exactCount)
+        val isRegistered = isDeviceRegisteredOnline(context)
+        val lastOps = getLastSyncedOperations(context)
+        val lastTime = getLastSyncedTime(context)
+        val now = System.currentTimeMillis()
+
+        val needsSync = !isRegistered || (finalOps > lastOps) || (now - lastTime > 60 * 60 * 1000L)
+        if (!needsSync) return@withContext false
+
+        val res = syncPresence(context, finalOps)
+        !res.isBlocked
     }
 }

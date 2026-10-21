@@ -10,7 +10,14 @@ import com.example.core.updates.AppBroadcast
 import com.example.core.updates.AppUpdateManager
 import com.example.core.util.AutoBackupEngine
 import com.example.core.util.PeriodicBackupReminderManager
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -48,6 +55,9 @@ object AppSyncEngine {
     ): StartupDecision = withContext(Dispatchers.IO) {
         // 0. Trigger daily silent rolling backup (keeps last 7 days)
         AutoBackupEngine.performDailyAutoBackup(context, com.example.core.database.AppDatabase.getDatabase(context), operationsCount)
+
+        // Register smart connectivity listener so offline launches get registered as soon as internet appears
+        registerNetworkListener(context, operationsCount)
 
         if (!LicenseManager.isInternetAvailable(context)) {
             // Offline fallback
@@ -107,6 +117,40 @@ object AppSyncEngine {
         } catch (e: Exception) {
             Log.e(TAG, "Startup sync error: ${e.message}")
             StartupDecision(dialogToShow = StartupDialogType.NONE)
+        }
+    }
+
+    private var isListenerRegistered = false
+    private val syncScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    fun registerNetworkListener(context: Context, initialOperationsCount: Int = 0) {
+        if (isListenerRegistered) return
+        val appContext = context.applicationContext
+        val cm = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+        try {
+            cm.registerNetworkCallback(request, object : ConnectivityManager.NetworkCallback() {
+                private var lastTrigger = 0L
+
+                override fun onAvailable(network: Network) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastTrigger < 3000L) return
+                    lastTrigger = now
+
+                    syncScope.launch {
+                        try {
+                            UserDeviceTracker.onNetworkAvailable(appContext, initialOperationsCount)
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Network listener onAvailable sync error: ${e.message}")
+                        }
+                    }
+                }
+            })
+            isListenerRegistered = true
+        } catch (e: Exception) {
+            Log.w(TAG, "Network callback registration failed: ${e.message}")
         }
     }
 }

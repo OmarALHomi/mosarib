@@ -99,6 +99,7 @@ import com.example.core.util.Formatters
 import com.example.core.util.MessageFormatHelper
 import com.example.core.license.LicenseDialog
 import com.example.core.license.LicenseManager
+import com.example.core.ui.SessionDetailBottomSheet
 import com.example.features.customers.Customer
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
@@ -133,6 +134,7 @@ fun SessionsScreen(
     var defaultCustomerIdForForm by remember { mutableStateOf<Long?>(null) }
     var messageTargetSession by remember { mutableStateOf<Pair<WaterSession, Customer>?>(null) }
     var messageTargetCustom by remember { mutableStateOf<Triple<Customer, String, String>?>(null) }
+    var sessionForDetails by remember { mutableStateOf<WaterSessionWithCustomer?>(null) }
 
     LaunchedEffect(requestedCustomerForNewSession) {
         requestedCustomerForNewSession?.let { customerId ->
@@ -246,6 +248,7 @@ fun SessionsScreen(
                         sessionWithCustomer = item,
                         currencySymbol = config.currencySymbol,
                         linkedVouchers = linked,
+                        onCardClick = { sessionForDetails = item },
                         onCustomerClick = { onNavigateToCustomer(item.session.customerId) },
                         onEditClick = { sessionToEdit = item.session },
                         onDeleteClick = { sessionToDelete = item.session },
@@ -357,6 +360,54 @@ fun SessionsScreen(
                 viewModel.clearPdfReady()
             },
             onDismiss = { viewModel.clearPdfReady() }
+        )
+    }
+
+    // Floating Detail BottomSheet for Session
+    sessionForDetails?.let { item ->
+        val s = item.session
+        val c = item.customer
+        val linked = allVouchers.filter { it.sessionId == s.id }
+        SessionDetailBottomSheet(
+            session = s,
+            customer = c,
+            currencySymbol = config.currencySymbol,
+            linkedVouchers = linked,
+            isWellOwner = c?.isWellOwner == true,
+            onDismiss = { sessionForDetails = null },
+            onEdit = {
+                sessionForDetails = null
+                sessionToEdit = s
+            },
+            onDelete = {
+                sessionForDetails = null
+                sessionToDelete = s
+            },
+            onPdf = {
+                sessionForDetails = null
+                if (c != null) {
+                    viewModel.generateAndShareInvoice(s, c)
+                }
+            },
+            onMessage = {
+                sessionForDetails = null
+                if (c != null) {
+                    messageTargetSession = Pair(s, c)
+                }
+            },
+            onSettle = if (s.remainingDebt > 0) {
+                {
+                    sessionForDetails = null
+                    sessionToSettle = s
+                }
+            } else null,
+            onShareVoucher = { v ->
+                if (c != null) {
+                    val waMsg = MessageFormatHelper.buildReceiptVoucher(v, c, s.id, config, isSms = false)
+                    val smsMsg = MessageFormatHelper.buildReceiptVoucher(v, c, s.id, config, isSms = true)
+                    messageTargetCustom = Triple(c, waMsg, smsMsg)
+                }
+            }
         )
     }
 
