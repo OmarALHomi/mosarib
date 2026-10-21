@@ -2,6 +2,7 @@ package com.example.core.license
 
 import android.content.Context
 import android.util.Log
+import com.example.BuildConfig
 import com.example.core.util.GoogleDriveBackupHelper
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import kotlinx.coroutines.Dispatchers
@@ -106,14 +107,15 @@ object UserDeviceTracker {
             var remoteOpsCount = 0
             var remoteCumulativeOps = 0
             var remoteTrialConsumed = false
+            var remoteFirstSeen = 0L
 
             // 1. Primary: Check Realtime Database (/all_users/{cleanDeviceKey}.json)
             try {
                 val checkUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
                 val conn = (checkUrl.openConnection() as HttpURLConnection).apply {
                     requestMethod = "GET"
-                    connectTimeout = 4000
-                    readTimeout = 4000
+                    connectTimeout = 7000
+                    readTimeout = 7000
                     setRequestProperty("Accept", "application/json")
                 }
                 if (conn.responseCode == 200) {
@@ -137,6 +139,7 @@ object UserDeviceTracker {
                         remoteOpsCount = existing.optInt("operationsCount", 0)
                         remoteCumulativeOps = existing.optInt("cumulativeOpsCount", 0)
                         remoteTrialConsumed = existing.optBoolean("trialConsumed", false)
+                        remoteFirstSeen = existing.optLong("firstSeen", 0L)
                     }
                 }
             } catch (_: Exception) {}
@@ -235,6 +238,8 @@ object UserDeviceTracker {
                 put("cleanDeviceKey", cleanDeviceKey)
                 put("deviceModel", LicenseManager.getDeviceModelName())
                 put("androidVersion", LicenseManager.getAndroidVersionName())
+                put("appVersion", "v${BuildConfig.VERSION_NAME}")
+                put("versionCode", BuildConfig.VERSION_CODE)
                 put("googleEmail", email)
                 put("googleDisplayName", displayName)
                 put("subscriberName", regName)
@@ -244,6 +249,7 @@ object UserDeviceTracker {
                 put("operationsCount", highestOps)
                 put("cumulativeOpsCount", cumulativeOps)
                 put("trialConsumed", isTrialConsumed)
+                put("firstSeen", if (remoteFirstSeen > 0L) remoteFirstSeen else now)
                 if (lastSyncedPrice != null) {
                     put("pricePerHour", lastSyncedPrice)
                     put("hourlyRate", lastSyncedPrice)
@@ -258,15 +264,16 @@ object UserDeviceTracker {
                 val patchConn = (patchUrl.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     doOutput = true
-                    connectTimeout = 4000
-                    readTimeout = 4000
+                    connectTimeout = 7000
+                    readTimeout = 7000
                     setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                     setRequestProperty("X-HTTP-Method-Override", "PATCH")
                 }
                 OutputStreamWriter(patchConn.outputStream).use { it.write(payload.toString()) }
                 val code = patchConn.responseCode
                 if (code !in 200..299) {
-                    Log.w(TAG, "RTDB presence write failed: HTTP $code")
+                    val errBody = patchConn.errorStream?.bufferedReader()?.readText() ?: ""
+                    Log.w(TAG, "RTDB presence write failed: HTTP $code, error: $errBody")
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "RTDB presence write exception: ${e.message}")
