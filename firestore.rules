@@ -106,5 +106,26 @@ service cloud.firestore {
       allow create: if true;
       allow read, update, delete: if true;
     }
+
+    // ==============================================================
+    // 📊 10. تتبع جميع الأجهزة والمثبّتين (All Users / Device Tracker)
+    // ==============================================================
+    match /all_users/{deviceKey} {
+      allow read, write: if true;
+    }
+
+    // ==============================================================
+    // 📱 11. ربط الأجهزة بالتراخيص (Device → License Binding)
+    // ==============================================================
+    match /devices/{deviceCode} {
+      allow read, write: if true;
+    }
+
+    // ==============================================================
+    // 💬 12. الملاحظات والتقييمات (User Feedback)
+    // ==============================================================
+    match /feedbacks/{feedbackId} {
+      allow read, write: if true;
+    }
   }
 }

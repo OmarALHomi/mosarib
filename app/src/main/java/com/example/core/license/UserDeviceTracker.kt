@@ -172,21 +172,6 @@ object UserDeviceTracker {
                 }
             } catch (_: Exception) {}
 
-            // 2. Also check Cloud Firestore
-            if (!isBlocked) {
-                val fsDoc = FirestoreRestHelper.getDocument("all_users", cleanDeviceKey)
-                if (fsDoc != null) {
-                    if (FirestoreRestHelper.getBoolean(fsDoc, "isBlocked", false)) {
-                        isBlocked = true
-                        blockReason = FirestoreRestHelper.getString(fsDoc, "blockReason", blockReason)
-                    }
-                    if (remoteOpsCount == 0) {
-                        remoteOpsCount = FirestoreRestHelper.getInt(fsDoc, "operationsCount", 0)
-                        remoteCumulativeOps = FirestoreRestHelper.getInt(fsDoc, "cumulativeOpsCount", 0)
-                        remoteTrialConsumed = FirestoreRestHelper.getBoolean(fsDoc, "trialConsumed", false)
-                    }
-                }
-            }
 
             // Also check by Google Email if present
             if (!isBlocked && email.isNotBlank()) {
@@ -266,42 +251,26 @@ object UserDeviceTracker {
                 put("lastActiveAt", now)
             }
 
-            // 1. Primary: Cloud Firestore REST API (Upsert via PATCH)
-            val fsPayload = mutableMapOf<String, Any>(
-                "deviceCode" to deviceCode,
-                "cleanDeviceKey" to cleanDeviceKey,
-                "deviceModel" to LicenseManager.getDeviceModelName(),
-                "androidVersion" to LicenseManager.getAndroidVersionName(),
-                "googleEmail" to email,
-                "googleDisplayName" to displayName,
-                "subscriberName" to regName,
-                "phone" to regPhone,
-                "isActivated" to isActivated,
-                "plan" to activePlan,
-                "operationsCount" to highestOps,
-                "cumulativeOpsCount" to cumulativeOps,
-                "trialConsumed" to isTrialConsumed,
-                "lastActiveAt" to now
-            )
-            if (lastSyncedPrice != null) {
-                fsPayload["pricePerHour"] = lastSyncedPrice
-                fsPayload["hourlyRate"] = lastSyncedPrice
-            }
-            FirestoreRestHelper.patchDocument("all_users", cleanDeviceKey, fsPayload)
-
-            // 2. Dual Write: Realtime Database (Use PATCH to preserve admin fields like isBlocked/blockReason)
+            // Realtime Database presence sync (Use POST+Override to preserve admin fields like isBlocked/blockReason)
+            // HttpURLConnection does not support PATCH on all Android versions — use POST with override header
             try {
                 val patchUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
                 val patchConn = (patchUrl.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "PATCH"
+                    requestMethod = "POST"
                     doOutput = true
                     connectTimeout = 4000
                     readTimeout = 4000
                     setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                    setRequestProperty("X-HTTP-Method-Override", "PATCH")
                 }
                 OutputStreamWriter(patchConn.outputStream).use { it.write(payload.toString()) }
-                patchConn.responseCode
-            } catch (_: Exception) {}
+                val code = patchConn.responseCode
+                if (code !in 200..299) {
+                    Log.w(TAG, "RTDB presence write failed: HTTP $code")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "RTDB presence write exception: ${e.message}")
+            }
             DeviceStatusResult(isBlocked = false)
         } catch (e: Exception) {
             Log.e(TAG, "Presence sync failed: ${e.message}")

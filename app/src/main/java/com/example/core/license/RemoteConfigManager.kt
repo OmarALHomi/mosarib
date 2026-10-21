@@ -161,25 +161,7 @@ object RemoteConfigManager {
                 }
             } catch (_: Exception) {}
 
-            // Fallback: Cloud Firestore (app_config/current)
-            if (!configSynced) {
-                val fsConfig = FirestoreRestHelper.getDocument("app_config", "current")
-                if (fsConfig != null) {
-                    val freeLimit = FirestoreRestHelper.getInt(fsConfig, "freeOperationsLimit", LicenseManager.FREE_OPERATIONS_LIMIT)
-                    val bkAllowed = FirestoreRestHelper.getBoolean(fsConfig, "isBackupAllowedForTrial", true)
-                    val driveAllowed = FirestoreRestHelper.getBoolean(fsConfig, "isCloudBackupAllowed", true)
-                    val excelAllowed = FirestoreRestHelper.getBoolean(fsConfig, "isExcelExportAllowedForTrial", true)
-                    val note = FirestoreRestHelper.getString(fsConfig, "globalAnnouncementText", "")
 
-                    sp.edit()
-                        .putInt(KEY_FREE_OPS_LIMIT, freeLimit)
-                        .putBoolean(KEY_IS_BACKUP_ALLOWED_FOR_TRIAL, bkAllowed)
-                        .putBoolean(KEY_IS_CLOUD_BACKUP_ALLOWED, driveAllowed)
-                        .putBoolean(KEY_IS_EXCEL_EXPORT_ALLOWED, excelAllowed)
-                        .putString(KEY_GLOBAL_ANNOUNCEMENT, note)
-                        .apply()
-                }
-            }
 
             // 2. Fetch Device Specific Overrides: Primary Realtime Database (/device_overrides/{cleanDeviceKey}.json)
             var overrideSynced = false
@@ -243,21 +225,7 @@ object RemoteConfigManager {
                 }
             } catch (_: Exception) {}
 
-            // Fallback: Cloud Firestore (device_overrides/{cleanDeviceKey})
-            if (!overrideSynced) {
-                val fsDev = FirestoreRestHelper.getDocument("device_overrides", cleanDeviceKey)
-                if (fsDev != null) {
-                    val isBkLocked = FirestoreRestHelper.getBoolean(fsDev, "isBackupLocked", false)
-                    val customLimit = FirestoreRestHelper.getInt(fsDev, "customOperationsLimit", 0)
-                    val warningMsg = FirestoreRestHelper.getString(fsDev, "specialWarningMessage", "")
 
-                    sp.edit()
-                        .putBoolean(KEY_DEVICE_BACKUP_LOCKED, isBkLocked)
-                        .putInt(KEY_DEVICE_CUSTOM_LIMIT, customLimit)
-                        .putString(KEY_DEVICE_SPECIAL_WARNING, warningMsg)
-                        .apply()
-                }
-            }
 
             sp.edit().putLong(KEY_LAST_SYNC_TIME, System.currentTimeMillis()).apply()
         } catch (e: Exception) {

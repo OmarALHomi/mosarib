@@ -174,20 +174,6 @@ object FirebaseLicenseService {
 
     suspend fun getDeviceRemoteLicense(deviceCode: String): DeviceRemoteLicense = withContext(Dispatchers.IO) {
         try {
-            // 1. Primary: Cloud Firestore (devices/{deviceCode})
-            val fsDoc = FirestoreRestHelper.getDocument("devices", deviceCode)
-            if (fsDoc != null) {
-                return@withContext DeviceRemoteLicense(
-                    isFound = true,
-                    isRevoked = FirestoreRestHelper.getBoolean(fsDoc, "isRevoked", false),
-                    expiresAt = FirestoreRestHelper.getLong(fsDoc, "expiresAt", 0L),
-                    plan = FirestoreRestHelper.getString(fsDoc, "plan", "MONTHLY"),
-                    subscriberName = FirestoreRestHelper.getString(fsDoc, "subscriberName", "المشترك"),
-                    key = FirestoreRestHelper.getString(fsDoc, "key", "")
-                )
-            }
-
-            // 2. Fallback: Realtime Database
             val deviceUrl = URL("$FIREBASE_DB_URL/devices/$deviceCode.json")
             val conn = (deviceUrl.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
@@ -264,7 +250,7 @@ object FirebaseLicenseService {
     )
 
     /**
-     * Submits a direct subscription request to Firebase (Cloud Firestore + Realtime Database fallback)
+     * Submits a direct subscription request to Firebase (Realtime Database)
      */
     suspend fun sendSubscriptionRequestOnline(
         subscriberName: String,
@@ -284,30 +270,6 @@ object FirebaseLicenseService {
         }
         val requestId = "${prefix}_${timestamp}_${deviceCode.takeLast(4)}"
 
-        val firestoreFields = mapOf(
-            "id" to requestId,
-            "subscriberName" to subscriberName,
-            "phone" to phone,
-            "plan" to plan.name,
-            "requestType" to requestType,
-            "deviceCode" to deviceCode,
-            "deviceModel" to LicenseManager.getDeviceModelName(),
-            "androidVersion" to LicenseManager.getAndroidVersionName(),
-            "status" to "PENDING",
-            "receiptNumber" to receiptNumber,
-            "region" to region,
-            "paymentMethod" to paymentMethod,
-            "timestamp" to timestamp
-        )
-
-        // 1. Cloud Firestore
-        val firestoreSuccess = sendToFirestore("subscription_requests", requestId, firestoreFields)
-        if (firestoreSuccess) {
-            Log.i(TAG, "Subscription request sent via Cloud Firestore ($requestType)")
-            return@withContext SubscriptionRequestResult(isSuccess = true)
-        }
-
-        // 2. Realtime Database fallback
         val payload = JSONObject().apply {
             put("id", requestId)
             put("subscriberName", subscriberName)
@@ -498,25 +460,6 @@ object FirebaseLicenseService {
         val timestamp = System.currentTimeMillis()
         val feedbackId = "FB_${timestamp}_${deviceCode.takeLast(4)}"
 
-        // 1. First Attempt: Cloud Firestore REST API
-        val firestoreFields = mapOf(
-            "id" to feedbackId,
-            "subscriberName" to subscriberName,
-            "phone" to phone,
-            "rating" to rating,
-            "category" to category,
-            "message" to message,
-            "deviceCode" to deviceCode,
-            "deviceModel" to LicenseManager.getDeviceModelName(),
-            "androidVersion" to LicenseManager.getAndroidVersionName(),
-            "timestamp" to timestamp
-        )
-        if (sendToFirestore("feedbacks", feedbackId, firestoreFields)) {
-            Log.i(TAG, "Feedback successfully sent via Cloud Firestore REST API")
-            return@withContext FeedbackSubmitResult(isSuccess = true)
-        }
-
-        // 2. Second Attempt: Firebase Realtime Database
         val payload = JSONObject().apply {
             put("id", feedbackId)
             put("subscriberName", subscriberName)
@@ -559,57 +502,6 @@ object FirebaseLicenseService {
                 isSuccess = false,
                 errorMessage = "تعذر الاتصال بخادم Firebase (${e.localizedMessage ?: "انقطاع الاتصال"})."
             )
-        }
-    }
-
-    /**
-     * Posts a document directly to Cloud Firestore REST API.
-     */
-    private fun sendToFirestore(
-        collection: String,
-        documentId: String,
-        fields: Map<String, Any>
-    ): Boolean {
-        return try {
-            val projectId = "mosarib"
-            val urlStr = "https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents/$collection?documentId=$documentId"
-            val url = URL(urlStr)
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                doOutput = true
-                connectTimeout = 8000
-                readTimeout = 8000
-                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-            }
-
-            val fieldsJson = JSONObject()
-            for ((key, value) in fields) {
-                val valueObj = JSONObject()
-                when (value) {
-                    is String -> valueObj.put("stringValue", value)
-                    is Number -> valueObj.put("integerValue", value.toString())
-                    is Boolean -> valueObj.put("booleanValue", value)
-                    else -> valueObj.put("stringValue", value.toString())
-                }
-                fieldsJson.put(key, valueObj)
-            }
-            val rootDoc = JSONObject().apply {
-                put("fields", fieldsJson)
-            }
-
-            OutputStreamWriter(conn.outputStream).use { it.write(rootDoc.toString()) }
-            val code = conn.responseCode
-            if (code in 200..299) {
-                Log.d(TAG, "sendToFirestore succeeded: HTTP $code")
-                true
-            } else {
-                val errBody = conn.errorStream?.bufferedReader()?.readText() ?: ""
-                Log.w(TAG, "sendToFirestore returned HTTP $code: $errBody")
-                false
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "sendToFirestore failed: ${e.message}")
-            false
         }
     }
 

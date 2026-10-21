@@ -79,26 +79,6 @@ object AppUpdateManager {
                 }
             } catch (_: Exception) {}
 
-            // 2. Fallback: Cloud Firestore REST API (app_broadcast/current)
-            val fsDoc = com.example.core.license.FirestoreRestHelper.getDocument("app_broadcast", "current")
-            if (fsDoc != null) {
-                val id = com.example.core.license.FirestoreRestHelper.getString(fsDoc, "id", "")
-                val minVersion = com.example.core.license.FirestoreRestHelper.getInt(fsDoc, "minRequiredVersionCode", 1)
-                val isForce = com.example.core.license.FirestoreRestHelper.getBoolean(fsDoc, "isForceUpdate", false) || (BuildConfig.VERSION_CODE < minVersion)
-
-                return@withContext AppBroadcast(
-                    id = id,
-                    title = com.example.core.license.FirestoreRestHelper.getString(fsDoc, "title", "تنبيه جديد"),
-                    message = com.example.core.license.FirestoreRestHelper.getString(fsDoc, "message", ""),
-                    type = com.example.core.license.FirestoreRestHelper.getString(fsDoc, "type", if (isForce) "UPDATE" else "INFO"),
-                    actionUrl = com.example.core.license.FirestoreRestHelper.getString(fsDoc, "actionUrl", ""),
-                    actionText = com.example.core.license.FirestoreRestHelper.getString(fsDoc, "actionText", if (isForce) "تحديث التطبيق الآن" else "عرض التفاصيل"),
-                    minRequiredVersionCode = minVersion,
-                    isForceUpdate = isForce,
-                    publishedAt = com.example.core.license.FirestoreRestHelper.getLong(fsDoc, "publishedAt", 0L)
-                )
-            }
-
             null
         } catch (e: Exception) {
             Log.e(TAG, "Failed to fetch updates/broadcasts: ${e.message}")

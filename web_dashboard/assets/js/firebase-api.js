@@ -267,17 +267,6 @@ async function fetchCollection(name) {
     }
   } catch (_) {}
 
-  // 3. Third Attempt: Cloud Firestore REST API
-  try {
-    const res = await fetch(`${FIRESTORE_BASE_URL}/${name}?pageSize=300`);
-    if (res && res.ok) {
-      const data = await safeJson(res);
-      if (data && data.documents && Array.isArray(data.documents)) {
-        return data.documents.map(parseFirestoreDoc);
-      }
-    }
-  } catch (_) {}
-
   return [];
 }
 
