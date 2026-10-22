@@ -43,13 +43,15 @@
 -dontwarn androidx.compose.**
 
 # ---------------------------------------------------------------------------
-# Anti-Reverse Engineering & Code Obfuscation Hardening
+# Anti-Reverse Engineering & Code Obfuscation Hardening (Non-Reversible / R8)
 # ---------------------------------------------------------------------------
 # Flatten all classes into the root package to destroy original package hierarchy
 -repackageclasses ''
 -allowaccessmodification
 
-# Hide source and debug information in release builds
--renamesourcefileattribute SourceFile
--keepattributes SourceFile,LineNumberTable
+# Hide source and debug information completely in release builds
+-renamesourcefileattribute ""
+
+# Keep Firebase messaging service and critical components
+-keep class com.example.core.notifications.MosaribFirebaseMessagingService { *; }
 
