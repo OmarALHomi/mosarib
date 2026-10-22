@@ -93,10 +93,14 @@
 
       <!-- 2. Targeted Messages Manager Tab -->
       <div id="modalUserTab-messages" style="display: none;">
-        <!-- Add Message Accordion / Box -->
-        <div class="card" style="margin-bottom: 18px; padding: 16px; border: 1px dashed var(--primary); background: rgba(0, 131, 143, 0.03);">
-          <div style="font-size: 13.5px; font-weight: 800; color: var(--primary); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-            <span>➕</span> إضافة رسالة أو تنبيه موجه لهذا الجهاز
+        <!-- Add / Edit Message Accordion / Box -->
+        <div class="card" id="userMsgFormCard" style="margin-bottom: 18px; padding: 16px; border: 1px dashed var(--primary); background: rgba(0, 131, 143, 0.03); transition: all 0.25s ease;">
+          <input type="hidden" id="editingMsgId" value="">
+          <div id="userMsgFormTitle" style="font-size: 13.5px; font-weight: 800; color: var(--primary); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span id="userMsgFormIcon">➕</span> <span id="userMsgFormHeading">إضافة رسالة أو تنبيه موجه لهذا الجهاز</span>
+            </div>
+            <button id="btnCancelEditMsg" type="button" class="btn-sm btn-outline" style="display:none; font-size:11.5px; padding:3px 10px; color:var(--text-muted); border-color:var(--border);" onclick="cancelEditUserMessage()">إلغاء التعديل ✖</button>
           </div>
           <div style="display: flex; flex-direction: column; gap: 10px;">
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
@@ -117,7 +121,7 @@
                   <option value="0" selected>دائم (حتى يقوم الإدمن بإلغائه)</option>
                 </select>
               </div>
-              <button class="btn" style="width: auto; padding: 8px 18px; font-size: 13px;" onclick="saveNewUserMessage()">
+              <button class="btn" id="btnSaveUserMsg" style="width: auto; padding: 8px 18px; font-size: 13px;" onclick="saveNewUserMessage()">
                 💾 حفظ وإرسال للجهاز
               </button>
             </div>

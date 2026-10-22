@@ -198,6 +198,13 @@ if ($action === 'test_connection') {
     ]);
 }
 
+// 2.5 Action: Cancel / Delete Active Broadcast Ad
+if ($action === 'cancel_broadcast' || $action === 'delete_broadcast') {
+    firebaseRequest('app_broadcast.json', 'PUT', null);
+    firebaseRequest('app_broadcast.json', 'DELETE');
+    jsonResponse(true, 'تم حذف وإلغاء الإعلان والتحديث من السحابة بنجاح');
+}
+
 // 3. Action: Send Notification to Devices
 $title = trim($input['title'] ?? '');
 $body = trim($input['body'] ?? '');

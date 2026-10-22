@@ -495,6 +495,13 @@ if ($method === 'POST') {
         jsonResponse(true, 'تم حذف الخبر بنجاح');
     }
 
+    // 3.5 Cancel / Delete Active Broadcast Ad & Force Update
+    if ($action === 'cancel_broadcast' || $action === 'delete_broadcast') {
+        firebaseRequest('app_broadcast.json', 'PUT', null);
+        firebaseRequest('app_broadcast.json', 'DELETE');
+        jsonResponse(true, 'تم حذف وإلغاء الإعلان والتحديث من السحابة بنجاح');
+    }
+
     // 4. Save Subscription Pricing & Discounts (Monthly & Yearly)
     if ($action === 'save_subscription_pricing') {
         $monthlyPrice = trim($input['monthly_price'] ?? '10');

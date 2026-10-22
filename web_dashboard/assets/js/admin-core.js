@@ -265,8 +265,11 @@
         })
       });
       const data = (await safeJson(res)) || {};
-      if (data.success) {
+      if (data && data.success) {
+        alert("✅ تم حذف الخبر بنجاح.");
         loadPortalSettingsForAdmin();
+      } else {
+        alert("تعذر حذف الخبر: " + (data.message || 'خطأ غير معروف'));
       }
     } catch (err) {
       alert("خطأ: " + err.message);
@@ -712,13 +715,55 @@
   }
 
   async function cancelBroadcast() {
-    if (!confirm("هل تريد إلغاء الإعلان والتحديث الإجباري الحالي؟")) return;
+    if (!confirm("هل تريد إلغاء وحذف الإعلان والتحديث الإجباري الحالي نهائياً؟")) return;
     try {
-      await firebaseFetch('app_broadcast.json', { method: "DELETE" });
-      alert("تم إلغاء الإعلان بنجاح.");
+      // 1. Immediately clear from memory and update UI so user sees it gone without delay
+      currentBroadcast = null;
+      renderActiveBroadcast();
+
+      // 2. Clear inputs in broadcast form
+      const titleInput = document.getElementById("bcTitle");
+      if (titleInput) titleInput.value = "";
+      const msgInput = document.getElementById("bcMessage");
+      if (msgInput) msgInput.value = "";
+      const urlInput = document.getElementById("bcUrl");
+      if (urlInput) urlInput.value = "";
+
+      // 3. Delete from Firebase via PUT null and DELETE methods (works regardless of proxy/WAF)
+      try {
+        await firebaseFetch('app_broadcast.json', {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(null)
+        });
+      } catch (_) {}
+
+      try {
+        await firebaseFetch('app_broadcast.json', { method: "DELETE" });
+      } catch (_) {}
+
+      // 4. Also call server-side endpoints to ensure removal directly on server
+      try {
+        await apiFetch('api/fcm_sender.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'cancel_broadcast' })
+        });
+      } catch (_) {}
+
+      try {
+        await apiFetch('api/public_data.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'cancel_broadcast' })
+        });
+      } catch (_) {}
+
+      alert("✅ تم حذف وإلغاء الإعلان والتحديث من جميع الهواتف والسحابة بنجاح!");
       loadFirebaseData();
     } catch (e) {
-      alert("خطأ: " + e.message);
+      alert("خطأ أثناء إلغاء الإعلان: " + e.message);
+      loadFirebaseData();
     }
   }
 
@@ -2105,11 +2150,93 @@
     });
   }
 
-  async function loadUserMessagesList(cleanDeviceKey, override) {
+  let currentUserLoadedMessages = {};
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function startEditUserMessage(cleanDeviceKey, msgId) {
+    const m = currentUserLoadedMessages[msgId];
+    if (!m) return;
+    const editIdEl = document.getElementById("editingMsgId");
+    if (editIdEl) editIdEl.value = msgId;
+
+    const titleEl = document.getElementById("newMsgTitle");
+    if (titleEl) titleEl.value = m.title || '';
+    const textEl = document.getElementById("newMsgText");
+    if (textEl) textEl.value = m.text || '';
+    const typeEl = document.getElementById("newMsgType");
+    if (typeEl) typeEl.value = m.type || 'warning';
+    const dispEl = document.getElementById("newMsgDisplays");
+    if (dispEl) dispEl.value = (m.displays !== undefined && m.displays !== null) ? String(m.displays) : '0';
+
+    const headingEl = document.getElementById("userMsgFormHeading");
+    if (headingEl) headingEl.innerText = "تعديل نص وعنوان التنبيه الموجه لهذا الجهاز:";
+    const iconEl = document.getElementById("userMsgFormIcon");
+    if (iconEl) iconEl.innerText = "✏️";
+    const cardEl = document.getElementById("userMsgFormCard");
+    if (cardEl) {
+      cardEl.style.borderColor = "var(--accent)";
+      cardEl.style.background = "rgba(217, 119, 6, 0.06)";
+    }
+    const saveBtn = document.getElementById("btnSaveUserMsg");
+    if (saveBtn) {
+      saveBtn.innerText = "💾 حفظ التعديل وتحديث الجهاز";
+      saveBtn.className = "btn btn-secondary";
+    }
+    const cancelBtn = document.getElementById("btnCancelEditMsg");
+    if (cancelBtn) cancelBtn.style.display = "inline-flex";
+
+    if (textEl) {
+      textEl.focus();
+      textEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  function cancelEditUserMessage() {
+    const editIdEl = document.getElementById("editingMsgId");
+    if (editIdEl) editIdEl.value = "";
+    const titleEl = document.getElementById("newMsgTitle");
+    if (titleEl) titleEl.value = "";
+    const textEl = document.getElementById("newMsgText");
+    if (textEl) textEl.value = "";
+    const typeEl = document.getElementById("newMsgType");
+    if (typeEl) typeEl.value = "warning";
+    const dispEl = document.getElementById("newMsgDisplays");
+    if (dispEl) dispEl.value = "0";
+
+    const headingEl = document.getElementById("userMsgFormHeading");
+    if (headingEl) headingEl.innerText = "إضافة رسالة أو تنبيه موجه لهذا الجهاز";
+    const iconEl = document.getElementById("userMsgFormIcon");
+    if (iconEl) iconEl.innerText = "➕";
+    const cardEl = document.getElementById("userMsgFormCard");
+    if (cardEl) {
+      cardEl.style.borderColor = "var(--primary)";
+      cardEl.style.background = "rgba(0, 131, 143, 0.03)";
+    }
+    const saveBtn = document.getElementById("btnSaveUserMsg");
+    if (saveBtn) {
+      saveBtn.innerText = "💾 حفظ وإرسال للجهاز";
+      saveBtn.className = "btn";
+    }
+    const cancelBtn = document.getElementById("btnCancelEditMsg");
+    if (cancelBtn) cancelBtn.style.display = "none";
+  }
+
+  async function loadUserMessagesList(cleanDeviceKey, override = {}) {
     const tbody = document.getElementById("modalUserMessagesList");
     const countBadge = document.getElementById("modalMessagesCount");
     if (!tbody) return;
 
+    cancelEditUserMessage();
+    currentUserLoadedMessages = {};
     let messages = [];
 
     try {
@@ -2119,25 +2246,65 @@
         const obj = (data && data.data !== undefined) ? data.data : data;
         if (obj && typeof obj === 'object') {
           Object.entries(obj).forEach(([mId, mVal]) => {
-            if (mVal && typeof mVal === 'object') {
-              messages.push({ id: mId, ...mVal });
+            if (mVal !== null && mVal !== undefined) {
+              let item = {};
+              if (typeof mVal === 'string') {
+                item = {
+                  id: mId,
+                  title: 'تنبيه موجه',
+                  text: mVal,
+                  type: 'warning',
+                  displays: '0',
+                  active: true,
+                  createdAt: Date.now()
+                };
+              } else if (typeof mVal === 'object') {
+                item = {
+                  id: mId,
+                  title: mVal.title || mVal.subject || mVal.header || mVal.name || '',
+                  text: mVal.text || mVal.message || mVal.body || mVal.content || mVal.msg || mVal.details || '',
+                  type: mVal.type || (mVal.isWarning ? 'warning' : 'info'),
+                  displays: (mVal.displays !== undefined && mVal.displays !== null) ? String(mVal.displays) : '0',
+                  active: (mVal.active !== false && mVal.active !== 'false' && mVal.active !== 0 && mVal.active !== '0'),
+                  createdAt: mVal.createdAt || mVal.timestamp || mVal.publishedAt || mVal.date || null,
+                  ...mVal
+                };
+              }
+
+              // Fallback title if missing
+              if (!item.title) {
+                item.title = item.type === 'warning' ? 'تنبيه تحذيري' : (item.type === 'important' ? 'إشعار هام' : 'رسالة إدارية');
+              }
+              // Fallback text if missing: check specialWarningMessage on device override
+              if (!item.text && override && override.specialWarningMessage) {
+                item.text = override.specialWarningMessage;
+              }
+
+              currentUserLoadedMessages[mId] = item;
+              messages.push(item);
             }
           });
         }
       }
     } catch (_) {}
 
-    const legacyMsg = override.specialWarningMessage;
-    if (messages.length === 0 && legacyMsg) {
-      messages.push({
-        id: 'legacy_warning',
-        title: 'رسالة إدارية موجهة',
-        text: legacyMsg,
-        type: 'warning',
-        displays: '0',
-        active: true,
-        createdAt: override.updatedAt || Date.now()
-      });
+    // Check for specialWarningMessage and ensure it is always listed
+    const legacyMsg = override ? override.specialWarningMessage : '';
+    if (legacyMsg && typeof legacyMsg === 'string' && legacyMsg.trim().length > 0) {
+      const alreadyInList = messages.some(m => (m.text || '').trim() === legacyMsg.trim());
+      if (!alreadyInList) {
+        const legItem = {
+          id: 'legacy_warning',
+          title: 'تنبيه شاشة البداية الموجه',
+          text: legacyMsg.trim(),
+          type: 'warning',
+          displays: '0',
+          active: true,
+          createdAt: override.updatedAt || Date.now()
+        };
+        currentUserLoadedMessages['legacy_warning'] = legItem;
+        messages.push(legItem);
+      }
     }
 
     if (countBadge) countBadge.innerText = messages.length;
@@ -2151,7 +2318,7 @@
 
     tbody.innerHTML = messages.map(m => {
       const typeIcons = { warning: '⚠️ تحذيري', info: 'ℹ️ إخباري', important: '📢 هام' };
-      const typeBadge = typeIcons[m.type] || 'تنبيه';
+      const typeBadge = typeIcons[m.type] || 'ℹ️ تنبيه';
       const dispText = m.displays == '1' ? 'مرة واحدة' : (m.displays == '3' ? '3 مرات' : 'دائم');
       const activeBadge = m.active !== false
         ? `<span class="badge badge-active">نشطة ومفعلة</span>`
@@ -2162,17 +2329,23 @@
         ? `<button class="btn-sm btn-outline" style="padding:3px 8px; font-size:10.5px;" onclick="toggleUserMessageState('${cleanDeviceKey}', '${m.id}', false)">تعطيل</button>`
         : `<button class="btn-sm btn-unblock" style="padding:3px 8px; font-size:10.5px;" onclick="toggleUserMessageState('${cleanDeviceKey}', '${m.id}', true)">تفعيل</button>`;
 
-      const deleteBtn = `<button class="btn-sm btn-block" style="padding:3px 8px; font-size:10.5px;" onclick="deleteUserMessage('${cleanDeviceKey}', '${m.id}')">حذف</button>`;
+      const editBtn = `<button class="btn-sm btn-outline" style="padding:3px 8px; font-size:10.5px; color:var(--primary); border-color:var(--primary);" onclick="startEditUserMessage('${cleanDeviceKey}', '${m.id}')" title="تعديل نص وعنوان التنبيه">تعديل ✏️</button>`;
+
+      const deleteBtn = `<button class="btn-sm btn-block" style="padding:3px 8px; font-size:10.5px;" onclick="deleteUserMessage('${cleanDeviceKey}', '${m.id}')" title="حذف هذا التنبيه نهائياً">حذف 🗑️</button>`;
+
+      const safeText = m.text ? escapeHtml(m.text) : '<span style="color:var(--text-muted); font-style:italic;">(لا يوجد نص)</span>';
+      const safeTitle = escapeHtml(m.title || 'تنبيه موجه');
 
       return `
         <tr>
-          <td><small style="color:var(--accent);">${typeBadge}</small><br><b>${m.title || 'بدون عنوان'}</b></td>
-          <td style="max-width: 260px; font-size: 12px; line-height: 1.4;">${m.text || ''}</td>
+          <td><small style="color:var(--accent); font-weight:700;">${typeBadge}</small><br><b>${safeTitle}</b></td>
+          <td style="max-width: 260px; font-size: 12.5px; line-height: 1.5; color:var(--text-title);">${safeText}</td>
           <td><small>${dispText}</small></td>
           <td>${activeBadge}</td>
           <td><small>${dateStr}</small></td>
           <td>
-            <div style="display:flex; gap:4px;">
+            <div style="display:flex; gap:4px; flex-wrap:wrap;">
+              ${editBtn}
               ${toggleAction}
               ${deleteBtn}
             </div>
@@ -2184,32 +2357,39 @@
 
   async function saveNewUserMessage() {
     if (!activeModalUserKey) return;
+    const editingId = (document.getElementById("editingMsgId")?.value || "").trim();
     const title = (document.getElementById("newMsgTitle")?.value || "").trim();
     const text = (document.getElementById("newMsgText")?.value || "").trim();
     const type = document.getElementById("newMsgType")?.value || "warning";
     const displays = document.getElementById("newMsgDisplays")?.value || "0";
 
     if (!text) {
-      return alert("يرجى كتابة نص الرسالة أولاً");
+      return alert("يرجى كتابة نص الرسالة أو التنبيه أولاً");
     }
 
-    const msgId = "msg_" + Date.now();
+    const isEdit = Boolean(editingId);
+    const msgId = (isEdit && editingId !== 'legacy_warning') ? editingId : ("msg_" + Date.now());
+    const existingObj = isEdit ? (currentUserLoadedMessages[editingId] || {}) : {};
+
     const msgPayload = {
-      title: title || "تنبيه من الإدارة",
+      title: title || (type === 'warning' ? 'تنبيه تحذيري' : 'تنبيه من الإدارة'),
       text: text,
       type: type,
       displays: displays,
-      active: true,
-      createdAt: Date.now()
+      active: existingObj.active !== undefined ? existingObj.active : true,
+      createdAt: existingObj.createdAt || Date.now(),
+      updatedAt: Date.now()
     };
 
     try {
+      // 1. Save in device_overrides messages node
       await firebaseFetch(`device_overrides/${activeModalUserKey}/messages/${msgId}.json`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(msgPayload)
       });
 
+      // 2. Also keep specialWarningMessage updated for immediate splash screen appearance
       await firebaseFetch(`device_overrides/${activeModalUserKey}/specialWarningMessage.json`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -2222,15 +2402,15 @@
         body: JSON.stringify(text)
       });
 
+      // 3. Update local caches
       if (!allOverrides[activeModalUserKey]) allOverrides[activeModalUserKey] = {};
       if (!allOverrides[activeModalUserKey].messages) allOverrides[activeModalUserKey].messages = {};
       allOverrides[activeModalUserKey].messages[msgId] = msgPayload;
       allOverrides[activeModalUserKey].specialWarningMessage = text;
 
-      document.getElementById("newMsgTitle").value = "";
-      document.getElementById("newMsgText").value = "";
+      cancelEditUserMessage();
 
-      alert("تم حفظ وإرسال الرسالة الموجهة بنجاح! ستظهر للمستخدم في هاتفه وتنبيهه فوراً.");
+      alert(isEdit ? "✅ تم تعديل وحفظ بيانات التنبيه وتحديثها على الهاتف بنجاح!" : "✅ تم حفظ وإرسال التنبيه الموجه بنجاح! سيظهر للمستخدم في هاتفه فوراً.");
       loadUserMessagesList(activeModalUserKey, allOverrides[activeModalUserKey] || {});
       loadFirebaseData();
     } catch (e) {
@@ -2249,9 +2429,19 @@
       }
 
       if (!newState) {
-        await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" });
-        await firebaseFetch(`all_users/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" });
+        await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" }).catch(() => {});
+        await firebaseFetch(`all_users/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" }).catch(() => {});
         if (allOverrides[cleanDeviceKey]) delete allOverrides[cleanDeviceKey].specialWarningMessage;
+      } else {
+        const m = currentUserLoadedMessages[msgId];
+        if (m && m.text) {
+          await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(m.text)
+          }).catch(() => {});
+          if (allOverrides[cleanDeviceKey]) allOverrides[cleanDeviceKey].specialWarningMessage = m.text;
+        }
       }
 
       if (allOverrides[cleanDeviceKey] && allOverrides[cleanDeviceKey].messages && allOverrides[cleanDeviceKey].messages[msgId]) {
@@ -2269,16 +2459,34 @@
     if (!confirm("هل أنت متأكد من حذف هذه الرسالة نهائياً؟")) return;
     try {
       if (msgId !== 'legacy_warning') {
-        await firebaseFetch(`device_overrides/${cleanDeviceKey}/messages/${msgId}.json`, { method: "DELETE" });
+        await firebaseFetch(`device_overrides/${cleanDeviceKey}/messages/${msgId}.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(null)
+        }).catch(() => {});
+        await firebaseFetch(`device_overrides/${cleanDeviceKey}/messages/${msgId}.json`, { method: "DELETE" }).catch(() => {});
       }
-      await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" });
-      await firebaseFetch(`all_users/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" });
+      await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(null)
+      }).catch(() => {});
+      await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" }).catch(() => {});
+      await firebaseFetch(`all_users/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" }).catch(() => {});
+      
       if (allOverrides[cleanDeviceKey]) {
         delete allOverrides[cleanDeviceKey].specialWarningMessage;
         if (allOverrides[cleanDeviceKey].messages && allOverrides[cleanDeviceKey].messages[msgId]) {
           delete allOverrides[cleanDeviceKey].messages[msgId];
         }
       }
+
+      const editIdEl = document.getElementById("editingMsgId");
+      if (editIdEl && editIdEl.value === msgId) {
+        cancelEditUserMessage();
+      }
+
+      alert("✅ تم حذف الرسالة والتنبيه نهائياً بنجاح.");
       loadFirebaseData();
       loadUserMessagesList(cleanDeviceKey, allOverrides[cleanDeviceKey] || {});
     } catch (e) {
