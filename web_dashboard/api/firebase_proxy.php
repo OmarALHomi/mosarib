@@ -23,6 +23,11 @@ if (empty($path)) {
 // Sanitization: prevent directory traversal
 $path = preg_replace('/(\.\.\/|\.\.\\\\)/', '', $path);
 $method = $_SERVER['REQUEST_METHOD'];
+if (!empty($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE'])) {
+    $method = strtoupper($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE']);
+} elseif (!empty($_GET['method'])) {
+    $method = strtoupper($_GET['method']);
+}
 
 $secret = $_GET['auth'] ?? ($_SESSION['mosarib_admin_secret_key'] ?? (defined('FIREBASE_AUTH_SECRET') ? FIREBASE_AUTH_SECRET : ''));
 

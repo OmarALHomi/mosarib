@@ -533,22 +533,41 @@ if ($method === 'POST') {
     // 5. Delete Subscription Request
     if ($action === 'delete_subscription_request') {
         $reqId = $input['request_id'] ?? '';
-        if ($reqId) {
-            firebaseRequest("subscription_requests/{$reqId}.json", 'DELETE');
-            $webRequestsFile = __DIR__ . '/../data/web_subscription_requests.json';
-            if (file_exists($webRequestsFile)) {
-                $reqs = json_decode(file_get_contents($webRequestsFile), true) ?: [];
-                $reqs = array_values(array_filter($reqs, function($r) use ($reqId) {
-                    return ($r['id'] ?? '') !== $reqId;
-                }));
-                file_put_contents($webRequestsFile, json_encode($reqs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $keys = $input['keys'] ?? [];
+        if (!is_array($keys)) $keys = [];
+        if (!empty($reqId)) $keys[] = $reqId;
+        $keys = array_values(array_unique(array_filter($keys)));
+
+        foreach ($keys as $k) {
+            $cleanK = trim($k);
+            if (!empty($cleanK)) {
+                firebaseRequest("subscription_requests/{$cleanK}.json", 'DELETE');
             }
         }
-        jsonResponse(true, 'تم حذف الطلب بنجاح');
+
+        $webRequestsFile = __DIR__ . '/../data/web_subscription_requests.json';
+        if (file_exists($webRequestsFile)) {
+            $reqs = json_decode(file_get_contents($webRequestsFile), true) ?: [];
+            $reqs = array_values(array_filter($reqs, function($r) use ($keys) {
+                $rId = $r['id'] ?? ($r['requestId'] ?? '');
+                return !in_array($rId, $keys);
+            }));
+            file_put_contents($webRequestsFile, json_encode($reqs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        }
+        jsonResponse(true, 'تم حذف الطلب نهائياً من السحابة وقاعدة البيانات بنجاح');
     }
 
     // 6. Clear Completed Requests
     if ($action === 'clear_completed_requests') {
+        $keys = $input['keys'] ?? [];
+        if (is_array($keys)) {
+            foreach ($keys as $k) {
+                $cleanK = trim($k);
+                if (!empty($cleanK)) {
+                    firebaseRequest("subscription_requests/{$cleanK}.json", 'DELETE');
+                }
+            }
+        }
         $webRequestsFile = __DIR__ . '/../data/web_subscription_requests.json';
         if (file_exists($webRequestsFile)) {
             $reqs = json_decode(file_get_contents($webRequestsFile), true) ?: [];
@@ -557,6 +576,6 @@ if ($method === 'POST') {
             }));
             file_put_contents($webRequestsFile, json_encode($reqs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
         }
-        jsonResponse(true, 'تم حذف كافة الطلبات المنفذة بنجاح');
+        jsonResponse(true, 'تم حذف كافة الطلبات المنفذة نهائياً من السحابة بنجاح');
     }
 }

@@ -152,8 +152,17 @@ async function firebaseFetch(path, options = {}) {
     }
     // Direct fetch failed, try PHP proxy fallback if available
     try {
-      const proxyUrl = `api/firebase_proxy.php?path=${encodeURIComponent(path)}${adminSecretKey ? `&auth=${encodeURIComponent(adminSecretKey)}` : ''}`;
-      const proxyRes = await fetch(proxyUrl, { ...options, credentials: 'same-origin' });
+      const proxyUrl = `api/firebase_proxy.php?path=${encodeURIComponent(path)}${adminSecretKey ? `&auth=${encodeURIComponent(adminSecretKey)}` : ''}&method=${method}`;
+      const proxyHeaders = {
+        ...(options.headers || {}),
+        'X-HTTP-Method-Override': method
+      };
+      const proxyRes = await fetch(proxyUrl, {
+        ...options,
+        method: (method === 'GET' ? 'GET' : 'POST'),
+        headers: proxyHeaders,
+        credentials: 'same-origin'
+      });
       if (proxyRes && proxyRes.ok) {
         updateFirebaseStatusIndicator('CONNECTED');
         return proxyRes;
@@ -163,8 +172,17 @@ async function firebaseFetch(path, options = {}) {
   } catch (err) {
     // Browser direct fetch failed with network/CORS error, fallback to server-side PHP proxy
     try {
-      const proxyUrl = `api/firebase_proxy.php?path=${encodeURIComponent(path)}${adminSecretKey ? `&auth=${encodeURIComponent(adminSecretKey)}` : ''}`;
-      const proxyRes = await fetch(proxyUrl, { ...options, credentials: 'same-origin' });
+      const proxyUrl = `api/firebase_proxy.php?path=${encodeURIComponent(path)}${adminSecretKey ? `&auth=${encodeURIComponent(adminSecretKey)}` : ''}&method=${method}`;
+      const proxyHeaders = {
+        ...(options.headers || {}),
+        'X-HTTP-Method-Override': method
+      };
+      const proxyRes = await fetch(proxyUrl, {
+        ...options,
+        method: (method === 'GET' ? 'GET' : 'POST'),
+        headers: proxyHeaders,
+        credentials: 'same-origin'
+      });
       if (proxyRes && proxyRes.ok) {
         updateFirebaseStatusIndicator('CONNECTED');
         return proxyRes;
@@ -246,7 +264,7 @@ async function fetchCollection(name) {
         updateFirebaseStatusIndicator('CONNECTED');
         if (Array.isArray(val)) return val;
         if (typeof val === 'object') {
-          return Object.entries(val).map(([k, v]) => (v && typeof v === 'object' ? { id: k, ...v } : v));
+          return Object.entries(val).map(([k, v]) => (v && typeof v === 'object' ? { ...v, id: v.id || k, firebaseKey: k, _key: k } : v));
         }
       }
     } catch (sdkErr) {
@@ -262,7 +280,7 @@ async function fetchCollection(name) {
       const items = (data && data.data !== undefined) ? data.data : data;
       if (Array.isArray(items)) return items;
       if (items && typeof items === 'object') {
-        return Object.entries(items).map(([k, v]) => (v && typeof v === 'object' ? { id: k, ...v } : v));
+        return Object.entries(items).map(([k, v]) => (v && typeof v === 'object' ? { ...v, id: v.id || k, firebaseKey: k, _key: k } : v));
       }
     }
   } catch (_) {}

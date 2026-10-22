@@ -1187,8 +1187,7 @@
         : `<span class="badge badge-active">التطبيق 📱</span>`;
       
       const regionText = r.region || 'غير محدد';
-      const receiptText = r.receiptNumber || r.transferNumber || '-';
-      const reqId = r.id || r.requestId || '';
+      const reqId = r.id || r.requestId || r.firebaseKey || r._key || '';
 
       return `
         <tr>
@@ -1383,26 +1382,57 @@
 
   async function deleteSubscriptionRequest(reqId) {
     if (!reqId) return alert("معرف الطلب غير متوفر لحذفه");
-    if (!confirm("هل أنت متأكد من حذف هذا الطلب نهائياً من قاعدة البيانات؟")) return;
+    if (!confirm("هل أنت متأكد من حذف هذا الطلب نهائياً من قاعدة البيانات والسحابة؟")) return;
+
+    const r = allRequests.find(item => item.id === reqId || item.requestId === reqId || item.firebaseKey === reqId || item._key === reqId);
+    const keysToDelete = Array.from(new Set([
+      reqId,
+      r?.firebaseKey,
+      r?._key,
+      r?.id,
+      r?.requestId
+    ].filter(k => k && typeof k === 'string' && k.trim().length > 0)));
+
+    let deleteSuccess = false;
 
     try {
-      await firebaseFetch(`subscription_requests/${reqId}.json`, { method: "DELETE" });
+      // 1. Direct delete from Firebase RTDB (via SDK or REST)
+      for (const k of keysToDelete) {
+        const res = await firebaseFetch(`subscription_requests/${k}.json`, { method: "DELETE" });
+        if (res && (res.ok || res.status === 200)) {
+          deleteSuccess = true;
+        }
+      }
 
+      // 2. Also call server-side public_data.php proxy which uses cURL directly on the server to ensure 100% deletion
       try {
-        await apiFetch('api/public_data.php', {
+        const apiRes = await apiFetch('api/public_data.php', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'delete_subscription_request',
             request_id: reqId,
+            keys: keysToDelete,
             csrf_token: currentCsrfToken
           })
         });
+        const apiData = (await safeJson(apiRes)) || {};
+        if (apiData && apiData.success) {
+          deleteSuccess = true;
+        }
       } catch (_) {}
 
-      allRequests = allRequests.filter(r => (r.id || r.requestId) !== reqId);
+      // 3. Remove from local memory
+      allRequests = allRequests.filter(item => {
+        const itemId = item.id || item.requestId;
+        const itemKey = item.firebaseKey || item._key;
+        return !keysToDelete.includes(itemId) && !keysToDelete.includes(itemKey) && itemId !== reqId;
+      });
+
       updateStats();
       filterRequests();
+
+      alert("✅ تم حذف طلب الاشتراك نهائياً من السحابة وقاعدة البيانات بنجاح.");
     } catch (err) {
       alert("خطأ أثناء الحذف: " + err.message);
     }
@@ -1418,10 +1448,12 @@
     if (!confirm(`هل أنت متأكد من حذف كافة الطلبات المنفذة (${completed.length} طلب) نهائياً من السحابة؟`)) return;
 
     try {
+      const allKeys = [];
       for (const r of completed) {
-        const id = r.id || r.requestId;
-        if (id) {
-          await firebaseFetch(`subscription_requests/${id}.json`, { method: "DELETE" }).catch(() => {});
+        const keys = [r.firebaseKey, r._key, r.id, r.requestId].filter(k => k && typeof k === 'string' && k.trim().length > 0);
+        keys.forEach(k => allKeys.push(k));
+        for (const k of keys) {
+          await firebaseFetch(`subscription_requests/${k}.json`, { method: "DELETE" }).catch(() => {});
         }
       }
 
@@ -1431,6 +1463,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'clear_completed_requests',
+            keys: Array.from(new Set(allKeys)),
             csrf_token: currentCsrfToken
           })
         });
@@ -1439,7 +1472,7 @@
       allRequests = allRequests.filter(r => r.status !== 'COMPLETED');
       updateStats();
       filterRequests();
-      alert("✅ تم حذف كافة الطلبات المنفذة بنجاح.");
+      alert("✅ تم حذف كافة الطلبات المنفذة نهائياً من السحابة بنجاح.");
     } catch (err) {
       alert("خطأ أثناء الحذف: " + err.message);
     }
@@ -1529,7 +1562,7 @@
     }
 
     tbody.innerHTML = filteredList.map(u => {
-      const devKey = u.cleanDeviceKey || (u.deviceCode ? u.deviceCode.replace(/-/g, "") : "");
+      const devKey = u.cleanDeviceKey || (u.deviceCode ? u.deviceCode.replace(/-/g, "").trim() : "") || (u.id ? String(u.id).replace(/-/g, "").trim() : "") || (u.firebaseKey ? String(u.firebaseKey).replace(/-/g, "").trim() : "");
       const override = allOverrides[devKey] || {};
       const limit = override.customOperationsLimit || globalLimit;
       const ops = u.operationsCount || 0;
@@ -1963,18 +1996,21 @@
   let activeModalUserKey = null;
 
   async function openUserDetailModal(cleanDeviceKey) {
-    activeModalUserKey = cleanDeviceKey;
+    const cleanKey = String(cleanDeviceKey || '').replace(/-/g, "").trim();
+    activeModalUserKey = cleanKey;
     const overlay = document.getElementById("userModalOverlay");
     if (!overlay) return;
 
-    // Find user
+    // Find user robustly across all potential identifiers
     const u = allUsers.find(item => {
-      const devKey = item.cleanDeviceKey || (item.deviceCode ? item.deviceCode.replace(/-/g, "") : "");
-      return devKey === cleanDeviceKey;
-    }) || { cleanDeviceKey: cleanDeviceKey, deviceCode: cleanDeviceKey };
+      const devKey = item.cleanDeviceKey || (item.deviceCode ? item.deviceCode.replace(/-/g, "").trim() : "") || item.id || item.firebaseKey || item._key || "";
+      const devCodeClean = (item.deviceCode || '').replace(/-/g, "").trim();
+      return devKey === cleanKey || devCodeClean === cleanKey || item.id === cleanKey || item.firebaseKey === cleanKey || item._key === cleanKey;
+    }) || { cleanDeviceKey: cleanKey, deviceCode: cleanKey };
 
-    const override = allOverrides[cleanDeviceKey] || {};
-    const limit = override.customOperationsLimit || globalLimit;
+    const override = allOverrides[cleanKey] || {};
+    const globalOpsLimit = (appConfig && appConfig.freeOperationsLimit) ? appConfig.freeOperationsLimit : 200;
+    const limit = override.customOperationsLimit || globalOpsLimit;
     const ops = u.operationsCount || 0;
     const isBlocked = u.isBlocked === true;
     const isAct = u.isActivated === true && !isBlocked;
@@ -1987,11 +2023,11 @@
     
     let statusBadge = isBlocked
       ? `<span class="badge badge-blocked">⛔ محظور</span>`
-      : (isAct ? `<span class="badge badge-active">✅ مشترك مفعّل</span>` : `<span class="badge badge-trial">⏳ تجريبي</span>`);
+      : (isAct ? `<span class="badge badge-active">✅ مشترك مفعّل</span>` : `<span class="badge badge-trial">⏳ تجريبي مجاني</span>`);
     document.getElementById("modalUserStatusBadge").innerHTML = statusBadge;
 
     // Populate Info Pills
-    document.getElementById("modalDeviceCode").innerHTML = `<code>${u.deviceCode || cleanDeviceKey}</code>`;
+    document.getElementById("modalDeviceCode").innerHTML = `<code>${u.deviceCode || cleanKey}</code>`;
     document.getElementById("modalDeviceModel").innerText = u.deviceModel || 'غير محدد';
     document.getElementById("modalAndroidVersion").innerText = u.androidVersion || 'Android';
     document.getElementById("modalUserPhone").innerHTML = u.phone 
@@ -2024,25 +2060,25 @@
     const blockBtn = document.getElementById("modalBtnToggleBlock");
     blockBtn.innerText = isBlocked ? "فك الحظر 🔓" : "حظر المستخدم ⛔";
     blockBtn.onclick = async () => {
-      await toggleBlockUser(cleanDeviceKey, u.googleEmail || '', !isBlocked);
-      openUserDetailModal(cleanDeviceKey);
+      await toggleBlockUser(cleanKey, u.googleEmail || '', !isBlocked);
+      openUserDetailModal(cleanKey);
     };
 
     const bkBtn = document.getElementById("modalBtnToggleBackup");
     bkBtn.innerText = isDeviceBkLocked ? "فتح النسخ 🔓" : "قفل النسخ 🔒";
     bkBtn.onclick = async () => {
-      await toggleDeviceBackupLock(cleanDeviceKey, !isDeviceBkLocked);
-      openUserDetailModal(cleanDeviceKey);
+      await toggleDeviceBackupLock(cleanKey, !isDeviceBkLocked);
+      openUserDetailModal(cleanKey);
     };
 
     const limitBtn = document.getElementById("modalBtnSetLimit");
     limitBtn.onclick = async () => {
-      await promptSetCustomLimit(cleanDeviceKey, limit);
-      openUserDetailModal(cleanDeviceKey);
+      await promptSetCustomLimit(cleanKey, limit);
+      openUserDetailModal(cleanKey);
     };
 
     // Load targeted messages
-    loadUserMessagesList(cleanDeviceKey, override);
+    loadUserMessagesList(cleanKey, override);
 
     // Reset Push Form
     document.getElementById("userPushTitle").value = "";
@@ -2180,12 +2216,23 @@
         body: JSON.stringify(text)
       });
 
+      await firebaseFetch(`all_users/${activeModalUserKey}/specialWarningMessage.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(text)
+      });
+
+      if (!allOverrides[activeModalUserKey]) allOverrides[activeModalUserKey] = {};
+      if (!allOverrides[activeModalUserKey].messages) allOverrides[activeModalUserKey].messages = {};
+      allOverrides[activeModalUserKey].messages[msgId] = msgPayload;
+      allOverrides[activeModalUserKey].specialWarningMessage = text;
+
       document.getElementById("newMsgTitle").value = "";
       document.getElementById("newMsgText").value = "";
 
-      alert("تم حفظ الرسالة الموجهة وستظهر للمستخدم في هاتفه بنجاح!");
-      loadFirebaseData();
+      alert("تم حفظ وإرسال الرسالة الموجهة بنجاح! ستظهر للمستخدم في هاتفه وتنبيهه فوراً.");
       loadUserMessagesList(activeModalUserKey, allOverrides[activeModalUserKey] || {});
+      loadFirebaseData();
     } catch (e) {
       alert("حدث خطأ أثناء حفظ الرسالة: " + e.message);
     }
@@ -2193,14 +2240,22 @@
 
   async function toggleUserMessageState(cleanDeviceKey, msgId, newState) {
     try {
-      await firebaseFetch(`device_overrides/${cleanDeviceKey}/messages/${msgId}/active.json`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newState)
-      });
+      if (msgId !== 'legacy_warning') {
+        await firebaseFetch(`device_overrides/${cleanDeviceKey}/messages/${msgId}/active.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newState)
+        });
+      }
 
       if (!newState) {
         await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" });
+        await firebaseFetch(`all_users/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" });
+        if (allOverrides[cleanDeviceKey]) delete allOverrides[cleanDeviceKey].specialWarningMessage;
+      }
+
+      if (allOverrides[cleanDeviceKey] && allOverrides[cleanDeviceKey].messages && allOverrides[cleanDeviceKey].messages[msgId]) {
+        allOverrides[cleanDeviceKey].messages[msgId].active = newState;
       }
 
       loadFirebaseData();
@@ -2213,8 +2268,17 @@
   async function deleteUserMessage(cleanDeviceKey, msgId) {
     if (!confirm("هل أنت متأكد من حذف هذه الرسالة نهائياً؟")) return;
     try {
-      await firebaseFetch(`device_overrides/${cleanDeviceKey}/messages/${msgId}.json`, { method: "DELETE" });
+      if (msgId !== 'legacy_warning') {
+        await firebaseFetch(`device_overrides/${cleanDeviceKey}/messages/${msgId}.json`, { method: "DELETE" });
+      }
       await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" });
+      await firebaseFetch(`all_users/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" });
+      if (allOverrides[cleanDeviceKey]) {
+        delete allOverrides[cleanDeviceKey].specialWarningMessage;
+        if (allOverrides[cleanDeviceKey].messages && allOverrides[cleanDeviceKey].messages[msgId]) {
+          delete allOverrides[cleanDeviceKey].messages[msgId];
+        }
+      }
       loadFirebaseData();
       loadUserMessagesList(cleanDeviceKey, allOverrides[cleanDeviceKey] || {});
     } catch (e) {
@@ -2235,8 +2299,8 @@
     }
 
     const u = allUsers.find(item => {
-      const devKey = item.cleanDeviceKey || (item.deviceCode ? item.deviceCode.replace(/-/g, "") : "");
-      return devKey === activeModalUserKey;
+      const devKey = item.cleanDeviceKey || (item.deviceCode ? item.deviceCode.replace(/-/g, "").trim() : "") || item.id || item.firebaseKey || "";
+      return devKey === activeModalUserKey || item.id === activeModalUserKey || item.firebaseKey === activeModalUserKey;
     });
     const deviceCode = u?.deviceCode || activeModalUserKey;
 
@@ -2244,7 +2308,7 @@
     sendBtn.innerText = "جاري إرسال الإشعار...";
     statusEl.style.display = "block";
     statusEl.style.color = "var(--accent)";
-    statusEl.innerText = "جاري التوصيل لمحرك Google FCM...";
+    statusEl.innerText = "جاري التوصيل لمحرك Google FCM وستارة الهاتف... ⏳";
 
     try {
       const res = await apiFetch('api/fcm_sender.php', {
@@ -2264,14 +2328,19 @@
       if (data && data.success) {
         statusEl.style.color = "var(--success)";
         statusEl.innerText = `✅ ${data.message || 'تم إرسال الإشعار بنجاح!'}`;
-        alert("تم إرسال الإشعار لستارة هاتف المستخدم بنجاح!");
+        alert("✅ " + (data.message || "تم إرسال الإشعار لستارة هاتف المستخدم بنجاح!"));
+        
+        loadFirebaseData();
+        loadUserMessagesList(activeModalUserKey, allOverrides[activeModalUserKey] || {});
       } else {
         statusEl.style.color = "var(--danger)";
         statusEl.innerText = `❌ ${data.message || 'تعذر الإرسال'}`;
+        alert("تعذر إرسال الإشعار: " + (data.message || 'خطأ غير معروف'));
       }
     } catch (e) {
       statusEl.style.color = "var(--danger)";
       statusEl.innerText = `❌ خطأ في الاتصال: ${e.message}`;
+      alert("خطأ في الاتصال بالسيرفر: " + e.message);
     } finally {
       sendBtn.disabled = false;
       sendBtn.innerText = "🚀 إرسال الإشعار فوراً للهاتف";

@@ -232,15 +232,16 @@ if ($target === 'TRIAL' || $target === 'SUBSCRIBERS') {
 }
 
 $tokenList = [];
-foreach ($rawTokens as $item) {
+foreach ($rawTokens as $key => $item) {
     if (empty($item['fcmToken'])) continue;
-    $devCode = $item['deviceCode'] ?? '';
+    $devCode = !empty($item['deviceCode']) ? $item['deviceCode'] : $key;
     if ($targetDeviceCodes !== null && !empty($devCode) && !isset($targetDeviceCodes[$devCode])) {
         continue;
     }
     $tokenList[] = [
         'token' => $item['fcmToken'],
-        'deviceCode' => $devCode
+        'deviceCode' => $devCode,
+        'key' => $key
     ];
 }
 
@@ -249,12 +250,13 @@ if ($target === 'SINGLE' && !empty($targetToken)) {
 }
 
 $targetDeviceCode = trim($input['target_device_code'] ?? '');
+$targetDeviceCodeClean = !empty($targetDeviceCode) ? strtoupper(str_replace('-', '', $targetDeviceCode)) : '';
 if ($target === 'DEVICE' && !empty($targetDeviceCode)) {
-    $targetDeviceCodeClean = str_replace('-', '', $targetDeviceCode);
     $filtered = [];
     foreach ($tokenList as $t) {
-        $devClean = str_replace('-', '', $t['deviceCode'] ?? '');
-        if ($devClean === $targetDeviceCodeClean || ($t['deviceCode'] ?? '') === $targetDeviceCode) {
+        $devClean = strtoupper(str_replace('-', '', $t['deviceCode'] ?? ''));
+        $keyClean = strtoupper(str_replace('-', '', $t['key'] ?? ''));
+        if ($devClean === $targetDeviceCodeClean || $keyClean === $targetDeviceCodeClean || ($t['deviceCode'] ?? '') === $targetDeviceCode) {
             $filtered[] = $t;
         }
     }
@@ -435,17 +437,35 @@ elseif (!empty($serverKey)) {
     }
 }
 
-// Always sync to Firebase Realtime Database /app_broadcast so in-app delivery is 100% guaranteed
-$broadcastPayload = [
-    'id' => 'PUSH_' . round(microtime(true) * 1000),
-    'title' => $title,
-    'message' => $body,
-    'actionUrl' => $actionUrl,
-    'actionText' => !empty($actionUrl) ? 'عرض التفاصيل' : 'فتح التطبيق',
-    'type' => 'INFO',
-    'publishedAt' => round(microtime(true) * 1000)
-];
-firebaseRequest('app_broadcast.json', 'PUT', $broadcastPayload);
+// Sync delivery
+if ($target === 'ALL' || $target === 'BROADCAST') {
+    // Only broadcast globally if target is ALL or BROADCAST
+    $broadcastPayload = [
+        'id' => 'PUSH_' . round(microtime(true) * 1000),
+        'title' => $title,
+        'message' => $body,
+        'actionUrl' => $actionUrl,
+        'actionText' => !empty($actionUrl) ? 'عرض التفاصيل' : 'فتح التطبيق',
+        'type' => 'INFO',
+        'publishedAt' => round(microtime(true) * 1000)
+    ];
+    firebaseRequest('app_broadcast.json', 'PUT', $broadcastPayload);
+} elseif ($target === 'DEVICE' && !empty($targetDeviceCodeClean)) {
+    // Targeted directly to this device: store in device_overrides & all_users so it shows in app
+    $devMsgId = 'push_' . round(microtime(true) * 1000);
+    $devMsgPayload = [
+        'title' => $title,
+        'text' => $body,
+        'type' => 'important',
+        'displays' => '1',
+        'active' => true,
+        'createdAt' => round(microtime(true) * 1000),
+        'actionUrl' => $actionUrl
+    ];
+    firebaseRequest("device_overrides/{$targetDeviceCodeClean}/messages/{$devMsgId}.json", 'PUT', $devMsgPayload);
+    firebaseRequest("device_overrides/{$targetDeviceCodeClean}/specialWarningMessage.json", 'PUT', $body);
+    firebaseRequest("all_users/{$targetDeviceCodeClean}/specialWarningMessage.json", 'PUT', $body);
+}
 
 // Log to notifications history
 $logId = 'LOG_' . round(microtime(true) * 1000);
