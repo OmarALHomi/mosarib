@@ -109,23 +109,87 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
         </div>
       </a>
 
-      <nav class="nav-menu">
+      <nav class="nav-menu" id="desktopNavMenu">
         <a href="#features" class="nav-link">المميزات</a>
         <a href="#rates" class="nav-link">متوسط الأسعار</a>
         <a href="#plans" class="nav-link">الباقات والترخيص</a>
+        <?php if (!empty($portalNews)): ?>
+        <a href="#news" class="nav-link">مستجدات المياه</a>
+        <?php endif; ?>
       </nav>
 
       <div class="nav-actions">
         <button id="themeToggleBtn" onclick="togglePortalTheme()" class="btn-theme" title="تبديل المظهر">
           <span id="themeToggleIcon">🌙</span>
         </button>
-        <a href="api/download.php" class="btn-primary" onclick="trackDownload()">
+        <a href="api/download.php" class="btn-primary nav-download-btn" onclick="trackDownload()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           <span>تحميل التطبيق APK</span>
         </a>
+        <button id="hamburgerBtn" class="btn-hamburger" onclick="toggleMobileNav()" aria-label="القائمة الرئيسية" aria-expanded="false">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
       </div>
     </div>
   </header>
+
+  <!-- Mobile Navigation Drawer -->
+  <div class="mobile-nav-backdrop" id="mobileNavBackdrop" onclick="closeMobileNav()"></div>
+  <aside class="mobile-nav-drawer" id="mobileNavDrawer" aria-hidden="true" dir="rtl">
+    <div class="mobile-nav-header">
+      <div class="brand-wrapper">
+        <div class="brand-badge">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+        </div>
+        <div>
+          <div class="brand-title">مُسَرِّب • MOSARIB</div>
+          <div class="brand-sub">إدارة مياه وساعات الري وحصص الآبار</div>
+        </div>
+      </div>
+      <button class="mobile-nav-close" onclick="closeMobileNav()" aria-label="إغلاق القائمة">&times;</button>
+    </div>
+    <div class="mobile-nav-body">
+      <a href="#features" class="mobile-nav-link" onclick="closeMobileNav()">
+        <span class="nav-icon">✨</span>
+        <span>المميزات الميدانية</span>
+      </a>
+      <a href="#rates" class="mobile-nav-link" onclick="closeMobileNav()">
+        <span class="nav-icon">📊</span>
+        <span>مؤشر ومتوسط الأسعار</span>
+      </a>
+      <a href="#plans" class="mobile-nav-link" onclick="closeMobileNav()">
+        <span class="nav-icon">⚡</span>
+        <span>الباقات والترخيص</span>
+      </a>
+      <?php if (!empty($portalNews)): ?>
+      <a href="#news" class="mobile-nav-link" onclick="closeMobileNav()">
+        <span class="nav-icon">📰</span>
+        <span>مستجدات وبورصة المياه</span>
+      </a>
+      <?php endif; ?>
+
+      <div class="mobile-nav-divider"></div>
+
+      <a href="api/download.php" class="btn-primary mobile-nav-cta" onclick="trackDownload(); closeMobileNav();">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        <span>تحميل التطبيق مجاناً (APK)</span>
+      </a>
+
+      <button onclick="openModal('YEARLY'); closeMobileNav();" class="btn-secondary mobile-nav-cta">
+        <span>طلب تفعيل الترخيص ⚡</span>
+      </button>
+
+      <?php if (!empty($ps['contact_whatsapp'])): ?>
+      <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>" target="_blank" class="btn-outline mobile-nav-cta" onclick="closeMobileNav()">
+        <span>محادثة واتساب 💬</span>
+      </a>
+      <?php endif; ?>
+    </div>
+  </aside>
 
   <!-- Hero Section -->
   <section class="hero container">
@@ -163,18 +227,23 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
   <div class="container" id="rates" style="margin-bottom: 35px;">
     <div class="rates-strip">
       <div class="rates-col rates-location">
-        <div class="rates-location-icon">📍</div>
+        <div class="rates-location-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+          </svg>
+        </div>
         <div>
           <div class="rates-sub-lbl">المنطقة الجغرافية المعتمدة:</div>
           <strong class="rates-reg-name" id="regionNameEl"><?= htmlspecialchars($ps['active_region_name']) ?></strong>
         </div>
       </div>
       <div class="rates-col rates-prices">
+        <div class="price-item-lbl">متوسط سعر الساعة</div>
         <div class="rates-main-price">
           <span class="price-item-val" id="avgPriceEl"><?= number_format($ps['avg_hourly_price']) ?></span>
           <span class="price-item-cur"><?= htmlspecialchars($ps['currency_symbol']) ?></span>
         </div>
-        <div class="price-item-lbl">متوسط سعر الساعة</div>
         <div class="rates-range-tag" id="minPriceEl">
           <span>أعلى: <?= number_format($ps['max_hourly_price']) ?> ريال</span>
           <span class="rates-sep">•</span>
@@ -182,8 +251,8 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
         </div>
       </div>
       <div class="rates-col rates-status-box">
+        <div class="rates-sub-lbl">حالة منسوب المياه والضخ:</div>
         <div class="rates-status-pill" id="waterStatusEl">💧 <?= htmlspecialchars($ps['water_status_text'] ?? 'مستقر ومتاح في معظم المناطق الزراعية') ?></div>
-        <div class="price-item-lbl">حالة منسوب المياه والضخ</div>
       </div>
     </div>
     <div class="rates-note-msg" id="ratesNoteEl">
@@ -235,14 +304,16 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
       <!-- Annual Plan (Recommended) -->
       <div class="plan-card popular">
         <div class="popular-tag"><?= htmlspecialchars($yearlyDisc) ?></div>
-        <div>
+        <div class="plan-card-body">
           <div class="plan-head">
             <h3>الاشتراك السنوي</h3>
             <div class="plan-desc">الترخيص الكامل لموسم زراعي متكامل (365 يوماً)</div>
           </div>
           <div class="plan-price-box">
-            <span class="plan-price-num" id="yearlyPriceEl"><?= htmlspecialchars($yearlyPrice) ?><?= htmlspecialchars($yearlyCurrency) ?></span>
-            <span class="plan-price-period">/ سنوياً</span>
+            <div class="plan-price-main">
+              <span class="plan-price-num" id="yearlyPriceEl"><?= htmlspecialchars($yearlyPrice) ?><?= htmlspecialchars($yearlyCurrency) ?></span>
+              <span class="plan-price-period">/ سنوياً</span>
+            </div>
             <?php if (!empty($yearlyOrig)): ?>
             <span class="plan-discount" id="yearlyOrigEl">بدلاً من <?= htmlspecialchars($yearlyOrig) ?><?= htmlspecialchars($yearlyCurrency) ?></span>
             <?php endif; ?>
@@ -254,19 +325,21 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>دعم فني وإمكانية نقل الرخصة لهاتف بديل</span></li>
           </ul>
         </div>
-        <button onclick="openModal('YEARLY')" class="btn-primary" style="width: 100%; justify-content: center;">طلب تفعيل الباقة السنوية ⚡</button>
+        <button onclick="openModal('YEARLY')" class="btn-primary plan-btn">طلب تفعيل الباقة السنوية ⚡</button>
       </div>
 
       <!-- Monthly Plan -->
       <div class="plan-card">
-        <div>
+        <div class="plan-card-body">
           <div class="plan-head">
             <h3>الاشتراك الشهري</h3>
             <div class="plan-desc">مرونة كاملة لتشغيل المواسم الزراعية القصيرة</div>
           </div>
           <div class="plan-price-box">
-            <span class="plan-price-num" id="monthlyPriceEl"><?= htmlspecialchars($monthlyPrice) ?><?= htmlspecialchars($monthlyCurrency) ?></span>
-            <span class="plan-price-period">/ شهرياً</span>
+            <div class="plan-price-main">
+              <span class="plan-price-num" id="monthlyPriceEl"><?= htmlspecialchars($monthlyPrice) ?><?= htmlspecialchars($monthlyCurrency) ?></span>
+              <span class="plan-price-period">/ شهرياً</span>
+            </div>
           </div>
           <ul class="plan-features">
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>صلاحية كاملة لكافة المزايا لمدة 30 يوماً</span></li>
@@ -274,7 +347,7 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>حفظ وتأمين البيانات محلياً على الجهاز</span></li>
           </ul>
         </div>
-        <button onclick="openModal('MONTHLY')" class="btn-outline" style="width: 100%; justify-content: center;">طلب تفعيل الباقة الشهرية</button>
+        <button onclick="openModal('MONTHLY')" class="btn-outline plan-btn">طلب تفعيل الباقة الشهرية</button>
       </div>
     </div>
   </section>
@@ -291,7 +364,7 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
       <?php foreach (array_slice($portalNews, 0, 3) as $nw): ?>
       <div class="news-card">
         <?php if (!empty($nw['image'])): ?>
-        <div class="news-cover-wrap">
+        <div class="news-cover-wrap <?= (!empty($nw['image']) && strpos($nw['image'], 'pump') !== false) ? 'news-cover-pump' : '' ?>">
           <img src="<?= htmlspecialchars($nw['image']) ?>" alt="<?= htmlspecialchars($nw['title']) ?>" class="news-cover-img" loading="lazy">
         </div>
         <?php endif; ?>
@@ -396,7 +469,42 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
 
   <!-- Dynamic Live Sync Script -->
   <script>
-    // 1. Theme Management
+    // 1. Mobile Drawer Navigation
+    function toggleMobileNav() {
+      const drawer = document.getElementById('mobileNavDrawer');
+      const backdrop = document.getElementById('mobileNavBackdrop');
+      const btn = document.getElementById('hamburgerBtn');
+      if (!drawer || !backdrop) return;
+      const isOpen = drawer.classList.contains('open');
+      if (isOpen) {
+        closeMobileNav();
+      } else {
+        drawer.classList.add('open');
+        backdrop.classList.add('open');
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+        document.body.style.overflow = 'hidden';
+      }
+    }
+
+    function closeMobileNav() {
+      const drawer = document.getElementById('mobileNavDrawer');
+      const backdrop = document.getElementById('mobileNavBackdrop');
+      const btn = document.getElementById('hamburgerBtn');
+      if (drawer) drawer.classList.remove('open');
+      if (backdrop) backdrop.classList.remove('open');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+    }
+
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeMobileNav();
+    });
+
+    window.addEventListener('resize', function() {
+      if (window.innerWidth >= 768) closeMobileNav();
+    });
+
+    // 2. Theme Management
     function togglePortalTheme() {
       const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', cur);
