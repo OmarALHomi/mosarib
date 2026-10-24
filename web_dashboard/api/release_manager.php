@@ -59,6 +59,9 @@ if ($method === 'POST') {
             jsonResponse(false, 'فشل نقل وتخزين ملف APK في مجلد التنزيلات');
         }
 
+        // Keep Mosarib_Latest.apk always pointing to the latest uploaded version
+        @copy($destPath, UPLOAD_DIR . 'Mosarib_Latest.apk');
+
         $serverUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'];
         $downloadUrl = $serverUrl . dirname(dirname($_SERVER['PHP_SELF'])) . '/uploads/' . $fileName;
 

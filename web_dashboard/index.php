@@ -5,7 +5,6 @@
  * Developed for Eng. Omar AL-Homi (TubbaSoft 2026)
  */
 
-// Prevent caching so admin modifications reflect instantly
 header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
@@ -13,7 +12,7 @@ header('Content-Type: text/html; charset=UTF-8');
 
 require_once __DIR__ . '/api/config.php';
 
-// 1. Load Live Portal Settings (Sync with Firebase or fallback to local JSON)
+// 1. Load Live Portal Settings
 $settingsFile = __DIR__ . '/data/portal_settings.json';
 $ps = [
     'active_region_name' => 'الحيمة العليا - تعز',
@@ -24,41 +23,53 @@ $ps = [
     'water_status' => 'GOOD',
     'water_status_text' => 'مستقر ومتاح في معظم المناطق الزراعية',
     'rates_note' => 'الأسعار تختلف بحسب عمق البئر ونوع الطاقة المستخدمة',
-    'hero_badge' => 'المنظومة الميدانية لإدارة مياه الآبار',
+    'hero_badge' => 'المنظومة الرقمية الميدانية لإدارة مياه الآبار',
     'hero_title' => 'مُسَرِّب • حساب دقيق لمياه وساعات الري وحصص المزارعين',
-    'hero_subtitle' => 'تطبيق ذكي خفيف يعمل بدون إنترنت (Offline-First)، يدير جلسات الري بالثانية والدقيقة، يرسل سندات القبض عبر واتساب، ويحفظ بياناتك بأمان على Google Drive.',
+    'hero_subtitle' => 'تطبيق ذكي خفيف يعمل 100% بدون إنترنت (Offline-First)، يدير جلسات الري بالثانية والدقيقة، يرسل سندات القبض عبر واتساب، ويحفظ بياناتك بأمان تام.',
     'contact_whatsapp' => '967773712030',
     'contact_phone' => '773712030',
     'developer_name' => 'المهندس عمر الحومي',
     'developer_company' => 'تُبع سوفت للحلول البرمجية الذكية (TubbaSoft)',
+    'show_top_ticker' => true,
     'show_rates_section' => true,
-    'show_plans_section' => true
+    'show_plans_section' => true,
+    'show_features_section' => true,
+    'show_download_cta' => true
 ];
 
 if (file_exists($settingsFile)) {
-    $savedSettings = json_decode(file_get_contents($settingsFile), true);
+    $savedSettings = json_decode(@file_get_contents($settingsFile), true);
     if (is_array($savedSettings)) {
         $ps = array_merge($ps, $savedSettings);
     }
 }
 
-// 2. Load Subscription Pricing
+// 2. Load Real Latest Release Info
+$releasesFile = __DIR__ . '/uploads/releases_index.json';
+$releases = file_exists($releasesFile) ? (json_decode(@file_get_contents($releasesFile), true) ?: []) : [];
+$latestRelease = !empty($releases[0]) ? $releases[0] : null;
+
+$apkVersion = !empty($latestRelease['version_name']) ? $latestRelease['version_name'] : '1.4.0';
+$apkSizeMb = !empty($latestRelease['file_size']) ? round($latestRelease['file_size'] / (1024 * 1024), 1) : 2.8;
+
+// Primary download gateway
+$downloadUrl = 'api/download.php';
+
+// 3. Load Subscription Pricing
 $pricingFile = __DIR__ . '/data/subscription_pricing.json';
-$pricing = file_exists($pricingFile) ? (json_decode(file_get_contents($pricingFile), true) ?: []) : [];
-$monthlyPrice = $pricing['monthly']['price'] ?? '8';
+$pricing = file_exists($pricingFile) ? (json_decode(@file_get_contents($pricingFile), true) ?: []) : [];
+$monthlyPrice = $pricing['monthly']['price'] ?? '10';
 $monthlyCurrency = $pricing['monthly']['currency'] ?? '$';
-$yearlyPrice = $pricing['yearly']['price'] ?? '75';
-$yearlyOrig = $pricing['yearly']['original_price'] ?? '115';
-$yearlyDisc = $pricing['yearly']['discount_text'] ?? 'وفر 35% (خصم 40$)';
+$yearlyPrice = $pricing['yearly']['price'] ?? '80';
+$yearlyOrig = $pricing['yearly']['original_price'] ?? '120';
+$yearlyDisc = $pricing['yearly']['discount_text'] ?? 'وفر 33% (خصم 40$)';
 $yearlyCurrency = $pricing['yearly']['currency'] ?? '$';
 
-// 3. Load Payment Methods
+// 4. Load Payment Methods
 $paymentMethodsFile = __DIR__ . '/data/payment_methods.json';
-$paymentMethods = file_exists($paymentMethodsFile) ? (json_decode(file_get_contents($paymentMethodsFile), true) ?: []) : [];
+$paymentMethods = file_exists($paymentMethodsFile) ? (json_decode(@file_get_contents($paymentMethodsFile), true) ?: []) : [];
 
-// 4. Load Public News / Bulletins
-$newsFile = __DIR__ . '/data/portal_news.json';
-$portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile), true) ?: []) : [];
+$cleanWhatsapp = preg_replace('/[^0-9]/', '', $ps['contact_whatsapp'] ?: '967773712030');
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" data-theme="light">
@@ -86,9 +97,9 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
 </head>
 <body>
 
-  <!-- Top Ticker / Headline Alert -->
+  <!-- Top Announcement Bar (Optional) -->
   <?php if (!empty($ps['headline_alert']) && ($ps['show_top_ticker'] ?? true)): ?>
-  <div class="top-ticker" id="topTickerBar">
+  <div style="background: var(--surface-alt); border-bottom: 1px solid var(--border); padding: 8px 16px; font-size: 13px; text-align: center; color: var(--text-main); font-weight: 700;">
     <div class="container" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
       <span>📢</span>
       <span id="topTickerText"><?= htmlspecialchars($ps['headline_alert']) ?></span>
@@ -96,7 +107,7 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
   </div>
   <?php endif; ?>
 
-  <!-- Clean Header -->
+  <!-- Navbar -->
   <header class="portal-nav">
     <div class="container nav-container">
       <a href="#" class="brand-wrapper">
@@ -104,17 +115,22 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
         </div>
         <div>
-          <div class="brand-title">مُسَرِّب • MOSARIB</div>
+          <div class="brand-title">
+            <span>مُسَرِّب</span>
+            <span class="badge-tag">APK مباشر</span>
+          </div>
           <div class="brand-sub">إدارة مياه وساعات الري وحصص الآبار</div>
         </div>
       </a>
 
-      <nav class="nav-menu" id="desktopNavMenu">
+      <nav class="nav-menu">
         <a href="#features" class="nav-link">المميزات</a>
-        <a href="#rates" class="nav-link">متوسط الأسعار</a>
-        <a href="#plans" class="nav-link">الباقات والترخيص</a>
-        <?php if (!empty($portalNews)): ?>
-        <a href="#news" class="nav-link">مستجدات المياه</a>
+        <a href="#how" class="nav-link">طريقة الاستخدام</a>
+        <?php if (!empty($ps['show_rates_section'])): ?>
+        <a href="#rates" class="nav-link">مؤشر الأسعار</a>
+        <?php endif; ?>
+        <?php if (!empty($ps['show_plans_section'])): ?>
+        <a href="#plans" class="nav-link">الترخيص والباقات</a>
         <?php endif; ?>
       </nav>
 
@@ -122,277 +138,305 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
         <button id="themeToggleBtn" onclick="togglePortalTheme()" class="btn-theme" title="تبديل المظهر">
           <span id="themeToggleIcon">🌙</span>
         </button>
-        <a href="api/download.php" class="btn-primary nav-download-btn" onclick="trackDownload()">
+        <a href="<?= $downloadUrl ?>" class="btn-primary nav-download-btn" onclick="trackDownload()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          <span>تحميل التطبيق APK</span>
+          <span>تحميل APK</span>
         </a>
-        <button id="hamburgerBtn" class="btn-hamburger" onclick="toggleMobileNav()" aria-label="القائمة الرئيسية" aria-expanded="false">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="18" x2="21" y2="18"></line>
-          </svg>
+        <button id="hamburgerBtn" class="btn-hamburger" onclick="toggleMobileNav()" aria-label="القائمة">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         </button>
       </div>
     </div>
   </header>
 
-  <!-- Mobile Navigation Drawer -->
+  <!-- Mobile Drawer -->
   <div class="mobile-nav-backdrop" id="mobileNavBackdrop" onclick="closeMobileNav()"></div>
   <aside class="mobile-nav-drawer" id="mobileNavDrawer" aria-hidden="true" dir="rtl">
-    <div class="mobile-nav-header">
-      <div class="brand-wrapper">
-        <div class="brand-badge">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
-        </div>
-        <div>
-          <div class="brand-title">مُسَرِّب • MOSARIB</div>
-          <div class="brand-sub">إدارة مياه وساعات الري وحصص الآبار</div>
-        </div>
-      </div>
-      <button class="mobile-nav-close" onclick="closeMobileNav()" aria-label="إغلاق القائمة">&times;</button>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <span style="font-weight: 800; font-size: 16px;">القائمة الرئيسية</span>
+      <button onclick="closeMobileNav()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
     </div>
-    <div class="mobile-nav-body">
-      <a href="#features" class="mobile-nav-link" onclick="closeMobileNav()">
-        <span class="nav-icon">✨</span>
-        <span>المميزات الميدانية</span>
-      </a>
-      <a href="#rates" class="mobile-nav-link" onclick="closeMobileNav()">
-        <span class="nav-icon">📊</span>
-        <span>مؤشر ومتوسط الأسعار</span>
-      </a>
-      <a href="#plans" class="mobile-nav-link" onclick="closeMobileNav()">
-        <span class="nav-icon">⚡</span>
-        <span>الباقات والترخيص</span>
-      </a>
-      <?php if (!empty($portalNews)): ?>
-      <a href="#news" class="mobile-nav-link" onclick="closeMobileNav()">
-        <span class="nav-icon">📰</span>
-        <span>مستجدات وبورصة المياه</span>
-      </a>
-      <?php endif; ?>
-
-      <div class="mobile-nav-divider"></div>
-
-      <a href="api/download.php" class="btn-primary mobile-nav-cta" onclick="trackDownload(); closeMobileNav();">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        <span>تحميل التطبيق مجاناً (APK)</span>
-      </a>
-
-      <button onclick="openModal('YEARLY'); closeMobileNav();" class="btn-secondary mobile-nav-cta">
-        <span>طلب تفعيل الترخيص ⚡</span>
-      </button>
-
-      <?php if (!empty($ps['contact_whatsapp'])): ?>
-      <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>" target="_blank" class="btn-outline mobile-nav-cta" onclick="closeMobileNav()">
-        <span>محادثة واتساب 💬</span>
-      </a>
-      <?php endif; ?>
+    <a href="#features" class="mobile-nav-link" onclick="closeMobileNav()">المميزات الميدانية</a>
+    <a href="#how" class="mobile-nav-link" onclick="closeMobileNav()">طريقة الاستخدام</a>
+    <?php if (!empty($ps['show_rates_section'])): ?>
+    <a href="#rates" class="mobile-nav-link" onclick="closeMobileNav()">مؤشر الأسعار</a>
+    <?php endif; ?>
+    <?php if (!empty($ps['show_plans_section'])): ?>
+    <a href="#plans" class="mobile-nav-link" onclick="closeMobileNav()">الباقات والترخيص</a>
+    <?php endif; ?>
+    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding-top: 20px;">
+      <a href="<?= $downloadUrl ?>" class="btn-primary" style="justify-content: center;" onclick="trackDownload(); closeMobileNav();">تحميل التطبيق APK</a>
+      <a href="https://wa.me/<?= $cleanWhatsapp ?>" target="_blank" class="btn-whatsapp" style="justify-content: center;">محادثة واتساب 💬</a>
     </div>
   </aside>
 
   <!-- Hero Section -->
-  <section class="hero container">
-    <div class="hero-pill" id="heroBadgeEl">
-      <span>💧</span>
-      <span id="heroBadgeText"><?= htmlspecialchars($ps['hero_badge']) ?></span>
-    </div>
-    <h1 id="heroTitleText"><?= htmlspecialchars($ps['hero_title']) ?></h1>
-    <p id="heroSubtitleText"><?= htmlspecialchars($ps['hero_subtitle']) ?></p>
+  <section class="hero-section container">
+    <div class="hero-grid">
+      <div class="hero-content">
+        <div class="hero-pill" id="heroBadgeEl">
+          <span>💧</span>
+          <span id="heroBadgeText"><?= htmlspecialchars($ps['hero_badge']) ?></span>
+        </div>
+        <h1 class="hero-title" id="heroTitleText">
+          <?= htmlspecialchars($ps['hero_title']) ?>
+        </h1>
+        <p class="hero-subtitle" id="heroSubtitleText">
+          <?= htmlspecialchars($ps['hero_subtitle']) ?>
+        </p>
 
-    <div class="hero-cta">
-      <a href="api/download.php" class="btn-primary" onclick="trackDownload()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        <span>تحميل التطبيق مجاناً (APK)</span>
-      </a>
-      <button onclick="openModal('YEARLY')" class="btn-secondary">
-        <span>طلب تفعيل الترخيص ⚡</span>
-      </button>
-      <?php if (!empty($ps['contact_whatsapp'])): ?>
-      <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>" target="_blank" class="btn-outline">
-        <span>محادثة واتساب 💬</span>
-      </a>
-      <?php endif; ?>
-    </div>
+        <div class="hero-cta-box">
+          <div class="hero-buttons-row">
+            <a href="<?= $downloadUrl ?>" class="btn-primary hero-btn-main" id="mainDownloadBtn" onclick="trackDownload()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>تحميل التطبيق مجاناً (APK)</span>
+            </a>
+            <a href="https://wa.me/<?= $cleanWhatsapp ?>?text=<?= rawurlencode('السلام عليكم يا مهندس عمر، أود الاستفسار عن تطبيق مسرب لإدارة مياه الآبار') ?>" target="_blank" class="btn-whatsapp hero-btn-sub">
+              <span>واتساب المباشر 💬</span>
+            </a>
+          </div>
+          <div class="hero-version-pill">
+            <span class="dot"></span>
+            <span id="heroReleaseTag">الإصدار الأحدث v<?= htmlspecialchars($apkVersion) ?> • حجم خفيف ~<?= htmlspecialchars($apkSizeMb) ?> ميجابايت • أندرويد</span>
+          </div>
+        </div>
+      </div>
 
-    <div class="trust-badges">
-      <div class="trust-item"><span class="trust-icon">⚡</span> <span>يعمل 100% بدون إنترنت</span></div>
-      <div class="trust-item"><span class="trust-icon">🧾</span> <span>سندات قبض فورية عبر واتساب</span></div>
-      <div class="trust-item"><span class="trust-icon">☁️</span> <span>نسخ احتياطي آمن على Google Drive</span></div>
+      <!-- Real App Showcase Phone Frame -->
+      <div class="hero-visual">
+        <div class="float-tag float-tag-1">
+          <span>⚡</span>
+          <span>100% يعمل بدون إنترنت</span>
+        </div>
+
+        <div class="phone-mockup-frame">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <img src="assets/images/app_screen_real.png" alt="واجهة تطبيق مسرب الحقيقية" loading="eager">
+          </div>
+        </div>
+
+        <div class="float-tag float-tag-2">
+          <span>🧾</span>
+          <span>سندات قبض فورية عبر واتساب</span>
+        </div>
+      </div>
     </div>
   </section>
 
-  <!-- Hourly Rates Strip -->
-  <?php if (!empty($ps['show_rates_section'])): ?>
-  <div class="container" id="rates" style="margin-bottom: 35px;">
-    <div class="rates-strip">
-      <div class="rates-col rates-location">
-        <div class="rates-location-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-            <circle cx="12" cy="10" r="3"></circle>
-          </svg>
-        </div>
+  <!-- Quick Trust Value Strip -->
+  <div class="container trust-strip">
+    <div class="trust-grid">
+      <div class="trust-card">
+        <div class="trust-icon-box">📶</div>
         <div>
-          <div class="rates-sub-lbl">المنطقة الجغرافية المعتمدة:</div>
-          <strong class="rates-reg-name" id="regionNameEl"><?= htmlspecialchars($ps['active_region_name']) ?></strong>
+          <div class="trust-title">بدون إنترنت إطلاقاً</div>
+          <div class="trust-desc">يعمل في المزارع والوديان النائية دون الحاجة لأي اتصال.</div>
         </div>
       </div>
-      <div class="rates-col rates-prices">
-        <div class="price-item-lbl">متوسط سعر الساعة</div>
-        <div class="rates-main-price">
-          <span class="price-item-val" id="avgPriceEl"><?= number_format($ps['avg_hourly_price']) ?></span>
-          <span class="price-item-cur"><?= htmlspecialchars($ps['currency_symbol']) ?></span>
-        </div>
-        <div class="rates-range-tag" id="minPriceEl">
-          <span>أعلى: <?= number_format($ps['max_hourly_price']) ?> ريال</span>
-          <span class="rates-sep">•</span>
-          <span>أقل: <?= number_format($ps['min_hourly_price']) ?> ريال</span>
+      <div class="trust-card">
+        <div class="trust-icon-box">⏱️</div>
+        <div>
+          <div class="trust-title">دقة بالثانية والدقيقة</div>
+          <div class="trust-desc">احتساب كسور الساعات ومنع أي هدر أو فاقد مالي بدقة.</div>
         </div>
       </div>
-      <div class="rates-col rates-status-box">
-        <div class="rates-sub-lbl">حالة منسوب المياه والضخ:</div>
-        <div class="rates-status-pill" id="waterStatusEl">💧 <?= htmlspecialchars($ps['water_status_text'] ?? 'مستقر ومتاح في معظم المناطق الزراعية') ?></div>
+      <div class="trust-card">
+        <div class="trust-icon-box">🧾</div>
+        <div>
+          <div class="trust-title">سندات وتقارير فورية</div>
+          <div class="trust-desc">إصدار سندات القبض ومشاركتها مع المزارعين عبر واتساب.</div>
+        </div>
+      </div>
+      <div class="trust-card">
+        <div class="trust-icon-box">☁️</div>
+        <div>
+          <div class="trust-title">نسخ احتياطي آمن</div>
+          <div class="trust-desc">حفظ البيانات محلياً مع المزامنة على Google Drive.</div>
+        </div>
       </div>
     </div>
-    <div class="rates-note-msg" id="ratesNoteEl">
-      ℹ️ <?= htmlspecialchars($ps['rates_note'] ?? 'الأسعار تختلف بحسب عمق البئر ونوع الطاقة المستخدمة') ?>
+  </div>
+
+  <!-- Compact Rates Banner (If Enabled) -->
+  <?php if (!empty($ps['show_rates_section'])): ?>
+  <div class="container" id="rates">
+    <div class="rates-compact-banner">
+      <div class="rates-info-main">
+        <div class="rates-badge-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+        </div>
+        <div>
+          <div class="rates-info-title">المنطقة الجغرافية المعتمدة:</div>
+          <div class="rates-info-val" id="regionNameEl"><?= htmlspecialchars($ps['active_region_name']) ?></div>
+        </div>
+      </div>
+      <div class="rates-price-block">
+        <div class="rates-info-title">متوسط سعر الساعة</div>
+        <div class="rates-price-num"><span id="avgPriceEl"><?= number_format($ps['avg_hourly_price']) ?></span> <span class="rates-price-unit"><?= htmlspecialchars($ps['currency_symbol']) ?></span></div>
+      </div>
+      <div class="rates-status-pill" id="waterStatusEl">
+        <span>💧</span>
+        <span><?= htmlspecialchars($ps['water_status_text'] ?? 'مستقر ومتاح في معظم المناطق الزراعية') ?></span>
+      </div>
     </div>
   </div>
   <?php endif; ?>
 
-  <!-- Features Grid -->
+  <!-- Features Section -->
   <section class="section container" id="features">
     <div class="section-head">
-      <h2>مزايا ميدانية لحفظ حقوقك</h2>
-      <p>مصمم خصيصاً لملاك الآبار وموزعي مياه الري للعمل بأعلى دقة وسهولة</p>
+      <span class="section-tag">حلول ميدانية متكاملة</span>
+      <h2>أبرز ما يقدمه تطبيق مُسَرِّب</h2>
+      <p>صُمم خصيصاً لملاك الآبار والموزعين لضبط الحسابات وتفادي الخلافات في الميدان</p>
     </div>
     <div class="features-grid">
-      <div class="feature-box">
-        <div class="feature-icon-media">
-          <img src="assets/images/feat_hourglass.jpg" alt="حساب بالثواني والدقائق" class="feature-3d-img" loading="lazy">
+      <div class="feature-card">
+        <div class="feature-card-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
         </div>
-        <h3>حساب بالثواني والدقائق</h3>
-        <p>احتساب دقيق لكسور ساعات الضخ وحصص المزارعين مع ضبط الفاقد الزمني تلقائياً دون أي حسابات يدوية معقدة.</p>
+        <h3>حساب دقيق لكسور الساعات</h3>
+        <p>توقيت دقيق لبدء وانتهاء الضخ، واحتساب مستحقات الساعات بالريال آلياً دون الحاجة لأي عمليات حسابية معقدة.</p>
       </div>
-      <div class="feature-box">
-        <div class="feature-icon-media">
-          <img src="assets/images/feat_receipt.jpg" alt="سندات قبض وتقارير فورية" class="feature-3d-img" loading="lazy">
+
+      <div class="feature-card">
+        <div class="feature-card-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
         </div>
-        <h3>سندات قبض وتقارير فورية</h3>
-        <p>إصدار سندات مالية وطباعتها أو إرسالها موثقة للمزارعين مباشرة عبر تطبيق واتساب فور انتهاء دورة السقي.</p>
+        <h3>سندات قبض فورية عبر واتساب</h3>
+        <p>توليد سند إلكتروني موثق وإرساله للمزارع مباشرة عبر تطبيق واتساب فور انتهاء دورة السقي لضمان الشفافية.</p>
       </div>
-      <div class="feature-box">
-        <div class="feature-icon-media">
-          <img src="assets/images/feat_shield.jpg" alt="أمان تام بدون إنترنت" class="feature-3d-img" loading="lazy">
+
+      <div class="feature-card">
+        <div class="feature-card-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
         </div>
-        <h3>أمان تام بدون إنترنت</h3>
-        <p>يعمل في المزارع والمناطق النائية بدون شبكة، مع ميزة المزامنة والنسخ الاحتياطي السحابي على Google Drive.</p>
+        <h3>سجل المزارعين والديون</h3>
+        <p>متابعة حسابات كل عميل، المبالغ المسددة، والمتبقي كآجل، مع كشف حساب تفصيلي يمكن تصديره في أي لحظة.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-card-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+        </div>
+        <h3>إدارة الوقود والطاقة الشمسية</h3>
+        <p>متوافق مع آبار الطاقة الشمسية ومضخات الديزل، مع تسجيل نفقات الصيانة وشراء المياه لحساب الأرباح الصافية.</p>
       </div>
     </div>
   </section>
 
-  <!-- Pricing Plans Section -->
+  <!-- How It Works (3 Steps) -->
+  <section class="section container" id="how">
+    <div class="section-head">
+      <span class="section-tag">سهولة مطلقة</span>
+      <h2>كيف تبدأ في 3 خطوات بسيطة؟</h2>
+      <p>لا يتطلب إعدادات معقدة، التطبيق جاهز للعمل فور التثبيت</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <h3>حمّل وثبّت التطبيق (APK)</h3>
+        <p>اضغط على زر التحميل، نزل الملف الصغير وثبته مباشرة على هاتفك الأندرويد.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <h3>سجّل بيانات البئر والمزارعين</h3>
+        <p>أدخل اسم البئر وسعر الساعة، وأضف أسماء المشتركين في ثوانٍ معدودة.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <h3>ابدأ السقي وأصدر السندات</h3>
+        <p>اضغط "سقي جديد" لبدء العداد، وبمجرد الانتهاء أرسل السند للمزارع عبر واتساب.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing Plans Section (If Enabled) -->
   <?php if (!empty($ps['show_plans_section'])): ?>
   <section class="section container" id="plans">
     <div class="section-head">
-      <h2>باقات الاشتراك والترخيص</h2>
-      <p>اختر الباقة المناسبة لمزرعتك وبئرك مع إمكانية التفعيل الفوري</p>
+      <span class="section-tag">الترخيص والتفعيل</span>
+      <h2>باقات الاشتراك المعتمدة</h2>
+      <p>اختر الباقة المناسبة لمزرعتك مع إمكانية التفعيل الفوري</p>
     </div>
 
     <div class="pricing-grid">
-      <!-- Annual Plan (Recommended) -->
+      <!-- Annual Plan -->
       <div class="plan-card popular">
         <div class="popular-tag"><?= htmlspecialchars($yearlyDisc) ?></div>
-        <div class="plan-card-body">
-          <div class="plan-head">
-            <h3>الاشتراك السنوي</h3>
-            <div class="plan-desc">الترخيص الكامل لموسم زراعي متكامل (365 يوماً)</div>
-          </div>
-          <div class="plan-price-box">
-            <div class="plan-price-main">
-              <span class="plan-price-num" id="yearlyPriceEl"><?= htmlspecialchars($yearlyPrice) ?><?= htmlspecialchars($yearlyCurrency) ?></span>
-              <span class="plan-price-period">/ سنوياً</span>
-            </div>
-            <?php if (!empty($yearlyOrig)): ?>
-            <span class="plan-discount" id="yearlyOrigEl">بدلاً من <?= htmlspecialchars($yearlyOrig) ?><?= htmlspecialchars($yearlyCurrency) ?></span>
-            <?php endif; ?>
-          </div>
-          <ul class="plan-features">
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>عمليات ري وسندات وحسابات غير محدودة</span></li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>نسخ احتياطي سحابي يومي على Google Drive</span></li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>تصدير كشوفات الحسابات PDF وإكسل Excel</span></li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>دعم فني وإمكانية نقل الرخصة لهاتف بديل</span></li>
-          </ul>
+        <div class="plan-title">الترخيص السنوي الكامل</div>
+        <div class="plan-desc">الخيار الأمثل لموسم زراعي متكامل (365 يوماً)</div>
+        <div class="plan-price-wrap">
+          <span class="plan-price-num" id="yearlyPriceEl"><?= htmlspecialchars($yearlyPrice) ?><?= htmlspecialchars($yearlyCurrency) ?></span>
+          <span class="plan-price-period">/ سنوياً</span>
         </div>
-        <button onclick="openModal('YEARLY')" class="btn-primary plan-btn">طلب تفعيل الباقة السنوية ⚡</button>
+        <?php if (!empty($yearlyOrig)): ?>
+        <div class="plan-old-price" id="yearlyOrigEl">بدلاً من <?= htmlspecialchars($yearlyOrig) ?><?= htmlspecialchars($yearlyCurrency) ?></div>
+        <?php endif; ?>
+        <ul class="plan-features-list">
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>عمليات ري وحسابات وسندات غير محدودة</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>نسخ احتياطي سحابي دوري على Google Drive</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>تصدير كشوفات الحسابات PDF وإكسل Excel</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>دعم فني مباشر وإمكانية نقل الرخصة لهاتف بديل</span></li>
+        </ul>
+        <button onclick="openModal('YEARLY')" class="btn-primary" style="justify-content: center; width: 100%;">طلب تفعيل الباقة السنوية ⚡</button>
       </div>
 
       <!-- Monthly Plan -->
       <div class="plan-card">
-        <div class="plan-card-body">
-          <div class="plan-head">
-            <h3>الاشتراك الشهري</h3>
-            <div class="plan-desc">مرونة كاملة لتشغيل المواسم الزراعية القصيرة</div>
-          </div>
-          <div class="plan-price-box">
-            <div class="plan-price-main">
-              <span class="plan-price-num" id="monthlyPriceEl"><?= htmlspecialchars($monthlyPrice) ?><?= htmlspecialchars($monthlyCurrency) ?></span>
-              <span class="plan-price-period">/ شهرياً</span>
-            </div>
-          </div>
-          <ul class="plan-features">
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>صلاحية كاملة لكافة المزايا لمدة 30 يوماً</span></li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>إصدار ومشاركة سندات القبض عبر واتساب</span></li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>حفظ وتأمين البيانات محلياً على الجهاز</span></li>
-          </ul>
+        <div class="plan-title">الترخيص الشهري</div>
+        <div class="plan-desc">مرونة كاملة لتشغيل المواسم الزراعية القصيرة</div>
+        <div class="plan-price-wrap">
+          <span class="plan-price-num" id="monthlyPriceEl"><?= htmlspecialchars($monthlyPrice) ?><?= htmlspecialchars($monthlyCurrency) ?></span>
+          <span class="plan-price-period">/ شهرياً</span>
         </div>
-        <button onclick="openModal('MONTHLY')" class="btn-outline plan-btn">طلب تفعيل الباقة الشهرية</button>
+        <div style="height: 20px;"></div>
+        <ul class="plan-features-list">
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>صلاحية كاملة لكافة المزايا لمدة 30 يوماً</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>إصدار ومشاركة سندات القبض عبر واتساب</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>حفظ وتأمين البيانات محلياً على الهاتف</span></li>
+        </ul>
+        <button onclick="openModal('MONTHLY')" class="btn-outline" style="justify-content: center; width: 100%;">طلب تفعيل الباقة الشهرية</button>
       </div>
     </div>
   </section>
   <?php endif; ?>
 
-  <!-- Agricultural News & Water Reports -->
-  <?php if (!empty($portalNews)): ?>
-  <section class="section container" id="news" style="margin-bottom: 40px;">
-    <div class="section-head">
-      <h2>مستجدات وبورصة مياه الآبار</h2>
-      <p>تقارير ميدانية دورية حول حركة أسعار الري ومعدلات الضخ المائي</p>
-    </div>
-    <div class="news-grid">
-      <?php foreach (array_slice($portalNews, 0, 3) as $nw): ?>
-      <div class="news-card">
-        <?php if (!empty($nw['image'])): ?>
-        <div class="news-cover-wrap <?= (!empty($nw['image']) && strpos($nw['image'], 'pump') !== false) ? 'news-cover-pump' : '' ?>">
-          <img src="<?= htmlspecialchars($nw['image']) ?>" alt="<?= htmlspecialchars($nw['title']) ?>" class="news-cover-img" loading="lazy">
-        </div>
-        <?php endif; ?>
-        <div class="news-body-content">
-          <span class="news-tag"><?= htmlspecialchars($nw['category'] ?? 'تقارير الآبار') ?></span>
-          <h3 class="news-title"><?= htmlspecialchars($nw['title']) ?></h3>
-          <p class="news-desc"><?= htmlspecialchars($nw['summary']) ?></p>
-        </div>
+  <!-- Bottom Direct Download Banner -->
+  <?php if (!empty($ps['show_download_cta'])): ?>
+  <div class="container">
+    <div class="bottom-cta-banner">
+      <h2>جاهز لضبط حسابات بئرك بلمسة زر؟</h2>
+      <p>حمّل أحدث نسخة رسمية من تطبيق مُسَرِّب الميداني مجاناً الآن وابدأ بتسجيل جلسات السقي بدقة واحترافية.</p>
+      <div class="bottom-cta-btns">
+        <a href="<?= $downloadUrl ?>" class="btn-white" onclick="trackDownload()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <span>تحميل التطبيق APK (مباشر)</span>
+        </a>
+        <a href="https://wa.me/<?= $cleanWhatsapp ?>?text=<?= rawurlencode('السلام عليكم يا مهندس عمر، أود تفعيل رخصة تطبيق مسرب') ?>" target="_blank" class="btn-outline" style="background: rgba(255,255,255,0.15); color: #FFFFFF; border-color: rgba(255,255,255,0.3);">
+          <span>تواصل عبر واتساب 💬</span>
+        </a>
       </div>
-      <?php endforeach; ?>
     </div>
-  </section>
+  </div>
   <?php endif; ?>
 
-  <!-- Footer -->
+  <!-- Minimal Footer -->
   <footer class="portal-footer">
-    <div class="container footer-content-wrap">
-      <div class="footer-logo-row">
-        <span class="footer-brand-title">مُسَرِّب • MOSARIB</span>
-        <span class="footer-tagline">منظومة إدارة مياه وساعات الري وحصص الآبار</span>
+    <div class="container footer-content">
+      <div class="footer-brand">
+        مُسَرِّب • MOSARIB
       </div>
-      <div class="footer-copy-text">
+      <div class="footer-copy">
         جميع الحقوق محفوظة &copy; <?= date('Y') ?> • تطوير <?= htmlspecialchars($ps['developer_name']) ?> (<?= htmlspecialchars($ps['developer_company']) ?>)
+      </div>
+      <div class="footer-links">
+        <a href="https://wa.me/<?= $cleanWhatsapp ?>" target="_blank" style="color: var(--primary);">واتساب: <?= htmlspecialchars($ps['contact_phone']) ?></a>
       </div>
     </div>
   </footer>
 
-  <!-- Modal -->
+  <!-- Clean Activation Modal -->
   <div class="modal-overlay" id="orderModal">
     <div class="modal-content">
       <div class="modal-header">
@@ -403,12 +447,12 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
       <div id="modalFeedback" style="display: none; padding: 10px; border-radius: 8px; font-size: 13px; margin-bottom: 14px;"></div>
 
       <?php if (!empty($paymentMethods)): ?>
-      <div style="margin-bottom: 16px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px;">
-        <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px;">حسابات التحويل المعتمدة (اضغط للنسخ):</div>
+      <div style="margin-bottom: 16px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px;">
+        <div style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-bottom: 8px;">حسابات التحويل المعتمدة (اضغط لنسخ الرقم):</div>
         <?php foreach ($paymentMethods as $pm): ?>
-        <div class="pay-pill" style="margin-bottom: 6px; padding: 6px 10px; cursor: pointer;" onclick="navigator.clipboard.writeText('<?= htmlspecialchars($pm['account_number']) ?>'); alert('تم نسخ رقم الحساب: <?= htmlspecialchars($pm['account_number']) ?>');" title="اضغط لنسخ رقم الحساب">
-          <span class="pay-pill-bank"><?= htmlspecialchars($pm['bank_name']) ?> (<?= htmlspecialchars($pm['account_holder'] ?? 'عمر الحومي') ?>)</span>
-          <span class="pay-pill-num">📋 <?= htmlspecialchars($pm['account_number']) ?></span>
+        <div class="bank-pill" onclick="navigator.clipboard.writeText('<?= htmlspecialchars($pm['account_number']) ?>'); alert('تم نسخ رقم الحساب: <?= htmlspecialchars($pm['account_number']) ?>');" title="اضغط لنسخ رقم الحساب">
+          <span><?= htmlspecialchars($pm['bank_name']) ?> (<?= htmlspecialchars($pm['account_holder'] ?? 'عمر الحومي') ?>)</span>
+          <span style="color: var(--primary);">📋 <?= htmlspecialchars($pm['account_number']) ?></span>
         </div>
         <?php endforeach; ?>
       </div>
@@ -461,19 +505,17 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
         <button type="submit" id="btnSubmitOrder" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;">إرسال طلب التفعيل المباشر ⚡</button>
       </form>
 
-      <div style="text-align: center; margin-top: 14px;">
+      <div style="text-align: center; margin-top: 12px;">
         <button onclick="sendOrderWhatsApp()" class="btn-outline" style="width: 100%; justify-content: center; font-size: 13px;">أو إرسال الطلب عبر واتساب 💬</button>
       </div>
     </div>
   </div>
 
-  <!-- Dynamic Live Sync Script -->
+  <!-- Dynamic Live Sync & Mobile Logic -->
   <script>
-    // 1. Mobile Drawer Navigation
     function toggleMobileNav() {
       const drawer = document.getElementById('mobileNavDrawer');
       const backdrop = document.getElementById('mobileNavBackdrop');
-      const btn = document.getElementById('hamburgerBtn');
       if (!drawer || !backdrop) return;
       const isOpen = drawer.classList.contains('open');
       if (isOpen) {
@@ -481,7 +523,6 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
       } else {
         drawer.classList.add('open');
         backdrop.classList.add('open');
-        if (btn) btn.setAttribute('aria-expanded', 'true');
         document.body.style.overflow = 'hidden';
       }
     }
@@ -489,22 +530,11 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
     function closeMobileNav() {
       const drawer = document.getElementById('mobileNavDrawer');
       const backdrop = document.getElementById('mobileNavBackdrop');
-      const btn = document.getElementById('hamburgerBtn');
       if (drawer) drawer.classList.remove('open');
       if (backdrop) backdrop.classList.remove('open');
-      if (btn) btn.setAttribute('aria-expanded', 'false');
       document.body.style.overflow = '';
     }
 
-    window.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') closeMobileNav();
-    });
-
-    window.addEventListener('resize', function() {
-      if (window.innerWidth >= 768) closeMobileNav();
-    });
-
-    // 2. Theme Management
     function togglePortalTheme() {
       const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', cur);
@@ -512,7 +542,6 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
       try { localStorage.setItem('mosarib_portal_theme', cur); } catch(e) {}
     }
 
-    // 2. Modal Management
     function openModal(plan) {
       document.getElementById('selectedPlan').value = plan;
       document.getElementById('orderModal').style.display = 'flex';
@@ -525,7 +554,7 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
       if (e.target === document.getElementById('orderModal')) closeModal();
     };
 
-    // 3. Live Sync from Database / API upon page load
+    // Live Sync with Database & Public API
     async function syncLiveData() {
       try {
         const res = await fetch('api/public_data.php?t=' + Date.now());
@@ -533,18 +562,15 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
         if (json && json.data) {
           const s = json.data.portal_settings || {};
           const p = json.data.subscription_pricing || {};
+          const r = json.data.app_release || {};
           
           if (s.active_region_name && document.getElementById('regionNameEl')) document.getElementById('regionNameEl').textContent = s.active_region_name;
           if (s.avg_hourly_price && document.getElementById('avgPriceEl')) document.getElementById('avgPriceEl').textContent = Number(s.avg_hourly_price).toLocaleString();
-          if (s.min_hourly_price && s.max_hourly_price && document.getElementById('minPriceEl')) {
-            document.getElementById('minPriceEl').innerHTML = '<span>أعلى: ' + Number(s.max_hourly_price).toLocaleString() + ' ريال</span><span class="rates-sep">•</span><span>أقل: ' + Number(s.min_hourly_price).toLocaleString() + ' ريال</span>';
-          }
           if (s.hero_title && document.getElementById('heroTitleText')) document.getElementById('heroTitleText').textContent = s.hero_title;
           if (s.hero_subtitle && document.getElementById('heroSubtitleText')) document.getElementById('heroSubtitleText').textContent = s.hero_subtitle;
           if (s.hero_badge && document.getElementById('heroBadgeText')) document.getElementById('heroBadgeText').textContent = s.hero_badge;
           if (s.headline_alert && document.getElementById('topTickerText')) document.getElementById('topTickerText').textContent = s.headline_alert;
-          if (s.water_status_text && document.getElementById('waterStatusEl')) document.getElementById('waterStatusEl').textContent = '💧 ' + s.water_status_text;
-          if (s.rates_note && document.getElementById('ratesNoteEl')) document.getElementById('ratesNoteEl').textContent = 'ℹ️ ' + s.rates_note;
+          if (s.water_status_text && document.getElementById('waterStatusEl')) document.getElementById('waterStatusEl').innerHTML = '<span>💧</span><span>' + s.water_status_text + '</span>';
 
           if (p.yearly && p.yearly.price && document.getElementById('yearlyPriceEl')) {
             document.getElementById('yearlyPriceEl').textContent = p.yearly.price + (p.yearly.currency || '$');
@@ -552,12 +578,15 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
           if (p.monthly && p.monthly.price && document.getElementById('monthlyPriceEl')) {
             document.getElementById('monthlyPriceEl').textContent = p.monthly.price + (p.monthly.currency || '$');
           }
+
+          if (r.version_name && document.getElementById('heroReleaseTag')) {
+            document.getElementById('heroReleaseTag').textContent = 'الإصدار الأحدث v' + r.version_name + ' • حجم خفيف ~' + (r.file_size_mb || '2.8') + ' ميجابايت • أندرويد';
+          }
         }
       } catch(_) {}
     }
     document.addEventListener('DOMContentLoaded', syncLiveData);
 
-    // 4. Submit Subscription Order
     async function submitOrder(e) {
       e.preventDefault();
       const btn = document.getElementById('btnSubmitOrder');
@@ -606,7 +635,7 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
     function sendOrderWhatsApp() {
       const name = document.getElementById('subName').value.trim() || 'مشترك جديد';
       const phone = document.getElementById('subPhone').value.trim() || '';
-      const plan = document.getElementById('selectedPlan').value === 'YEARLY' ? 'سنوي (80$)' : 'شهري (10$)';
+      const plan = document.getElementById('selectedPlan').value === 'YEARLY' ? 'سنوي' : 'شهري';
       const region = document.getElementById('subRegion').value.trim() || '';
       const receipt = document.getElementById('subReceipt').value.trim() || 'قيد التحويل';
       const device = document.getElementById('subDevice').value.trim() || '';
@@ -619,7 +648,7 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
 • سند التحويل: ${receipt}
 ${device ? `• كود جهازي: ${device}` : ''}`;
 
-      window.open(`https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>?text=${encodeURIComponent(msg)}`, '_blank');
+      window.open(`https://wa.me/<?= $cleanWhatsapp ?>?text=${encodeURIComponent(msg)}`, '_blank');
     }
 
     function trackDownload() {
