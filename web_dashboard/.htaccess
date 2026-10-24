@@ -1,4 +1,4 @@
-# InfinityFree & Apache Deployment Configuration
+# Hostinger & LiteSpeed / Apache 2.4 Configuration
 RewriteEngine On
 
 # Pass Authorization header to PHP in FastCGI / FPM environments
@@ -12,10 +12,15 @@ SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
     Header set X-XSS-Protection "1; mode=block"
 </IfModule>
 
-# Protect sensitive files
+# Protect sensitive files (Compatible with Apache 2.4 and LiteSpeed)
 <FilesMatch "(config\.json|service_account\.json|\.env|\.git)">
-    Order allow,deny
-    Deny from all
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
 </FilesMatch>
 
 # Allow APK downloads with proper MIME type
