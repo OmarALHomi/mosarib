@@ -172,11 +172,16 @@ if ($method === 'GET') {
 
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
     $serverUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $host;
-    $defaultDownloadUrl = 'api/download.php';
+    $defaultDownloadUrl = 'uploads/Mosarib_Latest.apk';
 
-    // Cloud broadcast check
-    $fbBroadcast = firebaseRequest('app_broadcast.json')['data'] ?? null;
-    $finalDownloadUrl = !empty($latestRelease['download_url']) ? $latestRelease['download_url'] : ($fbBroadcast['actionUrl'] ?? $defaultDownloadUrl);
+    // Direct static APK download URL (Bypasses download.php for 100% InfinityFree compatibility)
+    if (!empty($latestRelease['download_url'])) {
+        $finalDownloadUrl = $latestRelease['download_url'];
+    } elseif (!empty($latestRelease['file_name']) && file_exists(__DIR__ . '/../uploads/' . $latestRelease['file_name'])) {
+        $finalDownloadUrl = 'uploads/' . rawurlencode($latestRelease['file_name']);
+    } else {
+        $finalDownloadUrl = $defaultDownloadUrl;
+    }
 
     $apkLocalFile = __DIR__ . '/../uploads/Mosarib_Latest.apk';
     $actualApkSizeMb = file_exists($apkLocalFile) ? round(filesize($apkLocalFile) / (1024 * 1024), 2) : 2.78;

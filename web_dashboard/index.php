@@ -52,8 +52,24 @@ $latestRelease = !empty($releases[0]) ? $releases[0] : null;
 $apkVersion = !empty($latestRelease['version_name']) ? $latestRelease['version_name'] : '1.4.0';
 $apkSizeMb = !empty($latestRelease['file_size']) ? round($latestRelease['file_size'] / (1024 * 1024), 1) : 2.8;
 
-// Primary download gateway
-$downloadUrl = 'api/download.php';
+// Direct APK Download URL resolution (100% bypass of download.php for InfinityFree compatibility)
+$downloadUrl = '';
+if (!empty($latestRelease['download_url'])) {
+    $downloadUrl = $latestRelease['download_url'];
+} elseif (!empty($latestRelease['file_name']) && file_exists(__DIR__ . '/uploads/' . $latestRelease['file_name'])) {
+    $downloadUrl = 'uploads/' . rawurlencode($latestRelease['file_name']);
+} elseif (file_exists(__DIR__ . '/uploads/Mosarib_Latest.apk')) {
+    $downloadUrl = 'uploads/Mosarib_Latest.apk';
+} else {
+    $apks = glob(__DIR__ . '/uploads/*.apk');
+    if (!empty($apks)) {
+        usort($apks, function($a, $b) { return filemtime($b) - filemtime($a); });
+        $downloadUrl = 'uploads/' . rawurlencode(basename($apks[0]));
+    }
+}
+if (empty($downloadUrl)) {
+    $downloadUrl = 'uploads/Mosarib_Latest.apk';
+}
 
 // 3. Load Subscription Pricing
 $pricingFile = __DIR__ . '/data/subscription_pricing.json';
@@ -138,7 +154,7 @@ $cleanWhatsapp = preg_replace('/[^0-9]/', '', $ps['contact_whatsapp'] ?: '967773
         <button id="themeToggleBtn" onclick="togglePortalTheme()" class="btn-theme" title="تبديل المظهر">
           <span id="themeToggleIcon">🌙</span>
         </button>
-        <a href="<?= $downloadUrl ?>" class="btn-primary nav-download-btn" onclick="trackDownload()">
+        <a href="<?= htmlspecialchars($downloadUrl) ?>" class="btn-primary nav-download-btn btn-apk-download" download onclick="trackDownload()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           <span>تحميل APK</span>
         </a>
@@ -165,7 +181,7 @@ $cleanWhatsapp = preg_replace('/[^0-9]/', '', $ps['contact_whatsapp'] ?: '967773
     <a href="#plans" class="mobile-nav-link" onclick="closeMobileNav()">الباقات والترخيص</a>
     <?php endif; ?>
     <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding-top: 20px;">
-      <a href="<?= $downloadUrl ?>" class="btn-primary" style="justify-content: center;" onclick="trackDownload(); closeMobileNav();">تحميل التطبيق APK</a>
+      <a href="<?= htmlspecialchars($downloadUrl) ?>" class="btn-primary btn-apk-download" style="justify-content: center;" download onclick="trackDownload(); closeMobileNav();">تحميل التطبيق APK</a>
       <a href="https://wa.me/<?= $cleanWhatsapp ?>" target="_blank" class="btn-whatsapp" style="justify-content: center;">محادثة واتساب 💬</a>
     </div>
   </aside>
@@ -187,7 +203,7 @@ $cleanWhatsapp = preg_replace('/[^0-9]/', '', $ps['contact_whatsapp'] ?: '967773
 
         <div class="hero-cta-box">
           <div class="hero-buttons-row">
-            <a href="<?= $downloadUrl ?>" class="btn-primary hero-btn-main" id="mainDownloadBtn" onclick="trackDownload()">
+            <a href="<?= htmlspecialchars($downloadUrl) ?>" class="btn-primary hero-btn-main btn-apk-download" id="mainDownloadBtn" download onclick="trackDownload()">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
               <span>تحميل التطبيق مجاناً (APK)</span>
             </a>
@@ -409,7 +425,7 @@ $cleanWhatsapp = preg_replace('/[^0-9]/', '', $ps['contact_whatsapp'] ?: '967773
       <h2>جاهز لضبط حسابات بئرك بلمسة زر؟</h2>
       <p>حمّل أحدث نسخة رسمية من تطبيق مُسَرِّب الميداني مجاناً الآن وابدأ بتسجيل جلسات السقي بدقة واحترافية.</p>
       <div class="bottom-cta-btns">
-        <a href="<?= $downloadUrl ?>" class="btn-white" onclick="trackDownload()">
+        <a href="<?= htmlspecialchars($downloadUrl) ?>" class="btn-white btn-apk-download" download onclick="trackDownload()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           <span>تحميل التطبيق APK (مباشر)</span>
         </a>
@@ -581,6 +597,11 @@ $cleanWhatsapp = preg_replace('/[^0-9]/', '', $ps['contact_whatsapp'] ?: '967773
 
           if (r.version_name && document.getElementById('heroReleaseTag')) {
             document.getElementById('heroReleaseTag').textContent = 'الإصدار الأحدث v' + r.version_name + ' • حجم خفيف ~' + (r.file_size_mb || '2.8') + ' ميجابايت • أندرويد';
+          }
+          if (r.download_url) {
+            document.querySelectorAll('.btn-apk-download').forEach(function(el) {
+              el.setAttribute('href', r.download_url);
+            });
           }
         }
       } catch(_) {}
