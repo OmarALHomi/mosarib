@@ -292,23 +292,17 @@ if (empty($directDownloadUrl)) {
     </div>
     <div class="features-grid">
       <div class="feature-box">
-        <div class="feature-icon-media">
-          <img src="assets/images/feat_hourglass.jpg" alt="حساب بالثواني والدقائق" class="feature-3d-img" loading="lazy">
-        </div>
+        <div class="feature-icon">⏱️</div>
         <h3>حساب بالثواني والدقائق</h3>
         <p>احتساب دقيق لكسور ساعات الضخ وحصص المزارعين مع ضبط الفاقد الزمني تلقائياً دون أي حسابات يدوية معقدة.</p>
       </div>
       <div class="feature-box">
-        <div class="feature-icon-media">
-          <img src="assets/images/feat_receipt.jpg" alt="سندات قبض وتقارير فورية" class="feature-3d-img" loading="lazy">
-        </div>
+        <div class="feature-icon">🧾</div>
         <h3>سندات قبض وتقارير فورية</h3>
         <p>إصدار سندات مالية وطباعتها أو إرسالها موثقة للمزارعين مباشرة عبر تطبيق واتساب فور انتهاء دورة السقي.</p>
       </div>
       <div class="feature-box">
-        <div class="feature-icon-media">
-          <img src="assets/images/feat_shield.jpg" alt="أمان تام بدون إنترنت" class="feature-3d-img" loading="lazy">
-        </div>
+        <div class="feature-icon">🛡️</div>
         <h3>أمان تام بدون إنترنت</h3>
         <p>يعمل في المزارع والمناطق النائية بدون شبكة، مع ميزة المزامنة والنسخ الاحتياطي السحابي على Google Drive.</p>
       </div>
@@ -386,11 +380,6 @@ if (empty($directDownloadUrl)) {
     <div class="news-grid">
       <?php foreach (array_slice($portalNews, 0, 3) as $nw): ?>
       <div class="news-card">
-        <?php if (!empty($nw['image'])): ?>
-        <div class="news-cover-wrap <?= (!empty($nw['image']) && strpos($nw['image'], 'pump') !== false) ? 'news-cover-pump' : '' ?>">
-          <img src="<?= htmlspecialchars($nw['image']) ?>" alt="<?= htmlspecialchars($nw['title']) ?>" class="news-cover-img" loading="lazy">
-        </div>
-        <?php endif; ?>
         <div class="news-body-content">
           <span class="news-tag"><?= htmlspecialchars($nw['category'] ?? 'تقارير الآبار') ?></span>
           <h3 class="news-title"><?= htmlspecialchars($nw['title']) ?></h3>

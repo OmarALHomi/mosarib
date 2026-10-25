@@ -67,6 +67,12 @@ html, body {
   overflow-x: hidden;
 }
 
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
 body {
   background-color: var(--bg);
   color: var(--text-body);
@@ -530,6 +536,26 @@ header.portal-nav {
   transform: translateY(-3px);
   box-shadow: var(--shadow-md);
   border-color: var(--primary);
+}
+
+.feature-icon {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 16px;
+  border-radius: 16px;
+  background: var(--primary-light);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  border: 1px solid rgba(0, 131, 143, 0.15);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+  transition: transform 0.25s ease;
+}
+
+.feature-box:hover .feature-icon {
+  transform: scale(1.08);
 }
 
 .feature-icon-media {
