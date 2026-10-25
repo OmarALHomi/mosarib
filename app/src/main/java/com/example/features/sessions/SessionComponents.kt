@@ -125,8 +125,8 @@ fun SessionCardItem(
     val session = sessionWithCustomer.session
     val customer = sessionWithCustomer.customer
     val isDark = com.example.core.ui.isAppDark()
-    var menuExpanded by remember { mutableStateOf(false) }
-    var isExpanded by remember { mutableStateOf(false) }
+    var menuExpanded by remember(session.id) { mutableStateOf(false) }
+    var isExpanded by remember(session.id) { mutableStateOf(false) }
 
     Card(
         modifier = Modifier

@@ -944,7 +944,7 @@ fun VouchersScreen(
                                         Spacer(modifier = Modifier.width(6.dp))
 
                                         // أزرار العمليات المصغرة (مشاركة + PDF + تعديل + حذف)
-                                        var voucherMenuExpanded by remember { mutableStateOf(false) }
+                                        var voucherMenuExpanded by remember(voucher.id) { mutableStateOf(false) }
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -1421,7 +1421,7 @@ fun VouchersScreen(
                                         Spacer(modifier = Modifier.width(6.dp))
 
                                         // أزرار العمليات المصغرة (مشاركة + تعديل + حذف)
-                                        var purchaseMenuExpanded by remember { mutableStateOf(false) }
+                                        var purchaseMenuExpanded by remember(purchase.id) { mutableStateOf(false) }
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -2367,17 +2367,13 @@ fun AddVoucherBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isDark = isAppDark()
 
+    val initCustId = initialVoucher?.customerId ?: customers.firstOrNull()?.id ?: 0L
     var type by remember { mutableStateOf(initialType) }
     var selectedCustomerId by remember {
-        mutableLongStateOf(
-            if (initialVoucher?.type == VoucherType.RECEIPT && initialVoucher.customerId != null) initialVoucher.customerId!!
-            else customers.firstOrNull()?.id ?: 0L
-        )
+        mutableLongStateOf(initCustId)
     }
     var selectedBeneficiaryId by remember {
-        mutableStateOf<Long?>(
-            if (initialVoucher?.type == VoucherType.EXPENSE) initialVoucher.customerId else null
-        )
+        mutableStateOf<Long?>(initialVoucher?.customerId)
     }
     var selectedSessionIds by remember { mutableStateOf(setOf<Long>()) }
     var amountStr by remember { mutableStateOf(if (initialVoucher != null && initialVoucher.amount > 0) initialVoucher.amount.toString() else "") }
@@ -2439,7 +2435,12 @@ fun AddVoucherBottomSheet(
             ) {
                 MosaribButton(
                     text = "له",
-                    onClick = { type = VoucherType.RECEIPT },
+                    onClick = {
+                        type = VoucherType.RECEIPT
+                        if (selectedBeneficiaryId != null && selectedBeneficiaryId != 0L) {
+                            selectedCustomerId = selectedBeneficiaryId!!
+                        }
+                    },
                     modifier = Modifier.weight(1f),
                     containerColor = if (type == VoucherType.RECEIPT) AccentEmerald else if (isDark) Color(0xFF141F25) else Color(0xFFF1F5F9),
                     contentColor = if (type == VoucherType.RECEIPT) Color.White else if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
@@ -2447,7 +2448,12 @@ fun AddVoucherBottomSheet(
 
                 MosaribButton(
                     text = "عليه",
-                    onClick = { type = VoucherType.EXPENSE },
+                    onClick = {
+                        type = VoucherType.EXPENSE
+                        if (selectedBeneficiaryId == null && selectedCustomerId != 0L) {
+                            selectedBeneficiaryId = selectedCustomerId
+                        }
+                    },
                     modifier = Modifier.weight(1f),
                     containerColor = if (type == VoucherType.EXPENSE) Color(0xFFD32F2F) else if (isDark) Color(0xFF141F25) else Color(0xFFF1F5F9),
                     contentColor = if (type == VoucherType.EXPENSE) Color.White else if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)

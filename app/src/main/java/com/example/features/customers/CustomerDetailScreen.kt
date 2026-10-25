@@ -2019,8 +2019,8 @@ private fun CustomerSessionCardItem(
     onDeleteClick: () -> Unit,
     onShareVoucher: (Voucher) -> Unit
 ) {
-    var isExpanded by remember { mutableStateOf(false) }
-    var menuExpanded by remember { mutableStateOf(false) }
+    var isExpanded by remember(session.id) { mutableStateOf(false) }
+    var menuExpanded by remember(session.id) { mutableStateOf(false) }
     val isSettledByOffset = isWellOwner || session.billedToCustomerId != null
 
     Card(
@@ -2443,7 +2443,7 @@ private fun CustomerReceiptCardItem(
     onEditClick: () -> Unit = {},
     onDeleteClick: () -> Unit
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
+    var menuExpanded by remember(voucher.id) { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
@@ -2640,7 +2640,7 @@ private fun CustomerDisbursementCardItem(
     onEditClick: () -> Unit = {},
     onDeleteClick: () -> Unit
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
+    var menuExpanded by remember(voucher.id) { mutableStateOf(false) }
 
     Card(
         modifier = Modifier

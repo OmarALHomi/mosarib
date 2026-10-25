@@ -134,6 +134,7 @@ fun CustomersScreen(
     val customGroups by viewModel.customGroups.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
+    val allSessions = vouchersViewModel?.allSessions?.collectAsStateWithLifecycle()?.value ?: emptyList()
     val context = LocalContext.current
 
     var showQuickAddChoice by remember { mutableStateOf(false) }
@@ -1108,7 +1109,6 @@ fun CustomersScreen(
     // Sheet: Add Voucher (معاملة)
     if (showAddVoucherSheet) {
         val customersList = rawCustomers.map { it.customer }
-        val allSessions = vouchersViewModel?.allSessions?.collectAsStateWithLifecycle()?.value ?: emptyList()
         AddVoucherBottomSheet(
             initialType = VoucherType.RECEIPT,
             customers = customersList,
@@ -1172,7 +1172,7 @@ fun CustomerCardItem(
 ) {
     val customer = item.customer
     val isDark = isAppDark()
-    var menuExpanded by remember { mutableStateOf(false) }
+    var menuExpanded by remember(customer.id) { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
