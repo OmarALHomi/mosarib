@@ -245,9 +245,10 @@ object PdfReportGenerator {
         }
         ownerPurchases.forEach { purchase ->
             val payableAmount = WellOwnerPurchaseMath.payableAmount(purchase)
+            val purchaseDate = if (purchase.startTime > 0) purchase.startTime else purchase.date
             rows.add(
                 StatementRow(
-                    date = purchase.date,
+                    date = purchaseDate,
                     title = "شراء ساعات",
                     subtitle = "${Formatters.formatDurationArabic(purchase.durationMinutes)} - هدر ${Formatters.formatDurationArabic(purchase.wastedMinutesOnOwner)} @ ${Formatters.formatNumber(purchase.purchaseRatePerHour)}",
                     amount = payableAmount,
@@ -1776,7 +1777,9 @@ object PdfReportGenerator {
     )
 
     private fun truncate(value: String, maxChars: Int): String =
-        if (value.length <= maxChars) value else value.take(maxChars - 3) + "..."
+        if (value.length <= maxChars) value
+        else if (maxChars <= 3) value.take(maxChars)
+        else value.take(maxChars - 3) + "..."
 
     private fun drawSummaryBox(
         canvas: Canvas,

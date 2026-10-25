@@ -61,7 +61,7 @@ sealed class UnifiedOperation {
         val purchase: WellOwnerPurchase,
         val owner: Customer?
     ) : UnifiedOperation() {
-        override val timestamp: Long get() = purchase.date
+        override val timestamp: Long get() = if (purchase.startTime > 0) purchase.startTime else purchase.date
         override val id: Long get() = purchase.id
     }
 }
