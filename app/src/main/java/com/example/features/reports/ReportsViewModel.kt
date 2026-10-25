@@ -204,7 +204,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 waterMinutes = cwb.totalSoldMinutes,
                 billed = cwb.totalBilledAmount,
                 paid = cwb.totalPaidAmount,
-                balance = if (customer.isWellOwner) cwb.payableBalance else cwb.receivableBalance,
+                balance = cwb.balance,
                 isWellOwner = customer.isWellOwner,
                 purchasedMinutes = cwb.totalPurchasedMinutes,
                 chargeablePurchasedMinutes = cwb.totalChargeablePurchasedMinutes,
@@ -264,7 +264,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                         (session.durationMinutes - session.wastedMinutes.coerceAtLeast(0)).coerceAtLeast(0)
                     },
                     totalBilled = cwb.totalBilledAmount,
-                    balance = if (customer.isWellOwner) cwb.payableBalance else cwb.receivableBalance
+                    balance = cwb.balance
                 )
             }
             .sortedByDescending { it.totalMinutes }

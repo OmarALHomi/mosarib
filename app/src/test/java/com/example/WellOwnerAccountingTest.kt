@@ -115,6 +115,7 @@ class WellOwnerAccountingTest {
         // 20000 purchase - 25000 session = -5000 (receivable from owner = 5000)
         assertEquals(0.0, excessiveOwnerResult.payableBalance, 0.001)
         assertEquals(5000.0, excessiveOwnerResult.receivableBalance, 0.001)
+        assertEquals(5000.0, excessiveOwnerResult.balance, 0.001)
     }
 
     @Test

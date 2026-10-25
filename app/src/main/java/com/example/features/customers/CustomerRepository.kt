@@ -110,7 +110,7 @@ fun calculateCustomerBalance(
         totalBilledAmount = MoneyPrecision.roundToCurrency(totalSales),
         totalPaidAmount = MoneyPrecision.roundToCurrency(collectedCash),
         totalDisbursedAmount = MoneyPrecision.roundToCurrency(totalDisbursed),
-        balance = if (customer.isWellOwner) payable else receivable,
+        balance = if (customer.isWellOwner) (if (payable > 0.0) payable else receivable) else receivable,
         receivableBalance = receivable,
         payableBalance = payable,
         totalSoldMinutes = customerSessions.sumOf {

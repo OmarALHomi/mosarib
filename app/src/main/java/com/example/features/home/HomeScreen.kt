@@ -436,7 +436,7 @@ fun HomeScreen(
                     RecentSessionMiniCard(
                         sessionWithCustomer = item,
                         currencySymbol = config.currencySymbol,
-                        onClick = { onNavigateToCustomer(item.session.customerId) }
+                        onClick = { onNavigateToCustomer(item.session.billedToCustomerId ?: item.session.customerId) }
                     )
                 }
             }

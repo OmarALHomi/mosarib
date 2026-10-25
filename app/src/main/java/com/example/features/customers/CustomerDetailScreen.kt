@@ -1446,6 +1446,7 @@ fun CustomerDetailScreen(
                         startTime = startTime,
                         endTime = endTime
                     )
+                    showOwnerPurchaseSheet = false
                     purchaseToEdit = null
                 } else {
                     viewModel.addOwnerPurchase(
@@ -1499,6 +1500,7 @@ fun CustomerDetailScreen(
                         costPricePerHour = costPricePerHour,
                         pumpSourceId = pumpSourceId
                     )
+                    showAddSessionSheet = false
                     sessionToEdit = null
                 } else {
                     viewModel.addSessionForCustomer(
