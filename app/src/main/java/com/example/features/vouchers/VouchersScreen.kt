@@ -2030,7 +2030,8 @@ fun VouchersScreen(
                     paymentMethod = method,
                     notes = notes,
                     category = cat,
-                    customerId = custId
+                    customerId = custId,
+                    type = type
                 )
                 voucherToEdit = null
             }

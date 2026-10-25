@@ -761,8 +761,11 @@ fun WellOwnerPurchaseBottomSheet(
                 onClick = {
                     if (canSave) {
                         val purchaseDate = computedStartTime
-                        onSaveWithOwner?.invoke(curOwner!!.id, purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
-                        onSave?.invoke(purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
+                        if (onSaveWithOwner != null) {
+                            onSaveWithOwner.invoke(curOwner!!.id, purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
+                        } else {
+                            onSave?.invoke(purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
+                        }
                     }
                 },
                 enabled = canSave,

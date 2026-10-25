@@ -484,7 +484,8 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         notes: String,
         category: String = voucher.category,
         customerId: Long? = voucher.customerId,
-        date: Long = voucher.date
+        date: Long = voucher.date,
+        type: VoucherType = voucher.type
     ) {
         viewModelScope.launch {
             val roundedAmount = Formatters.roundMoney(amount)
@@ -508,6 +509,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
             }
             voucherRepo.updateVoucher(
                 voucher.copy(
+                    type = type,
                     amount = roundedAmount,
                     paymentMethod = paymentMethod,
                     notes = notes.trim(),

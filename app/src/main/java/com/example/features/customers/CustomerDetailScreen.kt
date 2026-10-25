@@ -1366,7 +1366,8 @@ fun CustomerDetailScreen(
                         paymentMethod = method,
                         notes = notes,
                         category = category,
-                        customerId = targetCustomerId ?: customer.id
+                        customerId = targetCustomerId ?: customer.id,
+                        type = type
                     )
                     voucherToEdit = null
                 } else {
@@ -1401,6 +1402,7 @@ fun CustomerDetailScreen(
             ),
             initialType = VoucherType.EXPENSE,
             customers = if (allCustomers.isNotEmpty()) allCustomers else listOf(customer),
+            allSessions = sessions,
             currencySymbol = config.currencySymbol,
             onDismiss = { showAddDisbursementSheet = false },
             onSave = { type, targetCustomerId, amount, category, method, notes, sessionId, selectedSessionIds, discountAmount ->
