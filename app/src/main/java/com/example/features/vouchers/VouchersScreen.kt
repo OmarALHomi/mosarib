@@ -31,6 +31,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Checkbox
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
@@ -841,13 +842,36 @@ fun VouchersScreen(
                                     }
 
                                     if (voucher.notes.isNotBlank() && voucher.notes != titleText && voucher.notes != "عام") {
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = voucher.notes,
-                                            style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 9.5.sp),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                        Spacer(modifier = Modifier.height(3.dp))
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                            shape = RoundedCornerShape(6.dp),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.AutoMirrored.Filled.Notes,
+                                                    contentDescription = null,
+                                                    tint = badgeColor,
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "البيان: ${voucher.notes}",
+                                                    style = MaterialTheme.typography.bodySmall.copy(
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        fontSize = 11.5.sp
+                                                    ),
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
                                     }
 
                                     Spacer(modifier = Modifier.height(4.dp))
@@ -1923,7 +1947,7 @@ fun VouchersScreen(
             currencySymbol = config.currencySymbol,
             initialPurchase = p,
             onDismiss = { purchaseToEdit = null },
-            onSave = { date, durationMinutes, wastedMinutes, rate, amountPaid, notes ->
+            onSave = { date, durationMinutes, wastedMinutes, rate, amountPaid, notes, startTime, endTime ->
                 viewModel.updateOwnerPurchase(
                     purchase = p,
                     date = date,
@@ -1931,7 +1955,9 @@ fun VouchersScreen(
                     wastedMinutes = wastedMinutes,
                     rate = rate,
                     amountPaid = amountPaid,
-                    notes = notes
+                    notes = notes,
+                    startTime = startTime,
+                    endTime = endTime
                 )
                 purchaseToEdit = null
             }
@@ -1945,7 +1971,7 @@ fun VouchersScreen(
             availableOwners = wellOwners,
             currencySymbol = config.currencySymbol,
             onDismiss = { showAddPurchaseSheet = false },
-            onSaveWithOwner = { ownerId, date, duration, wasted, rate, paid, notes ->
+            onSaveWithOwner = { ownerId, date, duration, wasted, rate, paid, notes, startTime, endTime ->
                 viewModel.addOwnerPurchase(
                     ownerCustomerId = ownerId,
                     date = date,
@@ -1953,7 +1979,9 @@ fun VouchersScreen(
                     wastedMinutesOnOwner = wasted,
                     purchaseRatePerHour = rate,
                     notes = notes,
-                    amountPaid = paid
+                    amountPaid = paid,
+                    startTime = startTime,
+                    endTime = endTime
                 )
                 showAddPurchaseSheet = false
             }

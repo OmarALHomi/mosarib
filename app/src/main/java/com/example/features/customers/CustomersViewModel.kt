@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -73,6 +74,13 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         _accountFilter.value = filter
     }
 
+    private val _selectedGroup = MutableStateFlow<String?>(null)
+    val selectedGroup: StateFlow<String?> = _selectedGroup.asStateFlow()
+
+    fun setSelectedGroup(group: String?) {
+        _selectedGroup.value = group
+    }
+
     private val _toast = MutableStateFlow<ToastMessage?>(null)
     val toast: StateFlow<ToastMessage?> = _toast.asStateFlow()
 
@@ -85,19 +93,30 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         customerRepo.customersWithBalance
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val customGroups: StateFlow<List<String>> = customerRepo.allCustomers.map { list ->
+        list.map { it.customGroup.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sorted()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val customersWithBalance: StateFlow<List<CustomerWithBalance>> =
-        combine(customerRepo.customersWithBalance, _searchQuery, _sortType, _accountFilter) { list, query, sort, filter ->
+        combine(customerRepo.customersWithBalance, _searchQuery, _sortType, _accountFilter, _selectedGroup) { list, query, sort, filter, group ->
             val byFilter = when (filter) {
                 AccountFilter.ALL -> list
                 AccountFilter.FARMERS -> list.filter { !it.customer.isWellOwner }
                 AccountFilter.WELL_OWNERS -> list.filter { it.customer.isWellOwner }
             }
-            val filtered = if (query.isBlank()) byFilter else {
-                byFilter.filter {
+            val byGroup = if (group.isNullOrBlank()) byFilter else {
+                byFilter.filter { it.customer.customGroup.trim().equals(group.trim(), ignoreCase = true) }
+            }
+            val filtered = if (query.isBlank()) byGroup else {
+                byGroup.filter {
                     it.customer.name.contains(query, ignoreCase = true) ||
                     it.customer.phone.contains(query, ignoreCase = true) ||
                     it.customer.farmName.contains(query, ignoreCase = true) ||
-                    it.customer.location.contains(query, ignoreCase = true)
+                    it.customer.location.contains(query, ignoreCase = true) ||
+                    it.customer.customGroup.contains(query, ignoreCase = true)
                 }
             }
 
@@ -136,7 +155,8 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         notes: String,
         customPricePerHour: Double?,
         isBeneficiary: Boolean = false,
-        isWellOwner: Boolean = false
+        isWellOwner: Boolean = false,
+        customGroup: String = ""
     ) {
         viewModelScope.launch {
             val existing = if (id > 0) customerRepo.getCustomerByIdDirect(id) else null
@@ -155,6 +175,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 customPricePerHour = customPricePerHour,
                 isBeneficiary = isBeneficiary,
                 isWellOwner = effectiveWellOwner,
+                customGroup = customGroup.trim(),
                 createdAt = existing?.createdAt ?: System.currentTimeMillis(),
                 isArchived = existing?.isArchived ?: false
             )
@@ -398,7 +419,9 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         wastedMinutesOnOwner: Int,
         purchaseRatePerHour: Double,
         notes: String,
-        amountPaid: Double = 0.0
+        amountPaid: Double = 0.0,
+        startTime: Long = 0L,
+        endTime: Long = 0L
     ) {
         viewModelScope.launch {
             val owner = customerRepo.getCustomerByIdDirect(ownerCustomerId)
@@ -431,6 +454,8 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 WellOwnerPurchase(
                     ownerCustomerId = ownerCustomerId,
                     date = date,
+                    startTime = startTime,
+                    endTime = endTime,
                     durationMinutes = durationMinutes,
                     wastedMinutesOnOwner = wastedMinutesOnOwner,
                     purchaseRatePerHour = com.example.core.util.Formatters.roundMoney(purchaseRatePerHour),
@@ -749,7 +774,9 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         wastedMinutesOnOwner: Int,
         purchaseRatePerHour: Double,
         notes: String,
-        amountPaid: Double = 0.0
+        amountPaid: Double = 0.0,
+        startTime: Long = 0L,
+        endTime: Long = 0L
     ) {
         viewModelScope.launch {
             if (durationMinutes <= 0) {
@@ -769,6 +796,8 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 id = purchaseId,
                 ownerCustomerId = ownerCustomerId,
                 date = date,
+                startTime = startTime,
+                endTime = endTime,
                 durationMinutes = durationMinutes,
                 wastedMinutesOnOwner = wastedMinutesOnOwner,
                 purchaseRatePerHour = com.example.core.util.Formatters.roundMoney(purchaseRatePerHour),

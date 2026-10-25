@@ -1935,7 +1935,7 @@ fun AddEditSessionBottomSheet(
             initialCustomer = null,
             currencySymbol = currencySymbol,
             onDismiss = { showAddCustomerSheet = false },
-            onSave = { _, name, phone, farmName, location, customerNotes, customPrice, isBeneficiary, isWellOwner ->
+            onSave = { _, name, phone, farmName, location, customerNotes, customPrice, isBeneficiary, isWellOwner, customGroup ->
                 coroutineScope.launch {
                     runCatching {
                         onCreateCustomer(
@@ -1947,7 +1947,8 @@ fun AddEditSessionBottomSheet(
                                 notes = customerNotes.trim(),
                                 customPricePerHour = customPrice,
                                 isBeneficiary = isBeneficiary,
-                                isWellOwner = isWellOwner
+                                isWellOwner = isWellOwner,
+                                customGroup = customGroup.trim()
                             )
                         )
                     }.onSuccess { customerId ->

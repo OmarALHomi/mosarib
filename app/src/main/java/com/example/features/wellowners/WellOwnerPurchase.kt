@@ -28,6 +28,8 @@ data class WellOwnerPurchase(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val ownerCustomerId: Long,
     val date: Long = System.currentTimeMillis(),
+    val startTime: Long = 0L,
+    val endTime: Long = 0L,
     val durationMinutes: Int,
     /** Minutes wasted due to the well owner; these minutes reduce the amount payable to them. */
     val wastedMinutesOnOwner: Int = 0,

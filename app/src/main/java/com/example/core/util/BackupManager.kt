@@ -49,6 +49,7 @@ object BackupManager {
                 c.customPricePerHour?.let { put("customPricePerHour", it) }
                 put("isBeneficiary", c.isBeneficiary)
                 put("isWellOwner", c.isWellOwner)
+                put("customGroup", c.customGroup)
                 put("createdAt", c.createdAt)
                 put("isArchived", c.isArchived)
             }
@@ -114,6 +115,8 @@ object BackupManager {
                 put("id", purchase.id)
                 put("ownerCustomerId", purchase.ownerCustomerId)
                 put("date", purchase.date)
+                put("startTime", purchase.startTime)
+                put("endTime", purchase.endTime)
                 put("durationMinutes", purchase.durationMinutes)
                 put("wastedMinutesOnOwner", purchase.wastedMinutesOnOwner)
                 put("purchaseRatePerHour", purchase.purchaseRatePerHour)
@@ -272,6 +275,7 @@ object BackupManager {
                     customPricePerHour = if (obj.has("customPricePerHour")) obj.getDouble("customPricePerHour") else null,
                     isBeneficiary = obj.optBoolean("isBeneficiary", false),
                     isWellOwner = obj.optBoolean("isWellOwner", false),
+                    customGroup = obj.optString("customGroup", ""),
                     createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
                     isArchived = obj.optBoolean("isArchived", false)
                 )
@@ -376,6 +380,8 @@ object BackupManager {
                         id = obj.optLong("id", 0),
                         ownerCustomerId = obj.getLong("ownerCustomerId"),
                         date = obj.optLong("date", System.currentTimeMillis()),
+                        startTime = obj.optLong("startTime", 0L),
+                        endTime = obj.optLong("endTime", 0L),
                         durationMinutes = obj.optInt("durationMinutes", 0),
                         wastedMinutesOnOwner = obj.optInt("wastedMinutesOnOwner", 0),
                         purchaseRatePerHour = obj.optDouble("purchaseRatePerHour", 0.0),

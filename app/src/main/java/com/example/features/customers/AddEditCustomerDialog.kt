@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -31,6 +32,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -92,6 +94,7 @@ import com.example.ui.theme.PrimaryTeal
 @Composable
 fun AddEditCustomerBottomSheet(
     initialCustomer: Customer? = null,
+    existingGroups: List<String> = emptyList(),
     currencySymbol: String,
     onDismiss: () -> Unit,
     onSave: (
@@ -103,7 +106,8 @@ fun AddEditCustomerBottomSheet(
         notes: String,
         customPricePerHour: Double?,
         isBeneficiary: Boolean,
-        isWellOwner: Boolean
+        isWellOwner: Boolean,
+        customGroup: String
     ) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(
@@ -118,6 +122,7 @@ fun AddEditCustomerBottomSheet(
     var farmName by remember { mutableStateOf(initialCustomer?.farmName ?: "") }
     var location by remember { mutableStateOf(initialCustomer?.location ?: "") }
     var notes by remember { mutableStateOf(initialCustomer?.notes ?: "") }
+    var customGroup by remember { mutableStateOf(initialCustomer?.customGroup ?: "") }
     var isWellOwner by remember { mutableStateOf(initialCustomer?.isWellOwner ?: false) }
     var isBeneficiary by remember { mutableStateOf(initialCustomer?.isBeneficiary ?: false) }
     var customPriceStr by remember {
@@ -417,6 +422,48 @@ fun AddEditCustomerBottomSheet(
                         leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = activeColor) },
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    // القائمة أو المجموعة الخاصة
+                    MosaribTextField(
+                        value = customGroup,
+                        onValueChange = { customGroup = it },
+                        label = "القائمة أو المجموعة الخاصة (اختياري)",
+                        placeholder = if (isWellOwner) "مثال: آبار الوادي، محطات الضخ الشمالية..." else "مثال: مجموعة الشرق، مزارعو القات، وادي الخير...",
+                        isDense = true,
+                        leadingIcon = { Icon(Icons.Default.Bookmarks, contentDescription = null, tint = activeColor) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (existingGroups.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            existingGroups.forEach { grp ->
+                                val isSelected = customGroup.trim().equals(grp.trim(), ignoreCase = true)
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isSelected) activeColor.copy(alpha = 0.2f) else (if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)),
+                                    border = BorderStroke(1.dp, if (isSelected) activeColor else (if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))),
+                                    modifier = Modifier.clickable {
+                                        customGroup = if (isSelected) "" else grp
+                                    }
+                                ) {
+                                    Text(
+                                        text = grp,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) activeColor else (if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)),
+                                            fontSize = 11.sp
+                                        ),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // 5. البطاقة الثالثة: التسعير والحساب المالي
@@ -518,7 +565,8 @@ fun AddEditCustomerBottomSheet(
                                     notes.trim(),
                                     customRate,
                                     isBeneficiary,
-                                    isWellOwner
+                                    isWellOwner,
+                                    customGroup.trim()
                                 )
                                 onDismiss()
                             }

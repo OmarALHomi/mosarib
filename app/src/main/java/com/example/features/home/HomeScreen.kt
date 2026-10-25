@@ -132,6 +132,7 @@ fun HomeScreen(
     val isActivated by settingsViewModel.isActivated.collectAsStateWithLifecycle()
     val allSessions by vouchersViewModel.allSessions.collectAsStateWithLifecycle()
     val settlementResult by vouchersViewModel.settlementResult.collectAsStateWithLifecycle()
+    val customGroups by customersViewModel.customGroups.collectAsStateWithLifecycle()
 
     val isSystemDark = isSystemInDarkTheme()
     val isDarkTheme = when (config.themeMode) {
@@ -569,7 +570,7 @@ fun HomeScreen(
             availableOwners = wellOwners,
             currencySymbol = config.currencySymbol,
             onDismiss = { showAddPurchaseSheet = false },
-            onSaveWithOwner = { ownerId, date, duration, wasted, rate, paid, notes ->
+            onSaveWithOwner = { ownerId, date, duration, wasted, rate, paid, notes, startTime, endTime ->
                 customersViewModel.addOwnerPurchase(
                     ownerCustomerId = ownerId,
                     date = date,
@@ -577,7 +578,9 @@ fun HomeScreen(
                     wastedMinutesOnOwner = wasted,
                     purchaseRatePerHour = rate,
                     notes = notes,
-                    amountPaid = paid
+                    amountPaid = paid,
+                    startTime = startTime,
+                    endTime = endTime
                 )
                 showAddPurchaseSheet = false
             }
@@ -595,10 +598,11 @@ fun HomeScreen(
     if (showAddCustomerSheet) {
         AddEditCustomerBottomSheet(
             initialCustomer = null,
+            existingGroups = customGroups,
             currencySymbol = config.currencySymbol,
             onDismiss = { showAddCustomerSheet = false },
-            onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner ->
-                customersViewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner)
+            onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner, customGroup ->
+                customersViewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner, customGroup)
             }
         )
     }

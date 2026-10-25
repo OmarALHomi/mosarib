@@ -38,6 +38,7 @@ import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.AttachMoney
@@ -184,6 +185,7 @@ fun CustomerDetailScreen(
     val sessions by remember(customerId) { viewModel.getCustomerSessions(customerId) }.collectAsStateWithLifecycle(initialValue = emptyList())
     val purchases by remember(customerId) { viewModel.getCustomerPurchases(customerId) }.collectAsStateWithLifecycle(initialValue = emptyList())
     val vouchers by remember(customerId) { viewModel.getCustomerVouchers(customerId) }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val customGroups by viewModel.customGroups.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -485,6 +487,30 @@ fun CustomerDetailScreen(
                                     )
                                 }
 
+                                if (customer.customGroup.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Surface(
+                                        color = Color.White.copy(alpha = 0.2f),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Icon(Icons.Default.Bookmarks, contentDescription = null, tint = AccentGold, modifier = Modifier.size(12.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = customer.customGroup,
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 11.sp
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+
                                 Spacer(modifier = Modifier.height(10.dp))
 
                                 // Quick Action Buttons
@@ -519,11 +545,23 @@ fun CustomerDetailScreen(
                                         )
                                         QuickActionButton(
                                             icon = Icons.Default.Payments,
-                                            label = "تحصيل منه",
+                                            label = "دين عليه",
                                             accentColor = AccentEmerald,
                                             onClick = { showAddReceiptSheet = true }
                                         )
                                     } else {
+                                        QuickActionButton(
+                                            icon = Icons.Default.ArrowDownward,
+                                            label = "دين عليه",
+                                            accentColor = Color(0xFFFF8A80),
+                                            onClick = { showAddDisbursementSheet = true }
+                                        )
+                                        QuickActionButton(
+                                            icon = Icons.Default.Payments,
+                                            label = "دين له (سداد)",
+                                            accentColor = AccentEmerald,
+                                            onClick = { showAddReceiptSheet = true }
+                                        )
                                         if (customer.phone.isNotEmpty()) {
                                             QuickActionButton(
                                                 icon = Icons.Default.Call,
@@ -539,18 +577,6 @@ fun CustomerDetailScreen(
                                                 }
                                             )
                                         }
-                                        QuickActionButton(
-                                            icon = Icons.Default.Payments,
-                                            label = "تحصيل",
-                                            accentColor = AccentEmerald,
-                                            onClick = { showAddReceiptSheet = true }
-                                        )
-                                        QuickActionButton(
-                                            icon = Icons.Default.ArrowDownward,
-                                            label = "سند صرف",
-                                            accentColor = Color(0xFFFF8A80),
-                                            onClick = { showAddDisbursementSheet = true }
-                                        )
                                     }
                                 }
                             }
@@ -790,6 +816,54 @@ fun CustomerDetailScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
+
+                // 2. شريط أزرار تسجيل الديون المباشرة (له / عليه)
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = { showAddDisbursementSheet = true },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp)
+                        ) {
+                            Icon(Icons.Default.ArrowDownward, contentDescription = null, modifier = Modifier.size(17.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (customer.isWellOwner) "سداد له (صرف)" else "دين عليه (قيد مدين)",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 12.5.sp,
+                                maxLines = 1
+                            )
+                        }
+
+                        Button(
+                            onClick = { showAddReceiptSheet = true },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(17.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (customer.isWellOwner) "دين عليه (تحصيل)" else "دين له / سداد (قبض)",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 12.5.sp,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
 
                 // 2. Filter Bar Chips
                 item {
@@ -1344,7 +1418,7 @@ fun CustomerDetailScreen(
                 showOwnerPurchaseSheet = false
                 purchaseToEdit = null
             },
-            onSave = { date, durationMinutes, wastedMinutes, purchaseRate, amountPaid, notes ->
+            onSave = { date, durationMinutes, wastedMinutes, purchaseRate, amountPaid, notes, startTime, endTime ->
                 if (editing != null) {
                     viewModel.updateOwnerPurchase(
                         purchaseId = editing.id,
@@ -1354,7 +1428,9 @@ fun CustomerDetailScreen(
                         wastedMinutesOnOwner = wastedMinutes,
                         purchaseRatePerHour = purchaseRate,
                         notes = notes,
-                        amountPaid = amountPaid
+                        amountPaid = amountPaid,
+                        startTime = startTime,
+                        endTime = endTime
                     )
                     purchaseToEdit = null
                 } else {
@@ -1365,7 +1441,9 @@ fun CustomerDetailScreen(
                         wastedMinutesOnOwner = wastedMinutes,
                         purchaseRatePerHour = purchaseRate,
                         notes = notes,
-                        amountPaid = amountPaid
+                        amountPaid = amountPaid,
+                        startTime = startTime,
+                        endTime = endTime
                     )
                     showOwnerPurchaseSheet = false
                 }
@@ -1573,10 +1651,11 @@ fun CustomerDetailScreen(
     if (showEditCustomerSheet) {
         AddEditCustomerBottomSheet(
             initialCustomer = customer,
+            existingGroups = customGroups,
             currencySymbol = config.currencySymbol,
             onDismiss = { showEditCustomerSheet = false },
-            onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner ->
-                viewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner)
+            onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner, customGroup ->
+                viewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner, customGroup)
                 showEditCustomerSheet = false
             }
         )
@@ -1852,18 +1931,33 @@ private fun CustomerPurchaseCardItem(
             }
 
             if (purchase.notes.isNotBlank()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Notes,
-                        contentDescription = null,
-                        modifier = Modifier.size(13.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = purchase.notes,
-                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    )
+                Spacer(modifier = Modifier.height(4.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Notes,
+                            contentDescription = null,
+                            tint = AccentGold,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "البيان: ${purchase.notes}",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 12.5.sp
+                            )
+                        )
+                    }
                 }
             }
         }
@@ -2070,6 +2164,38 @@ private fun CustomerSessionCardItem(
                                 )
                             )
                         }
+                    }
+                }
+            }
+
+            // إظهار البيان بوضوح تام على كرت السقي
+            if (session.notes.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Notes,
+                            contentDescription = null,
+                            tint = PrimaryTeal,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "البيان: ${session.notes}",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 12.5.sp
+                            )
+                        )
                     }
                 }
             }
@@ -2314,14 +2440,6 @@ private fun CustomerReceiptCardItem(
                         text = "${voucher.paymentMethod}  •  ${Formatters.formatDateTime(voucher.date)}",
                         style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     )
-                    if (voucher.notes.isNotEmpty()) {
-                        Text(
-                            text = voucher.notes,
-                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
                 }
 
                 Row(
@@ -2358,6 +2476,38 @@ private fun CustomerReceiptCardItem(
                                 }
                             )
                         }
+                    }
+                }
+            }
+
+            val receiptNote = voucher.notes.ifBlank { voucher.category }
+            if (receiptNote.isNotBlank() && receiptNote != "عام") {
+                Spacer(modifier = Modifier.height(6.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = AccentEmerald.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, AccentEmerald.copy(alpha = 0.25f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Notes,
+                            contentDescription = null,
+                            tint = AccentEmerald,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "البيان: $receiptNote",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 12.5.sp
+                            )
+                        )
                     }
                 }
             }
@@ -2442,15 +2592,6 @@ private fun CustomerDisbursementCardItem(
                         text = "${voucher.paymentMethod}  •  ${Formatters.formatDateTime(voucher.date)}",
                         style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     )
-                    val desc = voucher.notes.ifBlank { voucher.category }
-                    if (desc.isNotEmpty()) {
-                        Text(
-                            text = desc,
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFC62828), fontWeight = FontWeight.SemiBold),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
                 }
 
                 Row(
@@ -2487,6 +2628,38 @@ private fun CustomerDisbursementCardItem(
                                 }
                             )
                         }
+                    }
+                }
+            }
+
+            val disburseDesc = voucher.notes.ifBlank { voucher.category }
+            if (disburseDesc.isNotBlank() && disburseDesc != "عام") {
+                Spacer(modifier = Modifier.height(6.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFFC62828).copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Color(0xFFC62828).copy(alpha = 0.25f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Notes,
+                            contentDescription = null,
+                            tint = Color(0xFFC62828),
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "البيان: $disburseDesc",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 12.5.sp
+                            )
+                        )
                     }
                 }
             }

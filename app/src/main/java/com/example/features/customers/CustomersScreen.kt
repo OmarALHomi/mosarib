@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
@@ -114,6 +115,8 @@ fun CustomersScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val sortType by viewModel.sortType.collectAsStateWithLifecycle()
     val accountFilter by viewModel.accountFilter.collectAsStateWithLifecycle()
+    val selectedGroup by viewModel.selectedGroup.collectAsStateWithLifecycle()
+    val customGroups by viewModel.customGroups.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -415,6 +418,26 @@ fun CustomersScreen(
                                             )
                                         }
                                     )
+                                    customGroups.forEach { grp ->
+                                        MosaribFilterChip(
+                                            selected = selectedGroup == grp,
+                                            onClick = {
+                                                if (selectedGroup == grp) viewModel.setSelectedGroup(null)
+                                                else viewModel.setSelectedGroup(grp)
+                                            },
+                                            label = grp,
+                                            badgeCount = rawCustomers.count { it.customer.customGroup.trim().equals(grp.trim(), ignoreCase = true) },
+                                            isCompact = true,
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Default.Bookmarks,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(13.dp),
+                                                    tint = if (selectedGroup == grp) Color.White else AccentGold
+                                                )
+                                            }
+                                        )
+                                    }
                                 }
                             }
 
@@ -498,6 +521,27 @@ fun CustomersScreen(
                                         )
                                     }
                                 )
+
+                                customGroups.forEach { grp ->
+                                    MosaribFilterChip(
+                                        selected = selectedGroup == grp,
+                                        onClick = {
+                                            if (selectedGroup == grp) viewModel.setSelectedGroup(null)
+                                            else viewModel.setSelectedGroup(grp)
+                                        },
+                                        label = grp,
+                                        badgeCount = rawCustomers.count { it.customer.customGroup.trim().equals(grp.trim(), ignoreCase = true) },
+                                        isCompact = true,
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Bookmarks,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(13.dp),
+                                                tint = if (selectedGroup == grp) Color.White else AccentGold
+                                            )
+                                        }
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(4.dp))
@@ -880,13 +924,14 @@ fun CustomersScreen(
     if (showAddSheet || customerToEdit != null) {
         AddEditCustomerBottomSheet(
             initialCustomer = customerToEdit,
+            existingGroups = customGroups,
             currencySymbol = config.currencySymbol,
             onDismiss = {
                 showAddSheet = false
                 customerToEdit = null
             },
-            onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner ->
-                viewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner)
+            onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner, customGroup ->
+                viewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner, customGroup)
             }
         )
     }
@@ -1128,6 +1173,25 @@ fun CustomerCardItem(
                             fontSize = 10.sp
                         )
                     )
+                }
+
+                if (customer.customGroup.isNotBlank()) {
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(AccentGold.copy(alpha = 0.15f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = customer.customGroup,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = if (isDark) Color(0xFFFDE68A) else Color(0xFFB45309),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        )
+                    }
                 }
 
                 val subInfo = buildList {

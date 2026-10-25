@@ -591,7 +591,9 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         wastedMinutesOnOwner: Int,
         purchaseRatePerHour: Double,
         notes: String,
-        amountPaid: Double = 0.0
+        amountPaid: Double = 0.0,
+        startTime: Long = 0L,
+        endTime: Long = 0L
     ) {
         viewModelScope.launch {
             val owner = customerRepo.getCustomerByIdDirect(ownerCustomerId)
@@ -624,6 +626,8 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                 WellOwnerPurchase(
                     ownerCustomerId = ownerCustomerId,
                     date = date,
+                    startTime = startTime,
+                    endTime = endTime,
                     durationMinutes = durationMinutes,
                     wastedMinutesOnOwner = wastedMinutesOnOwner,
                     purchaseRatePerHour = Formatters.roundMoney(purchaseRatePerHour),
@@ -674,13 +678,17 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         wastedMinutes: Int,
         rate: Double,
         amountPaid: Double,
-        notes: String
+        notes: String,
+        startTime: Long = 0L,
+        endTime: Long = 0L
     ) {
         viewModelScope.launch {
             val roundedPaid = Formatters.roundMoney(amountPaid)
             ownerPurchaseRepo.update(
                 purchase.copy(
                     date = date,
+                    startTime = startTime,
+                    endTime = endTime,
                     durationMinutes = durationMinutes,
                     wastedMinutesOnOwner = wastedMinutes,
                     purchaseRatePerHour = Formatters.roundMoney(rate),
