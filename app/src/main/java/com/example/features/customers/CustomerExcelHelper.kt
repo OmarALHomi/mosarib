@@ -34,6 +34,7 @@ data class ImportedCustomerDraft(
     var location: String = "",
     var customPricePerHour: Double? = null,
     var isWellOwner: Boolean = false,
+    var customGroup: String = "",
     var initialBalance: Double = 0.0,
     var isDebit: Boolean = true, // true = مدين (عليه دين)، false = دائن (له رصيد)
     var notes: String = "",
@@ -79,6 +80,9 @@ object CustomerExcelHelper {
     )
     private val TYPE_KEYWORDS = listOf(
         "صاحب بئر", "نوع الحساب", "النوع", "مالك البئر", "بئر", "owner", "well owner", "type", "account type"
+    )
+    private val GROUP_KEYWORDS = listOf(
+        "المجموعة", "مجموعة", "التصنيف", "تصنيف", "الفرقة", "group", "category", "custom group", "tag"
     )
     private val NOTES_KEYWORDS = listOf(
         "ملاحظات", "ملاحظة", "البيان", "الوصف", "تفاصيل", "notes", "note", "description", "remarks", "comment"
@@ -380,6 +384,7 @@ object CustomerExcelHelper {
         var locationCol = -1
         var priceCol = -1
         var typeCol = -1
+        var groupCol = -1
         var notesCol = -1
         var balanceCol = -1
         var debitCol = -1
@@ -400,6 +405,7 @@ object CustomerExcelHelper {
                     farmCol == -1 && matchesKeywordWordOrPhrase(clean, FARM_KEYWORDS) -> farmCol = c
                     locationCol == -1 && matchesKeywordWordOrPhrase(clean, LOCATION_KEYWORDS) -> locationCol = c
                     typeCol == -1 && matchesKeywordWordOrPhrase(clean, TYPE_KEYWORDS) -> typeCol = c
+                    groupCol == -1 && matchesKeywordWordOrPhrase(clean, GROUP_KEYWORDS) -> groupCol = c
                     notesCol == -1 && matchesKeywordWordOrPhrase(clean, NOTES_KEYWORDS) -> notesCol = c
                 }
             }
@@ -433,6 +439,7 @@ object CustomerExcelHelper {
             val rawLocation = if (locationCol >= 0) row.getOrNull(locationCol)?.trim().orEmpty() else ""
             val rawPrice = if (priceCol >= 0) Formatters.parseAmountInput(row.getOrNull(priceCol).orEmpty()) else 0.0
             val rawType = if (typeCol >= 0) row.getOrNull(typeCol).orEmpty() else ""
+            val rawGroup = if (groupCol >= 0) row.getOrNull(groupCol)?.trim().orEmpty() else ""
             val rawNotes = if (notesCol >= 0) row.getOrNull(notesCol)?.trim().orEmpty() else ""
 
             // استخراج الرصيد الافتتاحي إن وجد (دفتر الحسابات أو التطبيقات المحاسبية)
@@ -481,6 +488,7 @@ object CustomerExcelHelper {
                     location = rawLocation,
                     customPricePerHour = if (rawPrice > 0.0) rawPrice else null,
                     isWellOwner = isOwner,
+                    customGroup = rawGroup,
                     initialBalance = computedBalance,
                     isDebit = computedIsDebit,
                     notes = rawNotes,
@@ -584,7 +592,7 @@ object CustomerExcelHelper {
 
         // جمع كافة النصوص لبناء sharedStrings.xml
         val headers = listOf(
-            "اسم العميل", "رقم الهاتف", "اسم المزرعة", "الموقع", "نوع الحساب",
+            "اسم العميل", "رقم الهاتف", "المجموعة", "اسم المزرعة", "الموقع", "نوع الحساب",
             "سعر الساعة ($currencySymbol)", "إجمالي الساعات", "الرصيد المستحق ($currencySymbol)", "الملاحظات"
         )
 
@@ -608,11 +616,12 @@ object CustomerExcelHelper {
             val typeStr = if (c.isWellOwner) "صاحب بئر" else "مزارع"
             val priceStr = c.customPricePerHour?.let { Formatters.formatCurrency(it, "").trim() } ?: "افتراضي"
             val hoursStr = Formatters.formatDurationArabic(item.totalMinutes)
-            val balanceStr = Formatters.formatCurrency(item.receivableBalance, "").trim()
+            val balanceStr = Formatters.formatCurrency(item.balance, "").trim()
 
             listOf(
                 getStringId(c.name),
                 getStringId(c.phone),
+                getStringId(c.customGroup),
                 getStringId(c.farmName),
                 getStringId(c.location),
                 getStringId(typeStr),
@@ -691,7 +700,7 @@ object CustomerExcelHelper {
         writer.write("\uFEFF")
 
         val headers = listOf(
-            "اسم العميل", "رقم الهاتف", "اسم المزرعة", "الموقع", "نوع الحساب",
+            "اسم العميل", "رقم الهاتف", "المجموعة", "اسم المزرعة", "الموقع", "نوع الحساب",
             "سعر الساعة ($currencySymbol)", "إجمالي الساعات", "الرصيد المستحق ($currencySymbol)", "الملاحظات"
         )
         writer.write(headers.joinToString(",") { escapeCsv(it) })
@@ -702,11 +711,12 @@ object CustomerExcelHelper {
             val typeStr = if (c.isWellOwner) "صاحب بئر" else "مزارع"
             val priceStr = c.customPricePerHour?.let { Formatters.formatCurrency(it, "").trim() } ?: ""
             val hoursStr = Formatters.formatDurationArabic(item.totalMinutes)
-            val balanceStr = Formatters.formatCurrency(item.receivableBalance, "").trim()
+            val balanceStr = Formatters.formatCurrency(item.balance, "").trim()
 
             val row = listOf(
                 c.name,
                 c.phone,
+                c.customGroup,
                 c.farmName,
                 c.location,
                 typeStr,

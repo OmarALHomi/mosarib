@@ -282,7 +282,8 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                             location = if (draft.location.isNotBlank()) draft.location else existing.location,
                             notes = if (draft.notes.isNotBlank()) draft.notes else existing.notes,
                             customPricePerHour = draft.customPricePerHour ?: existing.customPricePerHour,
-                            isWellOwner = draft.isWellOwner || existing.isWellOwner
+                            isWellOwner = draft.isWellOwner || existing.isWellOwner,
+                            customGroup = if (draft.customGroup.isNotBlank()) draft.customGroup else existing.customGroup
                         )
                         customerRepo.updateCustomer(updated)
                         updatedCount++
@@ -295,6 +296,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                             notes = draft.notes.trim(),
                             customPricePerHour = draft.customPricePerHour,
                             isWellOwner = draft.isWellOwner,
+                            customGroup = draft.customGroup.trim(),
                             isBeneficiary = false,
                             createdAt = System.currentTimeMillis(),
                             isArchived = false
