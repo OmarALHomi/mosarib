@@ -641,19 +641,28 @@ fun CustomerDetailScreen(
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
                                         .padding(8.dp),
-                                    horizontalArrangement = Arrangement.SpaceAround
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("مشتريات ساعات", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp))
-                                        Text(Formatters.formatCurrency(customerWithBalance.totalPurchaseAmount, config.currencySymbol), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = AccentGold))
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text("مشتريات ساعات", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(Formatters.formatCurrency(customerWithBalance.totalPurchaseAmount, config.currencySymbol), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = AccentGold), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                                     }
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("مسدد نقداً له", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp))
-                                        Text(Formatters.formatCurrency(customerWithBalance.totalDisbursedAmount, config.currencySymbol), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFE53935)))
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text("مسدد نقداً له", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(Formatters.formatCurrency(customerWithBalance.totalDisbursedAmount, config.currencySymbol), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFE53935)), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                                     }
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("سقي على حسابه", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp))
-                                        Text(Formatters.formatCurrency(customerWithBalance.totalBilledAmount, config.currencySymbol), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal))
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text("سقي على حسابه", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(Formatters.formatCurrency(customerWithBalance.totalBilledAmount, config.currencySymbol), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
                             } else {
@@ -1868,13 +1877,19 @@ private fun CustomerPurchaseCardItem(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // المدفوع نقداً (صرف)
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
                             Text(
                                 text = "صرف (مدفوع):",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 10.5.sp
-                                )
+                                ),
+                                maxLines = 1,
+                                softWrap = false
                             )
                             Text(
                                 text = Formatters.formatCurrency(paidAmount, currencySymbol),
@@ -1882,19 +1897,31 @@ private fun CustomerPurchaseCardItem(
                                     fontWeight = FontWeight.Bold,
                                     color = if (paidAmount > 0) Color(0xFFE53935) else Color.Gray,
                                     fontSize = 11.sp
-                                )
+                                ),
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
+                        Spacer(modifier = Modifier.width(6.dp))
+
                         // المتبقي (عليك لصاحب البئر)
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.End
+                        ) {
                             Text(
                                 text = if (remainingDebt > 0) "عليك (متبقي):" else "الحالة:",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 10.5.sp
-                                )
+                                ),
+                                maxLines = 1,
+                                softWrap = false
                             )
+                            Spacer(modifier = Modifier.width(3.dp))
                             if (remainingDebt > 0) {
                                 Text(
                                     text = Formatters.formatCurrency(remainingDebt, currencySymbol),
@@ -1902,7 +1929,10 @@ private fun CustomerPurchaseCardItem(
                                         fontWeight = FontWeight.ExtraBold,
                                         color = Color(0xFFE65100),
                                         fontSize = 11.sp
-                                    )
+                                    ),
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             } else {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -1918,7 +1948,9 @@ private fun CustomerPurchaseCardItem(
                                             fontWeight = FontWeight.ExtraBold,
                                             color = AccentEmerald,
                                             fontSize = 11.sp
-                                        )
+                                        ),
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
                                 }
                             }
@@ -2108,11 +2140,14 @@ private fun CustomerSessionCardItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text("إجمالي القيمة", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                Column(modifier = Modifier.weight(1.2f)) {
+                    Text("إجمالي القيمة", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
                         Formatters.formatCurrency(session.totalAmount, currencySymbol),
-                        style = MaterialTheme.typography.titleMedium.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold)
+                        style = MaterialTheme.typography.titleMedium.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold),
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         "سعر الساعة: ${Formatters.formatCurrency(session.pricePerHour, currencySymbol)}",
@@ -2120,27 +2155,45 @@ private fun CustomerSessionCardItem(
                             color = PrimaryTeal.copy(alpha = 0.85f),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 10.5.sp
-                        )
+                        ),
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("المسدد", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                Spacer(modifier = Modifier.width(6.dp))
+
+                Column(
+                    modifier = Modifier.weight(0.9f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("المسدد", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 1)
                     Text(
                         Formatters.formatCurrency(session.amountPaid, currencySymbol),
-                        style = MaterialTheme.typography.bodyMedium.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.bodyMedium.copy(color = AccentEmerald, fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("المتبقي", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                Spacer(modifier = Modifier.width(6.dp))
+
+                Column(
+                    modifier = Modifier.weight(1.1f),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Text("المتبقي", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 1)
                     if (isSettledByOffset) {
                         Text(
                             "مسدد بالمقاصة",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = Color(0xFF0284C7),
                                 fontWeight = FontWeight.ExtraBold
-                            )
+                            ),
+                            maxLines = 1,
+                            softWrap = false
                         )
                     } else if (session.remainingDebt > 0) {
                         Text(
@@ -2148,7 +2201,10 @@ private fun CustomerSessionCardItem(
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = Color(0xFFE53935),
                                 fontWeight = FontWeight.ExtraBold
-                            )
+                            ),
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
                         )
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -2158,7 +2214,9 @@ private fun CustomerSessionCardItem(
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     color = AccentEmerald,
                                     fontWeight = FontWeight.ExtraBold
-                                )
+                                ),
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
@@ -2207,6 +2265,7 @@ private fun CustomerSessionCardItem(
                 if (isSettledByOffset) {
                     Box(
                         modifier = Modifier
+                            .weight(1f, fill = false)
                             .clip(RoundedCornerShape(6.dp))
                             .background(Color(0xFFE0F2FE))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -2216,7 +2275,9 @@ private fun CustomerSessionCardItem(
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = Color(0xFF0369A1),
                                 fontWeight = FontWeight.Bold
-                            )
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 } else if (session.remainingDebt > 0) {
@@ -2420,7 +2481,10 @@ private fun CustomerReceiptCardItem(
 
                 Text(
                     text = "+ ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
-                    style = MaterialTheme.typography.titleMedium.copy(color = AccentEmerald, fontWeight = FontWeight.ExtraBold)
+                    style = MaterialTheme.typography.titleMedium.copy(color = AccentEmerald, fontWeight = FontWeight.ExtraBold),
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.padding(start = 6.dp)
                 )
             }
 
@@ -2435,7 +2499,9 @@ private fun CustomerReceiptCardItem(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "${voucher.paymentMethod}  •  ${Formatters.formatDateTime(voucher.date)}",
-                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -2572,7 +2638,10 @@ private fun CustomerDisbursementCardItem(
 
                 Text(
                     text = "- ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
-                    style = MaterialTheme.typography.titleMedium.copy(color = Color(0xFFC62828), fontWeight = FontWeight.ExtraBold)
+                    style = MaterialTheme.typography.titleMedium.copy(color = Color(0xFFC62828), fontWeight = FontWeight.ExtraBold),
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.padding(start = 6.dp)
                 )
             }
 
@@ -2587,7 +2656,9 @@ private fun CustomerDisbursementCardItem(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "${voucher.paymentMethod}  •  ${Formatters.formatDateTime(voucher.date)}",
-                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -2731,7 +2802,7 @@ private fun StatCellBox(
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = value,
                     style = MaterialTheme.typography.bodyMedium.copy(
@@ -2739,6 +2810,7 @@ private fun StatCellBox(
                         color = color
                     ),
                     maxLines = 1,
+                    softWrap = false,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
@@ -2748,6 +2820,7 @@ private fun StatCellBox(
                         fontSize = 10.sp
                     ),
                     maxLines = 1,
+                    softWrap = false,
                     overflow = TextOverflow.Ellipsis
                 )
             }

@@ -443,8 +443,12 @@ fun SessionDetailBottomSheet(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 13.5.sp
                                 ),
-                                maxLines = 1
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
                             )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = Formatters.formatCurrency(session.totalAmount, currencySymbol),
                                 style = MaterialTheme.typography.titleLarge.copy(
@@ -452,7 +456,8 @@ fun SessionDetailBottomSheet(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 17.sp
                                 ),
-                                maxLines = 1
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
 
@@ -480,8 +485,12 @@ fun SessionDetailBottomSheet(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 12.5.sp
                                 ),
-                                maxLines = 1
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
                             )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = Formatters.formatCurrency(session.amountPaid, currencySymbol),
                                 style = MaterialTheme.typography.titleSmall.copy(
@@ -489,7 +498,8 @@ fun SessionDetailBottomSheet(
                                     color = AccentEmerald,
                                     fontSize = 13.5.sp
                                 ),
-                                maxLines = 1
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
 
@@ -506,8 +516,12 @@ fun SessionDetailBottomSheet(
                                     color = if (session.remainingDebt > 0) Color(0xFFE53935) else AccentEmerald,
                                     fontSize = 12.5.sp
                                 ),
-                                maxLines = 1
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
                             )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = if (session.remainingDebt > 0) {
                                     Formatters.formatCurrency(session.remainingDebt, currencySymbol)
@@ -517,7 +531,8 @@ fun SessionDetailBottomSheet(
                                     color = if (session.remainingDebt > 0) Color(0xFFE53935) else AccentEmerald,
                                     fontSize = 14.5.sp
                                 ),
-                                maxLines = 1
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
 

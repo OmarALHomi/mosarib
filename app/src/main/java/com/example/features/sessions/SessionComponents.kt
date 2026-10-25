@@ -184,7 +184,8 @@ fun SessionCardItem(
                             fontSize = 15.sp
                         ),
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
                 }
 
@@ -299,7 +300,10 @@ fun SessionCardItem(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // عدد الساعات
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(0.9f)
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.AccessTime,
                                 contentDescription = null,
@@ -311,14 +315,22 @@ fun SessionCardItem(
                                 text = Formatters.formatDurationArabic(session.durationMinutes),
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 12.5.sp,
+                                    fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurface
-                                )
+                                ),
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
+                        Spacer(modifier = Modifier.width(4.dp))
+
                         // المبلغ المطلوب أو المتبقي ومعه سعر الساعة تحته
-                        Column(horizontalAlignment = Alignment.End) {
+                        Column(
+                            modifier = Modifier.weight(1.3f),
+                            horizontalAlignment = Alignment.End
+                        ) {
                             if (session.remainingDebt > 0) {
                                 Text(
                                     text = "متبقي: ${Formatters.formatCurrency(session.remainingDebt, currencySymbol)}",
@@ -328,7 +340,8 @@ fun SessionCardItem(
                                         fontSize = 11.5.sp
                                     ),
                                     maxLines = 1,
-                                    softWrap = false
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             } else {
                                 Box(
@@ -353,7 +366,10 @@ fun SessionCardItem(
                                                 fontWeight = FontWeight.Bold,
                                                 color = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
                                                 fontSize = 11.sp
-                                            )
+                                            ),
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -365,14 +381,17 @@ fun SessionCardItem(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 10.sp
                                 ),
-                                maxLines = 1
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
                         // زر سداد وسهم التوسيع
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(start = 4.dp)
                         ) {
                             if (session.remainingDebt > 0 && onSettleClick != null) {
                                 Button(
@@ -785,7 +804,9 @@ private fun SessionMetricPill(
                 fontWeight = FontWeight.Bold,
                 color = textColor,
                 fontSize = 11.sp
-            )
+            ),
+            maxLines = 1,
+            softWrap = false
         )
         Text(
             text = value,
@@ -793,7 +814,10 @@ private fun SessionMetricPill(
                 fontWeight = FontWeight.Bold,
                 color = textColor,
                 fontSize = 11.sp
-            )
+            ),
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

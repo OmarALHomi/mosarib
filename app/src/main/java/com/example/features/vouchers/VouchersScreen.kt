@@ -298,7 +298,9 @@ fun VouchersScreen(
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 12.sp,
                                             color = AccentEmerald,
-                                            maxLines = 1
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -312,14 +314,16 @@ fun VouchersScreen(
                                     Column(modifier = Modifier.padding(8.dp)) {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                                             Icon(Icons.Default.ArrowUpward, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(12.dp))
-                                            Text("المصروف", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp))
+                                            Text("المصروف", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp), maxLines = 1)
                                         }
                                         Text(
                                             text = Formatters.formatCurrency(totalExpenses, config.currencySymbol),
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 12.sp,
                                             color = Color(0xFFE53935),
-                                            maxLines = 1
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -333,14 +337,16 @@ fun VouchersScreen(
                                     Column(modifier = Modifier.padding(8.dp)) {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                                             Icon(Icons.Default.Schedule, contentDescription = null, tint = Color(0xFFE65100), modifier = Modifier.size(12.dp))
-                                            Text("الديون (آجل)", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp))
+                                            Text("الديون (آجل)", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp), maxLines = 1)
                                         }
                                         Text(
                                             text = Formatters.formatCurrency(totalDebts, config.currencySymbol),
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 12.sp,
                                             color = if (totalDebts > 0) Color(0xFFE65100) else AccentEmerald,
-                                            maxLines = 1
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -1159,6 +1165,7 @@ fun VouchersScreen(
                                     ) {
                                         // صرف (المدفوع نقداً)
                                         Row(
+                                            modifier = Modifier.weight(1f),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
@@ -1189,8 +1196,9 @@ fun VouchersScreen(
 
                                         // عليك (المتبقي لصاحب البئر)
                                         Row(
+                                            modifier = Modifier.weight(1f),
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            horizontalArrangement = Arrangement.End
                                         ) {
                                             Text(
                                                 text = if (remainingDebt > 0) "عليك (متبقي):" else "الحالة:",
@@ -1215,6 +1223,7 @@ fun VouchersScreen(
                                                         ),
                                                         maxLines = 1,
                                                         softWrap = false,
+                                                        overflow = TextOverflow.Ellipsis,
                                                         modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
                                                     )
                                                 }

@@ -55,6 +55,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -221,7 +222,9 @@ fun QuickActionCard(
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 13.sp
                     ),
-                    maxLines = 1
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(1.dp))
                 Text(
@@ -230,7 +233,9 @@ fun QuickActionCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 10.sp
                     ),
-                    maxLines = 1
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -311,8 +316,13 @@ fun WeeklyIrrigationBarChartCard(
                         color = PrimaryTeal,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 13.5.sp
-                    )
+                    ),
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
+                Spacer(modifier = Modifier.width(6.dp))
 
                 Box(
                     modifier = Modifier
@@ -450,23 +460,28 @@ fun FinancialRecoveryGaugeCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "مؤشر تحصيل الديون",
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 14.sp
-                        )
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = "نسبة الدفعات المستلمة من إجمالي الديون والمستحقات",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 10.sp
-                        )
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
+                Spacer(modifier = Modifier.width(8.dp))
 
                 val isDark = isAppDark()
                 Box(
@@ -520,25 +535,34 @@ fun FinancialRecoveryGaugeCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "المقبوض كاش: ${Formatters.formatCurrency(homeStats.totalCollectedCash, currencySymbol)}",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = AccentEmerald,
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.5.sp
-                        )
+                        ),
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
-
-                Column(horizontalAlignment = Alignment.End) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.End
+                ) {
                     Text(
                         text = "الديون القائمة: ${Formatters.formatCurrency(homeStats.totalOutstandingDebt, currencySymbol)}",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = if (homeStats.totalOutstandingDebt > 0) Color(0xFFD32F2F) else AccentEmerald,
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.5.sp
-                        )
+                        ),
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -624,7 +648,10 @@ fun FinancialRecoveryGaugeCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(AccentEmerald))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
@@ -633,11 +660,18 @@ fun FinancialRecoveryGaugeCard(
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 10.5.sp
-                        )
+                        ),
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
+                ) {
                     Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(Color(0xFFE53935)))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
@@ -646,7 +680,10 @@ fun FinancialRecoveryGaugeCard(
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 10.5.sp
-                        )
+                        ),
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -683,7 +720,10 @@ fun RecentSessionMiniCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Box(
                     modifier = Modifier
                         .size(28.dp)
@@ -699,14 +739,16 @@ fun RecentSessionMiniCard(
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f, fill = false)) {
                     Text(
                         text = c?.name ?: "عميل غير محدد",
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 13.sp
-                        )
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     val startTimeStr = Formatters.formatTime(s.startTime)
                     val endTimeStr = Formatters.formatTime(s.endTime)
@@ -716,20 +758,30 @@ fun RecentSessionMiniCard(
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 10.sp
-                        )
+                        ),
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
+            Spacer(modifier = Modifier.width(8.dp))
+
             val isDark = isAppDark()
-            Column(horizontalAlignment = Alignment.End) {
+            Column(
+                horizontalAlignment = Alignment.End,
+                modifier = Modifier.padding(start = 4.dp)
+            ) {
                 Text(
                     text = Formatters.formatCurrency(s.totalAmount, currencySymbol),
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = PrimaryTeal,
                         fontSize = 13.sp
-                    )
+                    ),
+                    maxLines = 1,
+                    softWrap = false
                 )
                 if (s.remainingDebt > 0) {
                     Text(
