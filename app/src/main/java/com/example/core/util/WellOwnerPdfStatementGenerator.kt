@@ -102,7 +102,8 @@ object WellOwnerPdfStatementGenerator {
             }
             isOdd = !isOdd
 
-            val dateStr = dateFormat.format(Date(p.createdAt))
+            val dateTimestamp = if (p.startTime > 0) p.startTime else p.date
+            val dateStr = dateFormat.format(Date(dateTimestamp))
             val grossHours = Formatters.formatMinutesToHoursMinutes(p.durationMinutes)
             val wasteHours = Formatters.formatMinutesToHoursMinutes(p.wastedMinutesOnOwner)
             val netMins = WellOwnerPurchaseMath.chargeableMinutes(p)

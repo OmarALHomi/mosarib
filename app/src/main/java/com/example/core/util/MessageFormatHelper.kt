@@ -276,15 +276,10 @@ $status
                 FileSharingHelper.attachMessageFooter(msg)
             } else {
                 val appTitle = config.distributorName.ifEmpty { "المسرّب" }
-                val ownerPayableStatus = when {
-                    item.payableBalance > 0 -> "⚠️ المتبقي المستحق لكم علينا: ${Formatters.formatCurrency(item.payableBalance, curr)}"
-                    item.payableBalance < 0 -> "✅ لدينا رصيد دائن عليكم: ${Formatters.formatCurrency(kotlin.math.abs(item.payableBalance), curr)}"
-                    else -> "✅ مستحقات الشراء مسددة"
-                }
-                val ownerReceivableStatus = when {
-                    item.receivableBalance > 0 -> "⚠️ المستحق لنا عليكم عن السقي: ${Formatters.formatCurrency(item.receivableBalance, curr)}"
-                    item.receivableBalance < 0 -> "✅ لكم رصيد عن السقي: ${Formatters.formatCurrency(kotlin.math.abs(item.receivableBalance), curr)}"
-                    else -> "✅ حساب السقي مسدد"
+                val netStatus = when {
+                    item.payableBalance > 0 -> "⚠️ صافي الرصيد المستحق لكم (في ذمتنا): ${Formatters.formatCurrency(item.payableBalance, curr)}"
+                    item.receivableBalance > 0 -> "⚠️ صافي الرصيد المستحق لنا (في ذمتكم): ${Formatters.formatCurrency(item.receivableBalance, curr)}"
+                    else -> "✅ الحساب مسدد ومطابق بالكامل"
                 }
                 val ownerWasteMinutes = (item.totalPurchasedMinutes - item.totalChargeablePurchasedMinutes).coerceAtLeast(0)
                 val msg = """
@@ -294,14 +289,13 @@ $status
 🛒 شراء الساعات: ${Formatters.formatDurationArabic(item.totalPurchasedMinutes)}، المحتسب بعد الهدر: ${Formatters.formatDurationArabic(item.totalChargeablePurchasedMinutes)}
 🕒 هدر على صاحب البئر: ${Formatters.formatDurationArabic(ownerWasteMinutes)} (خصم ${Formatters.formatCurrency(item.totalOwnerWasteCredit, curr)})
 💰 صافي قيمة المشتريات: ${Formatters.formatCurrency(item.totalPurchaseAmount, curr)}
-💸 المسدد لصاحب البئر: ${Formatters.formatCurrency(item.totalDisbursedAmount, curr)}
-$ownerPayableStatus
+💸 المسدد نقداً لصاحب البئر: ${Formatters.formatCurrency(item.totalDisbursedAmount, curr)}
 ------------------------
 💧 سقي / بيع لصاحب البئر: ${Formatters.formatDurationArabic(item.totalSoldMinutes)}، بقيمة ${Formatters.formatCurrency(item.totalBilledAmount, curr)}
-💵 المحصل منه عن السقي: ${Formatters.formatCurrency(item.totalPaidAmount, curr)}
-$ownerReceivableStatus
+💵 المحصل منه نقداً: ${Formatters.formatCurrency(item.totalPaidAmount, curr)}
 ------------------------
-*الحسابان مستقلان ولا تتم المقاصة تلقائياً.*
+$netStatus
+------------------------
                 """.trimIndent()
                 FileSharingHelper.attachMessageFooter(msg)
             }
