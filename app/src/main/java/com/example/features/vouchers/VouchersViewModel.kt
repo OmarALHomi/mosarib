@@ -462,11 +462,24 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
             if (voucher.sessionId != null) {
                 val session = sessionRepo.getSessionById(voucher.sessionId)
                 if (session != null) {
-                    val newPaid = (session.amountPaid - voucher.amount).coerceAtLeast(0.0)
-                    val newDebt = (session.totalAmount - newPaid).coerceAtLeast(0.0)
+                    val targetCustId = session.billedToCustomerId ?: session.customerId
+                    val isWellOwner = customerRepo.getCustomerByIdDirect(targetCustId)?.isWellOwner == true
+                    val newPaid = if (voucher.type == VoucherType.RECEIPT) {
+                        (session.amountPaid - voucher.amount).coerceAtLeast(0.0)
+                    } else session.amountPaid
+
+                    val newDiscount = if (voucher.type == VoucherType.DISCOUNT) {
+                        (session.discountAmount - voucher.amount).coerceAtLeast(0.0)
+                    } else session.discountAmount
+
+                    val newDebt = if (isWellOwner) 0.0 else {
+                        (session.totalAmount - newDiscount - newPaid).coerceAtLeast(0.0)
+                    }
+
                     sessionRepo.updateSession(
                         session.copy(
                             amountPaid = Formatters.roundMoney(newPaid),
+                            discountAmount = Formatters.roundMoney(newDiscount),
                             remainingDebt = Formatters.roundMoney(newDebt)
                         )
                     )
@@ -496,12 +509,26 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
             if (voucher.sessionId != null) {
                 val session = sessionRepo.getSessionById(voucher.sessionId)
                 if (session != null) {
+                    val targetCustId = session.billedToCustomerId ?: session.customerId
+                    val isWellOwner = customerRepo.getCustomerByIdDirect(targetCustId)?.isWellOwner == true
                     val amountDiff = roundedAmount - voucher.amount
-                    val newPaid = (session.amountPaid + amountDiff).coerceAtLeast(0.0)
-                    val newDebt = (session.totalAmount - newPaid).coerceAtLeast(0.0)
+
+                    val newPaid = if (voucher.type == VoucherType.RECEIPT) {
+                        (session.amountPaid + amountDiff).coerceAtLeast(0.0)
+                    } else session.amountPaid
+
+                    val newDiscount = if (voucher.type == VoucherType.DISCOUNT) {
+                        (session.discountAmount + amountDiff).coerceAtLeast(0.0)
+                    } else session.discountAmount
+
+                    val newDebt = if (isWellOwner) 0.0 else {
+                        (session.totalAmount - newDiscount - newPaid).coerceAtLeast(0.0)
+                    }
+
                     sessionRepo.updateSession(
                         session.copy(
                             amountPaid = Formatters.roundMoney(newPaid),
+                            discountAmount = Formatters.roundMoney(newDiscount),
                             remainingDebt = Formatters.roundMoney(newDebt)
                         )
                     )

@@ -95,7 +95,6 @@ import com.example.features.onboarding.OnboardingScreen
 import com.example.features.reports.ReportsScreen
 import com.example.features.splash.SplashScreen
 import com.example.features.reports.ReportsViewModel
-import com.example.features.sessions.SessionsScreen
 import com.example.features.sessions.SessionsViewModel
 import com.example.features.settings.SettingsScreen
 import com.example.features.settings.SettingsViewModel
@@ -227,12 +226,7 @@ fun MainApp(
                     customerId = selectedCustomerId,
                     viewModel = customersViewModel,
                     vouchersViewModel = vouchersViewModel,
-                    onBack = { selectedCustomerId = 0L },
-                    onAddSessionForCustomer = { customer ->
-                        sessionsViewModel.requestNewSessionForCustomer(customer.id)
-                        selectedCustomerId = 0L
-                        coroutineScope.launch { pagerState.animateScrollToPage(3) }
-                    }
+                    onBack = { selectedCustomerId = 0L }
                 )
             } else {
                 Scaffold(

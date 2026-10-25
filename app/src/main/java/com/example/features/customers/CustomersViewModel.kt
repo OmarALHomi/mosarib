@@ -997,11 +997,24 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             if (voucher.sessionId != null) {
                 val session = sessionRepo.getSessionById(voucher.sessionId)
                 if (session != null) {
-                    val newPaid = (session.amountPaid - voucher.amount).coerceAtLeast(0.0)
-                    val newDebt = (session.totalAmount - newPaid).coerceAtLeast(0.0)
+                    val targetCustId = session.billedToCustomerId ?: session.customerId
+                    val isWellOwner = customerRepo.getCustomerByIdDirect(targetCustId)?.isWellOwner == true
+                    val newPaid = if (voucher.type == VoucherType.RECEIPT) {
+                        (session.amountPaid - voucher.amount).coerceAtLeast(0.0)
+                    } else session.amountPaid
+
+                    val newDiscount = if (voucher.type == VoucherType.DISCOUNT) {
+                        (session.discountAmount - voucher.amount).coerceAtLeast(0.0)
+                    } else session.discountAmount
+
+                    val newDebt = if (isWellOwner) 0.0 else {
+                        (session.totalAmount - newDiscount - newPaid).coerceAtLeast(0.0)
+                    }
+
                     sessionRepo.updateSession(
                         session.copy(
                             amountPaid = com.example.core.util.Formatters.roundMoney(newPaid),
+                            discountAmount = com.example.core.util.Formatters.roundMoney(newDiscount),
                             remainingDebt = com.example.core.util.Formatters.roundMoney(newDebt)
                         )
                     )

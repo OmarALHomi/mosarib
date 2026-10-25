@@ -173,4 +173,21 @@ class ExampleUnitTest {
         assertEquals(2000.0, result.surplus, 0.001)
         org.junit.Assert.assertTrue(result.steps.all { it.isFullyPaid })
     }
+
+    @Test
+    fun `test FIFO allocation with discount settlement allocates cash then discount and closes debt`() {
+        val s1 = WaterSession(id = 1, customerId = 1L, startTime = 1000L, totalAmount = 10000.0, amountPaid = 0.0, remainingDebt = 10000.0)
+        // Pay 8,000 cash and give 2,000 discount
+        val result = com.example.features.vouchers.calculateFifoAllocation(listOf(s1), totalAmount = 8000.0, discountAmount = 2000.0)
+
+        assertEquals(0.0, result.surplus, 0.001)
+        assertEquals(0.0, result.surplusDiscount, 0.001)
+        val step = result.steps.first()
+        assertEquals(8000.0, step.allocatedAmount, 0.001)
+        assertEquals(2000.0, step.allocatedDiscount, 0.001)
+        assertEquals(8000.0, step.newPaid, 0.001)
+        assertEquals(2000.0, step.newDiscount, 0.001)
+        assertEquals(0.0, step.newDebt, 0.001)
+        org.junit.Assert.assertTrue(step.isFullyPaid)
+    }
 }

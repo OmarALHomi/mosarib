@@ -175,7 +175,7 @@ fun CustomerDetailScreen(
     viewModel: CustomersViewModel,
     vouchersViewModel: VouchersViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     onBack: () -> Unit,
-    onAddSessionForCustomer: (Customer) -> Unit
+    onAddSessionForCustomer: (Customer) -> Unit = {}
 ) {
     BackHandler { onBack() }
 
@@ -558,7 +558,7 @@ fun CustomerDetailScreen(
                                             icon = Icons.Default.WaterDrop,
                                             label = "سقي جديد",
                                             accentColor = PrimaryTeal,
-                                            onClick = { onAddSessionForCustomer(customer) }
+                                            onClick = { showAddSessionSheet = true }
                                         )
                                         if (customer.phone.isNotEmpty()) {
                                             QuickActionButton(
