@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Receipt
@@ -190,6 +191,8 @@ fun VouchersScreen(
 
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val screenWidthDp = configuration.screenWidthDp
+    val isCompactScreen = screenWidthDp < 400
     val isCompactHeight = configuration.screenHeightDp < 520 || isLandscape
 
     val listState = rememberLazyListState()
@@ -941,10 +944,12 @@ fun VouchersScreen(
                                         Spacer(modifier = Modifier.width(6.dp))
 
                                         // أزرار العمليات المصغرة (مشاركة + PDF + تعديل + حذف)
+                                        var voucherMenuExpanded by remember { mutableStateOf(false) }
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
+                                            if (!isCompactScreen) {
                                             if (customer != null && customer.phone.isNotEmpty()) {
                                                 Box(
                                                     modifier = Modifier
@@ -1041,6 +1046,87 @@ fun VouchersScreen(
                                                     tint = Color(0xFFE53935),
                                                     modifier = Modifier.size(13.dp)
                                                 )
+                                            }
+                                        } else {
+                                                // في الشاشات المضغوطة: زر القائمة الثلاث نقاط
+                                                Box {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(26.dp)
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                                            .clickable { voucherMenuExpanded = true },
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.MoreVert,
+                                                            contentDescription = "خيارات",
+                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            modifier = Modifier.size(14.dp)
+                                                        )
+                                                    }
+                                                    DropdownMenu(expanded = voucherMenuExpanded, onDismissRequest = { voucherMenuExpanded = false }) {
+                                                        if (customer != null && customer.phone.isNotEmpty()) {
+                                                            DropdownMenuItem(
+                                                                text = { Text("مشاركة السند (واتساب / SMS)", fontWeight = FontWeight.Bold) },
+                                                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF2E7D32)) },
+                                                                onClick = {
+                                                                    voucherMenuExpanded = false
+                                                                    val waMsg = if (isReceipt) {
+                                                                        MessageFormatHelper.buildReceiptVoucher(voucher, customer, null, config, isSms = false)
+                                                                    } else {
+                                                                        MessageFormatHelper.buildDisbursementVoucher(voucher, customer, config, isSms = false)
+                                                                    }
+                                                                    val smsMsg = if (isReceipt) {
+                                                                        MessageFormatHelper.buildReceiptVoucher(voucher, customer, null, config, isSms = true)
+                                                                    } else {
+                                                                        MessageFormatHelper.buildDisbursementVoucher(voucher, customer, config, isSms = true)
+                                                                    }
+                                                                    voucherMessageTarget = Triple(customer, waMsg, smsMsg)
+                                                                }
+                                                            )
+                                                        }
+                                                        DropdownMenuItem(
+                                                            text = { Text("طباعة سند PDF", fontWeight = FontWeight.Bold) },
+                                                            leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
+                                                            onClick = {
+                                                                voucherMenuExpanded = false
+                                                                val file = if (isReceipt) {
+                                                                    PdfReportGenerator.generateReceiptVoucherPdf(
+                                                                        context,
+                                                                        config,
+                                                                        customer ?: Customer(name = "عميل نقدي"),
+                                                                        voucher
+                                                                    )
+                                                                } else {
+                                                                    PdfReportGenerator.generateExpenseVoucherPdf(
+                                                                        context,
+                                                                        config,
+                                                                        customer,
+                                                                        voucher
+                                                                    )
+                                                                }
+                                                                voucherPdfReady = Pair(file, if (isReceipt) "سند قبض #${voucher.voucherNumber}" else "سند صرف #${voucher.voucherNumber}")
+                                                            }
+                                                        )
+                                                        DropdownMenuItem(
+                                                            text = { Text("تعديل السند", fontWeight = FontWeight.Bold) },
+                                                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryTeal) },
+                                                            onClick = {
+                                                                voucherMenuExpanded = false
+                                                                voucherToEdit = voucher
+                                                            }
+                                                        )
+                                                        DropdownMenuItem(
+                                                            text = { Text("حذف السند", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
+                                                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
+                                                            onClick = {
+                                                                voucherMenuExpanded = false
+                                                                voucherToDelete = voucher
+                                                            }
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -1335,84 +1421,156 @@ fun VouchersScreen(
                                         Spacer(modifier = Modifier.width(6.dp))
 
                                         // أزرار العمليات المصغرة (مشاركة + تعديل + حذف)
+                                        var purchaseMenuExpanded by remember { mutableStateOf(false) }
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
-                                            if (owner != null && owner.phone.isNotBlank()) {
+                                            if (!isCompactScreen) {
+                                                if (owner != null && owner.phone.isNotBlank()) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(26.dp)
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                                            .clickable {
+                                                                val waMsg = MessageFormatHelper.buildPurchaseBill(
+                                                                    purchase = purchase,
+                                                                    owner = owner,
+                                                                    chargeableMinutes = chargeable,
+                                                                    wasteMinutes = waste,
+                                                                    totalAmount = totalAmount,
+                                                                    paidAmount = paidAmount,
+                                                                    remainingDebt = remainingDebt,
+                                                                    config = config,
+                                                                    isSms = false
+                                                                )
+                                                                val smsMsg = MessageFormatHelper.buildPurchaseBill(
+                                                                    purchase = purchase,
+                                                                    owner = owner,
+                                                                    chargeableMinutes = chargeable,
+                                                                    wasteMinutes = waste,
+                                                                    totalAmount = totalAmount,
+                                                                    paidAmount = paidAmount,
+                                                                    remainingDebt = remainingDebt,
+                                                                    config = config,
+                                                                    isSms = true
+                                                                )
+                                                                voucherMessageTarget = Triple(owner, waMsg, smsMsg)
+                                                            },
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            Icons.AutoMirrored.Filled.Send,
+                                                            contentDescription = "مشاركة",
+                                                            tint = PrimaryTeal,
+                                                            modifier = Modifier.size(13.dp)
+                                                        )
+                                                    }
+                                                }
+
+                                                // زر تعديل
                                                 Box(
                                                     modifier = Modifier
                                                         .size(26.dp)
                                                         .clip(RoundedCornerShape(6.dp))
                                                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                                        .clickable {
-                                                            val waMsg = MessageFormatHelper.buildPurchaseBill(
-                                                                purchase = purchase,
-                                                                owner = owner,
-                                                                chargeableMinutes = chargeable,
-                                                                wasteMinutes = waste,
-                                                                totalAmount = totalAmount,
-                                                                paidAmount = paidAmount,
-                                                                remainingDebt = remainingDebt,
-                                                                config = config,
-                                                                isSms = false
-                                                            )
-                                                            val smsMsg = MessageFormatHelper.buildPurchaseBill(
-                                                                purchase = purchase,
-                                                                owner = owner,
-                                                                chargeableMinutes = chargeable,
-                                                                wasteMinutes = waste,
-                                                                totalAmount = totalAmount,
-                                                                paidAmount = paidAmount,
-                                                                remainingDebt = remainingDebt,
-                                                                config = config,
-                                                                isSms = true
-                                                            )
-                                                            voucherMessageTarget = Triple(owner, waMsg, smsMsg)
-                                                        },
+                                                        .clickable { purchaseToEdit = purchase },
                                                     contentAlignment = Alignment.Center
                                                 ) {
                                                     Icon(
-                                                        Icons.AutoMirrored.Filled.Send,
-                                                        contentDescription = "مشاركة",
+                                                        imageVector = Icons.Default.Edit,
+                                                        contentDescription = "تعديل الشراء",
                                                         tint = PrimaryTeal,
                                                         modifier = Modifier.size(13.dp)
                                                     )
                                                 }
-                                            }
 
-                                            // زر تعديل
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(26.dp)
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                                    .clickable { purchaseToEdit = purchase },
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Edit,
-                                                    contentDescription = "تعديل الشراء",
-                                                    tint = PrimaryTeal,
-                                                    modifier = Modifier.size(13.dp)
-                                                )
-                                            }
-
-                                            // زر حذف
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(26.dp)
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .background(if (isDark) Color(0xFF2B1313) else Color(0xFFFFEBEE))
-                                                    .clickable { purchaseToDelete = purchase },
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Delete,
-                                                    contentDescription = "حذف الشراء",
-                                                    tint = Color(0xFFE53935),
-                                                    modifier = Modifier.size(13.dp)
-                                                )
+                                                // زر حذف
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(26.dp)
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(if (isDark) Color(0xFF2B1313) else Color(0xFFFFEBEE))
+                                                        .clickable { purchaseToDelete = purchase },
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Delete,
+                                                        contentDescription = "حذف الشراء",
+                                                        tint = Color(0xFFE53935),
+                                                        modifier = Modifier.size(13.dp)
+                                                    )
+                                                }
+                                            } else {
+                                                // في الشاشات المضغوطة: زر القائمة الثلاث نقاط
+                                                Box {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(26.dp)
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                                            .clickable { purchaseMenuExpanded = true },
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.MoreVert,
+                                                            contentDescription = "خيارات",
+                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            modifier = Modifier.size(14.dp)
+                                                        )
+                                                    }
+                                                    DropdownMenu(expanded = purchaseMenuExpanded, onDismissRequest = { purchaseMenuExpanded = false }) {
+                                                        if (owner != null && owner.phone.isNotBlank()) {
+                                                            DropdownMenuItem(
+                                                                text = { Text("مشاركة فاتورة الشراء", fontWeight = FontWeight.Bold) },
+                                                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF2E7D32)) },
+                                                                onClick = {
+                                                                    purchaseMenuExpanded = false
+                                                                    val waMsg = MessageFormatHelper.buildPurchaseBill(
+                                                                        purchase = purchase,
+                                                                        owner = owner,
+                                                                        chargeableMinutes = chargeable,
+                                                                        wasteMinutes = waste,
+                                                                        totalAmount = totalAmount,
+                                                                        paidAmount = paidAmount,
+                                                                        remainingDebt = remainingDebt,
+                                                                        config = config,
+                                                                        isSms = false
+                                                                    )
+                                                                    val smsMsg = MessageFormatHelper.buildPurchaseBill(
+                                                                        purchase = purchase,
+                                                                        owner = owner,
+                                                                        chargeableMinutes = chargeable,
+                                                                        wasteMinutes = waste,
+                                                                        totalAmount = totalAmount,
+                                                                        paidAmount = paidAmount,
+                                                                        remainingDebt = remainingDebt,
+                                                                        config = config,
+                                                                        isSms = true
+                                                                    )
+                                                                    voucherMessageTarget = Triple(owner, waMsg, smsMsg)
+                                                                }
+                                                            )
+                                                        }
+                                                        DropdownMenuItem(
+                                                            text = { Text("تعديل الشراء", fontWeight = FontWeight.Bold) },
+                                                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryTeal) },
+                                                            onClick = {
+                                                                purchaseMenuExpanded = false
+                                                                purchaseToEdit = purchase
+                                                            }
+                                                        )
+                                                        DropdownMenuItem(
+                                                            text = { Text("حذف الشراء", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
+                                                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
+                                                            onClick = {
+                                                                purchaseMenuExpanded = false
+                                                                purchaseToDelete = purchase
+                                                            }
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }

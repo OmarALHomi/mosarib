@@ -75,6 +75,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalConfiguration
@@ -102,11 +103,25 @@ import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.SecondaryAqua
 
-@OptIn(ExperimentalFoundationApi::class)
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.foundation.layout.navigationBarsPadding
+import com.example.features.sessions.SessionsViewModel
+import com.example.features.sessions.AddEditSessionBottomSheet
+import com.example.features.vouchers.VouchersViewModel
+import com.example.features.vouchers.AddVoucherBottomSheet
+import com.example.features.vouchers.VoucherType
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun CustomersScreen(
     viewModel: CustomersViewModel,
     onNavigateToDetail: (Long) -> Unit,
+    sessionsViewModel: SessionsViewModel? = null,
+    vouchersViewModel: VouchersViewModel? = null,
     modifier: Modifier = Modifier
 ) {
     val config by viewModel.appConfig.collectAsStateWithLifecycle()
@@ -121,7 +136,10 @@ fun CustomersScreen(
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    var showQuickAddChoice by remember { mutableStateOf(false) }
     var showAddSheet by remember { mutableStateOf(false) }
+    var showAddSessionSheet by remember { mutableStateOf(false) }
+    var showAddVoucherSheet by remember { mutableStateOf(false) }
     var customerToEdit by remember { mutableStateOf<Customer?>(null) }
     var customerToDelete by remember { mutableStateOf<Customer?>(null) }
     var messageChoiceCustomer by remember { mutableStateOf<CustomerWithBalance?>(null) }
@@ -167,7 +185,9 @@ fun CustomersScreen(
 
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val isCompactHeight = configuration.screenHeightDp < 520 || isLandscape
+    val screenWidthDp = configuration.screenWidthDp
+    val isWideLandscape = (isLandscape || configuration.screenHeightDp < 520) && screenWidthDp >= 600
+    val isCompactHeight = isWideLandscape
 
     val listState = rememberLazyListState()
     val isStickyPinned by remember {
@@ -210,7 +230,7 @@ fun CustomersScreen(
                     )
 
                     // في الشاشات العريضة / الوضع الأفقي: عرض شريط المركز المالي هنا بشكل مدمج وأنيق
-                    if (isCompactHeight) {
+                    if (isWideLandscape) {
                         Surface(
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                             shape = RoundedCornerShape(12.dp)
@@ -227,11 +247,16 @@ fun CustomersScreen(
                                     Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFFE53935)))
                                     Text(
                                         text = "عليك:",
-                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFE53935), fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
+                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFE53935), fontWeight = FontWeight.Bold, fontSize = 11.5.sp),
+                                        softWrap = false,
+                                        maxLines = 1
                                     )
                                     Text(
                                         text = Formatters.formatCurrency(cardOwedByUs, config.currencySymbol),
-                                        style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFFE53935), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                                        style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFFE53935), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp),
+                                        softWrap = false,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                                 Box(modifier = Modifier.width(1.dp).height(12.dp).background(Color.Gray.copy(alpha = 0.3f)))
@@ -242,11 +267,16 @@ fun CustomersScreen(
                                     Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF2E7D32)))
                                     Text(
                                         text = "لك:",
-                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
+                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold, fontSize = 11.5.sp),
+                                        softWrap = false,
+                                        maxLines = 1
                                     )
                                     Text(
                                         text = Formatters.formatCurrency(cardOwedToUs, config.currencySymbol),
-                                        style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFF2E7D32), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                                        style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFF2E7D32), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp),
+                                        softWrap = false,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -718,7 +748,10 @@ fun CustomersScreen(
                                     color = Color(0xFFE53935),
                                     fontWeight = FontWeight.ExtraBold,
                                     fontSize = 15.sp
-                                )
+                                ),
+                                softWrap = false,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
@@ -739,7 +772,9 @@ fun CustomersScreen(
                                                 color = Color(0xFF2E7D32),
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 11.5.sp
-                                            )
+                                            ),
+                                            softWrap = false,
+                                            maxLines = 1
                                         )
                                     }
                                     AccountFilter.FARMERS -> {
@@ -749,7 +784,9 @@ fun CustomersScreen(
                                                 color = Color(0xFF2E7D32),
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 11.5.sp
-                                            )
+                                            ),
+                                            softWrap = false,
+                                            maxLines = 1
                                         )
                                         Spacer(modifier = Modifier.width(3.dp))
                                         Icon(
@@ -766,7 +803,9 @@ fun CustomersScreen(
                                                 color = Color(0xFF2E7D32),
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 11.5.sp
-                                            )
+                                            ),
+                                            softWrap = false,
+                                            maxLines = 1
                                         )
                                         Spacer(modifier = Modifier.width(3.dp))
                                         Icon(
@@ -791,14 +830,17 @@ fun CustomersScreen(
                                     color = Color(0xFF2E7D32),
                                     fontWeight = FontWeight.ExtraBold,
                                     fontSize = 15.sp
-                                )
+                                ),
+                                softWrap = false,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
 
                     // زر الإضافة السريع (+) الدائري في المنتصف الهندسي الدقيق للكرت دائماً
                     FloatingActionButton(
-                        onClick = { showAddSheet = true },
+                        onClick = { showQuickAddChoice = true },
                         containerColor = PrimaryTeal,
                         contentColor = Color.White,
                         shape = CircleShape,
@@ -809,7 +851,7 @@ fun CustomersScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
-                            contentDescription = "إضافة حساب جديد",
+                            contentDescription = "إضافة سريعة",
                             modifier = Modifier.size(26.dp)
                         )
                     }
@@ -818,7 +860,7 @@ fun CustomersScreen(
         } else {
             // في الوضع الأفقي / الشاشات المضغوطة: زر عائم مدمج أنيق في الزاوية دون حجب أي كرت
             FloatingActionButton(
-                onClick = { showAddSheet = true },
+                onClick = { showQuickAddChoice = true },
                 containerColor = PrimaryTeal,
                 contentColor = Color.White,
                 shape = CircleShape,
@@ -936,6 +978,161 @@ fun CustomersScreen(
         )
     }
 
+    // Quick Add Choice Bottom Sheet (عميل جديد / سقي / معاملة)
+    if (showQuickAddChoice) {
+        ModalBottomSheet(
+            onDismissRequest = { showQuickAddChoice = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            dragHandle = {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 10.dp, bottom = 6.dp)
+                        .width(36.dp)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+                )
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 6.dp)
+                    .navigationBarsPadding(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "إضافة سريعة",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 17.sp
+                    )
+                )
+                Text(
+                    text = "اختر الإجراء الذي تود تسجيله مباشرة",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    ),
+                    modifier = Modifier.padding(top = 2.dp, bottom = 16.dp)
+                )
+
+                // 1. عميل جديد
+                QuickAddOptionItem(
+                    icon = Icons.Default.PersonAdd,
+                    iconTint = PrimaryTeal,
+                    iconBg = PrimaryTeal.copy(alpha = 0.12f),
+                    title = "عميل أو صاحب بئر جديد",
+                    subtitle = "تسجيل حساب مزارع جديد أو صاحب بئر",
+                    onClick = {
+                        showQuickAddChoice = false
+                        showAddSheet = true
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 2. سقي
+                QuickAddOptionItem(
+                    icon = Icons.Default.WaterDrop,
+                    iconTint = Color(0xFF0288D1),
+                    iconBg = Color(0xFF0288D1).copy(alpha = 0.12f),
+                    title = "تسجيل دورة سقي",
+                    subtitle = "حساب ساعات ري مزارع وتحديث الحساب",
+                    onClick = {
+                        showQuickAddChoice = false
+                        showAddSessionSheet = true
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 3. معاملة
+                QuickAddOptionItem(
+                    icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                    iconTint = AccentGold,
+                    iconBg = AccentGold.copy(alpha = 0.14f),
+                    title = "معاملة مالية (سند)",
+                    subtitle = "تسجيل سند قبض نقد/بنك أو سند صرف",
+                    onClick = {
+                        showQuickAddChoice = false
+                        showAddVoucherSheet = true
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+            }
+        }
+    }
+
+    // Sheet: Add Manual Session (سقي)
+    if (showAddSessionSheet) {
+        val customersList = rawCustomers.map { it.customer }
+        AddEditSessionBottomSheet(
+            initialSession = null,
+            customers = customersList,
+            defaultPricePerHour = config.defaultPricePerHour,
+            currencySymbol = config.currencySymbol,
+            onCreateCustomer = { customer ->
+                sessionsViewModel?.createCustomer(customer) ?: 0L
+            },
+            onDismiss = { showAddSessionSheet = false },
+            onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes, billedTo, wastedMins, wastedReason, discount, costRate, pumpId ->
+                sessionsViewModel?.saveManualSession(
+                    id = id,
+                    customerId = custId,
+                    pumpName = pumpName,
+                    startTime = startTime,
+                    endTime = endTime,
+                    hours = hrs,
+                    minutes = mins,
+                    pricePerHour = rate,
+                    amountPaid = paid,
+                    notes = notes,
+                    billedToCustomerId = billedTo,
+                    wastedMinutes = wastedMins,
+                    wastedReason = wastedReason,
+                    discountAmount = discount,
+                    costPricePerHour = costRate,
+                    pumpSourceId = pumpId
+                )
+                showAddSessionSheet = false
+                viewModel.showToast("تم تسجيل دورة السقي بنجاح وتحديث الكشوفات")
+            }
+        )
+    }
+
+    // Sheet: Add Voucher (معاملة)
+    if (showAddVoucherSheet) {
+        val customersList = rawCustomers.map { it.customer }
+        val allSessions = vouchersViewModel?.allSessions?.collectAsStateWithLifecycle()?.value ?: emptyList()
+        AddVoucherBottomSheet(
+            initialType = VoucherType.RECEIPT,
+            customers = customersList,
+            allSessions = allSessions,
+            currencySymbol = config.currencySymbol,
+            onDismiss = { showAddVoucherSheet = false },
+            onSave = { type, customerId, amount, category, method, notes, sessionId, selectedSessionIds, discountAmount ->
+                vouchersViewModel?.addVoucher(
+                    type = type,
+                    customerId = customerId,
+                    amount = amount,
+                    category = category,
+                    paymentMethod = method,
+                    notes = notes,
+                    sessionId = sessionId,
+                    selectedSessionIds = selectedSessionIds,
+                    discountAmount = discountAmount
+                )
+                showAddVoucherSheet = false
+                viewModel.showToast("تم تسجيل المعاملة بنجاح وتحديث الحسابات")
+            }
+        )
+    }
+
     // Delete confirmation
     customerToDelete?.let { cust ->
         AlertDialog(
@@ -1038,12 +1235,16 @@ fun CustomerCardItem(
 
                 Spacer(modifier = Modifier.width(6.dp))
 
-                // الأزرار مثل ما هي الآن (اتصال، واتساب، كشف PDF، خيارات)
+                val screenWidth = LocalConfiguration.current.screenWidthDp
+                val isCompactCard = screenWidth < 410
+                val isUltraCompact = screenWidth < 330
+
+                // الأزرار المتجاوبة: في الشاشات العادية تظهر الأزرار، وفي الشاشات المضغوطة يقتصر الكرت على الأهم أو الثلاث نقاط
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    if (customer.phone.isNotEmpty()) {
+                    if (!isUltraCompact && customer.phone.isNotEmpty()) {
                         Box(
                             modifier = Modifier
                                 .size(30.dp)
@@ -1060,37 +1261,41 @@ fun CustomerCardItem(
                             )
                         }
 
+                        if (!isCompactCard) {
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF2E7D32).copy(alpha = 0.12f))
+                                    .clickable { onWhatsAppClick() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Send,
+                                    contentDescription = "إرسال كشف",
+                                    tint = Color(0xFF2E7D32),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    if (!isCompactCard) {
                         Box(
                             modifier = Modifier
                                 .size(30.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF2E7D32).copy(alpha = 0.12f))
-                                .clickable { onWhatsAppClick() },
+                                .background(AccentGold.copy(alpha = 0.14f))
+                                .clickable { onPdfStatementClick() },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "إرسال كشف",
-                                tint = Color(0xFF2E7D32),
+                                imageVector = Icons.Default.PictureAsPdf,
+                                contentDescription = "كشف حساب PDF",
+                                tint = AccentGold,
                                 modifier = Modifier.size(15.dp)
                             )
                         }
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(AccentGold.copy(alpha = 0.14f))
-                            .clickable { onPdfStatementClick() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PictureAsPdf,
-                            contentDescription = "كشف حساب PDF",
-                            tint = AccentGold,
-                            modifier = Modifier.size(15.dp)
-                        )
                     }
 
                     Box {
@@ -1115,13 +1320,31 @@ fun CustomerCardItem(
                             onDismissRequest = { menuExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("عرض كشف الحساب") },
-                                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                                text = { Text("عرض كشف الحساب", fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal) },
                                 onClick = {
                                     menuExpanded = false
                                     onClick()
                                 }
                             )
+                            if (customer.phone.isNotEmpty()) {
+                                DropdownMenuItem(
+                                    text = { Text("اتصال هاتفي (${customer.phone})") },
+                                    leadingIcon = { Icon(Icons.Default.Call, contentDescription = null, tint = PrimaryTeal) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onCallClick()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("إرسال كشف عبر واتساب") },
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF2E7D32)) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onWhatsAppClick()
+                                    }
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text("تصدير كشف حساب PDF") },
                                 leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
@@ -1139,7 +1362,7 @@ fun CustomerCardItem(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("أرشفة الحساب", color = Color(0xFFE53935)) },
+                                text = { Text("أرشفة الحساب", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
                                 leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
                                 onClick = {
                                     menuExpanded = false
@@ -1370,6 +1593,69 @@ fun CustomerCardItem(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun QuickAddOptionItem(
+    icon: ImageVector,
+    iconTint: Color,
+    iconBg: Color,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(iconBg),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 15.sp
+                    )
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

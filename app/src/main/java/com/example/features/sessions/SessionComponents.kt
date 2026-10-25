@@ -89,6 +89,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -191,77 +192,135 @@ fun SessionCardItem(
 
                 Spacer(modifier = Modifier.width(6.dp))
 
-                // الأزرار الأربعة مباشرة كأيقونات بدون نصوص وبدون زر القائمة (إرسال، طباعة، تعديل، حذف)
+                val screenWidth = LocalConfiguration.current.screenWidthDp
+                val isCompactCard = screenWidth < 400
+
+                // الأزرار المتجاوبة: في الشاشات العادية تظهر الأزرار الأربعة، وفي الشاشات المضغوطة زر الثلاث نقاط
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // 1. إرسال (واتساب / SMS)
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF2E7D32).copy(alpha = 0.12f))
-                            .clickable { onMessageClick() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "إرسال الفاتورة",
-                            tint = Color(0xFF2E7D32),
-                            modifier = Modifier.size(15.dp)
-                        )
-                    }
+                    if (!isCompactCard) {
+                        // 1. إرسال (واتساب / SMS)
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF2E7D32).copy(alpha = 0.12f))
+                                .clickable { onMessageClick() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "إرسال الفاتورة",
+                                tint = Color(0xFF2E7D32),
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
 
-                    // 2. طباعة PDF
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(AccentGold.copy(alpha = 0.14f))
-                            .clickable { onPdfClick() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PictureAsPdf,
-                            contentDescription = "فاتورة PDF",
-                            tint = AccentGold,
-                            modifier = Modifier.size(15.dp)
-                        )
-                    }
+                        // 2. طباعة PDF
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(AccentGold.copy(alpha = 0.14f))
+                                .clickable { onPdfClick() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PictureAsPdf,
+                                contentDescription = "فاتورة PDF",
+                                tint = AccentGold,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
 
-                    // 3. تعديل
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(PrimaryTeal.copy(alpha = 0.12f))
-                            .clickable { onEditClick() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "تعديل",
-                            tint = PrimaryTeal,
-                            modifier = Modifier.size(15.dp)
-                        )
-                    }
+                        // 3. تعديل
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(PrimaryTeal.copy(alpha = 0.12f))
+                                .clickable { onEditClick() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "تعديل",
+                                tint = PrimaryTeal,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
 
-                    // 4. حذف
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFE53935).copy(alpha = 0.12f))
-                            .clickable { onDeleteClick() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "حذف",
-                            tint = Color(0xFFE53935),
-                            modifier = Modifier.size(15.dp)
-                        )
+                        // 4. حذف
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFE53935).copy(alpha = 0.12f))
+                                .clickable { onDeleteClick() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "حذف",
+                                tint = Color(0xFFE53935),
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    } else {
+                        // في الشاشات المضغوطة: زر القائمة الثلاث نقاط يحتوي على كافة العمليات
+                        Box {
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                                    .clickable { menuExpanded = true },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "خيارات",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("إرسال الفاتورة (واتساب / SMS)", fontWeight = FontWeight.Bold) },
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF2E7D32)) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onMessageClick()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("طباعة فاتورة PDF", fontWeight = FontWeight.Bold) },
+                                    leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onPdfClick()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("تعديل دورة السقي", fontWeight = FontWeight.Bold) },
+                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryTeal) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onEditClick()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("حذف الجلسة", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
+                                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onDeleteClick()
+                                    }
+                                )
+                            }
+                        }
                     }
 
                     // زر طي عند التوسيع

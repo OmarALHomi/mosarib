@@ -389,6 +389,8 @@ fun MainApp(
                                 AppTab.CUSTOMERS -> {
                                     CustomersScreen(
                                         viewModel = customersViewModel,
+                                        sessionsViewModel = sessionsViewModel,
+                                        vouchersViewModel = vouchersViewModel,
                                         onNavigateToDetail = { custId ->
                                             selectedCustomerId = custId
                                         }

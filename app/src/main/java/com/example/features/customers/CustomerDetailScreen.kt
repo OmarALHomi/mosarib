@@ -93,6 +93,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -1096,28 +1097,33 @@ fun CustomerDetailScreen(
                         )
                     }
 
+                    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+                    val isCompactScreen = screenWidthDp < 400
+
                     // Action Icons: PDF, Edit, More Menu
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(
-                            onClick = { viewModel.generateCustomerStatementPdf(customer) },
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.16f))
-                        ) {
-                            Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold)
-                        }
-                        IconButton(
-                            onClick = { showEditCustomerSheet = true },
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.16f))
-                        ) {
-                            Icon(Icons.Default.Edit, contentDescription = "تعديل", tint = Color.White)
+                        if (!isCompactScreen) {
+                            IconButton(
+                                onClick = { viewModel.generateCustomerStatementPdf(customer) },
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.16f))
+                            ) {
+                                Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold)
+                            }
+                            IconButton(
+                                onClick = { showEditCustomerSheet = true },
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.16f))
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = "تعديل", tint = Color.White)
+                            }
                         }
                         Box {
                             IconButton(
@@ -2068,21 +2074,42 @@ private fun CustomerSessionCardItem(
                     }
                 }
 
+                val screenWidth = LocalConfiguration.current.screenWidthDp
+                val isCompactCard = screenWidth < 400
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    IconButton(onClick = onMessageClick, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
-                    }
-                    IconButton(onClick = onPdfClick, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold, modifier = Modifier.size(16.dp))
+                    if (!isCompactCard) {
+                        IconButton(onClick = onMessageClick, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
+                        }
+                        IconButton(onClick = onPdfClick, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold, modifier = Modifier.size(16.dp))
+                        }
                     }
                     Box {
                         IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(32.dp)) {
                             Icon(Icons.Default.MoreVert, contentDescription = "خيارات", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                         }
                         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text("مشاركة دورة السقي (واتساب)", fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF2E7D32)) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onMessageClick()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("تصدير فاتورة PDF", fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onPdfClick()
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("تعديل دورة السقي", fontWeight = FontWeight.Bold) },
                                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryTeal) },
@@ -2505,16 +2532,21 @@ private fun CustomerReceiptCardItem(
                     )
                 }
 
+                val screenWidth = LocalConfiguration.current.screenWidthDp
+                val isCompactCard = screenWidth < 400
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    IconButton(onClick = onShareWhatsApp, modifier = Modifier.size(30.dp)) {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = Color(0xFF2E7D32), modifier = Modifier.size(15.dp))
-                    }
+                    if (!isCompactCard) {
+                        IconButton(onClick = onShareWhatsApp, modifier = Modifier.size(30.dp)) {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = Color(0xFF2E7D32), modifier = Modifier.size(15.dp))
+                        }
 
-                    IconButton(onClick = onPdfClick, modifier = Modifier.size(30.dp)) {
-                        Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold, modifier = Modifier.size(15.dp))
+                        IconButton(onClick = onPdfClick, modifier = Modifier.size(30.dp)) {
+                            Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold, modifier = Modifier.size(15.dp))
+                        }
                     }
 
                     Box {
@@ -2522,6 +2554,22 @@ private fun CustomerReceiptCardItem(
                             Icon(Icons.Default.MoreVert, contentDescription = "خيارات", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
                         }
                         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text("مشاركة السند (واتساب)", fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF2E7D32)) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onShareWhatsApp()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("تصدير سند PDF", fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onPdfClick()
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("تعديل السند", fontWeight = FontWeight.Bold) },
                                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryTeal) },
@@ -2662,16 +2710,21 @@ private fun CustomerDisbursementCardItem(
                     )
                 }
 
+                val screenWidth = LocalConfiguration.current.screenWidthDp
+                val isCompactCard = screenWidth < 400
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    IconButton(onClick = onShareWhatsApp, modifier = Modifier.size(30.dp)) {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = Color(0xFF2E7D32), modifier = Modifier.size(15.dp))
-                    }
+                    if (!isCompactCard) {
+                        IconButton(onClick = onShareWhatsApp, modifier = Modifier.size(30.dp)) {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = Color(0xFF2E7D32), modifier = Modifier.size(15.dp))
+                        }
 
-                    IconButton(onClick = onPdfClick, modifier = Modifier.size(30.dp)) {
-                        Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold, modifier = Modifier.size(15.dp))
+                        IconButton(onClick = onPdfClick, modifier = Modifier.size(30.dp)) {
+                            Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = AccentGold, modifier = Modifier.size(15.dp))
+                        }
                     }
 
                     Box {
@@ -2679,6 +2732,22 @@ private fun CustomerDisbursementCardItem(
                             Icon(Icons.Default.MoreVert, contentDescription = "خيارات", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
                         }
                         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text("مشاركة السند (واتساب)", fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF2E7D32)) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onShareWhatsApp()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("تصدير سند PDF", fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onPdfClick()
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("تعديل السند", fontWeight = FontWeight.Bold) },
                                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryTeal) },
