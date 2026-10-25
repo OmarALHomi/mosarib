@@ -2249,10 +2249,10 @@ fun AddVoucherBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val headerTitle = when {
-                    initialVoucher != null && type == VoucherType.RECEIPT -> "تعديل سند قبض #${initialVoucher.voucherNumber.ifEmpty { initialVoucher.id.toString() }}"
-                    initialVoucher != null -> "تعديل سند صرف #${initialVoucher.voucherNumber.ifEmpty { initialVoucher.id.toString() }}"
-                    type == VoucherType.RECEIPT -> "سند قبض"
-                    else -> "تسجيل مصروف"
+                    initialVoucher != null && type == VoucherType.RECEIPT -> "تعديل سند (له) #${initialVoucher.voucherNumber.ifEmpty { initialVoucher.id.toString() }}"
+                    initialVoucher != null -> "تعديل سند (عليه) #${initialVoucher.voucherNumber.ifEmpty { initialVoucher.id.toString() }}"
+                    type == VoucherType.RECEIPT -> "تسجيل سند (له)"
+                    else -> "تسجيل سند (عليه)"
                 }
                 Text(
                     text = headerTitle,
@@ -2265,13 +2265,13 @@ fun AddVoucherBottomSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Type Toggle: قبض من عميل | مصروف
+            // Type Toggle: له | عليه
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 MosaribButton(
-                    text = "قبض من عميل",
+                    text = "له",
                     onClick = { type = VoucherType.RECEIPT },
                     modifier = Modifier.weight(1f),
                     containerColor = if (type == VoucherType.RECEIPT) AccentEmerald else if (isDark) Color(0xFF141F25) else Color(0xFFF1F5F9),
@@ -2279,10 +2279,10 @@ fun AddVoucherBottomSheet(
                 )
 
                 MosaribButton(
-                    text = "مصروف",
+                    text = "عليه",
                     onClick = { type = VoucherType.EXPENSE },
                     modifier = Modifier.weight(1f),
-                    containerColor = if (type == VoucherType.EXPENSE) Color(0xFFE53935) else if (isDark) Color(0xFF141F25) else Color(0xFFF1F5F9),
+                    containerColor = if (type == VoucherType.EXPENSE) Color(0xFFD32F2F) else if (isDark) Color(0xFF141F25) else Color(0xFFF1F5F9),
                     contentColor = if (type == VoucherType.EXPENSE) Color.White else if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
                 )
             }
@@ -2290,7 +2290,7 @@ fun AddVoucherBottomSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (type == VoucherType.RECEIPT) {
-                Text("العميل المستلم منه *", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                Text("العميل المستلم منه (له) *", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                 Spacer(modifier = Modifier.height(6.dp))
                 MosaribAutoCompleteTextField(
                     value = custSearchQuery.ifEmpty { selectedCustomer?.name ?: "" },
@@ -2553,7 +2553,7 @@ fun AddVoucherBottomSheet(
                 }
             } else {
                 // سند صرف: تحديد العميل اختياري (مصروف عام أو مقيد على عميل)
-                Text("العميل / المستلم (اختياري):", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                Text("العميل / المقيد بحسابه (عليه):", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                 Spacer(modifier = Modifier.height(6.dp))
                 Box {
                     MosaribTextField(

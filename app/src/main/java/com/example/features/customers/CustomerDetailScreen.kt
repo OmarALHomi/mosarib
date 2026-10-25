@@ -537,30 +537,27 @@ fun CustomerDetailScreen(
                                             accentColor = Color(0xFFFFB74D),
                                             onClick = { showOwnerWasteDialog = true }
                                         )
-                                        QuickActionButton(
-                                            icon = Icons.Default.ArrowDownward,
-                                            label = "سداد له",
-                                            accentColor = Color(0xFFFF8A80),
-                                            onClick = { showAddDisbursementSheet = true }
-                                        )
-                                        QuickActionButton(
-                                            icon = Icons.Default.Payments,
-                                            label = "دين عليه",
-                                            accentColor = AccentEmerald,
-                                            onClick = { showAddReceiptSheet = true }
-                                        )
+                                        if (customer.phone.isNotEmpty()) {
+                                            QuickActionButton(
+                                                icon = Icons.Default.Call,
+                                                label = "اتصال",
+                                                onClick = { FileSharingHelper.makePhoneCall(context, customer.phone) }
+                                            )
+                                            QuickActionButton(
+                                                icon = Icons.AutoMirrored.Filled.Send,
+                                                label = "إرسال كشف",
+                                                accentColor = Color(0xFF69F0AE),
+                                                onClick = {
+                                                    messageCustomTarget = viewModel.buildCustomerStatementMessage(customer, customerWithBalance)
+                                                }
+                                            )
+                                        }
                                     } else {
                                         QuickActionButton(
-                                            icon = Icons.Default.ArrowDownward,
-                                            label = "دين عليه",
-                                            accentColor = Color(0xFFFF8A80),
-                                            onClick = { showAddDisbursementSheet = true }
-                                        )
-                                        QuickActionButton(
-                                            icon = Icons.Default.Payments,
-                                            label = "دين له (سداد)",
-                                            accentColor = AccentEmerald,
-                                            onClick = { showAddReceiptSheet = true }
+                                            icon = Icons.Default.WaterDrop,
+                                            label = "سقي جديد",
+                                            accentColor = PrimaryTeal,
+                                            onClick = { onAddSessionForCustomer(customer) }
                                         )
                                         if (customer.phone.isNotEmpty()) {
                                             QuickActionButton(
@@ -822,43 +819,43 @@ fun CustomerDetailScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 4.dp),
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Button(
-                            onClick = { showAddDisbursementSheet = true },
+                            onClick = { showAddReceiptSheet = true },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(44.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                                .height(46.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
                             shape = RoundedCornerShape(12.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp)
                         ) {
-                            Icon(Icons.Default.ArrowDownward, contentDescription = null, modifier = Modifier.size(17.dp))
+                            Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (customer.isWellOwner) "سداد له (صرف)" else "دين عليه (قيد مدين)",
+                                text = "له",
                                 fontWeight = FontWeight.ExtraBold,
-                                fontSize = 12.5.sp,
+                                fontSize = 15.sp,
                                 maxLines = 1
                             )
                         }
 
                         Button(
-                            onClick = { showAddReceiptSheet = true },
+                            onClick = { showAddDisbursementSheet = true },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(44.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
+                                .height(46.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
                             shape = RoundedCornerShape(12.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp)
                         ) {
-                            Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(17.dp))
+                            Icon(Icons.Default.ArrowDownward, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (customer.isWellOwner) "دين عليه (تحصيل)" else "دين له / سداد (قبض)",
+                                text = "عليه",
                                 fontWeight = FontWeight.ExtraBold,
-                                fontSize = 12.5.sp,
+                                fontSize = 15.sp,
                                 maxLines = 1
                             )
                         }
@@ -2827,14 +2824,14 @@ private fun CustomerActionsDropdownMenu(
                 }
             )
             DropdownMenuItem(
-                text = { Text("سداد له (سند صرف)", fontWeight = FontWeight.Bold) },
+                text = { Text("سند (عليه)", fontWeight = FontWeight.Bold) },
                 onClick = onAddDisbursement,
                 leadingIcon = {
                     Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = Color(0xFFFF8A80), modifier = Modifier.size(20.dp))
                 }
             )
             DropdownMenuItem(
-                text = { Text("تحصيل منه (سند قبض)", fontWeight = FontWeight.Bold) },
+                text = { Text("سند (له)", fontWeight = FontWeight.Bold) },
                 onClick = onAddReceipt,
                 leadingIcon = {
                     Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(20.dp))
@@ -2881,14 +2878,14 @@ private fun CustomerActionsDropdownMenu(
                 }
             )
             DropdownMenuItem(
-                text = { Text("سند قبض (تحصيل)", fontWeight = FontWeight.Bold) },
+                text = { Text("سند (له)", fontWeight = FontWeight.Bold) },
                 onClick = onAddReceipt,
                 leadingIcon = {
                     Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(20.dp))
                 }
             )
             DropdownMenuItem(
-                text = { Text("سند صرف", fontWeight = FontWeight.Bold) },
+                text = { Text("سند (عليه)", fontWeight = FontWeight.Bold) },
                 onClick = onAddDisbursement,
                 leadingIcon = {
                     Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = Color(0xFFFF8A80), modifier = Modifier.size(20.dp))
