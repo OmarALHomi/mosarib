@@ -703,6 +703,8 @@ fun RecentSessionMiniCard(
 ) {
     val s = sessionWithCustomer.session
     val c = sessionWithCustomer.customer
+    val billedOwner = sessionWithCustomer.billedToCustomer
+    val isSponsored = billedOwner != null && billedOwner.id != s.customerId
 
     Card(
         modifier = modifier
@@ -740,16 +742,31 @@ fun RecentSessionMiniCard(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Column(modifier = Modifier.weight(1f, fill = false)) {
-                    Text(
-                        text = c?.name ?: "عميل غير محدد",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 13.sp
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = c?.name ?: "عميل غير محدد",
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 13.sp
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (isSponsored) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "(على: ${billedOwner.name})",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = PrimaryTeal,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                     val startTimeStr = Formatters.formatTime(s.startTime)
                     val endTimeStr = Formatters.formatTime(s.endTime)
                     val dateStr = Formatters.formatDate(s.startTime)
@@ -804,7 +821,7 @@ fun RecentSessionMiniCard(
                             modifier = Modifier.size(11.dp)
                         )
                         Text(
-                            text = "مسدد",
+                            text = if (isSponsored) "مقاصة المالك" else "مسدد",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
                                 fontWeight = FontWeight.Bold,

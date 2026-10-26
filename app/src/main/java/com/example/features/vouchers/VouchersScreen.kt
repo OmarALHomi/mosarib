@@ -687,15 +687,30 @@ fun VouchersScreen(
                                         context = context,
                                         config = config,
                                         customer = op.sessionWithCustomer.customer ?: Customer(name = "عميل غير محدد"),
-                                        session = op.sessionWithCustomer.session
+                                        session = op.sessionWithCustomer.session,
+                                        sponsorCustomer = op.sessionWithCustomer.billedToCustomer
                                     )
                                     voucherPdfReady = Pair(file, "فاتورة ري #${op.sessionWithCustomer.session.id}")
                                 },
                                 onMessageClick = {
                                     op.sessionWithCustomer.customer?.let { c ->
                                         val s = op.sessionWithCustomer.session
-                                        val waMsg = MessageFormatHelper.buildSessionBill(s, c, config, isSms = false)
-                                        val smsMsg = MessageFormatHelper.buildSessionBill(s, c, config, isSms = true)
+                                        val waMsg = MessageFormatHelper.buildSessionBill(
+                                            session = s,
+                                            customer = c,
+                                            config = config,
+                                            isSms = false,
+                                            sponsorCustomer = op.sessionWithCustomer.billedToCustomer,
+                                            beneficiaryCustomer = c
+                                        )
+                                        val smsMsg = MessageFormatHelper.buildSessionBill(
+                                            session = s,
+                                            customer = c,
+                                            config = config,
+                                            isSms = true,
+                                            sponsorCustomer = op.sessionWithCustomer.billedToCustomer,
+                                            beneficiaryCustomer = c
+                                        )
                                         voucherMessageTarget = Triple(c, waMsg, smsMsg)
                                     }
                                 },
@@ -1779,6 +1794,7 @@ fun VouchersScreen(
             currencySymbol = config.currencySymbol,
             linkedVouchers = linked,
             isWellOwner = c?.isWellOwner == true,
+            sponsorCustomer = item.billedToCustomer,
             onDismiss = { sessionForDetails = null },
             onEdit = {
                 sessionForDetails = null
@@ -1794,15 +1810,30 @@ fun VouchersScreen(
                     context = context,
                     config = config,
                     customer = c ?: Customer(name = "عميل غير محدد"),
-                    session = s
+                    session = s,
+                    sponsorCustomer = item.billedToCustomer
                 )
                 voucherPdfReady = Pair(file, "فاتورة ري #${s.id}")
             },
             onMessage = {
                 sessionForDetails = null
                 if (c != null) {
-                    val waMsg = MessageFormatHelper.buildSessionBill(s, c, config, isSms = false)
-                    val smsMsg = MessageFormatHelper.buildSessionBill(s, c, config, isSms = true)
+                    val waMsg = MessageFormatHelper.buildSessionBill(
+                        session = s,
+                        customer = c,
+                        config = config,
+                        isSms = false,
+                        sponsorCustomer = item.billedToCustomer,
+                        beneficiaryCustomer = c
+                    )
+                    val smsMsg = MessageFormatHelper.buildSessionBill(
+                        session = s,
+                        customer = c,
+                        config = config,
+                        isSms = true,
+                        sponsorCustomer = item.billedToCustomer,
+                        beneficiaryCustomer = c
+                    )
                     voucherMessageTarget = Triple(c, waMsg, smsMsg)
                 }
             },

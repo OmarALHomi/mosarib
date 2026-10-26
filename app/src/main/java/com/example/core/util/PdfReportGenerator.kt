@@ -330,8 +330,8 @@ object PdfReportGenerator {
             paint.textSize = if (customer.isWellOwner) 8f else 9f
             paint.textAlign = Paint.Align.RIGHT
             canvas.drawText(Formatters.formatDate(row.date), pageWidth - 35f, curY + 15f, paint)
-            canvas.drawText(truncate(row.title, 16), pageWidth - 105f, curY + 15f, paint)
-            canvas.drawText(truncate(row.subtitle, 25), pageWidth - 205f, curY + 15f, paint)
+            canvas.drawText(truncate(row.title, 24), pageWidth - 105f, curY + 15f, paint)
+            canvas.drawText(truncate(row.subtitle, 28), pageWidth - 205f, curY + 15f, paint)
             canvas.drawText(if (row.amount > 0) Formatters.formatNumber(row.amount) else "-", pageWidth - 300f, curY + 15f, paint)
             paint.color = if (row.paid > 0) paidGreen else darkTextColor
             canvas.drawText(if (row.paid > 0) Formatters.formatNumber(row.paid) else "-", pageWidth - 380f, curY + 15f, paint)
