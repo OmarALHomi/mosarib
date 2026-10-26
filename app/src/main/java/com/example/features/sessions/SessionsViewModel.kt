@@ -105,7 +105,7 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
             val totalSessions = sessions.size
             val sessionPaid = sessions.sumOf { it.amountPaid }
             val receiptVouchers = vouchers.filter { it.type == VoucherType.RECEIPT && it.sessionId == null }.sumOf { it.amount }
-            val discountVouchers = vouchers.filter { it.type == VoucherType.DISCOUNT && it.sessionId == null }.sumOf { it.amount }
+            val discountVouchers = vouchers.filter { it.type == VoucherType.DISCOUNT }.sumOf { it.amount }
             val totalBilled = sessions.sumOf { it.totalAmount }
             val totalCollected = sessionPaid + receiptVouchers
             val totalDebts = Math.max(0.0, totalBilled - (totalCollected + discountVouchers))
@@ -402,9 +402,13 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val sessionVouchers = voucherRepo.getVouchersForSessionDirect(session.id)
             for (v in sessionVouchers) {
-                voucherRepo.updateVoucher(
-                    v.copy(sessionId = null, notes = "${v.notes} (دفعة على الحساب بعد حذف دورة #${session.id})".trim())
-                )
+                if (v.type == VoucherType.DISCOUNT) {
+                    voucherRepo.deleteVoucher(v)
+                } else {
+                    voucherRepo.updateVoucher(
+                        v.copy(sessionId = null, notes = "${v.notes} (دفعة على الحساب بعد حذف دورة #${session.id})".trim())
+                    )
+                }
             }
             sessionRepo.deleteSession(session)
             showToast("تم حذف دورة السقي وتحديث الحساب", ToastType.INFO)

@@ -233,4 +233,21 @@ class ExampleUnitTest {
         assertEquals(5000.0, step.newDebt, 0.001) // 8000 - 3000 = 5000 (NOT 3000!)
         org.junit.Assert.assertFalse(step.isFullyPaid)
     }
+
+    @Test
+    fun `session deletion retains cash receipts as on account credit while canceling session debt`() {
+        val customer = Customer(id = 20, name = "مزارع")
+        // Session deleted: sessions list is empty now.
+        // Cash payment receipt of 5000 is retained with sessionId = null.
+        val vouchers = listOf(
+            Voucher(id = 1, customerId = customer.id, sessionId = null, type = VoucherType.RECEIPT, amount = 5000.0)
+        )
+
+        val result = calculateCustomerBalance(customer, emptyList(), vouchers)
+
+        assertEquals(0.0, result.totalBilledAmount, 0.001)
+        assertEquals(5000.0, result.totalPaidAmount, 0.001)
+        assertEquals(-5000.0, result.balance, 0.001) // Customer has 5,000 credit
+        assertEquals(-5000.0, result.receivableBalance, 0.001)
+    }
 }
