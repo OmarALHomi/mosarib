@@ -610,42 +610,58 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                     .filter { it.id != newSessionId }
 
                 var remainingExcess = excessPaid
+                val baseTime = System.currentTimeMillis()
+                var voucherIdx = 0
                 val settledSessionIds = mutableListOf<Long>()
+
                 for (oldSession in unpaidSessions) {
                     if (remainingExcess <= 0.0) break
                     val settleAmt = minOf(remainingExcess, oldSession.remainingDebt)
                     val newOldPaid = com.example.core.util.Formatters.roundMoney(oldSession.amountPaid + settleAmt)
-                    val newOldDebt = com.example.core.util.Formatters.roundMoney(maxOf(0.0, oldSession.totalAmount - newOldPaid))
+                    val newOldDebt = com.example.core.util.Formatters.roundMoney(maxOf(0.0, oldSession.remainingDebt - settleAmt))
                     sessionRepo.updateSession(oldSession.copy(amountPaid = newOldPaid, remainingDebt = newOldDebt))
                     remainingExcess = com.example.core.util.Formatters.roundMoney(remainingExcess - settleAmt)
                     settledSessionIds.add(oldSession.id)
+
+                    voucherIdx++
+                    val vNumber = "REC-${baseTime.toString().takeLast(4)}-$voucherIdx"
+                    val voucher = Voucher(
+                        voucherNumber = vNumber,
+                        type = VoucherType.RECEIPT,
+                        customerId = customerId,
+                        sessionId = oldSession.id,
+                        amount = settleAmt,
+                        category = "سداد سقي",
+                        paymentMethod = "نقداً",
+                        date = baseTime + voucherIdx,
+                        notes = "سداد دورة سقي #${oldSession.id} من فائض نقدي لسقي #$newSessionId"
+                    )
+                    db.voucherDao().insertVoucher(voucher)
                 }
 
-                val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(4)}"
-                val notesText = if (settledSessionIds.isNotEmpty()) {
-                    val listStr = settledSessionIds.joinToString(", ") { "#$it" }
-                    if (remainingExcess > 0.0) {
-                        "سند قبض: سداد ديون سابقة لجلسات ($listStr) بمبلغ ${com.example.core.util.Formatters.formatCurrency(excessPaid - remainingExcess, "")} ومتبقي ${com.example.core.util.Formatters.formatCurrency(remainingExcess, "")} رصيد دائن للعميل (فائض نقدي من سقي #$newSessionId)"
-                    } else {
-                        "سند قبض: سداد ديون سابقة لجلسات ($listStr) بالكامل من فائض نقدي لسقي #$newSessionId"
-                    }
-                } else {
-                    "سند قبض: رصيد دائن لصالح العميل (فائض نقدي من سقي #$newSessionId)"
+                if (remainingExcess > 0.0) {
+                    voucherIdx++
+                    val vNumber = "REC-${baseTime.toString().takeLast(4)}-$voucherIdx"
+                    val surplusVoucher = Voucher(
+                        voucherNumber = vNumber,
+                        type = VoucherType.RECEIPT,
+                        customerId = customerId,
+                        sessionId = null,
+                        amount = remainingExcess,
+                        category = "دفعة على الحساب",
+                        paymentMethod = "نقداً",
+                        date = baseTime + voucherIdx,
+                        notes = if (settledSessionIds.isNotEmpty()) {
+                            val listStr = settledSessionIds.joinToString(", ") { "#$it" }
+                            "رصيد دائن للعميل بعد سداد جلسات ($listStr) من فائض نقدي لسقي #$newSessionId"
+                        } else {
+                            "رصيد دائن لصالح العميل (فائض نقدي من سقي #$newSessionId)"
+                        }
+                    )
+                    db.voucherDao().insertVoucher(surplusVoucher)
                 }
 
-                val voucher = Voucher(
-                    voucherNumber = vNumber,
-                    type = VoucherType.RECEIPT,
-                    customerId = customerId,
-                    sessionId = newSessionId,
-                    amount = excessPaid,
-                    category = if (settledSessionIds.isNotEmpty()) "سداد ديون سابقة" else "رصيد دائن للعميل",
-                    paymentMethod = "نقداً",
-                    date = System.currentTimeMillis(),
-                    notes = notesText
-                )
-                db.voucherDao().insertVoucher(voucher)
-                showToast("تم تسجيل السقي وسند قبض بالفائض (${com.example.core.util.Formatters.formatCurrency(excessPaid, "")}) وتسوية الحساب", ToastType.SUCCESS)
+                showToast("تم تسجيل السقي وتوزيع الفائض (${com.example.core.util.Formatters.formatCurrency(excessPaid, "")}) وتسوية الحساب", ToastType.SUCCESS)
             } else {
                 showToast("تم تسجيل دورة السقي بنجاح وتحديث كشف الحساب", ToastType.SUCCESS)
             }
@@ -726,42 +742,58 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                     .filter { it.id != id }
 
                 var remainingExcess = excessPaid
+                val baseTime = System.currentTimeMillis()
+                var voucherIdx = 0
                 val settledSessionIds = mutableListOf<Long>()
+
                 for (oldSession in unpaidSessions) {
                     if (remainingExcess <= 0.0) break
                     val settleAmt = minOf(remainingExcess, oldSession.remainingDebt)
                     val newOldPaid = com.example.core.util.Formatters.roundMoney(oldSession.amountPaid + settleAmt)
-                    val newOldDebt = com.example.core.util.Formatters.roundMoney(maxOf(0.0, oldSession.totalAmount - newOldPaid))
+                    val newOldDebt = com.example.core.util.Formatters.roundMoney(maxOf(0.0, oldSession.remainingDebt - settleAmt))
                     sessionRepo.updateSession(oldSession.copy(amountPaid = newOldPaid, remainingDebt = newOldDebt))
                     remainingExcess = com.example.core.util.Formatters.roundMoney(remainingExcess - settleAmt)
                     settledSessionIds.add(oldSession.id)
+
+                    voucherIdx++
+                    val vNumber = "REC-${baseTime.toString().takeLast(4)}-$voucherIdx"
+                    val voucher = Voucher(
+                        voucherNumber = vNumber,
+                        type = VoucherType.RECEIPT,
+                        customerId = customerId,
+                        sessionId = oldSession.id,
+                        amount = settleAmt,
+                        category = "سداد سقي",
+                        paymentMethod = "نقداً",
+                        date = baseTime + voucherIdx,
+                        notes = "سداد دورة سقي #${oldSession.id} من فائض نقدي لسقي #$id"
+                    )
+                    db.voucherDao().insertVoucher(voucher)
                 }
 
-                val vNumber = "REC-${System.currentTimeMillis().toString().takeLast(4)}"
-                val notesText = if (settledSessionIds.isNotEmpty()) {
-                    val listStr = settledSessionIds.joinToString(", ") { "#$it" }
-                    if (remainingExcess > 0.0) {
-                        "سند قبض: سداد ديون سابقة لجلسات ($listStr) بمبلغ ${com.example.core.util.Formatters.formatCurrency(excessPaid - remainingExcess, "")} ومتبقي ${com.example.core.util.Formatters.formatCurrency(remainingExcess, "")} رصيد دائن للعميل (فائض نقدي من سقي #$id)"
-                    } else {
-                        "سند قبض: سداد ديون سابقة لجلسات ($listStr) بالكامل من فائض نقدي لسقي #$id"
-                    }
-                } else {
-                    "سند قبض: رصيد دائن لصالح العميل (فائض نقدي من سقي #$id)"
+                if (remainingExcess > 0.0) {
+                    voucherIdx++
+                    val vNumber = "REC-${baseTime.toString().takeLast(4)}-$voucherIdx"
+                    val surplusVoucher = Voucher(
+                        voucherNumber = vNumber,
+                        type = VoucherType.RECEIPT,
+                        customerId = customerId,
+                        sessionId = null,
+                        amount = remainingExcess,
+                        category = "دفعة على الحساب",
+                        paymentMethod = "نقداً",
+                        date = baseTime + voucherIdx,
+                        notes = if (settledSessionIds.isNotEmpty()) {
+                            val listStr = settledSessionIds.joinToString(", ") { "#$it" }
+                            "رصيد دائن للعميل بعد سداد جلسات ($listStr) من فائض نقدي لسقي #$id"
+                        } else {
+                            "رصيد دائن لصالح العميل (فائض نقدي من سقي #$id)"
+                        }
+                    )
+                    db.voucherDao().insertVoucher(surplusVoucher)
                 }
 
-                val voucher = Voucher(
-                    voucherNumber = vNumber,
-                    type = VoucherType.RECEIPT,
-                    customerId = customerId,
-                    sessionId = id,
-                    amount = excessPaid,
-                    category = if (settledSessionIds.isNotEmpty()) "سداد ديون سابقة" else "رصيد دائن للعميل",
-                    paymentMethod = "نقداً",
-                    date = System.currentTimeMillis(),
-                    notes = notesText
-                )
-                db.voucherDao().insertVoucher(voucher)
-                showToast("تم تعديل السقي وسند قبض بالفائض (${com.example.core.util.Formatters.formatCurrency(excessPaid, "")}) وتسوية الحساب", ToastType.SUCCESS)
+                showToast("تم تعديل السقي وتوزيع الفائض (${com.example.core.util.Formatters.formatCurrency(excessPaid, "")}) وتسوية الحساب", ToastType.SUCCESS)
             } else {
                 showToast("تم تعديل دورة السقي بنجاح وتحديث كشف الحساب", ToastType.SUCCESS)
             }

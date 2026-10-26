@@ -250,4 +250,60 @@ class ExampleUnitTest {
         assertEquals(-5000.0, result.balance, 0.001) // Customer has 5,000 credit
         assertEquals(-5000.0, result.receivableBalance, 0.001)
     }
+
+    @Test
+    fun `excess payment on account credit is properly reflected in customer balance`() {
+        val customer = Customer(id = 30, name = "مزارع")
+        // Session cost 10,000, customer paid 15,000.
+        // Session amountPaid capped at 10,000 with 0 debt.
+        val session = WaterSession(
+            id = 101,
+            customerId = customer.id,
+            totalAmount = 10000.0,
+            amountPaid = 10000.0,
+            remainingDebt = 0.0
+        )
+        // Excess 5,000 saved as standalone receipt on customer's account (sessionId = null)
+        val excessVoucher = Voucher(
+            id = 201,
+            customerId = customer.id,
+            sessionId = null,
+            type = VoucherType.RECEIPT,
+            amount = 5000.0
+        )
+
+        val balance = calculateCustomerBalance(customer, listOf(session), listOf(excessVoucher))
+
+        assertEquals(10000.0, balance.totalBilledAmount, 0.001)
+        assertEquals(15000.0, balance.totalPaidAmount, 0.001) // 10,000 + 5,000 = 15,000
+        assertEquals(-5000.0, balance.receivableBalance, 0.001) // 5,000 credit
+        assertEquals(-5000.0, balance.balance, 0.001)
+    }
+
+    @Test
+    fun `session billed to another customer belongs only to billed customer account`() {
+        val farmer = Customer(id = 40, name = "مزارع مستفيد")
+        val guarantor = Customer(id = 41, name = "الضامن / صاحب البئر")
+
+        val session = WaterSession(
+            id = 102,
+            customerId = farmer.id,
+            billedToCustomerId = guarantor.id,
+            totalAmount = 8000.0,
+            amountPaid = 0.0,
+            remainingDebt = 8000.0
+        )
+
+        val farmerBalance = calculateCustomerBalance(farmer, listOf(session), emptyList())
+        val guarantorBalance = calculateCustomerBalance(guarantor, listOf(session), emptyList())
+
+        // Farmer should have 0 billed amount and 0 debt
+        assertEquals(0.0, farmerBalance.totalBilledAmount, 0.001)
+        assertEquals(0.0, farmerBalance.receivableBalance, 0.001)
+
+        // Guarantor should have the 8,000 billed amount and debt
+        assertEquals(8000.0, guarantorBalance.totalBilledAmount, 0.001)
+        assertEquals(8000.0, guarantorBalance.receivableBalance, 0.001)
+    }
 }
+
