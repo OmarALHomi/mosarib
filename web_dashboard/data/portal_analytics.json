@@ -1,0 +1,17 @@
+{
+    "total_visitors": 3,
+    "today_visitors": 3,
+    "unique_visitors": 3,
+    "last_visit_date": "2026-10-17",
+    "last_visit_at": 1792199607,
+    "total_downloads": 0,
+    "today_downloads": 0,
+    "last_download_date": "2026-10-17",
+    "last_download_at": 0,
+    "daily_stats": {
+        "2026-10-17": {
+            "visitors": 3,
+            "downloads": 0
+        }
+    }
+}

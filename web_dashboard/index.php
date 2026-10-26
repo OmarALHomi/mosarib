@@ -13,6 +13,54 @@ header('Content-Type: text/html; charset=UTF-8');
 
 require_once __DIR__ . '/api/config.php';
 
+// Real Visitor Tracking (Daily unique visitor deduplication via cookie)
+$today = date('Y-m-d');
+$analyticsFile = __DIR__ . '/data/portal_analytics.json';
+$cookieName = 'msrb_v_visit_' . str_replace('-', '', $today);
+$isNewVisitorToday = empty($_COOKIE[$cookieName]);
+
+if ($isNewVisitorToday) {
+    @setcookie($cookieName, '1', time() + 86400, '/');
+}
+
+$analytics = [
+    'total_visitors' => 0,
+    'today_visitors' => 0,
+    'unique_visitors' => 0,
+    'last_visit_date' => $today,
+    'last_visit_at' => 0,
+    'total_downloads' => 0,
+    'today_downloads' => 0,
+    'last_download_date' => $today,
+    'last_download_at' => 0,
+    'daily_stats' => []
+];
+
+if (file_exists($analyticsFile)) {
+    $existingAnalytics = json_decode(@file_get_contents($analyticsFile), true);
+    if (is_array($existingAnalytics)) {
+        $analytics = array_merge($analytics, $existingAnalytics);
+    }
+}
+
+if (($analytics['last_visit_date'] ?? '') !== $today) {
+    $analytics['last_visit_date'] = $today;
+    $analytics['today_visitors'] = 0;
+}
+$analytics['total_visitors'] = ($analytics['total_visitors'] ?? 0) + 1;
+$analytics['today_visitors'] = ($analytics['today_visitors'] ?? 0) + 1;
+if ($isNewVisitorToday) {
+    $analytics['unique_visitors'] = ($analytics['unique_visitors'] ?? 0) + 1;
+}
+$analytics['last_visit_at'] = time();
+
+if (!isset($analytics['daily_stats'][$today])) {
+    $analytics['daily_stats'][$today] = ['visitors' => 0, 'downloads' => 0];
+}
+$analytics['daily_stats'][$today]['visitors']++;
+
+@file_put_contents($analyticsFile, json_encode($analytics, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
 // 1. Load Live Portal Settings (Sync with Firebase or fallback to local JSON)
 $settingsFile = __DIR__ . '/data/portal_settings.json';
 $ps = [
@@ -31,7 +79,9 @@ $ps = [
     'contact_phone' => '773712030',
     'developer_name' => 'المهندس عمر الحومي',
     'developer_company' => 'تُبع سوفت للحلول البرمجية الذكية (TubbaSoft)',
+    'show_top_ticker' => true,
     'show_rates_section' => true,
+    'show_features_section' => true,
     'show_plans_section' => true
 ];
 
@@ -133,9 +183,15 @@ if (empty($directDownloadUrl)) {
       </a>
 
       <nav class="nav-menu" id="desktopNavMenu">
+        <?php if (!empty($ps['show_features_section'])): ?>
         <a href="#features" class="nav-link">المميزات</a>
+        <?php endif; ?>
+        <?php if (!empty($ps['show_rates_section'])): ?>
         <a href="#rates" class="nav-link">متوسط الأسعار</a>
+        <?php endif; ?>
+        <?php if (!empty($ps['show_plans_section'])): ?>
         <a href="#plans" class="nav-link">الباقات والترخيص</a>
+        <?php endif; ?>
         <?php if (!empty($portalNews)): ?>
         <a href="#news" class="nav-link">مستجدات المياه</a>
         <?php endif; ?>
@@ -176,18 +232,24 @@ if (empty($directDownloadUrl)) {
       <button class="mobile-nav-close" onclick="closeMobileNav()" aria-label="إغلاق القائمة">&times;</button>
     </div>
     <div class="mobile-nav-body">
+      <?php if (!empty($ps['show_features_section'])): ?>
       <a href="#features" class="mobile-nav-link" onclick="closeMobileNav()">
         <span class="nav-icon">✨</span>
         <span>المميزات الميدانية</span>
       </a>
+      <?php endif; ?>
+      <?php if (!empty($ps['show_rates_section'])): ?>
       <a href="#rates" class="mobile-nav-link" onclick="closeMobileNav()">
         <span class="nav-icon">📊</span>
         <span>مؤشر ومتوسط الأسعار</span>
       </a>
+      <?php endif; ?>
+      <?php if (!empty($ps['show_plans_section'])): ?>
       <a href="#plans" class="mobile-nav-link" onclick="closeMobileNav()">
         <span class="nav-icon">⚡</span>
         <span>الباقات والترخيص</span>
       </a>
+      <?php endif; ?>
       <?php if (!empty($portalNews)): ?>
       <a href="#news" class="mobile-nav-link" onclick="closeMobileNav()">
         <span class="nav-icon">📰</span>
@@ -285,6 +347,7 @@ if (empty($directDownloadUrl)) {
   <?php endif; ?>
 
   <!-- Features Grid -->
+  <?php if (!empty($ps['show_features_section'])): ?>
   <section class="section container" id="features">
     <div class="section-head">
       <h2>مزايا ميدانية لحفظ حقوقك</h2>
@@ -308,6 +371,7 @@ if (empty($directDownloadUrl)) {
       </div>
     </div>
   </section>
+  <?php endif; ?>
 
   <!-- Pricing Plans Section -->
   <?php if (!empty($ps['show_plans_section'])): ?>
@@ -626,7 +690,10 @@ if (empty($directDownloadUrl)) {
     function sendOrderWhatsApp() {
       const name = document.getElementById('subName').value.trim() || 'مشترك جديد';
       const phone = document.getElementById('subPhone').value.trim() || '';
-      const plan = document.getElementById('selectedPlan').value === 'YEARLY' ? 'سنوي (80$)' : 'شهري (10$)';
+      const isYearly = document.getElementById('selectedPlan').value === 'YEARLY';
+      const yearlyPriceTxt = document.getElementById('yearlyPriceEl') ? document.getElementById('yearlyPriceEl').textContent.trim() : '75$';
+      const monthlyPriceTxt = document.getElementById('monthlyPriceEl') ? document.getElementById('monthlyPriceEl').textContent.trim() : '8$';
+      const plan = isYearly ? `سنوي (${yearlyPriceTxt})` : `شهري (${monthlyPriceTxt})`;
       const region = document.getElementById('subRegion').value.trim() || '';
       const receipt = document.getElementById('subReceipt').value.trim() || 'قيد التحويل';
       const device = document.getElementById('subDevice').value.trim() || '';
@@ -643,7 +710,14 @@ ${device ? `• كود جهازي: ${device}` : ''}`;
     }
 
     function trackDownload() {
-      try { fetch('api/public_data.php?action=track_download', { method: 'POST' }).catch(() => {}); } catch(_) {}
+      try {
+        const url = 'api/public_data.php?action=track_download';
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(url);
+        } else {
+          fetch(url, { method: 'POST', keepalive: true }).catch(() => {});
+        }
+      } catch(_) {}
     }
   </script>
 </body>

@@ -329,6 +329,46 @@ if ($method === 'POST') {
         jsonResponse(true, 'تم تسجيل تنزيل التطبيق بنجاح', ['total_downloads' => $analytics['total_downloads']]);
     }
 
+    // 0.0 Public Visit Tracking (No Admin Auth Required)
+    if ($action === 'track_visit') {
+        $analyticsFile = __DIR__ . '/../data/portal_analytics.json';
+        $today = date('Y-m-d');
+        $analytics = [
+            'total_visitors' => 0,
+            'today_visitors' => 0,
+            'unique_visitors' => 0,
+            'last_visit_date' => $today,
+            'last_visit_at' => 0,
+            'total_downloads' => 0,
+            'today_downloads' => 0,
+            'last_download_date' => $today,
+            'last_download_at' => 0,
+            'daily_stats' => []
+        ];
+        if (file_exists($analyticsFile)) {
+            $existing = json_decode(@file_get_contents($analyticsFile), true);
+            if (is_array($existing)) {
+                $analytics = array_merge($analytics, $existing);
+            }
+        }
+        if (($analytics['last_visit_date'] ?? '') !== $today) {
+            $analytics['last_visit_date'] = $today;
+            $analytics['today_visitors'] = 0;
+        }
+        $analytics['total_visitors'] = ($analytics['total_visitors'] ?? 0) + 1;
+        $analytics['today_visitors'] = ($analytics['today_visitors'] ?? 0) + 1;
+        $analytics['last_visit_at'] = time();
+        if (!empty($input['is_unique'])) {
+            $analytics['unique_visitors'] = ($analytics['unique_visitors'] ?? 0) + 1;
+        }
+        if (!isset($analytics['daily_stats'][$today])) {
+            $analytics['daily_stats'][$today] = ['visitors' => 0, 'downloads' => 0];
+        }
+        $analytics['daily_stats'][$today]['visitors']++;
+        @file_put_contents($analyticsFile, json_encode($analytics, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        jsonResponse(true, 'تم تسجيل الزيارة بنجاح', ['total_visitors' => $analytics['total_visitors']]);
+    }
+
     // 0.1 Public Direct Subscription Request from Website (No Admin Auth Required)
     if ($action === 'submit_subscription_request') {
         $name = trim($input['subscriber_name'] ?? ($input['subscriberName'] ?? ''));

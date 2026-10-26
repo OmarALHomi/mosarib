@@ -14,3 +14,7 @@ debug.keystore
 *.jks
 *.keystore
 keystore.properties
+*.apk
+versions/
+web_dashboard/uploads/*.apk
+web_dashboard/data/market_cache.json
