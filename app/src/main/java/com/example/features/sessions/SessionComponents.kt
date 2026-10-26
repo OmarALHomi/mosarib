@@ -344,6 +344,25 @@ fun SessionCardItem(
                 }
             }
 
+            val billedToCustomer = sessionWithCustomer.billedToCustomer
+            if (billedToCustomer != null && billedToCustomer.id != session.customerId) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = "💧 على حساب صاحب البئر: ${billedToCustomer.name} (مقاصة مسددة)",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1),
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+            }
+
             // 2. الصف الثاني الملخص: يختفي عند التوسيع لمنع تكرار البيانات
             AnimatedVisibility(visible = !isExpanded) {
                 Column {

@@ -434,7 +434,7 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
     /**
      * إنشاء PDF الفاتورة ثم إظهار dialog (فتح / مشاركة)
      */
-    fun generateAndShareInvoice(session: WaterSession, customer: Customer) {
+    fun generateAndShareInvoice(session: WaterSession, customer: Customer, sponsorCustomer: Customer? = null) {
         viewModelScope.launch {
             try {
                 val config = appConfig.value
@@ -442,7 +442,8 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                     context = getApplication(),
                     config = config,
                     customer = customer,
-                    session = session
+                    session = session,
+                    sponsorCustomer = sponsorCustomer
                 )
                 _pdfReadyFile.value = Pair(pdfFile, "فاتورة ري مياه - ${customer.name}")
             } catch (e: Exception) {
@@ -452,20 +453,47 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /** إرسال الفاتورة عبر واتساب (مع تصحيح كود اليمن +967 تلقائياً) */
-    fun sendWhatsAppBill(session: WaterSession, customer: Customer) {
+    fun sendWhatsAppBill(session: WaterSession, customer: Customer, sponsorCustomer: Customer? = null) {
         val config = appConfig.value
-        val msg = MessageFormatHelper.buildSessionBill(session, customer, config, isSms = false)
+        val msg = MessageFormatHelper.buildSessionBill(
+            session = session,
+            customer = customer,
+            config = config,
+            isSms = false,
+            sponsorCustomer = sponsorCustomer,
+            beneficiaryCustomer = customer
+        )
         FileSharingHelper.sendWhatsAppMessage(getApplication(), customer.phone, msg)
     }
 
     /** إرسال الفاتورة عبر SMS */
-    fun sendSmsBill(session: WaterSession, customer: Customer) {
+    fun sendSmsBill(session: WaterSession, customer: Customer, sponsorCustomer: Customer? = null) {
         val config = appConfig.value
-        val msg = MessageFormatHelper.buildSessionBill(session, customer, config, isSms = true)
+        val msg = MessageFormatHelper.buildSessionBill(
+            session = session,
+            customer = customer,
+            config = config,
+            isSms = true,
+            sponsorCustomer = sponsorCustomer,
+            beneficiaryCustomer = customer
+        )
         FileSharingHelper.sendSms(getApplication(), customer.phone, msg)
     }
 
-    fun buildBillMessage(session: WaterSession, customer: Customer, config: com.example.features.settings.AppConfig = appConfig.value, isSms: Boolean = false): String {
-        return MessageFormatHelper.buildSessionBill(session, customer, config, isSms)
+    fun buildBillMessage(
+        session: WaterSession,
+        customer: Customer,
+        config: com.example.features.settings.AppConfig = appConfig.value,
+        isSms: Boolean = false,
+        sponsorCustomer: Customer? = null
+    ): String {
+        return MessageFormatHelper.buildSessionBill(
+            session = session,
+            customer = customer,
+            config = config,
+            isSms = isSms,
+            sponsorCustomer = sponsorCustomer,
+            beneficiaryCustomer = customer
+        )
     }
 }

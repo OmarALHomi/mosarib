@@ -7,7 +7,8 @@ import kotlinx.coroutines.flow.combine
 
 data class WaterSessionWithCustomer(
     val session: WaterSession,
-    val customer: Customer?
+    val customer: Customer?,
+    val billedToCustomer: Customer? = null
 )
 
 class WaterSessionRepository(
@@ -22,7 +23,8 @@ class WaterSessionRepository(
             sessions.map { session ->
                 WaterSessionWithCustomer(
                     session = session,
-                    customer = customerMap[session.customerId]
+                    customer = customerMap[session.customerId],
+                    billedToCustomer = session.billedToCustomerId?.let { customerMap[it] }
                 )
             }
         }

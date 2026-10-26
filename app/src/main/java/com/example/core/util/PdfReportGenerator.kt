@@ -76,7 +76,8 @@ object PdfReportGenerator {
         customer: Customer,
         sessions: List<WaterSession>,
         vouchers: List<Voucher>,
-        purchases: List<WellOwnerPurchase> = emptyList()
+        purchases: List<WellOwnerPurchase> = emptyList(),
+        allCustomers: List<Customer> = emptyList()
     ): File {
         val document = PdfDocument()
         val pageWidth = 595 // A4 standard point width
@@ -222,6 +223,7 @@ object PdfReportGenerator {
             val payableDelta: Double = 0.0
         )
 
+        val customerMap = allCustomers.associateBy { it.id }
         val rows = mutableListOf<StatementRow>()
         sessions.forEach { session ->
             val linkedReceipts = vouchers
@@ -232,14 +234,41 @@ object PdfReportGenerator {
             val recordedWasteMinutes = session.wastedMinutes.coerceIn(0, sessionDurationMinutes)
             val netMinutes = sessionDurationMinutes - recordedWasteMinutes
             val wasteText = if (recordedWasteMinutes > 0) "، هدر ${Formatters.formatDurationArabic(recordedWasteMinutes)}" else ""
+
+            val isSponsoredForFarmer = customer.isWellOwner && session.customerId != customer.id
+            val isSponsoredOnOwner = !customer.isWellOwner && session.billedToCustomerId != null && session.billedToCustomerId != customer.id
+
+            val titleText = when {
+                isSponsoredForFarmer -> {
+                    val farmerName = customerMap[session.customerId]?.name ?: "مزارع"
+                    "سقي للمزارع: $farmerName"
+                }
+                isSponsoredOnOwner -> {
+                    val ownerName = customerMap[session.billedToCustomerId]?.name ?: "صاحب البئر"
+                    "سقي (على حساب: $ownerName)"
+                }
+                customer.isWellOwner -> "سقي لصاحب البئر"
+                else -> "ساقية ماء"
+            }
+
+            val subtitleText = if (isSponsoredOnOwner) {
+                "${Formatters.formatDurationArabic(netMinutes)}$wasteText (مدفوع من المالك)"
+            } else {
+                "${Formatters.formatDurationArabic(netMinutes)}$wasteText @ ${Formatters.formatNumber(session.pricePerHour)}"
+            }
+
+            val rowAmount = if (isSponsoredOnOwner) 0.0 else session.totalAmount.coerceAtLeast(0.0)
+            val rowPaid = if (isSponsoredOnOwner) 0.0 else paidOutsideVouchers
+            val rowDelta = if (isSponsoredOnOwner) 0.0 else (session.totalAmount - paidOutsideVouchers).coerceAtLeast(-session.totalAmount)
+
             rows.add(
                 StatementRow(
                     date = session.startTime,
-                    title = if (customer.isWellOwner) "سقي لصاحب البئر" else "ساقية ماء",
-                    subtitle = "${Formatters.formatDurationArabic(netMinutes)}$wasteText @ ${Formatters.formatNumber(session.pricePerHour)}",
-                    amount = session.totalAmount.coerceAtLeast(0.0),
-                    paid = paidOutsideVouchers,
-                    receivableDelta = (session.totalAmount - paidOutsideVouchers).coerceAtLeast(-session.totalAmount)
+                    title = titleText,
+                    subtitle = subtitleText,
+                    amount = rowAmount,
+                    paid = rowPaid,
+                    receivableDelta = rowDelta
                 )
             )
         }
@@ -362,7 +391,8 @@ object PdfReportGenerator {
         context: Context,
         config: AppConfig,
         customer: Customer,
-        session: WaterSession
+        session: WaterSession,
+        sponsorCustomer: Customer? = null
     ): File {
         val document = PdfDocument()
         val pageWidth = 595 // Standard A4 width
@@ -425,10 +455,11 @@ object PdfReportGenerator {
         canvas.drawText("تاريخ ووقت الري: ${Formatters.formatDateTime(session.startTime)}", pageWidth - 30f, curY + 18f, paint)
 
         // Status Badge (Left)
-        val isSettled = session.remainingDebt <= 0
+        val isSettledByOffset = sponsorCustomer != null || session.billedToCustomerId != null || customer.isWellOwner
+        val isSettled = session.remainingDebt <= 0 || isSettledByOffset
         val badgeColor = if (isSettled) paidGreen else debtRed
         val badgeBg = if (isSettled) 0xFFE8F5E9.toInt() else 0xFFFFEBEE.toInt()
-        val badgeText = if (isSettled) "مسدد بالكامل ✓" else "متبقي آجل بذمة العميل"
+        val badgeText = if (isSettledByOffset) "مقاصة صاحب بئر ✓" else if (isSettled) "مسدد بالكامل ✓" else "متبقي آجل بذمة العميل"
 
         paint.color = badgeBg
         val badgeRect = RectF(30f, curY - 14f, 180f, curY + 22f)
@@ -466,7 +497,8 @@ object PdfReportGenerator {
         paint.color = primaryColor
         paint.textSize = 9.5f
         paint.typeface = fontBold
-        canvas.drawText("بيانات العميل المستفيد:", pageWidth - 45f, curY + 18f, paint)
+        val sponsorHeader = if (sponsorCustomer != null) "بيانات المستفيد (على حساب: ${sponsorCustomer.name}):" else "بيانات العميل المستفيد:"
+        canvas.drawText(sponsorHeader, pageWidth - 45f, curY + 18f, paint)
 
         paint.color = darkTextColor
         paint.textSize = 13.5f
@@ -476,7 +508,8 @@ object PdfReportGenerator {
         paint.color = mutedTextColor
         paint.textSize = 10f
         paint.typeface = fontRegular
-        val farmPhone = "المزرعة: ${customer.farmName.ifEmpty { "عام / غير محدد" }}    |    الهاتف: ${customer.phone.ifEmpty { "غير مسجل" }}"
+        val sponsorNote = if (sponsorCustomer != null) "    |    الحساب: ${sponsorCustomer.name}" else ""
+        val farmPhone = "المزرعة: ${customer.farmName.ifEmpty { "عام / غير محدد" }}    |    الهاتف: ${customer.phone.ifEmpty { "غير مسجل" }}$sponsorNote"
         canvas.drawText(farmPhone, pageWidth - 45f, curY + 60f, paint)
 
         if (session.pumpName.isNotBlank()) {

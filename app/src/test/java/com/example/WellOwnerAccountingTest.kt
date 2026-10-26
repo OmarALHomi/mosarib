@@ -181,4 +181,59 @@ class WellOwnerAccountingTest {
         )
         assertEquals(14400, tenDaySession.durationMinutes)
     }
+
+    @Test
+    fun `farmer session sponsored by well owner charges owner and zeroes farmer debt and formats message with both parties`() {
+        val owner = Customer(id = 9, name = "صالح صاحب البئر", isWellOwner = true)
+        val farmer = Customer(id = 10, name = "علي المزارع", isWellOwner = false)
+
+        val sponsoredSession = WaterSession(
+            id = 55,
+            customerId = farmer.id,
+            billedToCustomerId = owner.id,
+            durationMinutes = 180, // 3 hours
+            totalAmount = 15000.0,
+            amountPaid = 0.0,
+            remainingDebt = 0.0
+        )
+
+        val allSessions = listOf(sponsoredSession)
+
+        // 1. Farmer's financial balance must not be charged (totalBilled = 0, balance = 0)
+        val farmerBalance = calculateCustomerBalance(farmer, allSessions, emptyList())
+        assertEquals(0, farmerBalance.totalSessionsCount)
+        assertEquals(0.0, farmerBalance.totalBilledAmount, 0.001)
+        assertEquals(0.0, farmerBalance.receivableBalance, 0.001)
+
+        // 2. Well Owner's financial balance must be charged (totalBilled = 15000.0)
+        val ownerBalance = calculateCustomerBalance(owner, allSessions, emptyList())
+        assertEquals(1, ownerBalance.totalSessionsCount)
+        assertEquals(15000.0, ownerBalance.totalBilledAmount, 0.001)
+        assertEquals(15000.0, ownerBalance.receivableBalance, 0.001)
+
+        // 3. Message format helper should clearly identify both the farmer and the well owner
+        val config = com.example.features.settings.AppConfig(currencySymbol = "ر.ي", distributorName = "المسرب")
+        val waMsg = com.example.core.util.MessageFormatHelper.buildSessionBill(
+            session = sponsoredSession,
+            customer = farmer,
+            config = config,
+            isSms = false,
+            sponsorCustomer = owner,
+            beneficiaryCustomer = farmer
+        )
+        org.junit.Assert.assertTrue("WhatsApp message must contain farmer name", waMsg.contains(farmer.name))
+        org.junit.Assert.assertTrue("WhatsApp message must contain well owner name", waMsg.contains(owner.name))
+        org.junit.Assert.assertTrue("WhatsApp message must state settlement by offset", waMsg.contains("مقاصة"))
+
+        val smsMsg = com.example.core.util.MessageFormatHelper.buildSessionBill(
+            session = sponsoredSession,
+            customer = owner,
+            config = config,
+            isSms = true,
+            sponsorCustomer = owner,
+            beneficiaryCustomer = farmer
+        )
+        org.junit.Assert.assertTrue("SMS message must contain farmer name", smsMsg.contains(farmer.name.take(16)))
+        org.junit.Assert.assertTrue("SMS message must contain well owner name", smsMsg.contains(owner.name.take(16)))
+    }
 }

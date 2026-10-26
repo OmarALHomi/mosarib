@@ -145,6 +145,7 @@ sealed class CustomerLedgerItem {
     data class SessionItem(
         val session: WaterSession,
         val originalCustomer: Customer? = null,
+        val sponsorOwner: Customer? = null,
         val linkedVouchers: List<Voucher> = emptyList()
     ) : CustomerLedgerItem() {
         override val timestamp: Long get() = session.startTime
@@ -254,8 +255,24 @@ fun CustomerDetailScreen(
 
     // Message Choice Dialog (WhatsApp / SMS)
     messageSessionTarget?.let { s ->
-        val waMsg = com.example.core.util.MessageFormatHelper.buildSessionBill(s, customer, config, isSms = false)
-        val smsMsg = com.example.core.util.MessageFormatHelper.buildSessionBill(s, customer, config, isSms = true)
+        val origCust = if (s.customerId != customerId) allCustomers.find { it.id == s.customerId } ?: customer else customer
+        val sponsorCust = if (s.billedToCustomerId != null) allCustomers.find { it.id == s.billedToCustomerId } else null
+        val waMsg = com.example.core.util.MessageFormatHelper.buildSessionBill(
+            session = s,
+            customer = customer,
+            config = config,
+            isSms = false,
+            sponsorCustomer = sponsorCust,
+            beneficiaryCustomer = origCust
+        )
+        val smsMsg = com.example.core.util.MessageFormatHelper.buildSessionBill(
+            session = s,
+            customer = customer,
+            config = config,
+            isSms = true,
+            sponsorCustomer = sponsorCust,
+            beneficiaryCustomer = origCust
+        )
 
         SendMessageChoiceDialog(
             recipientName = customer.name,
@@ -297,8 +314,9 @@ fun CustomerDetailScreen(
     val sessionItems = remember(sessions, allCustomers, vouchers) {
         sessions.map { s ->
             val origCust = if (s.customerId != customerId) allCustomers.find { it.id == s.customerId } else null
+            val sponsorOwner = if (s.billedToCustomerId != null && s.billedToCustomerId != customerId) allCustomers.find { it.id == s.billedToCustomerId } else null
             val linked = vouchers.filter { it.sessionId == s.id }
-            CustomerLedgerItem.SessionItem(s, origCust, linked)
+            CustomerLedgerItem.SessionItem(s, origCust, sponsorOwner, linked)
         }
     }
     val purchaseItems = remember(purchases) { purchases.map { CustomerLedgerItem.PurchaseItem(it) } }
@@ -953,10 +971,13 @@ fun CustomerDetailScreen(
                                 )
                             }
                             is CustomerLedgerItem.SessionItem -> {
+                                val invoiceCustomer = ledgerItem.originalCustomer ?: customer
+                                val invoiceSponsor = ledgerItem.sponsorOwner ?: if (customer.isWellOwner && ledgerItem.originalCustomer != null) customer else null
                                 CustomerSessionCardItem(
                                     session = ledgerItem.session,
                                     originalCustomer = ledgerItem.originalCustomer,
-                                    isBeneficiaryView = false,
+                                    sponsorOwner = ledgerItem.sponsorOwner,
+                                    isBeneficiaryView = ledgerItem.originalCustomer != null,
                                     isWellOwner = customer.isWellOwner,
                                     currencySymbol = config.currencySymbol,
                                     linkedVouchers = ledgerItem.linkedVouchers,
@@ -966,9 +987,9 @@ fun CustomerDetailScreen(
                                         val file = PdfReportGenerator.generateSessionInvoicePdf(
                                             context = context,
                                             config = config,
-                                            // This detail screen represents the billed account (including a well owner).
-                                            customer = customer,
-                                            session = ledgerItem.session
+                                            customer = invoiceCustomer,
+                                            session = ledgerItem.session,
+                                            sponsorCustomer = invoiceSponsor
                                         )
                                         localPdfReady = Pair(file, "فاتورة ري #${ledgerItem.session.id}")
                                     },
@@ -1225,12 +1246,15 @@ fun CustomerDetailScreen(
     // Floating Detail BottomSheet for Water Session
     sessionForDetails?.let { s ->
         val linked = vouchers.filter { it.sessionId == s.id }
+        val origCust = if (s.customerId != customerId) allCustomers.find { it.id == s.customerId } ?: customer else customer
+        val sponsorCust = if (s.billedToCustomerId != null) allCustomers.find { it.id == s.billedToCustomerId } else null
         com.example.core.ui.SessionDetailBottomSheet(
             session = s,
-            customer = customer,
+            customer = origCust,
             currencySymbol = config.currencySymbol,
             linkedVouchers = linked,
             isWellOwner = customer.isWellOwner,
+            sponsorCustomer = sponsorCust,
             onDismiss = { sessionForDetails = null },
             onEdit = {
                 sessionForDetails = null
@@ -1245,8 +1269,9 @@ fun CustomerDetailScreen(
                 val file = PdfReportGenerator.generateSessionInvoicePdf(
                     context = context,
                     config = config,
-                    customer = customer,
-                    session = s
+                    customer = origCust,
+                    session = s,
+                    sponsorCustomer = sponsorCust
                 )
                 localPdfReady = Pair(file, "فاتورة ري #${s.id}")
             },
@@ -2041,6 +2066,7 @@ private fun CustomerPurchaseCardItem(
 private fun CustomerSessionCardItem(
     session: WaterSession,
     originalCustomer: Customer?,
+    sponsorOwner: Customer? = null,
     isBeneficiaryView: Boolean,
     isWellOwner: Boolean = false,
     currencySymbol: String,
@@ -2055,7 +2081,7 @@ private fun CustomerSessionCardItem(
 ) {
     var isExpanded by remember(session.id) { mutableStateOf(false) }
     var menuExpanded by remember(session.id) { mutableStateOf(false) }
-    val isSettledByOffset = isWellOwner || session.billedToCustomerId != null
+    val isSettledByOffset = isWellOwner || session.billedToCustomerId != null || sponsorOwner != null
 
     Card(
         modifier = Modifier
@@ -2165,7 +2191,36 @@ private fun CustomerSessionCardItem(
                 }
             }
 
-            if (isSettledByOffset) {
+            val isSponsoredForFarmer = originalCustomer != null
+            val isSponsoredOnOwner = sponsorOwner != null
+
+            if (isSponsoredForFarmer) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(AccentGold.copy(alpha = 0.15f))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = "👤 سقي للمزارع: ${originalCustomer.name} (مقيد على هذا الحساب)",
+                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFB45309), fontWeight = FontWeight.Bold)
+                    )
+                }
+            } else if (isSponsoredOnOwner) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFE8F5E9))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = "💧 على حساب صاحب البئر: ${sponsorOwner.name} (خالص / مدفوع من المالك ✅)",
+                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
+                    )
+                }
+            } else if (isSettledByOffset) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Box(
                     modifier = Modifier
@@ -2176,19 +2231,6 @@ private fun CustomerSessionCardItem(
                     Text(
                         text = if (isWellOwner) "💧 مقاصة تخصم من مستحقات صاحب البئر" else "💧 على حساب صاحب البئر (مدفوع / مقاصة)",
                         style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold)
-                    )
-                }
-            } else if (isBeneficiaryView && originalCustomer != null) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(AccentGold.copy(alpha = 0.15f))
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        text = "سقي للعميل: ${originalCustomer.name} (مقيد على هذا الحساب)",
-                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFB45309), fontWeight = FontWeight.Bold)
                     )
                 }
             }
@@ -2246,7 +2288,18 @@ private fun CustomerSessionCardItem(
                     horizontalAlignment = Alignment.End
                 ) {
                     Text("المتبقي", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 1)
-                    if (isSettledByOffset) {
+                    if (isSponsoredOnOwner) {
+                        Text(
+                            "0.00 (محسوب على المالك)",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color(0xFF2E7D32),
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 11.sp
+                            ),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    } else if (isSettledByOffset) {
                         Text(
                             "مسدد بالمقاصة",
                             style = MaterialTheme.typography.bodyMedium.copy(

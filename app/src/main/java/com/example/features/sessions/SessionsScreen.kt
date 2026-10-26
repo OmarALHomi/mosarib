@@ -132,7 +132,7 @@ fun SessionsScreen(
     var sessionToDelete by remember { mutableStateOf<WaterSession?>(null) }
     var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
     var defaultCustomerIdForForm by remember { mutableStateOf<Long?>(null) }
-    var messageTargetSession by remember { mutableStateOf<Pair<WaterSession, Customer>?>(null) }
+    var messageTargetSession by remember { mutableStateOf<Triple<WaterSession, Customer, Customer?>?>(null) }
     var messageTargetCustom by remember { mutableStateOf<Triple<Customer, String, String>?>(null) }
     var sessionForDetails by remember { mutableStateOf<WaterSessionWithCustomer?>(null) }
 
@@ -254,12 +254,12 @@ fun SessionsScreen(
                         onDeleteClick = { sessionToDelete = item.session },
                         onPdfClick = {
                             item.customer?.let { c ->
-                                viewModel.generateAndShareInvoice(item.session, c)
+                                viewModel.generateAndShareInvoice(item.session, c, item.billedToCustomer)
                             }
                         },
                         onMessageClick = {
                             item.customer?.let { c ->
-                                messageTargetSession = Pair(item.session, c)
+                                messageTargetSession = Triple(item.session, c, item.billedToCustomer)
                             }
                         },
                         onSettleClick = {
@@ -306,9 +306,9 @@ fun SessionsScreen(
     }
 
     // Message Choice Dialog (WhatsApp or SMS)
-    messageTargetSession?.let { (session, customer) ->
-        val waMsg = viewModel.buildBillMessage(session, customer, config, isSms = false)
-        val smsMsg = viewModel.buildBillMessage(session, customer, config, isSms = true)
+    messageTargetSession?.let { (session, customer, sponsorCustomer) ->
+        val waMsg = viewModel.buildBillMessage(session, customer, config, isSms = false, sponsorCustomer = sponsorCustomer)
+        val smsMsg = viewModel.buildBillMessage(session, customer, config, isSms = true, sponsorCustomer = sponsorCustomer)
         SendMessageChoiceDialog(
             recipientName = customer.name,
             recipientPhone = customer.phone,
@@ -317,11 +317,11 @@ fun SessionsScreen(
             onDismiss = { messageTargetSession = null },
             onSendWhatsApp = {
                 messageTargetSession = null
-                viewModel.sendWhatsAppBill(session, customer)
+                viewModel.sendWhatsAppBill(session, customer, sponsorCustomer)
             },
             onSendSms = {
                 messageTargetSession = null
-                viewModel.sendSmsBill(session, customer)
+                viewModel.sendSmsBill(session, customer, sponsorCustomer)
             }
         )
     }
@@ -374,6 +374,7 @@ fun SessionsScreen(
             currencySymbol = config.currencySymbol,
             linkedVouchers = linked,
             isWellOwner = c?.isWellOwner == true,
+            sponsorCustomer = item.billedToCustomer,
             onDismiss = { sessionForDetails = null },
             onEdit = {
                 sessionForDetails = null
@@ -386,13 +387,13 @@ fun SessionsScreen(
             onPdf = {
                 sessionForDetails = null
                 if (c != null) {
-                    viewModel.generateAndShareInvoice(s, c)
+                    viewModel.generateAndShareInvoice(s, c, item.billedToCustomer)
                 }
             },
             onMessage = {
                 sessionForDetails = null
                 if (c != null) {
-                    messageTargetSession = Pair(s, c)
+                    messageTargetSession = Triple(s, c, item.billedToCustomer)
                 }
             },
             onSettle = if (s.remainingDebt > 0) {

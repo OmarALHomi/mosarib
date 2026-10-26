@@ -36,9 +36,52 @@ object MessageFormatHelper {
         session: WaterSession,
         customer: Customer,
         config: AppConfig,
-        isSms: Boolean
+        isSms: Boolean,
+        sponsorCustomer: Customer? = null,
+        beneficiaryCustomer: Customer? = null
     ): String {
-        return if (isSms) {
+        val isSponsored = (session.billedToCustomerId != null && session.billedToCustomerId != session.customerId) || sponsorCustomer != null
+
+        return if (isSponsored) {
+            val farmerName = beneficiaryCustomer?.name
+                ?: if (customer.id == session.customerId) customer.name else "المزارع"
+            val ownerName = sponsorCustomer?.name
+                ?: if (customer.id == session.billedToCustomerId) customer.name else "صاحب البئر"
+
+            if (isSms) {
+                val duration = Formatters.formatDurationCompact(session.durationMinutes)
+                val date = Formatters.formatDateShort(session.startTime)
+                val total = Formatters.formatNumber(session.totalAmount)
+                val msg = """
+💧 فاتورة ري #${session.id}
+👤 المزارع: ${farmerName.take(16)}
+💳 على حساب: ${ownerName.take(16)}
+⏱️ المدة: $duration
+💵 المبلغ: $total
+✅ مسدد مقاصة مع المالك
+📅 التاريخ: $date
+                """.trimIndent()
+                FileSharingHelper.attachMessageFooter(msg)
+            } else {
+                val timeRange = "من ${Formatters.formatTime(session.startTime)} إلى ${Formatters.formatTime(session.endTime)}"
+                val appTitle = config.distributorName.ifEmpty { "المسرّب" }
+                val farmText = if (beneficiaryCustomer?.farmName?.isNotBlank() == true) {
+                    " (${beneficiaryCustomer.farmName})"
+                } else if (customer.id == session.customerId && customer.farmName.isNotBlank()) {
+                    " (${customer.farmName})"
+                } else ""
+                val msg = """
+*فاتورة ري - $appTitle*
+👤 المزارع (المستفيد): $farmerName$farmText
+💳 على حساب صاحب البئر: $ownerName
+⏱️ الوقت: $timeRange (${Formatters.formatDurationArabic(session.durationMinutes)})
+💵 إجمالي المبلغ: ${Formatters.formatCurrency(session.totalAmount, config.currencySymbol)}
+📊 الحالة: مسدد بالكامل مقاصة على حساب صاحب البئر ✅
+📅 التاريخ: ${Formatters.formatDate(session.startTime)}
+                """.trimIndent()
+                FileSharingHelper.attachMessageFooter(msg)
+            }
+        } else if (isSms) {
             val duration = Formatters.formatDurationCompact(session.durationMinutes)
             val date = Formatters.formatDateShort(session.startTime)
             val total = Formatters.formatNumber(session.totalAmount)
@@ -291,7 +334,7 @@ $status
 💰 صافي قيمة المشتريات: ${Formatters.formatCurrency(item.totalPurchaseAmount, curr)}
 💸 المسدد نقداً لصاحب البئر: ${Formatters.formatCurrency(item.totalDisbursedAmount, curr)}
 ------------------------
-💧 سقي / بيع لصاحب البئر: ${Formatters.formatDurationArabic(item.totalSoldMinutes)}، بقيمة ${Formatters.formatCurrency(item.totalBilledAmount, curr)}
+💧 سقي / بيع مقيد على حسابه: ${Formatters.formatDurationArabic(item.totalSoldMinutes)}، بقيمة ${Formatters.formatCurrency(item.totalBilledAmount, curr)}
 💵 المحصل منه نقداً: ${Formatters.formatCurrency(item.totalPaidAmount, curr)}
 ------------------------
 $netStatus

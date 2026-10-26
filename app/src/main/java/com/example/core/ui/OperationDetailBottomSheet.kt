@@ -51,6 +51,7 @@ fun SessionDetailBottomSheet(
     currencySymbol: String,
     linkedVouchers: List<Voucher> = emptyList(),
     isWellOwner: Boolean = false,
+    sponsorCustomer: Customer? = null,
     onDismiss: () -> Unit,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
@@ -62,7 +63,7 @@ fun SessionDetailBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
     val isSettled = session.remainingDebt <= 0
-    val isSettledByOffset = isWellOwner || session.billedToCustomerId != null
+    val isSettledByOffset = isWellOwner || session.billedToCustomerId != null || sponsorCustomer != null
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         ModalBottomSheet(
@@ -129,9 +130,10 @@ fun SessionDetailBottomSheet(
                     Spacer(modifier = Modifier.width(8.dp))
 
                     // شارة الحالة
+                    val sponsorName = sponsorCustomer?.name ?: "صاحب البئر"
                     Surface(
                         color = when {
-                            isSettledByOffset -> Color(0xFFE0F2FE)
+                            sponsorCustomer != null || isSettledByOffset -> Color(0xFFE0F2FE)
                             isSettled -> AccentEmerald.copy(alpha = 0.15f)
                             else -> Color(0xFFE53935).copy(alpha = 0.15f)
                         },
@@ -139,6 +141,7 @@ fun SessionDetailBottomSheet(
                     ) {
                         Text(
                             text = when {
+                                sponsorCustomer != null -> "مقاصة على: $sponsorName 🔄"
                                 isSettledByOffset -> "مقاصة بئر 🔄"
                                 isSettled -> "مسدد بالكامل ✅"
                                 else -> "متبقي دين ⏳"
@@ -146,7 +149,7 @@ fun SessionDetailBottomSheet(
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = when {
-                                    isSettledByOffset -> Color(0xFF0369A1)
+                                    sponsorCustomer != null || isSettledByOffset -> Color(0xFF0369A1)
                                     isSettled -> AccentEmerald
                                     else -> Color(0xFFE53935)
                                 },
@@ -205,7 +208,17 @@ fun SessionDetailBottomSheet(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                                if (!customer?.phone.isNullOrBlank()) {
+                                if (sponsorCustomer != null) {
+                                    Text(
+                                        text = "على حساب: ${sponsorCustomer.name}",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = Color(0xFF0369A1),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.5.sp
+                                        ),
+                                        maxLines = 1
+                                    )
+                                } else if (!customer?.phone.isNullOrBlank()) {
                                     Text(
                                         text = customer!!.phone,
                                         style = MaterialTheme.typography.bodySmall.copy(

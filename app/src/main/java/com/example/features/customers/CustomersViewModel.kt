@@ -401,10 +401,9 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun getCustomerSessions(customerId: Long): Flow<List<WaterSession>> =
-        sessionRepo.allSessions.combine(db.customerDao().getCustomerById(customerId)) { sessions, _ ->
+        sessionRepo.allSessions.map { sessions ->
             sessions.filter {
-                it.billedToCustomerId == customerId ||
-                    (it.customerId == customerId && it.billedToCustomerId == null)
+                it.customerId == customerId || it.billedToCustomerId == customerId
             }
         }
 
@@ -1083,13 +1082,15 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 val purchases = ownerPurchaseRepo.getPurchasesForOwner(customer.id).first()
                 val vouchers = voucherRepo.getVouchersForCustomer(customer.id).first()
                 val config = appConfig.value
+                val allCustomers = db.customerDao().getAllCustomersDirect()
                 val file: File = PdfReportGenerator.generateCustomerStatementPdf(
                     context = getApplication(),
                     config = config,
                     customer = customer,
                     sessions = sessions,
                     vouchers = vouchers,
-                    purchases = purchases
+                    purchases = purchases,
+                    allCustomers = allCustomers
                 )
                 _pdfReadyFile.value = Pair(file, "كشف حساب ${customer.name}")
             } catch (e: Exception) {
