@@ -9,11 +9,10 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/auth.php';
 
-// Only authenticated admins can use this proxy
-if (empty($_SESSION['admin_logged_in'])) {
-    jsonResponse(false, 'غير مصرح: يجب تسجيل الدخول للوحة الإدارة أولاً', null, 401);
-}
+// Only authenticated admins can use this proxy (via session, bearer token, or cookie)
+requireAuth();
 
 $path = $_GET['path'] ?? '';
 if (empty($path)) {

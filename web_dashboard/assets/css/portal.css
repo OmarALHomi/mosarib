@@ -599,6 +599,37 @@ section[id] { scroll-margin-top: calc(var(--nav-h) + 16px); }
 }
 [data-theme="dark"] .device__screen { background: #0A1F1D; }
 
+@media (max-width: 480px) {
+  .device {
+    border-radius: 44px;
+    padding: 8px;
+  }
+  .device__screen {
+    border-radius: 36px;
+  }
+  .device__island {
+    width: 84px;
+    height: 22px;
+    top: 14px;
+  }
+  .app-content {
+    gap: 5px;
+    padding: 2px 8px 0;
+  }
+  .quick-grid {
+    gap: 5px;
+  }
+  .q-card {
+    padding: 6px 7px;
+  }
+  .records .record:nth-child(3) {
+    display: none;
+  }
+  .chart__bars {
+    height: 26px;
+  }
+}
+
 /* In-App Mockup Styling */
 .app-status {
   display: flex;
