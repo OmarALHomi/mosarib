@@ -190,7 +190,8 @@ fun CustomerDetailScreen(
     val config by viewModel.appConfig.collectAsStateWithLifecycle()
     val allCustomersWithBalance by viewModel.rawCustomersWithBalance.collectAsStateWithLifecycle()
     val customerWithBalance = allCustomersWithBalance.find { it.customer.id == customerId }
-    val allCustomers: List<Customer> by viewModel.allCustomers.collectAsStateWithLifecycle(initialValue = emptyList())
+    val allCustomers: List<Customer> by viewModel.allCustomersIncludingArchived.collectAsStateWithLifecycle(initialValue = emptyList())
+    val activeCustomers = remember(allCustomers) { allCustomers.filter { !it.isArchived } }
     val sessions by remember(customerId) { viewModel.getCustomerSessions(customerId) }.collectAsStateWithLifecycle(initialValue = emptyList())
     val purchases by remember(customerId) { viewModel.getCustomerPurchases(customerId) }.collectAsStateWithLifecycle(initialValue = emptyList())
     val vouchers by remember(customerId) { viewModel.getCustomerVouchers(customerId) }.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -1406,7 +1407,7 @@ fun CustomerDetailScreen(
                 date = System.currentTimeMillis()
             ),
             initialType = editingVoucher?.type ?: VoucherType.RECEIPT,
-            customers = if (allCustomers.isNotEmpty()) allCustomers else listOf(customer),
+            customers = if (activeCustomers.isNotEmpty()) activeCustomers else listOf(customer),
             allSessions = sessions,
             currencySymbol = config.currencySymbol,
             onDismiss = {
@@ -1456,7 +1457,7 @@ fun CustomerDetailScreen(
                 date = System.currentTimeMillis()
             ),
             initialType = VoucherType.EXPENSE,
-            customers = if (allCustomers.isNotEmpty()) allCustomers else listOf(customer),
+            customers = if (activeCustomers.isNotEmpty()) activeCustomers else listOf(customer),
             allSessions = sessions,
             currencySymbol = config.currencySymbol,
             onDismiss = { showAddDisbursementSheet = false },
@@ -1526,7 +1527,7 @@ fun CustomerDetailScreen(
         val editingSession = sessionToEdit
         AddEditSessionBottomSheet(
             initialSession = editingSession,
-            customers = allCustomers,
+            customers = activeCustomers,
             defaultCustomerId = editingSession?.customerId ?: customer.id,
             defaultPricePerHour = config.defaultPricePerHour,
             currencySymbol = config.currencySymbol,

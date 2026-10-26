@@ -28,6 +28,9 @@ interface CustomerDao {
     @Query("SELECT * FROM customers WHERE isArchived = 0 ORDER BY name ASC")
     suspend fun getAllCustomersDirect(): List<Customer>
 
+    @Query("SELECT * FROM customers ORDER BY name ASC")
+    suspend fun getAllCustomersIncludingArchivedDirect(): List<Customer>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCustomer(customer: Customer): Long
 

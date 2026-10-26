@@ -18,7 +18,7 @@ class WaterSessionRepository(
     val allSessions: Flow<List<WaterSession>> = sessionDao.getAllSessions()
 
     val sessionsWithCustomer: Flow<List<WaterSessionWithCustomer>> =
-        combine(sessionDao.getAllSessions(), customerDao.getAllCustomers()) { sessions, customers ->
+        combine(sessionDao.getAllSessions(), customerDao.getAllCustomersIncludingArchived()) { sessions, customers ->
             val customerMap = customers.associateBy { it.id }
             sessions.map { session ->
                 WaterSessionWithCustomer(

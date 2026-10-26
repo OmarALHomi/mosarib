@@ -144,6 +144,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     val allCustomers: Flow<List<Customer>> = customerRepo.allCustomers
+    val allCustomersIncludingArchived: Flow<List<Customer>> = db.customerDao().getAllCustomersIncludingArchived()
     val allVouchers: Flow<List<Voucher>> = voucherRepo.allVouchers
 
     fun saveCustomer(
@@ -1082,7 +1083,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 val purchases = ownerPurchaseRepo.getPurchasesForOwner(customer.id).first()
                 val vouchers = voucherRepo.getVouchersForCustomer(customer.id).first()
                 val config = appConfig.value
-                val allCustomers = db.customerDao().getAllCustomersDirect()
+                val allCustomers = db.customerDao().getAllCustomersIncludingArchivedDirect()
                 val file: File = PdfReportGenerator.generateCustomerStatementPdf(
                     context = getApplication(),
                     config = config,

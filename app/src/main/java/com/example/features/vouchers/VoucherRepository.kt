@@ -17,7 +17,7 @@ class VoucherRepository(
     val allVouchers: Flow<List<Voucher>> = voucherDao.getAllVouchers()
 
     val vouchersWithCustomer: Flow<List<VoucherWithCustomer>> =
-        combine(voucherDao.getAllVouchers(), customerDao.getAllCustomers()) { vouchers, customers ->
+        combine(voucherDao.getAllVouchers(), customerDao.getAllCustomersIncludingArchived()) { vouchers, customers ->
             val customerMap = customers.associateBy { it.id }
             vouchers.map { voucher ->
                 VoucherWithCustomer(
