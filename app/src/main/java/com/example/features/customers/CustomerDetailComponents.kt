@@ -269,7 +269,7 @@ fun AddDisbursementBottomSheet(
                 )
             }
             Text(
-                text = if (isWellOwner) "سيُخصم هذا السداد من مستحقات الشراء لصاحب البئر فقط، دون مقاصته مع رصيد السقي." else "سيتم قيد هذا المبلغ في كشف الحساب ويحدث تغييراً في رصيد العميل",
+                text = if (isWellOwner) "سيُخصم هذا السداد من صافي رصيد مستحقات صاحب البئر." else "سيتم قيد هذا المبلغ في كشف الحساب ويحدث تغييراً في رصيد العميل",
                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
             )
 
