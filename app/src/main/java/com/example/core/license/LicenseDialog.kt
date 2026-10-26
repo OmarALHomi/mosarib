@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -680,7 +681,7 @@ fun LicenseDialog(
                                         isPaymentDropdownExpanded = false
                                     },
                                     leadingIcon = {
-                                        Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                                        Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(16.dp))
                                     }
                                 )
                             }
@@ -695,7 +696,7 @@ fun LicenseDialog(
                             label = { Text("رقم سند التحويل / الحوالة (إن وجد)") },
                             placeholder = { Text("مثال: 94827103") },
                             leadingIcon = {
-                                Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                                Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
                             },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
@@ -1232,7 +1233,7 @@ fun LicenseDialog(
                             isPaymentDropdownExpanded = false
                         },
                         leadingIcon = {
-                            Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                            Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(16.dp))
                         }
                     )
                 }
@@ -1247,7 +1248,7 @@ fun LicenseDialog(
                 label = { Text("رقم سند التحويل أو الإيداع (إن وجد)") },
                 placeholder = { Text("مثال: 94827103") },
                 leadingIcon = {
-                    Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
