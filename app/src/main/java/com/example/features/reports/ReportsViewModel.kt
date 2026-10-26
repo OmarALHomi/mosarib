@@ -191,7 +191,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         val totalCollected = sessions.sumOf(::initialPayment) +
             vouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount.coerceAtLeast(0.0) }
         val totalDiscounts = vouchers
-            .filter { it.type == VoucherType.DISCOUNT && it.sessionId == null }
+            .filter { it.type == VoucherType.DISCOUNT }
             .sumOf { it.amount.coerceAtLeast(0.0) }
 
         val customerRows = customers.map { customer ->

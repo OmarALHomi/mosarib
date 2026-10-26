@@ -266,7 +266,7 @@ object PdfReportGenerator {
             val linkedToSession = voucher.sessionId != null && voucher.sessionId > 0
             val receivableChange = when (voucher.type) {
                 VoucherType.RECEIPT -> -voucher.amount
-                VoucherType.DISCOUNT -> if (linkedToSession) 0.0 else -voucher.amount
+                VoucherType.DISCOUNT -> -voucher.amount
                 VoucherType.EXPENSE -> if (customer.isWellOwner) 0.0 else voucher.amount
             }
             val payableChange = if (customer.isWellOwner && voucher.type == VoucherType.EXPENSE) -voucher.amount else 0.0

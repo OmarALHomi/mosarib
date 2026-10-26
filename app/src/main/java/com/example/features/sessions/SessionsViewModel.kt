@@ -344,7 +344,7 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
             val roundedDiscount = Formatters.roundMoney(discountAmount)
             val newAmountPaid = Formatters.roundMoney(session.amountPaid + roundedPayment)
             val newDiscount = Formatters.roundMoney(session.discountAmount + roundedDiscount)
-            val newRemainingDebt = Formatters.roundMoney((session.totalAmount - newAmountPaid - newDiscount).coerceAtLeast(0.0))
+            val newRemainingDebt = Formatters.roundMoney(maxOf(0.0, session.remainingDebt - roundedPayment - roundedDiscount))
             val updated = session.copy(
                 amountPaid = newAmountPaid,
                 discountAmount = newDiscount,

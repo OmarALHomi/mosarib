@@ -61,8 +61,8 @@ fun calculateCustomerBalance(
     val standaloneReceipts = customerVouchers
         .filter { it.type == VoucherType.RECEIPT && it.sessionId == null }
         .sumOf { it.amount.coerceAtLeast(0.0) }
-    val standaloneDiscounts = customerVouchers
-        .filter { it.type == VoucherType.DISCOUNT && it.sessionId == null }
+    val customerDiscounts = customerVouchers
+        .filter { it.type == VoucherType.DISCOUNT }
         .sumOf { it.amount.coerceAtLeast(0.0) }
     val collectedCash = sessionCash + standaloneReceipts
     val totalSales = customerSessions.sumOf { it.totalAmount.coerceAtLeast(0.0) }
@@ -85,7 +85,7 @@ fun calculateCustomerBalance(
     // السقيات المسجلة على حسابه (سواء لنفسه أو لمزارع على حسابه) تُعامل كسداد مباشر تخصم من مستحقات الشراء
     // فتنقص ما يطلبه صاحب البئر من المسرب، وإذا تجاوزت المشتريات تصبح ديناً على صاحب البئر للمسرب.
     val netOwnerPayable = if (customer.isWellOwner) {
-        (netPurchaseAmount + collectedCash) - (totalDisbursed + totalSales)
+        (netPurchaseAmount + collectedCash) - (totalDisbursed + (totalSales - customerDiscounts).coerceAtLeast(0.0))
     } else {
         0.0
     }
@@ -97,7 +97,7 @@ fun calculateCustomerBalance(
     val receivable = if (customer.isWellOwner) {
         if (netOwnerPayable < 0.0) MoneyPrecision.roundToCurrency(-netOwnerPayable) else 0.0
     } else {
-        MoneyPrecision.roundToCurrency(totalSales + customerSideDisbursements - collectedCash - standaloneDiscounts)
+        MoneyPrecision.roundToCurrency(totalSales + customerSideDisbursements - collectedCash - customerDiscounts)
     }
 
     return CustomerWithBalance(

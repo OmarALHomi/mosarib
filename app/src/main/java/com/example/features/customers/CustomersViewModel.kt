@@ -940,8 +940,8 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             val roundedPayment = Formatters.roundMoney(amount)
             val roundedDiscount = Formatters.roundMoney(discountAmount)
             val newAmountPaid = (session.amountPaid + roundedPayment).coerceAtMost(session.totalAmount)
-            val newDiscount = (session.discountAmount + roundedDiscount).coerceAtMost(session.totalAmount)
-            val newDebt = (session.totalAmount - (newAmountPaid + newDiscount)).coerceAtLeast(0.0)
+            val newDiscount = session.discountAmount + roundedDiscount
+            val newDebt = Formatters.roundMoney(maxOf(0.0, session.remainingDebt - roundedPayment - roundedDiscount))
             val updatedSession = session.copy(
                 amountPaid = newAmountPaid,
                 discountAmount = newDiscount,
@@ -1008,7 +1008,9 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                     } else session.discountAmount
 
                     val newDebt = if (isWellOwner) 0.0 else {
-                        (session.totalAmount - newDiscount - newPaid).coerceAtLeast(0.0)
+                        com.example.core.util.Formatters.roundMoney(
+                            minOf(session.remainingDebt + voucher.amount, (session.totalAmount - newPaid).coerceAtLeast(0.0))
+                        )
                     }
 
                     sessionRepo.updateSession(

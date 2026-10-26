@@ -135,6 +135,7 @@ enum class CustomerOpFilter(val title: String) {
     SESSIONS("السقي / البيع"),
     RECEIPTS("التحصيل"),
     DISBURSEMENTS("السداد"),
+    DISCOUNTS("الخصومات"),
     DEBT_ONLY("المؤخر")
 }
 
@@ -162,6 +163,12 @@ sealed class CustomerLedgerItem {
     }
 
     data class DisbursementItem(
+        val voucher: Voucher
+    ) : CustomerLedgerItem() {
+        override val timestamp: Long get() = voucher.date
+    }
+
+    data class DiscountItem(
         val voucher: Voucher
     ) : CustomerLedgerItem() {
         override val timestamp: Long get() = voucher.date
@@ -301,18 +308,22 @@ fun CustomerDetailScreen(
     val disbursementItems = remember(vouchers) {
         vouchers.filter { it.type == VoucherType.EXPENSE }.map { CustomerLedgerItem.DisbursementItem(it) }
     }
-
-    val allLedgerItems = remember(sessionItems, purchaseItems, receiptItems, disbursementItems) {
-        (sessionItems + purchaseItems + receiptItems + disbursementItems).sortedByDescending { it.timestamp }
+    val discountItems = remember(vouchers) {
+        vouchers.filter { it.type == VoucherType.DISCOUNT }.map { CustomerLedgerItem.DiscountItem(it) }
     }
 
-    val filteredItems = remember(selectedFilter, allLedgerItems, sessionItems, purchaseItems, receiptItems, disbursementItems) {
+    val allLedgerItems = remember(sessionItems, purchaseItems, receiptItems, disbursementItems, discountItems) {
+        (sessionItems + purchaseItems + receiptItems + disbursementItems + discountItems).sortedByDescending { it.timestamp }
+    }
+
+    val filteredItems = remember(selectedFilter, allLedgerItems, sessionItems, purchaseItems, receiptItems, disbursementItems, discountItems) {
         when (selectedFilter) {
             CustomerOpFilter.ALL -> allLedgerItems
             CustomerOpFilter.PURCHASES -> purchaseItems.sortedByDescending { it.timestamp }
             CustomerOpFilter.SESSIONS -> sessionItems.sortedByDescending { it.timestamp }
             CustomerOpFilter.RECEIPTS -> receiptItems.sortedByDescending { it.timestamp }
             CustomerOpFilter.DISBURSEMENTS -> disbursementItems.sortedByDescending { it.timestamp }
+            CustomerOpFilter.DISCOUNTS -> discountItems.sortedByDescending { it.timestamp }
             CustomerOpFilter.DEBT_ONLY -> sessionItems.filter { it.session.remainingDebt > 0 }.sortedByDescending { it.timestamp }
         }
     }
@@ -889,6 +900,7 @@ fun CustomerDetailScreen(
                                 CustomerOpFilter.SESSIONS -> sessions.size
                                 CustomerOpFilter.RECEIPTS -> receiptItems.size
                                 CustomerOpFilter.DISBURSEMENTS -> disbursementItems.size
+                                CustomerOpFilter.DISCOUNTS -> discountItems.size
                                 CustomerOpFilter.DEBT_ONLY -> unsettledCount
                             }
                             item {
@@ -928,6 +940,7 @@ fun CustomerDetailScreen(
                             is CustomerLedgerItem.SessionItem -> "sess_${item.session.id}"
                             is CustomerLedgerItem.ReceiptItem -> "rec_${item.voucher.id}"
                             is CustomerLedgerItem.DisbursementItem -> "disb_${item.voucher.id}"
+                            is CustomerLedgerItem.DiscountItem -> "disc_${item.voucher.id}"
                         }
                     }) { ledgerItem ->
                         when (ledgerItem) {
@@ -1016,6 +1029,23 @@ fun CustomerDetailScreen(
                                     },
                                     onShareWhatsApp = {
                                         messageCustomTarget = "سند صرف #${ledgerItem.voucher.voucherNumber.ifEmpty { ledgerItem.voucher.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ المصروف: ${Formatters.formatCurrency(ledgerItem.voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(ledgerItem.voucher.amount, config.currencySymbol)})\nالبيان: ${ledgerItem.voucher.notes.ifBlank { ledgerItem.voucher.category }}\nطريقة الصرف: ${ledgerItem.voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(ledgerItem.voucher.date)}"
+                                    },
+                                    onEditClick = {
+                                        voucherToEdit = ledgerItem.voucher
+                                    },
+                                    onDeleteClick = {
+                                        voucherToDelete = ledgerItem.voucher
+                                    }
+                                )
+                            }
+                            is CustomerLedgerItem.DiscountItem -> {
+                                CustomerDiscountCardItem(
+                                    voucher = ledgerItem.voucher,
+                                    currencySymbol = config.currencySymbol,
+                                    isWellOwner = customer.isWellOwner,
+                                    onCardClick = { voucherForDetails = ledgerItem.voucher },
+                                    onShareWhatsApp = {
+                                        messageCustomTarget = "سند تسوية وخصم #${ledgerItem.voucher.voucherNumber.ifEmpty { ledgerItem.voucher.id.toString() }}\nالعميل: ${customer.name}\nمبلغ الخصم: ${Formatters.formatCurrency(ledgerItem.voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(ledgerItem.voucher.amount, config.currencySymbol)})\nالبيان: ${ledgerItem.voucher.notes.ifBlank { ledgerItem.voucher.category }}\nالتاريخ: ${Formatters.formatDateTime(ledgerItem.voucher.date)}"
                                     },
                                     onEditClick = {
                                         voucherToEdit = ledgerItem.voucher
@@ -2795,6 +2825,168 @@ private fun CustomerDisbursementCardItem(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "البيان: $disburseDesc",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 12.5.sp
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CustomerDiscountCardItem(
+    voucher: Voucher,
+    currencySymbol: String,
+    isWellOwner: Boolean = false,
+    onCardClick: (() -> Unit)? = null,
+    onShareWhatsApp: () -> Unit,
+    onEditClick: () -> Unit = {},
+    onDeleteClick: () -> Unit
+) {
+    var menuExpanded by remember(voucher.id) { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .shadow(1.dp, RoundedCornerShape(14.dp))
+            .let { if (onCardClick != null) it.clickable { onCardClick() } else it },
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(AccentGold.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Bookmarks, contentDescription = null, tint = AccentGold, modifier = Modifier.size(17.dp))
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
+                        Text(
+                            text = "سند خصم ومسامحة (${voucher.voucherNumber})",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (voucher.sessionId != null) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(AccentGold.copy(alpha = 0.15f))
+                                    .padding(horizontal = 5.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "دورة #${voucher.sessionId}",
+                                    style = MaterialTheme.typography.labelSmall.copy(color = AccentGold, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Text(
+                    text = "- ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
+                    style = MaterialTheme.typography.titleMedium.copy(color = AccentGold, fontWeight = FontWeight.ExtraBold),
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.padding(start = 6.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "تسوية ومسامحة  •  ${Formatters.formatDateTime(voucher.date)}",
+                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onShareWhatsApp, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Share, contentDescription = "مشاركة", tint = PrimaryTeal, modifier = Modifier.size(17.dp))
+                    }
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "المزيد", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp))
+                        }
+                        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text("تعديل السند") },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onEditClick()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("حذف السند", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onDeleteClick()
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            val discNote = voucher.notes.ifBlank { voucher.category }
+            if (discNote.isNotBlank() && discNote != "عام") {
+                Spacer(modifier = Modifier.height(6.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = AccentGold.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, AccentGold.copy(alpha = 0.25f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Notes,
+                            contentDescription = null,
+                            tint = AccentGold,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "البيان: $discNote",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,

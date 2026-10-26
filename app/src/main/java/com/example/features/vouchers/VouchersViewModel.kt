@@ -473,7 +473,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                     } else session.discountAmount
 
                     val newDebt = if (isWellOwner) 0.0 else {
-                        (session.totalAmount - newDiscount - newPaid).coerceAtLeast(0.0)
+                        Formatters.roundMoney(minOf(session.remainingDebt + voucher.amount, (session.totalAmount - newPaid).coerceAtLeast(0.0)))
                     }
 
                     sessionRepo.updateSession(
@@ -522,7 +522,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                     } else session.discountAmount
 
                     val newDebt = if (isWellOwner) 0.0 else {
-                        (session.totalAmount - newDiscount - newPaid).coerceAtLeast(0.0)
+                        Formatters.roundMoney((session.remainingDebt - amountDiff).coerceIn(0.0, (session.totalAmount - newPaid).coerceAtLeast(0.0)))
                     }
 
                     sessionRepo.updateSession(
@@ -833,8 +833,8 @@ fun calculateFifoAllocation(
             discountPool = Formatters.roundMoney(maxOf(0.0, discountPool - allocatedDiscount))
 
             val newPaid = Formatters.roundMoney((s.amountPaid + allocatedCash).coerceAtMost(s.totalAmount))
-            val newDiscount = Formatters.roundMoney((s.discountAmount + allocatedDiscount).coerceAtMost(s.totalAmount))
-            val newDebt = Formatters.roundMoney((s.totalAmount - (newPaid + newDiscount)).coerceAtLeast(0.0))
+            val newDiscount = Formatters.roundMoney(s.discountAmount + allocatedDiscount)
+            val newDebt = Formatters.roundMoney(maxOf(0.0, sDebt - allocatedCash - allocatedDiscount))
 
             steps.add(
                 AllocationStep(

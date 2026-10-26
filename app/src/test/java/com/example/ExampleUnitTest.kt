@@ -190,4 +190,47 @@ class ExampleUnitTest {
         assertEquals(0.0, step.newDebt, 0.001)
         org.junit.Assert.assertTrue(step.isFullyPaid)
     }
+
+    @Test
+    fun `customer balance includes linked settlement discount vouchers`() {
+        val customer = Customer(id = 10, name = "مزارع")
+        val session = WaterSession(id = 101, customerId = customer.id, totalAmount = 10000.0, amountPaid = 6000.0, remainingDebt = 2000.0)
+        // Customer paid 6,000 cash via linked receipt and got 2,000 settlement discount linked to session
+        val vouchers = listOf(
+            Voucher(id = 1, customerId = customer.id, sessionId = session.id, type = VoucherType.RECEIPT, amount = 6000.0),
+            Voucher(id = 2, customerId = customer.id, sessionId = session.id, type = VoucherType.DISCOUNT, amount = 2000.0)
+        )
+
+        val result = calculateCustomerBalance(customer, listOf(session), vouchers)
+
+        assertEquals(10000.0, result.totalBilledAmount, 0.001)
+        assertEquals(6000.0, result.totalPaidAmount, 0.001)
+        assertEquals(2000.0, result.balance, 0.001)
+        assertEquals(2000.0, result.receivableBalance, 0.001)
+    }
+
+    @Test
+    fun `FIFO allocation on session with initial discount does not double deduct discount`() {
+        // Session created with net total 8000 (after 2000 initial discount). Debt is 8000.
+        val s1 = WaterSession(
+            id = 1,
+            customerId = 1L,
+            startTime = 1000L,
+            totalAmount = 8000.0,
+            discountAmount = 2000.0,
+            amountPaid = 0.0,
+            remainingDebt = 8000.0
+        )
+
+        // Customer pays 3000 cash (no new discount)
+        val result = com.example.features.vouchers.calculateFifoAllocation(listOf(s1), totalAmount = 3000.0, discountAmount = 0.0)
+
+        val step = result.steps.first()
+        assertEquals(3000.0, step.allocatedAmount, 0.001)
+        assertEquals(0.0, step.allocatedDiscount, 0.001)
+        assertEquals(3000.0, step.newPaid, 0.001)
+        assertEquals(2000.0, step.newDiscount, 0.001)
+        assertEquals(5000.0, step.newDebt, 0.001) // 8000 - 3000 = 5000 (NOT 3000!)
+        org.junit.Assert.assertFalse(step.isFullyPaid)
+    }
 }
