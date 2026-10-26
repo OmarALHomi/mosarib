@@ -591,7 +591,7 @@
 
       container.innerHTML = releases.map(r => {
         const sizeMb = (r.file_size / (1024 * 1024)).toFixed(1);
-        const dateStr = new Date(r.uploaded_at).toLocaleString('ar-EG');
+        const dateStr = new Date(r.uploaded_at || r.created_at || Date.now()).toLocaleString('ar-EG');
         return `
           <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -1232,6 +1232,8 @@
         : `<span class="badge badge-active">التطبيق 📱</span>`;
       
       const regionText = r.region || 'غير محدد';
+      const receiptText = r.receiptNumber || r.receipt_number || r.receipt || 'قيد التحويل';
+      const cleanReceipt = String(receiptText).replace(/'/g, "\\'");
       const reqId = r.id || r.requestId || r.firebaseKey || r._key || '';
 
       return `
@@ -1256,7 +1258,7 @@
                 ? `<button class="btn-sm btn-unblock" onclick="quickActivateRequest('${devCode}', '${(r.subscriberName || '').replace(/'/g, "\\'")}', '${r.plan || 'YEARLY'}', '${reqId}')" title="تفعيل الاشتراك وتوليد الرمز">⚡ تفعيل</button>`
                 : `<span style="font-size: 11.5px; color: var(--success); font-weight: bold; padding: 2px 6px;">منفّذ ✅</span>`
               }
-              ${cleanPhone ? `<button class="btn-sm btn-outline" onclick="notifySubscriberWhatsApp('${cleanPhone}', '${(r.subscriberName || '').replace(/'/g, "\\'")}', '${receiptText}')" title="تأكيد استلام السند عبر واتساب">💬</button>` : ''}
+              ${cleanPhone ? `<button class="btn-sm btn-outline" onclick="notifySubscriberWhatsApp('${cleanPhone}', '${(r.subscriberName || '').replace(/'/g, "\\'")}', '${cleanReceipt}')" title="تأكيد استلام السند عبر واتساب">💬</button>` : ''}
               <button class="btn-sm" style="background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.35); padding: 4px 8px; font-size: 12px;" onclick="deleteSubscriptionRequest('${reqId}')" title="حذف هذا الطلب">🗑️ حذف</button>
             </div>
           </td>

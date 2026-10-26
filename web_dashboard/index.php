@@ -584,7 +584,8 @@ if (empty($directDownloadUrl)) {
     function togglePortalTheme() {
       const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', cur);
-      document.getElementById('themeToggleIcon').textContent = cur === 'dark' ? '☀️' : '🌙';
+      const ic = document.getElementById('themeToggleIcon');
+      if (ic) ic.textContent = cur === 'dark' ? '☀️' : '🌙';
       try { localStorage.setItem('mosarib_portal_theme', cur); } catch(e) {}
     }
 
