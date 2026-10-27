@@ -78,6 +78,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.SolidColor
 import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -138,6 +139,7 @@ fun CustomersScreen(
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     val allSessions = vouchersViewModel?.allSessions?.collectAsStateWithLifecycle()?.value ?: emptyList()
     val context = LocalContext.current
+    val isDark = isAppDark()
 
     var showQuickAddChoice by remember { mutableStateOf(false) }
     var showAddSheet by remember { mutableStateOf(false) }
@@ -440,6 +442,7 @@ fun CustomersScreen(
                                                 value = searchQuery,
                                                 onValueChange = { viewModel.setSearchQuery(it) },
                                                 singleLine = true,
+                                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                                                     color = MaterialTheme.colorScheme.onSurface,
                                                     fontSize = 11.5.sp
@@ -549,7 +552,7 @@ fun CustomersScreen(
                                             modifier = Modifier
                                                 .size(7.dp)
                                                 .clip(CircleShape)
-                                                .background(if (balanceFilter == CustomerBalanceFilter.DEBTOR) Color.White else Color(0xFFE53935))
+                                                .background(if (balanceFilter == CustomerBalanceFilter.DEBTOR) Color.White else (if (isDark) Color(0xFFF87171) else Color(0xFFE53935)))
                                         )
                                     }
                                 )
@@ -567,7 +570,7 @@ fun CustomersScreen(
                                             modifier = Modifier
                                                 .size(7.dp)
                                                 .clip(CircleShape)
-                                                .background(if (balanceFilter == CustomerBalanceFilter.CREDITOR) Color.White else Color(0xFF2E7D32))
+                                                .background(if (balanceFilter == CustomerBalanceFilter.CREDITOR) Color.White else (if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32)))
                                         )
                                     }
                                 )
@@ -732,6 +735,7 @@ fun CustomersScreen(
                                             value = searchQuery,
                                             onValueChange = { viewModel.setSearchQuery(it) },
                                             singleLine = true,
+                                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                             textStyle = MaterialTheme.typography.bodyMedium.copy(
                                                 color = MaterialTheme.colorScheme.onSurface,
                                                 fontSize = 11.5.sp
@@ -777,7 +781,7 @@ fun CustomersScreen(
                                             modifier = Modifier
                                                 .size(7.dp)
                                                 .clip(CircleShape)
-                                                .background(if (balanceFilter == CustomerBalanceFilter.DEBTOR) Color.White else Color(0xFFE53935))
+                                                .background(if (balanceFilter == CustomerBalanceFilter.DEBTOR) Color.White else (if (isDark) Color(0xFFF87171) else Color(0xFFE53935)))
                                         )
                                     }
                                 )
@@ -795,7 +799,7 @@ fun CustomersScreen(
                                             modifier = Modifier
                                                 .size(7.dp)
                                                 .clip(CircleShape)
-                                                .background(if (balanceFilter == CustomerBalanceFilter.CREDITOR) Color.White else Color(0xFF2E7D32))
+                                                .background(if (balanceFilter == CustomerBalanceFilter.CREDITOR) Color.White else (if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32)))
                                         )
                                     }
                                 )

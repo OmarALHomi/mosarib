@@ -109,6 +109,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.core.ui.EmptyStateView
 import com.example.core.ui.LuxuryToastNotification
 import com.example.core.ui.SendMessageChoiceDialog
+import com.example.core.ui.isAppDark
 import com.example.core.util.FileSharingHelper
 import com.example.core.util.Formatters
 import com.example.core.util.PdfReportGenerator
@@ -2531,6 +2532,7 @@ private fun CustomerReceiptCardItem(
     onEditClick: () -> Unit = {},
     onDeleteClick: () -> Unit
 ) {
+    val isDark = isAppDark()
     var menuExpanded by remember(voucher.id) { mutableStateOf(false) }
 
     Card(
@@ -2698,7 +2700,7 @@ private fun CustomerReceiptCardItem(
                 ) {
                     if (!isCompactCard) {
                         IconButton(onClick = onShareWhatsApp, modifier = Modifier.size(26.dp)) {
-                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = Color(0xFF2E7D32), modifier = Modifier.size(14.dp))
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32), modifier = Modifier.size(14.dp))
                         }
 
                         IconButton(onClick = onPdfClick, modifier = Modifier.size(26.dp)) {
@@ -2713,7 +2715,7 @@ private fun CustomerReceiptCardItem(
                         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                             DropdownMenuItem(
                                 text = { Text("مشاركة السند (واتساب)", fontWeight = FontWeight.Bold) },
-                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF2E7D32)) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32)) },
                                 onClick = {
                                     menuExpanded = false
                                     onShareWhatsApp()
@@ -2765,6 +2767,8 @@ private fun CustomerDisbursementCardItem(
     onEditClick: () -> Unit = {},
     onDeleteClick: () -> Unit
 ) {
+    val isDark = isAppDark()
+    val dColor = if (isDark) Color(0xFFF87171) else Color(0xFFC62828)
     var menuExpanded by remember(voucher.id) { mutableStateOf(false) }
 
     Card(
@@ -2795,10 +2799,10 @@ private fun CustomerDisbursementCardItem(
                         modifier = Modifier
                             .size(28.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFC62828).copy(alpha = 0.12f)),
+                            .background(dColor.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = Color(0xFFC62828), modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = dColor, modifier = Modifier.size(16.dp))
                     }
                     Spacer(modifier = Modifier.width(7.dp))
                     Row(
@@ -2841,7 +2845,7 @@ private fun CustomerDisbursementCardItem(
                 Text(
                     text = "- ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        color = Color(0xFFC62828),
+                        color = dColor,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 14.5.sp
                     ),
@@ -2856,9 +2860,9 @@ private fun CustomerDisbursementCardItem(
                 Spacer(modifier = Modifier.height(3.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color(0xFFC62828).copy(alpha = 0.08f),
+                    color = dColor.copy(alpha = 0.08f),
                     shape = RoundedCornerShape(6.dp),
-                    border = BorderStroke(1.dp, Color(0xFFC62828).copy(alpha = 0.2f))
+                    border = BorderStroke(1.dp, dColor.copy(alpha = 0.2f))
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
@@ -2867,7 +2871,7 @@ private fun CustomerDisbursementCardItem(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Notes,
                             contentDescription = null,
-                            tint = Color(0xFFC62828),
+                            tint = dColor,
                             modifier = Modifier.size(13.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
@@ -2913,7 +2917,7 @@ private fun CustomerDisbursementCardItem(
                 ) {
                     if (!isCompactCard) {
                         IconButton(onClick = onShareWhatsApp, modifier = Modifier.size(26.dp)) {
-                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = Color(0xFF2E7D32), modifier = Modifier.size(14.dp))
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32), modifier = Modifier.size(14.dp))
                         }
 
                         IconButton(onClick = onPdfClick, modifier = Modifier.size(26.dp)) {
@@ -2928,7 +2932,7 @@ private fun CustomerDisbursementCardItem(
                         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                             DropdownMenuItem(
                                 text = { Text("مشاركة السند (واتساب)", fontWeight = FontWeight.Bold) },
-                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF2E7D32)) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32)) },
                                 onClick = {
                                     menuExpanded = false
                                     onShareWhatsApp()
@@ -2979,6 +2983,7 @@ private fun CustomerDiscountCardItem(
     onEditClick: () -> Unit = {},
     onDeleteClick: () -> Unit
 ) {
+    val isDark = isAppDark()
     var menuExpanded by remember(voucher.id) { mutableStateOf(false) }
 
     Card(
