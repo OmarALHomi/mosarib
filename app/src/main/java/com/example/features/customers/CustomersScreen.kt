@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -378,35 +379,68 @@ fun CustomersScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                MosaribTextField(
-                                    value = searchQuery,
-                                    onValueChange = { viewModel.setSearchQuery(it) },
-                                    placeholder = "بحث بالاسم، المزرعة، أو الهاتف...",
-                                    isDense = true,
-                                    leadingIcon = {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1.3f)
+                                        .height(36.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                                        .padding(horizontal = 8.dp),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
                                         Icon(
                                             imageVector = Icons.Default.Search,
                                             contentDescription = null,
-                                            tint = PrimaryTeal,
-                                            modifier = Modifier.size(18.dp)
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(15.dp)
                                         )
-                                    },
-                                    trailingIcon = if (searchQuery.isNotEmpty()) {
-                                        {
-                                            IconButton(onClick = { viewModel.setSearchQuery("") }, modifier = Modifier.size(24.dp)) {
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Box(
+                                            modifier = Modifier.weight(1f),
+                                            contentAlignment = Alignment.CenterStart
+                                        ) {
+                                            if (searchQuery.isEmpty()) {
+                                                Text(
+                                                    text = "بحث...",
+                                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                                        fontSize = 11.5.sp
+                                                    ),
+                                                    maxLines = 1
+                                                )
+                                            }
+                                            BasicTextField(
+                                                value = searchQuery,
+                                                onValueChange = { viewModel.setSearchQuery(it) },
+                                                singleLine = true,
+                                                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    fontSize = 11.5.sp
+                                                ),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .testTag("customers_search_input")
+                                            )
+                                        }
+                                        if (searchQuery.isNotEmpty()) {
+                                            IconButton(
+                                                onClick = { viewModel.setSearchQuery("") },
+                                                modifier = Modifier.size(18.dp)
+                                            ) {
                                                 Icon(
                                                     imageVector = Icons.Default.Close,
                                                     contentDescription = "مسح",
-                                                    modifier = Modifier.size(16.dp)
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(13.dp)
                                                 )
                                             }
                                         }
-                                    } else null,
-                                    modifier = Modifier
-                                        .weight(1.3f)
-                                        .testTag("customers_search_input"),
-                                    singleLine = true
-                                )
+                                    }
+                                }
 
                                 MosaribFilterRow(
                                     modifier = Modifier.weight(1.7f),
@@ -577,35 +611,68 @@ fun CustomersScreen(
 
                             Spacer(modifier = Modifier.height(4.dp))
 
-                            MosaribTextField(
-                                value = searchQuery,
-                                onValueChange = { viewModel.setSearchQuery(it) },
-                                placeholder = "بحث بالاسم، المزرعة، أو الهاتف...",
-                                isDense = true,
-                                leadingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                                    .padding(horizontal = 8.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.Search,
                                         contentDescription = null,
-                                        tint = PrimaryTeal,
-                                        modifier = Modifier.size(18.dp)
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(15.dp)
                                     )
-                                },
-                                trailingIcon = if (searchQuery.isNotEmpty()) {
-                                    {
-                                        IconButton(onClick = { viewModel.setSearchQuery("") }, modifier = Modifier.size(24.dp)) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Box(
+                                        modifier = Modifier.weight(1f),
+                                        contentAlignment = Alignment.CenterStart
+                                    ) {
+                                        if (searchQuery.isEmpty()) {
+                                            Text(
+                                                text = "بحث بالاسم، المزرعة، أو الهاتف...",
+                                                style = MaterialTheme.typography.bodyMedium.copy(
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                                    fontSize = 11.5.sp
+                                                ),
+                                                maxLines = 1
+                                            )
+                                        }
+                                        BasicTextField(
+                                            value = searchQuery,
+                                            onValueChange = { viewModel.setSearchQuery(it) },
+                                            singleLine = true,
+                                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontSize = 11.5.sp
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("customers_search_input")
+                                        )
+                                    }
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(
+                                            onClick = { viewModel.setSearchQuery("") },
+                                            modifier = Modifier.size(18.dp)
+                                        ) {
                                             Icon(
                                                 imageVector = Icons.Default.Close,
                                                 contentDescription = "مسح",
-                                                modifier = Modifier.size(16.dp)
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(13.dp)
                                             )
                                         }
                                     }
-                                } else null,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("customers_search_input"),
-                                singleLine = true
-                            )
+                                }
+                            }
 
                             Spacer(modifier = Modifier.height(4.dp))
 
