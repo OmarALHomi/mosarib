@@ -799,13 +799,24 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
       </div>
       <div class="footer__col">
         <h4>المنظومة</h4>
+        <?php if (!empty($ps['show_features_section'])): ?>
         <a href="#features">المميزات</a>
+        <?php endif; ?>
+        <?php if (!empty($ps['show_rates_section'])): ?>
         <a href="#rates">بورصة الأسعار</a>
+        <?php endif; ?>
+        <?php if (!empty($ps['show_plans_section'])): ?>
         <a href="#pricing">الباقات والترخيص</a>
+        <?php endif; ?>
+        <?php if (!empty($ps['show_how_section'])): ?>
+        <a href="#how">كيف يعمل</a>
+        <?php endif; ?>
       </div>
       <div class="footer__col">
         <h4>الدعم المباشر</h4>
+        <?php if (!empty($ps['show_faq_section'])): ?>
         <a href="#faq">الأسئلة الشائعة</a>
+        <?php endif; ?>
         <?php if (!empty($ps['contact_whatsapp'])): ?>
         <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>" target="_blank">محادثة واتساب</a>
         <?php endif; ?>
