@@ -126,6 +126,27 @@ if ($method === 'POST') {
         ];
         firebaseRequest('app_broadcast.json', 'PUT', $bcPayload);
 
-        jsonResponse(true, 'تم ربط وبث رابط التحميل الخارجي لجميع المستخدمين بنجاح', $bcPayload);
+        // Also add external release to releases_index.json so public portal download button uses it
+        $releases = file_exists($releasesFile) ? json_decode(file_get_contents($releasesFile), true) : [];
+        if (!is_array($releases)) $releases = [];
+        $newExternalRelease = [
+            'id' => 'REL_EXT_' . time(),
+            'version_name' => '1.' . $versionCode . '.0',
+            'version_code' => $versionCode,
+            'release_notes' => $notes ?: 'تحديث ورابط تحميل خارجي مباشر',
+            'file_name' => 'external_link',
+            'file_size' => 0,
+            'download_url' => $customUrl,
+            'is_force_update' => $isForce,
+            'is_external' => true,
+            'uploaded_at' => time() * 1000
+        ];
+        array_unshift($releases, $newExternalRelease);
+        file_put_contents($releasesFile, json_encode($releases, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+        jsonResponse(true, 'تم ربط وبث رابط التحميل الخارجي لجميع المستخدمين والموقع العام بنجاح', [
+            'broadcast' => $bcPayload,
+            'release' => $newExternalRelease
+        ]);
     }
 }

@@ -406,6 +406,7 @@
     .badge-trial { background: rgba(255, 179, 0, 0.15); color: var(--accent); }
     .badge-blocked { background: rgba(255, 82, 82, 0.15); color: var(--danger); }
     .badge-monthly { background: rgba(0, 184, 212, 0.15); color: #00E5FF; }
+    [data-theme="light"] .badge-monthly { background: rgba(0, 131, 143, 0.12); color: #00838F; }
     .badge-yearly { background: rgba(255, 179, 0, 0.15); color: var(--accent); }
     .btn-sm {
       padding: 5px 10px;

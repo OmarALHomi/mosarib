@@ -26,6 +26,13 @@
   let currentRequestFilter = 'PENDING';
 
   function switchTab(tabId) {
+    try {
+      sessionStorage.setItem('mosarib_active_tab', tabId);
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, null, `#${tabId}`);
+      }
+    } catch (_) {}
+
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     ['analytics', 'requests', 'users', 'releases', 'policies', 'push', 'broadcast', 'generator', 'feedbacks', 'admins', 'publicPortal'].forEach(id => {
       const el = document.getElementById(`tab-${id}`);
@@ -164,34 +171,34 @@
 
     const payload = {
       action: 'update_settings',
-      active_region_name: document.getElementById("pActiveRegionName").value.trim(),
-      avg_hourly_price: parseFloat(document.getElementById("pAvgPrice").value) || 0,
-      min_hourly_price: parseFloat(document.getElementById("pMinPrice").value) || 0,
-      max_hourly_price: parseFloat(document.getElementById("pMaxPrice").value) || 0,
-      currency_symbol: document.getElementById("pCurrency").value.trim(),
-      water_status: document.getElementById("pWaterStatus").value,
-      rates_note: document.getElementById("pRatesNote").value.trim(),
-      headline_alert: document.getElementById("pHeadlineAlert").value.trim(),
+      active_region_name: document.getElementById("pActiveRegionName") ? document.getElementById("pActiveRegionName").value.trim() : '',
+      avg_hourly_price: document.getElementById("pAvgPrice") ? (parseFloat(document.getElementById("pAvgPrice").value) || 0) : 0,
+      min_hourly_price: document.getElementById("pMinPrice") ? (parseFloat(document.getElementById("pMinPrice").value) || 0) : 0,
+      max_hourly_price: document.getElementById("pMaxPrice") ? (parseFloat(document.getElementById("pMaxPrice").value) || 0) : 0,
+      currency_symbol: document.getElementById("pCurrency") ? document.getElementById("pCurrency").value.trim() : 'ريال',
+      water_status: document.getElementById("pWaterStatus") ? document.getElementById("pWaterStatus").value : 'GOOD',
+      rates_note: document.getElementById("pRatesNote") ? document.getElementById("pRatesNote").value.trim() : '',
+      headline_alert: document.getElementById("pHeadlineAlert") ? document.getElementById("pHeadlineAlert").value.trim() : '',
 
-      hero_badge: document.getElementById("pHeroBadge").value.trim(),
-      hero_title: document.getElementById("pHeroTitle").value.trim(),
-      hero_subtitle: document.getElementById("pHeroSubtitle").value.trim(),
-      contact_whatsapp: document.getElementById("pContactWhatsapp").value.trim(),
-      contact_phone: document.getElementById("pContactPhone").value.trim(),
-      developer_name: document.getElementById("pDeveloperName").value.trim(),
-      developer_company: document.getElementById("pDeveloperCompany").value.trim(),
-      developer_email: document.getElementById("pDeveloperEmail").value.trim(),
+      hero_badge: document.getElementById("pHeroBadge") ? document.getElementById("pHeroBadge").value.trim() : '',
+      hero_title: document.getElementById("pHeroTitle") ? document.getElementById("pHeroTitle").value.trim() : '',
+      hero_subtitle: document.getElementById("pHeroSubtitle") ? document.getElementById("pHeroSubtitle").value.trim() : '',
+      contact_whatsapp: document.getElementById("pContactWhatsapp") ? document.getElementById("pContactWhatsapp").value.trim() : '',
+      contact_phone: document.getElementById("pContactPhone") ? document.getElementById("pContactPhone").value.trim() : '',
+      developer_name: document.getElementById("pDeveloperName") ? document.getElementById("pDeveloperName").value.trim() : '',
+      developer_company: document.getElementById("pDeveloperCompany") ? document.getElementById("pDeveloperCompany").value.trim() : '',
+      developer_email: document.getElementById("pDeveloperEmail") ? document.getElementById("pDeveloperEmail").value.trim() : '',
 
-      show_top_ticker: document.getElementById("pShowTopTicker").checked,
-      show_rates_section: document.getElementById("pShowRatesSection").checked,
-      show_features_section: document.getElementById("pShowFeaturesSection").checked,
+      show_top_ticker: document.getElementById("pShowTopTicker") ? document.getElementById("pShowTopTicker").checked : true,
+      show_rates_section: document.getElementById("pShowRatesSection") ? document.getElementById("pShowRatesSection").checked : true,
+      show_features_section: document.getElementById("pShowFeaturesSection") ? document.getElementById("pShowFeaturesSection").checked : true,
       show_how_section: document.getElementById("pShowHowSection") ? document.getElementById("pShowHowSection").checked : true,
       show_testimonials_section: document.getElementById("pShowTestimonialsSection") ? document.getElementById("pShowTestimonialsSection").checked : true,
-      show_plans_section: document.getElementById("pShowPlansSection").checked,
+      show_plans_section: document.getElementById("pShowPlansSection") ? document.getElementById("pShowPlansSection").checked : true,
       show_news_section: document.getElementById("pShowNewsSection") ? document.getElementById("pShowNewsSection").checked : true,
       show_faq_section: document.getElementById("pShowFaqSection") ? document.getElementById("pShowFaqSection").checked : true,
-      show_developer_section: document.getElementById("pShowDeveloperSection").checked,
-      show_download_cta: document.getElementById("pShowDownloadCta").checked,
+      show_developer_section: document.getElementById("pShowDeveloperSection") ? document.getElementById("pShowDeveloperSection").checked : true,
+      show_download_cta: document.getElementById("pShowDownloadCta") ? document.getElementById("pShowDownloadCta").checked : true,
       csrf_token: currentCsrfToken
     };
 
@@ -598,7 +605,7 @@
       }
 
       container.innerHTML = releases.map(r => {
-        const sizeMb = (r.file_size / (1024 * 1024)).toFixed(1);
+        const sizeStr = (r.is_external || !r.file_size) ? 'رابط خارجي مباشر 🔗' : `${(r.file_size / (1024 * 1024)).toFixed(1)} MB`;
         const dateStr = new Date(r.uploaded_at || r.created_at || Date.now()).toLocaleString('ar-EG');
         return `
           <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px;">
@@ -607,7 +614,7 @@
               <span class="badge ${r.is_force_update ? 'badge-blocked' : 'badge-active'}">${r.is_force_update ? 'تحديث إجباري' : 'إصدار اختياري'}</span>
             </div>
             <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
-              الحجم: ${sizeMb} MB • تاريخ الرفع: ${dateStr}
+              الحجم: ${sizeStr} • تاريخ النشر: ${dateStr}
             </div>
             <div style="font-size: 13px; line-height: 1.6; margin-bottom: 10px; color: var(--text);">
               ${r.release_notes || 'بدون ملاحظات'}
@@ -1544,7 +1551,7 @@
   function renderUsersTable(users) {
     const tbody = document.getElementById("usersTableBody");
     if (!users || users.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">لا يوجد مستخدمون مسجلون بعد (سيظهر كل من يفتح التطبيق هنا تلقائياً)</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted);">لا يوجد مستخدمون مسجلون بعد (سيظهر كل من يفتح التطبيق هنا تلقائياً)</td></tr>`;
       return;
     }
 
@@ -1612,7 +1619,7 @@
     filteredList.sort((a,b) => (b.lastActiveAt || 0) - (a.lastActiveAt || 0));
 
     if (filteredList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 20px;">لا توجد نتائج مطابقة للفلتر المختار</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 20px;">لا توجد نتائج مطابقة للفلتر المختار</td></tr>`;
       return;
     }
 
@@ -2151,6 +2158,13 @@
     activeModalUserKey = null;
   }
 
+  // Keyboard shortcut: Close user modal with Escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' || e.key === 'Esc') {
+      closeUserDetailModal();
+    }
+  });
+
   function switchUserModalTab(tabName) {
     ['profile', 'messages', 'push'].forEach(t => {
       const el = document.getElementById(`modalUserTab-${t}`);
@@ -2568,3 +2582,9 @@
   // Initial load
   initTheme();
   checkServerSession();
+  try {
+    const savedTab = (location.hash ? location.hash.replace('#', '') : '') || sessionStorage.getItem('mosarib_active_tab');
+    if (savedTab && ['analytics', 'requests', 'users', 'releases', 'policies', 'push', 'broadcast', 'generator', 'feedbacks', 'admins', 'publicPortal'].includes(savedTab)) {
+      switchTab(savedTab);
+    }
+  } catch (_) {}

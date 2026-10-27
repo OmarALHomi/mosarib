@@ -133,6 +133,14 @@ function unlockDashboardView(admin) {
   if (typeof loadFirebaseData === 'function') {
     loadFirebaseData();
   }
+
+  // Restore saved active tab (from URL hash or sessionStorage)
+  try {
+    const savedTab = (location.hash ? location.hash.replace('#', '') : '') || sessionStorage.getItem('mosarib_active_tab');
+    if (savedTab && typeof switchTab === 'function' && ['analytics', 'requests', 'users', 'releases', 'policies', 'push', 'broadcast', 'generator', 'feedbacks', 'admins', 'publicPortal'].includes(savedTab)) {
+      switchTab(savedTab);
+    }
+  } catch (_) {}
 }
 
 async function handleSecureLogin(e) {
@@ -232,7 +240,8 @@ async function handleCreateAdmin(e) {
     const data = (await safeJson(res)) || {};
     if (data.success) {
       alert("✅ " + data.message);
-      document.getElementById("createAdminForm").reset();
+      const formEl = document.getElementById("newAdminForm");
+      if (formEl) formEl.reset();
       loadAdminsList();
     } else {
       alert("خطأ: " + (data.message || 'تعذر إضافة المسؤول'));
