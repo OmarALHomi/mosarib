@@ -131,6 +131,7 @@ fun CustomersScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val sortType by viewModel.sortType.collectAsStateWithLifecycle()
     val accountFilter by viewModel.accountFilter.collectAsStateWithLifecycle()
+    val balanceFilter by viewModel.balanceFilter.collectAsStateWithLifecycle()
     val selectedGroup by viewModel.selectedGroup.collectAsStateWithLifecycle()
     val customGroups by viewModel.customGroups.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
@@ -182,6 +183,28 @@ fun CustomersScreen(
                 val owedTo = owners.sumOf { it.receivableBalance.coerceAtLeast(0.0) }
                 Pair(owedBy, owedTo)
             }
+        }
+    }
+
+    // إحصائيات الفلترة بالرصيد (عليه / له / مسدد) المتجاوبة مع الفئة والمجموعة المحددة
+    val baseListForBadges = remember(rawCustomers, accountFilter, selectedGroup) {
+        val byAcc = when (accountFilter) {
+            AccountFilter.ALL -> rawCustomers
+            AccountFilter.FARMERS -> rawCustomers.filter { !it.customer.isWellOwner }
+            AccountFilter.WELL_OWNERS -> rawCustomers.filter { it.customer.isWellOwner }
+        }
+        if (selectedGroup.isNullOrBlank()) byAcc
+        else byAcc.filter { it.customer.customGroup.trim().equals(selectedGroup?.trim(), ignoreCase = true) }
+    }
+    val debtorCount = remember(baseListForBadges) {
+        baseListForBadges.count { it.receivableBalance > 0.001 }
+    }
+    val creditorCount = remember(baseListForBadges) {
+        baseListForBadges.count { it.payableBalance > 0.001 || it.receivableBalance < -0.001 }
+    }
+    val settledCount = remember(baseListForBadges) {
+        baseListForBadges.count {
+            it.receivableBalance <= 0.001 && it.receivableBalance >= -0.001 && it.payableBalance <= 0.001
         }
     }
 
@@ -513,6 +536,66 @@ fun CustomersScreen(
                                 contentPadding = PaddingValues(0.dp)
                             ) {
                                 MosaribFilterChip(
+                                    selected = balanceFilter == CustomerBalanceFilter.DEBTOR,
+                                    onClick = {
+                                        if (balanceFilter == CustomerBalanceFilter.DEBTOR) viewModel.setBalanceFilter(CustomerBalanceFilter.ALL)
+                                        else viewModel.setBalanceFilter(CustomerBalanceFilter.DEBTOR)
+                                    },
+                                    label = "عليه",
+                                    badgeCount = debtorCount,
+                                    isCompact = true,
+                                    leadingIcon = {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(7.dp)
+                                                .clip(CircleShape)
+                                                .background(if (balanceFilter == CustomerBalanceFilter.DEBTOR) Color.White else Color(0xFFE53935))
+                                        )
+                                    }
+                                )
+                                MosaribFilterChip(
+                                    selected = balanceFilter == CustomerBalanceFilter.CREDITOR,
+                                    onClick = {
+                                        if (balanceFilter == CustomerBalanceFilter.CREDITOR) viewModel.setBalanceFilter(CustomerBalanceFilter.ALL)
+                                        else viewModel.setBalanceFilter(CustomerBalanceFilter.CREDITOR)
+                                    },
+                                    label = "له",
+                                    badgeCount = creditorCount,
+                                    isCompact = true,
+                                    leadingIcon = {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(7.dp)
+                                                .clip(CircleShape)
+                                                .background(if (balanceFilter == CustomerBalanceFilter.CREDITOR) Color.White else Color(0xFF2E7D32))
+                                        )
+                                    }
+                                )
+                                MosaribFilterChip(
+                                    selected = balanceFilter == CustomerBalanceFilter.SETTLED,
+                                    onClick = {
+                                        if (balanceFilter == CustomerBalanceFilter.SETTLED) viewModel.setBalanceFilter(CustomerBalanceFilter.ALL)
+                                        else viewModel.setBalanceFilter(CustomerBalanceFilter.SETTLED)
+                                    },
+                                    label = "مسدد",
+                                    badgeCount = settledCount,
+                                    isCompact = true,
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(13.dp),
+                                            tint = if (balanceFilter == CustomerBalanceFilter.SETTLED) Color.White else AccentEmerald
+                                        )
+                                    }
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .width(1.dp)
+                                        .height(18.dp)
+                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                                )
+                                MosaribFilterChip(
                                     selected = sortType == CustomerSort.NAME,
                                     onClick = { viewModel.setSortType(CustomerSort.NAME) },
                                     label = "أبجدياً (الاسم)",
@@ -681,6 +764,66 @@ fun CustomersScreen(
                                 contentPadding = PaddingValues(0.dp)
                             ) {
                                 MosaribFilterChip(
+                                    selected = balanceFilter == CustomerBalanceFilter.DEBTOR,
+                                    onClick = {
+                                        if (balanceFilter == CustomerBalanceFilter.DEBTOR) viewModel.setBalanceFilter(CustomerBalanceFilter.ALL)
+                                        else viewModel.setBalanceFilter(CustomerBalanceFilter.DEBTOR)
+                                    },
+                                    label = "عليه",
+                                    badgeCount = debtorCount,
+                                    isCompact = true,
+                                    leadingIcon = {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(7.dp)
+                                                .clip(CircleShape)
+                                                .background(if (balanceFilter == CustomerBalanceFilter.DEBTOR) Color.White else Color(0xFFE53935))
+                                        )
+                                    }
+                                )
+                                MosaribFilterChip(
+                                    selected = balanceFilter == CustomerBalanceFilter.CREDITOR,
+                                    onClick = {
+                                        if (balanceFilter == CustomerBalanceFilter.CREDITOR) viewModel.setBalanceFilter(CustomerBalanceFilter.ALL)
+                                        else viewModel.setBalanceFilter(CustomerBalanceFilter.CREDITOR)
+                                    },
+                                    label = "له",
+                                    badgeCount = creditorCount,
+                                    isCompact = true,
+                                    leadingIcon = {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(7.dp)
+                                                .clip(CircleShape)
+                                                .background(if (balanceFilter == CustomerBalanceFilter.CREDITOR) Color.White else Color(0xFF2E7D32))
+                                        )
+                                    }
+                                )
+                                MosaribFilterChip(
+                                    selected = balanceFilter == CustomerBalanceFilter.SETTLED,
+                                    onClick = {
+                                        if (balanceFilter == CustomerBalanceFilter.SETTLED) viewModel.setBalanceFilter(CustomerBalanceFilter.ALL)
+                                        else viewModel.setBalanceFilter(CustomerBalanceFilter.SETTLED)
+                                    },
+                                    label = "مسدد",
+                                    badgeCount = settledCount,
+                                    isCompact = true,
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(13.dp),
+                                            tint = if (balanceFilter == CustomerBalanceFilter.SETTLED) Color.White else AccentEmerald
+                                        )
+                                    }
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .width(1.dp)
+                                        .height(18.dp)
+                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                                )
+                                MosaribFilterChip(
                                     selected = sortType == CustomerSort.NAME,
                                     onClick = { viewModel.setSortType(CustomerSort.NAME) },
                                     label = "أبجدياً (الاسم)",
@@ -709,8 +852,14 @@ fun CustomersScreen(
                 item {
                     EmptyStateView(
                         icon = Icons.Default.Person,
-                        title = if (accountFilter == AccountFilter.WELL_OWNERS) "لا يوجد أصحاب آبار مسجلين" else "لا يوجد عملاء مضافين",
-                        description = "اضغط على زر (+) لإضافة حساب جديد"
+                        title = when {
+                            balanceFilter == CustomerBalanceFilter.DEBTOR -> "لا يوجد عملاء عليهم مبالغ"
+                            balanceFilter == CustomerBalanceFilter.CREDITOR -> "لا يوجد عملاء لهم أرصدة"
+                            balanceFilter == CustomerBalanceFilter.SETTLED -> "لا يوجد عملاء مسددون بالكامل"
+                            accountFilter == AccountFilter.WELL_OWNERS -> "لا يوجد أصحاب آبار مسجلين"
+                            else -> "لا يوجد عملاء مضافين"
+                        },
+                        description = if (balanceFilter != CustomerBalanceFilter.ALL) "جرّب تغيير خيارات الفلترة لعرض باقي الحسابات" else "اضغط على زر (+) لإضافة حساب جديد"
                     )
                 }
             } else {

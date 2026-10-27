@@ -43,6 +43,10 @@ enum class AccountFilter {
     ALL, FARMERS, WELL_OWNERS
 }
 
+enum class CustomerBalanceFilter {
+    ALL, DEBTOR, CREDITOR, SETTLED
+}
+
 class CustomersViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getDatabase(application)
@@ -74,6 +78,13 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         _accountFilter.value = filter
     }
 
+    private val _balanceFilter = MutableStateFlow(CustomerBalanceFilter.ALL)
+    val balanceFilter: StateFlow<CustomerBalanceFilter> = _balanceFilter.asStateFlow()
+
+    fun setBalanceFilter(filter: CustomerBalanceFilter) {
+        _balanceFilter.value = filter
+    }
+
     private val _selectedGroup = MutableStateFlow<String?>(null)
     val selectedGroup: StateFlow<String?> = _selectedGroup.asStateFlow()
 
@@ -100,27 +111,50 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             .sorted()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private data class CustomerFilterParams(
+        val query: String,
+        val sort: CustomerSort,
+        val account: AccountFilter,
+        val group: String?,
+        val balance: CustomerBalanceFilter
+    )
+
     val customersWithBalance: StateFlow<List<CustomerWithBalance>> =
-        combine(customerRepo.customersWithBalance, _searchQuery, _sortType, _accountFilter, _selectedGroup) { list, query, sort, filter, group ->
-            val byFilter = when (filter) {
+        combine(
+            customerRepo.customersWithBalance,
+            combine(_searchQuery, _sortType, _accountFilter, _selectedGroup, _balanceFilter) { query, sort, account, group, balance ->
+                CustomerFilterParams(query, sort, account, group, balance)
+            }
+        ) { list, params ->
+            val byFilter = when (params.account) {
                 AccountFilter.ALL -> list
                 AccountFilter.FARMERS -> list.filter { !it.customer.isWellOwner }
                 AccountFilter.WELL_OWNERS -> list.filter { it.customer.isWellOwner }
             }
-            val byGroup = if (group.isNullOrBlank()) byFilter else {
-                byFilter.filter { it.customer.customGroup.trim().equals(group.trim(), ignoreCase = true) }
+            val byGroup = if (params.group.isNullOrBlank()) byFilter else {
+                byFilter.filter { it.customer.customGroup.trim().equals(params.group.trim(), ignoreCase = true) }
             }
-            val filtered = if (query.isBlank()) byGroup else {
-                byGroup.filter {
-                    it.customer.name.contains(query, ignoreCase = true) ||
-                    it.customer.phone.contains(query, ignoreCase = true) ||
-                    it.customer.farmName.contains(query, ignoreCase = true) ||
-                    it.customer.location.contains(query, ignoreCase = true) ||
-                    it.customer.customGroup.contains(query, ignoreCase = true)
+            val byBalance = when (params.balance) {
+                CustomerBalanceFilter.ALL -> byGroup
+                CustomerBalanceFilter.DEBTOR -> byGroup.filter { it.receivableBalance > 0.001 }
+                CustomerBalanceFilter.CREDITOR -> byGroup.filter {
+                    it.payableBalance > 0.001 || it.receivableBalance < -0.001
+                }
+                CustomerBalanceFilter.SETTLED -> byGroup.filter {
+                    it.receivableBalance <= 0.001 && it.receivableBalance >= -0.001 && it.payableBalance <= 0.001
+                }
+            }
+            val filtered = if (params.query.isBlank()) byBalance else {
+                byBalance.filter {
+                    it.customer.name.contains(params.query, ignoreCase = true) ||
+                    it.customer.phone.contains(params.query, ignoreCase = true) ||
+                    it.customer.farmName.contains(params.query, ignoreCase = true) ||
+                    it.customer.location.contains(params.query, ignoreCase = true) ||
+                    it.customer.customGroup.contains(params.query, ignoreCase = true)
                 }
             }
 
-            when (sort) {
+            when (params.sort) {
                 CustomerSort.NAME -> filtered.sortedBy { it.customer.name }
                 CustomerSort.HIGHEST_DEBT -> filtered.sortedByDescending { it.balance }
                 CustomerSort.MOST_WATER_HOURS -> filtered.sortedByDescending { it.totalMinutes }
