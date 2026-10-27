@@ -78,7 +78,11 @@
           document.getElementById("pShowTopTicker").checked = ps.show_top_ticker !== false;
           document.getElementById("pShowRatesSection").checked = ps.show_rates_section !== false;
           document.getElementById("pShowFeaturesSection").checked = ps.show_features_section !== false;
+          if (document.getElementById("pShowHowSection")) document.getElementById("pShowHowSection").checked = ps.show_how_section !== false;
+          if (document.getElementById("pShowTestimonialsSection")) document.getElementById("pShowTestimonialsSection").checked = ps.show_testimonials_section !== false;
           document.getElementById("pShowPlansSection").checked = ps.show_plans_section !== false;
+          if (document.getElementById("pShowNewsSection")) document.getElementById("pShowNewsSection").checked = ps.show_news_section !== false;
+          if (document.getElementById("pShowFaqSection")) document.getElementById("pShowFaqSection").checked = ps.show_faq_section !== false;
           document.getElementById("pShowDeveloperSection").checked = ps.show_developer_section !== false;
           document.getElementById("pShowDownloadCta").checked = ps.show_download_cta !== false;
         }
@@ -181,7 +185,11 @@
       show_top_ticker: document.getElementById("pShowTopTicker").checked,
       show_rates_section: document.getElementById("pShowRatesSection").checked,
       show_features_section: document.getElementById("pShowFeaturesSection").checked,
+      show_how_section: document.getElementById("pShowHowSection") ? document.getElementById("pShowHowSection").checked : true,
+      show_testimonials_section: document.getElementById("pShowTestimonialsSection") ? document.getElementById("pShowTestimonialsSection").checked : true,
       show_plans_section: document.getElementById("pShowPlansSection").checked,
+      show_news_section: document.getElementById("pShowNewsSection") ? document.getElementById("pShowNewsSection").checked : true,
+      show_faq_section: document.getElementById("pShowFaqSection") ? document.getElementById("pShowFaqSection").checked : true,
       show_developer_section: document.getElementById("pShowDeveloperSection").checked,
       show_download_cta: document.getElementById("pShowDownloadCta").checked,
       csrf_token: currentCsrfToken

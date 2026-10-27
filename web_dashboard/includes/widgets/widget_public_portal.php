@@ -150,8 +150,24 @@
             <span>قسم مميزات التطبيق</span>
           </label>
           <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-title); font-weight: 700;">
+            <input type="checkbox" id="pShowHowSection" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
+            <span>قسم خطوات الاستخدام (كيف يعمل)</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-title); font-weight: 700;">
+            <input type="checkbox" id="pShowTestimonialsSection" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
+            <span>قسم آراء وتجارب العملاء</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-title); font-weight: 700;">
             <input type="checkbox" id="pShowPlansSection" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
             <span>قسم خطط وتراخيص التطبيق</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-title); font-weight: 700;">
+            <input type="checkbox" id="pShowNewsSection" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
+            <span>قسم الأخبار ومستجدات الآبار</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-title); font-weight: 700;">
+            <input type="checkbox" id="pShowFaqSection" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
+            <span>قسم الأسئلة الشائعة</span>
           </label>
           <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-title); font-weight: 700;">
             <input type="checkbox" id="pShowDeveloperSection" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>

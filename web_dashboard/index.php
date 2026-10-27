@@ -82,7 +82,13 @@ $ps = [
     'show_top_ticker' => true,
     'show_rates_section' => true,
     'show_features_section' => true,
-    'show_plans_section' => true
+    'show_how_section' => true,
+    'show_testimonials_section' => true,
+    'show_plans_section' => true,
+    'show_news_section' => true,
+    'show_faq_section' => true,
+    'show_developer_section' => true,
+    'show_download_cta' => true
 ];
 
 if (file_exists($settingsFile)) {
@@ -221,8 +227,12 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
       <?php if (!empty($ps['show_plans_section'])): ?>
       <a href="#pricing">الباقات والترخيص</a>
       <?php endif; ?>
+      <?php if (!empty($ps['show_how_section'])): ?>
       <a href="#how">كيف يعمل</a>
+      <?php endif; ?>
+      <?php if (!empty($ps['show_faq_section'])): ?>
       <a href="#faq">الأسئلة</a>
+      <?php endif; ?>
     </nav>
 
     <div class="nav__actions">
@@ -254,8 +264,12 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
   <?php if (!empty($ps['show_plans_section'])): ?>
   <a href="#pricing" data-menu-close>الباقات والترخيص</a>
   <?php endif; ?>
+  <?php if (!empty($ps['show_how_section'])): ?>
   <a href="#how" data-menu-close>كيف يعمل</a>
+  <?php endif; ?>
+  <?php if (!empty($ps['show_faq_section'])): ?>
   <a href="#faq" data-menu-close>الأسئلة الشائعة</a>
+  <?php endif; ?>
   <a href="<?= htmlspecialchars($directDownloadUrl) ?>" class="btn btn-primary btn-block btn-lg" download onclick="trackDownload()" data-menu-close>
     تحميل التطبيق مجاناً (APK v<?= htmlspecialchars($apkVersionName) ?>)
   </a>
@@ -560,6 +574,7 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
   <?php endif; ?>
 
   <!-- How It Works -->
+  <?php if (!empty($ps['show_how_section'])): ?>
   <section class="section" id="how">
     <div class="container">
       <div class="section-head reveal">
@@ -585,8 +600,10 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
       </div>
     </div>
   </section>
+  <?php endif; ?>
 
   <!-- Testimonials -->
+  <?php if (!empty($ps['show_testimonials_section'])): ?>
   <section class="section testimonials" id="testimonials">
     <div class="container">
       <div class="section-head reveal">
@@ -636,6 +653,7 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
       </div>
     </div>
   </section>
+  <?php endif; ?>
 
   <!-- Pricing Plans Section -->
   <?php if (!empty($ps['show_plans_section'])): ?>
@@ -688,7 +706,7 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
   <?php endif; ?>
 
   <!-- Agricultural News & Market Reports -->
-  <?php if (!empty($portalNews)): ?>
+  <?php if (!empty($ps['show_news_section']) && !empty($portalNews)): ?>
   <section class="section" id="news" style="background:var(--surface); border-block:1px solid var(--line);">
     <div class="container">
       <div class="section-head reveal">
@@ -711,6 +729,7 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
   <?php endif; ?>
 
   <!-- FAQ Section -->
+  <?php if (!empty($ps['show_faq_section'])): ?>
   <section class="section faq" id="faq">
     <div class="container">
       <div class="section-head reveal">
@@ -741,8 +760,10 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
       </div>
     </div>
   </section>
+  <?php endif; ?>
 
   <!-- CTA Section -->
+  <?php if (!empty($ps['show_download_cta'])): ?>
   <section class="cta">
     <div class="container">
       <div class="cta__card reveal">
@@ -762,6 +783,7 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
       </div>
     </div>
   </section>
+  <?php endif; ?>
 </main>
 
 <!-- Footer -->

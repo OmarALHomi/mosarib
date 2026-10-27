@@ -213,7 +213,11 @@ if ($method === 'GET') {
         'show_top_ticker' => true,
         'show_rates_section' => true,
         'show_features_section' => true,
+        'show_how_section' => true,
+        'show_testimonials_section' => true,
         'show_plans_section' => true,
+        'show_news_section' => true,
+        'show_faq_section' => true,
         'show_developer_section' => true,
         'show_download_cta' => true
     ], $settings);
@@ -490,7 +494,11 @@ if ($method === 'POST') {
             'show_top_ticker' => isset($input['show_top_ticker']) ? filter_var($input['show_top_ticker'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_top_ticker'] ?? true),
             'show_rates_section' => isset($input['show_rates_section']) ? filter_var($input['show_rates_section'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_rates_section'] ?? true),
             'show_features_section' => isset($input['show_features_section']) ? filter_var($input['show_features_section'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_features_section'] ?? true),
+            'show_how_section' => isset($input['show_how_section']) ? filter_var($input['show_how_section'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_how_section'] ?? true),
+            'show_testimonials_section' => isset($input['show_testimonials_section']) ? filter_var($input['show_testimonials_section'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_testimonials_section'] ?? true),
             'show_plans_section' => isset($input['show_plans_section']) ? filter_var($input['show_plans_section'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_plans_section'] ?? true),
+            'show_news_section' => isset($input['show_news_section']) ? filter_var($input['show_news_section'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_news_section'] ?? true),
+            'show_faq_section' => isset($input['show_faq_section']) ? filter_var($input['show_faq_section'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_faq_section'] ?? true),
             'show_developer_section' => isset($input['show_developer_section']) ? filter_var($input['show_developer_section'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_developer_section'] ?? true),
             'show_download_cta' => isset($input['show_download_cta']) ? filter_var($input['show_download_cta'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_download_cta'] ?? true)
         ]);
