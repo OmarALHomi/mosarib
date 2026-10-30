@@ -7,6 +7,7 @@ import com.example.features.settings.AppConfig
 import com.example.features.vouchers.SettlementResult
 import com.example.features.vouchers.Voucher
 import com.example.features.wellowners.WellOwnerPurchase
+import com.example.features.wellowners.WellOwnerPurchaseMath
 
 /**
  * منسق الرسائل الموحد لتطبيق المُسَرِّبْ.
@@ -194,9 +195,28 @@ ${notePart}📅 التاريخ: $date
         }
     }
 
-    /**
-     * 4. بيان شراء ساعات من صاحب بئر
-     */
+    fun buildPurchaseBill(
+        purchase: WellOwnerPurchase,
+        owner: Customer,
+        config: AppConfig,
+        isSms: Boolean
+    ): String {
+        val chargeable = WellOwnerPurchaseMath.chargeableMinutes(purchase)
+        val totalAmount = WellOwnerPurchaseMath.payableAmount(purchase)
+        val remainingDebt = (totalAmount - purchase.amountPaid).coerceAtLeast(0.0)
+        return buildPurchaseBill(
+            purchase = purchase,
+            owner = owner,
+            chargeableMinutes = chargeable,
+            wasteMinutes = purchase.wastedMinutesOnOwner,
+            totalAmount = totalAmount,
+            paidAmount = purchase.amountPaid,
+            remainingDebt = remainingDebt,
+            config = config,
+            isSms = isSms
+        )
+    }
+
     fun buildPurchaseBill(
         purchase: WellOwnerPurchase,
         owner: Customer,

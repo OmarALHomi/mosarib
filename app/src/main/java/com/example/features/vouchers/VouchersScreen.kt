@@ -33,6 +33,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Eco
@@ -729,7 +730,27 @@ fun VouchersScreen(
                         is UnifiedOperation.VoucherOp -> {
                             val voucher = op.voucherWithCustomer.voucher
                             val isReceipt = voucher.type == VoucherType.RECEIPT
-                            val badgeColor = if (isReceipt) AccentEmerald else Color(0xFFE53935)
+                            val isSessionPayment = isReceipt && voucher.sessionId != null && voucher.sessionId > 0
+                            val isDiscount = voucher.type == VoucherType.DISCOUNT
+
+                            val opColor = when {
+                                isSessionPayment -> Color(0xFFD97706)
+                                isReceipt -> AccentEmerald
+                                isDiscount -> Color(0xFF8B5CF6)
+                                else -> Color(0xFFEF4444)
+                            }
+                            val opBadgeText = when {
+                                isSessionPayment -> "سداد دورة سقي"
+                                isReceipt -> "سند قبض"
+                                isDiscount -> "خصم"
+                                else -> "سند صرف"
+                            }
+                            val opIcon = when {
+                                isSessionPayment -> Icons.Default.CheckCircle
+                                isReceipt -> Icons.Default.ArrowDownward
+                                isDiscount -> Icons.Default.ArrowDownward
+                                else -> Icons.Default.ArrowUpward
+                            }
                             val customer = op.voucherWithCustomer.customer
                             val titleText = when {
                                 isReceipt -> customer?.name ?: "عميل نقدي"
@@ -746,6 +767,7 @@ fun VouchersScreen(
                                     .shadow(1.dp, RoundedCornerShape(12.dp))
                                     .clickable { voucherForDetails = op.voucherWithCustomer },
                                 shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.2.dp, opColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                             ) {
                                 Column(
@@ -753,28 +775,38 @@ fun VouchersScreen(
                                         .fillMaxWidth()
                                         .padding(horizontal = 10.dp, vertical = 7.dp)
                                 ) {
-                                    // 1. الصف العلوي: علامة سحب أخضر + اسم العميل + نوع السند + رقم الساقية + المبلغ
+                                    // 1. الصف العلوي: شريط عمودي ملون + أيقونة + اسم العميل + نوع السند + رقم الساقية + المبلغ
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        // اليمين: الأيقونة واسم العميل وبادج السند وبادج الساقية
+                                        // اليمين: الشريط العمودي الملون + الأيقونة واسم العميل وبادج السند وبادج الساقية
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             modifier = Modifier.weight(1f)
                                         ) {
                                             Box(
                                                 modifier = Modifier
+                                                    .width(3.5.dp)
+                                                    .height(28.dp)
+                                                    .clip(RoundedCornerShape(2.dp))
+                                                    .background(opColor)
+                                            )
+
+                                            Spacer(modifier = Modifier.width(6.dp))
+
+                                            Box(
+                                                modifier = Modifier
                                                     .size(28.dp)
                                                     .clip(CircleShape)
-                                                    .background(badgeColor.copy(alpha = 0.12f)),
+                                                    .background(opColor.copy(alpha = 0.12f)),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Icon(
-                                                    imageVector = if (isReceipt) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
-                                                    contentDescription = if (isReceipt) "قبض" else "صرف",
-                                                    tint = badgeColor,
+                                                    imageVector = opIcon,
+                                                    contentDescription = opBadgeText,
+                                                    tint = opColor,
                                                     modifier = Modifier.size(16.dp)
                                                 )
                                             }
@@ -804,13 +836,13 @@ fun VouchersScreen(
                                                 )
                                                 Spacer(modifier = Modifier.width(5.dp))
                                                 Surface(
-                                                    color = badgeColor.copy(alpha = 0.1f),
+                                                    color = opColor.copy(alpha = 0.12f),
                                                     shape = RoundedCornerShape(4.dp)
                                                 ) {
                                                     Text(
-                                                        text = if (isReceipt) "قبض" else if (voucher.type == VoucherType.DISCOUNT) "خصم" else "صرف",
+                                                        text = opBadgeText,
                                                         style = MaterialTheme.typography.labelSmall.copy(
-                                                            color = badgeColor,
+                                                            color = opColor,
                                                             fontWeight = FontWeight.Bold,
                                                             fontSize = 9.5.sp
                                                         ),
@@ -857,7 +889,7 @@ fun VouchersScreen(
                                             text = (if (isReceipt) "+ " else "- ") + Formatters.formatCurrency(voucher.amount, config.currencySymbol),
                                             style = MaterialTheme.typography.titleMedium.copy(
                                                 fontWeight = FontWeight.ExtraBold,
-                                                color = badgeColor,
+                                                color = opColor,
                                                 fontSize = 15.sp
                                             ),
                                             maxLines = 1,
@@ -880,7 +912,7 @@ fun VouchersScreen(
                                                 Icon(
                                                     imageVector = Icons.AutoMirrored.Filled.Notes,
                                                     contentDescription = null,
-                                                    tint = badgeColor,
+                                                    tint = opColor,
                                                     modifier = Modifier.size(13.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(4.dp))
@@ -1156,6 +1188,7 @@ fun VouchersScreen(
                             val remainingDebt = (totalAmount - paidAmount).coerceAtLeast(0.0)
                             val chargeable = WellOwnerPurchaseMath.chargeableMinutes(purchase)
                             val waste = purchase.wastedMinutesOnOwner
+                            val purchaseColor = Color(0xFF0288D1)
 
                             Card(
                                 modifier = Modifier
@@ -1163,6 +1196,7 @@ fun VouchersScreen(
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                                     .shadow(1.dp, RoundedCornerShape(12.dp)),
                                 shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.2.dp, purchaseColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                             ) {
                                 Column(
@@ -1170,28 +1204,38 @@ fun VouchersScreen(
                                         .fillMaxWidth()
                                         .padding(horizontal = 10.dp, vertical = 7.dp)
                                 ) {
-                                    // 1. الصف العلوي: أيقونة + اسم صاحب البئر + الإجمالي المالي
+                                    // 1. الصف العلوي: شريط عمودي مميز + أيقونة + اسم صاحب البئر + الإجمالي المالي
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        // اليمين: الأيقونة واسم صاحب البئر وبادج شراء ساعات
+                                        // اليمين: الشريط العمودي + الأيقونة واسم صاحب البئر وبادج شراء ساعات
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             modifier = Modifier.weight(1f)
                                         ) {
                                             Box(
                                                 modifier = Modifier
+                                                    .width(3.5.dp)
+                                                    .height(28.dp)
+                                                    .clip(RoundedCornerShape(2.dp))
+                                                    .background(purchaseColor)
+                                            )
+
+                                            Spacer(modifier = Modifier.width(6.dp))
+
+                                            Box(
+                                                modifier = Modifier
                                                     .size(28.dp)
                                                     .clip(CircleShape)
-                                                    .background(Color(0xFF0288D1).copy(alpha = 0.12f)),
+                                                    .background(purchaseColor.copy(alpha = 0.12f)),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Default.WaterDrop,
+                                                    imageVector = Icons.Default.AccessTime,
                                                     contentDescription = "شراء ساعات",
-                                                    tint = Color(0xFF0288D1),
+                                                    tint = purchaseColor,
                                                     modifier = Modifier.size(16.dp)
                                                 )
                                             }
@@ -1219,13 +1263,13 @@ fun VouchersScreen(
                                                 )
                                                 Spacer(modifier = Modifier.width(5.dp))
                                                 Surface(
-                                                    color = Color(0xFF0288D1).copy(alpha = 0.1f),
+                                                    color = purchaseColor.copy(alpha = 0.12f),
                                                     shape = RoundedCornerShape(4.dp)
                                                 ) {
                                                     Text(
                                                         text = "شراء ساعات",
                                                         style = MaterialTheme.typography.labelSmall.copy(
-                                                            color = Color(0xFF0288D1),
+                                                            color = purchaseColor,
                                                             fontWeight = FontWeight.Bold,
                                                             fontSize = 9.5.sp
                                                         ),
@@ -1244,7 +1288,7 @@ fun VouchersScreen(
                                             text = Formatters.formatCurrency(totalAmount, config.currencySymbol),
                                             style = MaterialTheme.typography.titleMedium.copy(
                                                 fontWeight = FontWeight.ExtraBold,
-                                                color = Color(0xFF0288D1),
+                                                color = purchaseColor,
                                                 fontSize = 15.sp
                                             ),
                                             maxLines = 1,
@@ -1449,38 +1493,18 @@ fun VouchersScreen(
                                                             .clip(RoundedCornerShape(6.dp))
                                                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                                             .clickable {
-                                                                val waMsg = MessageFormatHelper.buildPurchaseBill(
-                                                                    purchase = purchase,
-                                                                    owner = owner,
-                                                                    chargeableMinutes = chargeable,
-                                                                    wasteMinutes = waste,
-                                                                    totalAmount = totalAmount,
-                                                                    paidAmount = paidAmount,
-                                                                    remainingDebt = remainingDebt,
-                                                                    config = config,
-                                                                    isSms = false
-                                                                )
-                                                                val smsMsg = MessageFormatHelper.buildPurchaseBill(
-                                                                    purchase = purchase,
-                                                                    owner = owner,
-                                                                    chargeableMinutes = chargeable,
-                                                                    wasteMinutes = waste,
-                                                                    totalAmount = totalAmount,
-                                                                    paidAmount = paidAmount,
-                                                                    remainingDebt = remainingDebt,
-                                                                    config = config,
-                                                                    isSms = true
-                                                                )
+                                                                val waMsg = MessageFormatHelper.buildPurchaseBill(purchase, owner, config, isSms = false)
+                                                                val smsMsg = MessageFormatHelper.buildPurchaseBill(purchase, owner, config, isSms = true)
                                                                 voucherMessageTarget = Triple(owner, waMsg, smsMsg)
                                                             },
                                                         contentAlignment = Alignment.Center
                                                     ) {
                                                         Icon(
                                                             Icons.AutoMirrored.Filled.Send,
-                                                            contentDescription = "مشاركة",
-                                                            tint = PrimaryTeal,
-                                                            modifier = Modifier.size(13.dp)
-                                                        )
+                                                             contentDescription = "مشاركة",
+                                                             tint = purchaseColor,
+                                                             modifier = Modifier.size(13.dp)
+                                                         )
                                                     }
                                                 }
 
@@ -1542,28 +1566,8 @@ fun VouchersScreen(
                                                                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF2E7D32)) },
                                                                 onClick = {
                                                                     purchaseMenuExpanded = false
-                                                                    val waMsg = MessageFormatHelper.buildPurchaseBill(
-                                                                        purchase = purchase,
-                                                                        owner = owner,
-                                                                        chargeableMinutes = chargeable,
-                                                                        wasteMinutes = waste,
-                                                                        totalAmount = totalAmount,
-                                                                        paidAmount = paidAmount,
-                                                                        remainingDebt = remainingDebt,
-                                                                        config = config,
-                                                                        isSms = false
-                                                                    )
-                                                                    val smsMsg = MessageFormatHelper.buildPurchaseBill(
-                                                                        purchase = purchase,
-                                                                        owner = owner,
-                                                                        chargeableMinutes = chargeable,
-                                                                        wasteMinutes = waste,
-                                                                        totalAmount = totalAmount,
-                                                                        paidAmount = paidAmount,
-                                                                        remainingDebt = remainingDebt,
-                                                                        config = config,
-                                                                        isSms = true
-                                                                    )
+                                                                    val waMsg = MessageFormatHelper.buildPurchaseBill(purchase, owner, config, isSms = false)
+                                                                    val smsMsg = MessageFormatHelper.buildPurchaseBill(purchase, owner, config, isSms = true)
                                                                     voucherMessageTarget = Triple(owner, waMsg, smsMsg)
                                                                 }
                                                             )
@@ -2158,6 +2162,22 @@ fun VouchersScreen(
                     startTime = startTime,
                     endTime = endTime
                 )
+                val targetOwner = customers.find { it.id == p.ownerCustomerId }
+                if (targetOwner != null && targetOwner.phone.isNotBlank()) {
+                    val updatedPurchase = p.copy(
+                        date = date,
+                        durationMinutes = durationMinutes,
+                        wastedMinutesOnOwner = wastedMinutes,
+                        purchaseRatePerHour = rate,
+                        amountPaid = amountPaid,
+                        notes = notes,
+                        startTime = startTime,
+                        endTime = endTime
+                    )
+                    val waMsg = MessageFormatHelper.buildPurchaseBill(updatedPurchase, targetOwner, config, isSms = false)
+                    val smsMsg = MessageFormatHelper.buildPurchaseBill(updatedPurchase, targetOwner, config, isSms = true)
+                    voucherMessageTarget = Triple(targetOwner, waMsg, smsMsg)
+                }
                 purchaseToEdit = null
             }
         )
@@ -2180,7 +2200,15 @@ fun VouchersScreen(
                     notes = notes,
                     amountPaid = paid,
                     startTime = startTime,
-                    endTime = endTime
+                    endTime = endTime,
+                    onCreated = { savedPurchase ->
+                        val targetOwner = customers.find { it.id == ownerId }
+                        if (targetOwner != null && targetOwner.phone.isNotBlank()) {
+                            val waMsg = MessageFormatHelper.buildPurchaseBill(savedPurchase, targetOwner, config, isSms = false)
+                            val smsMsg = MessageFormatHelper.buildPurchaseBill(savedPurchase, targetOwner, config, isSms = true)
+                            voucherMessageTarget = Triple(targetOwner, waMsg, smsMsg)
+                        }
+                    }
                 )
                 showAddPurchaseSheet = false
             }

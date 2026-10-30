@@ -96,8 +96,12 @@ import com.example.features.vouchers.VouchersViewModel
 import com.example.features.wellowners.WellOwnerPurchaseBottomSheet
 import com.example.core.license.LicenseDialog
 import com.example.core.license.LicenseManager
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Warning
+import com.example.core.ui.SendMessageChoiceDialog
+import com.example.core.util.FileSharingHelper
+import com.example.core.util.MessageFormatHelper
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
@@ -149,6 +153,7 @@ fun HomeScreen(
     var voucherInitialType by remember { mutableStateOf(VoucherType.RECEIPT) }
     var showAddCustomerSheet by remember { mutableStateOf(false) }
     var showAddPurchaseSheet by remember { mutableStateOf(false) }
+    var homePurchaseTarget by remember { mutableStateOf<Triple<Customer, String, String>?>(null) }
 
     fun checkOperationAllowed(action: () -> Unit) {
         if (LicenseManager.canPerformOperation(context, operationsCount)) {
@@ -331,11 +336,11 @@ fun HomeScreen(
                         )
 
                         QuickActionCard(
-                            title = "شراء",
+                            title = "شراء ساعات",
                             subtitle = "شراء ماء من بئر",
-                            icon = Icons.Default.LocalGasStation,
-                            iconBgColor = if (isDarkTheme) Color(0xFF261436) else Color(0xFFF3E8FF),
-                            iconTint = if (isDarkTheme) Color(0xFFC084FC) else Color(0xFF7E22CE),
+                            icon = Icons.Default.AccessTime,
+                            iconBgColor = if (isDarkTheme) Color(0xFF0C2433) else Color(0xFFE0F2FE),
+                            iconTint = if (isDarkTheme) Color(0xFF38BDF8) else Color(0xFF0288D1),
                             onClick = {
                                 checkOperationAllowed {
                                     showAddPurchaseSheet = true
@@ -580,9 +585,35 @@ fun HomeScreen(
                     notes = notes,
                     amountPaid = paid,
                     startTime = startTime,
-                    endTime = endTime
+                    endTime = endTime,
+                    onCreated = { savedPurchase ->
+                        val targetOwner = customers.find { it.id == ownerId }
+                        if (targetOwner != null && targetOwner.phone.isNotBlank()) {
+                            val waMsg = MessageFormatHelper.buildPurchaseBill(savedPurchase, targetOwner, config, isSms = false)
+                            val smsMsg = MessageFormatHelper.buildPurchaseBill(savedPurchase, targetOwner, config, isSms = true)
+                            homePurchaseTarget = Triple(targetOwner, waMsg, smsMsg)
+                        }
+                    }
                 )
                 showAddPurchaseSheet = false
+            }
+        )
+    }
+
+    homePurchaseTarget?.let { (owner, waMsg, smsMsg) ->
+        SendMessageChoiceDialog(
+            recipientName = owner.name,
+            recipientPhone = owner.phone,
+            messageText = waMsg,
+            smsMessageText = smsMsg,
+            onDismiss = { homePurchaseTarget = null },
+            onSendWhatsApp = {
+                homePurchaseTarget = null
+                FileSharingHelper.sendWhatsAppMessage(context, owner.phone, waMsg)
+            },
+            onSendSms = {
+                homePurchaseTarget = null
+                FileSharingHelper.sendSms(context, owner.phone, smsMsg)
             }
         )
     }

@@ -626,7 +626,8 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         notes: String,
         amountPaid: Double = 0.0,
         startTime: Long = 0L,
-        endTime: Long = 0L
+        endTime: Long = 0L,
+        onCreated: ((WellOwnerPurchase) -> Unit)? = null
     ) {
         viewModelScope.launch {
             val owner = customerRepo.getCustomerByIdDirect(ownerCustomerId)
@@ -687,6 +688,22 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
 
             LicenseManager.recordOperationPerformed(getApplication(), totalOps)
             showToast("تم تسجيل شراء الساعات وتحديث حساب صاحب البئر", ToastType.SUCCESS)
+
+            val createdPurchase = WellOwnerPurchase(
+                id = newId,
+                ownerCustomerId = ownerCustomerId,
+                date = date,
+                startTime = startTime,
+                endTime = endTime,
+                durationMinutes = durationMinutes,
+                wastedMinutesOnOwner = wastedMinutesOnOwner,
+                purchaseRatePerHour = Formatters.roundMoney(purchaseRatePerHour),
+                amountPaid = Formatters.roundMoney(amountPaid),
+                notes = notes.trim()
+            )
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                onCreated?.invoke(createdPurchase)
+            }
         }
     }
 

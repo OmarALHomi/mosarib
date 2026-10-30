@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
@@ -112,6 +113,7 @@ import com.example.core.ui.SendMessageChoiceDialog
 import com.example.core.ui.isAppDark
 import com.example.core.util.FileSharingHelper
 import com.example.core.util.Formatters
+import com.example.core.util.MessageFormatHelper
 import com.example.core.util.PdfReportGenerator
 import com.example.features.sessions.SettleSessionDialog
 import com.example.features.sessions.WaterSession
@@ -220,6 +222,7 @@ fun CustomerDetailScreen(
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     var localPdfReady by remember { mutableStateOf<Pair<File, String>?>(null) }
     var messageSessionTarget by remember { mutableStateOf<WaterSession?>(null) }
+    var messagePurchaseTarget by remember { mutableStateOf<WellOwnerPurchase?>(null) }
     var messageCustomTarget by remember { mutableStateOf<String?>(null) }
     val activePdf = pdfReady ?: localPdfReady
 
@@ -255,7 +258,7 @@ fun CustomerDetailScreen(
 
     val customer = customerWithBalance.customer
 
-    // Message Choice Dialog (WhatsApp / SMS)
+    // Message Choice Dialog (WhatsApp / SMS) - Session Bill
     messageSessionTarget?.let { s ->
         val origCust = if (s.customerId != customerId) allCustomers.find { it.id == s.customerId } ?: customer else customer
         val sponsorCust = if (s.billedToCustomerId != null) allCustomers.find { it.id == s.billedToCustomerId } else null
@@ -288,6 +291,28 @@ fun CustomerDetailScreen(
             },
             onSendSms = {
                 messageSessionTarget = null
+                FileSharingHelper.sendSms(context, customer.phone, smsMsg)
+            }
+        )
+    }
+
+    // Message Choice Dialog (WhatsApp / SMS) - Well Owner Purchase Bill
+    messagePurchaseTarget?.let { p ->
+        val waMsg = MessageFormatHelper.buildPurchaseBill(p, customer, config, isSms = false)
+        val smsMsg = MessageFormatHelper.buildPurchaseBill(p, customer, config, isSms = true)
+
+        SendMessageChoiceDialog(
+            recipientName = customer.name,
+            recipientPhone = customer.phone,
+            messageText = waMsg,
+            smsMessageText = smsMsg,
+            onDismiss = { messagePurchaseTarget = null },
+            onSendWhatsApp = {
+                messagePurchaseTarget = null
+                FileSharingHelper.sendWhatsAppMessage(context, customer.phone, waMsg)
+            },
+            onSendSms = {
+                messagePurchaseTarget = null
                 FileSharingHelper.sendSms(context, customer.phone, smsMsg)
             }
         )
@@ -969,7 +994,8 @@ fun CustomerDetailScreen(
                                     purchase = ledgerItem.purchase,
                                     currencySymbol = config.currencySymbol,
                                     onEditClick = { purchaseToEdit = ledgerItem.purchase },
-                                    onDeleteClick = { purchaseToDelete = ledgerItem.purchase }
+                                    onDeleteClick = { purchaseToDelete = ledgerItem.purchase },
+                                    onMessageClick = { messagePurchaseTarget = ledgerItem.purchase }
                                 )
                             }
                             is CustomerLedgerItem.SessionItem -> {
@@ -1504,6 +1530,16 @@ fun CustomerDetailScreen(
                         endTime = endTime
                     )
                     showOwnerPurchaseSheet = false
+                    messagePurchaseTarget = editing.copy(
+                        date = date,
+                        durationMinutes = durationMinutes,
+                        wastedMinutesOnOwner = wastedMinutes,
+                        purchaseRatePerHour = purchaseRate,
+                        notes = notes,
+                        amountPaid = amountPaid,
+                        startTime = startTime,
+                        endTime = endTime
+                    )
                     purchaseToEdit = null
                 } else {
                     viewModel.addOwnerPurchase(
@@ -1515,7 +1551,10 @@ fun CustomerDetailScreen(
                         notes = notes,
                         amountPaid = amountPaid,
                         startTime = startTime,
-                        endTime = endTime
+                        endTime = endTime,
+                        onCreated = { createdPurchase ->
+                            messagePurchaseTarget = createdPurchase
+                        }
                     )
                     showOwnerPurchaseSheet = false
                 }
@@ -1740,8 +1779,11 @@ private fun CustomerPurchaseCardItem(
     purchase: WellOwnerPurchase,
     currencySymbol: String,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onMessageClick: () -> Unit
 ) {
+    val isDark = isAppDark()
+    val purchaseColor = Color(0xFF0288D1)
     val chargeableMinutes = WellOwnerPurchaseMath.chargeableMinutes(purchase)
     val payableAmount = WellOwnerPurchaseMath.payableAmount(purchase)
     val wasteCredit = WellOwnerPurchaseMath.ownerWasteCredit(purchase)
@@ -1752,6 +1794,7 @@ private fun CustomerPurchaseCardItem(
             .padding(horizontal = 14.dp, vertical = 5.dp)
             .shadow(1.5.dp, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.2.dp, purchaseColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
@@ -1760,7 +1803,7 @@ private fun CustomerPurchaseCardItem(
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Header Row: Icon + Title/Date + Actions (Edit & Delete)
+            // Header Row: Vertical Indicator + Icon + Title/Date + Badge + Actions (Share, Edit & Delete)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1770,26 +1813,55 @@ private fun CustomerPurchaseCardItem(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
+                    // Vertical operation indicator stripe
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .width(3.5.dp)
+                            .height(28.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(purchaseColor)
+                    )
+                    Spacer(modifier = Modifier.width(7.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
                             .clip(CircleShape)
-                            .background(AccentGold.copy(alpha = 0.15f)),
+                            .background(purchaseColor.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.AccessTime,
-                            contentDescription = null,
-                            tint = AccentGold,
-                            modifier = Modifier.size(20.dp)
+                            contentDescription = "شراء ساعات",
+                            tint = purchaseColor,
+                            modifier = Modifier.size(19.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "شراء ساعات من صاحب البئر",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                        )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f, fill = false)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "شراء ساعات من بئر",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                color = purchaseColor.copy(alpha = 0.12f),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "شراء ساعات",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = purchaseColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 9.sp
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                )
+                            }
+                        }
                         Text(
                             text = Formatters.formatDateTime(purchase.date),
                             style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1798,6 +1870,17 @@ private fun CustomerPurchaseCardItem(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = onMessageClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "إرسال الفاتورة",
+                            tint = Color(0xFF2E7D32),
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
                     IconButton(
                         onClick = onEditClick,
                         modifier = Modifier.size(32.dp)
@@ -1907,7 +1990,7 @@ private fun CustomerPurchaseCardItem(
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = AccentGold.copy(alpha = 0.12f),
+                color = purchaseColor.copy(alpha = if (isDark) 0.16f else 0.08f),
                 shape = RoundedCornerShape(10.dp)
             ) {
                 Column(
@@ -1927,7 +2010,7 @@ private fun CustomerPurchaseCardItem(
                         )
                         Text(
                             text = "الإجمالي: ${Formatters.formatCurrency(payableAmount, currencySymbol)}",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFFB45309))
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, color = purchaseColor)
                         )
                     }
 
@@ -1935,7 +2018,7 @@ private fun CustomerPurchaseCardItem(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(0.8.dp)
-                            .background(AccentGold.copy(alpha = 0.3f))
+                            .background(purchaseColor.copy(alpha = 0.25f))
                     )
 
                     Row(
@@ -2041,7 +2124,7 @@ private fun CustomerPurchaseCardItem(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Notes,
                             contentDescription = null,
-                            tint = AccentGold,
+                            tint = purchaseColor,
                             modifier = Modifier.size(15.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
@@ -2081,6 +2164,8 @@ private fun CustomerSessionCardItem(
     onDeleteClick: () -> Unit,
     onShareVoucher: (Voucher) -> Unit
 ) {
+    val isDark = isAppDark()
+    val sessionColor = PrimaryTeal
     var isExpanded by remember(session.id) { mutableStateOf(false) }
     var menuExpanded by remember(session.id) { mutableStateOf(false) }
     val isSettledByOffset = isWellOwner || session.billedToCustomerId != null || sponsorOwner != null
@@ -2092,6 +2177,7 @@ private fun CustomerSessionCardItem(
             .shadow(1.dp, RoundedCornerShape(14.dp))
             .let { if (onCardClick != null) it.clickable { onCardClick() } else it },
         shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.2.dp, sessionColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
@@ -2099,7 +2185,7 @@ private fun CustomerSessionCardItem(
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
-            // الصف العلوي: أيقونة السقي + المدة + التاريخ + أزرار الإجراءات
+            // الصف العلوي: الشريط اللوني + أيقونة السقي + المدة + بادج سقي + التاريخ + أزرار الإجراءات
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -2109,23 +2195,50 @@ private fun CustomerSessionCardItem(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
+                    // Vertical operation indicator stripe
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .width(3.5.dp)
+                            .height(28.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(sessionColor)
+                    )
+                    Spacer(modifier = Modifier.width(7.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
                             .clip(CircleShape)
-                            .background(PrimaryTeal.copy(alpha = 0.12f)),
+                            .background(sessionColor.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.WaterDrop, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.WaterDrop, contentDescription = "سقي", tint = sessionColor, modifier = Modifier.size(18.dp))
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "دورة سقي (${Formatters.formatDurationArabic(session.durationMinutes)})",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "دورة سقي (${Formatters.formatDurationArabic(session.durationMinutes)})",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                color = sessionColor.copy(alpha = 0.12f),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "سقي",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = sessionColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 9.sp
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
                         val timeStr = "من ${Formatters.formatTime(session.startTime)} إلى ${Formatters.formatTime(session.endTime)}  •  ${Formatters.formatDate(session.startTime)}"
                         Text(
                             text = timeStr,
@@ -2533,6 +2646,10 @@ private fun CustomerReceiptCardItem(
     onDeleteClick: () -> Unit
 ) {
     val isDark = isAppDark()
+    val isSessionPayment = voucher.sessionId != null && voucher.sessionId > 0
+    val rColor = if (isSessionPayment) Color(0xFFD97706) else AccentEmerald
+    val rIcon = if (isSessionPayment) Icons.Default.CheckCircle else Icons.Default.ArrowDownward
+    val rBadgeText = if (isSessionPayment) "سداد دورة سقي" else if (isWellOwner) "تحصيل بئر" else "سند قبض"
     var menuExpanded by remember(voucher.id) { mutableStateOf(false) }
 
     Card(
@@ -2542,6 +2659,7 @@ private fun CustomerReceiptCardItem(
             .shadow(1.dp, RoundedCornerShape(12.dp))
             .let { if (onCardClick != null) it.clickable { onCardClick() } else it },
         shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.2.dp, rColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
@@ -2559,14 +2677,24 @@ private fun CustomerReceiptCardItem(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
+                    // Vertical operation indicator stripe
+                    Box(
+                        modifier = Modifier
+                            .width(3.5.dp)
+                            .height(28.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(rColor)
+                    )
+                    Spacer(modifier = Modifier.width(7.dp))
+
                     Box(
                         modifier = Modifier
                             .size(28.dp)
                             .clip(CircleShape)
-                            .background(AccentEmerald.copy(alpha = 0.12f)),
+                            .background(rColor.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Check, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(16.dp))
+                        Icon(rIcon, contentDescription = rBadgeText, tint = rColor, modifier = Modifier.size(16.dp))
                     }
                     Spacer(modifier = Modifier.width(7.dp))
                     Row(
@@ -2574,7 +2702,7 @@ private fun CustomerReceiptCardItem(
                         modifier = Modifier.weight(1f, fill = false)
                     ) {
                         Text(
-                            text = if (isWellOwner) "تحصيل من صاحب البئر" else "سند قبض نقدي",
+                            text = if (isSessionPayment) "سداد دورة سقي" else if (isWellOwner) "تحصيل من صاحب البئر" else "سند قبض نقدي",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -2584,6 +2712,21 @@ private fun CustomerReceiptCardItem(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
                         )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Surface(
+                            color = rColor.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = rBadgeText,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = rColor,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 9.sp
+                                ),
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
                         if (voucher.voucherNumber.isNotBlank()) {
                             Spacer(modifier = Modifier.width(4.dp))
                             Surface(
@@ -2628,7 +2771,7 @@ private fun CustomerReceiptCardItem(
                 Text(
                     text = "+ ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        color = AccentEmerald,
+                        color = rColor,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 14.5.sp
                     ),
@@ -2768,7 +2911,9 @@ private fun CustomerDisbursementCardItem(
     onDeleteClick: () -> Unit
 ) {
     val isDark = isAppDark()
-    val dColor = if (isDark) Color(0xFFF87171) else Color(0xFFC62828)
+    val dColor = if (isDark) Color(0xFFF87171) else Color(0xFFEF4444)
+    val dIcon = Icons.Default.ArrowUpward
+    val dBadgeText = if (isWellOwner) "تسديد لصاحب البئر" else "سند صرف"
     var menuExpanded by remember(voucher.id) { mutableStateOf(false) }
 
     Card(
@@ -2778,6 +2923,7 @@ private fun CustomerDisbursementCardItem(
             .shadow(1.dp, RoundedCornerShape(12.dp))
             .let { if (onCardClick != null) it.clickable { onCardClick() } else it },
         shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.2.dp, dColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
@@ -2795,14 +2941,24 @@ private fun CustomerDisbursementCardItem(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
+                    // Vertical operation indicator stripe
+                    Box(
+                        modifier = Modifier
+                            .width(3.5.dp)
+                            .height(28.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(dColor)
+                    )
+                    Spacer(modifier = Modifier.width(7.dp))
+
                     Box(
                         modifier = Modifier
                             .size(28.dp)
                             .clip(CircleShape)
-                            .background(dColor.copy(alpha = 0.12f)),
+                            .background(dColor.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = dColor, modifier = Modifier.size(16.dp))
+                        Icon(dIcon, contentDescription = dBadgeText, tint = dColor, modifier = Modifier.size(16.dp))
                     }
                     Spacer(modifier = Modifier.width(7.dp))
                     Row(
@@ -2820,6 +2976,21 @@ private fun CustomerDisbursementCardItem(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
                         )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Surface(
+                            color = dColor.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = dBadgeText,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = dColor,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 9.sp
+                                ),
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
                         if (voucher.voucherNumber.isNotBlank()) {
                             Spacer(modifier = Modifier.width(4.dp))
                             Surface(
@@ -2984,6 +3155,7 @@ private fun CustomerDiscountCardItem(
     onDeleteClick: () -> Unit
 ) {
     val isDark = isAppDark()
+    val discColor = Color(0xFF8B5CF6)
     var menuExpanded by remember(voucher.id) { mutableStateOf(false) }
 
     Card(
@@ -2993,6 +3165,7 @@ private fun CustomerDiscountCardItem(
             .shadow(1.dp, RoundedCornerShape(12.dp))
             .let { if (onCardClick != null) it.clickable { onCardClick() } else it },
         shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.2.dp, discColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
@@ -3009,14 +3182,24 @@ private fun CustomerDiscountCardItem(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
+                    // Vertical operation indicator stripe
+                    Box(
+                        modifier = Modifier
+                            .width(3.5.dp)
+                            .height(28.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(discColor)
+                    )
+                    Spacer(modifier = Modifier.width(7.dp))
+
                     Box(
                         modifier = Modifier
                             .size(28.dp)
                             .clip(CircleShape)
-                            .background(AccentGold.copy(alpha = 0.15f)),
+                            .background(discColor.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Bookmarks, contentDescription = null, tint = AccentGold, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Bookmarks, contentDescription = "خصم", tint = discColor, modifier = Modifier.size(16.dp))
                     }
                     Spacer(modifier = Modifier.width(7.dp))
                     Row(
@@ -3034,6 +3217,21 @@ private fun CustomerDiscountCardItem(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
                         )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Surface(
+                            color = discColor.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "خصم",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = discColor,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 9.sp
+                                ),
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
                         if (voucher.voucherNumber.isNotBlank()) {
                             Spacer(modifier = Modifier.width(4.dp))
                             Surface(
@@ -3056,13 +3254,13 @@ private fun CustomerDiscountCardItem(
                         if (voucher.sessionId != null && voucher.sessionId > 0) {
                             Spacer(modifier = Modifier.width(4.dp))
                             Surface(
-                                color = AccentGold.copy(alpha = 0.15f),
+                                color = PrimaryTeal.copy(alpha = 0.12f),
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(
                                     text = "دورة #${voucher.sessionId}",
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        color = AccentGold,
+                                        color = PrimaryTeal,
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold
                                     ),
@@ -3078,7 +3276,7 @@ private fun CustomerDiscountCardItem(
                 Text(
                     text = "- ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        color = AccentGold,
+                        color = discColor,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 14.5.sp
                     ),

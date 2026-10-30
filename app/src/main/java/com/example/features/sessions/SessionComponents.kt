@@ -135,6 +135,7 @@ fun SessionCardItem(
             .shadow(1.5.dp, RoundedCornerShape(16.dp))
             .clickable(enabled = onCardClick != null) { onCardClick?.invoke() },
         shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.2.dp, PrimaryTeal.copy(alpha = if (isDark) 0.35f else 0.22f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
@@ -142,13 +143,13 @@ fun SessionCardItem(
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
-            // 1. الصف العلوي الملخص: أيقونة (عميل أو صاحب بئر) بجانبها الاسم + الأزرار الأربعة (إرسال، طباعة، تعديل، حذف) بدون زر قائمة
+            // 1. الصف العلوي الملخص: شريط عمودي مميز + أيقونة + الاسم + بادج جلسة سقي + الأزرار الأربعة
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // العميل / صاحب البئر
+                // العميل / صاحب البئر مع الشريط والأيقونة
                 val isWellOwner = customer?.isWellOwner == true
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -156,6 +157,16 @@ fun SessionCardItem(
                         .clickable { onCustomerClick() }
                         .weight(1f, fill = false)
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .width(3.5.dp)
+                            .height(28.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(PrimaryTeal)
+                    )
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
                     Box(
                         modifier = Modifier
                             .size(34.dp)
@@ -188,6 +199,25 @@ fun SessionCardItem(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
+
+                    Spacer(modifier = Modifier.width(5.dp))
+
+                    Surface(
+                        color = PrimaryTeal.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "جلسة سقي",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = PrimaryTeal,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 9.5.sp
+                            ),
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(6.dp))
