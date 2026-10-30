@@ -218,6 +218,7 @@ fun CustomerDetailScreen(
     var voucherToEdit by remember { mutableStateOf<Voucher?>(null) }
     var sessionForDetails by remember { mutableStateOf<WaterSession?>(null) }
     var voucherForDetails by remember { mutableStateOf<Voucher?>(null) }
+    var purchaseForDetails by remember { mutableStateOf<WellOwnerPurchase?>(null) }
 
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     var localPdfReady by remember { mutableStateOf<Pair<File, String>?>(null) }
@@ -993,6 +994,7 @@ fun CustomerDetailScreen(
                                 CustomerPurchaseCardItem(
                                     purchase = ledgerItem.purchase,
                                     currencySymbol = config.currencySymbol,
+                                    onCardClick = { purchaseForDetails = ledgerItem.purchase },
                                     onEditClick = { purchaseToEdit = ledgerItem.purchase },
                                     onDeleteClick = { purchaseToDelete = ledgerItem.purchase },
                                     onMessageClick = { messagePurchaseTarget = ledgerItem.purchase }
@@ -1361,6 +1363,28 @@ fun CustomerDetailScreen(
                     "سند صرف #${v.voucherNumber.ifEmpty { v.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ المصروف: ${Formatters.formatCurrency(v.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(v.amount, config.currencySymbol)})\nالبيان: ${v.notes.ifBlank { v.category }}\nطريقة الصرف: ${v.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(v.date)}"
                 }
                 messageCustomTarget = shareText
+            }
+        )
+    }
+
+    // Floating Detail BottomSheet for WellOwnerPurchase
+    purchaseForDetails?.let { p ->
+        com.example.core.ui.WellOwnerPurchaseDetailBottomSheet(
+            purchase = p,
+            owner = customer,
+            currencySymbol = config.currencySymbol,
+            onDismiss = { purchaseForDetails = null },
+            onEdit = {
+                purchaseForDetails = null
+                purchaseToEdit = p
+            },
+            onDelete = {
+                purchaseForDetails = null
+                purchaseToDelete = p
+            },
+            onShare = {
+                purchaseForDetails = null
+                messagePurchaseTarget = p
             }
         )
     }
@@ -1778,6 +1802,7 @@ fun CustomerDetailScreen(
 private fun CustomerPurchaseCardItem(
     purchase: WellOwnerPurchase,
     currencySymbol: String,
+    onCardClick: (() -> Unit)? = null,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onMessageClick: () -> Unit
@@ -1792,7 +1817,8 @@ private fun CustomerPurchaseCardItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 5.dp)
-            .shadow(1.5.dp, RoundedCornerShape(16.dp)),
+            .shadow(1.5.dp, RoundedCornerShape(16.dp))
+            .let { if (onCardClick != null) it.clickable { onCardClick() } else it },
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.2.dp, purchaseColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)

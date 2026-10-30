@@ -135,6 +135,7 @@ import com.example.features.sessions.WaterSession
 import com.example.features.sessions.WaterSessionWithCustomer
 import com.example.core.ui.SessionDetailBottomSheet
 import com.example.core.ui.VoucherDetailBottomSheet
+import com.example.core.ui.WellOwnerPurchaseDetailBottomSheet
 import com.example.features.wellowners.WellOwnerPurchase
 import com.example.features.wellowners.WellOwnerPurchaseBottomSheet
 import com.example.features.wellowners.WellOwnerPurchaseMath
@@ -181,6 +182,7 @@ fun VouchersScreen(
     var selectedLinkedSession by remember { mutableStateOf<WaterSession?>(null) }
     var sessionForDetails by remember { mutableStateOf<WaterSessionWithCustomer?>(null) }
     var voucherForDetails by remember { mutableStateOf<VoucherWithCustomer?>(null) }
+    var purchaseForDetails by remember { mutableStateOf<Pair<WellOwnerPurchase, Customer?>?>(null) }
 
     val vmPdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     LaunchedEffect(vmPdfReady) {
@@ -1194,7 +1196,8 @@ fun VouchersScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
-                                    .shadow(1.dp, RoundedCornerShape(12.dp)),
+                                    .shadow(1.dp, RoundedCornerShape(12.dp))
+                                    .clickable { purchaseForDetails = Pair(purchase, owner) },
                                 shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.2.dp, purchaseColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -1914,6 +1917,37 @@ fun VouchersScreen(
                         "سند صرف #${v.voucherNumber.ifEmpty { v.id.toString() }}\nالمبلغ المصروف: ${Formatters.formatCurrency(v.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(v.amount, config.currencySymbol)})\nالبيان: ${v.notes.ifBlank { v.category }}\nطريقة الصرف: ${v.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(v.date)}"
                     }
                     FileSharingHelper.shareText(context, shareText, "مشاركة السند")
+                }
+            }
+        )
+    }
+
+    // Floating Detail BottomSheet for WellOwnerPurchase
+    purchaseForDetails?.let { (p, o) ->
+        WellOwnerPurchaseDetailBottomSheet(
+            purchase = p,
+            owner = o,
+            currencySymbol = config.currencySymbol,
+            onDismiss = { purchaseForDetails = null },
+            onEdit = {
+                purchaseForDetails = null
+                purchaseToEdit = p
+            },
+            onDelete = {
+                purchaseForDetails = null
+                purchaseToDelete = p
+            },
+            onShare = {
+                purchaseForDetails = null
+                val targetOwner = o ?: customers.find { it.id == p.ownerCustomerId }
+                if (targetOwner != null && targetOwner.phone.isNotBlank()) {
+                    val waMsg = MessageFormatHelper.buildPurchaseBill(p, targetOwner, config, isSms = false)
+                    val smsMsg = MessageFormatHelper.buildPurchaseBill(p, targetOwner, config, isSms = true)
+                    voucherMessageTarget = Triple(targetOwner, waMsg, smsMsg)
+                } else {
+                    val fallbackOwner = targetOwner ?: Customer(name = "صاحب بئر #${p.ownerCustomerId}")
+                    val shareText = MessageFormatHelper.buildPurchaseBill(p, fallbackOwner, config, isSms = false)
+                    FileSharingHelper.shareText(context, shareText, "مشاركة فاتورة شراء الساعات")
                 }
             }
         )
