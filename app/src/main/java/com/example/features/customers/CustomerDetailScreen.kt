@@ -1428,6 +1428,7 @@ fun CustomerDetailScreen(
             session = s,
             customerName = customer.name,
             currencySymbol = config.currencySymbol,
+            effectiveDebt = getEffectiveSessionDebt(s),
             onDismiss = { sessionToSettle = null },
             onConfirmSettle = { amount, discount, method, notes ->
                 viewModel.settleSessionDebt(s, amount, method, notes, discount)

@@ -2156,10 +2156,12 @@ fun SettleSessionDialog(
     session: WaterSession,
     customerName: String,
     currencySymbol: String,
+    effectiveDebt: Double = session.remainingDebt,
     onDismiss: () -> Unit,
     onConfirmSettle: (amount: Double, discount: Double, paymentMethod: String, notes: String) -> Unit
 ) {
-    var amountStr by remember { mutableStateOf(Formatters.formatAmountInput(session.remainingDebt.toString())) }
+    val debtToSettle = effectiveDebt.coerceAtMost(session.remainingDebt)
+    var amountStr by remember { mutableStateOf(Formatters.formatAmountInput(debtToSettle.toString())) }
     var discountStr by remember { mutableStateOf("") }
     var paymentMethod by remember { mutableStateOf("نقداً") }
     var notes by remember { mutableStateOf("سداد دورة سقي #${session.id}") }
@@ -2167,7 +2169,7 @@ fun SettleSessionDialog(
     val parsedAmount = Formatters.parseAmountInput(amountStr)
     val parsedDiscount = Formatters.parseAmountInput(discountStr)
     val totalSettled = parsedAmount + parsedDiscount
-    val remainingAfter = (session.remainingDebt - totalSettled).coerceAtLeast(0.0)
+    val remainingAfter = (debtToSettle - totalSettled).coerceAtLeast(0.0)
     val isAppDarkTheme = isAppDark()
 
     AlertDialog(
@@ -2290,7 +2292,7 @@ fun SettleSessionDialog(
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Text(
-                                text = Formatters.formatCurrency(session.remainingDebt, currencySymbol),
+                                text = Formatters.formatCurrency(debtToSettle, currencySymbol),
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Color(0xFFE53935)
@@ -2331,7 +2333,7 @@ fun SettleSessionDialog(
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         // زر سريع لإسقاط الباقي في المسموح وتصفير الحساب
-                        val uncollected = (session.remainingDebt - parsedAmount).coerceAtLeast(0.0)
+                        val uncollected = (debtToSettle - parsedAmount).coerceAtLeast(0.0)
                         if (uncollected > 0.0) {
                             Text(
                                 text = "إسقاط الباقي (${Formatters.formatNumber(uncollected)})",
