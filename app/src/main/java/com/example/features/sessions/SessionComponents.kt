@@ -113,6 +113,7 @@ fun SessionCardItem(
     sessionWithCustomer: WaterSessionWithCustomer,
     currencySymbol: String,
     linkedVouchers: List<Voucher> = emptyList(),
+    effectiveRemainingDebt: Double? = null,
     onCustomerClick: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
@@ -125,6 +126,7 @@ fun SessionCardItem(
     val session = sessionWithCustomer.session
     val customer = sessionWithCustomer.customer
     val isDark = com.example.core.ui.isAppDark()
+    val debtToShow = effectiveRemainingDebt ?: session.remainingDebt
     var menuExpanded by remember(session.id) { mutableStateOf(false) }
     var isExpanded by remember(session.id) { mutableStateOf(false) }
 
@@ -439,9 +441,9 @@ fun SessionCardItem(
                             modifier = Modifier.weight(1.3f),
                             horizontalAlignment = Alignment.End
                         ) {
-                            if (session.remainingDebt > 0) {
+                            if (debtToShow > 0.001) {
                                 Text(
-                                    text = "متبقي: ${Formatters.formatCurrency(session.remainingDebt, currencySymbol)}",
+                                    text = "متبقي: ${Formatters.formatCurrency(debtToShow, currencySymbol)}",
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.ExtraBold,
                                         color = Color(0xFFE53935),
@@ -469,7 +471,7 @@ fun SessionCardItem(
                                             modifier = Modifier.size(12.dp)
                                         )
                                         Text(
-                                            text = "مسدد: ${Formatters.formatCurrency(session.totalAmount, currencySymbol)}",
+                                            text = if (session.remainingDebt > 0.001) "مسدد (ضمن الرصيد)" else "مسدد: ${Formatters.formatCurrency(session.totalAmount, currencySymbol)}",
                                             style = MaterialTheme.typography.labelSmall.copy(
                                                 fontWeight = FontWeight.Bold,
                                                 color = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
@@ -501,7 +503,7 @@ fun SessionCardItem(
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                             modifier = Modifier.padding(start = 4.dp)
                         ) {
-                            if (session.remainingDebt > 0 && onSettleClick != null) {
+                            if (debtToShow > 0.001 && onSettleClick != null) {
                                 Button(
                                     onClick = onSettleClick,
                                     colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
@@ -638,17 +640,17 @@ fun SessionCardItem(
                                 textColor = AccentEmerald
                             )
 
-                            if (session.remainingDebt > 0) {
+                            if (debtToShow > 0.001) {
                                 SessionMetricPill(
                                     label = "المتبقي",
-                                    value = "${Formatters.formatNumber(session.remainingDebt)} $currencySymbol",
+                                    value = "${Formatters.formatNumber(debtToShow)} $currencySymbol",
                                     bgColor = Color(0xFFE53935).copy(alpha = 0.15f),
                                     textColor = Color(0xFFC62828)
                                 )
                             } else {
                                 SessionMetricPill(
                                     label = "المتبقي",
-                                    value = "0 $currencySymbol (مسدد)",
+                                    value = if (session.remainingDebt > 0.001) "مسدد (ضمن الرصيد)" else "0 $currencySymbol (مسدد)",
                                     bgColor = AccentEmerald.copy(alpha = 0.15f),
                                     textColor = AccentEmerald
                                 )
@@ -828,15 +830,20 @@ fun SessionCardItem(
                         }
                     }
 
-                    if (session.amountPaid == 0.0) {
+                    if (session.amountPaid == 0.0 && debtToShow > 0.001) {
                         Text(
                             text = "لم يتم تسجيل أي سداد لهذه الجلسة حتى الآن (مؤخر بالكامل)",
                             style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFE53935), fontWeight = FontWeight.Bold)
                         )
+                    } else if (debtToShow <= 0.001 && session.remainingDebt > 0.001) {
+                        Text(
+                            text = "مسددة بالكامل ضمن رصيد الحساب العام",
+                            style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
+                        )
                     }
 
                     // زر السداد في العرض المفصل
-                    if (session.remainingDebt > 0 && onSettleClick != null) {
+                    if (debtToShow > 0.001 && onSettleClick != null) {
                         Spacer(modifier = Modifier.height(6.dp))
                         Button(
                             onClick = onSettleClick,
@@ -850,7 +857,7 @@ fun SessionCardItem(
                             Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                "سداد المبلغ المتبقي (${Formatters.formatCurrency(session.remainingDebt, currencySymbol)})",
+                                "سداد المبلغ المتبقي (${Formatters.formatCurrency(debtToShow, currencySymbol)})",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp
                             )

@@ -358,11 +358,39 @@ fun CustomerDetailScreen(
         vouchers.filter { it.type == VoucherType.DISCOUNT }.map { CustomerLedgerItem.DiscountItem(it) }
     }
 
+    val isCustomerAccountSettled = (customerWithBalance?.receivableBalance ?: 0.0) <= 0.001
+    val sortedCustomerSessions = remember(sessions) { sessions.sortedBy { it.startTime } }
+
+    val getEffectiveSessionDebt: (WaterSession) -> Double = remember(customerWithBalance, sortedCustomerSessions) {
+        { session ->
+            val recBal = customerWithBalance?.receivableBalance ?: 0.0
+            if (recBal <= 0.001) 0.0
+            else if (session.remainingDebt <= 0.001) 0.0
+            else {
+                val totalBilled = sortedCustomerSessions.sumOf { it.totalAmount }
+                val totalPaidTowardsSessions = (totalBilled - recBal).coerceAtLeast(0.0)
+                var runningPaid = totalPaidTowardsSessions
+                var effective = session.remainingDebt
+                for (s in sortedCustomerSessions) {
+                    val sCost = s.totalAmount
+                    if (s.id == session.id) {
+                        val sPaid = runningPaid.coerceAtMost(sCost)
+                        val sRemaining = (sCost - sPaid).coerceAtLeast(0.0)
+                        effective = minOf(sRemaining, session.remainingDebt)
+                        break
+                    }
+                    runningPaid = (runningPaid - sCost).coerceAtLeast(0.0)
+                }
+                effective
+            }
+        }
+    }
+
     val allLedgerItems = remember(sessionItems, purchaseItems, receiptItems, disbursementItems, discountItems) {
         (sessionItems + purchaseItems + receiptItems + disbursementItems + discountItems).sortedByDescending { it.timestamp }
     }
 
-    val filteredItems = remember(selectedFilter, allLedgerItems, sessionItems, purchaseItems, receiptItems, disbursementItems, discountItems) {
+    val filteredItems = remember(selectedFilter, allLedgerItems, sessionItems, purchaseItems, receiptItems, disbursementItems, discountItems, isCustomerAccountSettled) {
         when (selectedFilter) {
             CustomerOpFilter.ALL -> allLedgerItems
             CustomerOpFilter.PURCHASES -> purchaseItems.sortedByDescending { it.timestamp }
@@ -370,11 +398,14 @@ fun CustomerDetailScreen(
             CustomerOpFilter.RECEIPTS -> receiptItems.sortedByDescending { it.timestamp }
             CustomerOpFilter.DISBURSEMENTS -> disbursementItems.sortedByDescending { it.timestamp }
             CustomerOpFilter.DISCOUNTS -> discountItems.sortedByDescending { it.timestamp }
-            CustomerOpFilter.DEBT_ONLY -> sessionItems.filter { it.session.remainingDebt > 0 }.sortedByDescending { it.timestamp }
+            CustomerOpFilter.DEBT_ONLY -> if (isCustomerAccountSettled) emptyList() else sessionItems.filter { getEffectiveSessionDebt(it.session) > 0.001 }.sortedByDescending { it.timestamp }
         }
     }
 
-    val unsettledCount = remember(sessions) { sessions.count { it.remainingDebt > 0 } }
+    val unsettledCount = remember(sessions, customerWithBalance) {
+        if (isCustomerAccountSettled) 0
+        else sessions.count { getEffectiveSessionDebt(it) > 0.001 }
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -1003,6 +1034,7 @@ fun CustomerDetailScreen(
                             is CustomerLedgerItem.SessionItem -> {
                                 val invoiceCustomer = ledgerItem.originalCustomer ?: customer
                                 val invoiceSponsor = ledgerItem.sponsorOwner ?: if (customer.isWellOwner && ledgerItem.originalCustomer != null) customer else null
+                                val sessionDebt = getEffectiveSessionDebt(ledgerItem.session)
                                 CustomerSessionCardItem(
                                     session = ledgerItem.session,
                                     originalCustomer = ledgerItem.originalCustomer,
@@ -1011,6 +1043,7 @@ fun CustomerDetailScreen(
                                     isWellOwner = customer.isWellOwner,
                                     currencySymbol = config.currencySymbol,
                                     linkedVouchers = ledgerItem.linkedVouchers,
+                                    effectiveRemainingDebt = sessionDebt,
                                     onCardClick = { sessionForDetails = ledgerItem.session },
                                     onEditClick = { sessionToEdit = ledgerItem.session },
                                     onPdfClick = {
@@ -2182,6 +2215,7 @@ private fun CustomerSessionCardItem(
     isWellOwner: Boolean = false,
     currencySymbol: String,
     linkedVouchers: List<Voucher>,
+    effectiveRemainingDebt: Double = session.remainingDebt,
     onCardClick: (() -> Unit)? = null,
     onEditClick: () -> Unit,
     onPdfClick: () -> Unit,
@@ -2229,13 +2263,12 @@ private fun CustomerSessionCardItem(
                             .clip(RoundedCornerShape(2.dp))
                             .background(sessionColor)
                     )
-                    Spacer(modifier = Modifier.width(7.dp))
-
+                    Spacer(modifier = Modifier.width(6.dp))
                     Box(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(CircleShape)
-                            .background(sessionColor.copy(alpha = 0.14f)),
+                            .background(sessionColor.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Default.WaterDrop, contentDescription = "سقي", tint = sessionColor, modifier = Modifier.size(18.dp))
@@ -2450,9 +2483,9 @@ private fun CustomerSessionCardItem(
                             maxLines = 1,
                             softWrap = false
                         )
-                    } else if (session.remainingDebt > 0) {
+                    } else if (effectiveRemainingDebt > 0.001) {
                         Text(
-                            Formatters.formatCurrency(session.remainingDebt, currencySymbol),
+                            Formatters.formatCurrency(effectiveRemainingDebt, currencySymbol),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = Color(0xFFE53935),
                                 fontWeight = FontWeight.ExtraBold
@@ -2465,10 +2498,11 @@ private fun CustomerSessionCardItem(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(13.dp))
                             Text(
-                                "مسدد",
+                                if (session.remainingDebt > 0.001) "مسدد (ضمن الرصيد)" else "مسدد",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     color = AccentEmerald,
-                                    fontWeight = FontWeight.ExtraBold
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 11.5.sp
                                 ),
                                 maxLines = 1,
                                 softWrap = false
@@ -2535,7 +2569,7 @@ private fun CustomerSessionCardItem(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                } else if (session.remainingDebt > 0) {
+                } else if (effectiveRemainingDebt > 0.001) {
                     Button(
                         onClick = onSettleClick,
                         colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
@@ -2559,7 +2593,7 @@ private fun CustomerSessionCardItem(
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(13.dp))
                             Text(
-                                text = "مسدد",
+                                text = if (session.remainingDebt > 0.001) "مسدد (ضمن رصيد الحساب)" else "مسدد",
                                 style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
                             )
                         }

@@ -2,6 +2,8 @@ package com.example
 
 import android.app.Activity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -19,12 +21,18 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Settings
@@ -147,7 +155,16 @@ fun MainApp(
             var showAboutScreen by remember { mutableStateOf(false) }
             var showLicenseDialog by remember { mutableStateOf(false) }
             var showFeedbackDialog by remember { mutableStateOf(false) }
+            var showCustomerMenu by remember { mutableStateOf(false) }
             var showExitConfirmationDialog by remember { mutableStateOf(false) }
+
+            val customerExcelPickerLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.OpenDocument()
+            ) { uri ->
+                if (uri != null) {
+                    customersViewModel.startImportFromUri(context, uri)
+                }
+            }
 
             val isActivated by settingsViewModel.isActivated.collectAsStateWithLifecycle()
             val operationsCount by settingsViewModel.operationsCount.collectAsStateWithLifecycle()
@@ -277,6 +294,64 @@ fun MainApp(
                                             )
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text("تصدير PDF", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        }
+                                    }
+
+                                    if (currentTab == AppTab.CUSTOMERS) {
+                                        Box {
+                                            IconButton(onClick = { showCustomerMenu = true }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.MoreVert,
+                                                    contentDescription = "خيارات إدارة العملاء",
+                                                    tint = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                            DropdownMenu(
+                                                expanded = showCustomerMenu,
+                                                onDismissRequest = { showCustomerMenu = false }
+                                            ) {
+                                                DropdownMenuItem(
+                                                    text = { Text("استيراد من إكسل", fontWeight = FontWeight.Bold) },
+                                                    leadingIcon = { Icon(Icons.Default.FileUpload, contentDescription = null, tint = PrimaryTeal) },
+                                                    onClick = {
+                                                        showCustomerMenu = false
+                                                        customerExcelPickerLauncher.launch(
+                                                            arrayOf(
+                                                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                                                "application/vnd.ms-excel",
+                                                                "text/csv",
+                                                                "text/comma-separated-values",
+                                                                "text/plain",
+                                                                "*/*"
+                                                            )
+                                                        )
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("تصدير إلى إكسل (XLSX)", fontWeight = FontWeight.Bold) },
+                                                    leadingIcon = { Icon(Icons.Default.TableChart, contentDescription = null, tint = PrimaryTeal) },
+                                                    onClick = {
+                                                        showCustomerMenu = false
+                                                        customersViewModel.exportCustomersToExcel(context)
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("تصدير كملف CSV", fontWeight = FontWeight.Bold) },
+                                                    leadingIcon = { Icon(Icons.Default.Description, contentDescription = null, tint = PrimaryTeal) },
+                                                    onClick = {
+                                                        showCustomerMenu = false
+                                                        customersViewModel.exportCustomersToCsv(context)
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("طباعة كشف الحسابات (PDF)", fontWeight = FontWeight.Bold) },
+                                                    leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
+                                                    onClick = {
+                                                        showCustomerMenu = false
+                                                        customersViewModel.generateAllCustomersReportPdf()
+                                                    }
+                                                )
+                                            }
                                         }
                                     }
 

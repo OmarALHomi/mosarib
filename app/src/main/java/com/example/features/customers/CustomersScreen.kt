@@ -149,18 +149,9 @@ fun CustomersScreen(
     var customerToEdit by remember { mutableStateOf<Customer?>(null) }
     var customerToDelete by remember { mutableStateOf<Customer?>(null) }
     var messageChoiceCustomer by remember { mutableStateOf<CustomerWithBalance?>(null) }
-    var showExportMenu by remember { mutableStateOf(false) }
 
     val importDrafts by viewModel.importDrafts.collectAsStateWithLifecycle()
     val isImporting by viewModel.isImporting.collectAsStateWithLifecycle()
-
-    val excelPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) {
-            viewModel.startImportFromUri(context, uri)
-        }
-    }
 
     // حساب المركز المالي التفاعلي للشريط السفلي (دفتر الحسابات) تفاعلياً مع الفلتر المختار
     val (cardOwedByUs, cardOwedToUs) = remember(rawCustomers, accountFilter) {
@@ -221,160 +212,13 @@ fun CustomersScreen(
     val isStickyPinned by remember {
         derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 24 }
     }
-    val topHeaderAlpha by remember {
-        derivedStateOf {
-            if (listState.firstVisibleItemIndex > 0) 0f
-            else (1f - (listState.firstVisibleItemScrollOffset / 55f)).coerceIn(0f, 1f)
-        }
-    }
-
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = if (isCompactHeight) 80.dp else 120.dp)
         ) {
-            // 1. شريط الترويسة العلوي (App Bar) مع أزرار الإجراءات (استيراد إكسل، تصدير إكسل، طباعة كشف PDF) + ملخص المركز المالي في الشاشات العريضة
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .graphicsLayer {
-                            alpha = topHeaderAlpha
-                            scaleY = 0.96f + (0.04f * topHeaderAlpha)
-                            scaleX = 0.98f + (0.02f * topHeaderAlpha)
-                        }
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "إدارة العملاء",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 17.sp
-                        )
-                    )
-
-                    // في الشاشات العريضة / الوضع الأفقي: عرض شريط المركز المالي هنا بشكل مدمج وأنيق
-                    if (isWideLandscape) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFFE53935)))
-                                    Text(
-                                        text = "عليك:",
-                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFE53935), fontWeight = FontWeight.Bold, fontSize = 11.5.sp),
-                                        softWrap = false,
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        text = Formatters.formatCurrency(cardOwedByUs, config.currencySymbol),
-                                        style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFFE53935), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp),
-                                        softWrap = false,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                                Box(modifier = Modifier.width(1.dp).height(12.dp).background(Color.Gray.copy(alpha = 0.3f)))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF2E7D32)))
-                                    Text(
-                                        text = "لك:",
-                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold, fontSize = 11.5.sp),
-                                        softWrap = false,
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        text = Formatters.formatCurrency(cardOwedToUs, config.currencySymbol),
-                                        style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFF2E7D32), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp),
-                                        softWrap = false,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // قائمة الإجراءات والخيارات (ثلاث نقاط) في الـ AppBar
-                    Box {
-                        IconButton(
-                            onClick = { showExportMenu = true },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = "المزيد من الخيارات",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = showExportMenu,
-                            onDismissRequest = { showExportMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("استيراد من إكسل", fontWeight = FontWeight.Bold) },
-                                leadingIcon = { Icon(Icons.Default.FileUpload, contentDescription = null, tint = PrimaryTeal) },
-                                onClick = {
-                                    showExportMenu = false
-                                    excelPickerLauncher.launch(
-                                        arrayOf(
-                                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                            "application/vnd.ms-excel",
-                                            "text/csv",
-                                            "text/comma-separated-values",
-                                            "text/plain",
-                                            "*/*"
-                                        )
-                                    )
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("تصدير إلى إكسل (XLSX)", fontWeight = FontWeight.Bold) },
-                                leadingIcon = { Icon(Icons.Default.TableChart, contentDescription = null, tint = PrimaryTeal) },
-                                onClick = {
-                                    showExportMenu = false
-                                    viewModel.exportCustomersToExcel(context)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("تصدير كملف CSV", fontWeight = FontWeight.Bold) },
-                                leadingIcon = { Icon(Icons.Default.Description, contentDescription = null, tint = PrimaryTeal) },
-                                onClick = {
-                                    showExportMenu = false
-                                    viewModel.exportCustomersToCsv(context)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("طباعة كشف الحسابات (PDF)", fontWeight = FontWeight.Bold) },
-                                leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
-                                onClick = {
-                                    showExportMenu = false
-                                    viewModel.generateAllCustomersReportPdf()
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // 2. شريط الفلاتر المصغرة وحقل البحث المدمج وفلاتر الترتيب المتجاوبة
+            // شريط الفلاتر المصغرة وحقل البحث المدمج وفلاتر الترتيب المتجاوبة
             if (isCompactHeight) {
                 // في الوضع الأفقي: حقل البحث وشريط الفلاتر ثلاثي الأقسام
                 item {

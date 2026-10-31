@@ -2489,6 +2489,23 @@ fun AddVoucherBottomSheet(
             .sortedBy { it.startTime }
     }
 
+    // النظام الهجين: التحديد التلقائي الذكي للجلسات غير المسددة وتعبئة المبلغ الافتراضي بالأقدمية
+    LaunchedEffect(selectedCustomerId, type) {
+        if (initialVoucher == null && type == VoucherType.RECEIPT) {
+            val sessionsForCust = allSessions.filter { it.customerId == selectedCustomerId && it.remainingDebt > 0 }
+                .sortedBy { it.startTime }
+            if (sessionsForCust.isNotEmpty()) {
+                selectedSessionIds = sessionsForCust.map { it.id }.toSet()
+                if (amountStr.isBlank()) {
+                    val totalDebt = sessionsForCust.sumOf { it.remainingDebt }
+                    amountStr = Formatters.formatAmountInput(totalDebt.toString())
+                }
+            } else {
+                selectedSessionIds = emptySet()
+            }
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -2566,9 +2583,9 @@ fun AddVoucherBottomSheet(
                         val exact = customers.find { c -> c.name.trim().equals(it.trim(), ignoreCase = true) }
                         if (exact != null) {
                             selectedCustomerId = exact.id
-                            selectedSessionIds = emptySet()
                         } else {
                             selectedCustomerId = 0L
+                            selectedSessionIds = emptySet()
                         }
                     },
                     items = customers,
@@ -2587,7 +2604,6 @@ fun AddVoucherBottomSheet(
                     onItemSelected = { c ->
                         selectedCustomerId = c.id
                         custSearchQuery = c.name
-                        selectedSessionIds = emptySet()
                         amountStr = ""
                     },
                     modifier = Modifier.fillMaxWidth()
