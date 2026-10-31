@@ -84,6 +84,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -248,7 +249,7 @@ fun CustomersScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "إدارة الحسابات",
+                        text = "إدارة العملاء",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -310,80 +311,63 @@ fun CustomersScreen(
                         }
                     }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        // زر استيراد إكسل
+                    // قائمة الإجراءات والخيارات (ثلاث نقاط) في الـ AppBar
+                    Box {
                         IconButton(
-                            onClick = {
-                                excelPickerLauncher.launch(
-                                    arrayOf(
-                                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                        "application/vnd.ms-excel",
-                                        "text/csv",
-                                        "text/comma-separated-values",
-                                        "text/plain",
-                                        "*/*"
-                                    )
-                                )
-                            },
+                            onClick = { showExportMenu = true },
                             modifier = Modifier.size(36.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.FileUpload,
-                                contentDescription = "استيراد من إكسل",
-                                tint = PrimaryTeal,
-                                modifier = Modifier.size(20.dp)
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "المزيد من الخيارات",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(22.dp)
                             )
                         }
-
-                        // زر تصدير إكسل
-                        Box {
-                            IconButton(
-                                onClick = { showExportMenu = true },
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.FileDownload,
-                                    contentDescription = "تصدير إلى إكسل",
-                                    tint = PrimaryTeal,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showExportMenu,
-                                onDismissRequest = { showExportMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("تصدير إلى إكسل (XLSX)", fontWeight = FontWeight.Bold) },
-                                    leadingIcon = { Icon(Icons.Default.TableChart, contentDescription = null, tint = PrimaryTeal) },
-                                    onClick = {
-                                        showExportMenu = false
-                                        viewModel.exportCustomersToExcel(context)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("تصدير كملف CSV", fontWeight = FontWeight.Bold) },
-                                    leadingIcon = { Icon(Icons.Default.Description, contentDescription = null, tint = PrimaryTeal) },
-                                    onClick = {
-                                        showExportMenu = false
-                                        viewModel.exportCustomersToCsv(context)
-                                    }
-                                )
-                            }
-                        }
-
-                        // زر طباعة كشف PDF الشامل
-                        IconButton(
-                            onClick = { viewModel.generateAllCustomersReportPdf() },
-                            modifier = Modifier.size(36.dp)
+                        DropdownMenu(
+                            expanded = showExportMenu,
+                            onDismissRequest = { showExportMenu = false }
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.PictureAsPdf,
-                                contentDescription = "طباعة كشف PDF",
-                                tint = AccentGold,
-                                modifier = Modifier.size(20.dp)
+                            DropdownMenuItem(
+                                text = { Text("استيراد من إكسل", fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.FileUpload, contentDescription = null, tint = PrimaryTeal) },
+                                onClick = {
+                                    showExportMenu = false
+                                    excelPickerLauncher.launch(
+                                        arrayOf(
+                                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                            "application/vnd.ms-excel",
+                                            "text/csv",
+                                            "text/comma-separated-values",
+                                            "text/plain",
+                                            "*/*"
+                                        )
+                                    )
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("تصدير إلى إكسل (XLSX)", fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.TableChart, contentDescription = null, tint = PrimaryTeal) },
+                                onClick = {
+                                    showExportMenu = false
+                                    viewModel.exportCustomersToExcel(context)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("تصدير كملف CSV", fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.Description, contentDescription = null, tint = PrimaryTeal) },
+                                onClick = {
+                                    showExportMenu = false
+                                    viewModel.exportCustomersToCsv(context)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("طباعة كشف الحسابات (PDF)", fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
+                                onClick = {
+                                    showExportMenu = false
+                                    viewModel.generateAllCustomersReportPdf()
+                                }
                             )
                         }
                     }
@@ -392,142 +376,73 @@ fun CustomersScreen(
 
             // 2. شريط الفلاتر المصغرة وحقل البحث المدمج وفلاتر الترتيب المتجاوبة
             if (isCompactHeight) {
-                // في الوضع الأفقي: دمج حقل البحث وفلاتر الحساب في سطر واحد مضغوط لتوفير المساحة الرأسية بالكامل
+                // في الوضع الأفقي: حقل البحث وشريط الفلاتر ثلاثي الأقسام
                 item {
                     Surface(
                         color = MaterialTheme.colorScheme.background,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(34.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                                    .padding(horizontal = 8.dp),
+                                contentAlignment = Alignment.CenterStart
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1.3f)
-                                        .height(36.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                                        .padding(horizontal = 8.dp),
-                                    contentAlignment = Alignment.CenterStart
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxWidth()
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Box(
+                                        modifier = Modifier.weight(1f),
+                                        contentAlignment = Alignment.CenterStart
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Search,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Box(
-                                            modifier = Modifier.weight(1f),
-                                            contentAlignment = Alignment.CenterStart
-                                        ) {
-                                            if (searchQuery.isEmpty()) {
-                                                Text(
-                                                    text = "بحث...",
-                                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                                                        fontSize = 11.5.sp
-                                                    ),
-                                                    maxLines = 1
-                                                )
-                                            }
-                                            BasicTextField(
-                                                value = searchQuery,
-                                                onValueChange = { viewModel.setSearchQuery(it) },
-                                                singleLine = true,
-                                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                                    color = MaterialTheme.colorScheme.onSurface,
+                                        if (searchQuery.isEmpty()) {
+                                            Text(
+                                                text = "بحث بالاسم، المزرعة، أو الهاتف...",
+                                                style = MaterialTheme.typography.bodyMedium.copy(
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
                                                     fontSize = 11.5.sp
                                                 ),
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .testTag("customers_search_input")
+                                                maxLines = 1
                                             )
                                         }
-                                        if (searchQuery.isNotEmpty()) {
-                                            IconButton(
-                                                onClick = { viewModel.setSearchQuery("") },
-                                                modifier = Modifier.size(18.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Close,
-                                                    contentDescription = "مسح",
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier.size(13.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                MosaribFilterRow(
-                                    modifier = Modifier.weight(1.7f),
-                                    contentPadding = PaddingValues(0.dp)
-                                ) {
-                                    MosaribFilterChip(
-                                        selected = accountFilter == AccountFilter.ALL,
-                                        onClick = { viewModel.setAccountFilter(AccountFilter.ALL) },
-                                        label = "الكل",
-                                        badgeCount = rawCustomers.size,
-                                        isCompact = true
-                                    )
-                                    MosaribFilterChip(
-                                        selected = accountFilter == AccountFilter.FARMERS,
-                                        onClick = { viewModel.setAccountFilter(AccountFilter.FARMERS) },
-                                        label = "المزارعون",
-                                        badgeCount = rawCustomers.count { !it.customer.isWellOwner },
-                                        isCompact = true,
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.Eco,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(14.dp),
-                                                tint = if (accountFilter == AccountFilter.FARMERS) Color.White else PrimaryTeal
-                                            )
-                                        }
-                                    )
-                                    MosaribFilterChip(
-                                        selected = accountFilter == AccountFilter.WELL_OWNERS,
-                                        onClick = { viewModel.setAccountFilter(AccountFilter.WELL_OWNERS) },
-                                        label = "أصحاب الآبار",
-                                        badgeCount = rawCustomers.count { it.customer.isWellOwner },
-                                        isCompact = true,
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.WaterDrop,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(14.dp),
-                                                tint = if (accountFilter == AccountFilter.WELL_OWNERS) Color.White else PrimaryTeal
-                                            )
-                                        }
-                                    )
-                                    customGroups.forEach { grp ->
-                                        MosaribFilterChip(
-                                            selected = selectedGroup == grp,
-                                            onClick = {
-                                                if (selectedGroup == grp) viewModel.setSelectedGroup(null)
-                                                else viewModel.setSelectedGroup(grp)
-                                            },
-                                            label = grp,
-                                            badgeCount = rawCustomers.count { it.customer.customGroup.trim().equals(grp.trim(), ignoreCase = true) },
-                                            isCompact = true,
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = Icons.Default.Bookmarks,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(13.dp),
-                                                    tint = if (selectedGroup == grp) Color.White else AccentGold
-                                                )
-                                            }
+                                        BasicTextField(
+                                            value = searchQuery,
+                                            onValueChange = { viewModel.setSearchQuery(it) },
+                                            singleLine = true,
+                                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontSize = 11.5.sp
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("customers_search_input")
                                         )
+                                    }
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(
+                                            onClick = { viewModel.setSearchQuery("") },
+                                            modifier = Modifier.size(18.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "مسح",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -538,6 +453,69 @@ fun CustomersScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 contentPadding = PaddingValues(0.dp)
                             ) {
+                                MosaribFilterChip(
+                                    selected = accountFilter == AccountFilter.ALL,
+                                    onClick = { viewModel.setAccountFilter(AccountFilter.ALL) },
+                                    label = "الكل",
+                                    badgeCount = rawCustomers.size,
+                                    isCompact = true
+                                )
+                                MosaribFilterChip(
+                                    selected = accountFilter == AccountFilter.FARMERS,
+                                    onClick = { viewModel.setAccountFilter(AccountFilter.FARMERS) },
+                                    label = "المزارعون",
+                                    badgeCount = rawCustomers.count { !it.customer.isWellOwner },
+                                    isCompact = true,
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Eco,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = if (accountFilter == AccountFilter.FARMERS) Color.White else PrimaryTeal
+                                        )
+                                    }
+                                )
+                                MosaribFilterChip(
+                                    selected = accountFilter == AccountFilter.WELL_OWNERS,
+                                    onClick = { viewModel.setAccountFilter(AccountFilter.WELL_OWNERS) },
+                                    label = "أصحاب الآبار",
+                                    badgeCount = rawCustomers.count { it.customer.isWellOwner },
+                                    isCompact = true,
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.WaterDrop,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = if (accountFilter == AccountFilter.WELL_OWNERS) Color.White else PrimaryTeal
+                                        )
+                                    }
+                                )
+                                customGroups.forEach { grp ->
+                                    MosaribFilterChip(
+                                        selected = selectedGroup == grp,
+                                        onClick = {
+                                            if (selectedGroup == grp) viewModel.setSelectedGroup(null)
+                                            else viewModel.setSelectedGroup(grp)
+                                        },
+                                        label = grp,
+                                        badgeCount = rawCustomers.count { it.customer.customGroup.trim().equals(grp.trim(), ignoreCase = true) },
+                                        isCompact = true,
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Bookmarks,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(13.dp),
+                                                tint = if (selectedGroup == grp) Color.White else AccentGold
+                                            )
+                                        }
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .width(1.dp)
+                                        .height(18.dp)
+                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                                )
                                 MosaribFilterChip(
                                     selected = balanceFilter == CustomerBalanceFilter.DEBTOR,
                                     onClick = {
@@ -621,18 +599,87 @@ fun CustomersScreen(
                     }
                 }
             } else {
-                // في الوضع الرأسي: StickyHeader مع مسافات مدمجة ومحكمة
+                // في الوضع الرأسي: StickyHeader أنيق يضم حقل البحث أولاً ثم شريط الفلاتر ثلاثي الأقسام
                 stickyHeader {
                     Surface(
                         color = MaterialTheme.colorScheme.background,
                         shadowElevation = if (isStickyPinned) 3.dp else 0.dp,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)) {
+                        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
+                            // حقل البحث بمظهر واسع وأنيق ومستغل للمساحة السابقة
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(38.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                    .padding(horizontal = 10.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Box(
+                                        modifier = Modifier.weight(1f),
+                                        contentAlignment = Alignment.CenterStart
+                                    ) {
+                                        if (searchQuery.isEmpty()) {
+                                            Text(
+                                                text = "بحث بالاسم، المزرعة، أو الهاتف...",
+                                                style = MaterialTheme.typography.bodyMedium.copy(
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                                    fontSize = 12.sp
+                                                ),
+                                                maxLines = 1
+                                            )
+                                        }
+                                        BasicTextField(
+                                            value = searchQuery,
+                                            onValueChange = { viewModel.setSearchQuery(it) },
+                                            singleLine = true,
+                                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontSize = 12.sp
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("customers_search_input")
+                                        )
+                                    }
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(
+                                            onClick = { viewModel.setSearchQuery("") },
+                                            modifier = Modifier.size(20.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "مسح",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(5.dp))
+
+                            // شريط الفلاتر الموحّد ثلاثي الأقسام (نوع الحساب أولاً | حالة الرصيد | الترتيب)
                             MosaribFilterRow(
                                 modifier = Modifier.fillMaxWidth(),
                                 contentPadding = PaddingValues(0.dp)
                             ) {
+                                // القسم 1: نوع الحساب
                                 MosaribFilterChip(
                                     selected = accountFilter == AccountFilter.ALL,
                                     onClick = { viewModel.setAccountFilter(AccountFilter.ALL) },
@@ -693,80 +740,16 @@ fun CustomersScreen(
                                         }
                                     )
                                 }
-                            }
 
-                            Spacer(modifier = Modifier.height(4.dp))
+                                // فاصل أول
+                                Box(
+                                    modifier = Modifier
+                                        .width(1.dp)
+                                        .height(18.dp)
+                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                                )
 
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(36.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                                    .padding(horizontal = 8.dp),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Search,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Box(
-                                        modifier = Modifier.weight(1f),
-                                        contentAlignment = Alignment.CenterStart
-                                    ) {
-                                        if (searchQuery.isEmpty()) {
-                                            Text(
-                                                text = "بحث بالاسم، المزرعة، أو الهاتف...",
-                                                style = MaterialTheme.typography.bodyMedium.copy(
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                                                    fontSize = 11.5.sp
-                                                ),
-                                                maxLines = 1
-                                            )
-                                        }
-                                        BasicTextField(
-                                            value = searchQuery,
-                                            onValueChange = { viewModel.setSearchQuery(it) },
-                                            singleLine = true,
-                                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                fontSize = 11.5.sp
-                                            ),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .testTag("customers_search_input")
-                                        )
-                                    }
-                                    if (searchQuery.isNotEmpty()) {
-                                        IconButton(
-                                            onClick = { viewModel.setSearchQuery("") },
-                                            modifier = Modifier.size(18.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "مسح",
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(13.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            MosaribFilterRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                contentPadding = PaddingValues(0.dp)
-                            ) {
+                                // القسم 2: حالة الرصيد
                                 MosaribFilterChip(
                                     selected = balanceFilter == CustomerBalanceFilter.DEBTOR,
                                     onClick = {
@@ -821,12 +804,16 @@ fun CustomersScreen(
                                         )
                                     }
                                 )
+
+                                // فاصل ثانٍ
                                 Box(
                                     modifier = Modifier
                                         .width(1.dp)
                                         .height(18.dp)
                                         .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
                                 )
+
+                                // القسم 3: الترتيب
                                 MosaribFilterChip(
                                     selected = sortType == CustomerSort.NAME,
                                     onClick = { viewModel.setSortType(CustomerSort.NAME) },
@@ -1658,158 +1645,83 @@ fun CustomerCardItem(
 
             Spacer(modifier = Modifier.height(7.dp))
 
-            // 3. الصف الثالث: المبلغ باللون الأحمر أو الأخضر أو مسدد (يتوسط البطاقة أفقياً)
-            if (customer.isWellOwner) {
-                val hasPayable = item.payableBalance != 0.0
-                val hasReceivable = item.receivableBalance != 0.0
+            // 3. الصف الثالث: المبلغ باللون الأحمر أو الأخضر أو مسدد (يتوسط البطاقة أفقياً) مع التفقيط باللغة العربية
+            val (statusText, statusAmount, statusColor) = if (customer.isWellOwner) {
+                val net = item.payableBalance - item.receivableBalance
+                when {
+                    net > 0.001 -> Triple("له", net, Color(0xFF2E7D32))
+                    net < -0.001 -> Triple("عليه", -net, Color(0xFFE53935))
+                    else -> Triple("مسدد", 0.0, AccentEmerald)
+                }
+            } else {
+                when {
+                    item.receivableBalance > 0.001 -> Triple("عليه", item.receivableBalance, Color(0xFFE53935))
+                    item.receivableBalance < -0.001 -> Triple("له", -item.receivableBalance, Color(0xFF2E7D32))
+                    else -> Triple("مسدد", 0.0, AccentEmerald)
+                }
+            }
 
-                if (!hasPayable && !hasReceivable) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
+            if (statusText == "مسدد") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(if (isDark) Color(0xFF132A1C) else Color(0xFFE8F5E9))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(if (isDark) Color(0xFF132A1C) else Color(0xFFE8F5E9))
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = AccentEmerald,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Text(
-                                    text = "مسدد",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = AccentEmerald,
-                                        fontSize = 12.5.sp
-                                    )
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (hasPayable) {
-                            val isDebt = item.payableBalance > 0
-                            val pColor = if (isDebt) Color(0xFFE53935) else Color(0xFF2E7D32)
-                            val pText = if (isDebt) "عليك: ${Formatters.formatCurrency(item.payableBalance, currencySymbol)}"
-                            else "لك رصيد: ${Formatters.formatCurrency(-item.payableBalance, currencySymbol)}"
-                            Text(
-                                text = pText,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = pColor,
-                                    fontSize = 13.5.sp
-                                )
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = AccentEmerald,
+                                modifier = Modifier.size(15.dp)
                             )
-                        } else {
                             Text(
-                                text = "مستحقات الشراء مسددة",
-                                style = MaterialTheme.typography.bodySmall.copy(
+                                text = "مسدد",
+                                style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF2E7D32),
-                                    fontSize = 11.5.sp
-                                )
-                            )
-                        }
-
-                        if (hasReceivable) {
-                            val isDebt = item.receivableBalance > 0
-                            val rColor = if (isDebt) Color(0xFFE53935) else Color(0xFF2E7D32)
-                            val rText = if (isDebt) "مطلوب منه: ${Formatters.formatCurrency(item.receivableBalance, currencySymbol)}"
-                            else "له رصيد: ${Formatters.formatCurrency(-item.receivableBalance, currencySymbol)}"
-                            Text(
-                                text = rText,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = rColor,
-                                    fontSize = 13.5.sp
+                                    color = AccentEmerald,
+                                    fontSize = 12.5.sp
                                 )
                             )
                         }
                     }
                 }
             } else {
-                // عميل مزارع عادي - المبلغ المطلوب يتوسط البطاقة أفقياً
-                when {
-                    item.receivableBalance > 0 -> {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "مطلوب منه: ${Formatters.formatCurrency(item.receivableBalance, currencySymbol)}",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFFE53935),
-                                    fontSize = 14.5.sp
-                                )
-                            )
-                        }
-                    }
-                    item.receivableBalance < 0 -> {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "له رصيد متبقي: ${Formatters.formatCurrency(-item.receivableBalance, currencySymbol)}",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFF2E7D32),
-                                    fontSize = 14.5.sp
-                                )
-                            )
-                        }
-                    }
-                    else -> {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(if (isDark) Color(0xFF132A1C) else Color(0xFFE8F5E9))
-                                    .padding(horizontal = 10.dp, vertical = 4.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = AccentEmerald,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Text(
-                                        text = "مسدد",
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = AccentEmerald,
-                                            fontSize = 12.5.sp
-                                        )
-                                    )
-                                }
-                            }
-                        }
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = "$statusText: ${Formatters.formatCurrency(statusAmount, currencySymbol)}",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = statusColor,
+                            fontSize = 14.5.sp
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                    val tafqeetWords = Formatters.amountToArabicWords(statusAmount, currencySymbol)
+                    if (tafqeetWords.isNotBlank()) {
+                        Text(
+                            text = tafqeetWords,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Medium,
+                                color = statusColor.copy(alpha = 0.82f),
+                                fontSize = 10.5.sp
+                            ),
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
