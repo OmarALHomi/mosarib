@@ -130,6 +130,8 @@ fun SessionCardItem(
     var menuExpanded by remember(session.id) { mutableStateOf(false) }
     var isExpanded by remember(session.id) { mutableStateOf(false) }
 
+    val sessionColor = Color(0xFF0284C7)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -137,7 +139,7 @@ fun SessionCardItem(
             .shadow(1.5.dp, RoundedCornerShape(16.dp))
             .clickable(enabled = onCardClick != null) { onCardClick?.invoke() },
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.2.dp, PrimaryTeal.copy(alpha = if (isDark) 0.35f else 0.22f)),
+        border = BorderStroke(1.4.dp, sessionColor.copy(alpha = if (isDark) 0.45f else 0.30f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
@@ -161,10 +163,10 @@ fun SessionCardItem(
                 ) {
                     Box(
                         modifier = Modifier
-                            .width(3.5.dp)
-                            .height(28.dp)
+                            .width(4.dp)
+                            .height(30.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(PrimaryTeal)
+                            .background(sessionColor)
                     )
 
                     Spacer(modifier = Modifier.width(6.dp))
@@ -173,18 +175,14 @@ fun SessionCardItem(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(CircleShape)
-                            .background(
-                                if (isDark) Color(0xFF1E293B)
-                                else if (isWellOwner) Color(0xFFE1F5FE)
-                                else PrimaryTeal.copy(alpha = 0.12f)
-                            ),
+                            .background(sessionColor.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Eco,
-                            contentDescription = if (isWellOwner) "صاحب بئر" else "عميل",
-                            tint = if (isDark) Color.White else (if (isWellOwner) Color(0xFF0288D1) else PrimaryTeal),
-                            modifier = Modifier.size(19.dp)
+                            imageVector = Icons.Default.WaterDrop,
+                            contentDescription = if (isWellOwner) "صاحب بئر" else "سقي",
+                            tint = sessionColor,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
@@ -205,13 +203,13 @@ fun SessionCardItem(
                     Spacer(modifier = Modifier.width(5.dp))
 
                     Surface(
-                        color = PrimaryTeal.copy(alpha = 0.12f),
+                        color = sessionColor.copy(alpha = 0.14f),
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Text(
                             text = "جلسة سقي",
                             style = MaterialTheme.typography.labelSmall.copy(
-                                color = PrimaryTeal,
+                                color = sessionColor,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 9.5.sp
                             ),
@@ -485,6 +483,16 @@ fun SessionCardItem(
                                 }
                             }
                             Text(
+                                text = Formatters.amountToArabicWords(session.totalAmount, currencySymbol),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = sessionColor,
+                                    fontSize = 9.5.sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
                                 text = "سعر الساعة: ${Formatters.formatCurrency(session.pricePerHour, currencySymbol)}",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.SemiBold,
@@ -629,8 +637,8 @@ fun SessionCardItem(
                             SessionMetricPill(
                                 label = "الإجمالي",
                                 value = "${Formatters.formatNumber(session.totalAmount)} $currencySymbol",
-                                bgColor = AccentEmerald.copy(alpha = 0.15f),
-                                textColor = AccentEmerald
+                                bgColor = sessionColor.copy(alpha = 0.15f),
+                                textColor = sessionColor
                             )
 
                             SessionMetricPill(

@@ -36,6 +36,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -736,10 +737,9 @@ fun VouchersScreen(
                             val isDiscount = voucher.type == VoucherType.DISCOUNT
 
                             val opColor = when {
-                                isSessionPayment -> Color(0xFFD97706)
                                 isReceipt -> AccentEmerald
                                 isDiscount -> Color(0xFF8B5CF6)
-                                else -> Color(0xFFEF4444)
+                                else -> Color(0xFFDC2626)
                             }
                             val opBadgeText = when {
                                 isSessionPayment -> "سداد دورة سقي"
@@ -748,9 +748,8 @@ fun VouchersScreen(
                                 else -> "سند صرف"
                             }
                             val opIcon = when {
-                                isSessionPayment -> Icons.Default.CheckCircle
-                                isReceipt -> Icons.Default.ArrowDownward
-                                isDiscount -> Icons.Default.ArrowDownward
+                                isReceipt -> Icons.Default.Payments
+                                isDiscount -> Icons.Default.Bookmarks
                                 else -> Icons.Default.ArrowUpward
                             }
                             val customer = op.voucherWithCustomer.customer
@@ -769,7 +768,7 @@ fun VouchersScreen(
                                     .shadow(1.dp, RoundedCornerShape(12.dp))
                                     .clickable { voucherForDetails = op.voucherWithCustomer },
                                 shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.2.dp, opColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
+                                border = BorderStroke(1.4.dp, opColor.copy(alpha = if (isDark) 0.45f else 0.30f)),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                             ) {
                                 Column(
@@ -777,11 +776,11 @@ fun VouchersScreen(
                                         .fillMaxWidth()
                                         .padding(horizontal = 10.dp, vertical = 7.dp)
                                 ) {
-                                    // 1. الصف العلوي: شريط عمودي ملون + أيقونة + اسم العميل + نوع السند + رقم الساقية + المبلغ
+                                    // 1. الصف العلوي: شريط عمودي ملون + أيقونة + اسم العميل + نوع السند + رقم الساقية + المبلغ وتفقيطه
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                        verticalAlignment = Alignment.Top
                                     ) {
                                         // اليمين: الشريط العمودي الملون + الأيقونة واسم العميل وبادج السند وبادج الساقية
                                         Row(
@@ -790,35 +789,34 @@ fun VouchersScreen(
                                         ) {
                                             Box(
                                                 modifier = Modifier
-                                                    .width(3.5.dp)
-                                                    .height(28.dp)
+                                                    .width(4.dp)
+                                                    .height(34.dp)
                                                     .clip(RoundedCornerShape(2.dp))
                                                     .background(opColor)
                                             )
 
-                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Spacer(modifier = Modifier.width(7.dp))
 
                                             Box(
                                                 modifier = Modifier
-                                                    .size(28.dp)
+                                                    .size(34.dp)
                                                     .clip(CircleShape)
-                                                    .background(opColor.copy(alpha = 0.12f)),
+                                                    .background(opColor.copy(alpha = 0.16f)),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Icon(
                                                     imageVector = opIcon,
                                                     contentDescription = opBadgeText,
                                                     tint = opColor,
-                                                    modifier = Modifier.size(16.dp)
+                                                    modifier = Modifier.size(19.dp)
                                                 )
                                             }
 
-                                            Spacer(modifier = Modifier.width(7.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
 
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
+                                            Column(
                                                 modifier = Modifier
-                                                    .weight(1f, fill = false)
+                                                    .weight(1f)
                                                     .clickable {
                                                         if (voucher.customerId != null) {
                                                             onNavigateToCustomer(voucher.customerId)
@@ -830,55 +828,58 @@ fun VouchersScreen(
                                                     style = MaterialTheme.typography.titleSmall.copy(
                                                         fontWeight = FontWeight.ExtraBold,
                                                         color = MaterialTheme.colorScheme.onSurface,
-                                                        fontSize = 13.5.sp
+                                                        fontSize = 14.sp
                                                     ),
                                                     maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    modifier = Modifier.weight(1f, fill = false)
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
-                                                Spacer(modifier = Modifier.width(5.dp))
-                                                Surface(
-                                                    color = opColor.copy(alpha = 0.12f),
-                                                    shape = RoundedCornerShape(4.dp)
+                                                Spacer(modifier = Modifier.height(3.dp))
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                 ) {
-                                                    Text(
-                                                        text = opBadgeText,
-                                                        style = MaterialTheme.typography.labelSmall.copy(
-                                                            color = opColor,
-                                                            fontWeight = FontWeight.Bold,
-                                                            fontSize = 9.5.sp
-                                                        ),
-                                                        maxLines = 1,
-                                                        softWrap = false,
-                                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
-                                                    )
-                                                }
-
-                                                if (voucher.sessionId != null && voucher.sessionId > 0) {
-                                                    Spacer(modifier = Modifier.width(4.dp))
                                                     Surface(
-                                                        color = PrimaryTeal.copy(alpha = 0.12f),
-                                                        shape = RoundedCornerShape(4.dp),
-                                                        modifier = Modifier.clickable {
-                                                            val foundSession = allSessions.find { it.id == voucher.sessionId }
-                                                            if (foundSession != null) {
-                                                                selectedLinkedSession = foundSession
-                                                            } else {
-                                                                viewModel.showToast("دورة سقي #${voucher.sessionId}")
-                                                            }
-                                                        }
+                                                        color = opColor.copy(alpha = 0.14f),
+                                                        shape = RoundedCornerShape(4.dp)
                                                     ) {
                                                         Text(
-                                                            text = "ساقية #${voucher.sessionId}",
+                                                            text = opBadgeText,
                                                             style = MaterialTheme.typography.labelSmall.copy(
-                                                                color = PrimaryTeal,
+                                                                color = opColor,
                                                                 fontWeight = FontWeight.Bold,
-                                                                fontSize = 9.sp
+                                                                fontSize = 9.5.sp
                                                             ),
                                                             maxLines = 1,
                                                             softWrap = false,
-                                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
+                                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
                                                         )
+                                                    }
+
+                                                    if (voucher.sessionId != null && voucher.sessionId > 0) {
+                                                        Surface(
+                                                            color = Color(0xFF0284C7).copy(alpha = 0.14f),
+                                                            shape = RoundedCornerShape(4.dp),
+                                                            modifier = Modifier.clickable {
+                                                                val foundSession = allSessions.find { it.id == voucher.sessionId }
+                                                                if (foundSession != null) {
+                                                                    selectedLinkedSession = foundSession
+                                                                } else {
+                                                                    viewModel.showToast("دورة سقي #${voucher.sessionId}")
+                                                                }
+                                                            }
+                                                        ) {
+                                                            Text(
+                                                                text = "ساقية #${voucher.sessionId}",
+                                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                                    color = Color(0xFF0284C7),
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    fontSize = 9.5.sp
+                                                                ),
+                                                                maxLines = 1,
+                                                                softWrap = false,
+                                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }
@@ -886,17 +887,30 @@ fun VouchersScreen(
 
                                         Spacer(modifier = Modifier.width(8.dp))
 
-                                        // اليسار: المبلغ المقبوض/المصروف
-                                        Text(
-                                            text = (if (isReceipt) "+ " else "- ") + Formatters.formatCurrency(voucher.amount, config.currencySymbol),
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontWeight = FontWeight.ExtraBold,
-                                                color = opColor,
-                                                fontSize = 15.sp
-                                            ),
-                                            maxLines = 1,
-                                            softWrap = false
-                                        )
+                                        // اليسار: المبلغ المقبوض/المصروف والتفقيط
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text(
+                                                text = (if (isReceipt) "+ " else "- ") + Formatters.formatCurrency(voucher.amount, config.currencySymbol),
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = opColor,
+                                                    fontSize = 15.sp
+                                                ),
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = Formatters.amountToArabicWords(voucher.amount, config.currencySymbol),
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 9.5.sp
+                                                ),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                     }
 
                                     if (voucher.notes.isNotBlank() && voucher.notes != titleText && voucher.notes != "عام") {
@@ -1190,7 +1204,7 @@ fun VouchersScreen(
                             val remainingDebt = (totalAmount - paidAmount).coerceAtLeast(0.0)
                             val chargeable = WellOwnerPurchaseMath.chargeableMinutes(purchase)
                             val waste = purchase.wastedMinutesOnOwner
-                            val purchaseColor = Color(0xFF0288D1)
+                            val purchaseColor = Color(0xFFF97316)
 
                             Card(
                                 modifier = Modifier
@@ -1199,7 +1213,7 @@ fun VouchersScreen(
                                     .shadow(1.dp, RoundedCornerShape(12.dp))
                                     .clickable { purchaseForDetails = Pair(purchase, owner) },
                                 shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.2.dp, purchaseColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
+                                border = BorderStroke(1.4.dp, purchaseColor.copy(alpha = if (isDark) 0.45f else 0.30f)),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                             ) {
                                 Column(
@@ -1207,11 +1221,11 @@ fun VouchersScreen(
                                         .fillMaxWidth()
                                         .padding(horizontal = 10.dp, vertical = 7.dp)
                                 ) {
-                                    // 1. الصف العلوي: شريط عمودي مميز + أيقونة + اسم صاحب البئر + الإجمالي المالي
+                                    // 1. الصف العلوي: شريط عمودي برتقالي + أيقونة ساعة بارزة + اسم صاحب البئر وبادج + الإجمالي وتفقيطه
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                        verticalAlignment = Alignment.Top
                                     ) {
                                         // اليمين: الشريط العمودي + الأيقونة واسم صاحب البئر وبادج شراء ساعات
                                         Row(
@@ -1220,35 +1234,34 @@ fun VouchersScreen(
                                         ) {
                                             Box(
                                                 modifier = Modifier
-                                                    .width(3.5.dp)
-                                                    .height(28.dp)
+                                                    .width(4.dp)
+                                                    .height(34.dp)
                                                     .clip(RoundedCornerShape(2.dp))
                                                     .background(purchaseColor)
                                             )
 
-                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Spacer(modifier = Modifier.width(7.dp))
 
                                             Box(
                                                 modifier = Modifier
-                                                    .size(28.dp)
+                                                    .size(34.dp)
                                                     .clip(CircleShape)
-                                                    .background(purchaseColor.copy(alpha = 0.12f)),
+                                                    .background(purchaseColor.copy(alpha = 0.16f)),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Default.AccessTime,
                                                     contentDescription = "شراء ساعات",
                                                     tint = purchaseColor,
-                                                    modifier = Modifier.size(16.dp)
+                                                    modifier = Modifier.size(20.dp)
                                                 )
                                             }
 
-                                            Spacer(modifier = Modifier.width(7.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
 
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
+                                            Column(
                                                 modifier = Modifier
-                                                    .weight(1f, fill = false)
+                                                    .weight(1f)
                                                     .clickable {
                                                         onNavigateToCustomer(purchase.ownerCustomerId)
                                                     }
@@ -1258,19 +1271,18 @@ fun VouchersScreen(
                                                     style = MaterialTheme.typography.titleSmall.copy(
                                                         fontWeight = FontWeight.ExtraBold,
                                                         color = MaterialTheme.colorScheme.onSurface,
-                                                        fontSize = 13.5.sp
+                                                        fontSize = 14.sp
                                                     ),
                                                     maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    modifier = Modifier.weight(1f, fill = false)
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
-                                                Spacer(modifier = Modifier.width(5.dp))
+                                                Spacer(modifier = Modifier.height(3.dp))
                                                 Surface(
-                                                    color = purchaseColor.copy(alpha = 0.12f),
+                                                    color = purchaseColor.copy(alpha = 0.14f),
                                                     shape = RoundedCornerShape(4.dp)
                                                 ) {
                                                     Text(
-                                                        text = "شراء ساعات",
+                                                        text = "شراء ساعات بئر",
                                                         style = MaterialTheme.typography.labelSmall.copy(
                                                             color = purchaseColor,
                                                             fontWeight = FontWeight.Bold,
@@ -1286,17 +1298,30 @@ fun VouchersScreen(
 
                                         Spacer(modifier = Modifier.width(8.dp))
 
-                                        // اليسار: الإجمالي الكلي للشراء
-                                        Text(
-                                            text = Formatters.formatCurrency(totalAmount, config.currencySymbol),
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontWeight = FontWeight.ExtraBold,
-                                                color = purchaseColor,
-                                                fontSize = 15.sp
-                                            ),
-                                            maxLines = 1,
-                                            softWrap = false
-                                        )
+                                        // اليسار: الإجمالي الكلي للشراء وتفقيطه
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text(
+                                                text = Formatters.formatCurrency(totalAmount, config.currencySymbol),
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = purchaseColor,
+                                                    fontSize = 15.sp
+                                                ),
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = Formatters.amountToArabicWords(totalAmount, config.currencySymbol),
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 9.5.sp
+                                                ),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                     }
 
                                     Spacer(modifier = Modifier.height(4.dp))

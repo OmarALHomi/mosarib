@@ -1842,7 +1842,7 @@ private fun CustomerPurchaseCardItem(
     onMessageClick: () -> Unit
 ) {
     val isDark = isAppDark()
-    val purchaseColor = Color(0xFF0288D1)
+    val purchaseColor = Color(0xFFF97316)
     val chargeableMinutes = WellOwnerPurchaseMath.chargeableMinutes(purchase)
     val payableAmount = WellOwnerPurchaseMath.payableAmount(purchase)
     val wasteCredit = WellOwnerPurchaseMath.ownerWasteCredit(purchase)
@@ -1854,7 +1854,7 @@ private fun CustomerPurchaseCardItem(
             .shadow(1.5.dp, RoundedCornerShape(16.dp))
             .let { if (onCardClick != null) it.clickable { onCardClick() } else it },
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.2.dp, purchaseColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
+        border = BorderStroke(1.4.dp, purchaseColor.copy(alpha = if (isDark) 0.45f else 0.30f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
@@ -1876,8 +1876,8 @@ private fun CustomerPurchaseCardItem(
                     // Vertical operation indicator stripe
                     Box(
                         modifier = Modifier
-                            .width(3.5.dp)
-                            .height(28.dp)
+                            .width(4.dp)
+                            .height(32.dp)
                             .clip(RoundedCornerShape(2.dp))
                             .background(purchaseColor)
                     )
@@ -1887,14 +1887,14 @@ private fun CustomerPurchaseCardItem(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(CircleShape)
-                            .background(purchaseColor.copy(alpha = 0.14f)),
+                            .background(purchaseColor.copy(alpha = 0.16f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.AccessTime,
                             contentDescription = "شراء ساعات",
                             tint = purchaseColor,
-                            modifier = Modifier.size(19.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
@@ -1908,15 +1908,15 @@ private fun CustomerPurchaseCardItem(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Surface(
-                                color = purchaseColor.copy(alpha = 0.12f),
+                                color = purchaseColor.copy(alpha = 0.14f),
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(
-                                    text = "شراء ساعات",
+                                    text = "شراء ساعات بئر",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = purchaseColor,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 9.sp
+                                        fontSize = 9.5.sp
                                     ),
                                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
                                 )
@@ -2068,10 +2068,22 @@ private fun CustomerPurchaseCardItem(
                             text = "الساعات المحتسبة: ${Formatters.formatDurationArabic(chargeableMinutes)}",
                             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
                         )
-                        Text(
-                            text = "الإجمالي: ${Formatters.formatCurrency(payableAmount, currencySymbol)}",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, color = purchaseColor)
-                        )
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "الإجمالي: ${Formatters.formatCurrency(payableAmount, currencySymbol)}",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, color = purchaseColor)
+                            )
+                            Text(
+                                text = Formatters.amountToArabicWords(payableAmount, currencySymbol),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = purchaseColor,
+                                    fontSize = 9.5.sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
 
                     Box(
@@ -2226,7 +2238,7 @@ private fun CustomerSessionCardItem(
     onShareVoucher: (Voucher) -> Unit
 ) {
     val isDark = isAppDark()
-    val sessionColor = PrimaryTeal
+    val sessionColor = Color(0xFF0284C7)
     var isExpanded by remember(session.id) { mutableStateOf(false) }
     var menuExpanded by remember(session.id) { mutableStateOf(false) }
     val isSettledByOffset = isWellOwner || session.billedToCustomerId != null || sponsorOwner != null
@@ -2238,7 +2250,7 @@ private fun CustomerSessionCardItem(
             .shadow(1.dp, RoundedCornerShape(14.dp))
             .let { if (onCardClick != null) it.clickable { onCardClick() } else it },
         shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.2.dp, sessionColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
+        border = BorderStroke(1.4.dp, sessionColor.copy(alpha = if (isDark) 0.45f else 0.30f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
@@ -2259,8 +2271,8 @@ private fun CustomerSessionCardItem(
                     // Vertical operation indicator stripe
                     Box(
                         modifier = Modifier
-                            .width(3.5.dp)
-                            .height(28.dp)
+                            .width(4.dp)
+                            .height(30.dp)
                             .clip(RoundedCornerShape(2.dp))
                             .background(sessionColor)
                     )
@@ -2269,10 +2281,10 @@ private fun CustomerSessionCardItem(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(CircleShape)
-                            .background(sessionColor.copy(alpha = 0.12f)),
+                            .background(sessionColor.copy(alpha = 0.16f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.WaterDrop, contentDescription = "سقي", tint = sessionColor, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.WaterDrop, contentDescription = "سقي", tint = sessionColor, modifier = Modifier.size(20.dp))
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(modifier = Modifier.weight(1f)) {
@@ -2285,7 +2297,7 @@ private fun CustomerSessionCardItem(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Surface(
-                                color = sessionColor.copy(alpha = 0.12f),
+                                color = sessionColor.copy(alpha = 0.14f),
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(
@@ -2422,17 +2434,27 @@ private fun CustomerSessionCardItem(
                     Text("إجمالي القيمة", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
                         Formatters.formatCurrency(session.totalAmount, currencySymbol),
-                        style = MaterialTheme.typography.titleMedium.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold),
+                        style = MaterialTheme.typography.titleMedium.copy(color = sessionColor, fontWeight = FontWeight.ExtraBold),
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
+                        Formatters.amountToArabicWords(session.totalAmount, currencySymbol),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = sessionColor,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 9.5.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
                         "سعر الساعة: ${Formatters.formatCurrency(session.pricePerHour, currencySymbol)}",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = PrimaryTeal.copy(alpha = 0.85f),
+                            color = sessionColor.copy(alpha = 0.85f),
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 10.5.sp
+                            fontSize = 10.sp
                         ),
                         maxLines = 1,
                         softWrap = false,
@@ -2708,8 +2730,8 @@ private fun CustomerReceiptCardItem(
 ) {
     val isDark = isAppDark()
     val isSessionPayment = voucher.sessionId != null && voucher.sessionId > 0
-    val rColor = if (isSessionPayment) Color(0xFFD97706) else AccentEmerald
-    val rIcon = if (isSessionPayment) Icons.Default.CheckCircle else Icons.Default.ArrowDownward
+    val rColor = AccentEmerald
+    val rIcon = Icons.Default.Payments
     val rBadgeText = if (isSessionPayment) "سداد دورة سقي" else if (isWellOwner) "تحصيل بئر" else "سند قبض"
     var menuExpanded by remember(voucher.id) { mutableStateOf(false) }
 
@@ -2720,7 +2742,7 @@ private fun CustomerReceiptCardItem(
             .shadow(1.dp, RoundedCornerShape(12.dp))
             .let { if (onCardClick != null) it.clickable { onCardClick() } else it },
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.2.dp, rColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
+        border = BorderStroke(1.4.dp, rColor.copy(alpha = if (isDark) 0.45f else 0.30f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
@@ -2728,11 +2750,11 @@ private fun CustomerReceiptCardItem(
                 .fillMaxWidth()
                 .padding(horizontal = 10.dp, vertical = 7.dp)
         ) {
-            // Row 1: Title + Tag (Left) <---> Amount (Right)
+            // Row 1: Title + Tag (Left) <---> Amount + Words (Right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -2741,8 +2763,8 @@ private fun CustomerReceiptCardItem(
                     // Vertical operation indicator stripe
                     Box(
                         modifier = Modifier
-                            .width(3.5.dp)
-                            .height(28.dp)
+                            .width(4.dp)
+                            .height(34.dp)
                             .clip(RoundedCornerShape(2.dp))
                             .background(rColor)
                     )
@@ -2750,96 +2772,108 @@ private fun CustomerReceiptCardItem(
 
                     Box(
                         modifier = Modifier
-                            .size(28.dp)
+                            .size(34.dp)
                             .clip(CircleShape)
-                            .background(rColor.copy(alpha = 0.14f)),
+                            .background(rColor.copy(alpha = 0.16f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(rIcon, contentDescription = rBadgeText, tint = rColor, modifier = Modifier.size(16.dp))
+                        Icon(rIcon, contentDescription = rBadgeText, tint = rColor, modifier = Modifier.size(19.dp))
                     }
-                    Spacer(modifier = Modifier.width(7.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f, fill = false)
-                    ) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = if (isSessionPayment) "سداد دورة سقي" else if (isWellOwner) "تحصيل من صاحب البئر" else "سند قبض نقدي",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 13.5.sp
+                                fontSize = 14.sp
                             ),
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
+                            overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(modifier = Modifier.width(5.dp))
-                        Surface(
-                            color = rColor.copy(alpha = 0.12f),
-                            shape = RoundedCornerShape(4.dp)
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text(
-                                text = rBadgeText,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = rColor,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 9.sp
-                                ),
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                        if (voucher.voucherNumber.isNotBlank()) {
-                            Spacer(modifier = Modifier.width(4.dp))
                             Surface(
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                color = rColor.copy(alpha = 0.14f),
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(
-                                    text = "#${voucher.voucherNumber}",
+                                    text = rBadgeText,
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 9.5.sp,
-                                        fontWeight = FontWeight.Bold
+                                        color = rColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 9.5.sp
                                     ),
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
                                 )
                             }
-                        }
-                        if (voucher.sessionId != null && voucher.sessionId > 0) {
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Surface(
-                                color = PrimaryTeal.copy(alpha = 0.12f),
-                                shape = RoundedCornerShape(4.dp)
-                            ) {
-                                Text(
-                                    text = "ساقية #${voucher.sessionId}",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = PrimaryTeal,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold
-                                    ),
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
-                                )
+                            if (voucher.voucherNumber.isNotBlank()) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                    shape = RoundedCornerShape(4.dp)
+                                ) {
+                                    Text(
+                                        text = "#${voucher.voucherNumber}",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
+                                    )
+                                }
+                            }
+                            if (voucher.sessionId != null && voucher.sessionId > 0) {
+                                Surface(
+                                    color = Color(0xFF0284C7).copy(alpha = 0.14f),
+                                    shape = RoundedCornerShape(4.dp)
+                                ) {
+                                    Text(
+                                        text = "ساقية #${voucher.sessionId}",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = Color(0xFF0284C7),
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                Text(
-                    text = "+ ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        color = rColor,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 14.5.sp
-                    ),
-                    maxLines = 1,
-                    softWrap = false,
-                    modifier = Modifier.padding(start = 6.dp)
-                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "+ ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            color = rColor,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 15.sp
+                        ),
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = Formatters.amountToArabicWords(voucher.amount, currencySymbol),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 9.5.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
 
             val receiptNote = voucher.notes.ifBlank { voucher.category }
@@ -2972,7 +3006,7 @@ private fun CustomerDisbursementCardItem(
     onDeleteClick: () -> Unit
 ) {
     val isDark = isAppDark()
-    val dColor = if (isDark) Color(0xFFF87171) else Color(0xFFEF4444)
+    val dColor = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626)
     val dIcon = Icons.Default.ArrowUpward
     val dBadgeText = if (isWellOwner) "تسديد لصاحب البئر" else "سند صرف"
     var menuExpanded by remember(voucher.id) { mutableStateOf(false) }
@@ -2984,7 +3018,7 @@ private fun CustomerDisbursementCardItem(
             .shadow(1.dp, RoundedCornerShape(12.dp))
             .let { if (onCardClick != null) it.clickable { onCardClick() } else it },
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.2.dp, dColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
+        border = BorderStroke(1.4.dp, dColor.copy(alpha = if (isDark) 0.45f else 0.30f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
@@ -2992,11 +3026,11 @@ private fun CustomerDisbursementCardItem(
                 .fillMaxWidth()
                 .padding(horizontal = 10.dp, vertical = 7.dp)
         ) {
-            // Row 1: Title (Left) <---> Amount (Right)
+            // Row 1: Title (Left) <---> Amount + Words (Right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -3005,8 +3039,8 @@ private fun CustomerDisbursementCardItem(
                     // Vertical operation indicator stripe
                     Box(
                         modifier = Modifier
-                            .width(3.5.dp)
-                            .height(28.dp)
+                            .width(4.dp)
+                            .height(34.dp)
                             .clip(RoundedCornerShape(2.dp))
                             .background(dColor)
                     )
@@ -3014,77 +3048,90 @@ private fun CustomerDisbursementCardItem(
 
                     Box(
                         modifier = Modifier
-                            .size(28.dp)
+                            .size(34.dp)
                             .clip(CircleShape)
-                            .background(dColor.copy(alpha = 0.14f)),
+                            .background(dColor.copy(alpha = 0.16f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(dIcon, contentDescription = dBadgeText, tint = dColor, modifier = Modifier.size(16.dp))
+                        Icon(dIcon, contentDescription = dBadgeText, tint = dColor, modifier = Modifier.size(19.dp))
                     }
-                    Spacer(modifier = Modifier.width(7.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f, fill = false)
-                    ) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = if (isWellOwner) "سداد لصاحب البئر" else "سند صرف مالي",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 13.5.sp
+                                fontSize = 14.sp
                             ),
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
+                            overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(modifier = Modifier.width(5.dp))
-                        Surface(
-                            color = dColor.copy(alpha = 0.12f),
-                            shape = RoundedCornerShape(4.dp)
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text(
-                                text = dBadgeText,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = dColor,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 9.sp
-                                ),
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                        if (voucher.voucherNumber.isNotBlank()) {
-                            Spacer(modifier = Modifier.width(4.dp))
                             Surface(
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                color = dColor.copy(alpha = 0.14f),
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(
-                                    text = "#${voucher.voucherNumber}",
+                                    text = dBadgeText,
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 9.5.sp,
-                                        fontWeight = FontWeight.Bold
+                                        color = dColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 9.5.sp
                                     ),
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
                                 )
+                            }
+                            if (voucher.voucherNumber.isNotBlank()) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                    shape = RoundedCornerShape(4.dp)
+                                ) {
+                                    Text(
+                                        text = "#${voucher.voucherNumber}",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                Text(
-                    text = "- ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        color = dColor,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 14.5.sp
-                    ),
-                    maxLines = 1,
-                    softWrap = false,
-                    modifier = Modifier.padding(start = 6.dp)
-                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "- ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            color = dColor,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 15.sp
+                        ),
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = Formatters.amountToArabicWords(voucher.amount, currencySymbol),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 9.5.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
 
             val disburseDesc = voucher.notes.ifBlank { voucher.category }
@@ -3226,7 +3273,7 @@ private fun CustomerDiscountCardItem(
             .shadow(1.dp, RoundedCornerShape(12.dp))
             .let { if (onCardClick != null) it.clickable { onCardClick() } else it },
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.2.dp, discColor.copy(alpha = if (isDark) 0.35f else 0.22f)),
+        border = BorderStroke(1.4.dp, discColor.copy(alpha = if (isDark) 0.45f else 0.30f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
@@ -3237,7 +3284,7 @@ private fun CustomerDiscountCardItem(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -3246,8 +3293,8 @@ private fun CustomerDiscountCardItem(
                     // Vertical operation indicator stripe
                     Box(
                         modifier = Modifier
-                            .width(3.5.dp)
-                            .height(28.dp)
+                            .width(4.dp)
+                            .height(34.dp)
                             .clip(RoundedCornerShape(2.dp))
                             .background(discColor)
                     )
@@ -3255,96 +3302,108 @@ private fun CustomerDiscountCardItem(
 
                     Box(
                         modifier = Modifier
-                            .size(28.dp)
+                            .size(34.dp)
                             .clip(CircleShape)
-                            .background(discColor.copy(alpha = 0.14f)),
+                            .background(discColor.copy(alpha = 0.16f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Bookmarks, contentDescription = "خصم", tint = discColor, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Bookmarks, contentDescription = "خصم", tint = discColor, modifier = Modifier.size(19.dp))
                     }
-                    Spacer(modifier = Modifier.width(7.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f, fill = false)
-                    ) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "سند خصم ومسامحة",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 13.5.sp
+                                fontSize = 14.sp
                             ),
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
+                            overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(modifier = Modifier.width(5.dp))
-                        Surface(
-                            color = discColor.copy(alpha = 0.12f),
-                            shape = RoundedCornerShape(4.dp)
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text(
-                                text = "خصم",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = discColor,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 9.sp
-                                ),
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                        if (voucher.voucherNumber.isNotBlank()) {
-                            Spacer(modifier = Modifier.width(4.dp))
                             Surface(
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                color = discColor.copy(alpha = 0.14f),
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(
-                                    text = "#${voucher.voucherNumber}",
+                                    text = "خصم",
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 9.5.sp,
-                                        fontWeight = FontWeight.Bold
+                                        color = discColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 9.5.sp
                                     ),
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
                                 )
                             }
-                        }
-                        if (voucher.sessionId != null && voucher.sessionId > 0) {
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Surface(
-                                color = PrimaryTeal.copy(alpha = 0.12f),
-                                shape = RoundedCornerShape(4.dp)
-                            ) {
-                                Text(
-                                    text = "دورة #${voucher.sessionId}",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = PrimaryTeal,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold
-                                    ),
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
-                                )
+                            if (voucher.voucherNumber.isNotBlank()) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                    shape = RoundedCornerShape(4.dp)
+                                ) {
+                                    Text(
+                                        text = "#${voucher.voucherNumber}",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
+                                    )
+                                }
+                            }
+                            if (voucher.sessionId != null && voucher.sessionId > 0) {
+                                Surface(
+                                    color = PrimaryTeal.copy(alpha = 0.14f),
+                                    shape = RoundedCornerShape(4.dp)
+                                ) {
+                                    Text(
+                                        text = "دورة #${voucher.sessionId}",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = PrimaryTeal,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                Text(
-                    text = "- ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        color = discColor,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 14.5.sp
-                    ),
-                    maxLines = 1,
-                    softWrap = false,
-                    modifier = Modifier.padding(start = 6.dp)
-                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "- ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            color = discColor,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 15.sp
+                        ),
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = Formatters.amountToArabicWords(voucher.amount, currencySymbol),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 9.5.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
 
             val discNote = voucher.notes.ifBlank { voucher.category }
