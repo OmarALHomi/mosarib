@@ -46,6 +46,18 @@ interface CustomerDao {
     @Query("UPDATE customers SET isArchived = 1 WHERE id = :id")
     suspend fun archiveCustomer(id: Long)
 
+    @Query("UPDATE customers SET customGroup = :newGroup WHERE customGroup = :oldGroup")
+    suspend fun renameCustomGroup(oldGroup: String, newGroup: String)
+
+    @Query("UPDATE customers SET customGroup = '' WHERE customGroup = :group")
+    suspend fun clearCustomGroup(group: String)
+
+    @Query("UPDATE customers SET customGroup = :group WHERE id IN (:customerIds)")
+    suspend fun assignCustomGroup(customerIds: List<Long>, group: String)
+
+    @Query("UPDATE customers SET customGroup = '' WHERE id IN (:customerIds) AND customGroup = :group")
+    suspend fun removeCustomGroup(customerIds: List<Long>, group: String)
+
     @Query("DELETE FROM customers")
     suspend fun clearAllCustomers()
 }

@@ -37,7 +37,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
-import androidx.compose.material.icons.filled.Eco
+import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
@@ -129,7 +129,7 @@ fun AddEditCustomerBottomSheet(
         mutableStateOf(initialCustomer?.customPricePerHour?.let { it.toString() } ?: "")
     }
 
-    val FarmerColor = Color(0xFF059669)
+    val FarmerColor = Color(0xFF2E7D32)
     val WellOwnerColor = Color(0xFF0284C7)
 
     // اللون الرئيسي النشط يتكيف ديناميكياً مع نوع الحساب (أخضر زمردي للمزارع، وأزرق مائي لصاحب البئر)
@@ -272,7 +272,7 @@ fun AddEditCustomerBottomSheet(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Eco,
+                                imageVector = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Park,
                                 contentDescription = null,
                                 tint = activeColor,
                                 modifier = Modifier.size(20.dp)
@@ -325,7 +325,7 @@ fun AddEditCustomerBottomSheet(
                     PersonaTypeCard(
                         title = "مزارع (عميل)",
                         subtitle = "سقي ومستحقات",
-                        icon = Icons.Default.Eco,
+                        icon = Icons.Default.Park,
                         isSelected = !isWellOwner,
                         activeColor = FarmerColor,
                         modifier = Modifier.weight(1f),
@@ -423,12 +423,12 @@ fun AddEditCustomerBottomSheet(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    // القائمة أو المجموعة الخاصة
+                    // القائمة أو المجموعة
                     MosaribTextField(
                         value = customGroup,
                         onValueChange = { customGroup = it },
-                        label = "القائمة أو المجموعة الخاصة (اختياري)",
-                        placeholder = if (isWellOwner) "مثال: آبار الوادي، محطات الضخ الشمالية..." else "مثال: مجموعة الشرق، مزارعو القات، وادي الخير...",
+                        label = "المجموعة (اختياري)",
+                        placeholder = if (isWellOwner) "مثال: آبار الوادي..." else "مثال: مجموعة الشرق...",
                         isDense = true,
                         leadingIcon = { Icon(Icons.Default.Bookmarks, contentDescription = null, tint = activeColor) },
                         modifier = Modifier.fillMaxWidth()

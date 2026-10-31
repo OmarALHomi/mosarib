@@ -89,7 +89,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.material.icons.filled.Eco
+import androidx.compose.material.icons.filled.Park
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.filled.Close
 import com.example.core.ui.EmptyStateView
 import com.example.core.ui.LuxuryToastNotification
@@ -149,6 +150,10 @@ fun CustomersScreen(
     var customerToEdit by remember { mutableStateOf<Customer?>(null) }
     var customerToDelete by remember { mutableStateOf<Customer?>(null) }
     var messageChoiceCustomer by remember { mutableStateOf<CustomerWithBalance?>(null) }
+    var showAddGroupDialog by remember { mutableStateOf(false) }
+    var showManageGroupsDialog by remember { mutableStateOf(false) }
+    var groupToEdit by remember { mutableStateOf<String?>(null) }
+    var initialMemberIdsForEdit by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
     val importDrafts by viewModel.importDrafts.collectAsStateWithLifecycle()
     val isImporting by viewModel.isImporting.collectAsStateWithLifecycle()
@@ -293,152 +298,23 @@ fun CustomersScreen(
 
                             Spacer(modifier = Modifier.height(3.dp))
 
-                            MosaribFilterRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                contentPadding = PaddingValues(0.dp)
-                            ) {
-                                MosaribFilterChip(
-                                    selected = accountFilter == AccountFilter.ALL,
-                                    onClick = { viewModel.setAccountFilter(AccountFilter.ALL) },
-                                    label = "الكل",
-                                    badgeCount = rawCustomers.size,
-                                    isCompact = true
-                                )
-                                MosaribFilterChip(
-                                    selected = accountFilter == AccountFilter.FARMERS,
-                                    onClick = { viewModel.setAccountFilter(AccountFilter.FARMERS) },
-                                    label = "المزارعون",
-                                    badgeCount = rawCustomers.count { !it.customer.isWellOwner },
-                                    isCompact = true,
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Default.Eco,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(14.dp),
-                                            tint = if (accountFilter == AccountFilter.FARMERS) Color.White else PrimaryTeal
-                                        )
-                                    }
-                                )
-                                MosaribFilterChip(
-                                    selected = accountFilter == AccountFilter.WELL_OWNERS,
-                                    onClick = { viewModel.setAccountFilter(AccountFilter.WELL_OWNERS) },
-                                    label = "أصحاب الآبار",
-                                    badgeCount = rawCustomers.count { it.customer.isWellOwner },
-                                    isCompact = true,
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Default.WaterDrop,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(14.dp),
-                                            tint = if (accountFilter == AccountFilter.WELL_OWNERS) Color.White else PrimaryTeal
-                                        )
-                                    }
-                                )
-                                customGroups.forEach { grp ->
-                                    MosaribFilterChip(
-                                        selected = selectedGroup == grp,
-                                        onClick = {
-                                            if (selectedGroup == grp) viewModel.setSelectedGroup(null)
-                                            else viewModel.setSelectedGroup(grp)
-                                        },
-                                        label = grp,
-                                        badgeCount = rawCustomers.count { it.customer.customGroup.trim().equals(grp.trim(), ignoreCase = true) },
-                                        isCompact = true,
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.Bookmarks,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(13.dp),
-                                                tint = if (selectedGroup == grp) Color.White else AccentGold
-                                            )
-                                        }
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .width(1.dp)
-                                        .height(18.dp)
-                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-                                )
-                                MosaribFilterChip(
-                                    selected = balanceFilter == CustomerBalanceFilter.DEBTOR,
-                                    onClick = {
-                                        if (balanceFilter == CustomerBalanceFilter.DEBTOR) viewModel.setBalanceFilter(CustomerBalanceFilter.ALL)
-                                        else viewModel.setBalanceFilter(CustomerBalanceFilter.DEBTOR)
-                                    },
-                                    label = "عليه",
-                                    badgeCount = debtorCount,
-                                    isCompact = true,
-                                    leadingIcon = {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(7.dp)
-                                                .clip(CircleShape)
-                                                .background(if (balanceFilter == CustomerBalanceFilter.DEBTOR) Color.White else (if (isDark) Color(0xFFF87171) else Color(0xFFE53935)))
-                                        )
-                                    }
-                                )
-                                MosaribFilterChip(
-                                    selected = balanceFilter == CustomerBalanceFilter.CREDITOR,
-                                    onClick = {
-                                        if (balanceFilter == CustomerBalanceFilter.CREDITOR) viewModel.setBalanceFilter(CustomerBalanceFilter.ALL)
-                                        else viewModel.setBalanceFilter(CustomerBalanceFilter.CREDITOR)
-                                    },
-                                    label = "له",
-                                    badgeCount = creditorCount,
-                                    isCompact = true,
-                                    leadingIcon = {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(7.dp)
-                                                .clip(CircleShape)
-                                                .background(if (balanceFilter == CustomerBalanceFilter.CREDITOR) Color.White else (if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32)))
-                                        )
-                                    }
-                                )
-                                MosaribFilterChip(
-                                    selected = balanceFilter == CustomerBalanceFilter.SETTLED,
-                                    onClick = {
-                                        if (balanceFilter == CustomerBalanceFilter.SETTLED) viewModel.setBalanceFilter(CustomerBalanceFilter.ALL)
-                                        else viewModel.setBalanceFilter(CustomerBalanceFilter.SETTLED)
-                                    },
-                                    label = "مسدد",
-                                    badgeCount = settledCount,
-                                    isCompact = true,
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Default.CheckCircle,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(13.dp),
-                                            tint = if (balanceFilter == CustomerBalanceFilter.SETTLED) Color.White else AccentEmerald
-                                        )
-                                    }
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .width(1.dp)
-                                        .height(18.dp)
-                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-                                )
-                                MosaribFilterChip(
-                                    selected = sortType == CustomerSort.NAME,
-                                    onClick = { viewModel.setSortType(CustomerSort.NAME) },
-                                    label = "الاسم",
-                                    isCompact = true
-                                )
-                                MosaribFilterChip(
-                                    selected = sortType == CustomerSort.HIGHEST_DEBT,
-                                    onClick = { viewModel.setSortType(CustomerSort.HIGHEST_DEBT) },
-                                    label = "الأعلى رصيداً",
-                                    isCompact = true
-                                )
-                                MosaribFilterChip(
-                                    selected = sortType == CustomerSort.MOST_WATER_HOURS,
-                                    onClick = { viewModel.setSortType(CustomerSort.MOST_WATER_HOURS) },
-                                    label = "الأكثر ساعات",
-                                    isCompact = true
-                                )
-                            }
+                            CustomersDropdownFilterRow(
+                                accountFilter = accountFilter,
+                                balanceFilter = balanceFilter,
+                                selectedGroup = selectedGroup,
+                                customGroups = customGroups,
+                                sortType = sortType,
+                                rawCustomers = rawCustomers,
+                                debtorCount = debtorCount,
+                                creditorCount = creditorCount,
+                                settledCount = settledCount,
+                                onSelectAccountFilter = { viewModel.setAccountFilter(it) },
+                                onSelectBalanceFilter = { viewModel.setBalanceFilter(it) },
+                                onSelectGroup = { viewModel.setSelectedGroup(it) },
+                                onSelectSortType = { viewModel.setSortType(it) },
+                                onAddGroupClick = { showAddGroupDialog = true },
+                                onManageGroupsClick = { showManageGroupsDialog = true }
+                            )
                         }
                     }
                 }
@@ -518,165 +394,23 @@ fun CustomersScreen(
 
                             Spacer(modifier = Modifier.height(5.dp))
 
-                            // شريط الفلاتر الموحّد ثلاثي الأقسام (نوع الحساب أولاً | حالة الرصيد | الترتيب)
-                            MosaribFilterRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                contentPadding = PaddingValues(0.dp)
-                            ) {
-                                // القسم 1: نوع الحساب
-                                MosaribFilterChip(
-                                    selected = accountFilter == AccountFilter.ALL,
-                                    onClick = { viewModel.setAccountFilter(AccountFilter.ALL) },
-                                    label = "الكل",
-                                    badgeCount = rawCustomers.size,
-                                    isCompact = true
-                                )
-
-                                MosaribFilterChip(
-                                    selected = accountFilter == AccountFilter.FARMERS,
-                                    onClick = { viewModel.setAccountFilter(AccountFilter.FARMERS) },
-                                    label = "المزارعون",
-                                    badgeCount = rawCustomers.count { !it.customer.isWellOwner },
-                                    isCompact = true,
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Default.Eco,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(14.dp),
-                                            tint = if (accountFilter == AccountFilter.FARMERS) Color.White else PrimaryTeal
-                                        )
-                                    }
-                                )
-
-                                MosaribFilterChip(
-                                    selected = accountFilter == AccountFilter.WELL_OWNERS,
-                                    onClick = { viewModel.setAccountFilter(AccountFilter.WELL_OWNERS) },
-                                    label = "أصحاب الآبار",
-                                    badgeCount = rawCustomers.count { it.customer.isWellOwner },
-                                    isCompact = true,
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Default.WaterDrop,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(14.dp),
-                                            tint = if (accountFilter == AccountFilter.WELL_OWNERS) Color.White else PrimaryTeal
-                                        )
-                                    }
-                                )
-
-                                customGroups.forEach { grp ->
-                                    MosaribFilterChip(
-                                        selected = selectedGroup == grp,
-                                        onClick = {
-                                            if (selectedGroup == grp) viewModel.setSelectedGroup(null)
-                                            else viewModel.setSelectedGroup(grp)
-                                        },
-                                        label = grp,
-                                        badgeCount = rawCustomers.count { it.customer.customGroup.trim().equals(grp.trim(), ignoreCase = true) },
-                                        isCompact = true,
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.Bookmarks,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(13.dp),
-                                                tint = if (selectedGroup == grp) Color.White else AccentGold
-                                            )
-                                        }
-                                    )
-                                }
-
-                                // فاصل أول
-                                Box(
-                                    modifier = Modifier
-                                        .width(1.dp)
-                                        .height(18.dp)
-                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-                                )
-
-                                // القسم 2: حالة الرصيد
-                                MosaribFilterChip(
-                                    selected = balanceFilter == CustomerBalanceFilter.DEBTOR,
-                                    onClick = {
-                                        if (balanceFilter == CustomerBalanceFilter.DEBTOR) viewModel.setBalanceFilter(CustomerBalanceFilter.ALL)
-                                        else viewModel.setBalanceFilter(CustomerBalanceFilter.DEBTOR)
-                                    },
-                                    label = "عليه",
-                                    badgeCount = debtorCount,
-                                    isCompact = true,
-                                    leadingIcon = {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(7.dp)
-                                                .clip(CircleShape)
-                                                .background(if (balanceFilter == CustomerBalanceFilter.DEBTOR) Color.White else (if (isDark) Color(0xFFF87171) else Color(0xFFE53935)))
-                                        )
-                                    }
-                                )
-                                MosaribFilterChip(
-                                    selected = balanceFilter == CustomerBalanceFilter.CREDITOR,
-                                    onClick = {
-                                        if (balanceFilter == CustomerBalanceFilter.CREDITOR) viewModel.setBalanceFilter(CustomerBalanceFilter.ALL)
-                                        else viewModel.setBalanceFilter(CustomerBalanceFilter.CREDITOR)
-                                    },
-                                    label = "له",
-                                    badgeCount = creditorCount,
-                                    isCompact = true,
-                                    leadingIcon = {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(7.dp)
-                                                .clip(CircleShape)
-                                                .background(if (balanceFilter == CustomerBalanceFilter.CREDITOR) Color.White else (if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32)))
-                                        )
-                                    }
-                                )
-                                MosaribFilterChip(
-                                    selected = balanceFilter == CustomerBalanceFilter.SETTLED,
-                                    onClick = {
-                                        if (balanceFilter == CustomerBalanceFilter.SETTLED) viewModel.setBalanceFilter(CustomerBalanceFilter.ALL)
-                                        else viewModel.setBalanceFilter(CustomerBalanceFilter.SETTLED)
-                                    },
-                                    label = "مسدد",
-                                    badgeCount = settledCount,
-                                    isCompact = true,
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Default.CheckCircle,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(13.dp),
-                                            tint = if (balanceFilter == CustomerBalanceFilter.SETTLED) Color.White else AccentEmerald
-                                        )
-                                    }
-                                )
-
-                                // فاصل ثانٍ
-                                Box(
-                                    modifier = Modifier
-                                        .width(1.dp)
-                                        .height(18.dp)
-                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-                                )
-
-                                // القسم 3: الترتيب
-                                MosaribFilterChip(
-                                    selected = sortType == CustomerSort.NAME,
-                                    onClick = { viewModel.setSortType(CustomerSort.NAME) },
-                                    label = "الاسم",
-                                    isCompact = true
-                                )
-                                MosaribFilterChip(
-                                    selected = sortType == CustomerSort.HIGHEST_DEBT,
-                                    onClick = { viewModel.setSortType(CustomerSort.HIGHEST_DEBT) },
-                                    label = "الأعلى رصيداً",
-                                    isCompact = true
-                                )
-                                MosaribFilterChip(
-                                    selected = sortType == CustomerSort.MOST_WATER_HOURS,
-                                    onClick = { viewModel.setSortType(CustomerSort.MOST_WATER_HOURS) },
-                                    label = "الأكثر ساعات",
-                                    isCompact = true
-                                )
-                            }
+                            CustomersDropdownFilterRow(
+                                accountFilter = accountFilter,
+                                balanceFilter = balanceFilter,
+                                selectedGroup = selectedGroup,
+                                customGroups = customGroups,
+                                sortType = sortType,
+                                rawCustomers = rawCustomers,
+                                debtorCount = debtorCount,
+                                creditorCount = creditorCount,
+                                settledCount = settledCount,
+                                onSelectAccountFilter = { viewModel.setAccountFilter(it) },
+                                onSelectBalanceFilter = { viewModel.setBalanceFilter(it) },
+                                onSelectGroup = { viewModel.setSelectedGroup(it) },
+                                onSelectSortType = { viewModel.setSortType(it) },
+                                onAddGroupClick = { showAddGroupDialog = true },
+                                onManageGroupsClick = { showManageGroupsDialog = true }
+                            )
                         }
                     }
                 }
@@ -760,7 +494,7 @@ fun CustomersScreen(
                                     }
                                     AccountFilter.FARMERS -> {
                                         Icon(
-                                            imageVector = Icons.Default.Eco,
+                                            imageVector = Icons.Default.Park,
                                             contentDescription = null,
                                             tint = Color(0xFFE53935),
                                             modifier = Modifier.size(15.dp)
@@ -842,7 +576,7 @@ fun CustomersScreen(
                                         )
                                         Spacer(modifier = Modifier.width(3.dp))
                                         Icon(
-                                            imageVector = Icons.Default.Eco,
+                                            imageVector = Icons.Default.Park,
                                             contentDescription = null,
                                             tint = Color(0xFF2E7D32),
                                             modifier = Modifier.size(15.dp)
@@ -1208,6 +942,60 @@ fun CustomersScreen(
             }
         )
     }
+
+    // Add / Edit Custom Group Dialog
+    if (showAddGroupDialog || groupToEdit != null) {
+        val initialIds = remember(groupToEdit, rawCustomers) {
+            if (groupToEdit != null) {
+                rawCustomers.filter { it.customer.customGroup.trim().equals(groupToEdit?.trim(), ignoreCase = true) }
+                    .map { it.customer.id }.toSet()
+            } else {
+                initialMemberIdsForEdit
+            }
+        }
+        AddEditGroupDialog(
+            initialGroupName = groupToEdit,
+            initialMemberIds = initialIds,
+            allCustomers = rawCustomers,
+            onDismiss = {
+                showAddGroupDialog = false
+                groupToEdit = null
+                initialMemberIdsForEdit = emptySet()
+            },
+            onSave = { name, selectedIds ->
+                viewModel.saveGroup(name, selectedIds, groupToEdit)
+                showAddGroupDialog = false
+                groupToEdit = null
+                initialMemberIdsForEdit = emptySet()
+            }
+        )
+    }
+
+    // Manage Groups Dialog
+    if (showManageGroupsDialog) {
+        ManageGroupsDialog(
+            groups = customGroups,
+            allCustomers = rawCustomers,
+            onDismiss = { showManageGroupsDialog = false },
+            onEditGroup = { grp, memberIds ->
+                showManageGroupsDialog = false
+                groupToEdit = grp
+                initialMemberIdsForEdit = memberIds
+            },
+            onRenameGroup = { oldName, newName ->
+                viewModel.renameGroup(oldName, newName)
+            },
+            onDeleteGroup = { grp ->
+                viewModel.deleteGroup(grp)
+            },
+            onAddNewGroup = {
+                showManageGroupsDialog = false
+                groupToEdit = null
+                initialMemberIdsForEdit = emptySet()
+                showAddGroupDialog = true
+            }
+        )
+    }
 }
 
 @Composable
@@ -1250,22 +1038,22 @@ fun CustomerCardItem(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
-                    // أيقونة صاحب بئر أو عميل بجانب الاسم مباشرة
+                    // أيقونة صاحب بئر أو مزارع بجانب الاسم مباشرة
                     Box(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(CircleShape)
                             .background(
-                                if (isDark) Color(0xFF1E293B)
+                                if (isDark) (if (customer.isWellOwner) Color(0xFF0288D1).copy(alpha = 0.2f) else Color(0xFF2E7D32).copy(alpha = 0.25f))
                                 else if (customer.isWellOwner) Color(0xFFE1F5FE)
-                                else PrimaryTeal.copy(alpha = 0.12f)
+                                else Color(0xFFE8F5E9)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = if (customer.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Eco,
-                            contentDescription = if (customer.isWellOwner) "صاحب بئر" else "عميل مزارع",
-                            tint = if (isDark) Color.White else (if (customer.isWellOwner) Color(0xFF0288D1) else PrimaryTeal),
+                            imageVector = if (customer.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Park,
+                            contentDescription = if (customer.isWellOwner) "صاحب بئر" else "مزارع",
+                            tint = if (customer.isWellOwner) (if (isDark) Color(0xFF38BDF8) else Color(0xFF0288D1)) else (if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32)),
                             modifier = Modifier.size(19.dp)
                         )
                     }
@@ -1635,3 +1423,274 @@ private fun QuickAddOptionItem(
         }
     }
 }
+
+@Composable
+private fun CustomersDropdownFilterRow(
+    accountFilter: AccountFilter,
+    balanceFilter: CustomerBalanceFilter,
+    selectedGroup: String?,
+    customGroups: List<String>,
+    sortType: CustomerSort,
+    rawCustomers: List<CustomerWithBalance>,
+    debtorCount: Int,
+    creditorCount: Int,
+    settledCount: Int,
+    onSelectAccountFilter: (AccountFilter) -> Unit,
+    onSelectBalanceFilter: (CustomerBalanceFilter) -> Unit,
+    onSelectGroup: (String?) -> Unit,
+    onSelectSortType: (CustomerSort) -> Unit,
+    onAddGroupClick: () -> Unit,
+    onManageGroupsClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showTypeMenu by remember { mutableStateOf(false) }
+    var showBalanceMenu by remember { mutableStateOf(false) }
+    var showGroupMenu by remember { mutableStateOf(false) }
+    var showSortMenu by remember { mutableStateOf(false) }
+
+    MosaribFilterRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        // 1. فلتر النوع (الكل، مزارعين، آبار)
+        Box {
+            MosaribFilterChip(
+                selected = accountFilter != AccountFilter.ALL,
+                onClick = { showTypeMenu = true },
+                label = when (accountFilter) {
+                    AccountFilter.ALL -> "النوع: الكل"
+                    AccountFilter.FARMERS -> "مزارعون"
+                    AccountFilter.WELL_OWNERS -> "أصحاب الآبار"
+                },
+                isCompact = true,
+                leadingIcon = {
+                    when (accountFilter) {
+                        AccountFilter.ALL -> null
+                        AccountFilter.FARMERS -> Icon(Icons.Default.Park, null, modifier = Modifier.size(14.dp), tint = if (accountFilter != AccountFilter.ALL) Color.White else Color(0xFF2E7D32))
+                        AccountFilter.WELL_OWNERS -> Icon(Icons.Default.WaterDrop, null, modifier = Modifier.size(14.dp), tint = if (accountFilter != AccountFilter.ALL) Color.White else PrimaryTeal)
+                    }
+                }
+            )
+            DropdownMenu(
+                expanded = showTypeMenu,
+                onDismissRequest = { showTypeMenu = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("الكل (${rawCustomers.size})") },
+                    onClick = {
+                        onSelectAccountFilter(AccountFilter.ALL)
+                        showTypeMenu = false
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("مزارعون (${rawCustomers.count { !it.customer.isWellOwner }})") },
+                    leadingIcon = { Icon(Icons.Default.Park, null, tint = Color(0xFF2E7D32), modifier = Modifier.size(18.dp)) },
+                    onClick = {
+                        onSelectAccountFilter(AccountFilter.FARMERS)
+                        showTypeMenu = false
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("أصحاب الآبار (${rawCustomers.count { it.customer.isWellOwner }})") },
+                    leadingIcon = { Icon(Icons.Default.WaterDrop, null, tint = PrimaryTeal, modifier = Modifier.size(18.dp)) },
+                    onClick = {
+                        onSelectAccountFilter(AccountFilter.WELL_OWNERS)
+                        showTypeMenu = false
+                    }
+                )
+            }
+        }
+
+        // 2. فلتر الحالة / الرصيد (الكل، عليه، له، متوازن)
+        Box {
+            MosaribFilterChip(
+                selected = balanceFilter != CustomerBalanceFilter.ALL,
+                onClick = { showBalanceMenu = true },
+                label = when (balanceFilter) {
+                    CustomerBalanceFilter.ALL -> "الحالة: الكل"
+                    CustomerBalanceFilter.DEBTOR -> "عليه ($debtorCount)"
+                    CustomerBalanceFilter.CREDITOR -> "له ($creditorCount)"
+                    CustomerBalanceFilter.SETTLED -> "متوازن ($settledCount)"
+                },
+                isCompact = true,
+                leadingIcon = {
+                    when (balanceFilter) {
+                        CustomerBalanceFilter.ALL -> null
+                        CustomerBalanceFilter.DEBTOR -> Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(if (balanceFilter != CustomerBalanceFilter.ALL) Color.White else Color(0xFFE53935)))
+                        CustomerBalanceFilter.CREDITOR -> Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(if (balanceFilter != CustomerBalanceFilter.ALL) Color.White else Color(0xFF2E7D32)))
+                        CustomerBalanceFilter.SETTLED -> Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(13.dp), tint = if (balanceFilter != CustomerBalanceFilter.ALL) Color.White else AccentEmerald)
+                    }
+                }
+            )
+            DropdownMenu(
+                expanded = showBalanceMenu,
+                onDismissRequest = { showBalanceMenu = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("الكل") },
+                    onClick = {
+                        onSelectBalanceFilter(CustomerBalanceFilter.ALL)
+                        showBalanceMenu = false
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("عليه ($debtorCount)") },
+                    leadingIcon = { Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(Color(0xFFE53935))) },
+                    onClick = {
+                        onSelectBalanceFilter(CustomerBalanceFilter.DEBTOR)
+                        showBalanceMenu = false
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("له ($creditorCount)") },
+                    leadingIcon = { Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(Color(0xFF2E7D32))) },
+                    onClick = {
+                        onSelectBalanceFilter(CustomerBalanceFilter.CREDITOR)
+                        showBalanceMenu = false
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("متوازن ($settledCount)") },
+                    leadingIcon = { Icon(Icons.Default.CheckCircle, null, tint = AccentEmerald, modifier = Modifier.size(16.dp)) },
+                    onClick = {
+                        onSelectBalanceFilter(CustomerBalanceFilter.SETTLED)
+                        showBalanceMenu = false
+                    }
+                )
+            }
+        }
+
+        // 3. فلتر المجموعة
+        Box {
+            MosaribFilterChip(
+                selected = selectedGroup != null,
+                onClick = { showGroupMenu = true },
+                label = selectedGroup ?: "المجموعة: الكل",
+                isCompact = true,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Bookmarks,
+                        contentDescription = null,
+                        modifier = Modifier.size(13.dp),
+                        tint = if (selectedGroup != null) Color.White else AccentGold
+                    )
+                }
+            )
+            DropdownMenu(
+                expanded = showGroupMenu,
+                onDismissRequest = { showGroupMenu = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("كل المجموعات") },
+                    onClick = {
+                        onSelectGroup(null)
+                        showGroupMenu = false
+                    }
+                )
+                customGroups.forEach { grp ->
+                    val count = rawCustomers.count { it.customer.customGroup.trim().equals(grp.trim(), ignoreCase = true) }
+                    DropdownMenuItem(
+                        text = { Text("$grp ($count)") },
+                        leadingIcon = { Icon(Icons.Default.Bookmarks, null, tint = AccentGold, modifier = Modifier.size(16.dp)) },
+                        onClick = {
+                            onSelectGroup(grp)
+                            showGroupMenu = false
+                        }
+                    )
+                }
+                if (customGroups.isNotEmpty()) {
+                    HorizontalDivider()
+                }
+                DropdownMenuItem(
+                    text = { Text("إدارة المجموعات ⚙️", fontWeight = FontWeight.Bold) },
+                    onClick = {
+                        showGroupMenu = false
+                        onManageGroupsClick()
+                    }
+                )
+            }
+        }
+
+        // 4. زر إضافة مجموعة (+ مجموعة)
+        Surface(
+            shape = RoundedCornerShape(9.dp),
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+            modifier = Modifier
+                .clip(RoundedCornerShape(9.dp))
+                .clickable { onAddGroupClick() }
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(3.dp))
+                Text(
+                    text = "مجموعة",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                )
+            }
+        }
+
+        // فاصل
+        Box(
+            modifier = Modifier
+                .width(1.dp)
+                .height(18.dp)
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+        )
+
+        // 5. الترتيب
+        Box {
+            MosaribFilterChip(
+                selected = sortType != CustomerSort.NAME,
+                onClick = { showSortMenu = true },
+                label = when (sortType) {
+                    CustomerSort.NAME -> "الاسم"
+                    CustomerSort.HIGHEST_DEBT -> "الأعلى رصيداً"
+                    CustomerSort.MOST_WATER_HOURS -> "الأكثر ساعات"
+                },
+                isCompact = true,
+                leadingIcon = {
+                    Icon(Icons.Default.ArrowDownward, null, modifier = Modifier.size(13.dp))
+                }
+            )
+            DropdownMenu(
+                expanded = showSortMenu,
+                onDismissRequest = { showSortMenu = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("الاسم") },
+                    onClick = {
+                        onSelectSortType(CustomerSort.NAME)
+                        showSortMenu = false
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("الأعلى رصيداً") },
+                    onClick = {
+                        onSelectSortType(CustomerSort.HIGHEST_DEBT)
+                        showSortMenu = false
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("الأكثر ساعات") },
+                    onClick = {
+                        onSelectSortType(CustomerSort.MOST_WATER_HOURS)
+                        showSortMenu = false
+                    }
+                )
+            }
+        }
+    }
+}
+

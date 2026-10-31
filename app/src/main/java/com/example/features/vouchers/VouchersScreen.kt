@@ -35,9 +35,9 @@ import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Bookmarks
-import androidx.compose.material.icons.filled.Eco
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -2621,9 +2621,9 @@ fun AddVoucherBottomSheet(
                     placeholder = "اكتب او اختر الاسم",
                     leadingIcon = {
                         Icon(
-                            imageVector = if (selectedCustomer?.isWellOwner == true) Icons.Default.WaterDrop else Icons.Default.Eco,
+                            imageVector = if (selectedCustomer?.isWellOwner == true) Icons.Default.WaterDrop else Icons.Default.Park,
                             contentDescription = null,
-                            tint = if (selectedCustomer?.isWellOwner == true) Color(0xFF0288D1) else PrimaryTeal
+                            tint = if (selectedCustomer?.isWellOwner == true) Color(0xFF0288D1) else Color(0xFF2E7D32)
                         )
                     },
                     onItemSelected = { c ->
@@ -2931,9 +2931,9 @@ fun AddVoucherBottomSheet(
                             DropdownMenuItem(
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = if (c.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Eco,
+                                        imageVector = if (c.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Park,
                                         contentDescription = null,
-                                        tint = if (c.isWellOwner) Color(0xFF0288D1) else PrimaryTeal,
+                                        tint = if (c.isWellOwner) Color(0xFF0288D1) else Color(0xFF2E7D32),
                                         modifier = Modifier.size(18.dp)
                                     )
                                 },

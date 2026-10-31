@@ -159,4 +159,12 @@ class CustomerRepository(
     suspend fun deleteCustomer(customer: Customer) = customerDao.deleteCustomer(customer)
 
     suspend fun archiveCustomer(id: Long) = customerDao.archiveCustomer(id)
+
+    suspend fun renameCustomGroup(oldGroup: String, newGroup: String) = customerDao.renameCustomGroup(oldGroup, newGroup)
+
+    suspend fun clearCustomGroup(group: String) = customerDao.clearCustomGroup(group)
+
+    suspend fun assignCustomGroup(customerIds: List<Long>, group: String) = customerDao.assignCustomGroup(customerIds, group)
+
+    suspend fun removeCustomGroup(customerIds: List<Long>, group: String) = customerDao.removeCustomGroup(customerIds, group)
 }

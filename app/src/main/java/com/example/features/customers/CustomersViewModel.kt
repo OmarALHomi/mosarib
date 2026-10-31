@@ -17,6 +17,7 @@ import com.example.core.util.PdfReportGenerator
 import com.example.features.sessions.WaterSession
 import com.example.features.sessions.WaterSessionRepository
 import com.example.features.settings.AppConfig
+import com.example.features.settings.AppSetting
 import com.example.features.settings.SettingsRepository
 import com.example.features.vouchers.Voucher
 import com.example.features.vouchers.VoucherRepository
@@ -104,11 +105,13 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         customerRepo.customersWithBalance
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val customGroups: StateFlow<List<String>> = customerRepo.allCustomers.map { list ->
-        list.map { it.customGroup.trim() }
-            .filter { it.isNotBlank() }
-            .distinct()
-            .sorted()
+    val customGroups: StateFlow<List<String>> = combine(
+        customerRepo.allCustomers,
+        db.appSettingDao().getSetting("custom_groups_registry")
+    ) { custList, setting ->
+        val fromCust = custList.map { it.customGroup.trim() }.filter { it.isNotBlank() }
+        val fromReg = setting?.value?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+        (fromCust + fromReg).distinct().sorted()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private data class CustomerFilterParams(
@@ -238,6 +241,76 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             // from active lists but remain available to statements and backups.
             customerRepo.archiveCustomer(customer.id)
             showToast("تمت أرشفة الحساب مع الاحتفاظ بسجلاته المالية", ToastType.INFO)
+        }
+    }
+
+    // --- إدارة المجموعات المخصصة (Custom Groups Management) ---
+    fun saveGroup(groupName: String, selectedMemberIds: Set<Long>, oldGroupName: String? = null) {
+        viewModelScope.launch {
+            val name = groupName.trim()
+            if (name.isBlank()) return@launch
+
+            val old = oldGroupName?.trim()
+            // 1. إذا كان تعديل لاسم المجموعة القديمة
+            if (!old.isNullOrBlank() && !old.equals(name, ignoreCase = true)) {
+                customerRepo.renameCustomGroup(old, name)
+            }
+
+            // 2. تحديث الأعضاء: فك ارتباط الأعضاء السابقين إذا كان تعديل، ثم تعيين المجموعة للأعضاء المحددين
+            if (!old.isNullOrBlank()) {
+                customerRepo.clearCustomGroup(old)
+            }
+            if (selectedMemberIds.isNotEmpty()) {
+                customerRepo.assignCustomGroup(selectedMemberIds.toList(), name)
+            }
+
+            // 3. تحديث سجل المجموعات في الإعدادات لضمان بقائها حتى لو كانت بلا أعضاء
+            val currentList = customGroups.value.toMutableList()
+            if (!old.isNullOrBlank()) {
+                currentList.removeAll { it.trim().equals(old, ignoreCase = true) }
+            }
+            if (!currentList.any { it.trim().equals(name, ignoreCase = true) }) {
+                currentList.add(name)
+            }
+            db.appSettingDao().saveSetting(AppSetting(key = "custom_groups_registry", value = currentList.distinct().joinToString(",")))
+
+            if (_selectedGroup.value != null && _selectedGroup.value?.trim().equals(old, ignoreCase = true)) {
+                _selectedGroup.value = name
+            }
+            showToast("تم حفظ المجموعة بنجاح", ToastType.SUCCESS)
+        }
+    }
+
+    fun renameGroup(oldName: String, newName: String) {
+        viewModelScope.launch {
+            val oldTrimmed = oldName.trim()
+            val newTrimmed = newName.trim()
+            if (newTrimmed.isBlank() || oldTrimmed.equals(newTrimmed, ignoreCase = true)) return@launch
+
+            customerRepo.renameCustomGroup(oldTrimmed, newTrimmed)
+
+            val currentList = customGroups.value.map { if (it.trim().equals(oldTrimmed, ignoreCase = true)) newTrimmed else it }.distinct()
+            db.appSettingDao().saveSetting(AppSetting(key = "custom_groups_registry", value = currentList.joinToString(",")))
+
+            if (_selectedGroup.value?.trim().equals(oldTrimmed, ignoreCase = true)) {
+                _selectedGroup.value = newTrimmed
+            }
+            showToast("تم تعديل اسم المجموعة", ToastType.SUCCESS)
+        }
+    }
+
+    fun deleteGroup(groupName: String) {
+        viewModelScope.launch {
+            val trimmed = groupName.trim()
+            customerRepo.clearCustomGroup(trimmed)
+
+            val currentList = customGroups.value.filter { !it.trim().equals(trimmed, ignoreCase = true) }
+            db.appSettingDao().saveSetting(AppSetting(key = "custom_groups_registry", value = currentList.joinToString(",")))
+
+            if (_selectedGroup.value?.trim().equals(trimmed, ignoreCase = true)) {
+                _selectedGroup.value = null
+            }
+            showToast("تم حذف المجموعة", ToastType.INFO)
         }
     }
 

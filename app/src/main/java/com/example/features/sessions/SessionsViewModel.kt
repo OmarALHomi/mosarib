@@ -40,6 +40,10 @@ enum class SessionFilter {
     ALL, TODAY, THIS_WEEK, THIS_MONTH
 }
 
+enum class SessionPaymentFilter {
+    ALL, UNSETTLED, SETTLED
+}
+
 class SessionsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getDatabase(application)
@@ -69,6 +73,9 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
 
     private val _filter = MutableStateFlow(SessionFilter.ALL)
     val filter: StateFlow<SessionFilter> = _filter.asStateFlow()
+
+    private val _paymentFilter = MutableStateFlow(SessionPaymentFilter.ALL)
+    val paymentFilter: StateFlow<SessionPaymentFilter> = _paymentFilter.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -121,7 +128,7 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeDashboardStats())
 
     val filteredSessions: StateFlow<List<WaterSessionWithCustomer>> =
-        combine(sessionRepo.sessionsWithCustomer, _filter, _searchQuery) { list, filterType, query ->
+        combine(sessionRepo.sessionsWithCustomer, _filter, _paymentFilter, _searchQuery) { list, filterType, payType, query ->
             val now = System.currentTimeMillis()
             val calendar = java.util.Calendar.getInstance()
 
@@ -150,10 +157,16 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                 }
             }
 
+            val payFiltered = when (payType) {
+                SessionPaymentFilter.ALL -> timeFiltered
+                SessionPaymentFilter.UNSETTLED -> timeFiltered.filter { it.session.remainingDebt > 0.01 }
+                SessionPaymentFilter.SETTLED -> timeFiltered.filter { it.session.remainingDebt <= 0.01 }
+            }
+
             if (query.isBlank()) {
-                timeFiltered
+                payFiltered
             } else {
-                timeFiltered.filter {
+                payFiltered.filter {
                     (it.customer?.name?.contains(query, ignoreCase = true) == true) ||
                     (it.customer?.farmName?.contains(query, ignoreCase = true) == true) ||
                     (it.session.pumpName.contains(query, ignoreCase = true)) ||
@@ -164,6 +177,10 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
 
     fun setFilter(f: SessionFilter) {
         _filter.value = f
+    }
+
+    fun setPaymentFilter(f: SessionPaymentFilter) {
+        _paymentFilter.value = f
     }
 
     fun setSearchQuery(q: String) {

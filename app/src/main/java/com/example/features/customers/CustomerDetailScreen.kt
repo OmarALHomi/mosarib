@@ -39,7 +39,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmarks
-import androidx.compose.material.icons.filled.Eco
+import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AttachMoney
@@ -1192,9 +1192,9 @@ fun CustomerDetailScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = if (customer.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Eco,
+                                imageVector = if (customer.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Park,
                                 contentDescription = null,
-                                tint = if (customer.isWellOwner) AccentGold else Color.White,
+                                tint = if (customer.isWellOwner) AccentGold else Color(0xFF81C784),
                                 modifier = Modifier.size(16.dp)
                             )
                         }

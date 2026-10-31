@@ -117,6 +117,7 @@ fun SessionsScreen(
     val sessions by viewModel.filteredSessions.collectAsStateWithLifecycle()
     val customers by viewModel.customers.collectAsStateWithLifecycle()
     val filter by viewModel.filter.collectAsStateWithLifecycle()
+    val paymentFilter by viewModel.paymentFilter.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val homeStats by viewModel.homeStats.collectAsStateWithLifecycle()
@@ -126,6 +127,8 @@ fun SessionsScreen(
     val requestedCustomerForNewSession by viewModel.requestedCustomerForNewSession.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    var showPeriodMenu by remember { mutableStateOf(false) }
+    var showPaymentMenu by remember { mutableStateOf(false) }
     var showActivationDialog by remember { mutableStateOf(false) }
     var showAddManualSheet by remember { mutableStateOf(false) }
     var sessionToEdit by remember { mutableStateOf<WaterSession?>(null) }
@@ -178,52 +181,139 @@ fun SessionsScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        item {
+                        // 1. فلتر الفترة (الكل، اليوم، هذا الأسبوع، هذا الشهر)
+                        Box {
                             FilterChip(
-                                selected = filter == SessionFilter.ALL,
-                                onClick = { viewModel.setFilter(SessionFilter.ALL) },
-                                label = { Text("كل الجلسات") },
+                                selected = filter != SessionFilter.ALL,
+                                onClick = { showPeriodMenu = true },
+                                label = {
+                                    Text(
+                                        text = when (filter) {
+                                            SessionFilter.ALL -> "الفترة: الكل"
+                                            SessionFilter.TODAY -> "اليوم"
+                                            SessionFilter.THIS_WEEK -> "هذا الأسبوع"
+                                            SessionFilter.THIS_MONTH -> "هذا الشهر"
+                                        }
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.AccessTime,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = PrimaryTeal,
-                                    selectedLabelColor = Color.White
+                                    selectedLabelColor = Color.White,
+                                    selectedLeadingIconColor = Color.White
                                 )
                             )
+                            DropdownMenu(
+                                expanded = showPeriodMenu,
+                                onDismissRequest = { showPeriodMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("كل الفترات") },
+                                    onClick = {
+                                        viewModel.setFilter(SessionFilter.ALL)
+                                        showPeriodMenu = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("اليوم") },
+                                    onClick = {
+                                        viewModel.setFilter(SessionFilter.TODAY)
+                                        showPeriodMenu = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("هذا الأسبوع") },
+                                    onClick = {
+                                        viewModel.setFilter(SessionFilter.THIS_WEEK)
+                                        showPeriodMenu = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("هذا الشهر") },
+                                    onClick = {
+                                        viewModel.setFilter(SessionFilter.THIS_MONTH)
+                                        showPeriodMenu = false
+                                    }
+                                )
+                            }
                         }
-                        item {
+
+                        // 2. فلتر حالة السداد (الكل / متبقي / مسدد)
+                        Box {
                             FilterChip(
-                                selected = filter == SessionFilter.TODAY,
-                                onClick = { viewModel.setFilter(SessionFilter.TODAY) },
-                                label = { Text("اليوم") },
+                                selected = paymentFilter != SessionPaymentFilter.ALL,
+                                onClick = { showPaymentMenu = true },
+                                label = {
+                                    Text(
+                                        text = when (paymentFilter) {
+                                            SessionPaymentFilter.ALL -> "الحالة: الكل"
+                                            SessionPaymentFilter.UNSETTLED -> "متبقي"
+                                            SessionPaymentFilter.SETTLED -> "مسدد"
+                                        }
+                                    )
+                                },
+                                leadingIcon = {
+                                    when (paymentFilter) {
+                                        SessionPaymentFilter.ALL -> null
+                                        SessionPaymentFilter.UNSETTLED -> Box(
+                                            modifier = Modifier
+                                                .size(7.dp)
+                                                .clip(CircleShape)
+                                                .background(if (paymentFilter != SessionPaymentFilter.ALL) Color.White else Color(0xFFE53935))
+                                        )
+                                        SessionPaymentFilter.SETTLED -> Box(
+                                            modifier = Modifier
+                                                .size(7.dp)
+                                                .clip(CircleShape)
+                                                .background(if (paymentFilter != SessionPaymentFilter.ALL) Color.White else Color(0xFF2E7D32))
+                                        )
+                                    }
+                                },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = PrimaryTeal,
-                                    selectedLabelColor = Color.White
+                                    selectedLabelColor = Color.White,
+                                    selectedLeadingIconColor = Color.White
                                 )
                             )
-                        }
-                        item {
-                            FilterChip(
-                                selected = filter == SessionFilter.THIS_WEEK,
-                                onClick = { viewModel.setFilter(SessionFilter.THIS_WEEK) },
-                                label = { Text("هذا الأسبوع") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal,
-                                    selectedLabelColor = Color.White
+                            DropdownMenu(
+                                expanded = showPaymentMenu,
+                                onDismissRequest = { showPaymentMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("الكل") },
+                                    onClick = {
+                                        viewModel.setPaymentFilter(SessionPaymentFilter.ALL)
+                                        showPaymentMenu = false
+                                    }
                                 )
-                            )
-                        }
-                        item {
-                            FilterChip(
-                                selected = filter == SessionFilter.THIS_MONTH,
-                                onClick = { viewModel.setFilter(SessionFilter.THIS_MONTH) },
-                                label = { Text("هذا الشهر") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal,
-                                    selectedLabelColor = Color.White
+                                DropdownMenuItem(
+                                    text = { Text("متبقي (غير مسدد)") },
+                                    leadingIcon = { Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color(0xFFE53935))) },
+                                    onClick = {
+                                        viewModel.setPaymentFilter(SessionPaymentFilter.UNSETTLED)
+                                        showPaymentMenu = false
+                                    }
                                 )
-                            )
+                                DropdownMenuItem(
+                                    text = { Text("مسدد بالكامل") },
+                                    leadingIcon = { Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF2E7D32))) },
+                                    onClick = {
+                                        viewModel.setPaymentFilter(SessionPaymentFilter.SETTLED)
+                                        showPaymentMenu = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
