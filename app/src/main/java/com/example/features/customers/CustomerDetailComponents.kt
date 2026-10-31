@@ -174,7 +174,7 @@ fun AddReceiptBottomSheet(
             OutlinedTextField(
                 value = paymentMethod,
                 onValueChange = { paymentMethod = it },
-                label = { Text("طريقة الدفع (نقداً، حوالة، تحويل بنكي...)") },
+                label = { Text("طريقة الدفع") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             )
@@ -207,7 +207,7 @@ fun AddReceiptBottomSheet(
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald)
             ) {
-                Text(if (isWellOwner) "تسجيل التحصيل" else "حفظ وترحيل سند القبض", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(if (isWellOwner) "تسجيل التحصيل" else "حفظ سند القبض", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
         }
     }
@@ -315,7 +315,7 @@ fun AddDisbursementBottomSheet(
             OutlinedTextField(
                 value = paymentMethod,
                 onValueChange = { paymentMethod = it },
-                label = { Text("طريقة الدفع (نقداً، تحويل بنكي...)") },
+                label = { Text("طريقة الدفع") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             )
@@ -338,7 +338,7 @@ fun AddDisbursementBottomSheet(
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828))
             ) {
-                Text(if (isWellOwner) "تسجيل السداد لصاحب البئر" else "حفظ وترحيل سند الصرف", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(if (isWellOwner) "تسجيل السداد" else "حفظ سند الصرف", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
         }
     }

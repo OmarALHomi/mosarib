@@ -2599,7 +2599,7 @@ fun AddVoucherBottomSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (type == VoucherType.RECEIPT) {
-                Text("العميل المستلم منه (له) *", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                Text("العميل (له) *", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                 Spacer(modifier = Modifier.height(6.dp))
                 MosaribAutoCompleteTextField(
                     value = custSearchQuery.ifEmpty { selectedCustomer?.name ?: "" },
@@ -2861,11 +2861,11 @@ fun AddVoucherBottomSheet(
                 }
             } else {
                 // سند صرف: تحديد العميل اختياري (مصروف عام أو مقيد على عميل)
-                Text("العميل / المقيد بحسابه (عليه):", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                Text("المستفيد (عليه):", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                 Spacer(modifier = Modifier.height(6.dp))
                 Box {
                     MosaribTextField(
-                        value = selectedBeneficiary?.name ?: "مصروف عام (غير مقيد على عميل)",
+                        value = selectedBeneficiary?.name ?: "مصروف عام",
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
@@ -2912,7 +2912,7 @@ fun AddVoucherBottomSheet(
                         HorizontalDivider()
 
                         DropdownMenuItem(
-                            text = { Text("مصروف عام (غير مقيد على عميل)", fontWeight = FontWeight.Bold, color = PrimaryTeal) },
+                            text = { Text("مصروف عام", fontWeight = FontWeight.Bold, color = PrimaryTeal) },
                             onClick = {
                                 selectedBeneficiaryId = null
                                 beneficiaryDropdownExpanded = false

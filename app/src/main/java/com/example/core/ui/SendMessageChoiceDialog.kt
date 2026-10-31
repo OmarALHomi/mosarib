@@ -296,7 +296,7 @@ fun SendMessageChoiceDialog(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "إرسال عبر واتساب (WhatsApp)",
+                    text = "إرسال عبر واتساب",
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
                 )
@@ -323,7 +323,7 @@ fun SendMessageChoiceDialog(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "إرسال كـ رسالة نصية (SMS) — $smsSegments ${if (smsSegments == 1) "رسالة" else "رسائل"}",
+                    text = "رسالة نصية (SMS) — $smsSegments ${if (smsSegments == 1) "رسالة" else "رسائل"}",
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.5.sp
                 )

@@ -1717,13 +1717,13 @@ fun CustomerDetailScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.AccessTime, contentDescription = null, tint = Color(0xFFE65100))
                         Spacer(Modifier.width(8.dp))
-                        Text("تسجيل هدر على صاحب البئر", fontWeight = FontWeight.Bold)
+                        Text("تسجيل هدر للبئر", fontWeight = FontWeight.Bold)
                     }
                 },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
-                            text = "يُخصم الهدر من آخر عملية شراء (${Formatters.formatDate(latestPurchase.date)}) ويقلل المستحق له بسعر الشراء (${Formatters.formatCurrency(latestPurchase.purchaseRatePerHour, config.currencySymbol)}/ساعة).",
+                            text = "يُخصم من آخر شراء (${Formatters.formatDate(latestPurchase.date)}) بسعر (${Formatters.formatCurrency(latestPurchase.purchaseRatePerHour, config.currencySymbol)}/ساعة).",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1788,7 +1788,7 @@ fun CustomerDetailScreen(
                         OutlinedTextField(
                             value = wasteReason,
                             onValueChange = { wasteReason = it },
-                            label = { Text("سبب الهدر (انقطاع ماء، عطل بئر...)") },
+                            label = { Text("سبب الهدر (اختياري)") },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp)
                         )
@@ -3689,14 +3689,14 @@ private fun CustomerActionsDropdownMenu(
         } else {
             if (customer.phone.isNotBlank()) {
                 DropdownMenuItem(
-                    text = { Text("اتصال هاتفياً", fontWeight = FontWeight.Bold) },
+                    text = { Text("اتصال", fontWeight = FontWeight.Bold) },
                     onClick = onCall,
                     leadingIcon = {
                         Icon(Icons.Default.Call, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(20.dp))
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text("إرسال كشف (واتساب/رسالة)", fontWeight = FontWeight.Bold) },
+                    text = { Text("إرسال كشف", fontWeight = FontWeight.Bold) },
                     onClick = onSendMessage,
                     leadingIcon = {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF00897B), modifier = Modifier.size(20.dp))

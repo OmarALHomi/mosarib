@@ -1931,7 +1931,7 @@ fun LicenseDialog(
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("تسجيل وتفعيل حساب جديد", fontWeight = FontWeight.Bold)
+                    Text("تسجيل حساب جديد", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -1942,7 +1942,7 @@ fun LicenseDialog(
                             onDismiss()
                         }
                     ) {
-                        Text("المتابعة بالنسخة المجانية", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("المتابعة مجاناً", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

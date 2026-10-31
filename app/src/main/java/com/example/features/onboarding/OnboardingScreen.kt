@@ -391,7 +391,7 @@ fun OnboardingScreen(
                                         ) {
                                             Icon(Icons.Default.CloudDone, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text("تسجيل الدخول بحساب Google (للمسجلين مسبقاً)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            Text("دخول بحساب Google", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                         }
 
                                         // Path 2: New Registration
@@ -405,7 +405,7 @@ fun OnboardingScreen(
                                         ) {
                                             Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp), tint = AccentEmerald)
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text("تسجيل جديد (بياناتك وحساب Google)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            Text("تسجيل حساب جديد", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                         }
                                     }
                                 }
@@ -551,7 +551,7 @@ fun OnboardingScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("تسجيل حساب جديد بالبيانات", fontWeight = FontWeight.Bold)
+                        Text("تسجيل حساب جديد", fontWeight = FontWeight.Bold)
                     }
                 },
                 dismissButton = {
@@ -561,7 +561,7 @@ fun OnboardingScreen(
                             completeOnboarding()
                         }
                     ) {
-                        Text("المتابعة بالنسخة المجانية", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("المتابعة مجاناً", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             )

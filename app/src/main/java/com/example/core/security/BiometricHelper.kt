@@ -105,8 +105,8 @@ object BiometricHelper {
 
             val builder = android.hardware.biometrics.BiometricPrompt.Builder(activity)
                 .setTitle("المُسَرِّب")
-                .setSubtitle("تأكيد الهوية لفتح التطبيق")
-                .setDescription("استخدم البصمة أو رمز قفل الهاتف للمتابعة")
+                .setSubtitle("تأكيد الهوية")
+                .setDescription("البصمة أو رمز الهاتف للمتابعة")
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 // Android 11+ (API 30+): Allow biometric or device credential (PIN / Pattern / Password).

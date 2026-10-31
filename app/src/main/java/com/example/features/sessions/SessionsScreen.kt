@@ -468,7 +468,7 @@ fun SessionsScreen(
         AlertDialog(
             onDismissRequest = { sessionToDelete = null },
             title = { Text("تأكيد الحذف", fontWeight = FontWeight.Bold) },
-            text = { Text("هل أنت متأكد من حذف هذه الجلسة؟ سيتم خصم قيمتها من كشف حساب العميل.") },
+            text = { Text("هل تريد حذف هذه العملية من كشف الحساب؟") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -477,7 +477,7 @@ fun SessionsScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
                 ) {
-                    Text("نعم، حذف")
+                    Text("حذف")
                 }
             },
             dismissButton = {

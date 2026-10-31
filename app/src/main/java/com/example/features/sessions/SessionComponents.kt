@@ -865,7 +865,7 @@ fun SessionCardItem(
                             Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                "سداد المبلغ المتبقي (${Formatters.formatCurrency(debtToShow, currencySymbol)})",
+                                "سداد (${Formatters.formatCurrency(debtToShow, currencySymbol)})",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp
                             )

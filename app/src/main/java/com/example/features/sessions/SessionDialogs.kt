@@ -1798,9 +1798,9 @@ fun AddEditSessionBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Save Button (تسجيل وحفظ مع أيقونة دالة ودعم الحفظ الفوري للعميل الجديد)
+            // Save Button (حفظ مع أيقونة دالة ودعم الحفظ الفوري للعميل الجديد)
             MosaribButton(
-                text = if (initialSession == null) "تسجيل وحفظ" else "حفظ التعديلات",
+                text = if (initialSession == null) "حفظ السقي" else "حفظ التعديل",
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
@@ -2585,7 +2585,7 @@ fun SettleSessionDialog(
             },
             confirmButton = {
                 MosaribButton(
-                    text = "تأكيد وحفظ",
+                    text = "تأكيد",
                     onClick = {
                         showConfirmDialog = false
                         onConfirmSettle(parsedAmount, parsedDiscount, paymentMethod, notes)

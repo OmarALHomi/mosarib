@@ -683,7 +683,7 @@ fun WellOwnerPurchaseBottomSheet(
             MosaribTextField(
                 value = rateText,
                 onValueChange = { rateText = Formatters.formatAmountInput(it) },
-                label = "سعر شراء الساعة الواحدة ($currencySymbol) *",
+                label = "سعر الساعة ($currencySymbol) *",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
@@ -692,7 +692,7 @@ fun WellOwnerPurchaseBottomSheet(
             MosaribTextField(
                 value = amountPaidText,
                 onValueChange = { amountPaidText = Formatters.formatAmountInput(it) },
-                label = "المبلغ المسلم نقداً فوراً (اختياري)",
+                label = "المدفوع نقداً (اختياري)",
                 leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
@@ -757,7 +757,7 @@ fun WellOwnerPurchaseBottomSheet(
             val curOwner = selectedOwner
             val canSave = valid && curOwner != null
             MosaribButton(
-                text = if (initialPurchase != null) "حفظ التعديلات" else "حفظ عملية الشراء",
+                text = if (initialPurchase != null) "حفظ التعديل" else "حفظ الشراء",
                 onClick = {
                     if (canSave) {
                         val purchaseDate = computedStartTime

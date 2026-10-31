@@ -724,7 +724,7 @@ fun SessionDetailBottomSheet(
                             Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(19.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "تسجيل سداد (${Formatters.formatCurrency(session.remainingDebt, currencySymbol)})",
+                                text = "سداد (${Formatters.formatCurrency(session.remainingDebt, currencySymbol)})",
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 14.sp,
                                 maxLines = 1

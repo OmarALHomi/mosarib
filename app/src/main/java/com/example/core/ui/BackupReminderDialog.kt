@@ -81,7 +81,7 @@ fun BackupReminderDialog(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("مشاركة وحفظ نسخة الآن 📤", fontWeight = FontWeight.Bold)
+                        Text("نسخ احتياطي الآن 📤", fontWeight = FontWeight.Bold)
                     }
                 }
 

@@ -1189,7 +1189,7 @@ fun CustomersScreen(
         AlertDialog(
             onDismissRequest = { customerToDelete = null },
             title = { Text("أرشفة الحساب", fontWeight = FontWeight.Bold) },
-            text = { Text("سيختفي حساب (${cust.name}) من القائمة النشطة، مع الاحتفاظ بجميع المشتريات والسقي والسندات في السجلات والنسخ الاحتياطية.") },
+            text = { Text("سيتم أرشفة حساب (${cust.name}) وإخفاؤه مع الاحتفاظ بجميع عملياته.") },
             confirmButton = {
                 Button(
                     onClick = {

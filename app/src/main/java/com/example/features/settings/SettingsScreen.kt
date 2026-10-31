@@ -512,15 +512,15 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(
-                                    text = "قفل التطبيق بالبصمة أو رمز الهاتف",
+                                    text = "قفل التطبيق (بصمة / رمز)",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                 )
                                 Text(
-                                    text = if (isBiometricAvailable) "طلب البصمة أو رمز قفل الهاتف عند فتح التطبيق لحماية الحسابات"
-                                    else "تأكد من تفعيل بصمة أو رمز قفل في إعدادات الهاتف لحماية حساباتك",
+                                    text = if (isBiometricAvailable) "طلب البصمة أو رمز الهاتف عند فتح التطبيق"
+                                    else "فعّل بصمة أو رمز قفل في إعدادات الهاتف",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = 11.5.sp

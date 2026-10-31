@@ -284,7 +284,7 @@ fun FeedbackDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(20.dp))
-                        Text("إرسال الملاحظات للمطور", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text("إرسال للمطور", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
                 }
             }
@@ -317,7 +317,7 @@ fun FeedbackDialog(
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
                 ) {
-                    Text("إرسال الملاحظة مباشرة عبر واتساب للمطور 💬", fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = Color.White)
+                    Text("إرسال عبر واتساب للمطور 💬", fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = Color.White)
                 }
             }
         }

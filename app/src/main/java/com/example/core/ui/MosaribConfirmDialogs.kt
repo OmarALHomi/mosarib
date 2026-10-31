@@ -229,7 +229,7 @@ fun MosaribFileActionDialog(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "فتح وعرض الملف الآن",
+                        text = "فتح الملف",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.5.sp
@@ -255,7 +255,7 @@ fun MosaribFileActionDialog(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "مشاركة الملف عبر التطبيقات / واتساب",
+                        text = "مشاركة الملف",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.5.sp
