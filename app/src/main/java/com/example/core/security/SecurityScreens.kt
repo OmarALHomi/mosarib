@@ -134,7 +134,7 @@ fun BiometricLockScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "التطبيق مقفل لحماية بياناتك وسجلات السقي",
+                text = "استخدم البصمة أو رمز قفل الهاتف لتأكيد الهوية وفتح التطبيق",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = Color(0xFFB0C9D4),
                     textAlign = TextAlign.Center
@@ -171,7 +171,7 @@ fun BiometricLockScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "فتح القفل بالبصمة",
+                    text = "فتح القفل (بصمة / رمز الهاتف)",
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.Bold,
                         color = Color.White
