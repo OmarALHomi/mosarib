@@ -207,7 +207,7 @@ fun SessionCardItem(
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Text(
-                            text = "جلسة سقي",
+                            text = "سقي",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = sessionColor,
                                 fontWeight = FontWeight.Bold,
@@ -318,7 +318,7 @@ fun SessionCardItem(
                             }
                             DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                                 DropdownMenuItem(
-                                    text = { Text("إرسال الفاتورة (واتساب / SMS)", fontWeight = FontWeight.Bold) },
+                                    text = { Text("إرسال الفاتورة", fontWeight = FontWeight.Bold) },
                                     leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF2E7D32)) },
                                     onClick = {
                                         menuExpanded = false
@@ -326,7 +326,7 @@ fun SessionCardItem(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("طباعة فاتورة PDF", fontWeight = FontWeight.Bold) },
+                                    text = { Text("تصدير PDF", fontWeight = FontWeight.Bold) },
                                     leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
                                     onClick = {
                                         menuExpanded = false
@@ -334,7 +334,7 @@ fun SessionCardItem(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("تعديل دورة السقي", fontWeight = FontWeight.Bold) },
+                                    text = { Text("تعديل", fontWeight = FontWeight.Bold) },
                                     leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryTeal) },
                                     onClick = {
                                         menuExpanded = false
@@ -342,7 +342,7 @@ fun SessionCardItem(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("حذف الجلسة", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
+                                    text = { Text("حذف", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
                                     leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
                                     onClick = {
                                         menuExpanded = false
@@ -443,9 +443,9 @@ fun SessionCardItem(
                                 Text(
                                     text = "متبقي: ${Formatters.formatCurrency(debtToShow, currencySymbol)}",
                                     style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.ExtraBold,
+                                        fontWeight = FontWeight.Black,
                                         color = Color(0xFFE53935),
-                                        fontSize = 11.5.sp
+                                        fontSize = 14.sp
                                     ),
                                     maxLines = 1,
                                     softWrap = false,
@@ -471,9 +471,9 @@ fun SessionCardItem(
                                         Text(
                                             text = if (session.remainingDebt > 0.001) "مسدد (ضمن الرصيد)" else "مسدد: ${Formatters.formatCurrency(session.totalAmount, currencySymbol)}",
                                             style = MaterialTheme.typography.labelSmall.copy(
-                                                fontWeight = FontWeight.Bold,
+                                                fontWeight = FontWeight.ExtraBold,
                                                 color = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
-                                                fontSize = 11.sp
+                                                fontSize = 13.sp
                                             ),
                                             maxLines = 1,
                                             softWrap = false,
@@ -487,7 +487,7 @@ fun SessionCardItem(
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = sessionColor,
-                                    fontSize = 9.5.sp
+                                    fontSize = 10.5.sp
                                 ),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis

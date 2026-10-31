@@ -280,20 +280,15 @@ fun MainApp(
                                 },
                                 actions = {
                                     if (currentTab == AppTab.REPORTS) {
-                                        androidx.compose.material3.Button(
-                                            onClick = { reportsViewModel.exportComprehensiveReportPdf() },
-                                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = AccentGold),
-                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
-                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                        IconButton(
+                                            onClick = { reportsViewModel.exportComprehensiveReportPdf() }
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.PictureAsPdf,
-                                                contentDescription = null,
-                                                tint = Color.Black,
-                                                modifier = Modifier.size(16.dp)
+                                                contentDescription = "تصدير PDF",
+                                                tint = PrimaryTeal,
+                                                modifier = Modifier.size(24.dp)
                                             )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text("تصدير PDF", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                         }
                                     }
 

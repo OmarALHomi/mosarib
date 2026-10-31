@@ -423,7 +423,7 @@ fun CustomersScreen(
                                 MosaribFilterChip(
                                     selected = sortType == CustomerSort.NAME,
                                     onClick = { viewModel.setSortType(CustomerSort.NAME) },
-                                    label = "أبجدياً (الاسم)",
+                                    label = "الاسم",
                                     isCompact = true
                                 )
                                 MosaribFilterChip(
@@ -435,7 +435,7 @@ fun CustomersScreen(
                                 MosaribFilterChip(
                                     selected = sortType == CustomerSort.MOST_WATER_HOURS,
                                     onClick = { viewModel.setSortType(CustomerSort.MOST_WATER_HOURS) },
-                                    label = "الأكثر استهلاكاً / ضخاً",
+                                    label = "الأكثر ساعات",
                                     isCompact = true
                                 )
                             }
@@ -661,7 +661,7 @@ fun CustomersScreen(
                                 MosaribFilterChip(
                                     selected = sortType == CustomerSort.NAME,
                                     onClick = { viewModel.setSortType(CustomerSort.NAME) },
-                                    label = "أبجدياً (الاسم)",
+                                    label = "الاسم",
                                     isCompact = true
                                 )
                                 MosaribFilterChip(
@@ -673,7 +673,7 @@ fun CustomersScreen(
                                 MosaribFilterChip(
                                     selected = sortType == CustomerSort.MOST_WATER_HOURS,
                                     onClick = { viewModel.setSortType(CustomerSort.MOST_WATER_HOURS) },
-                                    label = "الأكثر استهلاكاً / ضخاً",
+                                    label = "الأكثر ساعات",
                                     isCompact = true
                                 )
                             }
@@ -1530,9 +1530,9 @@ fun CustomerCardItem(
                             Text(
                                 text = "مسدد",
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.ExtraBold,
                                     color = AccentEmerald,
-                                    fontSize = 12.5.sp
+                                    fontSize = 13.5.sp
                                 )
                             )
                         }
@@ -1547,9 +1547,9 @@ fun CustomerCardItem(
                     Text(
                         text = "$statusText: ${Formatters.formatCurrency(statusAmount, currencySymbol)}",
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
+                            fontWeight = FontWeight.Black,
                             color = statusColor,
-                            fontSize = 14.5.sp
+                            fontSize = 16.5.sp
                         ),
                         textAlign = TextAlign.Center
                     )
@@ -1558,9 +1558,9 @@ fun CustomerCardItem(
                         Text(
                             text = tafqeetWords,
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Medium,
-                                color = statusColor.copy(alpha = 0.82f),
-                                fontSize = 10.5.sp
+                                fontWeight = FontWeight.Bold,
+                                color = statusColor.copy(alpha = 0.90f),
+                                fontSize = 11.sp
                             ),
                             textAlign = TextAlign.Center,
                             maxLines = 1,

@@ -359,7 +359,7 @@ private fun HeroProfitCard(
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "صافي الأرباح التشغيلية",
+                            text = "صافي الأرباح",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -373,7 +373,7 @@ private fun HeroProfitCard(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            text = if (isProfit) "عائد إيجابي" else "عجز تشغيلي",
+                            text = if (isProfit) "ربح" else "عجز",
                             color = if (isProfit) (if (isDark) Color(0xFF4ADE80) else Color(0xFF1B5E20))
                             else (if (isDark) Color(0xFFF87171) else Color(0xFFC62828)),
                             fontWeight = FontWeight.Bold,
@@ -393,9 +393,9 @@ private fun HeroProfitCard(
                     Text(
                         text = Formatters.formatCurrency(stats.netOperatingProfit, currencySymbol),
                         style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
+                            fontWeight = FontWeight.Black,
                             color = if (isProfit) AccentEmerald else Color(0xFFE53935),
-                            fontSize = 26.sp
+                            fontSize = 28.sp
                         )
                     )
                 }
@@ -405,7 +405,7 @@ private fun HeroProfitCard(
                 // Visual 3-Way Segmented Financial Ratio Bar
                 if (totalRevenue > 0) {
                     Text(
-                        text = "توزيع الإيراد: ${Formatters.formatCurrency(totalRevenue, currencySymbol)}",
+                        text = "الإيراد: ${Formatters.formatCurrency(totalRevenue, currencySymbol)}",
                         style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontWeight = FontWeight.Bold)
                     )
                     Spacer(modifier = Modifier.height(6.dp))
@@ -544,7 +544,7 @@ private fun LiquidityCollectionCard(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "السيولة ونسبة التحصيل",
+                        text = "التحصيل والسيولة",
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -558,7 +558,7 @@ private fun LiquidityCollectionCard(
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        text = "$collectionPercent% تم تحصيله",
+                        text = "$collectionPercent% محصّل",
                         color = if (isDark) {
                             if (collectionPercent >= 70) Color(0xFF4ADE80) else Color(0xFFFBBF24)
                         } else {
@@ -604,13 +604,13 @@ private fun LiquidityCollectionCard(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(14.dp))
-                            Text("المحصّل نقداً", fontSize = 11.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                            Text("المحصّل", fontSize = 11.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = Formatters.formatCurrency(stats.totalCollectedCash, currencySymbol),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 16.sp,
                             color = AccentEmerald
                         )
                     }
@@ -628,13 +628,13 @@ private fun LiquidityCollectionCard(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Icon(Icons.Default.ArrowUpward, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(14.dp))
-                            Text("ديون مؤجلة (آجل)", fontSize = 11.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                            Text("الآجل", fontSize = 11.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = Formatters.formatCurrency(stats.totalOutstandingDebt, currencySymbol),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 16.sp,
                             color = Color(0xFFE53935)
                         )
                     }
@@ -699,7 +699,7 @@ private fun IrrigationEfficiencyCard(
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        text = "$efficiencyPercent% كفاءة التوزيع",
+                        text = "$efficiencyPercent% كفاءة",
                         color = PrimaryTeal,
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp,
@@ -717,7 +717,7 @@ private fun IrrigationEfficiencyCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column {
-                    Text("الساعات المباعة للمزارعين", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray))
+                    Text("ساعات السقي المباعة", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray))
                     Text(
                         text = Formatters.formatDurationArabic(stats.totalWaterMinutes),
                         style = MaterialTheme.typography.titleLarge.copy(
@@ -738,7 +738,7 @@ private fun IrrigationEfficiencyCard(
                     ) {
                         Icon(Icons.Default.AccessTime, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
                         Text(
-                            text = "${stats.totalSessionsCount} دورة سقي",
+                            text = "${stats.totalSessionsCount} سقي",
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp
                         )

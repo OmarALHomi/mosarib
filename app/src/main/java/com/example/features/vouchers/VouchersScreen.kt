@@ -742,7 +742,7 @@ fun VouchersScreen(
                                 else -> Color(0xFFDC2626)
                             }
                             val opBadgeText = when {
-                                isSessionPayment -> "سداد دورة سقي"
+                                isSessionPayment -> "سداد سقي"
                                 isReceipt -> "سند قبض"
                                 isDiscount -> "خصم"
                                 else -> "سند صرف"
@@ -755,7 +755,7 @@ fun VouchersScreen(
                             val customer = op.voucherWithCustomer.customer
                             val titleText = when {
                                 isReceipt -> customer?.name ?: "عميل نقدي"
-                                customer != null -> if (customer.isWellOwner) "تسديد لصاحب البئر: ${customer.name}" else customer.name
+                                customer != null -> if (customer.isWellOwner) "صاحب بئر: ${customer.name}" else customer.name
                                 voucher.notes.isNotBlank() && voucher.notes != "عام" -> voucher.notes
                                 voucher.category.isNotBlank() -> voucher.category
                                 else -> "مصروف عام"
@@ -864,7 +864,7 @@ fun VouchersScreen(
                                                                 if (foundSession != null) {
                                                                     selectedLinkedSession = foundSession
                                                                 } else {
-                                                                    viewModel.showToast("دورة سقي #${voucher.sessionId}")
+                                                                    viewModel.showToast("سقي #${voucher.sessionId}")
                                                                 }
                                                             }
                                                         ) {
@@ -892,9 +892,9 @@ fun VouchersScreen(
                                             Text(
                                                 text = (if (isReceipt) "+ " else "- ") + Formatters.formatCurrency(voucher.amount, config.currencySymbol),
                                                 style = MaterialTheme.typography.titleMedium.copy(
-                                                    fontWeight = FontWeight.ExtraBold,
+                                                    fontWeight = FontWeight.Black,
                                                     color = opColor,
-                                                    fontSize = 15.sp
+                                                    fontSize = 17.sp
                                                 ),
                                                 maxLines = 1,
                                                 softWrap = false
@@ -905,7 +905,7 @@ fun VouchersScreen(
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                                                     fontWeight = FontWeight.Bold,
-                                                    fontSize = 9.5.sp
+                                                    fontSize = 10.5.sp
                                                 ),
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
@@ -1282,7 +1282,7 @@ fun VouchersScreen(
                                                     shape = RoundedCornerShape(4.dp)
                                                 ) {
                                                     Text(
-                                                        text = "شراء ساعات بئر",
+                                                        text = "شراء ساعات",
                                                         style = MaterialTheme.typography.labelSmall.copy(
                                                             color = purchaseColor,
                                                             fontWeight = FontWeight.Bold,
@@ -1303,9 +1303,9 @@ fun VouchersScreen(
                                             Text(
                                                 text = Formatters.formatCurrency(totalAmount, config.currencySymbol),
                                                 style = MaterialTheme.typography.titleMedium.copy(
-                                                    fontWeight = FontWeight.ExtraBold,
+                                                    fontWeight = FontWeight.Black,
                                                     color = purchaseColor,
-                                                    fontSize = 15.sp
+                                                    fontSize = 17.sp
                                                 ),
                                                 maxLines = 1,
                                                 softWrap = false
@@ -1316,7 +1316,7 @@ fun VouchersScreen(
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                                                     fontWeight = FontWeight.Bold,
-                                                    fontSize = 9.5.sp
+                                                    fontSize = 10.5.sp
                                                 ),
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
@@ -1349,7 +1349,7 @@ fun VouchersScreen(
                                                 modifier = Modifier.size(11.dp)
                                             )
                                             Text(
-                                                text = "صرف (مدفوع):",
+                                                text = "المدفوع:",
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     color = Color(0xFF64748B),
                                                     fontSize = 10.sp
@@ -1374,7 +1374,7 @@ fun VouchersScreen(
                                             horizontalArrangement = Arrangement.End
                                         ) {
                                             Text(
-                                                text = if (remainingDebt > 0) "عليك (متبقي):" else "الحالة:",
+                                                text = if (remainingDebt > 0) "المتبقي:" else "الحالة:",
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     color = Color(0xFF64748B),
                                                     fontSize = 10.sp

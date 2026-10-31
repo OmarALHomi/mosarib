@@ -2290,7 +2290,7 @@ private fun CustomerSessionCardItem(
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "دورة سقي (${Formatters.formatDurationArabic(session.durationMinutes)})",
+                                text = "سقي (${Formatters.formatDurationArabic(session.durationMinutes)})",
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -2342,7 +2342,7 @@ private fun CustomerSessionCardItem(
                         }
                         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                             DropdownMenuItem(
-                                text = { Text("مشاركة دورة السقي (واتساب)", fontWeight = FontWeight.Bold) },
+                                text = { Text("مشاركة (واتساب)", fontWeight = FontWeight.Bold) },
                                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF2E7D32)) },
                                 onClick = {
                                     menuExpanded = false
@@ -2350,7 +2350,7 @@ private fun CustomerSessionCardItem(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("تصدير فاتورة PDF", fontWeight = FontWeight.Bold) },
+                                text = { Text("تصدير PDF", fontWeight = FontWeight.Bold) },
                                 leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
                                 onClick = {
                                     menuExpanded = false
@@ -2358,7 +2358,7 @@ private fun CustomerSessionCardItem(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("تعديل دورة السقي", fontWeight = FontWeight.Bold) },
+                                text = { Text("تعديل", fontWeight = FontWeight.Bold) },
                                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryTeal) },
                                 onClick = {
                                     menuExpanded = false
@@ -2366,7 +2366,7 @@ private fun CustomerSessionCardItem(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("حذف دورة السقي", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
+                                text = { Text("حذف", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
                                 leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
                                 onClick = {
                                     menuExpanded = false
@@ -2390,7 +2390,7 @@ private fun CustomerSessionCardItem(
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
-                        text = "👤 سقي للمزارع: ${originalCustomer.name} (مقيد على هذا الحساب)",
+                        text = "👤 للمزارع: ${originalCustomer.name} (مقيد هنا)",
                         style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFB45309), fontWeight = FontWeight.Bold)
                     )
                 }
@@ -2403,7 +2403,7 @@ private fun CustomerSessionCardItem(
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
-                        text = "💧 على حساب صاحب البئر: ${sponsorOwner.name} (خالص / مدفوع من المالك ✅)",
+                        text = "💧 على المالك: ${sponsorOwner.name} (مدفوع)",
                         style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
                     )
                 }
@@ -2416,7 +2416,7 @@ private fun CustomerSessionCardItem(
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
-                        text = if (isWellOwner) "💧 مقاصة تخصم من مستحقات صاحب البئر" else "💧 على حساب صاحب البئر (مدفوع / مقاصة)",
+                        text = if (isWellOwner) "💧 مقاصة من مستحقات المالك" else "💧 على المالك (مقاصة)",
                         style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF0369A1), fontWeight = FontWeight.Bold)
                     )
                 }
@@ -2431,10 +2431,10 @@ private fun CustomerSessionCardItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1.2f)) {
-                    Text("إجمالي القيمة", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("الإجمالي", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
                         Formatters.formatCurrency(session.totalAmount, currencySymbol),
-                        style = MaterialTheme.typography.titleMedium.copy(color = sessionColor, fontWeight = FontWeight.ExtraBold),
+                        style = MaterialTheme.typography.titleMedium.copy(color = sessionColor, fontWeight = FontWeight.Black, fontSize = 16.sp),
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Ellipsis
@@ -2444,7 +2444,7 @@ private fun CustomerSessionCardItem(
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = sessionColor,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 9.5.sp
+                            fontSize = 10.5.sp
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -2471,7 +2471,7 @@ private fun CustomerSessionCardItem(
                     Text("المسدد", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 1)
                     Text(
                         Formatters.formatCurrency(session.amountPaid, currencySymbol),
-                        style = MaterialTheme.typography.bodyMedium.copy(color = AccentEmerald, fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.bodyMedium.copy(color = AccentEmerald, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp),
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Ellipsis
@@ -2487,7 +2487,7 @@ private fun CustomerSessionCardItem(
                     Text("المتبقي", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 1)
                     if (isSponsoredOnOwner) {
                         Text(
-                            "0.00 (محسوب على المالك)",
+                            "0 (على المالك)",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = Color(0xFF2E7D32),
                                 fontWeight = FontWeight.ExtraBold,
@@ -2511,7 +2511,8 @@ private fun CustomerSessionCardItem(
                             Formatters.formatCurrency(effectiveRemainingDebt, currencySymbol),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = Color(0xFFE53935),
-                                fontWeight = FontWeight.ExtraBold
+                                fontWeight = FontWeight.Black,
+                                fontSize = 14.sp
                             ),
                             maxLines = 1,
                             softWrap = false,
@@ -2521,7 +2522,7 @@ private fun CustomerSessionCardItem(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(13.dp))
                             Text(
-                                if (session.remainingDebt > 0.001) "مسدد (ضمن الرصيد)" else "مسدد",
+                                "مسدد بالكامل",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     color = AccentEmerald,
                                     fontWeight = FontWeight.ExtraBold,
@@ -2732,7 +2733,7 @@ private fun CustomerReceiptCardItem(
     val isSessionPayment = voucher.sessionId != null && voucher.sessionId > 0
     val rColor = AccentEmerald
     val rIcon = Icons.Default.Payments
-    val rBadgeText = if (isSessionPayment) "سداد دورة سقي" else if (isWellOwner) "تحصيل بئر" else "سند قبض"
+    val rBadgeText = if (isSessionPayment) "سداد سقي" else if (isWellOwner) "تحصيل بئر" else "سند قبض"
     var menuExpanded by remember(voucher.id) { mutableStateOf(false) }
 
     Card(
@@ -2782,7 +2783,7 @@ private fun CustomerReceiptCardItem(
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isSessionPayment) "سداد دورة سقي" else if (isWellOwner) "تحصيل من صاحب البئر" else "سند قبض نقدي",
+                            text = if (isSessionPayment) "سداد سقي" else if (isWellOwner) "تحصيل بئر" else "سند قبض",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -2856,8 +2857,8 @@ private fun CustomerReceiptCardItem(
                         text = "+ ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = rColor,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 15.sp
+                            fontWeight = FontWeight.Black,
+                            fontSize = 17.sp
                         ),
                         maxLines = 1,
                         softWrap = false
@@ -2868,7 +2869,7 @@ private fun CustomerReceiptCardItem(
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 9.5.sp
+                            fontSize = 10.5.sp
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -3008,7 +3009,7 @@ private fun CustomerDisbursementCardItem(
     val isDark = isAppDark()
     val dColor = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626)
     val dIcon = Icons.Default.ArrowUpward
-    val dBadgeText = if (isWellOwner) "تسديد لصاحب البئر" else "سند صرف"
+    val dBadgeText = if (isWellOwner) "تسديد للمالك" else "سند صرف"
     var menuExpanded by remember(voucher.id) { mutableStateOf(false) }
 
     Card(
@@ -3058,7 +3059,7 @@ private fun CustomerDisbursementCardItem(
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isWellOwner) "سداد لصاحب البئر" else "سند صرف مالي",
+                            text = if (isWellOwner) "تسديد للمالك" else "سند صرف",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -3114,8 +3115,8 @@ private fun CustomerDisbursementCardItem(
                         text = "- ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = dColor,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 15.sp
+                            fontWeight = FontWeight.Black,
+                            fontSize = 17.sp
                         ),
                         maxLines = 1,
                         softWrap = false
@@ -3126,7 +3127,7 @@ private fun CustomerDisbursementCardItem(
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 9.5.sp
+                            fontSize = 10.5.sp
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -3312,7 +3313,7 @@ private fun CustomerDiscountCardItem(
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "سند خصم ومسامحة",
+                            text = "سند خصم",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -3364,7 +3365,7 @@ private fun CustomerDiscountCardItem(
                                     shape = RoundedCornerShape(4.dp)
                                 ) {
                                     Text(
-                                        text = "دورة #${voucher.sessionId}",
+                                        text = "ساقية #${voucher.sessionId}",
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             color = PrimaryTeal,
                                             fontSize = 9.5.sp,
@@ -3386,8 +3387,8 @@ private fun CustomerDiscountCardItem(
                         text = "- ${Formatters.formatCurrency(voucher.amount, currencySymbol)}",
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = discColor,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 15.sp
+                            fontWeight = FontWeight.Black,
+                            fontSize = 17.sp
                         ),
                         maxLines = 1,
                         softWrap = false
@@ -3398,7 +3399,7 @@ private fun CustomerDiscountCardItem(
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 9.5.sp
+                            fontSize = 10.5.sp
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -3448,7 +3449,7 @@ private fun CustomerDiscountCardItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "تسوية ومسامحة  •  ${Formatters.formatDateTime(voucher.date)}",
+                    text = "خصم  •  ${Formatters.formatDateTime(voucher.date)}",
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 9.5.sp

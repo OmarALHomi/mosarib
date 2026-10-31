@@ -2164,7 +2164,8 @@ fun SettleSessionDialog(
     var amountStr by remember { mutableStateOf(Formatters.formatAmountInput(debtToSettle.toString())) }
     var discountStr by remember { mutableStateOf("") }
     var paymentMethod by remember { mutableStateOf("نقداً") }
-    var notes by remember { mutableStateOf("سداد دورة سقي #${session.id}") }
+    var notes by remember { mutableStateOf("سداد سقي #${session.id}") }
+    var showConfirmDialog by remember { mutableStateOf(false) }
 
     val parsedAmount = Formatters.parseAmountInput(amountStr)
     val parsedDiscount = Formatters.parseAmountInput(discountStr)
@@ -2195,12 +2196,12 @@ fun SettleSessionDialog(
                 }
                 Column {
                     Text(
-                        text = "سداد وتسوية السقي",
+                        text = "سداد سقي",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(
-                        text = "جلسة #${session.id} • العميل: $customerName",
-                        style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray),
+                        text = "#${session.id} • $customerName",
+                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
                         maxLines = 1
                     )
                 }
@@ -2213,13 +2214,14 @@ fun SettleSessionDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // بطاقة ملخص الحساب
+                // بطاقة ملخص الحساب بتنسيق نظيف متوافق مع هوية التطبيق
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                    )
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                 ) {
                     Column(
                         modifier = Modifier.padding(12.dp),
@@ -2231,8 +2233,8 @@ fun SettleSessionDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "إجمالي قيمة الجلسة:",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                                text = "الإجمالي:",
+                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                             )
                             Text(
                                 text = Formatters.formatCurrency(session.totalAmount, currencySymbol),
@@ -2247,8 +2249,8 @@ fun SettleSessionDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "المسدد سابقاً:",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                                    text = "المسدد:",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 )
                                 Text(
                                     text = Formatters.formatCurrency(session.amountPaid, currencySymbol),
@@ -2267,8 +2269,8 @@ fun SettleSessionDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "الخصم المسموح به سابقاً:",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                                    text = "الخصم:",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 )
                                 Text(
                                     text = Formatters.formatCurrency(session.discountAmount, currencySymbol),
@@ -2278,7 +2280,7 @@ fun SettleSessionDialog(
                         }
 
                         HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                             thickness = 0.5.dp
                         )
 
@@ -2288,7 +2290,7 @@ fun SettleSessionDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "المبلغ المطلوب حالياً (المؤخر):",
+                                text = "المطلوب:",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Text(
@@ -2302,11 +2304,11 @@ fun SettleSessionDialog(
                     }
                 }
 
-                // حقل المبلغ المراد تحصيله / سداده
+                // حقل المبلغ
                 MosaribTextField(
                     value = amountStr,
                     onValueChange = { amountStr = Formatters.formatAmountInput(it) },
-                    label = "المبلغ المدفوع / المحصل ($currencySymbol)",
+                    label = "المبلغ ($currencySymbol)",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -2321,7 +2323,7 @@ fun SettleSessionDialog(
                     )
                 }
 
-                // حقل المسموح (الخصم / المسامحة لإغلاق الحساب)
+                // حقل الخصم / التصفير
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2329,14 +2331,13 @@ fun SettleSessionDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "المسموح / الخصم ($currencySymbol):",
+                            text = "الخصم ($currencySymbol):",
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                         )
-                        // زر سريع لإسقاط الباقي في المسموح وتصفير الحساب
                         val uncollected = (debtToSettle - parsedAmount).coerceAtLeast(0.0)
                         if (uncollected > 0.0) {
                             Text(
-                                text = "إسقاط الباقي (${Formatters.formatNumber(uncollected)})",
+                                text = "تصفير (${Formatters.formatNumber(uncollected)})",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = PrimaryTeal,
                                     fontWeight = FontWeight.Bold
@@ -2355,14 +2356,14 @@ fun SettleSessionDialog(
                     MosaribTextField(
                         value = discountStr,
                         onValueChange = { discountStr = Formatters.formatAmountInput(it) },
-                        label = "المبلغ المسموح به / الخصم للتسوية",
+                        label = "مبلغ الخصم",
                         placeholder = "0",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
 
-                // شريط معاينة حالة الحساب بعد السداد والمسموح
+                // حالة الحساب بعد السداد
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = if (remainingAfter <= 0.0) {
@@ -2385,9 +2386,9 @@ fun SettleSessionDialog(
                         )
                         Text(
                             text = if (remainingAfter <= 0.0) {
-                                "سيتم تسوية وإغلاق حساب هذه الجلسة بالكامل (المتبقي: 0 $currencySymbol)"
+                                "خالص بالكامل (0 $currencySymbol)"
                             } else {
-                                "المتبقي بذمة العميل بعد السداد: ${Formatters.formatCurrency(remainingAfter, currencySymbol)}"
+                                "المتبقي: ${Formatters.formatCurrency(remainingAfter, currencySymbol)}"
                             },
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
@@ -2397,11 +2398,11 @@ fun SettleSessionDialog(
                     }
                 }
 
-                // طرق الدفع
+                // طريقة الدفع
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = "طريقة الدفع:",
-                        style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
+                        text = "الدفع:",
+                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf("نقداً", "تحويل بنكي", "شبكة").forEach { method ->
@@ -2414,18 +2415,18 @@ fun SettleSessionDialog(
                     }
                 }
 
-                // البيان والملاحظات
+                // البيان
                 MosaribTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = "البيان والملاحظات",
+                    label = "البيان",
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
             MosaribButton(
-                text = "تأكيد السداد",
+                text = "سداد",
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Check,
@@ -2435,8 +2436,7 @@ fun SettleSessionDialog(
                 },
                 onClick = {
                     if (totalSettled > 0.0) {
-                        onConfirmSettle(parsedAmount, parsedDiscount, paymentMethod, notes)
-                        onDismiss()
+                        showConfirmDialog = true
                     }
                 },
                 enabled = totalSettled > 0.0,
@@ -2451,6 +2451,157 @@ fun SettleSessionDialog(
             }
         }
     )
+
+    // نافذة تأكيد السداد مع التفقيط والبيانات الكاملة
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(AccentEmerald.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = AccentEmerald,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Text(
+                        text = "تأكيد السداد",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "العميل: $customerName",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = "السقي: #${session.id}",
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    )
+
+                    HorizontalDivider(
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "المبلغ:",
+                            style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        )
+                        Text(
+                            text = Formatters.formatCurrency(parsedAmount, currencySymbol),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Black,
+                                color = AccentEmerald,
+                                fontSize = 16.sp
+                            )
+                        )
+                    }
+
+                    if (parsedAmount > 0) {
+                        Text(
+                            text = "فقط: ${Formatters.amountToArabicWords(parsedAmount, currencySymbol)}",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = AccentEmerald
+                            )
+                        )
+                    }
+
+                    if (parsedDiscount > 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "الخصم:",
+                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            )
+                            Text(
+                                text = Formatters.formatCurrency(parsedDiscount, currencySymbol),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF8B5CF6)
+                                )
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "المتبقي:",
+                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        )
+                        Text(
+                            text = Formatters.formatCurrency(remainingAfter, currencySymbol),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (remainingAfter <= 0) AccentEmerald else Color(0xFFE53935)
+                            )
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "طريقة الدفع:",
+                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        )
+                        Text(
+                            text = paymentMethod,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                MosaribButton(
+                    text = "تأكيد وحفظ",
+                    onClick = {
+                        showConfirmDialog = false
+                        onConfirmSettle(parsedAmount, parsedDiscount, paymentMethod, notes)
+                        onDismiss()
+                    },
+                    containerColor = AccentEmerald,
+                    height = 42.dp
+                )
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = false }) {
+                    Text("تراجع", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
 }
 
 @Composable
