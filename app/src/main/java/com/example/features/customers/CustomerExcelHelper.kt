@@ -262,27 +262,39 @@ object CustomerExcelHelper {
     }
 
     /**
-     * استخراج الصفوف من ملفات CSV / TSV مع دعم الفواصل المختلفة وعلامات التنصيص.
+     * استخراج الصفوف من ملفات CSV / TSV مع دعم الفواصل المختلفة وعلامات التنصيص وحقول الأسطر المتعددة والترميز العربي.
      */
-    private fun parseCsvOrDelimited(stream: InputStream): List<List<String>> {
-        val reader = BufferedReader(InputStreamReader(stream, StandardCharsets.UTF_8))
-        val lines = reader.readLines()
-        if (lines.isEmpty()) return emptyList()
+    internal fun parseCsvOrDelimited(stream: InputStream): List<List<String>> {
+        val bytes = stream.readBytes()
+        if (bytes.isEmpty()) return emptyList()
 
-        // تخطي محرف BOM إن وجد
-        val cleanFirstLine = lines.first().removePrefix("\uFEFF")
-        val delimiter = detectDelimiter(cleanFirstLine)
+        val text = decodeCsvBytes(bytes)
+        if (text.isBlank()) return emptyList()
 
-        val result = mutableListOf<List<String>>()
-        for (i in lines.indices) {
-            val line = if (i == 0) cleanFirstLine else lines[i]
-            if (line.isBlank()) continue
-            val tokens = parseCsvLine(line, delimiter)
-            if (tokens.any { it.isNotBlank() }) {
-                result.add(tokens)
+        val firstLine = text.lineSequence().firstOrNull()?.removePrefix("\uFEFF").orEmpty()
+        val delimiter = detectDelimiter(firstLine)
+
+        return parseCsvTextToRecords(text.removePrefix("\uFEFF"), delimiter)
+    }
+
+    private fun decodeCsvBytes(bytes: ByteArray): String {
+        if (bytes.size >= 3 && bytes[0] == 0xEF.toByte() && bytes[1] == 0xBB.toByte() && bytes[2] == 0xBF.toByte()) {
+            return String(bytes, 3, bytes.size - 3, StandardCharsets.UTF_8)
+        }
+        val utf8Decoder = StandardCharsets.UTF_8.newDecoder()
+            .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+            .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+        try {
+            val charBuffer = utf8Decoder.decode(java.nio.ByteBuffer.wrap(bytes))
+            return charBuffer.toString()
+        } catch (_: Exception) {
+            return try {
+                val win1256 = java.nio.charset.Charset.forName("windows-1256")
+                String(bytes, win1256)
+            } catch (_: Exception) {
+                String(bytes, StandardCharsets.UTF_8)
             }
         }
-        return result
     }
 
     private fun detectDelimiter(line: String): Char {
@@ -299,30 +311,53 @@ object CustomerExcelHelper {
         }
     }
 
-    private fun parseCsvLine(line: String, delimiter: Char): List<String> {
-        val tokens = mutableListOf<String>()
+    private fun parseCsvTextToRecords(text: String, delimiter: Char): List<List<String>> {
+        val records = mutableListOf<List<String>>()
+        val currentTokens = mutableListOf<String>()
         val sb = StringBuilder()
         var inQuotes = false
         var i = 0
-        while (i < line.length) {
-            val c = line[i]
-            if (c == '\"') {
-                if (inQuotes && i + 1 < line.length && line[i + 1] == '\"') {
-                    sb.append('\"')
-                    i++
-                } else {
-                    inQuotes = !inQuotes
+        val len = text.length
+
+        while (i < len) {
+            val c = text[i]
+            when {
+                c == '\"' -> {
+                    if (inQuotes && i + 1 < len && text[i + 1] == '\"') {
+                        sb.append('\"')
+                        i++
+                    } else {
+                        inQuotes = !inQuotes
+                    }
                 }
-            } else if (c == delimiter && !inQuotes) {
-                tokens.add(sb.toString().trim())
-                sb.setLength(0)
-            } else {
-                sb.append(c)
+                c == delimiter && !inQuotes -> {
+                    currentTokens.add(sb.toString().trim())
+                    sb.setLength(0)
+                }
+                (c == '\r' || c == '\n') && !inQuotes -> {
+                    if (c == '\r' && i + 1 < len && text[i + 1] == '\n') {
+                        i++
+                    }
+                    currentTokens.add(sb.toString().trim())
+                    sb.setLength(0)
+                    if (currentTokens.any { it.isNotBlank() }) {
+                        records.add(currentTokens.toList())
+                    }
+                    currentTokens.clear()
+                }
+                else -> {
+                    sb.append(c)
+                }
             }
             i++
         }
-        tokens.add(sb.toString().trim())
-        return tokens
+        if (sb.isNotEmpty() || currentTokens.isNotEmpty()) {
+            currentTokens.add(sb.toString().trim())
+            if (currentTokens.any { it.isNotBlank() }) {
+                records.add(currentTokens.toList())
+            }
+        }
+        return records
     }
 
     private fun matchesKeywordWordOrPhrase(cleanText: String, keywords: List<String>): Boolean {
@@ -520,7 +555,8 @@ object CustomerExcelHelper {
     }
 
     private fun cleanPhoneString(text: String): String {
-        return text.replace(Regex("[^0-9+]"), "").trim()
+        val ascii = FileSharingHelper.convertArabicDigitsToAscii(text)
+        return ascii.replace(Regex("[^0-9+]"), "").trim()
     }
 
     private fun isWellOwnerString(typeText: String): Boolean {

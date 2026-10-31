@@ -77,4 +77,36 @@ class CustomerExcelTest {
         assertEquals(15000.0, draft2.initialBalance, 0.001)
         org.junit.Assert.assertFalse("draft2 should be credit (له)", draft2.isDebit)
     }
+
+    @Test
+    fun testCustomGroupAndArabicNumeralParsing() {
+        val sampleRows = listOf(
+            listOf("الاسم", "رقم الهاتف", "المجموعة", "المزرعة", "الرصيد", "الحالة"),
+            listOf("علي ناصر", "٧٧١٢٣٤٥٦٧", "مزارعي الوادي", "حقل الذرة", "١٢,٠٠٠", "مدين")
+        )
+
+        val drafts = CustomerExcelHelper.mapRowsToDrafts(sampleRows, emptyList())
+        assertEquals(1, drafts.size)
+        val d = drafts[0]
+        assertEquals("علي ناصر", d.name)
+        assertEquals("771234567", d.phone)
+        assertEquals("مزارعي الوادي", d.customGroup)
+        assertEquals("حقل الذرة", d.farmName)
+        assertEquals(12000.0, d.initialBalance, 0.001)
+        assertTrue(d.isDebit)
+    }
+
+    @Test
+    fun testWindows1256AndMultilineCsvParsing() {
+        val csvContent = "الاسم,الهاتف,الملاحظات\r\n\"صالح قاسم\",770000000,\"سطر أول\r\nسطر ثان\"\r\n"
+        val bytes = csvContent.toByteArray(java.nio.charset.Charset.forName("windows-1256"))
+        val records = CustomerExcelHelper.parseCsvOrDelimited(java.io.ByteArrayInputStream(bytes))
+
+        assertEquals(2, records.size)
+        assertEquals("الاسم", records[0][0])
+        assertEquals("صالح قاسم", records[1][0])
+        assertEquals("770000000", records[1][1])
+        assertTrue("Note should contain newline without breaking into extra row", records[1][2].contains("سطر أول") && records[1][2].contains("سطر ثان"))
+    }
 }
+

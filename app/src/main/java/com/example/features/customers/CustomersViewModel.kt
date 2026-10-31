@@ -451,6 +451,14 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                     }
                 }
 
+                // حفظ المجموعات المستوردة في سجل المجموعات الدائم
+                val newGroups = selected.map { it.customGroup.trim() }.filter { it.isNotBlank() }
+                if (newGroups.isNotEmpty()) {
+                    val currentReg = db.appSettingDao().getSettingValue("custom_groups_registry")?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+                    val merged = (currentReg + newGroups).distinct()
+                    db.appSettingDao().saveSetting(AppSetting(key = "custom_groups_registry", value = merged.joinToString(",")))
+                }
+
                 _importDrafts.value = null
 
                 val msg = when {

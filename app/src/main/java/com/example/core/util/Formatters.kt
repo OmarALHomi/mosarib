@@ -36,7 +36,8 @@ object Formatters {
      * e.g. "12000" -> "12,000"
      */
     fun formatAmountInput(raw: String): String {
-        val clean = raw.replace(",", "").replace("،", "").trim()
+        val ascii = FileSharingHelper.convertArabicDigitsToAscii(raw)
+        val clean = ascii.replace(",", "").replace("،", "").trim()
         if (clean.isEmpty()) return ""
         val parts = clean.split(".")
         val integerPart = parts[0].toLongOrNull() ?: return clean
@@ -47,7 +48,8 @@ object Formatters {
      * Cleans formatted input with commas back to Double, rounded to nearest integer
      */
     fun parseAmountInput(text: String): Double {
-        val clean = text.replace(",", "").replace("،", "").trim()
+        val ascii = FileSharingHelper.convertArabicDigitsToAscii(text)
+        val clean = ascii.replace(",", "").replace("،", "").trim()
         val d = clean.toDoubleOrNull() ?: 0.0
         return roundMoney(d)
     }
