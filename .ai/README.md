@@ -16,7 +16,7 @@
    - يغيّرها إلى `changes-requested` ويكتب الملاحظات أسفل ملف المهمة، فتعود للخطوة 2.
 
 ## حالات المهمة (السطر `status:` في أعلى الملف)
-`ready` ← `in-progress` ← `done` ← `accepted` أو `changes-requested`
+`draft` (تنتظر قرار صاحب التطبيق، لا تُنفَّذ) ← `ready` ← `in-progress` ← `done` ← `accepted` أو `changes-requested`
 
 ## Rules for the implementing agent (English, binding)
 - Work on exactly one task at a time; set `status: in-progress` when you start.

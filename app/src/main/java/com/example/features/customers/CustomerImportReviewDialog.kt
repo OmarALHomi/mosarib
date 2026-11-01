@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -134,6 +137,7 @@ fun CustomerImportReviewDialog(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             // 1. الرأس الرئيسي
@@ -142,7 +146,10 @@ fun CustomerImportReviewDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Surface(
                         modifier = Modifier.size(40.dp),
                         shape = CircleShape,
@@ -167,31 +174,12 @@ fun CustomerImportReviewDialog(
                             )
                         )
                         Text(
-                            text = "تم العثور على $totalCount حساب في الملف (المحدد: $selectedCount)",
+                            text = "تم العثور على $totalCount حساب (المحدد: $selectedCount) • العملة: $currencySymbol",
                             style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
                         )
                     }
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = PrimaryTeal.copy(alpha = 0.10f),
-                    border = BorderStroke(0.5.dp, PrimaryTeal.copy(alpha = 0.3f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "العملة: $currencySymbol",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = PrimaryTeal,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            )
-                        )
-                    }
-                }
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Default.Close, contentDescription = "إلغاء")
                 }
@@ -372,22 +360,24 @@ fun CustomerImportReviewDialog(
                             )
                         }
 
-                        if (existingCount > 0) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "تحديث بيانات المسجل مسبقاً",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 11.sp,
-                                        color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
-                                    )
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Switch(
-                                    checked = updateExistingCustomers,
-                                    onCheckedChange = { updateExistingCustomers = it },
-                                    modifier = Modifier.size(36.dp)
-                                )
-                            }
+                    }
+
+                    if (existingCount > 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "تحديث بيانات المسجلين مسبقاً ($existingCount)",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                            Switch(
+                                checked = updateExistingCustomers,
+                                onCheckedChange = { updateExistingCustomers = it }
+                            )
                         }
                     }
                 }
@@ -417,6 +407,7 @@ fun CustomerImportReviewDialog(
                             ImportDraftCard(
                                 draft = draft,
                                 isDark = isDark,
+                                currencySymbol = currencySymbol,
                                 onToggleSelected = {
                                     val updated = draft.copy(isSelected = !draft.isSelected)
                                     onDraftUpdated(updated)
@@ -468,10 +459,12 @@ fun CustomerImportReviewDialog(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ImportDraftCard(
     draft: ImportedCustomerDraft,
     isDark: Boolean,
+    currencySymbol: String,
     onToggleSelected: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
@@ -514,103 +507,56 @@ private fun ImportDraftCard(
 
             // تفاصيل الحساب
             Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = if (draft.name.isNotBlank()) draft.name else "اسم العميل مفقود!",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = if (hasError) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurface,
-                            fontSize = 14.sp
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+                // الاسم في سطر مستقل بعرض كامل حتى لا تقتطعه الشارات
+                Text(
+                    text = if (draft.name.isNotBlank()) draft.name else "اسم العميل مفقود!",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = if (hasError) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurface,
+                        fontSize = 14.sp
+                    ),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
 
-                    // شارة صاحب بئر
-                    if (draft.isWellOwner) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE),
-                            border = BorderStroke(0.5.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD))
-                        ) {
-                            Text(
+                val hasBadges = draft.isWellOwner || draft.attachedOperations.size > 1 ||
+                    draft.currency.isNotBlank() || draft.isExistingInDb
+                if (hasBadges) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (draft.isWellOwner) {
+                            ImportDraftBadge(
                                 text = "صاحب بئر",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                maxLines = 1,
-                                softWrap = false,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                textColor = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
+                                background = if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE),
+                                borderColor = if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD)
                             )
                         }
-                    }
-
-                    // شارة العمليات المجمعة
-                    if (draft.attachedOperations.size > 1) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = PrimaryTeal.copy(alpha = 0.12f),
-                            border = BorderStroke(0.5.dp, PrimaryTeal)
-                        ) {
-                            Text(
+                        if (draft.attachedOperations.size > 1) {
+                            ImportDraftBadge(
                                 text = "${draft.attachedOperations.size} عمليات مجمّعة",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = PrimaryTeal,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                maxLines = 1,
-                                softWrap = false,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                textColor = PrimaryTeal,
+                                background = PrimaryTeal.copy(alpha = 0.12f),
+                                borderColor = PrimaryTeal
                             )
                         }
-                    }
-
-                    // شارة عملة العملية
-                    if (draft.currency.isNotBlank()) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = AccentGold.copy(alpha = 0.15f),
-                            border = BorderStroke(0.5.dp, AccentGold)
-                        ) {
-                            Text(
+                        if (draft.currency.isNotBlank()) {
+                            ImportDraftBadge(
                                 text = draft.currency,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = AccentGold,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                maxLines = 1,
-                                softWrap = false,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                textColor = AccentGold,
+                                background = AccentGold.copy(alpha = 0.15f),
+                                borderColor = AccentGold
                             )
                         }
-                    }
-
-                    // شارة مسجل مسبقاً
-                    if (draft.isExistingInDb) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = if (isDark) Color(0xFF2C1E0A) else Color(0xFFFEF3C7),
-                            border = BorderStroke(0.5.dp, Color(0xFFD97706))
-                        ) {
-                            Text(
+                        if (draft.isExistingInDb) {
+                            ImportDraftBadge(
                                 text = "مسجل مسبقاً",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color(0xFFD97706),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                maxLines = 1,
-                                softWrap = false,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                textColor = Color(0xFFD97706),
+                                background = if (isDark) Color(0xFF2C1E0A) else Color(0xFFFEF3C7),
+                                borderColor = Color(0xFFD97706)
                             )
                         }
                     }
@@ -630,10 +576,10 @@ private fun ImportDraftCard(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 // معلومات الهاتف والمزرعة والموقع
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     if (draft.phone.isNotEmpty()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -660,7 +606,7 @@ private fun ImportDraftCard(
 
                     draft.customPricePerHour?.let { price ->
                         Text(
-                            text = "${Formatters.formatCurrency(price, "").trim()} ر.ي/س",
+                            text = "${Formatters.formatCurrency(price, "").trim()} $currencySymbol/س",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = PrimaryTeal,
                                 fontWeight = FontWeight.Bold,
@@ -675,7 +621,7 @@ private fun ImportDraftCard(
                         val balColor = if (draft.isDebit) Color(0xFFEF4444) else AccentEmerald
                         val balPrefix = if (draft.isDebit) "عليه: " else "له: "
                         Text(
-                            text = "$balPrefix${Formatters.formatCurrency(draft.initialBalance, "ر.ي")}",
+                            text = "$balPrefix${Formatters.formatCurrency(draft.initialBalance, currencySymbol)}",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = balColor,
                                 fontWeight = FontWeight.Bold,
@@ -691,7 +637,7 @@ private fun ImportDraftCard(
             // أزرار التحكم بالسطر (تعديل / حذف)
             IconButton(
                 onClick = onEditClick,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Edit,
@@ -703,7 +649,7 @@ private fun ImportDraftCard(
 
             IconButton(
                 onClick = onDeleteClick,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
@@ -713,6 +659,31 @@ private fun ImportDraftCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ImportDraftBadge(
+    text: String,
+    textColor: Color,
+    background: Color,
+    borderColor: Color
+) {
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = background,
+        border = BorderStroke(0.5.dp, borderColor)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = textColor,
+                fontWeight = FontWeight.Bold
+            ),
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
     }
 }
 
