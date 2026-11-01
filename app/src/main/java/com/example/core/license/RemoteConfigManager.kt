@@ -2,11 +2,10 @@ package com.example.core.license
 
 import android.content.Context
 import android.util.Log
+import com.example.core.network.FirebaseRest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 
 /**
  * Manages remote policies, dynamic free operations limit, and per-device overrides configured
@@ -14,7 +13,6 @@ import java.net.URL
  */
 object RemoteConfigManager {
     private const val TAG = "RemoteConfigManager"
-    private const val FIREBASE_DB_URL = "https://mosarib-default-rtdb.asia-southeast1.firebasedatabase.app"
     private const val PREFS_FILE = "mosarib_remote_config_prefs"
 
     private const val KEY_FREE_OPS_LIMIT = "remote_free_ops_limit"
@@ -120,112 +118,55 @@ object RemoteConfigManager {
     }
 
     /**
+     * The custom operations limit an admin set on a policy node. Older dashboard versions used
+     * different field names, so all of them are accepted.
+     */
+    internal fun readCustomLimit(policy: JSONObject): Int =
+        policy.optInt("customOperationsLimit", policy.optInt("freeOperationsLimit", policy.optInt("operationsLimit", policy.optInt("limit", 0))))
+
+    /**
      * Syncs remote policies and device overrides from Firebase Realtime Database.
      */
     suspend fun syncRemotePolicies(context: Context) = withContext(Dispatchers.IO) {
         if (!LicenseManager.isInternetAvailable(context)) return@withContext
 
-        val deviceCode = LicenseManager.getDeviceCode(context)
-        val cleanDeviceKey = deviceCode.replace("-", "").trim()
+        val cleanDeviceKey = LicenseManager.getDeviceCode(context).replace("-", "").trim()
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
 
         try {
-            // 1. Fetch Global App Config: Primary Realtime Database (/app_config.json)
-            var configSynced = false
-            try {
-                val cfgUrl = URL("$FIREBASE_DB_URL/app_config.json")
-                val cfgConn = (cfgUrl.openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 4000
-                    readTimeout = 4000
-                    setRequestProperty("Accept", "application/json")
+            // 1. Global app config (/app_config)
+            FirebaseRest.get("app_config.json", timeoutMs = 4000).jsonObject()?.let { obj ->
+                sp.edit()
+                    .putInt(KEY_FREE_OPS_LIMIT, obj.optInt("freeOperationsLimit", LicenseManager.FREE_OPERATIONS_LIMIT))
+                    .putBoolean(KEY_IS_BACKUP_ALLOWED_FOR_TRIAL, obj.optBoolean("isBackupAllowedForTrial", true))
+                    .putBoolean(KEY_IS_CLOUD_BACKUP_ALLOWED, obj.optBoolean("isCloudBackupAllowed", true))
+                    .putBoolean(KEY_IS_EXCEL_EXPORT_ALLOWED, obj.optBoolean("isExcelExportAllowedForTrial", true))
+                    .putString(KEY_GLOBAL_ANNOUNCEMENT, obj.optString("globalAnnouncementText", ""))
+                    .apply()
+            }
+
+            // 2. Device specific overrides (/device_overrides/{key})
+            FirebaseRest.get("device_overrides/$cleanDeviceKey.json", timeoutMs = 4000).jsonObject()?.let { obj ->
+                sp.edit()
+                    .putBoolean(KEY_DEVICE_BACKUP_LOCKED, obj.optBoolean("isBackupLocked", obj.optBoolean("backupLocked", false)))
+                    .putInt(KEY_DEVICE_CUSTOM_LIMIT, readCustomLimit(obj))
+                    .putString(KEY_DEVICE_SPECIAL_WARNING, obj.optString("specialWarningMessage", ""))
+                    .apply()
+            }
+
+            // 3. The same admin fields may also be set on the device's /all_users record
+            FirebaseRest.get("all_users/$cleanDeviceKey.json", timeoutMs = 4000).jsonObject()?.let { obj ->
+                val editor = sp.edit()
+                if (obj.has("isBackupLocked") || obj.has("backupLocked")) {
+                    editor.putBoolean(KEY_DEVICE_BACKUP_LOCKED, obj.optBoolean("isBackupLocked", obj.optBoolean("backupLocked", false)))
                 }
-                if (cfgConn.responseCode == 200) {
-                    val text = cfgConn.inputStream.bufferedReader().readText().trim()
-                    if (text != "null" && text.isNotBlank()) {
-                        val obj = JSONObject(text)
-                        val freeLimit = obj.optInt("freeOperationsLimit", LicenseManager.FREE_OPERATIONS_LIMIT)
-                        val bkAllowed = obj.optBoolean("isBackupAllowedForTrial", true)
-                        val driveAllowed = obj.optBoolean("isCloudBackupAllowed", true)
-                        val excelAllowed = obj.optBoolean("isExcelExportAllowedForTrial", true)
-                        val note = obj.optString("globalAnnouncementText", "")
-
-                        sp.edit()
-                            .putInt(KEY_FREE_OPS_LIMIT, freeLimit)
-                            .putBoolean(KEY_IS_BACKUP_ALLOWED_FOR_TRIAL, bkAllowed)
-                            .putBoolean(KEY_IS_CLOUD_BACKUP_ALLOWED, driveAllowed)
-                            .putBoolean(KEY_IS_EXCEL_EXPORT_ALLOWED, excelAllowed)
-                            .putString(KEY_GLOBAL_ANNOUNCEMENT, note)
-                            .apply()
-                        configSynced = true
-                    }
+                val customLimit = readCustomLimit(obj)
+                if (customLimit > 0) editor.putInt(KEY_DEVICE_CUSTOM_LIMIT, customLimit)
+                if (obj.has("specialWarningMessage")) {
+                    editor.putString(KEY_DEVICE_SPECIAL_WARNING, obj.optString("specialWarningMessage", ""))
                 }
-            } catch (_: Exception) {}
-
-
-
-            // 2. Fetch Device Specific Overrides: Primary Realtime Database (/device_overrides/{cleanDeviceKey}.json)
-            var overrideSynced = false
-            try {
-                val devUrl = URL("$FIREBASE_DB_URL/device_overrides/$cleanDeviceKey.json")
-                val devConn = (devUrl.openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 4000
-                    readTimeout = 4000
-                    setRequestProperty("Accept", "application/json")
-                }
-                if (devConn.responseCode == 200) {
-                    val text = devConn.inputStream.bufferedReader().readText().trim()
-                    if (text != "null" && text.isNotBlank()) {
-                        val obj = JSONObject(text)
-                        val isBkLocked = obj.optBoolean("isBackupLocked", obj.optBoolean("backupLocked", false))
-                        val customLimit = obj.optInt("customOperationsLimit", obj.optInt("freeOperationsLimit", obj.optInt("operationsLimit", obj.optInt("limit", 0))))
-                        val warningMsg = obj.optString("specialWarningMessage", "")
-
-                        sp.edit()
-                            .putBoolean(KEY_DEVICE_BACKUP_LOCKED, isBkLocked)
-                            .putInt(KEY_DEVICE_CUSTOM_LIMIT, customLimit)
-                            .putString(KEY_DEVICE_SPECIAL_WARNING, warningMsg)
-                            .apply()
-                        overrideSynced = true
-                    }
-                }
-            } catch (_: Exception) {}
-
-            // Also check all_users node in RTDB if not found in device_overrides
-            try {
-                val userUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
-                val userConn = (userUrl.openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 4000
-                    readTimeout = 4000
-                    setRequestProperty("Accept", "application/json")
-                }
-                if (userConn.responseCode == 200) {
-                    val userText = userConn.inputStream.bufferedReader().readText().trim()
-                    if (userText != "null" && userText.isNotBlank()) {
-                        val userObj = JSONObject(userText)
-                        val editor = sp.edit()
-                        var modified = false
-                        if (userObj.has("isBackupLocked") || userObj.has("backupLocked")) {
-                            editor.putBoolean(KEY_DEVICE_BACKUP_LOCKED, userObj.optBoolean("isBackupLocked", userObj.optBoolean("backupLocked", false)))
-                            modified = true
-                        }
-                        val userCustomLimit = userObj.optInt("customOperationsLimit", userObj.optInt("freeOperationsLimit", userObj.optInt("operationsLimit", userObj.optInt("limit", 0))))
-                        if (userCustomLimit > 0) {
-                            editor.putInt(KEY_DEVICE_CUSTOM_LIMIT, userCustomLimit)
-                            modified = true
-                        }
-                        if (userObj.has("specialWarningMessage")) {
-                            editor.putString(KEY_DEVICE_SPECIAL_WARNING, userObj.optString("specialWarningMessage", ""))
-                            modified = true
-                        }
-                        if (modified) {
-                            editor.apply()
-                            overrideSynced = true
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
-
-
+                editor.apply()
+            }
 
             sp.edit().putLong(KEY_LAST_SYNC_TIME, System.currentTimeMillis()).apply()
         } catch (e: Exception) {

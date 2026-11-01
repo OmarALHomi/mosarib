@@ -2,17 +2,14 @@ package com.example.core.util
 
 import android.content.Context
 import com.example.core.database.AppDatabase
+import com.example.core.network.FirebaseRest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
 
 object AppPriceHelper {
     private const val PREFS_FILE = "mosarib_price_sync_prefs"
     private const val KEY_LAST_SYNCED_PRICE = "last_synced_hourly_price"
-    private const val FIREBASE_DB_URL = "https://mosarib-default-rtdb.asia-southeast1.firebasedatabase.app"
 
     suspend fun getEffectiveHourlyPrice(context: Context): Double {
         return try {
@@ -70,18 +67,7 @@ object AppPriceHelper {
                 put("priceUpdatedAt", System.currentTimeMillis())
             }
 
-            val patchUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
-            val conn = (patchUrl.openConnection() as HttpURLConnection).apply {
-                requestMethod = "PATCH"
-                doOutput = true
-                connectTimeout = 4000
-                readTimeout = 4000
-                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-            }
-            OutputStreamWriter(conn.outputStream).use { it.write(patchPayload.toString()) }
-            val code = conn.responseCode
-
-            if (code in 200..299) {
+            if (FirebaseRest.patch("all_users/$cleanDeviceKey.json", patchPayload.toString(), timeoutMs = 4000).isSuccess) {
                 markPriceAsSynced(context, newPrice)
                 return@withContext true
             }

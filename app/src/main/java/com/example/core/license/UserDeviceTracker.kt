@@ -3,16 +3,12 @@ package com.example.core.license
 import android.content.Context
 import android.util.Log
 import com.example.BuildConfig
+import com.example.core.network.FirebaseRest
 import com.example.core.util.GoogleDriveBackupHelper
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
 
 /**
  * Tracks every user/device installing or opening the app, whether subscribed or trial.
@@ -20,7 +16,6 @@ import java.net.URL
  */
 object UserDeviceTracker {
     private const val TAG = "UserDeviceTracker"
-    private const val FIREBASE_DB_URL = "https://mosarib-default-rtdb.asia-southeast1.firebasedatabase.app"
     private const val PREFS_FILE = "mosarib_license_prefs"
     private const val KEY_IS_BLOCKED_LOCALLY = "is_device_blocked_by_admin"
     private const val KEY_BLOCK_REASON = "device_block_reason"
@@ -136,90 +131,32 @@ object UserDeviceTracker {
             var remoteTrialConsumed = false
             var remoteFirstSeen = 0L
 
-            // 1. Primary: Check Realtime Database (/all_users/{cleanDeviceKey}.json)
-            try {
-                val checkUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
-                val conn = (checkUrl.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "GET"
-                    connectTimeout = 7000
-                    readTimeout = 7000
-                    setRequestProperty("Accept", "application/json")
+            // Admin policies can sit on the device's /all_users record or on /device_overrides.
+            val existing = FirebaseRest.get("all_users/$cleanDeviceKey.json", timeoutMs = 7000).jsonObject()
+            val overrides = FirebaseRest.get("device_overrides/$cleanDeviceKey.json", timeoutMs = 4000).jsonObject()
+            for (policy in listOfNotNull(existing, overrides)) {
+                if (policy.optBoolean("isBlocked", false)) {
+                    isBlocked = true
+                    blockReason = policy.optString("blockReason", blockReason)
                 }
-                if (conn.responseCode == 200) {
-                    val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                    val responseText = reader.readText().trim()
-                    reader.close()
-                    if (responseText != "null" && responseText.isNotBlank()) {
-                        val existing = JSONObject(responseText)
-                        if (existing.optBoolean("isBlocked", false)) {
-                            isBlocked = true
-                            blockReason = existing.optString("blockReason", blockReason)
-                        }
-                        if (existing.has("isBackupLocked") || existing.has("backupLocked")) {
-                            val isBkLocked = existing.optBoolean("isBackupLocked", existing.optBoolean("backupLocked", false))
-                            RemoteConfigManager.setDeviceBackupLocked(context, isBkLocked)
-                        }
-                        val customLim = existing.optInt("customOperationsLimit", existing.optInt("freeOperationsLimit", existing.optInt("operationsLimit", existing.optInt("limit", 0))))
-                        if (customLim > 0) {
-                            RemoteConfigManager.setDeviceCustomLimit(context, customLim)
-                        }
-                        remoteOpsCount = existing.optInt("operationsCount", 0)
-                        remoteCumulativeOps = existing.optInt("cumulativeOpsCount", 0)
-                        remoteTrialConsumed = existing.optBoolean("trialConsumed", false)
-                        remoteFirstSeen = existing.optLong("firstSeen", 0L)
-                    }
-                }
-            } catch (_: Exception) {}
-
-            // 1.5. Also check Realtime Database (/device_overrides/{cleanDeviceKey}.json)
-            try {
-                val devUrl = URL("$FIREBASE_DB_URL/device_overrides/$cleanDeviceKey.json")
-                val devConn = (devUrl.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "GET"
-                    connectTimeout = 4000
-                    readTimeout = 4000
-                    setRequestProperty("Accept", "application/json")
-                }
-                if (devConn.responseCode == 200) {
-                    val reader = BufferedReader(InputStreamReader(devConn.inputStream))
-                    val devText = reader.readText().trim()
-                    reader.close()
-                    if (devText != "null" && devText.isNotBlank()) {
-                        val devObj = JSONObject(devText)
-                        if (devObj.optBoolean("isBlocked", false)) {
-                            isBlocked = true
-                            blockReason = devObj.optString("blockReason", blockReason)
-                        }
-                        if (devObj.has("isBackupLocked") || devObj.has("backupLocked")) {
-                            val isBkLocked = devObj.optBoolean("isBackupLocked", devObj.optBoolean("backupLocked", false))
-                            RemoteConfigManager.setDeviceBackupLocked(context, isBkLocked)
-                        }
-                        val customLim = devObj.optInt("customOperationsLimit", devObj.optInt("freeOperationsLimit", devObj.optInt("operationsLimit", devObj.optInt("limit", 0))))
-                        if (customLim > 0) {
-                            RemoteConfigManager.setDeviceCustomLimit(context, customLim)
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
+                applyAdminLimits(context, policy)
+            }
+            if (existing != null) {
+                remoteOpsCount = existing.optInt("operationsCount", 0)
+                remoteCumulativeOps = existing.optInt("cumulativeOpsCount", 0)
+                remoteTrialConsumed = existing.optBoolean("trialConsumed", false)
+                remoteFirstSeen = existing.optLong("firstSeen", 0L)
+            }
 
 
             // Also check by Google Email if present
             if (!isBlocked && email.isNotBlank()) {
                 val safeEmailKey = email.replace(".", "_").replace("@", "_at_")
-                val emailCheckUrl = URL("$FIREBASE_DB_URL/blocked_emails/$safeEmailKey.json")
-                val emailConn = (emailCheckUrl.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "GET"
-                    connectTimeout = 5000
-                    readTimeout = 5000
-                }
-                if (emailConn.responseCode == 200) {
-                    val reader = BufferedReader(InputStreamReader(emailConn.inputStream))
-                    val res = reader.readText().trim()
-                    reader.close()
-                    if (res != "null" && res.isNotBlank()) {
-                        isBlocked = true
-                        blockReason = "تم حظر حساب Google ($email) من قِبل الإدارة"
-                    }
+                val emailRes = FirebaseRest.get("blocked_emails/$safeEmailKey.json", timeoutMs = 5000)
+                val emailBody = emailRes.body?.trim()
+                if (emailRes.isSuccess && !emailBody.isNullOrEmpty() && emailBody != "null") {
+                    isBlocked = true
+                    blockReason = "تم حظر حساب Google ($email) من قِبل الإدارة"
                 }
             }
 
@@ -284,34 +221,42 @@ object UserDeviceTracker {
                 put("lastActiveAt", now)
             }
 
-            // Realtime Database presence sync (Use POST+Override to preserve admin fields like isBlocked/blockReason)
-            // HttpURLConnection does not support PATCH on all Android versions — use POST with override header
-            try {
-                val patchUrl = URL("$FIREBASE_DB_URL/all_users/$cleanDeviceKey.json")
-                val patchConn = (patchUrl.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
-                    doOutput = true
-                    connectTimeout = 7000
-                    readTimeout = 7000
-                    setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                    setRequestProperty("X-HTTP-Method-Override", "PATCH")
-                }
-                OutputStreamWriter(patchConn.outputStream).use { it.write(payload.toString()) }
-                val code = patchConn.responseCode
-                if (code in 200..299) {
-                    setRegistrationSuccess(context, highestOps)
-                } else {
-                    val errBody = patchConn.errorStream?.bufferedReader()?.readText() ?: ""
-                    Log.w(TAG, "RTDB presence write failed: HTTP $code, error: $errBody")
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "RTDB presence write exception: ${e.message}")
+            // PATCH keeps the admin-owned fields (isBlocked, blockReason, ...) untouched.
+            if (FirebaseRest.patch("all_users/$cleanDeviceKey.json", payload.toString(), timeoutMs = 7000).isSuccess) {
+                setRegistrationSuccess(context, highestOps)
+                if (email.isNotBlank()) writeEmailIndex(email, cleanDeviceKey, regName, regPhone, now)
             }
             DeviceStatusResult(isBlocked = false)
         } catch (e: Exception) {
             Log.e(TAG, "Presence sync failed: ${e.message}")
             DeviceStatusResult(isDeviceBlockedLocally(context), getBlockReason(context))
         }
+    }
+
+    /** Backup lock and custom operations limit set for this device from the dashboard. */
+    private fun applyAdminLimits(context: Context, policy: JSONObject) {
+        if (policy.has("isBackupLocked") || policy.has("backupLocked")) {
+            RemoteConfigManager.setDeviceBackupLocked(
+                context,
+                policy.optBoolean("isBackupLocked", policy.optBoolean("backupLocked", false))
+            )
+        }
+        val customLimit = RemoteConfigManager.readCustomLimit(policy)
+        if (customLimit > 0) RemoteConfigManager.setDeviceCustomLimit(context, customLimit)
+    }
+
+    /**
+     * Records this Google email -> device under /email_index so a reinstall can find the account
+     * by email without reading the whole /all_users list (which the rules no longer allow).
+     */
+    private fun writeEmailIndex(email: String, deviceKey: String, name: String, phone: String, now: Long) {
+        val payload = JSONObject().apply {
+            put("deviceKey", deviceKey)
+            put("subscriberName", name.take(100))
+            put("phone", phone.take(30))
+            put("updatedAt", now)
+        }
+        FirebaseRest.put("email_index/${FirebaseLicenseService.emailIndexKey(email)}.json", payload.toString(), timeoutMs = 7000)
     }
 
     /**

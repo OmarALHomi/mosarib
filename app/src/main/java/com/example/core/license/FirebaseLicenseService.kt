@@ -1,26 +1,20 @@
 package com.example.core.license
 
 import android.content.Context
-import android.os.Build
 import android.util.Log
+import com.example.core.network.FirebaseRest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
 
 /**
- * Direct HTTPS REST client for Firebase Realtime Database.
- * Works seamlessly with Firebase project 'mosarib' without requiring heavyweight SDKs.
+ * License, subscription and support operations against Firebase Realtime Database.
+ * All HTTP goes through [FirebaseRest].
  */
 object FirebaseLicenseService {
     private const val TAG = "FirebaseLicenseService"
-    // Firebase Realtime Database URL for project mosarib
-    private const val FIREBASE_DB_URL = "https://mosarib-default-rtdb.asia-southeast1.firebasedatabase.app"
+    private const val PREFS_FILE = "mosarib_license_prefs"
 
     data class LicenseCheckResult(
         val isValid: Boolean,
@@ -29,138 +23,84 @@ object FirebaseLicenseService {
         val boundDeviceCode: String? = null,
         val serverExpiresAt: Long? = null,
         val plan: String? = null,
-        val errorMessage: String? = null
+        val errorMessage: String? = null,
+        val isNetworkError: Boolean = false
     )
 
     /**
-     * Attempts to verify or activate an activation key against Firebase.
-     * Enforces single-device lock: If key is already bound to a different device, it rejects it.
+     * Looks up an activation key issued from the admin dashboard. The app never creates license
+     * records: a key is valid only if its record exists and is bound to this device. Only the
+     * informational fields (last check, device model, name) are written back.
      */
-    suspend fun verifyAndBindKeyOnline(
+    suspend fun verifyKeyOnline(
         key: String,
         currentDeviceCode: String,
-        subscriberName: String,
-        plan: LicenseManager.SubscriptionPlan,
-        durationDays: Int
+        subscriberName: String
     ): LicenseCheckResult = withContext(Dispatchers.IO) {
         val cleanKey = key.replace("-", "").replace(" ", "").trim().uppercase()
-        val safeKeyPath = "licenses/$cleanKey"
+        val candidates = if (cleanKey.startsWith("ACTV")) listOf(cleanKey) else listOf(cleanKey, "ACTV$cleanKey")
 
-        try {
-            val getUrl = URL("$FIREBASE_DB_URL/$safeKeyPath.json")
-            val conn = (getUrl.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 8000
-                readTimeout = 8000
-                setRequestProperty("Accept", "application/json")
+        var foundKey: String? = null
+        var license: JSONObject? = null
+        for (candidate in candidates) {
+            val response = FirebaseRest.get("licenses/$candidate.json")
+            if (!response.isSuccess) {
+                return@withContext LicenseCheckResult(
+                    isValid = false,
+                    isRevoked = false,
+                    isBoundToOtherDevice = false,
+                    errorMessage = "خطأ في استجابة الخادم: ${response.code}",
+                    isNetworkError = true
+                )
             }
-
-            val responseCode = conn.responseCode
-            if (responseCode == 200) {
-                val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                val responseText = reader.readText().trim()
-                reader.close()
-
-                if (responseText == "null" || responseText.isBlank()) {
-                    // New key being activated for the first time by the device
-                    val now = System.currentTimeMillis()
-                    val expiresAt = now + (durationDays * 24L * 3600L * 1000L)
-                    val newLicensePayload = JSONObject().apply {
-                        put("key", cleanKey)
-                        put("deviceCode", currentDeviceCode)
-                        put("subscriberName", subscriberName)
-                        put("plan", plan.name)
-                        put("activatedAt", now)
-                        put("expiresAt", expiresAt)
-                        put("isRevoked", false)
-                        put("deviceModel", LicenseManager.getDeviceModelName())
-                        put("androidVersion", LicenseManager.getAndroidVersionName())
-                        put("lastCheckedAt", now)
-                    }
-
-                    val putSuccess = putJson("$safeKeyPath.json", newLicensePayload.toString())
-                    // Also record under devices for fast device lookup
-                    putJson("devices/$currentDeviceCode.json", newLicensePayload.toString())
-
-                    return@withContext if (putSuccess) {
-                        LicenseCheckResult(
-                            isValid = true,
-                            isRevoked = false,
-                            isBoundToOtherDevice = false,
-                            boundDeviceCode = currentDeviceCode,
-                            serverExpiresAt = expiresAt,
-                            plan = plan.name
-                        )
-                    } else {
-                        // Offline or DB rules block - fallback gracefully if local math matches
-                        LicenseCheckResult(
-                            isValid = true,
-                            isRevoked = false,
-                            isBoundToOtherDevice = false,
-                            serverExpiresAt = expiresAt
-                        )
-                    }
-                } else {
-                    val json = JSONObject(responseText)
-                    val isRevoked = json.optBoolean("isRevoked", false)
-                    val boundDevice = json.optString("deviceCode", "")
-                    val serverExpiresAt = json.optLong("expiresAt", 0L)
-                    val savedPlan = json.optString("plan", plan.name)
-
-                    if (isRevoked) {
-                        return@withContext LicenseCheckResult(
-                            isValid = false,
-                            isRevoked = true,
-                            isBoundToOtherDevice = false,
-                            errorMessage = "تم سحب أو إلغاء هذا الاشتراك من قِبل الإدارة"
-                        )
-                    }
-
-                    // Strict single device enforcement
-                    if (boundDevice.isNotBlank() && boundDevice != currentDeviceCode) {
-                        return@withContext LicenseCheckResult(
-                            isValid = false,
-                            isRevoked = false,
-                            isBoundToOtherDevice = true,
-                            boundDeviceCode = boundDevice,
-                            errorMessage = "هذا الكود مفعّل لجهاز آخر مسبقاً ولا يمكن استخدامه على جهازين!"
-                        )
-                    }
-
-                    // Update last check and subscriber name if changed
-                    val updatePayload = JSONObject().apply {
-                        put("lastCheckedAt", System.currentTimeMillis())
-                        put("deviceCode", currentDeviceCode)
-                        if (subscriberName.isNotBlank()) put("subscriberName", subscriberName)
-                        put("deviceModel", LicenseManager.getDeviceModelName())
-                    }
-                    patchJson("$safeKeyPath.json", updatePayload.toString())
-                    putJson("devices/$currentDeviceCode.json", json.apply {
-                        put("lastCheckedAt", System.currentTimeMillis())
-                    }.toString())
-
-                    return@withContext LicenseCheckResult(
-                        isValid = true,
-                        isRevoked = false,
-                        isBoundToOtherDevice = false,
-                        boundDeviceCode = currentDeviceCode,
-                        serverExpiresAt = if (serverExpiresAt > 0) serverExpiresAt else null,
-                        plan = savedPlan
-                    )
-                }
-            } else {
-                Log.w(TAG, "Firebase returned code $responseCode")
-                return@withContext LicenseCheckResult(isValid = false, isRevoked = false, isBoundToOtherDevice = false, errorMessage = "خطأ في استجابة الخادم: $responseCode")
+            license = response.jsonObject()
+            if (license != null) {
+                foundKey = candidate
+                break
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Online license check failed: ${e.message}")
+        }
+
+        if (foundKey == null || license == null) {
+            return@withContext LicenseCheckResult(isValid = false, isRevoked = false, isBoundToOtherDevice = false, errorMessage = "رمز التفعيل غير موجود")
+        }
+
+        if (license.optBoolean("isRevoked", false)) {
+            return@withContext LicenseCheckResult(
+                isValid = false,
+                isRevoked = true,
+                isBoundToOtherDevice = false,
+                errorMessage = "تم سحب أو إلغاء هذا الاشتراك من قِبل الإدارة"
+            )
+        }
+
+        val boundDevice = license.optString("deviceCode", "")
+        if (boundDevice != currentDeviceCode) {
             return@withContext LicenseCheckResult(
                 isValid = false,
                 isRevoked = false,
-                isBoundToOtherDevice = false,
-                errorMessage = e.message
+                isBoundToOtherDevice = boundDevice.isNotBlank(),
+                boundDeviceCode = boundDevice.ifBlank { null },
+                errorMessage = "هذا الكود مفعّل لجهاز آخر مسبقاً ولا يمكن استخدامه على جهازين!"
             )
         }
+
+        val updatePayload = JSONObject().apply {
+            put("lastCheckedAt", System.currentTimeMillis())
+            put("deviceModel", LicenseManager.getDeviceModelName())
+            put("androidVersion", LicenseManager.getAndroidVersionName())
+            if (subscriberName.isNotBlank()) put("subscriberName", subscriberName.take(100))
+        }
+        FirebaseRest.patch("licenses/$foundKey.json", updatePayload.toString())
+
+        val serverExpiresAt = license.optLong("expiresAt", 0L)
+        LicenseCheckResult(
+            isValid = true,
+            isRevoked = false,
+            isBoundToOtherDevice = false,
+            boundDeviceCode = currentDeviceCode,
+            serverExpiresAt = if (serverExpiresAt > 0) serverExpiresAt else null,
+            plan = license.optString("plan", "").ifBlank { null }
+        )
     }
 
     data class DeviceRemoteLicense(
@@ -173,34 +113,16 @@ object FirebaseLicenseService {
     )
 
     suspend fun getDeviceRemoteLicense(deviceCode: String): DeviceRemoteLicense = withContext(Dispatchers.IO) {
-        try {
-            val deviceUrl = URL("$FIREBASE_DB_URL/devices/$deviceCode.json")
-            val conn = (deviceUrl.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 4000
-                readTimeout = 4000
-                setRequestProperty("Accept", "application/json")
-            }
-            if (conn.responseCode == 200) {
-                val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                val res = reader.readText().trim()
-                reader.close()
-                if (res != "null" && res.isNotBlank()) {
-                    val obj = JSONObject(res)
-                    return@withContext DeviceRemoteLicense(
-                        isFound = true,
-                        isRevoked = obj.optBoolean("isRevoked", false),
-                        expiresAt = obj.optLong("expiresAt", 0L),
-                        plan = obj.optString("plan", "MONTHLY"),
-                        subscriberName = obj.optString("subscriberName", "المشترك"),
-                        key = obj.optString("key", obj.optString("displayKey", ""))
-                    )
-                }
-            }
-            DeviceRemoteLicense(isFound = false, isRevoked = false)
-        } catch (e: Exception) {
-            DeviceRemoteLicense(isFound = false, isRevoked = false)
-        }
+        val obj = FirebaseRest.get("devices/$deviceCode.json", timeoutMs = 4000).jsonObject()
+            ?: return@withContext DeviceRemoteLicense(isFound = false, isRevoked = false)
+        DeviceRemoteLicense(
+            isFound = true,
+            isRevoked = obj.optBoolean("isRevoked", false),
+            expiresAt = obj.optLong("expiresAt", 0L),
+            plan = obj.optString("plan", "MONTHLY"),
+            subscriberName = obj.optString("subscriberName", "المشترك"),
+            key = obj.optString("key", obj.optString("displayKey", ""))
+        )
     }
 
     /**
@@ -208,35 +130,13 @@ object FirebaseLicenseService {
      * If the developer revoked the license from the admin dashboard, returns true.
      */
     suspend fun isDeviceRevokedOnline(deviceCode: String, keyUsed: String?): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val remoteLicense = getDeviceRemoteLicense(deviceCode)
-            if (remoteLicense.isFound && remoteLicense.isRevoked) {
-                return@withContext true
-            }
+        val remoteLicense = getDeviceRemoteLicense(deviceCode)
+        if (remoteLicense.isFound && remoteLicense.isRevoked) return@withContext true
+        if (keyUsed.isNullOrBlank()) return@withContext false
 
-            // Also check by key if provided
-            if (!keyUsed.isNullOrBlank()) {
-                val cleanKey = keyUsed.replace("-", "").trim().uppercase()
-                val keyUrl = URL("$FIREBASE_DB_URL/licenses/$cleanKey.json")
-                val keyConn = (keyUrl.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "GET"
-                    connectTimeout = 5000
-                    readTimeout = 5000
-                }
-                if (keyConn.responseCode == 200) {
-                    val reader = BufferedReader(InputStreamReader(keyConn.inputStream))
-                    val res = reader.readText().trim()
-                    reader.close()
-                    if (res != "null" && res.isNotBlank()) {
-                        val obj = JSONObject(res)
-                        if (obj.optBoolean("isRevoked", false)) return@withContext true
-                    }
-                }
-            }
-            false
-        } catch (e: Exception) {
-            false
-        }
+        val cleanKey = keyUsed.replace("-", "").trim().uppercase()
+        FirebaseRest.get("licenses/$cleanKey.json", timeoutMs = 5000).jsonObject()
+            ?.optBoolean("isRevoked", false) == true
     }
 
     data class FeedbackSubmitResult(
@@ -285,8 +185,7 @@ object FirebaseLicenseService {
             put("paymentMethod", paymentMethod)
             put("timestamp", timestamp)
         }
-        val rtdbSuccess = putJson("subscription_requests/$requestId.json", payload.toString())
-        if (rtdbSuccess) {
+        if (FirebaseRest.put("subscription_requests/$requestId.json", payload.toString()).isSuccess) {
             SubscriptionRequestResult(isSuccess = true)
         } else {
             SubscriptionRequestResult(isSuccess = false, errorMessage = "تعذر إرسال الطلب، تحقق من الاتصال")
@@ -304,51 +203,38 @@ object FirebaseLicenseService {
         val isActive: Boolean = true
     )
 
+    private fun parsePaymentAccount(obj: JSONObject, fallbackId: String): PaymentAccount? {
+        if (!obj.optBoolean("is_active", true)) return null
+        return PaymentAccount(
+            id = obj.optString("id", fallbackId),
+            bankName = obj.optString("bank_name", obj.optString("bankName", "")),
+            accountNumber = obj.optString("account_number", obj.optString("accountNumber", "")),
+            accountCurrency = obj.optString("account_currency", obj.optString("accountCurrency", "YER")),
+            accountHolder = obj.optString("account_holder", obj.optString("accountHolder", "عمر الحومي")),
+            notes = obj.optString("notes", ""),
+            logoUrl = obj.optString("logo_url", obj.optString("logoUrl", "")),
+            isActive = true
+        )
+    }
+
+    /** The dashboard stores payment methods either as a JSON array or as a keyed map. */
     private fun parsePaymentMethodsJson(jsonStr: String): List<PaymentAccount> {
         val trimmed = jsonStr.trim()
-        val list = mutableListOf<PaymentAccount>()
-        if (trimmed.startsWith("[")) {
-            val array = JSONArray(trimmed)
-            for (i in 0 until array.length()) {
-                val obj = array.optJSONObject(i) ?: continue
-                val isActive = obj.optBoolean("is_active", true)
-                if (!isActive) continue
-                list.add(
-                    PaymentAccount(
-                        id = obj.optString("id", "PAY_$i"),
-                        bankName = obj.optString("bank_name", obj.optString("bankName", "")),
-                        accountNumber = obj.optString("account_number", obj.optString("accountNumber", "")),
-                        accountCurrency = obj.optString("account_currency", obj.optString("accountCurrency", "YER")),
-                        accountHolder = obj.optString("account_holder", obj.optString("accountHolder", "عمر الحومي")),
-                        notes = obj.optString("notes", ""),
-                        logoUrl = obj.optString("logo_url", obj.optString("logoUrl", "")),
-                        isActive = true
-                    )
-                )
+        return when {
+            trimmed.startsWith("[") -> {
+                val array = JSONArray(trimmed)
+                (0 until array.length()).mapNotNull { i ->
+                    array.optJSONObject(i)?.let { parsePaymentAccount(it, "PAY_$i") }
+                }
             }
-        } else if (trimmed.startsWith("{")) {
-            val mapObj = JSONObject(trimmed)
-            val keys = mapObj.keys()
-            while (keys.hasNext()) {
-                val k = keys.next()
-                val obj = mapObj.optJSONObject(k) ?: continue
-                val isActive = obj.optBoolean("is_active", true)
-                if (!isActive) continue
-                list.add(
-                    PaymentAccount(
-                        id = obj.optString("id", k),
-                        bankName = obj.optString("bank_name", obj.optString("bankName", "")),
-                        accountNumber = obj.optString("account_number", obj.optString("accountNumber", "")),
-                        accountCurrency = obj.optString("account_currency", obj.optString("accountCurrency", "YER")),
-                        accountHolder = obj.optString("account_holder", obj.optString("accountHolder", "عمر الحومي")),
-                        notes = obj.optString("notes", ""),
-                        logoUrl = obj.optString("logo_url", obj.optString("logoUrl", "")),
-                        isActive = true
-                    )
-                )
+            trimmed.startsWith("{") -> {
+                val map = JSONObject(trimmed)
+                map.keys().asSequence().mapNotNull { k ->
+                    map.optJSONObject(k)?.let { parsePaymentAccount(it, k) }
+                }.toList()
             }
+            else -> emptyList()
         }
-        return list
     }
 
     /**
@@ -357,13 +243,13 @@ object FirebaseLicenseService {
      * ZERO hardcoded bank/wallet accounts: returns strictly what comes from Firebase / local cache.
      */
     suspend fun getPaymentMethods(context: Context? = null): List<PaymentAccount> = withContext(Dispatchers.IO) {
-        val sp = context?.getSharedPreferences("mosarib_license_prefs", Context.MODE_PRIVATE)
+        val sp = context?.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         val cachedJson = sp?.getString("cached_payment_methods", null)
-        val cachedList = if (!cachedJson.isNullOrBlank()) parsePaymentMethodsJson(cachedJson) else null
+        val cachedList = if (!cachedJson.isNullOrBlank()) runCatching { parsePaymentMethodsJson(cachedJson) }.getOrNull() else null
 
         try {
             val jsonStr = fetchJson("payment_methods.json")
-            if (jsonStr != null && jsonStr.isNotBlank()) {
+            if (jsonStr != null) {
                 val list = parsePaymentMethodsJson(jsonStr)
                 if (list.isNotEmpty()) {
                     sp?.edit()?.putString("cached_payment_methods", jsonStr)?.apply()
@@ -392,30 +278,22 @@ object FirebaseLicenseService {
             get() = monthly.price.isNotBlank() || yearly.price.isNotBlank()
     }
 
+    private fun parsePlanPricing(obj: JSONObject?): PlanPricingInfo {
+        if (obj == null) return PlanPricingInfo()
+        return PlanPricingInfo(
+            price = obj.optString("price", ""),
+            originalPrice = obj.optString("original_price", obj.optString("originalPrice", "")),
+            discountText = obj.optString("discount_text", obj.optString("discountText", "")),
+            currency = obj.optString("currency", "$")
+        )
+    }
+
     private fun parseSubscriptionPricingJson(jsonStr: String): SubscriptionPricing {
         val root = JSONObject(jsonStr)
-        val mObj = root.optJSONObject("monthly")
-        val yObj = root.optJSONObject("yearly")
-
-        val monthly = if (mObj != null) {
-            PlanPricingInfo(
-                price = mObj.optString("price", ""),
-                originalPrice = mObj.optString("original_price", mObj.optString("originalPrice", "")),
-                discountText = mObj.optString("discount_text", mObj.optString("discountText", "")),
-                currency = mObj.optString("currency", "$")
-            )
-        } else PlanPricingInfo()
-
-        val yearly = if (yObj != null) {
-            PlanPricingInfo(
-                price = yObj.optString("price", ""),
-                originalPrice = yObj.optString("original_price", yObj.optString("originalPrice", "")),
-                discountText = yObj.optString("discount_text", yObj.optString("discountText", "")),
-                currency = yObj.optString("currency", "$")
-            )
-        } else PlanPricingInfo()
-
-        return SubscriptionPricing(monthly = monthly, yearly = yearly)
+        return SubscriptionPricing(
+            monthly = parsePlanPricing(root.optJSONObject("monthly")),
+            yearly = parsePlanPricing(root.optJSONObject("yearly"))
+        )
     }
 
     /**
@@ -424,15 +302,15 @@ object FirebaseLicenseService {
      * ZERO hardcoded pricing: strictly loads from Firebase / local cache.
      */
     suspend fun getSubscriptionPricing(context: Context? = null): SubscriptionPricing = withContext(Dispatchers.IO) {
-        val sp = context?.getSharedPreferences("mosarib_license_prefs", Context.MODE_PRIVATE)
+        val sp = context?.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         val cachedJson = sp?.getString("cached_subscription_pricing", null)
         val cachedPricing = if (!cachedJson.isNullOrBlank()) {
-            try { parseSubscriptionPricingJson(cachedJson) } catch (_: Exception) { null }
+            runCatching { parseSubscriptionPricingJson(cachedJson) }.getOrNull()
         } else null
 
         try {
             val jsonStr = fetchJson("subscription_pricing.json")
-            if (jsonStr != null && jsonStr.isNotBlank()) {
+            if (jsonStr != null) {
                 val parsed = parseSubscriptionPricingJson(jsonStr)
                 if (parsed.isConfigured) {
                     sp?.edit()?.putString("cached_subscription_pricing", jsonStr)?.apply()
@@ -473,97 +351,29 @@ object FirebaseLicenseService {
             put("timestamp", timestamp)
         }
 
-        try {
-            val url = URL("$FIREBASE_DB_URL/feedbacks/$feedbackId.json")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "PUT"
-                doOutput = true
-                connectTimeout = 8000
-                readTimeout = 8000
-                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-            }
-            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
-            val code = conn.responseCode
-            if (code in 200..299) {
-                FeedbackSubmitResult(isSuccess = true)
-            } else {
-                val errBody = conn.errorStream?.bufferedReader()?.readText() ?: ""
-                Log.e(TAG, "sendFeedbackOnline RTDB failed: HTTP $code, errorBody: $errBody")
-                val userMsg = when (code) {
-                    401, 403 -> "قواعد أمان Firebase ترفض الكتابة (Permission Denied). يرجى التأكد من نشر القواعد في تبويب Rules في Firebase Console."
-                    404 -> "قاعدة بيانات Firebase غير موجودة بهذا الرابط ($FIREBASE_DB_URL)."
-                    else -> "فشل الإرسال عبر الخادم (كود الخطأ: $code)"
-                }
-                FeedbackSubmitResult(isSuccess = false, errorMessage = userMsg)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "sendFeedbackOnline exception: ${e.message}", e)
-            FeedbackSubmitResult(
+        val response = FirebaseRest.put("feedbacks/$feedbackId.json", payload.toString())
+        when {
+            response.isSuccess -> FeedbackSubmitResult(isSuccess = true)
+            response.isNetworkError -> FeedbackSubmitResult(
                 isSuccess = false,
-                errorMessage = "تعذر الاتصال بخادم Firebase (${e.localizedMessage ?: "انقطاع الاتصال"})."
+                errorMessage = "تعذر الاتصال بخادم Firebase (${response.body ?: "انقطاع الاتصال"})."
+            )
+            else -> FeedbackSubmitResult(
+                isSuccess = false,
+                errorMessage = when (response.code) {
+                    401, 403 -> "قواعد أمان Firebase ترفض الكتابة (Permission Denied). يرجى التأكد من نشر القواعد في تبويب Rules في Firebase Console."
+                    404 -> "قاعدة بيانات Firebase غير موجودة بهذا الرابط (${FirebaseRest.DB_URL})."
+                    else -> "فشل الإرسال عبر الخادم (كود الخطأ: ${response.code})"
+                }
             )
         }
     }
 
+    /** Body of a successful GET, or null when it failed or the node is empty. */
     private fun fetchJson(path: String): String? {
-        return try {
-            val url = URL("$FIREBASE_DB_URL/$path")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 8000
-                readTimeout = 8000
-                setRequestProperty("Accept", "application/json")
-            }
-            if (conn.responseCode == 200) {
-                conn.inputStream.bufferedReader().use { it.readText().trim() }
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "fetchJson exception for $path: ${e.message}")
-            null
-        }
-    }
-
-    private fun putJson(path: String, jsonString: String): Boolean {
-        return try {
-            val url = URL("$FIREBASE_DB_URL/$path")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "PUT"
-                doOutput = true
-                connectTimeout = 8000
-                readTimeout = 8000
-                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-            }
-            OutputStreamWriter(conn.outputStream).use { it.write(jsonString) }
-            val code = conn.responseCode
-            if (code !in 200..299) {
-                val err = conn.errorStream?.bufferedReader()?.readText()
-                Log.e(TAG, "putJson failed for $path, code: $code, response: $err")
-            }
-            code in 200..299
-        } catch (e: Exception) {
-            Log.e(TAG, "putJson exception for $path: ${e.message}", e)
-            false
-        }
-    }
-
-    private fun patchJson(path: String, jsonString: String): Boolean {
-        return try {
-            val url = URL("$FIREBASE_DB_URL/$path")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                // HttpURLConnection does not support PATCH on all Android versions directly, use PUT
-                requestMethod = "PUT"
-                doOutput = true
-                connectTimeout = 8000
-                readTimeout = 8000
-                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-            }
-            OutputStreamWriter(conn.outputStream).use { it.write(jsonString) }
-            conn.responseCode in 200..299
-        } catch (e: Exception) {
-            false
-        }
+        val response = FirebaseRest.get(path)
+        val text = response.body?.trim()
+        return if (response.isSuccess && !text.isNullOrEmpty() && text != "null") text else null
     }
 
     sealed class ExistingUserResult {
@@ -578,54 +388,34 @@ object FirebaseLicenseService {
         data class Error(val message: String) : ExistingUserResult()
     }
 
+    /** Key under /email_index and /blocked_emails for a Google email. */
+    fun emailIndexKey(email: String): String =
+        email.trim().lowercase().replace(".", "_").replace("@", "_at_")
+
     /**
-     * Searches Firebase Realtime Database (/all_users) for an account associated with this Google email.
-     * STRICT SECURITY RULE: This is a 100% read-only check and NEVER saves, writes, or creates an account
-     * if the user is not found, preventing any spoofing or ghost entries.
+     * Looks up this Google email in /email_index (written by each device's presence sync). The
+     * whole /all_users list is no longer readable, so only this one entry is fetched.
+     * Read-only: nothing is written when the email is not found.
      */
     suspend fun findExistingUserByGoogleEmail(email: String): ExistingUserResult = withContext(Dispatchers.IO) {
         val cleanEmail = email.trim().lowercase()
         if (cleanEmail.isBlank()) return@withContext ExistingUserResult.NotFound
 
-        try {
-            val url = URL("$FIREBASE_DB_URL/all_users.json")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 7000
-                readTimeout = 7000
-                setRequestProperty("Accept", "application/json")
-            }
-
-            if (conn.responseCode == 200) {
-                val text = conn.inputStream.bufferedReader().readText().trim()
-                if (text != "null" && text.isNotBlank()) {
-                    val root = JSONObject(text)
-                    val keys = root.keys()
-                    while (keys.hasNext()) {
-                        val key = keys.next()
-                        val userObj = root.optJSONObject(key) ?: continue
-                        val userEmail = userObj.optString("googleEmail", "").trim().lowercase()
-                        if (userEmail == cleanEmail) {
-                            val subName = userObj.optString("subscriberName", "").ifBlank {
-                                userObj.optString("googleDisplayName", "مشترك")
-                            }
-                            val phone = userObj.optString("phone", "")
-                            val isActivated = userObj.optBoolean("isActivated", false)
-                            val plan = userObj.optString("plan", "TRIAL")
-
-                            return@withContext ExistingUserResult.Found(
-                                subscriberName = subName,
-                                phone = phone,
-                                isActivated = isActivated,
-                                plan = plan
-                            )
-                        }
-                    }
-                }
-            }
-            ExistingUserResult.NotFound
-        } catch (e: Exception) {
-            ExistingUserResult.Error(e.localizedMessage ?: "فشل الاتصال بالخادم للتحقق من الحساب")
+        val response = FirebaseRest.get("email_index/${emailIndexKey(cleanEmail)}.json", timeoutMs = 7000)
+        if (!response.isSuccess) {
+            return@withContext ExistingUserResult.Error(
+                if (response.isNetworkError) response.body ?: "فشل الاتصال بالخادم للتحقق من الحساب"
+                else "فشل الاتصال بالخادم للتحقق من الحساب (${response.code})"
+            )
         }
+        val entry = response.jsonObject() ?: return@withContext ExistingUserResult.NotFound
+        // The subscription itself is never restored from this entry: it is client written.
+        // A license follows the device and is restored from /devices.
+        ExistingUserResult.Found(
+            subscriberName = entry.optString("subscriberName", "").ifBlank { "مشترك" },
+            phone = entry.optString("phone", ""),
+            isActivated = false,
+            plan = "TRIAL"
+        )
     }
 }

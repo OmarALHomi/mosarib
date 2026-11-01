@@ -103,29 +103,32 @@ service cloud.firestore {
     // 🔔 9. طلبات الاشتراك الواردة من التطبيق (Subscription Requests)
     // ==============================================================
     match /subscription_requests/{requestId} {
-      allow create: if true;
-      allow read, update, delete: if true;
+      // Not used by the app (it uses Realtime Database); admin access only.
+      allow read, write: if isAdmin();
     }
 
     // ==============================================================
     // 📊 10. تتبع جميع الأجهزة والمثبّتين (All Users / Device Tracker)
     // ==============================================================
     match /all_users/{deviceKey} {
-      allow read, write: if true;
+      // Not used by the app (it uses Realtime Database); admin access only.
+      allow read, write: if isAdmin();
     }
 
     // ==============================================================
     // 📱 11. ربط الأجهزة بالتراخيص (Device → License Binding)
     // ==============================================================
     match /devices/{deviceCode} {
-      allow read, write: if true;
+      // Not used by the app (it uses Realtime Database); admin access only.
+      allow read, write: if isAdmin();
     }
 
     // ==============================================================
     // 💬 12. الملاحظات والتقييمات (User Feedback)
     // ==============================================================
     match /feedbacks/{feedbackId} {
-      allow read, write: if true;
+      // Not used by the app (it uses Realtime Database); admin access only.
+      allow read, write: if isAdmin();
     }
   }
 }

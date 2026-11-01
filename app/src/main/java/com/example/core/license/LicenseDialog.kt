@@ -190,15 +190,13 @@ fun LicenseDialog(
                             subscriberName = checkRes.subscriberName
                             if (checkRes.phone.isNotBlank()) phone = checkRes.phone
 
-                            if (checkRes.isActivated) {
-                                val plan = runCatching { LicenseManager.SubscriptionPlan.valueOf(checkRes.plan) }.getOrDefault(LicenseManager.SubscriptionPlan.YEARLY)
-                                val devKey = LicenseManager.generateActivationKey(deviceCode, plan)
-                                val actResult = LicenseManager.verifyAndActivate(context, devKey, checkRes.subscriberName)
-                                if (actResult is LicenseManager.ActivationResult.Success) {
-                                    Toast.makeText(context, "أهلاً بك مجدداً ${checkRes.subscriberName}! تم استعادة ترخيصك وتفعيل جهازك بنجاح.", Toast.LENGTH_LONG).show()
-                                    onActivated()
-                                    return@launch
-                                }
+                            // A subscription is restored only from this device's /devices record, which
+                            // only the admin dashboard can write (e.g. after moving a license here).
+                            LicenseManager.syncRemoteSubscriptionStatus(context)
+                            if (LicenseManager.isActivated(context)) {
+                                Toast.makeText(context, "أهلاً بك مجدداً ${checkRes.subscriberName}! تم استعادة ترخيصك وتفعيل جهازك بنجاح.", Toast.LENGTH_LONG).show()
+                                onActivated()
+                                return@launch
                             }
                             Toast.makeText(context, "أهلاً بك مجدداً ${checkRes.subscriberName}! تم استعادة بيانات حسابك بنجاح.", Toast.LENGTH_LONG).show()
                         }
@@ -382,15 +380,8 @@ fun LicenseDialog(
     fun submitActivation() {
         errorMessage = null
         if (!isOnline) {
-            val cleanKey = enteredKey.replace("-", "").replace(" ", "").trim().uppercase()
-            val isOfflineMathValid = LicenseManager.SubscriptionPlan.entries.any { plan ->
-                val exp = LicenseManager.generateActivationKey(deviceCode, plan).replace("-", "").uppercase()
-                cleanKey == exp || cleanKey == exp.removePrefix("ACTV")
-            }
-            if (!isOfflineMathValid) {
-                errorMessage = "تعذر التفعيل بدون إنترنت: الرمز غير مطابق لهذا الجهاز، أو يلزم الاتصال بالإنترنت للتحقق منه عبر السيرفر."
-                return
-            }
+            errorMessage = "يلزم الاتصال بالإنترنت للتحقق من رمز التفعيل عبر السيرفر."
+            return
         }
 
         if (subscriberName.trim().isBlank()) {
@@ -838,7 +829,7 @@ fun LicenseDialog(
                         OutlinedTextField(
                             value = enteredKey,
                             onValueChange = { enteredKey = it.uppercase() },
-                            label = { Text("أدخل رمز التجديد المستلم (ACTV-XXXX-XXXX)") },
+                            label = { Text("أدخل رمز التجديد المستلم (ACTV-X-XXXX-XXXX-XXXX)") },
                             leadingIcon = {
                                 Icon(Icons.Default.Key, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
                             },
@@ -1844,7 +1835,7 @@ fun LicenseDialog(
             OutlinedTextField(
                 value = enteredKey,
                 onValueChange = { enteredKey = it.uppercase() },
-                label = { Text(if (isRegistered) "أدخل رمز التجديد / الترقية المستلم (اختياري)" else "أدخل رمز التفعيل (ACTV-XXXX-XXXX)") },
+                label = { Text(if (isRegistered) "أدخل رمز التجديد / الترقية المستلم (اختياري)" else "أدخل رمز التفعيل (ACTV-X-XXXX-XXXX-XXXX)") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = textFieldColors,

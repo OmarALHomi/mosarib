@@ -22,11 +22,11 @@ function adminApiFetch(url, options = {}) {
   if (currentCsrfToken && !headers['X-CSRF-Token']) {
     headers['X-CSRF-Token'] = currentCsrfToken;
   }
-  const token = sessionStorage.getItem("mosarib_admin_token") || "Admin@2026!";
-  if (!headers['Authorization']) {
+  const token = sessionStorage.getItem("mosarib_admin_token");
+  if (token && !headers['Authorization']) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  if (!headers['X-Admin-Token']) {
+  if (token && !headers['X-Admin-Token']) {
     headers['X-Admin-Token'] = token;
   }
   opts.headers = headers;
@@ -49,6 +49,11 @@ async function checkServerSession() {
         const d = (await safeJson(r)) || {};
         if (d.data && d.data.csrf_token) currentCsrfToken = d.data.csrf_token;
         if (d.data && d.data.session_token) sessionStorage.setItem("mosarib_admin_token", d.data.session_token);
+        if (r.status === 401) {
+          sessionStorage.removeItem("mosarib_admin_session");
+          sessionStorage.removeItem("mosarib_admin_token");
+          lockDashboardView();
+        }
       }).catch(() => {});
       return true;
     } catch (_) {}
@@ -72,12 +77,8 @@ async function checkServerSession() {
       return false;
     }
   } catch (_) {
-    // If deployed in static-only mode or hosting without PHP (e.g. preview)
     fetchCsrfToken();
-    if (sessionStorage.getItem("mosarib_admin_unlocked") === "true") {
-      unlockDashboardView({ name: "المهندس عمر الحومي", email: "omar@tubbasoft.com", role: "SUPER_ADMIN" });
-      return true;
-    }
+    lockDashboardView();
     return false;
   }
 }
@@ -120,13 +121,11 @@ function unlockDashboardView(admin) {
   if (nameEl) nameEl.innerText = admin.name || admin.email;
   if (roleEl) roleEl.innerText = admin.role || "ADMIN";
 
-  sessionStorage.setItem("mosarib_admin_unlocked", "true");
-  if (!sessionStorage.getItem("mosarib_admin_token")) {
-    sessionStorage.setItem("mosarib_admin_token", "Admin@2026!");
-  }
   try {
-    document.cookie = "mosarib_admin_unlocked=true; path=/; max-age=86400; SameSite=Lax";
-    document.cookie = "mosarib_admin_token=" + encodeURIComponent(sessionStorage.getItem("mosarib_admin_token") || "Admin@2026!") + "; path=/; max-age=86400; SameSite=Lax";
+    const token = sessionStorage.getItem("mosarib_admin_token");
+    if (token) {
+      document.cookie = "mosarib_admin_token=" + encodeURIComponent(token) + "; path=/; max-age=86400; SameSite=Strict" + (location.protocol === "https:" ? "; Secure" : "");
+    }
   } catch (_) {}
 
   // Auto-load data upon successful secure login
@@ -176,30 +175,12 @@ async function handleSecureLogin(e) {
       sessionStorage.setItem("mosarib_admin_session", JSON.stringify(currentAdminSession));
       unlockDashboardView(currentAdminSession);
     } else {
-      // Client/Master fallback for shared hosting with cookie restrictions
-      const isAllowedAdmin = email.toLowerCase() === "admin@mosarib.com" || email.toLowerCase() === "omar@tubbasoft.com";
-      if (isAllowedAdmin && (password === "Admin@2026!" || password.length >= 6)) {
-        currentAdminSession = { name: "المهندس عمر الحومي", email: email, role: "SUPER_ADMIN" };
-        sessionStorage.setItem("mosarib_admin_session", JSON.stringify(currentAdminSession));
-        sessionStorage.setItem("mosarib_admin_token", "Admin@2026!");
-        unlockDashboardView(currentAdminSession);
-      } else {
-        errorBanner.innerText = `⛔ خطأ: ${data.message || 'بيانات الدخول غير صحيحة'}`;
-        errorBanner.style.display = "block";
-      }
-    }
-  } catch (err) {
-    // Local/Offline/InfinityFree fallback
-    const isAllowedAdmin = email.toLowerCase() === "admin@mosarib.com" || email.toLowerCase() === "omar@tubbasoft.com";
-    if (isAllowedAdmin && (password === "Admin@2026!" || password.length >= 6)) {
-      currentAdminSession = { name: "المهندس عمر الحومي", email: email, role: "SUPER_ADMIN" };
-      sessionStorage.setItem("mosarib_admin_session", JSON.stringify(currentAdminSession));
-      sessionStorage.setItem("mosarib_admin_token", "Admin@2026!");
-      unlockDashboardView(currentAdminSession);
-    } else {
-      errorBanner.innerText = `⛔ تعذر الاتصال بخادم المصادقة: ${err.message}`;
+      errorBanner.innerText = `⛔ خطأ: ${data.message || 'بيانات الدخول غير صحيحة'}`;
       errorBanner.style.display = "block";
     }
+  } catch (err) {
+    errorBanner.innerText = `⛔ تعذر الاتصال بخادم المصادقة: ${err.message}`;
+    errorBanner.style.display = "block";
   } finally {
     btn.disabled = false;
     btn.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> <span>التحقق والدخول الآمن</span>`;
@@ -214,6 +195,7 @@ async function handleSecureLogout() {
   sessionStorage.removeItem("mosarib_admin_session");
   sessionStorage.removeItem("mosarib_admin_unlocked");
   sessionStorage.removeItem("mosarib_admin_token");
+  try { document.cookie = "mosarib_admin_token=; path=/; max-age=0"; } catch (_) {}
   currentAdminSession = null;
   location.reload();
 }

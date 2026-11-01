@@ -1,63 +1,9 @@
 /**
- * Mosarib Admin Portal - Direct Firebase SDK & REST Client
- * Hybrid engine: Official Firebase Web SDK with automatic HTTPS REST Fallback.
- * Solves all CORS, session save, and network issues on InfinityFree and shared hosting.
+ * Mosarib Admin Portal - Firebase client
+ * Every Realtime Database request goes through api/firebase_proxy.php, which checks the admin
+ * session and attaches the database secret on the server. The browser never talks to Firebase
+ * directly and never holds a secret, so the database rules can deny all public writes.
  */
-
-const firebaseConfig = {
-  apiKey: "AIzaSyB7aX1D1CgluCE9gDnYcQSZqcCheejcP8w",
-  authDomain: "mosarib.firebaseapp.com",
-  databaseURL: "https://mosarib-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "mosarib",
-  storageBucket: "mosarib.firebasestorage.app",
-  messagingSenderId: "365688587385",
-  appId: "1:365688587385:web:a48d7f20bff19d7779c0a8",
-  measurementId: "G-S9D526SKNZ"
-};
-
-const FIRESTORE_BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents`;
-const DEFAULT_RTDB_URL = firebaseConfig.databaseURL;
-
-let storedUrl = localStorage.getItem("mosarib_rtdb_url");
-if (!storedUrl || storedUrl.includes("firebaseio.com")) {
-  storedUrl = DEFAULT_RTDB_URL;
-  localStorage.setItem("mosarib_rtdb_url", storedUrl);
-}
-let RTDB_BASE_URL = storedUrl;
-let FIREBASE_BASE_URL = RTDB_BASE_URL;
-let adminSecretKey = localStorage.getItem("mosarib_admin_secret_key") || "";
-const SECRET_SALT = "mosarib_secure_license_secret_key_alhomi_2026_water_app";
-
-// Initialize Firebase Native Web SDK
-let firebaseApp = null;
-let firebaseDb = null;
-
-function initFirebaseSdk() {
-  try {
-    if (typeof firebase !== 'undefined') {
-      if (!firebase.apps.length) {
-        firebaseApp = firebase.initializeApp(firebaseConfig);
-      } else {
-        firebaseApp = firebase.app();
-      }
-      firebaseDb = firebase.database();
-      updateFirebaseStatusIndicator('CONNECTED', 'متصل بالسحابة عبر Firebase Web SDK الرسمي');
-      return true;
-    }
-  } catch (err) {
-    console.warn("Firebase SDK initialization notice:", err);
-  }
-  return false;
-}
-
-// Initial attempt to bind SDK
-initFirebaseSdk();
-
-function getFirebaseUrl(path) {
-  const cleanPath = path.replace(/^\/+/, '');
-  const sep = cleanPath.includes("?") ? "&" : "?";
-  return adminSecretKey ? `${FIREBASE_BASE_URL}/${cleanPath}${sep}auth=${encodeURIComponent(adminSecretKey)}` : `${FIREBASE_BASE_URL}/${cleanPath}`;
-}
 
 function updateFirebaseStatusIndicator(state, detail = '') {
   const el = document.getElementById("firebaseStatus");
@@ -100,144 +46,36 @@ function createJsonResponse(data, status = 200) {
 }
 
 async function firebaseFetch(path, options = {}) {
-  // If SDK wasn't ready earlier, try one more time
-  if (!firebaseDb) initFirebaseSdk();
-
   const method = (options.method || 'GET').toUpperCase();
-  const cleanPath = path.replace(/^\/+/, '').replace(/\.json(\?.*)?$/, '');
-
-  // 1. Try Firebase Native Web SDK (WebSocket / Long Polling - zero CORS or proxy issues)
-  if (firebaseDb) {
-    try {
-      if (method === 'GET') {
-        const snap = await firebaseDb.ref(cleanPath).once('value');
-        const val = snap.val();
-        updateFirebaseStatusIndicator('CONNECTED');
-        return createJsonResponse(val, 200);
-      } else if (method === 'PUT') {
-        const data = options.body ? JSON.parse(options.body) : null;
-        await firebaseDb.ref(cleanPath).set(data);
-        updateFirebaseStatusIndicator('CONNECTED');
-        return createJsonResponse({ success: true, path: cleanPath }, 200);
-      } else if (method === 'PATCH') {
-        const data = options.body ? JSON.parse(options.body) : null;
-        await firebaseDb.ref(cleanPath).update(data);
-        updateFirebaseStatusIndicator('CONNECTED');
-        return createJsonResponse({ success: true, path: cleanPath }, 200);
-      } else if (method === 'POST') {
-        const data = options.body ? JSON.parse(options.body) : null;
-        const newRef = await firebaseDb.ref(cleanPath).push(data);
-        updateFirebaseStatusIndicator('CONNECTED');
-        return createJsonResponse({ name: newRef.key }, 200);
-      } else if (method === 'DELETE') {
-        await firebaseDb.ref(cleanPath).remove();
-        updateFirebaseStatusIndicator('CONNECTED');
-        return createJsonResponse({ success: true, deleted: true }, 200);
-      }
-    } catch (sdkErr) {
-      console.warn(`Firebase SDK ${method} warning for ${cleanPath}, attempting REST fallback:`, sdkErr);
-    }
-  }
-
-  // 2. Direct HTTPS REST Fetch Fallback
-  const directUrl = getFirebaseUrl(path);
+  const cleanPath = path.replace(/^\/+/, '').replace(/\?.*$/, '');
+  const proxyUrl = `api/firebase_proxy.php?path=${encodeURIComponent(cleanPath)}`;
   try {
-    const res = await fetch(directUrl, options);
-    if (res && res.ok) {
+    const res = await adminApiFetch(proxyUrl, {
+      ...options,
+      method: method === 'GET' ? 'GET' : 'POST',
+      headers: { ...(options.headers || {}), 'X-HTTP-Method-Override': method }
+    });
+    if (res.ok) {
       updateFirebaseStatusIndicator('CONNECTED');
-      return res;
-    }
-    if (res && res.status === 401) {
+    } else if (res.status === 401 || res.status === 403 || res.status === 500) {
       updateFirebaseStatusIndicator('AUTH_REQUIRED');
+    } else {
+      updateFirebaseStatusIndicator('ERROR');
     }
-    // Direct fetch failed, try PHP proxy fallback if available
-    try {
-      const proxyUrl = `api/firebase_proxy.php?path=${encodeURIComponent(path)}${adminSecretKey ? `&auth=${encodeURIComponent(adminSecretKey)}` : ''}&method=${method}`;
-      const proxyHeaders = {
-        ...(options.headers || {}),
-        'X-HTTP-Method-Override': method
-      };
-      const proxyRes = await fetch(proxyUrl, {
-        ...options,
-        method: (method === 'GET' ? 'GET' : 'POST'),
-        headers: proxyHeaders,
-        credentials: 'same-origin'
-      });
-      if (proxyRes && proxyRes.ok) {
-        updateFirebaseStatusIndicator('CONNECTED');
-        return proxyRes;
-      }
-    } catch (_) {}
     return res;
   } catch (err) {
-    // Browser direct fetch failed with network/CORS error, fallback to server-side PHP proxy
-    try {
-      const proxyUrl = `api/firebase_proxy.php?path=${encodeURIComponent(path)}${adminSecretKey ? `&auth=${encodeURIComponent(adminSecretKey)}` : ''}&method=${method}`;
-      const proxyHeaders = {
-        ...(options.headers || {}),
-        'X-HTTP-Method-Override': method
-      };
-      const proxyRes = await fetch(proxyUrl, {
-        ...options,
-        method: (method === 'GET' ? 'GET' : 'POST'),
-        headers: proxyHeaders,
-        credentials: 'same-origin'
-      });
-      if (proxyRes && proxyRes.ok) {
-        updateFirebaseStatusIndicator('CONNECTED');
-        return proxyRes;
-      }
-      return proxyRes;
-    } catch (_) {}
-    updateFirebaseStatusIndicator('ERROR');
+    updateFirebaseStatusIndicator('ERROR', err.message);
     return null;
   }
 }
 
 function promptConfigureFirebaseUrl() {
-  const choice = prompt(
-    "⚙️ إعدادات ربط قاعدة بيانات فايربيس (Firebase Settings):\n\n" +
-    "1. تعديل رابط Realtime Database\n" +
-    "2. إدخال/تعديل مفتاح الأمان (Database Secret)\n" +
-    "3. فحص الاتصال وتحديث البيانات الآن\n" +
-    "4. إعادة ضبط الرابط الافتراضي الرسمي\n\n" +
-    "الرابط الحالي:\n" + FIREBASE_BASE_URL + "\n\n" +
-    "المفتاح السري الحالي:\n" + (adminSecretKey ? "•••••••••••••• (محدد ومحفوظ)" : "غير محدد (اتصال مفتوح القواعد)") + "\n\n" +
-    "أدخل رقم الخيار (1 أو 2 أو 3 أو 4):",
-    "3"
+  alert(
+    "🔐 الاتصال بفايربيس يتم عبر الخادم فقط.\n\n" +
+    "مفتاح Database Secret يُضبط في الملف api/config.local.php على الاستضافة (FIREBASE_AUTH_SECRET) ولا يُحفظ في المتصفح.\n\n" +
+    "سيتم الآن فحص الاتصال وتحديث البيانات."
   );
-
-  if (choice === "1") {
-    const newUrl = prompt("أدخل رابط Firebase Realtime Database الجديد:", FIREBASE_BASE_URL);
-    if (newUrl && newUrl.trim()) {
-      let clean = newUrl.trim().replace(/\/+$/, '');
-      if (!clean.startsWith("http://") && !clean.startsWith("https://")) clean = "https://" + clean;
-      localStorage.setItem("mosarib_rtdb_url", clean);
-      FIREBASE_BASE_URL = clean;
-      RTDB_BASE_URL = clean;
-      alert("✅ تم حفظ الرابط بنجاح: " + clean);
-      loadFirebaseData();
-    }
-  } else if (choice === "2") {
-    const newSecret = prompt(
-      "أدخل مفتاح Database Secret لمشروع فايربيس (من إعدادات Firebase Console > Service Accounts > Database Secrets):",
-      adminSecretKey
-    );
-    if (newSecret !== null) {
-      adminSecretKey = newSecret.trim();
-      localStorage.setItem("mosarib_admin_secret_key", adminSecretKey);
-      alert(adminSecretKey ? "✅ تم حفظ مفتاح الأمان بنجاح وسيتم إرفاقه بجميع الطلبات السحابية!" : "تم إلغاء مفتاح الأمان.");
-      loadFirebaseData();
-    }
-  } else if (choice === "3") {
-    loadFirebaseData();
-  } else if (choice === "4") {
-    localStorage.setItem("mosarib_rtdb_url", DEFAULT_RTDB_URL);
-    FIREBASE_BASE_URL = DEFAULT_RTDB_URL;
-    RTDB_BASE_URL = DEFAULT_RTDB_URL;
-    alert("✅ تم استرجاع الرابط الافتراضي: " + DEFAULT_RTDB_URL);
-    loadFirebaseData();
-  }
+  loadFirebaseData();
 }
 
 function parseFirestoreDoc(doc) {
@@ -255,24 +93,6 @@ function parseFirestoreDoc(doc) {
 }
 
 async function fetchCollection(name) {
-  // 1. First Attempt: Official Firebase Web SDK
-  if (firebaseDb) {
-    try {
-      const snap = await firebaseDb.ref(name).once('value');
-      const val = snap.val();
-      if (val !== null && val !== undefined) {
-        updateFirebaseStatusIndicator('CONNECTED');
-        if (Array.isArray(val)) return val;
-        if (typeof val === 'object') {
-          return Object.entries(val).map(([k, v]) => (v && typeof v === 'object' ? { ...v, id: v.id || k, firebaseKey: k, _key: k } : v));
-        }
-      }
-    } catch (sdkErr) {
-      console.warn(`Firebase SDK collection read warning for ${name}:`, sdkErr);
-    }
-  }
-
-  // 2. Second Attempt: Realtime Database with auth and proxy fallback
   try {
     const res = await firebaseFetch(`${name}.json`);
     if (res && res.ok) {
@@ -286,11 +106,4 @@ async function fetchCollection(name) {
   } catch (_) {}
 
   return [];
-}
-
-async function sha256(message) {
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }

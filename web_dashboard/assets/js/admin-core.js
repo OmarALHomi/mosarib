@@ -1880,6 +1880,23 @@
     downloadCSV(csv, "mosarib_all_users.csv");
   }
 
+  function randomKeyPart(length) {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, b => alphabet[b % alphabet.length]).join("");
+  }
+
+  async function generateUniqueActivationKey(prefix) {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const key = `ACTV-${prefix}-${randomKeyPart(4)}-${randomKeyPart(4)}-${randomKeyPart(4)}`;
+      const res = await firebaseFetch(`licenses/${key.replace(/-/g, "")}.json`);
+      if (!res || !res.ok) return null;
+      if ((await safeJson(res)) === null) return key;
+    }
+    return null;
+  }
+
   async function generateAndSaveKey() {
     const devCode = document.getElementById("deviceCode").value.trim().toUpperCase();
     const subName = document.getElementById("subscriberName").value.trim();
@@ -1892,11 +1909,13 @@
       return;
     }
 
-    const cleanCode = devCode.replace(/-/g, "").trim();
-    const hash = await sha256(cleanCode + SECRET_SALT + prefix);
-    const part1 = hash.substring(0, 4);
-    const part2 = hash.substring(4, 8);
-    const key = `ACTV-${prefix}-${part1}-${part2}`;
+    // Random key: it is not derived from the device code, so it cannot be computed outside the
+    // dashboard. The app only accepts a key whose record exists here and is bound to its device.
+    const key = await generateUniqueActivationKey(prefix);
+    if (!key) {
+      alert("تعذر توليد رمز فريد، تحقق من الاتصال بالخادم ثم أعد المحاولة");
+      return;
+    }
     const cleanKey = key.replace(/-/g, "");
 
     const now = Date.now();
@@ -1963,7 +1982,7 @@
     if (pushSuccess) {
       alert(`✅ تم توليد وتفعيل الرمز بنجاح: ${key}\nتم رفعه وحفظه في سحابة فايربيس بنجاح وربطه بالجهاز (${devCode}).`);
     } else {
-      alert(`⚠️ تم توليد الرمز محلياً: ${key}\nولكن حدث خطأ أثناء رفعه إلى فايربيس: (${pushError || 'تعذر الاتصال'}).\nالرابط الحالي: ${FIREBASE_BASE_URL}\nيمكنك النقر على زر سحابة فايربيس بأعلى الصفحة للتأكد من الرابط وقواعد الأمان.`);
+      alert(`⚠️ تم توليد الرمز محلياً: ${key}\nولكن حدث خطأ أثناء رفعه إلى فايربيس: (${pushError || 'تعذر الاتصال'}).\nيمكنك النقر على زر سحابة فايربيس بأعلى الصفحة للتأكد من الرابط وقواعد الأمان.`);
     }
 
     loadFirebaseData();

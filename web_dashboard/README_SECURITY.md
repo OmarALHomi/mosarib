@@ -6,10 +6,14 @@
 
 ### 1️⃣ تسجيل الدخول الإلزامي (Authentication):
 - **لا يمكن لأي مستخدم فتح اللوحة أو رؤية أي معلومة أو إرسال إشعار** دون إدخال بريد إلكتروني وكلمة مرور صحيحة ومسجلة في النظام.
-- **الحساب الافتراضي للمسؤول الرئيسي:**
-  - **البريد الإلكتروني:** `admin@mosarib.com`
-  - **كلمة المرور:** `Admin@2026!`
-  - *(يمكنك تغييرها أو إضافة مسؤولين جدد من تبويب: "🛡️ مسؤولو النظام والأمان").*
+- **لا توجد كلمة مرور افتراضية.** يُنشأ أول مسؤول من `ADMIN_BOOTSTRAP_EMAIL` و`ADMIN_BOOTSTRAP_PASSWORD` في `api/config.local.php` عند عدم وجود `data/admins.json`، ثم تُحذف هذه الأسطر بعد أول دخول.
+
+### 🔑 الأسرار على الخادم فقط (`api/config.local.php`، غير مرفوع إلى Git):
+- انسخ `api/config.local.example.php` إلى `api/config.local.php` واملأ:
+  - `FIREBASE_AUTH_SECRET`: من Firebase Console > Project settings > Service accounts > Database secrets.
+  - `ADMIN_TOKEN_SECRET`: نص عشوائي طويل لتوقيع رموز جلسات المسؤولين.
+- المتصفح لا يتصل بفايربيس مباشرة؛ كل الطلبات تمر عبر `api/firebase_proxy.php` بعد التحقق من الجلسة ورمز CSRF.
+- قواعد Realtime Database (`database.rules.json`) تمنع أي كتابة عامة على التراخيص والأجهزة والإعدادات؛ رموز التفعيل عشوائية وتُنشأ من اللوحة فقط.
 
 ---
 

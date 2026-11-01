@@ -42,9 +42,13 @@ object LicenseManager {
     const val KEY_ONBOARDING_COMPLETED = "is_onboarding_completed"
     const val KEY_HOME_TOUR_COMPLETED = "is_home_tour_completed_v2"
 
-    // Secret salts
     private const val DEVICE_CODE_SALT = "msrb_device_token_salt_v1"
-    private const val SECRET_ACTIVATION_SALT =
+
+    // Only signs the activation stored in local prefs so a casual edit of the prefs file is
+    // detected. It is NOT a secret and must never be used to derive activation keys: keys are
+    // random, issued by the dashboard, and accepted only if their record exists in Firebase.
+    // The value is kept unchanged so existing activations stay valid after the update.
+    private const val LOCAL_SIGNATURE_SALT =
             "mosarib_secure_license_secret_key_alhomi_2026_water_app"
 
     enum class SubscriptionPlan(
@@ -122,22 +126,9 @@ object LicenseManager {
     }
 
     /**
-     * Mathematical generator to produce the activation key corresponding to a device code and plan.
-     */
-    internal fun generateActivationKey(
-            deviceCode: String,
-            plan: SubscriptionPlan = SubscriptionPlan.MONTHLY
-    ): String {
-        val cleanCode = deviceCode.replace("-", "").trim().uppercase()
-        val hash = sha256(cleanCode + SECRET_ACTIVATION_SALT + plan.codePrefix)
-        val part1 = hash.substring(0, 4)
-        val part2 = hash.substring(4, 8)
-        return "ACTV-${plan.codePrefix}-$part1-$part2"
-    }
-
-    /**
-     * Verifies the activation key entered by the user with online connectivity check and single
-     * device binding.
+     * Verifies the activation key against Firebase. The key must have been issued from the admin
+     * dashboard for this device: its record must exist, be bound to this device code, not be
+     * revoked and not be expired. There is no offline activation.
      */
     suspend fun verifyAndActivateOnline(
             context: Context,
@@ -151,83 +142,48 @@ object LicenseManager {
         if (cleanName.isBlank()) {
             return ActivationResult.MissingSubscriberName
         }
+        if (!isInternetAvailable(context)) {
+            return ActivationResult.NoInternet
+        }
 
         val cleanEntered = enteredKey.replace("-", "").replace(" ", "").trim().uppercase()
+        if (cleanEntered.isBlank() || !cleanEntered.all { it.isLetterOrDigit() }) {
+            return ActivationResult.InvalidKey
+        }
         val currentDeviceCode = getDeviceCode(context)
 
-        // Find matching plan
-        var matchedPlan: SubscriptionPlan? = null
-        for (plan in SubscriptionPlan.entries) {
-            val expectedKey =
-                    generateActivationKey(currentDeviceCode, plan).replace("-", "").uppercase()
-            val expectedKeyNoPrefix = expectedKey.removePrefix("ACTV")
-            if (cleanEntered == expectedKey || cleanEntered == expectedKeyNoPrefix) {
-                matchedPlan = plan
-                break
-            }
+        val cloudCheck =
+                FirebaseLicenseService.verifyKeyOnline(
+                        key = cleanEntered,
+                        currentDeviceCode = currentDeviceCode,
+                        subscriberName = cleanName
+                )
+        if (cloudCheck.isNetworkError) return ActivationResult.NoInternet
+        if (cloudCheck.isRevoked) {
+            revokeLicenseLocally(context)
+            return ActivationResult.SubscriptionRevoked
         }
-
-        if (matchedPlan == null) {
-            // Also check if entered key is formatted as ACTV-M-XXXX-XXXX or ACTV-Y-XXXX-XXXX
-            matchedPlan =
-                    if (cleanEntered.startsWith("ACTVM") || cleanEntered.startsWith("M")) {
-                        SubscriptionPlan.MONTHLY
-                    } else if (cleanEntered.startsWith("ACTVY") || cleanEntered.startsWith("Y")) {
-                        SubscriptionPlan.YEARLY
-                    } else {
-                        SubscriptionPlan.MONTHLY
-                    }
+        if (cloudCheck.isBoundToOtherDevice) {
+            return ActivationResult.BoundToOtherDevice(cloudCheck.boundDeviceCode)
         }
-
-        val expectedForDevice =
-                generateActivationKey(currentDeviceCode, matchedPlan).replace("-", "").uppercase()
-        val expectedWithoutPrefix = expectedForDevice.removePrefix("ACTV")
-        val isMathValid = cleanEntered == expectedForDevice || cleanEntered == expectedWithoutPrefix
-        val hasInternet = isInternetAvailable(context)
-
-        var serverExpiresAt: Long? = null
-
-        if (hasInternet) {
-            // Verify with Firebase Cloud backend
-            val cloudCheck =
-                    FirebaseLicenseService.verifyAndBindKeyOnline(
-                            key = cleanEntered,
-                            currentDeviceCode = currentDeviceCode,
-                            subscriberName = cleanName,
-                            plan = matchedPlan,
-                            durationDays = matchedPlan.durationDays
-                    )
-
-            if (cloudCheck.isRevoked) {
-                revokeLicenseLocally(context)
-                return ActivationResult.SubscriptionRevoked
-            }
-
-            if (cloudCheck.isBoundToOtherDevice) {
-                return ActivationResult.BoundToOtherDevice(cloudCheck.boundDeviceCode)
-            }
-
-            if (!isMathValid && !cloudCheck.isValid) {
-                return ActivationResult.InvalidKey
-            }
-            serverExpiresAt = cloudCheck.serverExpiresAt
-        } else {
-            // Offline fallback: Must be mathematically valid for this device
-            if (!isMathValid) {
-                return ActivationResult.NoInternet
-            }
+        val matchedPlan =
+                cloudCheck.plan?.let { runCatching { SubscriptionPlan.valueOf(it) }.getOrNull() }
+        val serverExpiresAt = cloudCheck.serverExpiresAt
+        if (!cloudCheck.isValid ||
+                        matchedPlan == null ||
+                        serverExpiresAt == null ||
+                        serverExpiresAt <= System.currentTimeMillis()
+        ) {
+            return ActivationResult.InvalidKey
         }
 
         // Save activation locally
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
-        val currentExpiry = sp.getLong(KEY_EXPIRES_AT, 0L)
         val now = System.currentTimeMillis()
-        val baseTime = maxOf(now, currentExpiry)
-        val newExpiresAt =
-                serverExpiresAt ?: (baseTime + (matchedPlan.durationDays * 24L * 3600L * 1000L))
+        val newExpiresAt = serverExpiresAt
 
         val signature =
-                sha256(currentDeviceCode + SECRET_ACTIVATION_SALT + matchedPlan.name + newExpiresAt)
+                sha256(currentDeviceCode + LOCAL_SIGNATURE_SALT + matchedPlan.name + newExpiresAt)
         val deviceModel = getDeviceModelName()
         val androidVersion = getAndroidVersionName()
 
@@ -324,7 +280,7 @@ object LicenseManager {
                         runCatching { SubscriptionPlan.valueOf(license.plan) }
                                 .getOrDefault(SubscriptionPlan.MONTHLY)
                 val signature =
-                        sha256(deviceCode + SECRET_ACTIVATION_SALT + plan.name + license.expiresAt)
+                        sha256(deviceCode + LOCAL_SIGNATURE_SALT + plan.name + license.expiresAt)
                 val deviceModel = getDeviceModelName()
                 val androidVersion = getAndroidVersionName()
 
@@ -432,7 +388,7 @@ object LicenseManager {
 
         val currentDeviceCode = getDeviceCode(context)
         val expectedSig =
-                sha256(currentDeviceCode + SECRET_ACTIVATION_SALT + storedPlan + storedExpiresAt)
+                sha256(currentDeviceCode + LOCAL_SIGNATURE_SALT + storedPlan + storedExpiresAt)
         return storedSig == expectedSig
     }
 

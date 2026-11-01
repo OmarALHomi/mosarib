@@ -17,16 +17,13 @@ import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
 
 class MosaribFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         Log.d(TAG, "Refreshed FCM token: $token")
-        sendRegistrationToServer(token)
+        FcmTokenHelper.uploadToken(applicationContext, token)
     }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
@@ -85,28 +82,6 @@ class MosaribFirebaseMessagingService : FirebaseMessagingService() {
             .setContentIntent(pendingIntent)
 
         notificationManager.notify(System.currentTimeMillis().toInt(), notificationBuilder.build())
-    }
-
-    private fun sendRegistrationToServer(token: String) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val deviceCode = LicenseManager.getDeviceCode(applicationContext)
-                val cleanKey = deviceCode.replace("-", "").trim()
-                val url = URL("https://mosarib-default-rtdb.asia-southeast1.firebasedatabase.app/fcm_tokens/$cleanKey.json")
-                val conn = (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "PUT"
-                    doOutput = true
-                    connectTimeout = 6000
-                    readTimeout = 6000
-                    setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                }
-                val payload = "{\"deviceCode\":\"$deviceCode\",\"fcmToken\":\"$token\",\"updatedAt\":${System.currentTimeMillis()}}"
-                OutputStreamWriter(conn.outputStream).use { it.write(payload) }
-                conn.responseCode
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to upload FCM token: ${e.message}")
-            }
-        }
     }
 
     companion object {

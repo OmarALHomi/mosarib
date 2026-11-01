@@ -30,15 +30,16 @@ require_once __DIR__ . '/config.php';
 $adminsFile = __DIR__ . '/../data/admins.json';
 $rateLimitFile = __DIR__ . '/../data/login_attempts.json';
 
-// Initialize admins storage if not exists
-if (!file_exists($adminsFile) || filesize($adminsFile) === 0) {
-    // Default Super Admin: Eng. Omar AL-Homi
+// Initialize admins storage if not exists. The first super admin comes from ADMIN_BOOTSTRAP_EMAIL /
+// ADMIN_BOOTSTRAP_PASSWORD in config.local.php; there is no built-in default password.
+if ((!file_exists($adminsFile) || filesize($adminsFile) === 0)
+    && defined('ADMIN_BOOTSTRAP_EMAIL') && defined('ADMIN_BOOTSTRAP_PASSWORD')
+    && strlen(ADMIN_BOOTSTRAP_PASSWORD) >= 12) {
     $defaultAdmin = [
         'id' => 'ADMIN_' . bin2hex(random_bytes(6)),
         'name' => 'المهندس عمر الحومي',
-        'email' => 'admin@mosarib.com',
-        // Default password: Admin@2026! (Hashed with PASSWORD_BCRYPT/ARGON2ID)
-        'password_hash' => password_hash('Admin@2026!', PASSWORD_DEFAULT),
+        'email' => strtolower(ADMIN_BOOTSTRAP_EMAIL),
+        'password_hash' => password_hash(ADMIN_BOOTSTRAP_PASSWORD, PASSWORD_DEFAULT),
         'role' => 'SUPER_ADMIN',
         'is_active' => true,
         'created_at' => time() * 1000,
@@ -103,8 +104,9 @@ function clearRateLimit($ip) {
     }
 }
 
-function generateAdminSessionToken($adminId) {
-    return hash('sha256', $adminId . ':' . SECRET_ACTIVATION_SALT . ':' . date('Y-m-d'));
+function generateAdminSessionToken($adminId, $date = null) {
+    if (ADMIN_TOKEN_SECRET === '') return '';
+    return hash_hmac('sha256', $adminId . ':' . ($date ?? date('Y-m-d')), ADMIN_TOKEN_SECRET);
 }
 
 // Check if currently authenticated
@@ -127,21 +129,15 @@ function requireAuth() {
         $token = trim($_COOKIE['mosarib_admin_token']);
     }
 
-    if (!empty($token)) {
-        // Master admin salt/password check
-        if (strpos($token, 'Admin@2026!') !== false || strpos($token, SECRET_ACTIVATION_SALT) !== false) {
-            $_SESSION['admin_logged_in'] = true;
-            $_SESSION['admin_user'] = ['id' => 'ADMIN_omar_alhomi', 'name' => 'المهندس عمر الحومي', 'role' => 'SUPER_ADMIN'];
-            return;
-        }
-
+    // Only a session token signed with the server-side ADMIN_TOKEN_SECRET is accepted.
+    if (!empty($token) && ADMIN_TOKEN_SECRET !== '') {
         $adminsFile = __DIR__ . '/../data/admins.json';
         $admins = json_decode(@file_get_contents($adminsFile), true) ?: [];
         foreach ($admins as $admin) {
             if (empty($admin['is_active'])) continue;
-            $todayToken = hash('sha256', $admin['id'] . ':' . SECRET_ACTIVATION_SALT . ':' . date('Y-m-d'));
-            $yestToken  = hash('sha256', $admin['id'] . ':' . SECRET_ACTIVATION_SALT . ':' . date('Y-m-d', strtotime('-1 day')));
-            if (hash_equals($todayToken, $token) || hash_equals($yestToken, $token) || $token === $admin['id'] || $token === $admin['email']) {
+            $todayToken = generateAdminSessionToken($admin['id']);
+            $yestToken  = generateAdminSessionToken($admin['id'], date('Y-m-d', strtotime('-1 day')));
+            if (hash_equals($todayToken, $token) || hash_equals($yestToken, $token)) {
                 $_SESSION['admin_logged_in'] = true;
                 $_SESSION['admin_user'] = [
                     'id' => $admin['id'],
@@ -152,22 +148,6 @@ function requireAuth() {
                 return;
             }
         }
-    }
-
-    // CSRF token check
-    $input = json_decode(file_get_contents('php://input'), true) ?: [];
-    $csrf = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($headers['X-CSRF-Token'] ?? ($headers['x-csrf-token'] ?? ($input['csrf_token'] ?? ($_POST['csrf_token'] ?? ''))));
-    if (!empty($csrf) && verifyCsrfToken($csrf)) {
-        $_SESSION['admin_logged_in'] = true;
-        $_SESSION['admin_user'] = ['id' => 'ADMIN_omar_alhomi', 'name' => 'المهندس عمر الحومي', 'role' => 'SUPER_ADMIN'];
-        return;
-    }
-
-    // Direct super admin cookie / local unlock
-    if (!empty($_COOKIE['mosarib_admin_unlocked']) && $_COOKIE['mosarib_admin_unlocked'] === 'true') {
-        $_SESSION['admin_logged_in'] = true;
-        $_SESSION['admin_user'] = ['id' => 'ADMIN_omar_alhomi', 'name' => 'المهندس عمر الحومي', 'role' => 'SUPER_ADMIN'];
-        return;
     }
 
     jsonResponse(false, 'غير مصرح: يجب تسجيل الدخول بحساب مسؤول معتمد أولاً', null, 401);

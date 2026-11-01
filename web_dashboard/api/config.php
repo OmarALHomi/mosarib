@@ -14,8 +14,15 @@ define('FIREBASE_PROJECT_ID', 'mosarib');
 define('FIREBASE_RTDB_URL', 'https://mosarib-default-rtdb.asia-southeast1.firebasedatabase.app');
 define('APP_PACKAGE_NAME', 'omarAlhomi.mosarib.com');
 define('DEVELOPER_NAME', 'المهندس عمر الحومي');
-define('SECRET_ACTIVATION_SALT', 'mosarib_secure_license_secret_key_alhomi_2026_water_app');
-define('DEVICE_CODE_SALT', 'msrb_device_token_salt_v1');
+
+// Server-only secrets live in config.local.php, which is never committed (see config.local.example.php).
+// FIREBASE_AUTH_SECRET: Firebase Console > Project settings > Service accounts > Database secrets.
+// ADMIN_TOKEN_SECRET: a long random string used to sign admin session tokens.
+if (file_exists(__DIR__ . '/config.local.php')) {
+    require_once __DIR__ . '/config.local.php';
+}
+if (!defined('FIREBASE_AUTH_SECRET')) define('FIREBASE_AUTH_SECRET', '');
+if (!defined('ADMIN_TOKEN_SECRET')) define('ADMIN_TOKEN_SECRET', '');
 
 // Upload settings
 define('UPLOAD_DIR', __DIR__ . '/../uploads/');
@@ -37,7 +44,7 @@ function jsonResponse($success, $message, $data = null, $statusCode = 200) {
 }
 
 // Helper to make HTTPS requests to Firebase Realtime Database
-function firebaseRequest($path, $method = 'GET', $data = null, $authSecret = '') {
+function firebaseRequest($path, $method = 'GET', $data = null, $authSecret = FIREBASE_AUTH_SECRET) {
     $url = rtrim(FIREBASE_RTDB_URL, '/') . '/' . ltrim($path, '/');
     if (!empty($authSecret)) {
         $sep = strpos($url, '?') !== false ? '&' : '?';
@@ -48,7 +55,8 @@ function firebaseRequest($path, $method = 'GET', $data = null, $authSecret = '')
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 15);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // For shared hosting compatibility
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
 
     $headers = ['Accept: application/json'];
     if ($data !== null) {

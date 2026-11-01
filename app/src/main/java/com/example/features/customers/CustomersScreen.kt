@@ -1,125 +1,21 @@
 package com.example.features.customers
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import android.content.res.Configuration
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Bookmarks
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.FileUpload
-import androidx.compose.material.icons.filled.TableChart
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PictureAsPdf
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.SolidColor
-import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.material.icons.filled.Park
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material.icons.filled.Close
-import com.example.core.ui.EmptyStateView
-import com.example.core.ui.LuxuryToastNotification
-import com.example.core.ui.MosaribFilterChip
-import com.example.core.ui.MosaribFilterRow
-import com.example.core.ui.isAppDark
-import com.example.core.ui.MosaribTextField
-import com.example.core.ui.SendMessageChoiceDialog
-import com.example.core.ui.StatBoxCard
 import com.example.core.util.FileSharingHelper
-import com.example.core.util.Formatters
-import com.example.ui.theme.AccentEmerald
-import com.example.ui.theme.AccentGold
-import com.example.ui.theme.PrimaryTeal
-import com.example.ui.theme.SecondaryAqua
-
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.foundation.layout.navigationBarsPadding
 import com.example.features.sessions.SessionsViewModel
-import com.example.features.sessions.AddEditSessionBottomSheet
 import com.example.features.vouchers.VouchersViewModel
-import com.example.features.vouchers.AddVoucherBottomSheet
-import com.example.features.vouchers.VoucherType
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun CustomersScreen(
     viewModel: CustomersViewModel,
@@ -138,10 +34,8 @@ fun CustomersScreen(
     val selectedGroup by viewModel.selectedGroup.collectAsStateWithLifecycle()
     val customGroups by viewModel.customGroups.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
-    val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     val allSessions = vouchersViewModel?.allSessions?.collectAsStateWithLifecycle()?.value ?: emptyList()
     val context = LocalContext.current
-    val isDark = isAppDark()
 
     var showQuickAddChoice by remember { mutableStateOf(false) }
     var showAddSheet by remember { mutableStateOf(false) }
@@ -155,45 +49,14 @@ fun CustomersScreen(
     var groupToEdit by remember { mutableStateOf<String?>(null) }
     var initialMemberIdsForEdit by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
-    val importDrafts by viewModel.importDrafts.collectAsStateWithLifecycle()
-    val isImporting by viewModel.isImporting.collectAsStateWithLifecycle()
-
     // حساب المركز المالي التفاعلي للشريط السفلي (دفتر الحسابات) تفاعلياً مع الفلتر المختار
     val (cardOwedByUs, cardOwedToUs) = remember(rawCustomers, accountFilter) {
-        when (accountFilter) {
-            AccountFilter.ALL -> {
-                val owedBy = rawCustomers.sumOf {
-                    if (it.customer.isWellOwner) it.payableBalance
-                    else if (it.receivableBalance < 0) -it.receivableBalance
-                    else 0.0
-                }
-                val owedTo = rawCustomers.sumOf { it.receivableBalance.coerceAtLeast(0.0) }
-                Pair(owedBy, owedTo)
-            }
-            AccountFilter.FARMERS -> {
-                val farmers = rawCustomers.filter { !it.customer.isWellOwner }
-                val owedBy = farmers.sumOf { if (it.receivableBalance < 0) -it.receivableBalance else 0.0 }
-                val owedTo = farmers.sumOf { it.receivableBalance.coerceAtLeast(0.0) }
-                Pair(owedBy, owedTo)
-            }
-            AccountFilter.WELL_OWNERS -> {
-                val owners = rawCustomers.filter { it.customer.isWellOwner }
-                val owedBy = owners.sumOf { it.payableBalance }
-                val owedTo = owners.sumOf { it.receivableBalance.coerceAtLeast(0.0) }
-                Pair(owedBy, owedTo)
-            }
-        }
+        computeLedgerTotals(rawCustomers, accountFilter)
     }
 
     // إحصائيات الفلترة بالرصيد (عليه / له / مسدد) المتجاوبة مع الفئة والمجموعة المحددة
     val baseListForBadges = remember(rawCustomers, accountFilter, selectedGroup) {
-        val byAcc = when (accountFilter) {
-            AccountFilter.ALL -> rawCustomers
-            AccountFilter.FARMERS -> rawCustomers.filter { !it.customer.isWellOwner }
-            AccountFilter.WELL_OWNERS -> rawCustomers.filter { it.customer.isWellOwner }
-        }
-        if (selectedGroup.isNullOrBlank()) byAcc
-        else byAcc.filter { it.customer.customGroup.trim().equals(selectedGroup?.trim(), ignoreCase = true) }
+        filterForBalanceBadges(rawCustomers, accountFilter, selectedGroup)
     }
     val debtorCount = remember(baseListForBadges) {
         baseListForBadges.count { it.receivableBalance > 0.001 }
@@ -217,534 +80,62 @@ fun CustomersScreen(
     val isStickyPinned by remember {
         derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 24 }
     }
-    Box(modifier = modifier.fillMaxSize()) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = if (isCompactHeight) 80.dp else 120.dp)
-        ) {
-            // شريط الفلاتر المصغرة وحقل البحث المدمج وفلاتر الترتيب المتجاوبة
-            if (isCompactHeight) {
-                // في الوضع الأفقي: حقل البحث وشريط الفلاتر ثلاثي الأقسام
-                item {
-                    Surface(
-                        color = MaterialTheme.colorScheme.background,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(34.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                                    .padding(horizontal = 8.dp),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Search,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Box(
-                                        modifier = Modifier.weight(1f),
-                                        contentAlignment = Alignment.CenterStart
-                                    ) {
-                                        if (searchQuery.isEmpty()) {
-                                            Text(
-                                                text = "بحث بالاسم، المزرعة، أو الهاتف...",
-                                                style = MaterialTheme.typography.bodyMedium.copy(
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                                                    fontSize = 11.5.sp
-                                                ),
-                                                maxLines = 1
-                                            )
-                                        }
-                                        BasicTextField(
-                                            value = searchQuery,
-                                            onValueChange = { viewModel.setSearchQuery(it) },
-                                            singleLine = true,
-                                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                fontSize = 11.5.sp
-                                            ),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .testTag("customers_search_input")
-                                        )
-                                    }
-                                    if (searchQuery.isNotEmpty()) {
-                                        IconButton(
-                                            onClick = { viewModel.setSearchQuery("") },
-                                            modifier = Modifier.size(18.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "مسح",
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(13.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
 
-                            Spacer(modifier = Modifier.height(3.dp))
-
-                            CustomersDropdownFilterRow(
-                                accountFilter = accountFilter,
-                                balanceFilter = balanceFilter,
-                                selectedGroup = selectedGroup,
-                                customGroups = customGroups,
-                                sortType = sortType,
-                                rawCustomers = rawCustomers,
-                                debtorCount = debtorCount,
-                                creditorCount = creditorCount,
-                                settledCount = settledCount,
-                                onSelectAccountFilter = { viewModel.setAccountFilter(it) },
-                                onSelectBalanceFilter = { viewModel.setBalanceFilter(it) },
-                                onSelectGroup = { viewModel.setSelectedGroup(it) },
-                                onSelectSortType = { viewModel.setSortType(it) },
-                                onAddGroupClick = { showAddGroupDialog = true },
-                                onManageGroupsClick = { showManageGroupsDialog = true }
-                            )
-                        }
-                    }
-                }
-            } else {
-                // في الوضع الرأسي: StickyHeader أنيق يضم حقل البحث أولاً ثم شريط الفلاتر ثلاثي الأقسام
-                stickyHeader {
-                    Surface(
-                        color = MaterialTheme.colorScheme.background,
-                        shadowElevation = if (isStickyPinned) 3.dp else 0.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                            // حقل البحث بمظهر واسع وأنيق ومستغل للمساحة السابقة
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(38.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                    .padding(horizontal = 10.dp),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Search,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Box(
-                                        modifier = Modifier.weight(1f),
-                                        contentAlignment = Alignment.CenterStart
-                                    ) {
-                                        if (searchQuery.isEmpty()) {
-                                            Text(
-                                                text = "بحث بالاسم، المزرعة، أو الهاتف...",
-                                                style = MaterialTheme.typography.bodyMedium.copy(
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                                                    fontSize = 12.sp
-                                                ),
-                                                maxLines = 1
-                                            )
-                                        }
-                                        BasicTextField(
-                                            value = searchQuery,
-                                            onValueChange = { viewModel.setSearchQuery(it) },
-                                            singleLine = true,
-                                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                fontSize = 12.sp
-                                            ),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .testTag("customers_search_input")
-                                        )
-                                    }
-                                    if (searchQuery.isNotEmpty()) {
-                                        IconButton(
-                                            onClick = { viewModel.setSearchQuery("") },
-                                            modifier = Modifier.size(20.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "مسح",
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(5.dp))
-
-                            CustomersDropdownFilterRow(
-                                accountFilter = accountFilter,
-                                balanceFilter = balanceFilter,
-                                selectedGroup = selectedGroup,
-                                customGroups = customGroups,
-                                sortType = sortType,
-                                rawCustomers = rawCustomers,
-                                debtorCount = debtorCount,
-                                creditorCount = creditorCount,
-                                settledCount = settledCount,
-                                onSelectAccountFilter = { viewModel.setAccountFilter(it) },
-                                onSelectBalanceFilter = { viewModel.setBalanceFilter(it) },
-                                onSelectGroup = { viewModel.setSelectedGroup(it) },
-                                onSelectSortType = { viewModel.setSortType(it) },
-                                onAddGroupClick = { showAddGroupDialog = true },
-                                onManageGroupsClick = { showManageGroupsDialog = true }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // 2. قائمة الحسابات المضغوطة (دفتر الحسابات)
-            if (customersWithBalance.isEmpty()) {
-                item {
-                    EmptyStateView(
-                        icon = Icons.Default.Person,
-                        title = when {
-                            balanceFilter == CustomerBalanceFilter.DEBTOR -> "لا يوجد عملاء عليهم مبالغ"
-                            balanceFilter == CustomerBalanceFilter.CREDITOR -> "لا يوجد عملاء لهم أرصدة"
-                            balanceFilter == CustomerBalanceFilter.SETTLED -> "لا يوجد عملاء مسددون بالكامل"
-                            accountFilter == AccountFilter.WELL_OWNERS -> "لا يوجد أصحاب آبار مسجلين"
-                            else -> "لا يوجد عملاء مضافين"
-                        },
-                        description = if (balanceFilter != CustomerBalanceFilter.ALL) "جرّب تغيير خيارات الفلترة لعرض باقي الحسابات" else "اضغط على زر (+) لإضافة حساب جديد"
-                    )
-                }
-            } else {
-                items(customersWithBalance, key = { it.customer.id }) { item ->
-                    CustomerCardItem(
-                        item = item,
-                        currencySymbol = config.currencySymbol,
-                        onClick = { onNavigateToDetail(item.customer.id) },
-                        onCallClick = { FileSharingHelper.makePhoneCall(context, item.customer.phone) },
-                        onWhatsAppClick = { messageChoiceCustomer = item },
-                        onPdfStatementClick = { viewModel.generateCustomerStatementPdf(item.customer) },
-                        onEditClick = { customerToEdit = item.customer },
-                        onDeleteClick = { customerToDelete = item.customer }
-                    )
-                }
-            }
-        }
-
-        if (!isCompactHeight) {
-            // 3. الشريط المالي السفلي الثابت (دفتر الحسابات) التفاعلي: عليك | (+) | لك
-            Card(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
-                    .fillMaxWidth()
-                    .shadow(8.dp, RoundedCornerShape(20.dp)),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // مستحقات عليك (مختلفة تفاعلياً حسب الفلتر المختار)
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.Start
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(7.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFE53935))
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                when (accountFilter) {
-                                    AccountFilter.ALL -> {
-                                        Text(
-                                            text = "عليك",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Color(0xFFE53935),
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 11.5.sp
-                                            )
-                                        )
-                                    }
-                                    AccountFilter.FARMERS -> {
-                                        Icon(
-                                            imageVector = Icons.Default.Park,
-                                            contentDescription = null,
-                                            tint = Color(0xFFE53935),
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(3.dp))
-                                        Text(
-                                            text = "عليك",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Color(0xFFE53935),
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 11.5.sp
-                                            )
-                                        )
-                                    }
-                                    AccountFilter.WELL_OWNERS -> {
-                                        Icon(
-                                            imageVector = Icons.Default.WaterDrop,
-                                            contentDescription = null,
-                                            tint = Color(0xFFE53935),
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(3.dp))
-                                        Text(
-                                            text = "عليك",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Color(0xFFE53935),
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 11.5.sp
-                                            )
-                                        )
-                                    }
-                                }
-                            }
-                            Text(
-                                text = Formatters.formatCurrency(cardOwedByUs, config.currencySymbol),
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = Color(0xFFE53935),
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 15.sp
-                                ),
-                                softWrap = false,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        // مساحة مخصصة للزر العائم لضمان عدم التداخل والتوسيط التام
-                        Spacer(modifier = Modifier.width(56.dp))
-
-                        // مستحقات لك (مختلفة تفاعلياً حسب الفلتر المختار)
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.End
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                when (accountFilter) {
-                                    AccountFilter.ALL -> {
-                                        Text(
-                                            text = "لك",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Color(0xFF2E7D32),
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 11.5.sp
-                                            ),
-                                            softWrap = false,
-                                            maxLines = 1
-                                        )
-                                    }
-                                    AccountFilter.FARMERS -> {
-                                        Text(
-                                            text = "لك",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Color(0xFF2E7D32),
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 11.5.sp
-                                            ),
-                                            softWrap = false,
-                                            maxLines = 1
-                                        )
-                                        Spacer(modifier = Modifier.width(3.dp))
-                                        Icon(
-                                            imageVector = Icons.Default.Park,
-                                            contentDescription = null,
-                                            tint = Color(0xFF2E7D32),
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                    }
-                                    AccountFilter.WELL_OWNERS -> {
-                                        Text(
-                                            text = "لك",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Color(0xFF2E7D32),
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 11.5.sp
-                                            ),
-                                            softWrap = false,
-                                            maxLines = 1
-                                        )
-                                        Spacer(modifier = Modifier.width(3.dp))
-                                        Icon(
-                                            imageVector = Icons.Default.WaterDrop,
-                                            contentDescription = null,
-                                            tint = Color(0xFF2E7D32),
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .size(7.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF2E7D32))
-                                )
-                            }
-                            Text(
-                                text = Formatters.formatCurrency(cardOwedToUs, config.currencySymbol),
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = Color(0xFF2E7D32),
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 15.sp
-                                ),
-                                softWrap = false,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
-                    // زر الإضافة السريع (+) الدائري في المنتصف الهندسي الدقيق للكرت دائماً
-                    FloatingActionButton(
-                        onClick = { showQuickAddChoice = true },
-                        containerColor = PrimaryTeal,
-                        contentColor = Color.White,
-                        shape = CircleShape,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .size(48.dp)
-                            .testTag("fab_add_customer")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "إضافة سريعة",
-                            modifier = Modifier.size(26.dp)
-                        )
-                    }
-                }
-            }
-        } else {
-            // في الوضع الأفقي / الشاشات المضغوطة: زر عائم مدمج أنيق في الزاوية دون حجب أي كرت
-            FloatingActionButton(
-                onClick = { showQuickAddChoice = true },
-                containerColor = PrimaryTeal,
-                contentColor = Color.White,
-                shape = CircleShape,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 16.dp, bottom = 12.dp)
-                    .size(46.dp)
-                    .testTag("fab_add_customer")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "إضافة حساب جديد",
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
-
-        LuxuryToastNotification(
-            toast = toast,
-            onDismiss = { viewModel.dismissToast() },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 85.dp)
+    // شريط الفلاتر الموحّد (نوع الحساب | حالة الرصيد | المجموعة | الترتيب)
+    val filterRow: @Composable () -> Unit = {
+        CustomersDropdownFilterRow(
+            accountFilter = accountFilter,
+            balanceFilter = balanceFilter,
+            selectedGroup = selectedGroup,
+            customGroups = customGroups,
+            sortType = sortType,
+            rawCustomers = rawCustomers,
+            debtorCount = debtorCount,
+            creditorCount = creditorCount,
+            settledCount = settledCount,
+            onSelectAccountFilter = { viewModel.setAccountFilter(it) },
+            onSelectBalanceFilter = { viewModel.setBalanceFilter(it) },
+            onSelectGroup = { viewModel.setSelectedGroup(it) },
+            onSelectSortType = { viewModel.setSortType(it) },
+            onAddGroupClick = { showAddGroupDialog = true },
+            onManageGroupsClick = { showManageGroupsDialog = true }
         )
     }
 
-    // شاشة مراجعة استيراد إكسل الذكية
-    importDrafts?.let { drafts ->
-        CustomerImportReviewDialog(
-            drafts = drafts,
-            onDraftUpdated = { viewModel.updateImportDraft(it) },
-            onDraftDeleted = { viewModel.removeImportDraft(it) },
-            onToggleSelectAll = { viewModel.toggleSelectAllImportDrafts(it) },
-            onConfirmImport = { updateExisting -> viewModel.confirmImport(updateExisting) },
-            onDismiss = { viewModel.cancelImport() }
-        )
-    }
+    CustomersListContent(
+        listState = listState,
+        isCompactHeight = isCompactHeight,
+        isStickyPinned = isStickyPinned,
+        searchQuery = searchQuery,
+        onSearchQueryChange = { viewModel.setSearchQuery(it) },
+        filterRow = filterRow,
+        customers = customersWithBalance,
+        balanceFilter = balanceFilter,
+        accountFilter = accountFilter,
+        currencySymbol = config.currencySymbol,
+        owedByUs = cardOwedByUs,
+        owedToUs = cardOwedToUs,
+        toast = toast,
+        onCustomerClick = { onNavigateToDetail(it.customer.id) },
+        onCallClick = { FileSharingHelper.makePhoneCall(context, it.customer.phone) },
+        onWhatsAppClick = { messageChoiceCustomer = it },
+        onPdfStatementClick = { viewModel.generateCustomerStatementPdf(it.customer) },
+        onEditClick = { customerToEdit = it.customer },
+        onDeleteClick = { customerToDelete = it.customer },
+        onQuickAddClick = { showQuickAddChoice = true },
+        onDismissToast = { viewModel.dismissToast() },
+        modifier = modifier
+    )
 
-    // مؤشر جاري قراءة ملف الإكسل بذكاء بهوية مسرب المائية
-    if (isImporting) {
-        com.example.core.ui.MosaribLoadingDialog(
-            title = "جاري قراءة ملف البيانات",
-            subTitle = "يتم فحص الأعمدة وتدفق البيانات بذكاء..."
-        )
-    }
-
-    // File Open / Share Dialog (PDF / Excel / CSV)
-    pdfReady?.let { (file, title) ->
-        com.example.core.ui.MosaribFileActionDialog(
-            file = file,
-            title = title,
-            fileType = when {
-                file.name.endsWith(".xlsx", true) -> "Excel"
-                file.name.endsWith(".csv", true) -> "CSV"
-                else -> "PDF"
-            },
-            onOpen = {
-                if (file.name.endsWith(".xlsx", true)) {
-                    com.example.core.util.FileSharingHelper.openFile(context, file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                } else if (file.name.endsWith(".csv", true)) {
-                    com.example.core.util.FileSharingHelper.openFile(context, file, "text/csv")
-                } else {
-                    com.example.core.util.FileSharingHelper.openPdf(context, file)
-                }
-                viewModel.clearPdfReady()
-            },
-            onShare = {
-                if (file.name.endsWith(".xlsx", true)) {
-                    com.example.core.util.FileSharingHelper.shareFile(context, file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", title)
-                } else if (file.name.endsWith(".csv", true)) {
-                    com.example.core.util.FileSharingHelper.shareFile(context, file, "text/csv", title)
-                } else {
-                    com.example.core.util.FileSharingHelper.sharePdf(context, file, title)
-                }
-                viewModel.clearPdfReady()
-            },
-            onDismiss = { viewModel.clearPdfReady() }
-        )
-    }
+    // استيراد إكسل + مؤشر القراءة + نافذة فتح / مشاركة الملف الجاهز
+    CustomersImportExportDialogs(viewModel = viewModel)
 
     // SMS / WhatsApp Choice Dialog
     messageChoiceCustomer?.let { item ->
-        val waMsg = viewModel.buildCustomerStatementMessage(item.customer, item, isSms = false)
-        val smsMsg = viewModel.buildCustomerStatementMessage(item.customer, item, isSms = true)
-        SendMessageChoiceDialog(
-            recipientName = item.customer.name,
-            recipientPhone = item.customer.phone,
-            messageText = waMsg,
-            smsMessageText = smsMsg,
-            onDismiss = { messageChoiceCustomer = null },
-            onSendWhatsApp = {
-                messageChoiceCustomer = null
-                FileSharingHelper.sendWhatsAppMessage(context, item.customer.phone, waMsg)
-            },
-            onSendSms = {
-                messageChoiceCustomer = null
-                FileSharingHelper.sendSms(context, item.customer.phone, smsMsg)
-            }
+        CustomerStatementMessageDialog(
+            item = item,
+            viewModel = viewModel,
+            onDismiss = { messageChoiceCustomer = null }
         )
     }
 
@@ -766,125 +157,32 @@ fun CustomersScreen(
 
     // Quick Add Choice Bottom Sheet (عميل جديد / سقي / معاملة)
     if (showQuickAddChoice) {
-        ModalBottomSheet(
-            onDismissRequest = { showQuickAddChoice = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            dragHandle = {
-                Box(
-                    modifier = Modifier
-                        .padding(top = 10.dp, bottom = 6.dp)
-                        .width(36.dp)
-                        .height(4.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
-                )
+        QuickAddChoiceSheet(
+            onDismiss = { showQuickAddChoice = false },
+            onAddCustomer = {
+                showQuickAddChoice = false
+                showAddSheet = true
+            },
+            onAddSession = {
+                showQuickAddChoice = false
+                showAddSessionSheet = true
+            },
+            onAddVoucher = {
+                showQuickAddChoice = false
+                showAddVoucherSheet = true
             }
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 6.dp)
-                    .navigationBarsPadding(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "إضافة سريعة",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 17.sp
-                    )
-                )
-                Text(
-                    text = "اختر الإجراء الذي تود تسجيله مباشرة",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
-                    ),
-                    modifier = Modifier.padding(top = 2.dp, bottom = 16.dp)
-                )
-
-                // 1. عميل جديد
-                QuickAddOptionItem(
-                    icon = Icons.Default.PersonAdd,
-                    iconTint = PrimaryTeal,
-                    iconBg = PrimaryTeal.copy(alpha = 0.12f),
-                    title = "عميل أو صاحب بئر جديد",
-                    subtitle = "تسجيل حساب مزارع جديد أو صاحب بئر",
-                    onClick = {
-                        showQuickAddChoice = false
-                        showAddSheet = true
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // 2. سقي
-                QuickAddOptionItem(
-                    icon = Icons.Default.WaterDrop,
-                    iconTint = Color(0xFF0288D1),
-                    iconBg = Color(0xFF0288D1).copy(alpha = 0.12f),
-                    title = "تسجيل دورة سقي",
-                    subtitle = "حساب ساعات ري مزارع وتحديث الحساب",
-                    onClick = {
-                        showQuickAddChoice = false
-                        showAddSessionSheet = true
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // 3. معاملة
-                QuickAddOptionItem(
-                    icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                    iconTint = AccentGold,
-                    iconBg = AccentGold.copy(alpha = 0.14f),
-                    title = "معاملة مالية (سند)",
-                    subtitle = "تسجيل سند قبض نقد/بنك أو سند صرف",
-                    onClick = {
-                        showQuickAddChoice = false
-                        showAddVoucherSheet = true
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(18.dp))
-            }
-        }
+        )
     }
 
     // Sheet: Add Manual Session (سقي)
     if (showAddSessionSheet) {
-        val customersList = rawCustomers.map { it.customer }
-        AddEditSessionBottomSheet(
-            initialSession = null,
-            customers = customersList,
+        QuickAddSessionSheet(
+            customers = rawCustomers.map { it.customer },
             defaultPricePerHour = config.defaultPricePerHour,
             currencySymbol = config.currencySymbol,
-            onCreateCustomer = { customer ->
-                sessionsViewModel?.createCustomer(customer) ?: 0L
-            },
+            sessionsViewModel = sessionsViewModel,
             onDismiss = { showAddSessionSheet = false },
-            onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes, billedTo, wastedMins, wastedReason, discount, costRate, pumpId ->
-                sessionsViewModel?.saveManualSession(
-                    id = id,
-                    customerId = custId,
-                    pumpName = pumpName,
-                    startTime = startTime,
-                    endTime = endTime,
-                    hours = hrs,
-                    minutes = mins,
-                    pricePerHour = rate,
-                    amountPaid = paid,
-                    notes = notes,
-                    billedToCustomerId = billedTo,
-                    wastedMinutes = wastedMins,
-                    wastedReason = wastedReason,
-                    discountAmount = discount,
-                    costPricePerHour = costRate,
-                    pumpSourceId = pumpId
-                )
+            onSaved = {
                 showAddSessionSheet = false
                 viewModel.showToast("تم تسجيل دورة السقي بنجاح وتحديث الكشوفات")
             }
@@ -893,25 +191,13 @@ fun CustomersScreen(
 
     // Sheet: Add Voucher (معاملة)
     if (showAddVoucherSheet) {
-        val customersList = rawCustomers.map { it.customer }
-        AddVoucherBottomSheet(
-            initialType = VoucherType.RECEIPT,
-            customers = customersList,
+        QuickAddVoucherSheet(
+            customers = rawCustomers.map { it.customer },
             allSessions = allSessions,
             currencySymbol = config.currencySymbol,
+            vouchersViewModel = vouchersViewModel,
             onDismiss = { showAddVoucherSheet = false },
-            onSave = { type, customerId, amount, category, method, notes, sessionId, selectedSessionIds, discountAmount ->
-                vouchersViewModel?.addVoucher(
-                    type = type,
-                    customerId = customerId,
-                    amount = amount,
-                    category = category,
-                    paymentMethod = method,
-                    notes = notes,
-                    sessionId = sessionId,
-                    selectedSessionIds = selectedSessionIds,
-                    discountAmount = discountAmount
-                )
+            onSaved = {
                 showAddVoucherSheet = false
                 viewModel.showToast("تم تسجيل المعاملة بنجاح وتحديث الحسابات")
             }
@@ -920,43 +206,22 @@ fun CustomersScreen(
 
     // Delete confirmation
     customerToDelete?.let { cust ->
-        AlertDialog(
-            onDismissRequest = { customerToDelete = null },
-            title = { Text("أرشفة الحساب", fontWeight = FontWeight.Bold) },
-            text = { Text("سيتم أرشفة حساب (${cust.name}) وإخفاؤه مع الاحتفاظ بجميع عملياته.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteCustomer(cust)
-                        customerToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
-                ) {
-                    Text("حذف نهائي")
-                }
+        ArchiveCustomerDialog(
+            customer = cust,
+            onConfirm = {
+                viewModel.deleteCustomer(cust)
+                customerToDelete = null
             },
-            dismissButton = {
-                TextButton(onClick = { customerToDelete = null }) {
-                    Text("إلغاء")
-                }
-            }
+            onDismiss = { customerToDelete = null }
         )
     }
 
     // Add / Edit Custom Group Dialog
     if (showAddGroupDialog || groupToEdit != null) {
-        val initialIds = remember(groupToEdit, rawCustomers) {
-            if (groupToEdit != null) {
-                rawCustomers.filter { it.customer.customGroup.trim().equals(groupToEdit?.trim(), ignoreCase = true) }
-                    .map { it.customer.id }.toSet()
-            } else {
-                initialMemberIdsForEdit
-            }
-        }
-        AddEditGroupDialog(
-            initialGroupName = groupToEdit,
-            initialMemberIds = initialIds,
-            allCustomers = rawCustomers,
+        CustomerGroupEditorDialog(
+            groupToEdit = groupToEdit,
+            initialMemberIdsForEdit = initialMemberIdsForEdit,
+            rawCustomers = rawCustomers,
             onDismiss = {
                 showAddGroupDialog = false
                 groupToEdit = null
@@ -998,699 +263,49 @@ fun CustomersScreen(
     }
 }
 
-@Composable
-fun CustomerCardItem(
-    item: CustomerWithBalance,
-    currencySymbol: String,
-    onClick: () -> Unit,
-    onCallClick: () -> Unit,
-    onWhatsAppClick: () -> Unit,
-    onPdfStatementClick: () -> Unit,
-    onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
-) {
-    val customer = item.customer
-    val isDark = isAppDark()
-    var menuExpanded by remember(customer.id) { mutableStateOf(false) }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp)
-            .shadow(1.5.dp, RoundedCornerShape(16.dp))
-            .clickable { onClick() }
-            .testTag("customer_card_${customer.id}"),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp)
-        ) {
-            // 1. الصف الأول: أيقونة (صاحب بئر أو عميل) بجانبها اسم العميل مباشرة + أزرار الإجراءات مثل ما هي
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    // أيقونة صاحب بئر أو مزارع بجانب الاسم مباشرة
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isDark) (if (customer.isWellOwner) Color(0xFF0288D1).copy(alpha = 0.2f) else Color(0xFF2E7D32).copy(alpha = 0.25f))
-                                else if (customer.isWellOwner) Color(0xFFE1F5FE)
-                                else Color(0xFFE8F5E9)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = if (customer.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Park,
-                            contentDescription = if (customer.isWellOwner) "صاحب بئر" else "مزارع",
-                            tint = if (customer.isWellOwner) (if (isDark) Color(0xFF38BDF8) else Color(0xFF0288D1)) else (if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32)),
-                            modifier = Modifier.size(19.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Text(
-                        text = customer.name,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 15.sp
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(6.dp))
-
-                val screenWidth = LocalConfiguration.current.screenWidthDp
-                val isCompactCard = screenWidth < 410
-                val isUltraCompact = screenWidth < 330
-
-                // الأزرار المتجاوبة: في الشاشات العادية تظهر الأزرار، وفي الشاشات المضغوطة يقتصر الكرت على الأهم أو الثلاث نقاط
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    if (!isUltraCompact && customer.phone.isNotEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(PrimaryTeal.copy(alpha = 0.12f))
-                                .clickable { onCallClick() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Call,
-                                contentDescription = "اتصال",
-                                tint = PrimaryTeal,
-                                modifier = Modifier.size(15.dp)
-                            )
-                        }
-
-                        if (!isCompactCard) {
-                            Box(
-                                modifier = Modifier
-                                    .size(30.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF2E7D32).copy(alpha = 0.12f))
-                                    .clickable { onWhatsAppClick() },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.Send,
-                                    contentDescription = "إرسال كشف",
-                                    tint = Color(0xFF2E7D32),
-                                    modifier = Modifier.size(15.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    if (!isCompactCard) {
-                        Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(AccentGold.copy(alpha = 0.14f))
-                                .clickable { onPdfStatementClick() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PictureAsPdf,
-                                contentDescription = "كشف حساب PDF",
-                                tint = AccentGold,
-                                modifier = Modifier.size(15.dp)
-                            )
-                        }
-                    }
-
-                    Box {
-                        Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                                .clickable { menuExpanded = true },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = "خيارات",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(15.dp)
-                            )
-                        }
-
-                        DropdownMenu(
-                            expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("عرض كشف الحساب", fontWeight = FontWeight.Bold) },
-                                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal) },
-                                onClick = {
-                                    menuExpanded = false
-                                    onClick()
-                                }
-                            )
-                            if (customer.phone.isNotEmpty()) {
-                                DropdownMenuItem(
-                                    text = { Text("اتصال هاتفي (${customer.phone})") },
-                                    leadingIcon = { Icon(Icons.Default.Call, contentDescription = null, tint = PrimaryTeal) },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onCallClick()
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("إرسال كشف عبر واتساب") },
-                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF2E7D32)) },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onWhatsAppClick()
-                                    }
-                                )
-                            }
-                            DropdownMenuItem(
-                                text = { Text("تصدير كشف حساب PDF") },
-                                leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
-                                onClick = {
-                                    menuExpanded = false
-                                    onPdfStatementClick()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(if (customer.isWellOwner) "تعديل حساب البئر" else "تعديل العميل") },
-                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                onClick = {
-                                    menuExpanded = false
-                                    onEditClick()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("أرشفة الحساب", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
-                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
-                                onClick = {
-                                    menuExpanded = false
-                                    onDeleteClick()
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // 2. الصف الثاني: الحركات والرقم
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // شارة عدد العمليات
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFFE3F2FD))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        text = "${item.totalOperationsCount} حركة",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0xFF1976D2),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp
-                        )
-                    )
-                }
-
-                if (customer.customGroup.isNotBlank()) {
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(AccentGold.copy(alpha = 0.15f))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = customer.customGroup,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = if (isDark) Color(0xFFFDE68A) else Color(0xFFB45309),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp
-                            )
-                        )
-                    }
-                }
-
-                val subInfo = buildList {
-                    if (customer.phone.isNotBlank()) add(customer.phone)
-                    if (customer.farmName.isNotBlank()) add(customer.farmName)
-                }.joinToString(" • ")
-
-                if (subInfo.isNotEmpty()) {
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = subInfo,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 11.sp
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(7.dp))
-
-            // 3. الصف الثالث: المبلغ باللون الأحمر أو الأخضر أو مسدد (يتوسط البطاقة أفقياً) مع التفقيط باللغة العربية
-            val (statusText, statusAmount, statusColor) = if (customer.isWellOwner) {
-                val net = item.payableBalance - item.receivableBalance
-                when {
-                    net > 0.001 -> Triple("له", net, Color(0xFF2E7D32))
-                    net < -0.001 -> Triple("عليه", -net, Color(0xFFE53935))
-                    else -> Triple("مسدد", 0.0, AccentEmerald)
-                }
-            } else {
-                when {
-                    item.receivableBalance > 0.001 -> Triple("عليه", item.receivableBalance, Color(0xFFE53935))
-                    item.receivableBalance < -0.001 -> Triple("له", -item.receivableBalance, Color(0xFF2E7D32))
-                    else -> Triple("مسدد", 0.0, AccentEmerald)
-                }
-            }
-
-            if (statusText == "مسدد") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (isDark) Color(0xFF132A1C) else Color(0xFFE8F5E9))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = AccentEmerald,
-                                modifier = Modifier.size(15.dp)
-                            )
-                            Text(
-                                text = "مسدد",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = AccentEmerald,
-                                    fontSize = 13.5.sp
-                                )
-                            )
-                        }
-                    }
-                }
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        text = "$statusText: ${Formatters.formatCurrency(statusAmount, currencySymbol)}",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Black,
-                            color = statusColor,
-                            fontSize = 16.5.sp
-                        ),
-                        textAlign = TextAlign.Center
-                    )
-                    val tafqeetWords = Formatters.amountToArabicWords(statusAmount, currencySymbol)
-                    if (tafqeetWords.isNotBlank()) {
-                        Text(
-                            text = tafqeetWords,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = statusColor.copy(alpha = 0.90f),
-                                fontSize = 11.sp
-                            ),
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun QuickAddOptionItem(
-    icon: ImageVector,
-    iconTint: Color,
-    iconBg: Color,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(iconBg),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 15.sp
-                    )
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
-                    )
-                )
-            }
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun CustomersDropdownFilterRow(
-    accountFilter: AccountFilter,
-    balanceFilter: CustomerBalanceFilter,
-    selectedGroup: String?,
-    customGroups: List<String>,
-    sortType: CustomerSort,
+/**
+ * إجمالي (عليك / لك) للشريط المالي السفلي حسب نوع الحساب المختار
+ */
+private fun computeLedgerTotals(
     rawCustomers: List<CustomerWithBalance>,
-    debtorCount: Int,
-    creditorCount: Int,
-    settledCount: Int,
-    onSelectAccountFilter: (AccountFilter) -> Unit,
-    onSelectBalanceFilter: (CustomerBalanceFilter) -> Unit,
-    onSelectGroup: (String?) -> Unit,
-    onSelectSortType: (CustomerSort) -> Unit,
-    onAddGroupClick: () -> Unit,
-    onManageGroupsClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var showTypeMenu by remember { mutableStateOf(false) }
-    var showBalanceMenu by remember { mutableStateOf(false) }
-    var showGroupMenu by remember { mutableStateOf(false) }
-    var showSortMenu by remember { mutableStateOf(false) }
-
-    MosaribFilterRow(
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(0.dp)
-    ) {
-        // 1. فلتر النوع (الكل، مزارعين، آبار)
-        Box {
-            MosaribFilterChip(
-                selected = accountFilter != AccountFilter.ALL,
-                onClick = { showTypeMenu = true },
-                label = when (accountFilter) {
-                    AccountFilter.ALL -> "النوع: الكل"
-                    AccountFilter.FARMERS -> "مزارعون"
-                    AccountFilter.WELL_OWNERS -> "أصحاب الآبار"
-                },
-                isCompact = true,
-                leadingIcon = {
-                    when (accountFilter) {
-                        AccountFilter.ALL -> null
-                        AccountFilter.FARMERS -> Icon(Icons.Default.Park, null, modifier = Modifier.size(14.dp), tint = if (accountFilter != AccountFilter.ALL) Color.White else Color(0xFF2E7D32))
-                        AccountFilter.WELL_OWNERS -> Icon(Icons.Default.WaterDrop, null, modifier = Modifier.size(14.dp), tint = if (accountFilter != AccountFilter.ALL) Color.White else PrimaryTeal)
-                    }
-                }
-            )
-            DropdownMenu(
-                expanded = showTypeMenu,
-                onDismissRequest = { showTypeMenu = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text("الكل (${rawCustomers.size})") },
-                    onClick = {
-                        onSelectAccountFilter(AccountFilter.ALL)
-                        showTypeMenu = false
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("مزارعون (${rawCustomers.count { !it.customer.isWellOwner }})") },
-                    leadingIcon = { Icon(Icons.Default.Park, null, tint = Color(0xFF2E7D32), modifier = Modifier.size(18.dp)) },
-                    onClick = {
-                        onSelectAccountFilter(AccountFilter.FARMERS)
-                        showTypeMenu = false
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("أصحاب الآبار (${rawCustomers.count { it.customer.isWellOwner }})") },
-                    leadingIcon = { Icon(Icons.Default.WaterDrop, null, tint = PrimaryTeal, modifier = Modifier.size(18.dp)) },
-                    onClick = {
-                        onSelectAccountFilter(AccountFilter.WELL_OWNERS)
-                        showTypeMenu = false
-                    }
-                )
-            }
+    accountFilter: AccountFilter
+): Pair<Double, Double> = when (accountFilter) {
+    AccountFilter.ALL -> {
+        val owedBy = rawCustomers.sumOf {
+            if (it.customer.isWellOwner) it.payableBalance
+            else if (it.receivableBalance < 0) -it.receivableBalance
+            else 0.0
         }
-
-        // 2. فلتر الحالة / الرصيد (الكل، عليه، له، متوازن)
-        Box {
-            MosaribFilterChip(
-                selected = balanceFilter != CustomerBalanceFilter.ALL,
-                onClick = { showBalanceMenu = true },
-                label = when (balanceFilter) {
-                    CustomerBalanceFilter.ALL -> "الحالة: الكل"
-                    CustomerBalanceFilter.DEBTOR -> "عليه ($debtorCount)"
-                    CustomerBalanceFilter.CREDITOR -> "له ($creditorCount)"
-                    CustomerBalanceFilter.SETTLED -> "متوازن ($settledCount)"
-                },
-                isCompact = true,
-                leadingIcon = {
-                    when (balanceFilter) {
-                        CustomerBalanceFilter.ALL -> null
-                        CustomerBalanceFilter.DEBTOR -> Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(if (balanceFilter != CustomerBalanceFilter.ALL) Color.White else Color(0xFFE53935)))
-                        CustomerBalanceFilter.CREDITOR -> Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(if (balanceFilter != CustomerBalanceFilter.ALL) Color.White else Color(0xFF2E7D32)))
-                        CustomerBalanceFilter.SETTLED -> Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(13.dp), tint = if (balanceFilter != CustomerBalanceFilter.ALL) Color.White else AccentEmerald)
-                    }
-                }
-            )
-            DropdownMenu(
-                expanded = showBalanceMenu,
-                onDismissRequest = { showBalanceMenu = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text("الكل") },
-                    onClick = {
-                        onSelectBalanceFilter(CustomerBalanceFilter.ALL)
-                        showBalanceMenu = false
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("عليه ($debtorCount)") },
-                    leadingIcon = { Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(Color(0xFFE53935))) },
-                    onClick = {
-                        onSelectBalanceFilter(CustomerBalanceFilter.DEBTOR)
-                        showBalanceMenu = false
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("له ($creditorCount)") },
-                    leadingIcon = { Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(Color(0xFF2E7D32))) },
-                    onClick = {
-                        onSelectBalanceFilter(CustomerBalanceFilter.CREDITOR)
-                        showBalanceMenu = false
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("متوازن ($settledCount)") },
-                    leadingIcon = { Icon(Icons.Default.CheckCircle, null, tint = AccentEmerald, modifier = Modifier.size(16.dp)) },
-                    onClick = {
-                        onSelectBalanceFilter(CustomerBalanceFilter.SETTLED)
-                        showBalanceMenu = false
-                    }
-                )
-            }
-        }
-
-        // 3. فلتر المجموعة
-        Box {
-            MosaribFilterChip(
-                selected = selectedGroup != null,
-                onClick = { showGroupMenu = true },
-                label = selectedGroup ?: "المجموعة: الكل",
-                isCompact = true,
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Bookmarks,
-                        contentDescription = null,
-                        modifier = Modifier.size(13.dp),
-                        tint = if (selectedGroup != null) Color.White else AccentGold
-                    )
-                }
-            )
-            DropdownMenu(
-                expanded = showGroupMenu,
-                onDismissRequest = { showGroupMenu = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text("كل المجموعات") },
-                    onClick = {
-                        onSelectGroup(null)
-                        showGroupMenu = false
-                    }
-                )
-                customGroups.forEach { grp ->
-                    val count = rawCustomers.count { it.customer.customGroup.trim().equals(grp.trim(), ignoreCase = true) }
-                    DropdownMenuItem(
-                        text = { Text("$grp ($count)") },
-                        leadingIcon = { Icon(Icons.Default.Bookmarks, null, tint = AccentGold, modifier = Modifier.size(16.dp)) },
-                        onClick = {
-                            onSelectGroup(grp)
-                            showGroupMenu = false
-                        }
-                    )
-                }
-                if (customGroups.isNotEmpty()) {
-                    HorizontalDivider()
-                }
-                DropdownMenuItem(
-                    text = { Text("إدارة المجموعات ⚙️", fontWeight = FontWeight.Bold) },
-                    onClick = {
-                        showGroupMenu = false
-                        onManageGroupsClick()
-                    }
-                )
-            }
-        }
-
-        // 4. زر إضافة مجموعة (+ مجموعة)
-        Surface(
-            shape = RoundedCornerShape(9.dp),
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-            modifier = Modifier
-                .clip(RoundedCornerShape(9.dp))
-                .clickable { onAddGroupClick() }
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(3.dp))
-                Text(
-                    text = "مجموعة",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                )
-            }
-        }
-
-        // فاصل
-        Box(
-            modifier = Modifier
-                .width(1.dp)
-                .height(18.dp)
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-        )
-
-        // 5. الترتيب
-        Box {
-            MosaribFilterChip(
-                selected = sortType != CustomerSort.NAME,
-                onClick = { showSortMenu = true },
-                label = when (sortType) {
-                    CustomerSort.NAME -> "الاسم"
-                    CustomerSort.HIGHEST_DEBT -> "الأعلى رصيداً"
-                    CustomerSort.MOST_WATER_HOURS -> "الأكثر ساعات"
-                },
-                isCompact = true,
-                leadingIcon = {
-                    Icon(Icons.Default.ArrowDownward, null, modifier = Modifier.size(13.dp))
-                }
-            )
-            DropdownMenu(
-                expanded = showSortMenu,
-                onDismissRequest = { showSortMenu = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text("الاسم") },
-                    onClick = {
-                        onSelectSortType(CustomerSort.NAME)
-                        showSortMenu = false
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("الأعلى رصيداً") },
-                    onClick = {
-                        onSelectSortType(CustomerSort.HIGHEST_DEBT)
-                        showSortMenu = false
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("الأكثر ساعات") },
-                    onClick = {
-                        onSelectSortType(CustomerSort.MOST_WATER_HOURS)
-                        showSortMenu = false
-                    }
-                )
-            }
-        }
+        val owedTo = rawCustomers.sumOf { it.receivableBalance.coerceAtLeast(0.0) }
+        Pair(owedBy, owedTo)
+    }
+    AccountFilter.FARMERS -> {
+        val farmers = rawCustomers.filter { !it.customer.isWellOwner }
+        val owedBy = farmers.sumOf { if (it.receivableBalance < 0) -it.receivableBalance else 0.0 }
+        val owedTo = farmers.sumOf { it.receivableBalance.coerceAtLeast(0.0) }
+        Pair(owedBy, owedTo)
+    }
+    AccountFilter.WELL_OWNERS -> {
+        val owners = rawCustomers.filter { it.customer.isWellOwner }
+        val owedBy = owners.sumOf { it.payableBalance }
+        val owedTo = owners.sumOf { it.receivableBalance.coerceAtLeast(0.0) }
+        Pair(owedBy, owedTo)
     }
 }
 
+/**
+ * القائمة الأساسية لعدّادات حالة الرصيد (بعد تطبيق نوع الحساب والمجموعة فقط)
+ */
+private fun filterForBalanceBadges(
+    rawCustomers: List<CustomerWithBalance>,
+    accountFilter: AccountFilter,
+    selectedGroup: String?
+): List<CustomerWithBalance> {
+    val byAcc = when (accountFilter) {
+        AccountFilter.ALL -> rawCustomers
+        AccountFilter.FARMERS -> rawCustomers.filter { !it.customer.isWellOwner }
+        AccountFilter.WELL_OWNERS -> rawCustomers.filter { it.customer.isWellOwner }
+    }
+    return if (selectedGroup.isNullOrBlank()) byAcc
+    else byAcc.filter { it.customer.customGroup.trim().equals(selectedGroup.trim(), ignoreCase = true) }
+}

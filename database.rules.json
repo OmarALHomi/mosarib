@@ -1,52 +1,105 @@
 {
   "rules": {
-    "subscription_requests": {
-      ".read": true,
-      ".write": true
-    },
-    "feedbacks": {
-      ".read": true,
-      ".write": true
-    },
-    "all_users": {
-      ".read": true,
-      ".write": true
-    },
-    "devices": {
-      ".read": true,
-      ".write": true
-    },
+    ".read": false,
+    ".write": false,
+
     "licenses": {
-      ".read": true,
-      ".write": true
+      "$key": {
+        ".read": true,
+        "lastCheckedAt": { ".write": "data.parent().child('deviceCode').exists()", ".validate": "newData.isNumber() && newData.val() <= now + 600000" },
+        "deviceModel": { ".write": "data.parent().child('deviceCode').exists()", ".validate": "newData.isString() && newData.val().length <= 100" },
+        "androidVersion": { ".write": "data.parent().child('deviceCode').exists()", ".validate": "newData.isString() && newData.val().length <= 100" },
+        "subscriberName": { ".write": "data.parent().child('deviceCode').exists()", ".validate": "newData.isString() && newData.val().length <= 100" }
+      }
     },
-    "blocked_emails": {
-      ".read": true,
-      ".write": true
+
+    "devices": {
+      "$deviceCode": { ".read": true }
     },
-    "app_broadcast": {
-      ".read": true,
-      ".write": true
-    },
-    "app_config": {
-      ".read": true,
-      ".write": true
-    },
+
     "device_overrides": {
-      ".read": true,
-      ".write": true
+      "$deviceKey": { ".read": true }
     },
+
+    "blocked_emails": {
+      "$emailKey": { ".read": true }
+    },
+
+    "all_users": {
+      "$deviceKey": {
+        ".read": true,
+        "deviceCode": { ".write": true, ".validate": "newData.isString() && newData.val().replace('-', '') === $deviceKey" },
+        "cleanDeviceKey": { ".write": true, ".validate": "newData.val() === $deviceKey" },
+        "deviceModel": { ".write": true, ".validate": "newData.isString() && newData.val().length <= 100" },
+        "androidVersion": { ".write": true, ".validate": "newData.isString() && newData.val().length <= 100" },
+        "appVersion": { ".write": true, ".validate": "newData.isString() && newData.val().length <= 30" },
+        "versionCode": { ".write": true, ".validate": "newData.isNumber()" },
+        "googleEmail": { ".write": true, ".validate": "newData.isString() && newData.val().length <= 200" },
+        "googleDisplayName": { ".write": true, ".validate": "newData.isString() && newData.val().length <= 100" },
+        "subscriberName": { ".write": true, ".validate": "newData.isString() && newData.val().length <= 100" },
+        "phone": { ".write": true, ".validate": "newData.isString() && newData.val().length <= 30" },
+        "isActivated": { ".write": true, ".validate": "newData.isBoolean()" },
+        "plan": { ".write": true, ".validate": "newData.isString() && newData.val().length <= 20" },
+        "operationsCount": { ".write": true, ".validate": "newData.isNumber() && newData.val() >= 0 && (!data.exists() || newData.val() >= data.val())" },
+        "cumulativeOpsCount": { ".write": true, ".validate": "newData.isNumber() && newData.val() >= 0 && (!data.exists() || newData.val() >= data.val())" },
+        "trialConsumed": { ".write": true, ".validate": "newData.isBoolean() && (!data.exists() || data.val() === false || newData.val() === true)" },
+        "firstSeen": { ".write": true, ".validate": "newData.isNumber()" },
+        "lastActiveAt": { ".write": true, ".validate": "newData.isNumber() && newData.val() <= now + 600000" },
+        "pricePerHour": { ".write": true, ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "hourlyRate": { ".write": true, ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "priceUpdatedAt": { ".write": true, ".validate": "newData.isNumber() && newData.val() <= now + 600000" }
+      }
+    },
+
+    "email_index": {
+      "$emailKey": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChildren(['deviceKey', 'updatedAt'])",
+        "deviceKey": { ".validate": "newData.isString() && newData.val().length <= 20" },
+        "subscriberName": { ".validate": "newData.isString() && newData.val().length <= 100" },
+        "phone": { ".validate": "newData.isString() && newData.val().length <= 30" },
+        "updatedAt": { ".validate": "newData.isNumber() && newData.val() <= now + 600000" },
+        "$other": { ".validate": false }
+      }
+    },
+
     "fcm_tokens": {
-      ".read": true,
-      ".write": true
+      "$deviceKey": {
+        ".write": true,
+        ".validate": "newData.hasChildren(['deviceCode', 'fcmToken', 'updatedAt']) && newData.child('deviceCode').isString() && newData.child('deviceCode').val().replace('-', '') === $deviceKey",
+        "fcmToken": { ".validate": "newData.isString() && newData.val().length <= 4096" },
+        "updatedAt": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": "$other === 'deviceCode'" }
+      }
     },
-    "portal_settings": {
-      ".read": true,
-      ".write": true
+
+    "subscription_requests": {
+      "$requestId": {
+        ".write": "!data.exists()",
+        ".validate": "newData.hasChildren(['subscriberName', 'phone', 'deviceCode', 'timestamp']) && newData.child('status').val() === 'PENDING' && $requestId.length <= 64",
+        "subscriberName": { ".validate": "newData.isString() && newData.val().length <= 100" },
+        "phone": { ".validate": "newData.isString() && newData.val().length <= 30" },
+        "deviceCode": { ".validate": "newData.isString() && newData.val().length <= 20" },
+        "timestamp": { ".validate": "newData.isNumber() && newData.val() <= now + 600000" },
+        "$other": { ".validate": "newData.isString() ? newData.val().length <= 300 : (newData.isNumber() || newData.isBoolean())" }
+      }
     },
-    "subscription_pricing": {
-      ".read": true,
-      ".write": true
-    }
+
+    "feedbacks": {
+      "$feedbackId": {
+        ".write": "!data.exists()",
+        ".validate": "newData.hasChildren(['message', 'deviceCode', 'timestamp']) && $feedbackId.length <= 64",
+        "message": { ".validate": "newData.isString() && newData.val().length <= 2000" },
+        "timestamp": { ".validate": "newData.isNumber() && newData.val() <= now + 600000" },
+        "$other": { ".validate": "newData.isString() ? newData.val().length <= 300 : (newData.isNumber() || newData.isBoolean())" }
+      }
+    },
+
+    "app_broadcast": { ".read": true },
+    "app_config": { ".read": true },
+    "portal_settings": { ".read": true },
+    "subscription_pricing": { ".read": true },
+    "payment_methods": { ".read": true }
   }
 }
