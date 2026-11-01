@@ -50,7 +50,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
-import com.example.features.home.LivingThemeToggleButton
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -120,8 +124,8 @@ enum class AppTab(
     val unselectedIcon: ImageVector,
     val testTag: String
 ) {
-    REPORTS("إحصائيات", Icons.Filled.Assessment, Icons.Default.Assessment, "tab_reports"),
-    CUSTOMERS("إدارة العملاء", Icons.Filled.People, Icons.Outlined.People, "tab_customers"),
+    REPORTS("التقارير", Icons.Filled.Assessment, Icons.Default.Assessment, "tab_reports"),
+    CUSTOMERS("العملاء", Icons.Filled.People, Icons.Outlined.People, "tab_customers"),
     HOME("الرئيسية", Icons.Filled.Home, Icons.Outlined.Home, "tab_home"),
     VOUCHERS("العمليات", Icons.AutoMirrored.Filled.ReceiptLong, Icons.AutoMirrored.Outlined.ReceiptLong, "tab_vouchers"),
     SETTINGS("الإعدادات", Icons.Filled.Settings, Icons.Outlined.Settings, "tab_settings")
@@ -252,13 +256,7 @@ fun MainApp(
                             CenterAlignedTopAppBar(
                                 title = {
                                     Text(
-                                        text = when (currentTab) {
-                                            AppTab.REPORTS -> "إحصائيات"
-                                            AppTab.CUSTOMERS -> "إدارة العملاء"
-                                            AppTab.VOUCHERS -> "العمليات"
-                                            AppTab.SETTINGS -> "الإعدادات"
-                                            else -> ""
-                                        },
+                                        text = currentTab.title,
                                         style = MaterialTheme.typography.titleLarge.copy(
                                             fontWeight = FontWeight.ExtraBold,
                                             color = MaterialTheme.colorScheme.onSurface
@@ -268,16 +266,6 @@ fun MainApp(
                                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                                     containerColor = MaterialTheme.colorScheme.surface
                                 ),
-                                navigationIcon = {
-                                    LivingThemeToggleButton(
-                                        isDarkTheme = darkTheme,
-                                        onToggle = {
-                                            val nextMode = if (darkTheme) "LIGHT" else "DARK"
-                                            settingsViewModel.updateThemeMode(nextMode)
-                                        },
-                                        modifier = Modifier.padding(start = 8.dp)
-                                    )
-                                },
                                 actions = {
                                     if (currentTab == AppTab.REPORTS) {
                                         IconButton(
@@ -351,13 +339,15 @@ fun MainApp(
                                     }
 
                                     // زر الفيدباك والآراء السريع
-                                    IconButton(onClick = { showFeedbackDialog = true }) {
-                                        Icon(
-                                            imageVector = Icons.Default.Star,
-                                            contentDescription = "شاركنا رأيك",
-                                            tint = AccentGold,
-                                            modifier = Modifier.size(24.dp)
-                                        )
+                                    if (currentTab == AppTab.SETTINGS) {
+                                        IconButton(onClick = { showFeedbackDialog = true }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Star,
+                                                contentDescription = "شاركنا رأيك",
+                                                tint = AccentGold,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
                                     }
 
                                     // أيقونة خط خارجي دائرية بعدد العمليات المتبقية يتغير لونها مع النفاذ
@@ -375,9 +365,14 @@ fun MainApp(
                                         Box(
                                             modifier = Modifier
                                                 .padding(horizontal = 8.dp)
+                                                .minimumInteractiveComponentSize()
                                                 .size(36.dp)
                                                 .clip(CircleShape)
-                                                .clickable { showLicenseDialog = true },
+                                                .clickable { showLicenseDialog = true }
+                                                .semantics {
+                                                    contentDescription = "العمليات المجانية المتبقية: $remaining"
+                                                    role = Role.Button
+                                                },
                                             contentAlignment = Alignment.Center
                                         ) {
                                             CircularProgressIndicator(
@@ -396,7 +391,6 @@ fun MainApp(
                                                 text = "$remaining",
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     fontWeight = FontWeight.ExtraBold,
-                                                    fontSize = 9.5.sp,
                                                     color = indicatorColor
                                                 )
                                             )
@@ -424,6 +418,7 @@ fun MainApp(
                     ) {
                         HorizontalPager(
                             state = pagerState,
+                            userScrollEnabled = false,
                             modifier = Modifier.fillMaxSize()
                         ) { page ->
                             when (tabs[page]) {

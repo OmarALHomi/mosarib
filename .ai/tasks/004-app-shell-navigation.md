@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 # Task 004: App shell — bottom bar, tab titles, top bar clean-up
 
@@ -53,4 +53,8 @@ status: ready
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+**2026-11-01 — accepted.** All five points are done. Build and tests pass (re-run by Claude).
+- Claude restored `.clip(CircleShape)` on the free-operations counter. It had been dropped,
+  which made its ripple square.
+- The 360dp fit in the report is an estimate, not a measurement. Confirm it on the device.
+- `MosaribNavItemData.labelLine2` is now always null. Remove it when the nav bar is next touched.

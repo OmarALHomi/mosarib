@@ -16,6 +16,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -555,7 +558,7 @@ val mosaribNavItems = listOf(
     MosaribNavItemData(0, "التقارير", null, "tab_reports"),
     MosaribNavItemData(1, "العملاء", null, "tab_customers"),
     MosaribNavItemData(2, "الرئيسية", null, "tab_home"),
-    MosaribNavItemData(3, "سجل", "العمليات", "tab_vouchers"),
+    MosaribNavItemData(3, "العمليات", null, "tab_vouchers"),
     MosaribNavItemData(4, "الإعدادات", null, "tab_settings")
 )
 
@@ -683,10 +686,12 @@ fun MosaribNavBar(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .clickable(
+                        .selectable(
+                            selected = isSelected,
+                            onClick = { onItemSelected(index) },
+                            role = Role.Tab,
                             interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(bounded = true, radius = 32.dp),
-                            onClick = { onItemSelected(index) }
+                            indication = ripple(bounded = true, radius = 32.dp)
                         )
                         .padding(bottom = 2.dp)
                         .testTag(item.testTag),
@@ -720,34 +725,20 @@ fun MosaribNavBar(
                         Spacer(modifier = Modifier.height(2.dp))
                     }
 
-                    // Text label (supports 2 lines with proper line height to avoid clipping)
-                    val baseFontSize = if (isCompactHeight) 8.sp else 9.sp
-                    val selectedFontSize = if (isCompactHeight) 8.5.sp else 9.5.sp
-                    val singleLineFontSize = if (isSelected) {
-                        if (isCompactHeight) 9.5.sp else 10.5.sp
+                    val fontSize = if (isSelected) {
+                        if (isCompactHeight) 11.sp else 12.sp
                     } else {
-                        if (isCompactHeight) 8.5.sp else 9.5.sp
+                        if (isCompactHeight) 10.5.sp else 11.sp
                     }
-                    if (item.labelLine2 != null) {
-                        Text(
-                            text = "${item.labelLine1}\n${item.labelLine2}",
-                            fontSize = if (isSelected) selectedFontSize else baseFontSize,
-                            lineHeight = if (isCompactHeight) 9.5.sp else 10.5.sp,
-                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
-                            color = currentTint,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2
-                        )
-                    } else {
-                        Text(
-                            text = item.labelLine1,
-                            fontSize = singleLineFontSize,
-                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
-                            color = currentTint,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1
-                        )
-                    }
+                    Text(
+                        text = item.labelLine1,
+                        fontSize = fontSize,
+                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
+                        color = currentTint,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
             }
         }
@@ -763,6 +754,7 @@ fun MosaribNavBar(
                     indication = ripple(bounded = false, radius = 36.dp),
                     onClick = { onItemSelected(selectedIndex) }
                 )
+                .clearAndSetSemantics { }
                 .testTag("floating_tab_indicator"),
             contentAlignment = Alignment.Center
         ) {
