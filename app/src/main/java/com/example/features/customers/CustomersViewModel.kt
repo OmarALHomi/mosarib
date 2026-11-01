@@ -385,6 +385,12 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 var insertedCount = 0
                 var updatedCount = 0
+                var skippedOperationsCount = 0
+
+                val allExistingSessions = db.waterSessionDao().getAllSessions().first()
+                val allExistingVouchers = db.voucherDao().getAllVouchers().first()
+                val matchedSessionIds = mutableSetOf<Long>()
+                val matchedVoucherIds = mutableSetOf<Long>()
 
                 db.withTransaction {
                     val existingCustomers = customerRepo.getAllCustomersDirect()
@@ -431,10 +437,28 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                             newId
                         }
 
+                        val filterResult = if (existing != null) {
+                            ImportDuplicateFinder.filterOperationsToImport(
+                                targetCustomerId = targetCustomerId,
+                                draft = draft,
+                                existingSessions = allExistingSessions,
+                                existingVouchers = allExistingVouchers,
+                                matchedSessionIds = matchedSessionIds,
+                                matchedVoucherIds = matchedVoucherIds
+                            )
+                        } else {
+                            FilteredImportResult(
+                                operationsToInsert = if (draft.attachedOperations.size > 1) draft.attachedOperations else emptyList(),
+                                shouldInsertInitialBalance = true,
+                                skippedCount = 0
+                            )
+                        }
+                        skippedOperationsCount += filterResult.skippedCount
+
                         // قيد العمليات المجمعة أو الرصيد الافتتاحي
                         val now = System.currentTimeMillis()
                         if (draft.attachedOperations.size > 1) {
-                            for (op in draft.attachedOperations) {
+                            for (op in filterResult.operationsToInsert) {
                                 val opTime = op.date ?: now
                                 if (op.type == "DEBIT") {
                                     if (debitMode == ImportDebitMode.EXPENSE) {
@@ -482,7 +506,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                                     )
                                 }
                             }
-                        } else if (draft.initialBalance > 0.0) {
+                        } else if (draft.initialBalance > 0.0 && filterResult.shouldInsertInitialBalance) {
                             val opTime = draft.attachedOperations.firstOrNull()?.date ?: now
                             if (draft.isDebit) {
                                 if (debitMode == ImportDebitMode.EXPENSE) {
@@ -543,11 +567,16 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
 
                 _importDrafts.value = null
 
-                val msg = when {
+                val baseMsg = when {
                     insertedCount > 0 && updatedCount > 0 -> "تم استيراد $insertedCount حساب جديد وتحديث $updatedCount حساب بنجاح"
                     insertedCount > 0 -> "تم استيراد $insertedCount حساب بنجاح"
                     updatedCount > 0 -> "تم تحديث $updatedCount حساب بنجاح"
                     else -> "اكتملت العملية"
+                }
+                val msg = if (skippedOperationsCount > 0) {
+                    "$baseMsg وتم تخطي $skippedOperationsCount عملية مستوردة مسبقاً"
+                } else {
+                    baseMsg
                 }
                 showToast(msg, ToastType.SUCCESS)
             } catch (e: Exception) {

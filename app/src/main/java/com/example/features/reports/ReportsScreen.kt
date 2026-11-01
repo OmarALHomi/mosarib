@@ -40,6 +40,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -72,6 +73,7 @@ import com.example.core.util.Formatters
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
+import com.example.ui.theme.mosarib
 import com.example.ui.theme.SecondaryAqua
 import kotlin.math.max
 
@@ -113,7 +115,7 @@ fun ReportsScreen(
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 10.dp, bottom = 96.dp)
+            contentPadding = PaddingValues(top = 10.dp, bottom = 20.dp)
         ) {
             // Period Filters Row (Compact & Borderless)
             item {
@@ -216,7 +218,7 @@ fun ReportsScreen(
             onDismiss = { viewModel.dismissToast() },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 85.dp)
+                .padding(bottom = 16.dp)
         )
 
         // Unified Mosarib Date Pickers for custom range filter
@@ -464,6 +466,27 @@ private fun HeroProfitCard(
                             color = Color(0xFFFF6B6B),
                             label = "مصاريف التشغيل",
                             value = Formatters.formatCurrency(stats.totalPumpExpenses, currencySymbol)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "صرف للعملاء (يُضاف لديونهم)",
+                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted)
+                        )
+                        Text(
+                            text = Formatters.formatCurrency(stats.customerDisbursements, currencySymbol),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (stats.customerDisbursements > 0) MaterialTheme.mosarib.warning else MaterialTheme.colorScheme.onSurface
+                            )
                         )
                     }
                 } else {

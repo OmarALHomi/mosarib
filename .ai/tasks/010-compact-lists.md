@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 # Task 010: Compact customer cards and operation rows
 
@@ -78,3 +78,13 @@ can scroll above the bar. Rename its labels for clarity: "لك" → "لك عند
 ---
 ## Review notes (written by Claude)
 _(empty)_
+
+**Round 2 verdict: accepted** (2026-11-01). Voucher and purchase rows now use `OperationRow`, and
+the kebab items match the old card exactly.
+
+Gaps:
+- The customer-name link on voucher and purchase cards was lost. Task 014 adds "فتح حساب العميل"
+  to the long-press menu.
+- `.ai/reports/010.md` has no Round 2 section.
+
+The owner then judged the 009/010 look "not professional". The visual redesign is task 014.

@@ -138,7 +138,7 @@ fun SettingsScreen(
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 100.dp)
+            contentPadding = PaddingValues(bottom = 20.dp)
         ) {
             item {
                 WaterPriceSection(
@@ -276,7 +276,7 @@ fun SettingsScreen(
             onDismiss = { viewModel.dismissToast() },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 85.dp)
+                .padding(bottom = 16.dp)
         )
 
         // License Dialog

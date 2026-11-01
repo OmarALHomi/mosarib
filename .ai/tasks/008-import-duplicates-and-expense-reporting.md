@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 # Task 008: Stop duplicate imported operations, clean existing duplicates, fix expense totals
 
@@ -92,4 +92,56 @@ Add a maintenance entry in Settings (backup section, below the existing backup a
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+**Verdict: changes-requested** (2026-11-01). Build and 62 tests pass. Part C (expense split) is
+correct and accepted. Parts A and B need the fixes below.
+
+Do not set `accepted` yourself. Set `done` and Claude decides.
+
+1. **Regression in A: single-operation drafts.** `CustomersViewModel.confirmImport` and
+   `ImportDuplicateFinder.filterOperationsToImport` changed `attachedOperations.size > 1` to
+   `isNotEmpty()`. A draft with exactly one operation used to be saved as an opening balance
+   (category / pumpName "رصيد افتتاحي", notes "رصيد سابق: …"). Now it is saved as a normal
+   imported operation with other notes. Effects:
+   - re-importing a customer that was imported before with one row does **not** match the old
+     record (different notes), so it is duplicated again, which is the bug this task fixes;
+   - an opening balance edited in the review dialog is ignored for single-row customers;
+   - new single-row customers get a different record type, which is out of scope.
+
+   Fix: restore `size > 1` in both places, so the two functions branch exactly as before.
+   Add tests: (a) an existing customer with a single-op draft whose earlier record is an opening
+   balance gets 0 inserts; (b) a new single-op customer still gets one opening-balance record.
+2. **B: exact twins must come from different import runs.** Checked on a read-only copy of the
+   owner's DB. Every dated imported record appears twice, which is correct. But some customers have
+   **real repeated rows inside one import**: voucher ids `908,909` + copies `2566,2567`,
+   `1128,1130` + `2786,2788`, `2405,2406` + `4063,4064`. Today the finder keeps 1 and deletes 3,
+   so one real record is lost in each group. Some sessions repeat inside the only session import
+   (`81,82,83`, `595,599,604`, `47,75`, …), so they are not copies of each other.
+
+   Rule to implement in `find()`:
+   - Sort the imported records of one table by id. An **import run** for a customer is a
+     maximal block of that customer's records with no record of another customer between them
+     (one draft is inserted in one go, so one draft = one run).
+   - In each exact-twin group, count records per run. Keep `max(count per run)` records (from
+     the earliest run). Only the rest are duplicates.
+   - When the whole group is in one run, it has 0 duplicates.
+
+   Add tests: 2 identical in run 1 + 2 copies in run 2 gives 2 duplicates; 3 identical in one
+   run gives 0; a single-customer file imported twice gives 0, which is accepted as safe
+   under-detection.
+3. Minor: new code uses hard-coded colours and font sizes (`Color.Gray`, `Color(0xFFE65100)`,
+   `fontSize = 11.sp/11.5.sp` in `ReportsScreen.HeroProfitCard`, `Color(0xFFE53935)`,
+   `0xFFFFF3E0`, `0xFFFFEBEE`, `0xFFC62828` in `SettingsBackupDialogs`). Use `MaterialTheme.mosarib`
+   (`debt`, `warning`, `warningContainer`, `textMuted`) and typography styles.
+
+Allowed files for this round: `CustomersViewModel.kt`, `ImportDuplicateFinder.kt`,
+`ReportsScreen.kt` (that one row), `SettingsBackupDialogs.kt`, and the test file. Add a "Round 2"
+section to `.ai/reports/008.md`.
+
+**Round 2 verdict: accepted** (2026-11-01). Build and 67 tests pass.
+- Single-op drafts again use `size > 1`, with tests for both cases.
+- `find()` respects import runs (a group inside one run has 0 duplicates; otherwise it keeps the
+  largest per-run count).
+- Colours in the new code use tokens.
+
+Not yet verified on the device: the phone was disconnected. The expected scan result on the
+owner's data is about 2,520 instead of 2,527, because the 3 real twin pairs are now kept.

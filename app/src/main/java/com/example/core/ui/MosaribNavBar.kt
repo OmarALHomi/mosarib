@@ -1,117 +1,37 @@
 package com.example.core.ui
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
-import android.content.res.Configuration
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.ui.theme.PrimaryTeal
-import com.example.ui.theme.SecondaryAqua
-import com.example.ui.theme.SecondaryAquaLight
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Dynamic Crested Shape that smoothly animates its peak along with active tab
-// ──────────────────────────────────────────────────────────────────────────────
-class DynamicCrestedBarShape(
-    private val centerFraction: Float,
-    private val flatTopDp: Float = 26f,
-    private val crestPeakDp: Float = 5f,
-    private val crestHalfWDp: Float = 50f
-) : Shape {
-    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
-        val w = size.width
-        val h = size.height
-        val cx = w * centerFraction
-
-        val flatTop = flatTopDp * density.density
-        val peak = crestPeakDp * density.density
-        val halfW = crestHalfWDp * density.density
-
-        val path = Path().apply {
-            moveTo(0f, flatTop)
-            val leftBound = (cx - halfW).coerceAtLeast(0f)
-            val rightBound = (cx + halfW).coerceAtMost(w)
-
-            lineTo(leftBound, flatTop)
-            cubicTo(
-                cx - halfW * 0.55f, flatTop,
-                cx - halfW * 0.45f, peak,
-                cx, peak
-            )
-            cubicTo(
-                cx + halfW * 0.45f, peak,
-                cx + halfW * 0.55f, flatTop,
-                rightBound, flatTop
-            )
-            lineTo(w, flatTop)
-            lineTo(w, h)
-            lineTo(0f, h)
-            close()
-        }
-        return Outline.Generic(path)
-    }
-}
+import kotlinx.coroutines.delay
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Exact Vector Icons from Reference Image (Canvas-drawn)
@@ -549,21 +469,20 @@ fun SettingsMaintenanceIcon(
 // ──────────────────────────────────────────────────────────────────────────────
 data class MosaribNavItemData(
     val id: Int,
-    val labelLine1: String,
-    val labelLine2: String?,
+    val label: String,
     val testTag: String
 )
 
 val mosaribNavItems = listOf(
-    MosaribNavItemData(0, "التقارير", null, "tab_reports"),
-    MosaribNavItemData(1, "العملاء", null, "tab_customers"),
-    MosaribNavItemData(2, "الرئيسية", null, "tab_home"),
-    MosaribNavItemData(3, "العمليات", null, "tab_vouchers"),
-    MosaribNavItemData(4, "الإعدادات", null, "tab_settings")
+    MosaribNavItemData(0, "التقارير", "tab_reports"),
+    MosaribNavItemData(1, "العملاء", "tab_customers"),
+    MosaribNavItemData(2, "الرئيسية", "tab_home"),
+    MosaribNavItemData(3, "العمليات", "tab_vouchers"),
+    MosaribNavItemData(4, "الإعدادات", "tab_settings")
 )
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Main MosaribNavBar Component with Fluid Animated Sliding Notch & Drop
+// Main MosaribNavBar Component with Material 3 NavigationBar + NavigationBarItem
 // ──────────────────────────────────────────────────────────────────────────────
 @Composable
 fun MosaribNavBar(
@@ -571,234 +490,90 @@ fun MosaribNavBar(
     onItemSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Determine actual theme mode from theme surface luminance (independent of OS setting)
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
-    // ── Harmonious Theme Colors ────────────────────────────────────────────────
-    val barBg = if (isDark) Color(0xFF12242B) else Color(0xFFCDE5E7)
-    val barBorderColor = if (isDark) Color(0xFF1E3C47) else Color(0xFFB8DCDF)
-    val shadowColor = if (isDark) Color(0xFF00E5FF) else PrimaryTeal
-
-    // Inactive & Active item colors
-    val inactiveTint = if (isDark) Color(0xFF7E9FA8) else Color(0xFF1B3D42)
-    val activeTint = if (isDark) SecondaryAquaLight else Color(0xFF005662)
-
-    // Center Floating Circle Button colors
-    val homeCircleBg = if (isDark) {
-        Brush.verticalGradient(listOf(Color(0xFF00E5FF), Color(0xFF00897B)))
+    val indicatorColor = if (isDark) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
     } else {
-        Brush.verticalGradient(listOf(Color(0xFF5AB6BA), Color(0xFF388E94)))
-    }
-    val homeDropSilhouette = if (isDark) Color(0xFF071920) else Color(0xFF1B3D42)
-
-    // Calculate animated horizontal fraction for the sliding notch & floating circle
-    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val targetFraction = if (isRtl) {
-        (4 - selectedIndex + 0.5f) / 5f
-    } else {
-        (selectedIndex + 0.5f) / 5f
+        MaterialTheme.colorScheme.primaryContainer
     }
 
-    val animatedFraction by animateFloatAsState(
-        targetValue = targetFraction,
-        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-        label = "crest_sliding_x"
-    )
-
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val isCompactHeight = configuration.screenHeightDp < 520 || isLandscape
-
-    val barHeight = if (isCompactHeight) 56.dp else 90.dp
-    val rowHeight = if (isCompactHeight) 48.dp else 64.dp
-    val circleSize = if (isCompactHeight) 42.dp else 60.dp
-    val circleYOffset = if (isCompactHeight) (-8).dp else (-12).dp
-    val unselectedIconSize = if (isCompactHeight) 20.dp else 28.dp
-    val circleIconSize = if (isCompactHeight) 22.dp else 32.dp
-
-    val crestedShape = remember(animatedFraction, isCompactHeight) {
-        if (isCompactHeight) {
-            DynamicCrestedBarShape(
-                centerFraction = animatedFraction,
-                flatTopDp = 16f,
-                crestPeakDp = 3f,
-                crestHalfWDp = 36f
-            )
-        } else {
-            DynamicCrestedBarShape(
-                centerFraction = animatedFraction,
-                flatTopDp = 26f,
-                crestPeakDp = 5f,
-                crestHalfWDp = 50f
-            )
-        }
-    }
-
-    BoxWithConstraints(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(barHeight)
-            .navigationBarsPadding(),
-        contentAlignment = Alignment.BottomCenter
+    NavigationBar(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp
     ) {
-        val totalWidth = maxWidth
-        // In RTL, Alignment.TopStart is anchored at the right edge, so distance from start is (1f - fraction)
-        val circleX = if (isRtl) {
-            (totalWidth * (1f - animatedFraction)) - (circleSize / 2)
-        } else {
-            (totalWidth * animatedFraction) - (circleSize / 2)
-        }
+        mosaribNavItems.forEachIndexed { index, item ->
+            val isSelected = selectedIndex == index
 
-        // ── 1. Full-Width Animated Crested Bar Background ───────────────────────
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight()
-                .shadow(
-                    elevation = if (isDark) 10.dp else 6.dp,
-                    shape = crestedShape,
-                    ambientColor = shadowColor.copy(alpha = if (isDark) 0.25f else 0.15f),
-                    spotColor = shadowColor.copy(alpha = if (isDark) 0.35f else 0.20f)
-                )
-                .clip(crestedShape)
-                .background(barBg)
-                .border(width = 1.dp, color = barBorderColor, shape = crestedShape)
-        )
+            var isBouncing by remember { mutableStateOf(false) }
+            LaunchedEffect(isSelected) {
+                if (isSelected) {
+                    isBouncing = true
+                    delay(120)
+                    isBouncing = false
+                }
+            }
 
-        // ── 2. Navigation Items Row ─────────────────────────────────────────────
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(rowHeight)
-                .align(Alignment.BottomCenter)
-                .padding(bottom = if (isCompactHeight) 2.dp else 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            mosaribNavItems.forEachIndexed { index, item ->
-                val isSelected = selectedIndex == index
-                val currentTint by animateColorAsState(
-                    targetValue = if (isSelected) activeTint else inactiveTint,
-                    animationSpec = tween(200),
-                    label = "tint_$index"
-                )
+            val iconScale by animateFloatAsState(
+                targetValue = if (isBouncing) 1.12f else 1.0f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                label = "nav_icon_bounce_${item.id}"
+            )
 
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .selectable(
-                            selected = isSelected,
-                            onClick = { onItemSelected(index) },
-                            role = Role.Tab,
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(bounded = true, radius = 32.dp)
-                        )
-                        .padding(bottom = 2.dp)
-                        .testTag(item.testTag),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    // When selected, the icon is elevated into the floating circle,
-                    // so on the bar we smoothly hide the flat icon and leave room for the label!
-                    AnimatedVisibility(
-                        visible = !isSelected,
-                        enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.8f),
-                        exit = fadeOut(tween(140)) + scaleOut(targetScale = 0.8f)
+            val itemColors = NavigationBarItemDefaults.colors(
+                selectedIconColor = MaterialTheme.colorScheme.primary,
+                selectedTextColor = MaterialTheme.colorScheme.primary,
+                indicatorColor = indicatorColor,
+                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            NavigationBarItem(
+                selected = isSelected,
+                onClick = { onItemSelected(index) },
+                icon = {
+                    Box(
+                        modifier = Modifier
+                            .graphicsLayer {
+                                scaleX = iconScale
+                                scaleY = iconScale
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier.size(unselectedIconSize),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            when (index) {
-                                0 -> AnalyticsChartIcon(tint = currentTint, modifier = Modifier.size(unselectedIconSize))
-                                1 -> CustomersBadgeIcon(tint = currentTint, modifier = Modifier.size(unselectedIconSize))
-                                2 -> HomeDropHouseIcon(dropTint = currentTint, houseTint = barBg, modifier = Modifier.size(unselectedIconSize))
-                                3 -> OperationsClipboardIcon(tint = currentTint, modifier = Modifier.size(unselectedIconSize))
-                                4 -> SettingsMaintenanceIcon(tint = currentTint, modifier = Modifier.size(unselectedIconSize))
-                            }
+                        val iconTint = if (isSelected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                        when (item.id) {
+                            0 -> AnalyticsChartIcon(tint = iconTint, modifier = Modifier.size(24.dp))
+                            1 -> CustomersBadgeIcon(tint = iconTint, modifier = Modifier.size(24.dp))
+                            2 -> HomeDropHouseIcon(
+                                dropTint = iconTint,
+                                houseTint = if (isSelected) indicatorColor else MaterialTheme.colorScheme.surface,
+                                modifier = Modifier.size(26.dp)
+                            )
+                            3 -> OperationsClipboardIcon(tint = iconTint, modifier = Modifier.size(24.dp))
+                            4 -> SettingsMaintenanceIcon(tint = iconTint, modifier = Modifier.size(24.dp))
                         }
                     }
-
-                    if (isSelected) {
-                        Spacer(modifier = Modifier.height(if (isCompactHeight) 10.dp else 18.dp))
-                    } else {
-                        Spacer(modifier = Modifier.height(2.dp))
-                    }
-
-                    val fontSize = if (isSelected) {
-                        if (isCompactHeight) 11.sp else 12.sp
-                    } else {
-                        if (isCompactHeight) 10.5.sp else 11.sp
-                    }
+                },
+                label = {
                     Text(
-                        text = item.labelLine1,
-                        fontSize = fontSize,
-                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
-                        color = currentTint,
-                        textAlign = TextAlign.Center,
+                        text = item.label,
+                        style = MaterialTheme.typography.labelMedium,
                         maxLines = 1,
                         softWrap = false
                     )
-                }
-            }
-        }
-
-        // ── 3. Fluid Sliding Floating Drop Button ───────────────────────────────
-        // The circle floats along the X axis and carries the active tab's icon!
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset(x = circleX, y = circleYOffset)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(bounded = false, radius = 36.dp),
-                    onClick = { onItemSelected(selectedIndex) }
-                )
-                .clearAndSetSemantics { }
-                .testTag("floating_tab_indicator"),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(circleSize)
-                    .shadow(
-                        elevation = if (isCompactHeight) 8.dp else 12.dp,
-                        shape = CircleShape,
-                        spotColor = shadowColor.copy(alpha = if (isDark) 0.45f else 0.35f),
-                        ambientColor = shadowColor.copy(alpha = 0.20f)
-                    )
-                    .clip(CircleShape)
-                    .background(homeCircleBg)
-                    .border(
-                        width = 2.dp,
-                        color = if (isDark) SecondaryAqua else Color.White,
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                // Smoothly crossfade between icons as the floating circle travels to the new tab
-                AnimatedContent(
-                    targetState = selectedIndex,
-                    transitionSpec = {
-                        (fadeIn(animationSpec = tween(220)) + scaleIn(initialScale = 0.75f))
-                            .togetherWith(fadeOut(animationSpec = tween(160)) + scaleOut(targetScale = 0.75f))
-                    },
-                    label = "floating_circle_icon"
-                ) { targetIndex ->
-                    val activeIconSize = if (targetIndex == 2) (circleIconSize + 4.dp) else circleIconSize
-                    when (targetIndex) {
-                        0 -> AnalyticsChartIcon(tint = Color.White, modifier = Modifier.size(activeIconSize))
-                        1 -> CustomersBadgeIcon(tint = Color.White, modifier = Modifier.size(activeIconSize))
-                        2 -> HomeDropHouseIcon(
-                            dropTint = homeDropSilhouette,
-                            houseTint = Color.White,
-                            modifier = Modifier.size(activeIconSize)
-                        )
-                        3 -> OperationsClipboardIcon(tint = Color.White, modifier = Modifier.size(activeIconSize))
-                        4 -> SettingsMaintenanceIcon(tint = Color.White, modifier = Modifier.size(activeIconSize))
-                    }
-                }
-            }
+                },
+                alwaysShowLabel = true,
+                colors = itemColors,
+                modifier = Modifier.testTag(item.testTag)
+            )
         }
     }
 }

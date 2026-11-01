@@ -73,3 +73,38 @@ val MaterialTheme.mosarib: MosaribExtendedColors
     @ReadOnlyComposable
     get() = LocalMosaribExtendedColors.current
 
+/**
+ * لوحة ألوان الأفاتار الثابتة (8 ألوان ناعمة متوافقة مع النمطين الفاتح والداكن).
+ * يتم اختيار اللون بالاعتماد على معرف العميل: `abs(customer.id % 8)`.
+ */
+object AvatarPalette {
+    data class AvatarColor(val background: Color, val onBackground: Color)
+
+    val Light = listOf(
+        AvatarColor(background = Color(0xFFE0F2FE), onBackground = Color(0xFF0369A1)), // Sky
+        AvatarColor(background = Color(0xFFE8F5E9), onBackground = Color(0xFF15803D)), // Green
+        AvatarColor(background = Color(0xFFFEF3C7), onBackground = Color(0xFFB45309)), // Amber
+        AvatarColor(background = Color(0xFFF3E8FF), onBackground = Color(0xFF7E22CE)), // Purple
+        AvatarColor(background = Color(0xFFFFE4E6), onBackground = Color(0xFFBE123C)), // Rose
+        AvatarColor(background = Color(0xFFCCFBF1), onBackground = Color(0xFF0F766E)), // Teal
+        AvatarColor(background = Color(0xFFEDE9FE), onBackground = Color(0xFF6D28D9)), // Indigo
+        AvatarColor(background = Color(0xFFFFEDD5), onBackground = Color(0xFFC2410C))  // Orange
+    )
+
+    val Dark = listOf(
+        AvatarColor(background = Color(0xFF0C2D48), onBackground = Color(0xFF7DD3FC)),
+        AvatarColor(background = Color(0xFF143823), onBackground = Color(0xFF86EFAC)),
+        AvatarColor(background = Color(0xFF382806), onBackground = Color(0xFFFDE047)),
+        AvatarColor(background = Color(0xFF2E1065), onBackground = Color(0xFFD8B4FE)),
+        AvatarColor(background = Color(0xFF3F0B1B), onBackground = Color(0xFFFDA4AF)),
+        AvatarColor(background = Color(0xFF0A3632), onBackground = Color(0xFF5EEAD4)),
+        AvatarColor(background = Color(0xFF1E1B4B), onBackground = Color(0xFFC4B5FD)),
+        AvatarColor(background = Color(0xFF3D1A06), onBackground = Color(0xFFFDBA74))
+    )
+
+    fun forId(id: Long, isDark: Boolean): AvatarColor {
+        val index = (kotlin.math.abs(id) % 8).toInt()
+        return if (isDark) Dark[index] else Light[index]
+    }
+}
+

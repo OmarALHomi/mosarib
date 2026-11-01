@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Folder
@@ -69,7 +70,8 @@ internal fun BackupAndRestoreSection(
     onRefreshBackups: () -> Unit,
     onShareBackupFile: (File) -> Unit,
     onGoogleSignOut: () -> Unit,
-    onRefreshDriveBackups: () -> Unit
+    onRefreshDriveBackups: () -> Unit,
+    viewModel: SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
     BackupSectionCard(
         isDark = isDark,
@@ -82,6 +84,7 @@ internal fun BackupAndRestoreSection(
         onCreateBackup = onCreateBackup,
         onImportBackup = onImportBackup,
         onShareNewBackup = onShareNewBackup,
+        onCheckDuplicates = { viewModel.scanImportDuplicates() },
         localTabContent = {
             LocalBackupsTab(
                 isDark = isDark,
@@ -138,6 +141,7 @@ private fun BackupSectionCard(
     onCreateBackup: () -> Unit,
     onImportBackup: () -> Unit,
     onShareNewBackup: () -> Unit,
+    onCheckDuplicates: () -> Unit = {},
     localTabContent: @Composable () -> Unit,
     driveTabContent: @Composable () -> Unit
 ) {
@@ -224,6 +228,20 @@ private fun BackupSectionCard(
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("مشاركة", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
             }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedButton(
+            onClick = onCheckDuplicates,
+            enabled = isBackupAllowed,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(vertical = 9.dp)
+        ) {
+            Icon(Icons.Default.CleaningServices, contentDescription = null, modifier = Modifier.size(15.dp), tint = PrimaryTeal)
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("فحص العمليات المستوردة المكررة", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
         }
 
         Spacer(modifier = Modifier.height(12.dp))

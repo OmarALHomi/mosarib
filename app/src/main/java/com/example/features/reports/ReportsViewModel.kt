@@ -49,8 +49,10 @@ data class GeneralReportStats(
     val totalOutstandingDebt: Double = 0.0,
     /** Net value of independently recorded well-owner purchases in the selected period. */
     val totalWellCost: Double = 0.0,
-    /** Operating expense vouchers, excluding payments made to well owners. */
+    /** Operating expense vouchers with customerId == null only. */
     val totalPumpExpenses: Double = 0.0,
+    /** EXPENSE vouchers disbursed to non-owner customers (increases customer debt). */
+    val customerDisbursements: Double = 0.0,
     val netOperatingProfit: Double = 0.0,
     val totalPurchasedMinutes: Int = 0,
     val totalChargeablePurchasedMinutes: Int = 0,
@@ -241,8 +243,14 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             .sumOf { it.amount.coerceAtLeast(0.0) }
         val operatingExpenses = vouchers
             .filter { voucher ->
+                voucher.type == VoucherType.EXPENSE && voucher.customerId == null
+            }
+            .sumOf { it.amount.coerceAtLeast(0.0) }
+        val customerDisbursements = vouchers
+            .filter { voucher ->
                 voucher.type == VoucherType.EXPENSE &&
-                    (voucher.customerId == null || customersById[voucher.customerId]?.isWellOwner != true)
+                    voucher.customerId != null &&
+                    customersById[voucher.customerId]?.isWellOwner != true
             }
             .sumOf { it.amount.coerceAtLeast(0.0) }
         val netProfit = totalRevenue - totalWellCost - operatingExpenses
@@ -279,6 +287,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             totalOutstandingDebt = totalOutstandingDebt,
             totalWellCost = totalWellCost,
             totalPumpExpenses = operatingExpenses,
+            customerDisbursements = customerDisbursements,
             netOperatingProfit = netProfit,
             totalPurchasedMinutes = totalPurchasedMinutes,
             totalChargeablePurchasedMinutes = chargeablePurchaseMinutes,

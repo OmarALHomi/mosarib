@@ -45,6 +45,7 @@ import com.example.core.ui.LuxuryToastNotification
 import com.example.core.ui.ToastMessage
 import com.example.core.util.Formatters
 import com.example.ui.theme.PrimaryTeal
+import com.example.ui.theme.mosarib
 
 /**
  * محتوى الشاشة: قائمة الحسابات مع رأس البحث والفلاتر + الشريط المالي السفلي / الزر العائم + الإشعار
@@ -79,7 +80,7 @@ internal fun CustomersListContent(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = if (isCompactHeight) 80.dp else 120.dp)
+            contentPadding = PaddingValues(bottom = if (isCompactHeight) 64.dp else 96.dp)
         ) {
             // شريط الفلاتر المصغرة وحقل البحث المدمج وفلاتر الترتيب المتجاوبة
             if (isCompactHeight) {
@@ -149,7 +150,7 @@ internal fun CustomersListContent(
             onDismiss = onDismissToast,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 85.dp)
+                .padding(bottom = 76.dp)
         )
     }
 }
@@ -210,22 +211,23 @@ internal fun CustomersBalanceBar(
                     horizontalAlignment = Alignment.Start
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        BalanceBarDot(color = Color(0xFFE53935))
+                        BalanceBarDot(color = MaterialTheme.mosarib.debt)
                         Spacer(modifier = Modifier.width(4.dp))
                         if (filterIcon != null) {
-                            BalanceBarIcon(icon = filterIcon, tint = Color(0xFFE53935))
+                            BalanceBarIcon(icon = filterIcon, tint = MaterialTheme.mosarib.debt)
                             Spacer(modifier = Modifier.width(3.dp))
                         }
                         Text(
-                            text = "عليك",
+                            text = "عليك للموردين",
                             style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color(0xFFE53935),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.5.sp
-                            )
+                                color = MaterialTheme.mosarib.debt,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            softWrap = false,
+                            maxLines = 1
                         )
                     }
-                    BalanceBarAmount(amount = owedByUs, currencySymbol = currencySymbol, color = Color(0xFFE53935))
+                    BalanceBarAmount(amount = owedByUs, currencySymbol = currencySymbol, color = MaterialTheme.mosarib.debt)
                 }
 
                 // مساحة مخصصة للزر العائم لضمان عدم التداخل والتوسيط التام
@@ -238,23 +240,22 @@ internal fun CustomersBalanceBar(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "لك",
+                            text = "لك عند العملاء",
                             style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color(0xFF2E7D32),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.5.sp
+                                color = MaterialTheme.mosarib.credit,
+                                fontWeight = FontWeight.Bold
                             ),
                             softWrap = false,
                             maxLines = 1
                         )
                         if (filterIcon != null) {
                             Spacer(modifier = Modifier.width(3.dp))
-                            BalanceBarIcon(icon = filterIcon, tint = Color(0xFF2E7D32))
+                            BalanceBarIcon(icon = filterIcon, tint = MaterialTheme.mosarib.credit)
                         }
                         Spacer(modifier = Modifier.width(4.dp))
-                        BalanceBarDot(color = Color(0xFF2E7D32))
+                        BalanceBarDot(color = MaterialTheme.mosarib.credit)
                     }
-                    BalanceBarAmount(amount = owedToUs, currencySymbol = currencySymbol, color = Color(0xFF2E7D32))
+                    BalanceBarAmount(amount = owedToUs, currencySymbol = currencySymbol, color = MaterialTheme.mosarib.credit)
                 }
             }
 

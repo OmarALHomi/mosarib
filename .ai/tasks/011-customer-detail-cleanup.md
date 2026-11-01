@@ -1,9 +1,11 @@
-status: ready
+status: draft
+<!-- draft until task 014 is accepted (it needs the new OperationRow). -->
 
 # Task 011: Customer detail — one place per action, compact ledger, clearer header
 
 ## Depends on
-- Task 010 (`OperationRow`, `AvatarPalette`).
+- Task 010 (`AvatarPalette`) and **task 014** (the new `OperationRow` with `RowGroupPosition`,
+  `RowStatus`, `trailingNote` and long-press). Start only after 014 is accepted.
 
 ## Background (seen by Claude on the device)
 - Recording a payment now has two buttons: the header "قبض" (added in task 006) and the large
@@ -36,8 +38,11 @@ status: ready
 3. **Stats grid**: hide a stat cell whose value is zero **and** does not apply to the account
    type ("ساعات البيع" for a normal customer, irrigation stats for a well owner with no sessions).
    If a row ends up with one cell, let it fill the width.
-4. **Compact ledger**: render the ledger list with `OperationRow` (from task 010), one row per
-   operation, newest first, with:
+4. **Compact ledger**: render the ledger list with `OperationRow` (task 014 version), one row
+   per operation, newest first, **grouped by day exactly like the operations list in 014** (same
+   day header helper and group positions). Title = what happened ("سقي 2س 30د", "قبض نقدي",
+   "صرف", "شراء ساعات"), because the customer is already known. Subtitle = time · notes. No kebab:
+   a long-press opens the menu. Additionally:
    - amount sign and colour from the customer's point of view: what increases what the customer
      owes us → "− X" in `debt`; what decreases it → "+ X" in `credit` (for well owners follow the
      same meaning as the balance card title).
@@ -46,8 +51,10 @@ status: ready
      **same** signs `CustomerRepository` uses. If the final running balance does not equal the
      balance shown in the header (± 0.01), hide the running-balance note for this customer and
      say so in the report. Never show a wrong balance.
-   - tapping a row opens the detail bottom sheet that exists today for that type; the kebab keeps
-     every action the old card had (سداد, edit, delete, share, payment history…).
+   - session rows also show the 014 status chip (مسدد / غير مسدد / باقي X). The running balance
+     goes in `trailingNote`. If both are shown, the chip comes first.
+   - tapping a row opens the detail bottom sheet that exists today for that type; the long-press
+     menu keeps every action the old card had (سداد, edit, delete, share, payment history…).
    - remove the five old card composables if nothing else uses them.
 
 ## Allowed files

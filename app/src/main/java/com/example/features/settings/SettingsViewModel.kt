@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.example.core.database.AppDatabase
 import com.example.core.ui.ToastMessage
 import com.example.core.ui.ToastType
@@ -14,6 +15,8 @@ import com.example.core.util.AutoBackupEngine
 import com.example.core.util.BackupManager
 import com.example.core.util.GoogleDriveBackupHelper
 import com.example.core.util.PeriodicBackupReminderManager
+import com.example.features.customers.DuplicateCandidate
+import com.example.features.customers.ImportDuplicateFinder
 import com.example.features.pumps.PumpSource
 import com.example.features.pumps.PumpSourceRepository
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
@@ -23,6 +26,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -536,6 +540,72 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 showToast("تم تصفير ومسح جميع البيانات التجريبية بنجاح!", ToastType.INFO)
             }.onFailure { e ->
                 showToast("فشل مسح البيانات: ${e.message}", ToastType.ERROR)
+            }
+        }
+    }
+
+    data class DuplicateCandidateDisplay(
+        val candidate: DuplicateCandidate,
+        val customerName: String
+    )
+
+    private val _duplicateScanResults = MutableStateFlow<List<DuplicateCandidateDisplay>?>(null)
+    val duplicateScanResults: StateFlow<List<DuplicateCandidateDisplay>?> = _duplicateScanResults.asStateFlow()
+
+    private val _isScanningDuplicates = MutableStateFlow(false)
+    val isScanningDuplicates: StateFlow<Boolean> = _isScanningDuplicates.asStateFlow()
+
+    fun scanImportDuplicates() {
+        viewModelScope.launch {
+            _isScanningDuplicates.value = true
+            try {
+                val sessions = db.waterSessionDao().getAllSessions().first()
+                val vouchers = db.voucherDao().getAllVouchers().first()
+                val customers = db.customerDao().getAllCustomersIncludingArchived().first().associateBy { it.id }
+
+                val candidates = ImportDuplicateFinder.find(sessions, vouchers)
+                val displays = candidates.map { c ->
+                    DuplicateCandidateDisplay(
+                        candidate = c,
+                        customerName = customers[c.customerId]?.name ?: "عميل رقم ${c.customerId}"
+                    )
+                }
+                _duplicateScanResults.value = displays
+            } catch (e: Exception) {
+                showToast("فشل فحص العمليات المكررة: ${e.localizedMessage}", ToastType.ERROR)
+            } finally {
+                _isScanningDuplicates.value = false
+            }
+        }
+    }
+
+    fun dismissDuplicateScanDialog() {
+        _duplicateScanResults.value = null
+    }
+
+    fun deleteImportDuplicates(candidates: List<DuplicateCandidate>) {
+        viewModelScope.launch {
+            try {
+                // 1. Create local backup first
+                BackupManager.createBackupJson(getApplication(), db)
+                PeriodicBackupReminderManager.recordBackupPerformed(getApplication())
+                loadBackups()
+
+                // 2. Delete duplicates in Room transaction
+                db.withTransaction {
+                    for (candidate in candidates) {
+                        if (candidate.isSession) {
+                            db.waterSessionDao().deleteSessionById(candidate.id)
+                        } else {
+                            db.voucherDao().deleteVoucherById(candidate.id)
+                        }
+                    }
+                }
+
+                _duplicateScanResults.value = null
+                showToast("تم حذف ${candidates.size} عملية مكررة بنجاح", ToastType.SUCCESS)
+            } catch (e: Exception) {
+                showToast("فشل حذف العمليات المكررة: ${e.localizedMessage}", ToastType.ERROR)
             }
         }
     }

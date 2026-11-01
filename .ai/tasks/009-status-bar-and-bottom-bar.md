@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 <!-- Owner chose the standard Material 3 NavigationBar on 2026-11-01. -->
 
@@ -44,4 +44,14 @@ status: ready
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+**Verdict: accepted** (2026-11-01). Build and tests pass. I checked it on the device (384dp, light
+theme):
+- status-bar icons are dark and readable;
+- the M3 `NavigationBar` shows all five labels, with the selected one in a pill indicator;
+- the custom icons are kept;
+- nothing is clipped.
+
+Notes:
+- `fontSize = 12.sp` on the label repeats what `labelMedium` already sets. It is harmless; drop
+  it when you next touch the file.
+- Do not set `accepted` yourself. Set `done` and Claude decides.
