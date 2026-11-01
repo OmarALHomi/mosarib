@@ -5,8 +5,15 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
+
+data class CustomerDeleteCounts(
+    val sessions: Int = 0,
+    val vouchers: Int = 0,
+    val purchases: Int = 0
+)
 
 @Dao
 interface CustomerDao {
@@ -52,11 +59,61 @@ interface CustomerDao {
     @Query("UPDATE customers SET isArchived = 0 WHERE id = :id")
     suspend fun restoreCustomer(id: Long)
 
-    @Query("DELETE FROM customers WHERE id = :id")
-    suspend fun permanentlyDeleteCustomer(id: Long)
+    @Query("""
+        SELECT 
+            (SELECT COUNT(*) FROM water_sessions WHERE customerId IN (SELECT id FROM customers WHERE id = :customerId AND isArchived = 1)) AS sessions,
+            (SELECT COUNT(*) FROM vouchers WHERE customerId IN (SELECT id FROM customers WHERE id = :customerId AND isArchived = 1)) AS vouchers,
+            (SELECT COUNT(*) FROM well_owner_purchases WHERE ownerCustomerId IN (SELECT id FROM customers WHERE id = :customerId AND isArchived = 1)) AS purchases
+    """)
+    suspend fun getCustomerDeleteCounts(customerId: Long): CustomerDeleteCounts
+
+    @Query("""
+        SELECT 
+            (SELECT COUNT(*) FROM water_sessions WHERE customerId IN (SELECT id FROM customers WHERE isArchived = 1)) AS sessions,
+            (SELECT COUNT(*) FROM vouchers WHERE customerId IN (SELECT id FROM customers WHERE isArchived = 1)) AS vouchers,
+            (SELECT COUNT(*) FROM well_owner_purchases WHERE ownerCustomerId IN (SELECT id FROM customers WHERE isArchived = 1)) AS purchases
+    """)
+    suspend fun getRecycleBinTotalCounts(): CustomerDeleteCounts
+
+    @Query("DELETE FROM well_owner_purchases WHERE ownerCustomerId IN (SELECT id FROM customers WHERE id = :customerId AND isArchived = 1)")
+    suspend fun deletePurchasesForArchivedCustomer(customerId: Long): Int
+
+    @Query("DELETE FROM vouchers WHERE customerId IN (SELECT id FROM customers WHERE id = :customerId AND isArchived = 1)")
+    suspend fun deleteVouchersForArchivedCustomer(customerId: Long): Int
+
+    @Query("DELETE FROM water_sessions WHERE customerId IN (SELECT id FROM customers WHERE id = :customerId AND isArchived = 1)")
+    suspend fun deleteSessionsForArchivedCustomer(customerId: Long): Int
+
+    @Query("DELETE FROM customers WHERE id = :customerId AND isArchived = 1")
+    suspend fun deleteArchivedCustomerOnly(customerId: Long): Int
+
+    @Transaction
+    suspend fun permanentlyDeleteCustomer(id: Long) {
+        deletePurchasesForArchivedCustomer(id)
+        deleteVouchersForArchivedCustomer(id)
+        deleteSessionsForArchivedCustomer(id)
+        deleteArchivedCustomerOnly(id)
+    }
+
+    @Query("DELETE FROM well_owner_purchases WHERE ownerCustomerId IN (SELECT id FROM customers WHERE isArchived = 1)")
+    suspend fun deletePurchasesForArchivedCustomers(): Int
+
+    @Query("DELETE FROM vouchers WHERE customerId IN (SELECT id FROM customers WHERE isArchived = 1)")
+    suspend fun deleteVouchersForArchivedCustomers(): Int
+
+    @Query("DELETE FROM water_sessions WHERE customerId IN (SELECT id FROM customers WHERE isArchived = 1)")
+    suspend fun deleteSessionsForArchivedCustomers(): Int
 
     @Query("DELETE FROM customers WHERE isArchived = 1")
-    suspend fun emptyRecycleBin()
+    suspend fun deleteArchivedCustomersOnly(): Int
+
+    @Transaction
+    suspend fun emptyRecycleBin() {
+        deletePurchasesForArchivedCustomers()
+        deleteVouchersForArchivedCustomers()
+        deleteSessionsForArchivedCustomers()
+        deleteArchivedCustomersOnly()
+    }
 
     @Query("UPDATE customers SET customGroup = :newGroup WHERE customGroup = :oldGroup")
     suspend fun renameCustomGroup(oldGroup: String, newGroup: String)

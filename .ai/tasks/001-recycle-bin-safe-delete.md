@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 # Task 001: Make permanent delete in the recycle bin safe
 

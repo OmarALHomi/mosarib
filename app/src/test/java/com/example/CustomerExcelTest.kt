@@ -3,6 +3,7 @@ package com.example
 import com.example.features.customers.Customer
 import com.example.features.customers.CustomerExcelHelper
 import com.example.features.customers.CustomerWithBalance
+import com.example.features.customers.ImportSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -128,5 +129,95 @@ class CustomerExcelTest {
         // Net balance: 15000 + 20000 - 5000 = 30000 debit
         assertEquals(30000.0, d.initialBalance, 0.001)
         assertTrue(d.isDebit)
+    }
+
+    @Test
+    fun testSourceDetection() {
+        val mosaribHeaders = listOf(
+            "اسم العميل", "رقم الهاتف", "المجموعة", "اسم المزرعة", "الموقع", "نوع الحساب",
+            "سعر الساعة (ر.ي)", "إجمالي الساعات", "الرصيد المستحق (ر.ي)", "الملاحظات"
+        )
+        assertEquals(ImportSource.MOSARIB_EXPORT, CustomerExcelHelper.detectImportSource(mosaribHeaders))
+
+        val daftareHesabatHeaders = listOf(
+            "م", "اسم الحساب", "رقم الهاتف", "العنوان", "الرصيد الحالي", "الحالة", "العملة", "تاريخ آخر حركة", "ملاحظات / البيان"
+        )
+        assertEquals(ImportSource.EXTERNAL_LEDGER, CustomerExcelHelper.detectImportSource(daftareHesabatHeaders))
+
+        val sampleCsvFile = File("tools/daftare_hesabat_sample.csv")
+        if (sampleCsvFile.exists()) {
+            val parseResult = CustomerExcelHelper.parseCustomerStream(sampleCsvFile.inputStream(), emptyList())
+            assertEquals(ImportSource.EXTERNAL_LEDGER, parseResult.source)
+            assertTrue(parseResult.drafts.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun testDateParsingAllSupportedFormats() {
+        // yyyy-MM-dd
+        val dateIso = CustomerExcelHelper.parseDateString("2026-09-25")
+        assertNotNull(dateIso)
+
+        // yyyy/MM/dd
+        val dateSlash = CustomerExcelHelper.parseDateString("2026/09/25")
+        assertNotNull(dateSlash)
+        assertEquals(dateIso, dateSlash)
+
+        // dd/MM/yyyy
+        val dateDdMm = CustomerExcelHelper.parseDateString("25/09/2026")
+        assertNotNull(dateDdMm)
+        assertEquals(dateIso, dateDdMm)
+
+        // dd-MM-yyyy
+        val dateDdMmDash = CustomerExcelHelper.parseDateString("25-09-2026")
+        assertNotNull(dateDdMmDash)
+        assertEquals(dateIso, dateDdMmDash)
+
+        // Arabic-Indic digits
+        val dateArabicSlash = CustomerExcelHelper.parseDateString("٢٠٢٦/٠٩/٢٥")
+        assertNotNull(dateArabicSlash)
+        assertEquals(dateIso, dateArabicSlash)
+
+        val dateArabicDash = CustomerExcelHelper.parseDateString("٢٥-٠٩-٢٠٢٦")
+        assertNotNull(dateArabicDash)
+        assertEquals(dateIso, dateArabicDash)
+
+        // Excel serial number (45231 = 2023-11-01)
+        val dateExcelSerial = CustomerExcelHelper.parseDateString("45231")
+        assertNotNull(dateExcelSerial)
+        val expectedDate = CustomerExcelHelper.parseDateString("2023-11-01")
+        assertEquals(expectedDate, dateExcelSerial)
+
+        // Unparseable / empty formats stay null
+        org.junit.Assert.assertNull(CustomerExcelHelper.parseDateString("غير صالح"))
+        org.junit.Assert.assertNull(CustomerExcelHelper.parseDateString(""))
+        org.junit.Assert.assertNull(CustomerExcelHelper.parseDateString("   "))
+    }
+
+    @Test
+    fun testDebitOperationsOfExternalFileProduceDebitItemsWithRightDates() {
+        val sampleRows = listOf(
+            listOf("اسم الحساب", "رقم الهاتف", "مدين", "دائن", "التاريخ", "البيان"),
+            listOf("أحمد سالم", "771234567", "5000", "", "2026/09/25", "صرف بذور وأسمدة"),
+            listOf("أحمد سالم", "771234567", "3000", "", "2026-10-01", "صرف وقود ديزل")
+        )
+
+        val result = CustomerExcelHelper.mapRowsToParseResult(sampleRows, emptyList())
+        assertEquals(ImportSource.EXTERNAL_LEDGER, result.source)
+        assertEquals(1, result.drafts.size)
+
+        val draft = result.drafts[0]
+        assertEquals("أحمد سالم", draft.name)
+        assertEquals(2, draft.attachedOperations.size)
+
+        val op1 = draft.attachedOperations[0]
+        assertEquals("DEBIT", op1.type)
+        assertEquals(5000.0, op1.amount, 0.001)
+        assertEquals(CustomerExcelHelper.parseDateString("2026/09/25"), op1.date)
+
+        val op2 = draft.attachedOperations[1]
+        assertEquals("DEBIT", op2.type)
+        assertEquals(3000.0, op2.amount, 0.001)
+        assertEquals(CustomerExcelHelper.parseDateString("2026-10-01"), op2.date)
     }
 }

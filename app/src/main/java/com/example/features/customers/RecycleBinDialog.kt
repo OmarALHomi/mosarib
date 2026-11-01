@@ -35,11 +35,19 @@ fun RecycleBinDialog(
     onRestore: (Customer) -> Unit,
     onPermanentlyDelete: (Customer) -> Unit,
     onEmptyBin: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    viewModel: CustomersViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    onGetCustomerDeleteCounts: (suspend (Long) -> CustomerDeleteCounts?)? = null,
+    onGetTotalDeleteCounts: (suspend () -> CustomerDeleteCounts?)? = null
 ) {
     val isDark = isAppDark()
     var customerToDeletePermanently by remember { mutableStateOf<Customer?>(null) }
     var showEmptyBinConfirm by remember { mutableStateOf(false) }
+
+    val getCountsForCustomer: suspend (Long) -> CustomerDeleteCounts? =
+        onGetCustomerDeleteCounts ?: { id -> viewModel.getCustomerDeleteCounts(id) }
+    val getTotalCounts: suspend () -> CustomerDeleteCounts? =
+        onGetTotalDeleteCounts ?: { viewModel.getRecycleBinTotalCounts() }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         AlertDialog(
@@ -238,15 +246,36 @@ fun RecycleBinDialog(
 
     // تأكيد الحذف النهائي لحساب واحد
     customerToDeletePermanently?.let { cust ->
+        var deleteCounts by remember(cust.id) { mutableStateOf<CustomerDeleteCounts?>(null) }
+        var isLoadingCounts by remember(cust.id) { mutableStateOf(true) }
+
+        LaunchedEffect(cust.id) {
+            isLoadingCounts = true
+            deleteCounts = getCountsForCustomer(cust.id)
+            isLoadingCounts = false
+        }
+
         AlertDialog(
             onDismissRequest = { customerToDeletePermanently = null },
             shape = RoundedCornerShape(16.dp),
             title = { Text("حذف نهائي لا رجعة فيه", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
             text = {
-                Text(
-                    text = "هل أنت متأكد من حذف الحساب \"${cust.name}\" نهائياً؟ سيتم مسح سجله تماماً.",
-                    fontSize = 13.sp
-                )
+                if (isLoadingCounts) {
+                    Text("جاري فحص السجلات المرتبطة بالحساب...", fontSize = 13.sp)
+                } else {
+                    val counts = deleteCounts
+                    if (counts == null) {
+                        Text(
+                            text = "تعذر حساب عدد السجلات المرتبطة. لا يمكن التراجع.",
+                            fontSize = 13.sp
+                        )
+                    } else {
+                        Text(
+                            text = "سيتم حذف الحساب \"${cust.name}\" نهائياً مع ${counts.sessions} جلسة و ${counts.vouchers} سندات و ${counts.purchases} مشتريات. لا يمكن التراجع.",
+                            fontSize = 13.sp
+                        )
+                    }
+                }
             },
             confirmButton = {
                 Button(
@@ -254,6 +283,7 @@ fun RecycleBinDialog(
                         onPermanentlyDelete(cust)
                         customerToDeletePermanently = null
                     },
+                    enabled = !isLoadingCounts,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
                 ) {
                     Text("نعم، احذف نهائياً", fontWeight = FontWeight.Bold)
@@ -269,15 +299,36 @@ fun RecycleBinDialog(
 
     // تأكيد تفريغ سلة المحذوفات بالكامل
     if (showEmptyBinConfirm) {
+        var totalCounts by remember { mutableStateOf<CustomerDeleteCounts?>(null) }
+        var isLoadingTotalCounts by remember { mutableStateOf(true) }
+
+        LaunchedEffect(Unit) {
+            isLoadingTotalCounts = true
+            totalCounts = getTotalCounts()
+            isLoadingTotalCounts = false
+        }
+
         AlertDialog(
             onDismissRequest = { showEmptyBinConfirm = false },
             shape = RoundedCornerShape(16.dp),
             title = { Text("تفريغ سلة المحذوفات", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
             text = {
-                Text(
-                    text = "سيتم حذف جميع الحسابات المحذوفة (${archivedCustomers.size}) نهائياً من قاعدة البيانات. هل تريد الاستمرار؟",
-                    fontSize = 13.sp
-                )
+                if (isLoadingTotalCounts) {
+                    Text("جاري فحص السجلات المرتبطة بسلة المحذوفات...", fontSize = 13.sp)
+                } else {
+                    val counts = totalCounts
+                    if (counts == null) {
+                        Text(
+                            text = "تعذر حساب عدد السجلات المرتبطة. لا يمكن التراجع.",
+                            fontSize = 13.sp
+                        )
+                    } else {
+                        Text(
+                            text = "سيتم حذف جميع الحسابات المحذوفة (${archivedCustomers.size}) نهائياً مع ${counts.sessions} جلسة و ${counts.vouchers} سندات و ${counts.purchases} مشتريات. لا يمكن التراجع.",
+                            fontSize = 13.sp
+                        )
+                    }
+                }
             },
             confirmButton = {
                 Button(
@@ -285,6 +336,7 @@ fun RecycleBinDialog(
                         onEmptyBin()
                         showEmptyBinConfirm = false
                     },
+                    enabled = !isLoadingTotalCounts,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
                 ) {
                     Text("تفريغ السلة نهائياً", fontWeight = FontWeight.Bold)

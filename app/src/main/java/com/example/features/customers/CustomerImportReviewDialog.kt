@@ -56,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -76,12 +77,13 @@ private enum class DraftFilterTab {
 @Composable
 fun CustomerImportReviewDialog(
     drafts: List<ImportedCustomerDraft>,
+    detectedSource: ImportSource = ImportSource.EXTERNAL_LEDGER,
     currencySymbol: String = "ر.ي",
     isSavingImport: Boolean = false,
     onDraftUpdated: (ImportedCustomerDraft) -> Unit,
     onDraftDeleted: (String) -> Unit,
     onToggleSelectAll: (Boolean) -> Unit,
-    onConfirmImport: (updateExisting: Boolean) -> Unit,
+    onConfirmImport: (updateExisting: Boolean, debitMode: ImportDebitMode) -> Unit,
     onDismiss: () -> Unit
 ) {
     val isDark = isAppDark()
@@ -90,6 +92,11 @@ fun CustomerImportReviewDialog(
     var searchQuery by remember { mutableStateOf("") }
     var filterTab by remember { mutableStateOf(DraftFilterTab.ALL) }
     var updateExistingCustomers by remember { mutableStateOf(true) }
+    var debitMode by remember(detectedSource) {
+        mutableStateOf(
+            if (detectedSource == ImportSource.EXTERNAL_LEDGER) ImportDebitMode.EXPENSE else ImportDebitMode.SESSION
+        )
+    }
     var draftToEdit by remember { mutableStateOf<ImportedCustomerDraft?>(null) }
 
     val totalCount = drafts.size
@@ -191,6 +198,71 @@ fun CustomerImportReviewDialog(
             }
 
             Spacer(modifier = Modifier.height(10.dp))
+
+            // بطاقة كشف مصدر الملف وتحديد نوع قيد العمليات المدينة
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isDark) Color(0xFF131D24) else Color(0xFFF1F5F9)
+                ),
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    val sourceText = if (detectedSource == ImportSource.MOSARIB_EXPORT) {
+                        "الملف: تصدير من تطبيق مُسَرِّب"
+                    } else {
+                        "الملف: دفتر حسابات خارجي"
+                    }
+                    Text(
+                        text = sourceText,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = PrimaryTeal,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.5.sp
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "تسجيل العمليات المدينة كـ:",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        )
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            FilterChip(
+                                selected = debitMode == ImportDebitMode.EXPENSE,
+                                onClick = { debitMode = ImportDebitMode.EXPENSE },
+                                label = { Text("صرف للعميل", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = PrimaryTeal,
+                                    selectedLabelColor = Color.White
+                                )
+                            )
+                            FilterChip(
+                                selected = debitMode == ImportDebitMode.SESSION,
+                                onClick = { debitMode = ImportDebitMode.SESSION },
+                                label = { Text("سقي", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = PrimaryTeal,
+                                    selectedLabelColor = Color.White
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             // 2. حقل البحث السريع في المسودات
             MosaribTextField(
@@ -375,7 +447,7 @@ fun CustomerImportReviewDialog(
 
                 MosaribButton(
                     text = if (isSavingImport) "جاري الاستيراد..." else "تأكيد واستيراد ($selectedCount)",
-                    onClick = { onConfirmImport(updateExistingCustomers) },
+                    onClick = { onConfirmImport(updateExistingCustomers, debitMode) },
                     enabled = selectedCount > 0 && !isSavingImport,
                     modifier = Modifier.weight(1.8f)
                 )
@@ -443,6 +515,7 @@ private fun ImportDraftCard(
             // تفاصيل الحساب
             Column(modifier = Modifier.weight(1f)) {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -452,7 +525,10 @@ private fun ImportDraftCard(
                             fontWeight = FontWeight.Bold,
                             color = if (hasError) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurface,
                             fontSize = 14.sp
-                        )
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
 
                     // شارة صاحب بئر
@@ -469,6 +545,8 @@ private fun ImportDraftCard(
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 ),
+                                maxLines = 1,
+                                softWrap = false,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -488,6 +566,8 @@ private fun ImportDraftCard(
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 ),
+                                maxLines = 1,
+                                softWrap = false,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -507,6 +587,8 @@ private fun ImportDraftCard(
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 ),
+                                maxLines = 1,
+                                softWrap = false,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -526,6 +608,8 @@ private fun ImportDraftCard(
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 ),
+                                maxLines = 1,
+                                softWrap = false,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -555,7 +639,7 @@ private fun ImportDraftCard(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(12.dp), tint = Color.Gray)
                             Spacer(modifier = Modifier.width(3.dp))
-                            Text(draft.phone, style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontSize = 11.sp))
+                            Text(draft.phone, style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontSize = 11.sp), maxLines = 1, softWrap = false)
                         }
                     }
 
@@ -569,7 +653,8 @@ private fun ImportDraftCard(
                         Text(
                             text = locDetail,
                             style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontSize = 11.sp),
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
@@ -580,7 +665,9 @@ private fun ImportDraftCard(
                                 color = PrimaryTeal,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
-                            )
+                            ),
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
 
@@ -593,7 +680,9 @@ private fun ImportDraftCard(
                                 color = balColor,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
-                            )
+                            ),
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }

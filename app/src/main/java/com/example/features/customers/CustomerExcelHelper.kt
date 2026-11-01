@@ -38,6 +38,30 @@ data class ImportedOperationItem(
 )
 
 /**
+ * مصدر ملف الاستيراد لتحديد السلوك الافتراضي لقيد العمليات المدينة.
+ */
+enum class ImportSource {
+    MOSARIB_EXPORT,
+    EXTERNAL_LEDGER
+}
+
+/**
+ * طريقة قيد العمليات المدينة المستوردة.
+ */
+enum class ImportDebitMode {
+    EXPENSE, // صرف للعميل (سند صرف)
+    SESSION  // سقي (جلسة سقي)
+}
+
+/**
+ * نتيجة تحليل وقراءة ملف العملاء بما في ذلك المسودات والمصدر المكتشف.
+ */
+data class CustomerParseResult(
+    val drafts: List<ImportedCustomerDraft>,
+    val source: ImportSource = ImportSource.EXTERNAL_LEDGER
+)
+
+/**
  * مسودة العميل المستورد من ملف إكسل أو CSV قبل اعتماده في قاعدة البيانات.
  */
 data class ImportedCustomerDraft(
@@ -117,9 +141,18 @@ object CustomerExcelHelper {
         context: Context,
         uri: Uri,
         existingCustomers: List<Customer>
-    ): List<ImportedCustomerDraft> {
-        val inputStream = context.contentResolver.openInputStream(uri) ?: return emptyList()
+    ): CustomerParseResult {
+        val inputStream = context.contentResolver.openInputStream(uri)
+            ?: return CustomerParseResult(emptyList(), ImportSource.EXTERNAL_LEDGER)
         val buffered = BufferedInputStream(inputStream)
+        return parseCustomerStream(buffered, existingCustomers)
+    }
+
+    fun parseCustomerStream(
+        stream: InputStream,
+        existingCustomers: List<Customer>
+    ): CustomerParseResult {
+        val buffered = if (stream is BufferedInputStream) stream else BufferedInputStream(stream)
 
         // التحقق من نوع الملف عبر البصمة السحرية (Magic Bytes: PK..)
         buffered.mark(8)
@@ -139,9 +172,9 @@ object CustomerExcelHelper {
             parseCsvOrDelimited(buffered)
         }
 
-        if (rawRows.isEmpty()) return emptyList()
+        if (rawRows.isEmpty()) return CustomerParseResult(emptyList(), ImportSource.EXTERNAL_LEDGER)
 
-        return mapRowsToDrafts(rawRows, existingCustomers)
+        return mapRowsToParseResult(rawRows, existingCustomers)
     }
 
     /**
@@ -396,13 +429,72 @@ object CustomerExcelHelper {
     }
 
     /**
-     * تحليل ذكي للأعمدة والربط التلقائي بالحقول المناسبة.
+     * استكشاف مصدر الملف المرفوع إذا كان تصديراً من تطبيق مُسَرِّب أو دفتر حسابات خارجي.
      */
-    internal fun mapRowsToDrafts(
+    fun detectImportSource(headerRow: List<String>): ImportSource {
+        if (headerRow.isEmpty()) return ImportSource.EXTERNAL_LEDGER
+        val cleanCells = headerRow.map { cell ->
+            normalizeArabicText(cell.replace(Regex("\\([^)]*\\)"), "").trim())
+        }
+        val mosaribHeaders = listOf(
+            "اسم العميل", "رقم الهاتف", "المجموعه", "اسم المزرعه", "الموقع", "نوع الحساب",
+            "سعر الساعه", "اجمالي الساعات", "الرصيد المستحق", "الملاحظات"
+        )
+        val matchCount = mosaribHeaders.count { expected ->
+            cleanCells.any { it.contains(expected) || expected.contains(it) }
+        }
+        return if (matchCount >= 7 && cleanCells.any { it.contains("اجمالي الساعات") }) {
+            ImportSource.MOSARIB_EXPORT
+        } else {
+            ImportSource.EXTERNAL_LEDGER
+        }
+    }
+
+    /**
+     * تحليل ذكي للتواريخ المدخلة بدعم الصيغ المحددة والأرقام الهندية والأرقام التسلسلية لإكسل.
+     */
+    fun parseDateString(rawDate: String): Long? {
+        val clean = FileSharingHelper.convertArabicDigitsToAscii(rawDate).trim()
+        if (clean.isBlank()) return null
+
+        val asNumber = clean.toDoubleOrNull()
+        if (asNumber != null && asNumber in 10000.0..100000.0) {
+            val calendar = java.util.Calendar.getInstance()
+            calendar.set(1899, java.util.Calendar.DECEMBER, 30, 0, 0, 0)
+            calendar.set(java.util.Calendar.MILLISECOND, 0)
+            calendar.add(java.util.Calendar.DAY_OF_YEAR, asNumber.toInt())
+            val fraction = asNumber - asNumber.toInt()
+            val millis = (fraction * 86_400_000.0).toInt()
+            calendar.add(java.util.Calendar.MILLISECOND, millis)
+            return calendar.timeInMillis
+        }
+
+        val formats = listOf(
+            "yyyy-MM-dd",
+            "yyyy/MM/dd",
+            "dd/MM/yyyy",
+            "dd-MM-yyyy"
+        )
+        for (pattern in formats) {
+            try {
+                val sdf = SimpleDateFormat(pattern, Locale.US).apply {
+                    isLenient = false
+                }
+                val parsed = sdf.parse(clean)
+                if (parsed != null) return parsed.time
+            } catch (_: Exception) {}
+        }
+        return null
+    }
+
+    /**
+     * تحليل ذكي للأعمدة والربط التلقائي بالحقول المناسبة مع كشف مصدر الملف.
+     */
+    fun mapRowsToParseResult(
         rawRows: List<List<String>>,
         existingCustomers: List<Customer>
-    ): List<ImportedCustomerDraft> {
-        if (rawRows.isEmpty()) return emptyList()
+    ): CustomerParseResult {
+        if (rawRows.isEmpty()) return CustomerParseResult(emptyList(), ImportSource.EXTERNAL_LEDGER)
 
         // 1. البحث عن صف العناوين (Header Row) من بين أول 5 صفوف
         var headerRowIndex = 0
@@ -433,6 +525,7 @@ object CustomerExcelHelper {
 
         val hasHeader = bestHeaderScore >= 3
         val headerRow = if (hasHeader) rawRows[headerRowIndex] else emptyList()
+        val detectedSource = if (hasHeader) detectImportSource(headerRow) else ImportSource.EXTERNAL_LEDGER
         val dataStartIndex = if (hasHeader) headerRowIndex + 1 else 0
 
         // 2. تعيين مؤشرات الأعمدة
@@ -516,6 +609,8 @@ object CustomerExcelHelper {
             val rawGroup = if (groupCol >= 0) row.getOrNull(groupCol)?.trim().orEmpty() else ""
             val rawNotes = if (notesCol >= 0) row.getOrNull(notesCol)?.trim().orEmpty() else ""
             val rawCurrency = if (currencyCol >= 0) row.getOrNull(currencyCol)?.trim().orEmpty() else ""
+            val rawDate = if (dateCol >= 0) row.getOrNull(dateCol)?.trim().orEmpty() else ""
+            val parsedDate = if (rawDate.isNotBlank()) parseDateString(rawDate) else null
 
             if (rawName.isBlank() && rawPhone.isBlank()) continue
 
@@ -571,7 +666,8 @@ object CustomerExcelHelper {
                         type = if (computedIsDebit) "DEBIT" else "CREDIT",
                         amount = computedBalance,
                         description = rawNotes,
-                        currency = rawCurrency
+                        currency = rawCurrency,
+                        date = parsedDate
                     )
                 )
             }
@@ -633,7 +729,14 @@ object CustomerExcelHelper {
             )
         }
 
-        return drafts
+        return CustomerParseResult(drafts = drafts, source = detectedSource)
+    }
+
+    internal fun mapRowsToDrafts(
+        rawRows: List<List<String>>,
+        existingCustomers: List<Customer>
+    ): List<ImportedCustomerDraft> {
+        return mapRowsToParseResult(rawRows, existingCustomers).drafts
     }
 
     private fun normalizeArabicText(text: String): String {

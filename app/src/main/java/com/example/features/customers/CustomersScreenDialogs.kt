@@ -63,6 +63,7 @@ import java.io.File
 internal fun CustomersImportExportDialogs(viewModel: CustomersViewModel) {
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     val importDrafts by viewModel.importDrafts.collectAsStateWithLifecycle()
+    val importSource by viewModel.detectedImportSource.collectAsStateWithLifecycle()
     val isImporting by viewModel.isImporting.collectAsStateWithLifecycle()
     val isSavingImport by viewModel.isSavingImport.collectAsStateWithLifecycle()
     val importProgress by viewModel.importProgress.collectAsStateWithLifecycle()
@@ -72,12 +73,13 @@ internal fun CustomersImportExportDialogs(viewModel: CustomersViewModel) {
     importDrafts?.let { drafts ->
         CustomerImportReviewDialog(
             drafts = drafts,
+            detectedSource = importSource,
             currencySymbol = config.currencySymbol,
             isSavingImport = isSavingImport,
             onDraftUpdated = { viewModel.updateImportDraft(it) },
             onDraftDeleted = { viewModel.removeImportDraft(it) },
             onToggleSelectAll = { viewModel.toggleSelectAllImportDrafts(it) },
-            onConfirmImport = { updateExisting -> viewModel.confirmImport(updateExisting) },
+            onConfirmImport = { updateExisting, debitMode -> viewModel.confirmImport(updateExisting, debitMode) },
             onDismiss = { viewModel.cancelImport() }
         )
     }

@@ -164,6 +164,20 @@ class CustomerRepository(
 
     suspend fun restoreCustomer(id: Long) = customerDao.restoreCustomer(id)
 
+    suspend fun getCustomerDeleteCounts(customerId: Long): CustomerDeleteCounts? =
+        try {
+            customerDao.getCustomerDeleteCounts(customerId)
+        } catch (e: Exception) {
+            null
+        }
+
+    suspend fun getRecycleBinTotalCounts(): CustomerDeleteCounts? =
+        try {
+            customerDao.getRecycleBinTotalCounts()
+        } catch (e: Exception) {
+            null
+        }
+
     suspend fun permanentlyDeleteCustomer(id: Long) = customerDao.permanentlyDeleteCustomer(id)
 
     suspend fun emptyRecycleBin() = customerDao.emptyRecycleBin()

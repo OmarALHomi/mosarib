@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.example.core.database.AppDatabase
 import com.example.core.license.LicenseManager
 import com.example.core.ui.ToastMessage
@@ -318,6 +319,9 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
     private val _importDrafts = MutableStateFlow<List<ImportedCustomerDraft>?>(null)
     val importDrafts: StateFlow<List<ImportedCustomerDraft>?> = _importDrafts.asStateFlow()
 
+    private val _detectedImportSource = MutableStateFlow(ImportSource.EXTERNAL_LEDGER)
+    val detectedImportSource: StateFlow<ImportSource> = _detectedImportSource.asStateFlow()
+
     private val _isImporting = MutableStateFlow(false)
     val isImporting: StateFlow<Boolean> = _isImporting.asStateFlow()
 
@@ -332,13 +336,14 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             _isImporting.value = true
             try {
                 val existing = customerRepo.getAllCustomersDirect()
-                val drafts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                     CustomerExcelHelper.parseCustomerFile(context, uri, existing)
                 }
-                if (drafts.isEmpty()) {
+                if (result.drafts.isEmpty()) {
                     showToast("الملف فارغ أو لم يتم التعرف على بيانات عملاء صالحة", ToastType.WARNING)
                 } else {
-                    _importDrafts.value = drafts
+                    _importDrafts.value = result.drafts
+                    _detectedImportSource.value = result.source
                 }
             } catch (e: Exception) {
                 showToast("تعذر قراءة ملف الإكسل: ${e.localizedMessage}", ToastType.ERROR)
@@ -365,7 +370,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun confirmImport(updateExisting: Boolean) {
+    fun confirmImport(updateExisting: Boolean, debitMode: ImportDebitMode = ImportDebitMode.EXPENSE) {
         if (_isSavingImport.value) return
         val current = _importDrafts.value ?: return
         val selected = current.filter { it.isSelected && it.name.isNotBlank() }
@@ -380,126 +385,160 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 var insertedCount = 0
                 var updatedCount = 0
-                val existingCustomers = customerRepo.getAllCustomersDirect()
 
-                for ((idx, draft) in selected.withIndex()) {
-                    _importProgress.value = Pair(idx + 1, selected.size)
-                    val existing = if (updateExisting) {
-                        existingCustomers.find {
-                            (draft.existingCustomerId != null && it.id == draft.existingCustomerId) ||
-                                it.name.trim().equals(draft.name.trim(), ignoreCase = true) ||
-                                (it.phone.isNotBlank() && it.phone == draft.phone)
+                db.withTransaction {
+                    val existingCustomers = customerRepo.getAllCustomersDirect()
+
+                    for ((idx, draft) in selected.withIndex()) {
+                        _importProgress.value = Pair(idx + 1, selected.size)
+                        val existing = if (updateExisting) {
+                            existingCustomers.find {
+                                (draft.existingCustomerId != null && it.id == draft.existingCustomerId) ||
+                                    it.name.trim().equals(draft.name.trim(), ignoreCase = true) ||
+                                    (it.phone.isNotBlank() && it.phone == draft.phone)
+                            }
+                        } else null
+
+                        val targetCustomerId = if (existing != null) {
+                            val updated = existing.copy(
+                                phone = if (draft.phone.isNotBlank()) draft.phone else existing.phone,
+                                farmName = if (draft.farmName.isNotBlank()) draft.farmName else existing.farmName,
+                                location = if (draft.location.isNotBlank()) draft.location else existing.location,
+                                notes = if (draft.notes.isNotBlank()) draft.notes else existing.notes,
+                                customPricePerHour = draft.customPricePerHour ?: existing.customPricePerHour,
+                                isWellOwner = draft.isWellOwner || existing.isWellOwner,
+                                customGroup = if (draft.customGroup.isNotBlank()) draft.customGroup else existing.customGroup
+                            )
+                            customerRepo.updateCustomer(updated)
+                            updatedCount++
+                            existing.id
+                        } else {
+                            val newCustomer = Customer(
+                                name = draft.name.trim(),
+                                phone = draft.phone.trim(),
+                                farmName = draft.farmName.trim(),
+                                location = draft.location.trim(),
+                                notes = draft.notes.trim(),
+                                customPricePerHour = draft.customPricePerHour,
+                                isWellOwner = draft.isWellOwner,
+                                customGroup = draft.customGroup.trim(),
+                                isBeneficiary = false,
+                                createdAt = System.currentTimeMillis(),
+                                isArchived = false
+                            )
+                            val newId = db.customerDao().insertCustomer(newCustomer)
+                            insertedCount++
+                            newId
                         }
-                    } else null
 
-                    val targetCustomerId = if (existing != null) {
-                        val updated = existing.copy(
-                            phone = if (draft.phone.isNotBlank()) draft.phone else existing.phone,
-                            farmName = if (draft.farmName.isNotBlank()) draft.farmName else existing.farmName,
-                            location = if (draft.location.isNotBlank()) draft.location else existing.location,
-                            notes = if (draft.notes.isNotBlank()) draft.notes else existing.notes,
-                            customPricePerHour = draft.customPricePerHour ?: existing.customPricePerHour,
-                            isWellOwner = draft.isWellOwner || existing.isWellOwner,
-                            customGroup = if (draft.customGroup.isNotBlank()) draft.customGroup else existing.customGroup
-                        )
-                        customerRepo.updateCustomer(updated)
-                        updatedCount++
-                        existing.id
-                    } else {
-                        val newCustomer = Customer(
-                            name = draft.name.trim(),
-                            phone = draft.phone.trim(),
-                            farmName = draft.farmName.trim(),
-                            location = draft.location.trim(),
-                            notes = draft.notes.trim(),
-                            customPricePerHour = draft.customPricePerHour,
-                            isWellOwner = draft.isWellOwner,
-                            customGroup = draft.customGroup.trim(),
-                            isBeneficiary = false,
-                            createdAt = System.currentTimeMillis(),
-                            isArchived = false
-                        )
-                        val newId = db.customerDao().insertCustomer(newCustomer)
-                        insertedCount++
-                        newId
-                    }
-
-                    // قيد العمليات المجمعة أو الرصيد الافتتاحي
-                    val now = System.currentTimeMillis()
-                    if (draft.attachedOperations.size > 1) {
-                        for (op in draft.attachedOperations) {
-                            val opTime = op.date ?: now
-                            if (op.type == "DEBIT") {
-                                db.waterSessionDao().insertSession(
-                                    com.example.features.sessions.WaterSession(
-                                        customerId = targetCustomerId,
-                                        pumpName = "سقي / قيد مستورد",
-                                        startTime = opTime,
-                                        endTime = opTime,
-                                        durationMinutes = 0,
-                                        pricePerHour = 0.0,
-                                        totalAmount = op.amount,
-                                        amountPaid = 0.0,
-                                        remainingDebt = op.amount,
-                                        notes = op.description.ifEmpty { "عملية مستوردة من سجل خارجي" },
-                                        createdAt = opTime
+                        // قيد العمليات المجمعة أو الرصيد الافتتاحي
+                        val now = System.currentTimeMillis()
+                        if (draft.attachedOperations.size > 1) {
+                            for (op in draft.attachedOperations) {
+                                val opTime = op.date ?: now
+                                if (op.type == "DEBIT") {
+                                    if (debitMode == ImportDebitMode.EXPENSE) {
+                                        db.voucherDao().insertVoucher(
+                                            com.example.features.vouchers.Voucher(
+                                                type = com.example.features.vouchers.VoucherType.EXPENSE,
+                                                customerId = targetCustomerId,
+                                                amount = op.amount,
+                                                category = "صرف مستورد",
+                                                paymentMethod = "رصيد سابق",
+                                                date = opTime,
+                                                notes = op.description.ifEmpty { "سند صرف مستورد من سجل خارجي" },
+                                                createdAt = opTime
+                                            )
+                                        )
+                                    } else {
+                                        db.waterSessionDao().insertSession(
+                                            com.example.features.sessions.WaterSession(
+                                                customerId = targetCustomerId,
+                                                pumpName = "سقي / قيد مستورد",
+                                                startTime = opTime,
+                                                endTime = opTime,
+                                                durationMinutes = 0,
+                                                pricePerHour = 0.0,
+                                                totalAmount = op.amount,
+                                                amountPaid = 0.0,
+                                                remainingDebt = op.amount,
+                                                notes = op.description.ifEmpty { "عملية مستوردة من سجل خارجي" },
+                                                createdAt = opTime
+                                            )
+                                        )
+                                    }
+                                } else {
+                                    db.voucherDao().insertVoucher(
+                                        com.example.features.vouchers.Voucher(
+                                            type = com.example.features.vouchers.VoucherType.RECEIPT,
+                                            customerId = targetCustomerId,
+                                            amount = op.amount,
+                                            category = "دفعة مستوردة",
+                                            paymentMethod = "رصيد سابق",
+                                            date = opTime,
+                                            notes = op.description.ifEmpty { "سند قبض مستورد من سجل خارجي" },
+                                            createdAt = opTime
+                                        )
                                     )
-                                )
+                                }
+                            }
+                        } else if (draft.initialBalance > 0.0) {
+                            val opTime = draft.attachedOperations.firstOrNull()?.date ?: now
+                            if (draft.isDebit) {
+                                if (debitMode == ImportDebitMode.EXPENSE) {
+                                    db.voucherDao().insertVoucher(
+                                        com.example.features.vouchers.Voucher(
+                                            type = com.example.features.vouchers.VoucherType.EXPENSE,
+                                            customerId = targetCustomerId,
+                                            amount = draft.initialBalance,
+                                            category = "رصيد افتتاحي",
+                                            paymentMethod = "رصيد سابق",
+                                            date = opTime,
+                                            notes = if (draft.notes.isNotBlank()) "رصيد سابق: ${draft.notes}" else "رصيد ودين سابق مستورد من دفتر الحسابات",
+                                            createdAt = opTime
+                                        )
+                                    )
+                                } else {
+                                    db.waterSessionDao().insertSession(
+                                        com.example.features.sessions.WaterSession(
+                                            customerId = targetCustomerId,
+                                            pumpName = "رصيد افتتاحي",
+                                            startTime = opTime,
+                                            endTime = opTime,
+                                            durationMinutes = 0,
+                                            pricePerHour = 0.0,
+                                            totalAmount = draft.initialBalance,
+                                            amountPaid = 0.0,
+                                            remainingDebt = draft.initialBalance,
+                                            notes = if (draft.notes.isNotBlank()) "رصيد سابق: ${draft.notes}" else "رصيد ودين سابق مستورد من دفتر الحسابات",
+                                            createdAt = opTime
+                                        )
+                                    )
+                                }
                             } else {
                                 db.voucherDao().insertVoucher(
                                     com.example.features.vouchers.Voucher(
                                         type = com.example.features.vouchers.VoucherType.RECEIPT,
                                         customerId = targetCustomerId,
-                                        amount = op.amount,
-                                        category = "دفعة مستوردة",
+                                        amount = draft.initialBalance,
+                                        category = "رصيد افتتاحي",
                                         paymentMethod = "رصيد سابق",
                                         date = opTime,
-                                        notes = op.description.ifEmpty { "سند قبض مستورد من سجل خارجي" },
+                                        notes = if (draft.notes.isNotBlank()) "رصيد دائن: ${draft.notes}" else "رصيد دائن سابق مستورد من دفتر الحسابات",
                                         createdAt = opTime
                                     )
                                 )
                             }
                         }
-                    } else if (draft.initialBalance > 0.0) {
-                        if (draft.isDebit) {
-                            db.waterSessionDao().insertSession(
-                                com.example.features.sessions.WaterSession(
-                                    customerId = targetCustomerId,
-                                    pumpName = "رصيد افتتاحي",
-                                    startTime = now,
-                                    endTime = now,
-                                    durationMinutes = 0,
-                                    pricePerHour = 0.0,
-                                    totalAmount = draft.initialBalance,
-                                    amountPaid = 0.0,
-                                    remainingDebt = draft.initialBalance,
-                                    notes = if (draft.notes.isNotBlank()) "رصيد سابق: ${draft.notes}" else "رصيد ودين سابق مستورد من دفتر الحسابات",
-                                    createdAt = now
-                                )
-                            )
-                        } else {
-                            db.voucherDao().insertVoucher(
-                                com.example.features.vouchers.Voucher(
-                                    type = com.example.features.vouchers.VoucherType.RECEIPT,
-                                    customerId = targetCustomerId,
-                                    amount = draft.initialBalance,
-                                    category = "رصيد افتتاحي",
-                                    paymentMethod = "رصيد سابق",
-                                    date = now,
-                                    notes = if (draft.notes.isNotBlank()) "رصيد دائن: ${draft.notes}" else "رصيد دائن سابق مستورد من دفتر الحسابات",
-                                    createdAt = now
-                                )
-                            )
-                        }
                     }
-                }
 
-                // حفظ المجموعات المستوردة في سجل المجموعات الدائم
-                val newGroups = selected.map { it.customGroup.trim() }.filter { it.isNotBlank() }
-                if (newGroups.isNotEmpty()) {
-                    val currentReg = db.appSettingDao().getSettingValue("custom_groups_registry")?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
-                    val merged = (currentReg + newGroups).distinct()
-                    db.appSettingDao().saveSetting(AppSetting(key = "custom_groups_registry", value = merged.joinToString(",")))
+                    // حفظ المجموعات المستوردة في سجل المجموعات الدائم
+                    val newGroups = selected.map { it.customGroup.trim() }.filter { it.isNotBlank() }
+                    if (newGroups.isNotEmpty()) {
+                        val currentReg = db.appSettingDao().getSettingValue("custom_groups_registry")?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+                        val merged = (currentReg + newGroups).distinct()
+                        db.appSettingDao().saveSetting(AppSetting(key = "custom_groups_registry", value = merged.joinToString(",")))
+                    }
                 }
 
                 _importDrafts.value = null
@@ -1332,24 +1371,52 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
     val archivedCustomers: StateFlow<List<Customer>> = customerRepo.archivedCustomers
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    suspend fun getCustomerDeleteCounts(customerId: Long): CustomerDeleteCounts? {
+        return try {
+            customerRepo.getCustomerDeleteCounts(customerId)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun getRecycleBinTotalCounts(): CustomerDeleteCounts? {
+        return try {
+            customerRepo.getRecycleBinTotalCounts()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     fun restoreCustomer(customerId: Long) {
         viewModelScope.launch {
-            customerRepo.restoreCustomer(customerId)
-            showToast("تمت استعادة الحساب بنجاح وإرجاعه للقائمة النشطة", ToastType.SUCCESS)
+            try {
+                customerRepo.restoreCustomer(customerId)
+                showToast("تمت استعادة الحساب بنجاح وإرجاعه للقائمة النشطة", ToastType.SUCCESS)
+            } catch (e: Exception) {
+                showToast("حدث خطأ أثناء استعادة الحساب: ${e.localizedMessage ?: "خطأ غير معروف"}", ToastType.ERROR)
+            }
         }
     }
 
     fun permanentlyDeleteCustomer(customerId: Long) {
         viewModelScope.launch {
-            customerRepo.permanentlyDeleteCustomer(customerId)
-            showToast("تم حذف الحساب نهائياً من قاعدة البيانات", ToastType.INFO)
+            try {
+                customerRepo.permanentlyDeleteCustomer(customerId)
+                showToast("تم حذف الحساب نهائياً من قاعدة البيانات", ToastType.INFO)
+            } catch (e: Exception) {
+                showToast("تعذر حذف الحساب نهائياً: ${e.localizedMessage ?: "خطأ في قاعدة البيانات"}", ToastType.ERROR)
+            }
         }
     }
 
     fun emptyRecycleBin() {
         viewModelScope.launch {
-            customerRepo.emptyRecycleBin()
-            showToast("تم تفريغ سلة المحذوفات بالكامل", ToastType.INFO)
+            try {
+                customerRepo.emptyRecycleBin()
+                showToast("تم تفريغ سلة المحذوفات بالكامل", ToastType.INFO)
+            } catch (e: Exception) {
+                showToast("تعذر تفريغ سلة المحذوفات: ${e.localizedMessage ?: "خطأ في قاعدة البيانات"}", ToastType.ERROR)
+            }
         }
     }
 }
