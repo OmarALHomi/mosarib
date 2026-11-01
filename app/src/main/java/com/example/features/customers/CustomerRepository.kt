@@ -136,6 +136,8 @@ class CustomerRepository(
 ) {
     val allCustomers: Flow<List<Customer>> = customerDao.getAllCustomers()
 
+    val archivedCustomers: Flow<List<Customer>> = customerDao.getArchivedCustomers()
+
     fun getCustomerById(id: Long): Flow<Customer?> = customerDao.getCustomerById(id)
 
     suspend fun getCustomerByIdDirect(id: Long): Customer? = customerDao.getCustomerByIdDirect(id)
@@ -159,6 +161,12 @@ class CustomerRepository(
     suspend fun deleteCustomer(customer: Customer) = customerDao.deleteCustomer(customer)
 
     suspend fun archiveCustomer(id: Long) = customerDao.archiveCustomer(id)
+
+    suspend fun restoreCustomer(id: Long) = customerDao.restoreCustomer(id)
+
+    suspend fun permanentlyDeleteCustomer(id: Long) = customerDao.permanentlyDeleteCustomer(id)
+
+    suspend fun emptyRecycleBin() = customerDao.emptyRecycleBin()
 
     suspend fun renameCustomGroup(oldGroup: String, newGroup: String) = customerDao.renameCustomGroup(oldGroup, newGroup)
 

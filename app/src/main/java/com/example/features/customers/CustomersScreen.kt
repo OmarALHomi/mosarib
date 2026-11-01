@@ -33,6 +33,7 @@ fun CustomersScreen(
     val balanceFilter by viewModel.balanceFilter.collectAsStateWithLifecycle()
     val selectedGroup by viewModel.selectedGroup.collectAsStateWithLifecycle()
     val customGroups by viewModel.customGroups.collectAsStateWithLifecycle()
+    val archivedCustomers by viewModel.archivedCustomers.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val allSessions = vouchersViewModel?.allSessions?.collectAsStateWithLifecycle()?.value ?: emptyList()
     val context = LocalContext.current
@@ -46,6 +47,7 @@ fun CustomersScreen(
     var messageChoiceCustomer by remember { mutableStateOf<CustomerWithBalance?>(null) }
     var showAddGroupDialog by remember { mutableStateOf(false) }
     var showManageGroupsDialog by remember { mutableStateOf(false) }
+    var showRecycleBinDialog by remember { mutableStateOf(false) }
     var groupToEdit by remember { mutableStateOf<String?>(null) }
     var initialMemberIdsForEdit by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
@@ -98,7 +100,9 @@ fun CustomersScreen(
             onSelectGroup = { viewModel.setSelectedGroup(it) },
             onSelectSortType = { viewModel.setSortType(it) },
             onAddGroupClick = { showAddGroupDialog = true },
-            onManageGroupsClick = { showManageGroupsDialog = true }
+            onManageGroupsClick = { showManageGroupsDialog = true },
+            archivedCount = archivedCustomers.size,
+            onOpenRecycleBin = { showRecycleBinDialog = true }
         )
     }
 
@@ -233,6 +237,17 @@ fun CustomersScreen(
                 groupToEdit = null
                 initialMemberIdsForEdit = emptySet()
             }
+        )
+    }
+
+    // Recycle Bin Dialog (سلة المحذوفات)
+    if (showRecycleBinDialog) {
+        RecycleBinDialog(
+            archivedCustomers = archivedCustomers,
+            onRestore = { viewModel.restoreCustomer(it.id) },
+            onPermanentlyDelete = { viewModel.permanentlyDeleteCustomer(it.id) },
+            onEmptyBin = { viewModel.emptyRecycleBin() },
+            onDismiss = { showRecycleBinDialog = false }
         )
     }
 

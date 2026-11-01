@@ -64,11 +64,16 @@ internal fun CustomersImportExportDialogs(viewModel: CustomersViewModel) {
     val pdfReady by viewModel.pdfReadyFile.collectAsStateWithLifecycle()
     val importDrafts by viewModel.importDrafts.collectAsStateWithLifecycle()
     val isImporting by viewModel.isImporting.collectAsStateWithLifecycle()
+    val isSavingImport by viewModel.isSavingImport.collectAsStateWithLifecycle()
+    val importProgress by viewModel.importProgress.collectAsStateWithLifecycle()
+    val config by viewModel.appConfig.collectAsStateWithLifecycle()
 
     // شاشة مراجعة استيراد إكسل الذكية
     importDrafts?.let { drafts ->
         CustomerImportReviewDialog(
             drafts = drafts,
+            currencySymbol = config.currencySymbol,
+            isSavingImport = isSavingImport,
             onDraftUpdated = { viewModel.updateImportDraft(it) },
             onDraftDeleted = { viewModel.removeImportDraft(it) },
             onToggleSelectAll = { viewModel.toggleSelectAllImportDrafts(it) },
@@ -82,6 +87,20 @@ internal fun CustomersImportExportDialogs(viewModel: CustomersViewModel) {
         MosaribLoadingDialog(
             title = "جاري قراءة ملف البيانات",
             subTitle = "يتم فحص الأعمدة وتدفق البيانات بذكاء..."
+        )
+    }
+
+    // مؤشر جاري قيد وحفظ الحسابات والعمليات ومنع النقر المتكرر
+    if (isSavingImport) {
+        val prog = importProgress
+        val sub = if (prog != null && prog.second > 0) {
+            "تم إدخال ${prog.first} من ${prog.second} حساب وقيد العمليات في السجلات..."
+        } else {
+            "يتم تسجيل الحسابات وقيد العمليات في قاعدة البيانات..."
+        }
+        MosaribLoadingDialog(
+            title = "جاري استيراد وحفظ البيانات",
+            subTitle = sub
         )
     }
 

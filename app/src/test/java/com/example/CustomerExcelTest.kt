@@ -108,5 +108,25 @@ class CustomerExcelTest {
         assertEquals("770000000", records[1][1])
         assertTrue("Note should contain newline without breaking into extra row", records[1][2].contains("سطر أول") && records[1][2].contains("سطر ثان"))
     }
-}
 
+    @Test
+    fun testOperationsAggregationForSameCustomer() {
+        val rows = listOf(
+            listOf("العميل", "الهاتف", "العملة", "مدين", "دائن", "البيان"),
+            listOf("محمد سعيد", "770111222", "ر.س", "15000", "", "سقي دورة أولى"),
+            listOf("محمد سعيد", "770111222", "ر.س", "", "5000", "سند قبض دفعة"),
+            listOf("محمد سعيد", "770111222", "ر.س", "20000", "", "سقي دورة ثانية")
+        )
+
+        val drafts = CustomerExcelHelper.mapRowsToDrafts(rows, emptyList())
+        assertEquals("Customer should be created once despite 3 rows", 1, drafts.size)
+        val d = drafts[0]
+        assertEquals("محمد سعيد", d.name)
+        assertEquals("770111222", d.phone)
+        assertEquals("ر.س", d.currency)
+        assertEquals(3, d.attachedOperations.size)
+        // Net balance: 15000 + 20000 - 5000 = 30000 debit
+        assertEquals(30000.0, d.initialBalance, 0.001)
+        assertTrue(d.isDebit)
+    }
+}

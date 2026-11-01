@@ -169,12 +169,14 @@ internal fun CustomersDropdownFilterRow(
     debtorCount: Int,
     creditorCount: Int,
     settledCount: Int,
+    archivedCount: Int = 0,
     onSelectAccountFilter: (AccountFilter) -> Unit,
     onSelectBalanceFilter: (CustomerBalanceFilter) -> Unit,
     onSelectGroup: (String?) -> Unit,
     onSelectSortType: (CustomerSort) -> Unit,
     onAddGroupClick: () -> Unit,
     onManageGroupsClick: () -> Unit,
+    onOpenRecycleBin: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     MosaribFilterRow(
@@ -202,8 +204,10 @@ internal fun CustomersDropdownFilterRow(
             selectedGroup = selectedGroup,
             customGroups = customGroups,
             rawCustomers = rawCustomers,
+            archivedCount = archivedCount,
             onSelectGroup = onSelectGroup,
-            onManageGroupsClick = onManageGroupsClick
+            onManageGroupsClick = onManageGroupsClick,
+            onOpenRecycleBin = onOpenRecycleBin
         )
 
         // 4. زر إضافة مجموعة (+ مجموعة)
@@ -356,8 +360,10 @@ private fun GroupFilterChip(
     selectedGroup: String?,
     customGroups: List<String>,
     rawCustomers: List<CustomerWithBalance>,
+    archivedCount: Int = 0,
     onSelectGroup: (String?) -> Unit,
-    onManageGroupsClick: () -> Unit
+    onManageGroupsClick: () -> Unit,
+    onOpenRecycleBin: () -> Unit = {}
 ) {
     var showGroupMenu by remember { mutableStateOf(false) }
 
@@ -406,6 +412,37 @@ private fun GroupFilterChip(
                 onClick = {
                     showGroupMenu = false
                     onManageGroupsClick()
+                }
+            )
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "سلة المحذوفات 🗑️",
+                            fontWeight = FontWeight.Bold,
+                            color = if (archivedCount > 0) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurface
+                        )
+                        if (archivedCount > 0) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = CircleShape,
+                                color = Color(0xFFEF4444).copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    text = "$archivedCount",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFEF4444),
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+                    }
+                },
+                onClick = {
+                    showGroupMenu = false
+                    onOpenRecycleBin()
                 }
             )
         }
