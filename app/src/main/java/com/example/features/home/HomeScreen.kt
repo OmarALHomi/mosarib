@@ -31,7 +31,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDone
@@ -51,12 +50,11 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -107,6 +105,7 @@ import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.PrimaryTealDark
 import com.example.ui.theme.SecondaryAqua
+import com.example.ui.theme.mosarib
 import java.util.Calendar
 
 data class DayWaterStat(
@@ -166,7 +165,7 @@ fun HomeScreen(
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 90.dp)
+            contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             // 1. Header Branding & Animated Living Theme Toggle Button
             item {
@@ -268,8 +267,7 @@ fun HomeScreen(
                         text = "الوصول السريع",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 15.sp
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     )
                 }
@@ -290,8 +288,8 @@ fun HomeScreen(
                             title = "سقي جديد",
                             subtitle = "تسجيل دورة ري",
                             icon = Icons.Default.WaterDrop,
-                            iconBgColor = if (isDarkTheme) Color(0xFF0C2433) else Color(0xFFE0F2FE),
-                            iconTint = if (isDarkTheme) Color(0xFF38BDF8) else PrimaryTeal,
+                            iconBgColor = MaterialTheme.mosarib.infoContainer,
+                            iconTint = MaterialTheme.mosarib.info,
                             onClick = {
                                 checkOperationAllowed {
                                     showAddManualSheet = true
@@ -304,8 +302,8 @@ fun HomeScreen(
                             title = "قبض",
                             subtitle = "سند تحصيل كاش",
                             icon = Icons.Default.Payments,
-                            iconBgColor = if (isDarkTheme) Color(0xFF132A1C) else Color(0xFFE8F5E9),
-                            iconTint = if (isDarkTheme) Color(0xFF4ADE80) else AccentEmerald,
+                            iconBgColor = MaterialTheme.mosarib.successContainer,
+                            iconTint = MaterialTheme.mosarib.success,
                             onClick = {
                                 checkOperationAllowed {
                                     voucherInitialType = VoucherType.RECEIPT
@@ -324,8 +322,8 @@ fun HomeScreen(
                             title = "صرف",
                             subtitle = "صيانة ونفقات",
                             icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                            iconBgColor = if (isDarkTheme) Color(0xFF2E1517) else Color(0xFFFFEBEE),
-                            iconTint = if (isDarkTheme) Color(0xFFF87171) else Color(0xFFE53935),
+                            iconBgColor = MaterialTheme.mosarib.debt.copy(alpha = 0.12f),
+                            iconTint = MaterialTheme.mosarib.debt,
                             onClick = {
                                 checkOperationAllowed {
                                     voucherInitialType = VoucherType.EXPENSE
@@ -339,8 +337,8 @@ fun HomeScreen(
                             title = "شراء ساعات",
                             subtitle = "شراء ماء من بئر",
                             icon = Icons.Default.AccessTime,
-                            iconBgColor = if (isDarkTheme) Color(0xFF0C2433) else Color(0xFFE0F2FE),
-                            iconTint = if (isDarkTheme) Color(0xFF38BDF8) else Color(0xFF0288D1),
+                            iconBgColor = MaterialTheme.mosarib.infoContainer,
+                            iconTint = MaterialTheme.mosarib.info,
                             onClick = {
                                 checkOperationAllowed {
                                     showAddPurchaseSheet = true
@@ -358,8 +356,8 @@ fun HomeScreen(
                             title = "عميل جديد",
                             subtitle = "إضافة مزارع أو بئر",
                             icon = Icons.Default.PersonAdd,
-                            iconBgColor = if (isDarkTheme) Color(0xFF0F2634) else Color(0xFFE0F2FE),
-                            iconTint = if (isDarkTheme) Color(0xFF38BDF8) else Color(0xFF0284C7),
+                            iconBgColor = MaterialTheme.mosarib.infoContainer,
+                            iconTint = MaterialTheme.mosarib.info,
                             onClick = { showAddCustomerSheet = true },
                             modifier = Modifier.weight(1f)
                         )
@@ -368,8 +366,8 @@ fun HomeScreen(
                             title = "النسخ الاحتياطي",
                             subtitle = "حفظ واستعادة سحابية ومحلية",
                             icon = Icons.Default.CloudSync,
-                            iconBgColor = if (isDarkTheme) Color(0xFF132A1C) else Color(0xFFE8F5E9),
-                            iconTint = if (isDarkTheme) Color(0xFF4ADE80) else Color(0xFF16A34A),
+                            iconBgColor = MaterialTheme.mosarib.successContainer,
+                            iconTint = MaterialTheme.mosarib.success,
                             onClick = {
                                 settingsViewModel.selectDriveBackupTab()
                                 onNavigateToTab(AppTab.SETTINGS)
@@ -384,7 +382,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(14.dp))
             }
 
-            // 5. Recent Operations Section (آخر التسجيلات)
+            // 5. Recent Operations Section (آخر دورات السقي)
             item {
                 Row(
                     modifier = Modifier
@@ -394,21 +392,21 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "آخر التسجيلات",
+                        text = "آخر دورات السقي",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 15.sp
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     )
-                    Text(
-                        text = "عرض الكل →",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            color = PrimaryTeal,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        modifier = Modifier.clickable { onNavigateToTab(AppTab.VOUCHERS) }
-                    )
+                    TextButton(
+                        onClick = { onNavigateToTab(AppTab.VOUCHERS) }
+                    ) {
+                        Text(
+                            text = "عرض الكل ←",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
 
@@ -423,16 +421,33 @@ fun HomeScreen(
                         shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
-                        Box(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(24.dp),
-                            contentAlignment = Alignment.Center
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            Icon(
+                                imageVector = Icons.Default.WaterDrop,
+                                contentDescription = null,
+                                tint = MaterialTheme.mosarib.textMuted,
+                                modifier = Modifier.size(40.dp)
+                            )
                             Text(
                                 text = "لا توجد دورات سقي مسجلة حتى الآن",
-                                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF94A3B8))
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.mosarib.textMuted
                             )
+                            TextButton(
+                                onClick = { checkOperationAllowed { showAddManualSheet = true } }
+                            ) {
+                                Text(
+                                    text = "سجّل أول دورة سقي",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                 }
@@ -463,18 +478,18 @@ fun HomeScreen(
                         text = "سقي الأسبوع",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 15.sp
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     )
-                    Text(
-                        text = "التقرير الكامل ←",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            color = PrimaryTeal,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        modifier = Modifier.clickable(onClick = onOpenReports)
-                    )
+                    TextButton(
+                        onClick = onOpenReports
+                    ) {
+                        Text(
+                            text = "التقرير الكامل ←",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
 
@@ -483,31 +498,13 @@ fun HomeScreen(
             }
         }
 
-        // Floating Action Button لإضافة دورة سقي جديدة
-        FloatingActionButton(
-            onClick = { checkOperationAllowed { showAddManualSheet = true } },
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 16.dp, bottom = 16.dp),
-            shape = CircleShape,
-            containerColor = PrimaryTeal,
-            contentColor = Color.White,
-            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = "سجل سقي جديد",
-                modifier = Modifier.size(24.dp)
-            )
-        }
-
         // Floating Toast Notification
         LuxuryToastNotification(
             toast = toast,
             onDismiss = { sessionsViewModel.dismissToast() },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 85.dp)
+                .padding(bottom = 16.dp)
         )
     }
 

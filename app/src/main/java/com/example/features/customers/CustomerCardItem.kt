@@ -32,6 +32,9 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -184,7 +187,7 @@ private fun CustomerCardActions(
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         if (!isUltraCompact && customer.phone.isNotEmpty()) {
             CustomerCardActionButton(
@@ -250,18 +253,32 @@ private fun CustomerCardActionButton(
 ) {
     Box(
         modifier = Modifier
-            .size(30.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(background)
-            .clickable { onClick() },
+            // 40dp keeps the name readable on 360dp phones; Compose extends the hit area to 48dp
+            .size(40.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(
+                role = Role.Button,
+                onClick = onClick
+            )
+            .semantics {
+                this.contentDescription = contentDescription
+            },
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = tint,
-            modifier = Modifier.size(15.dp)
-        )
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(background),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(15.dp)
+            )
+        }
     }
 }
 
@@ -353,8 +370,7 @@ private fun CustomerCardInfoRow(item: CustomerWithBalance, isDark: Boolean) {
                 text = "${item.totalOperationsCount} حركة",
                 style = MaterialTheme.typography.labelSmall.copy(
                     color = Color(0xFF1976D2),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 10.sp
+                    fontWeight = FontWeight.Bold
                 )
             )
         }
@@ -371,8 +387,7 @@ private fun CustomerCardInfoRow(item: CustomerWithBalance, isDark: Boolean) {
                     text = customer.customGroup,
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = if (isDark) Color(0xFFFDE68A) else Color(0xFFB45309),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp
+                        fontWeight = FontWeight.Bold
                     )
                 )
             }
@@ -387,9 +402,8 @@ private fun CustomerCardInfoRow(item: CustomerWithBalance, isDark: Boolean) {
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = subInfo,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 11.sp
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -469,8 +483,7 @@ private fun CustomerCardBalance(item: CustomerWithBalance, currencySymbol: Strin
                     text = tafqeetWords,
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontWeight = FontWeight.Bold,
-                        color = statusColor.copy(alpha = 0.90f),
-                        fontSize = 11.sp
+                        color = statusColor.copy(alpha = 0.90f)
                     ),
                     textAlign = TextAlign.Center,
                     maxLines = 1,

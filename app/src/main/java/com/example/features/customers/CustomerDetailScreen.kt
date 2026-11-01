@@ -130,6 +130,7 @@ import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.PrimaryTealDark
 import com.example.ui.theme.SecondaryAquaDark
+import com.example.ui.theme.DarkMosaribExtendedColors
 import java.io.File
 
 enum class CustomerOpFilter(val title: String) {
@@ -410,20 +411,28 @@ fun CustomerDetailScreen(
     Scaffold(
         floatingActionButton = {
             customerWithBalance?.let { cwb ->
+                val isOwner = cwb.customer.isWellOwner
                 ExtendedFloatingActionButton(
-                    onClick = { showAddSessionSheet = true },
+                    onClick = {
+                        if (isOwner) {
+                            showOwnerPurchaseSheet = true
+                        } else {
+                            showAddSessionSheet = true
+                        }
+                    },
                     icon = {
                         Icon(
-                            Icons.Default.WaterDrop,
+                            imageVector = if (isOwner) Icons.Default.Add else Icons.Default.WaterDrop,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp)
                         )
                     },
                     text = {
                         Text(
-                            text = "تسجيل سقي",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.5.sp
+                            text = if (isOwner) "شراء ساعات" else "سقي جديد",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.Bold
+                            )
                         )
                     },
                     containerColor = PrimaryTeal,
@@ -556,8 +565,8 @@ fun CustomerDetailScreen(
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = metaChips.joinToString("  •  "),
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Color.White.copy(alpha = 0.75f),
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = Color.White.copy(alpha = 0.9f),
                                             fontWeight = FontWeight.Medium
                                         )
                                     )
@@ -568,7 +577,7 @@ fun CustomerDetailScreen(
                                     Text(
                                         text = customer.notes,
                                         style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Color.White.copy(alpha = 0.65f)
+                                            color = Color.White.copy(alpha = 0.85f)
                                         ),
                                         maxLines = 2,
                                         textAlign = TextAlign.Center,
@@ -647,6 +656,12 @@ fun CustomerDetailScreen(
                                             label = "سقي جديد",
                                             accentColor = PrimaryTeal,
                                             onClick = { showAddSessionSheet = true }
+                                        )
+                                        QuickActionButton(
+                                            icon = Icons.Default.Payments,
+                                            label = "قبض",
+                                            accentColor = DarkMosaribExtendedColors.success, // الرأس داكن دائماً، فنستخدم لون الوضع الليلي
+                                            onClick = { showAddReceiptSheet = true }
                                         )
                                         if (customer.phone.isNotEmpty()) {
                                             QuickActionButton(
@@ -3643,7 +3658,7 @@ private fun CustomerActionsDropdownMenu(
                 }
             )
             DropdownMenuItem(
-                text = { Text("تسجيل سقي", fontWeight = FontWeight.Bold) },
+                text = { Text("سقي جديد", fontWeight = FontWeight.Bold) },
                 onClick = onAddSession,
                 leadingIcon = {
                     Icon(Icons.Default.WaterDrop, contentDescription = null, tint = SecondaryAquaDark, modifier = Modifier.size(20.dp))
@@ -3657,14 +3672,14 @@ private fun CustomerActionsDropdownMenu(
                 }
             )
             DropdownMenuItem(
-                text = { Text("سند (عليه)", fontWeight = FontWeight.Bold) },
+                text = { Text("سند صرف (عليه)", fontWeight = FontWeight.Bold) },
                 onClick = onAddDisbursement,
                 leadingIcon = {
                     Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = Color(0xFFFF8A80), modifier = Modifier.size(20.dp))
                 }
             )
             DropdownMenuItem(
-                text = { Text("سند (له)", fontWeight = FontWeight.Bold) },
+                text = { Text("سند قبض (له)", fontWeight = FontWeight.Bold) },
                 onClick = onAddReceipt,
                 leadingIcon = {
                     Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(20.dp))
@@ -3704,21 +3719,21 @@ private fun CustomerActionsDropdownMenu(
                 )
             }
             DropdownMenuItem(
-                text = { Text("تسجيل سقي", fontWeight = FontWeight.Bold) },
+                text = { Text("سقي جديد", fontWeight = FontWeight.Bold) },
                 onClick = onAddSession,
                 leadingIcon = {
                     Icon(Icons.Default.WaterDrop, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(20.dp))
                 }
             )
             DropdownMenuItem(
-                text = { Text("سند (له)", fontWeight = FontWeight.Bold) },
+                text = { Text("سند قبض (له)", fontWeight = FontWeight.Bold) },
                 onClick = onAddReceipt,
                 leadingIcon = {
                     Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(20.dp))
                 }
             )
             DropdownMenuItem(
-                text = { Text("سند (عليه)", fontWeight = FontWeight.Bold) },
+                text = { Text("سند صرف (عليه)", fontWeight = FontWeight.Bold) },
                 onClick = onAddDisbursement,
                 leadingIcon = {
                     Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = Color(0xFFFF8A80), modifier = Modifier.size(20.dp))

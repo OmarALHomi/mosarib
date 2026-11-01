@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 # Task 007: Touch targets and TalkBack labels on the customer list
 
@@ -38,4 +38,9 @@ status: ready
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+**2026-11-01 — accepted with a fix by Claude.**
+- Four 48dp targets made the action row 60dp wider, leaving about 80dp for the customer name on a
+  360dp phone. Claude changed the outer box to `size(40.dp)` + `clip(RoundedCornerShape(10.dp))`.
+  Compose already extends a pointer hit area to 48dp where there is room. The clip also bounds the
+  ripple, which was a square.
+- Check on the device: name truncation and taps between neighbouring actions.

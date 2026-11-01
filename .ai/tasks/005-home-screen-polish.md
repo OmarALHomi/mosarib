@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 # Task 005: Home screen polish
 
@@ -46,4 +46,5 @@ status: ready
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+**2026-11-01 — accepted.** All six points are done as specified. Build and tests pass (re-run by Claude).
+Visible change to expect: the "سقي جديد" quick-action icon is now blue (`info`) instead of teal.

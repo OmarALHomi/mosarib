@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 # Task 006: Customer detail — make the main actions visible and consistent
 
@@ -49,4 +49,11 @@ status: ready
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+**2026-11-01 — accepted with a fix by Claude.**
+- The header gradient is dark in both themes. `MaterialTheme.mosarib.success` is dark green in
+  light mode, so the new "قبض" icon was nearly invisible. Claude switched it to
+  `DarkMosaribExtendedColors.success` (#4ADE80). This was Claude's mistake in the spec.
+- The licence check is correctly left out: no add action on this screen checks it today.
+- For wave 2: in the same header, the "سقي جديد" icon (`PrimaryTeal`) and the "سقي له" icon
+  (`SecondaryAquaDark`) have the same low contrast on the gradient. `QuickActionButton` labels
+  still force `fontSize = 10.sp`.
