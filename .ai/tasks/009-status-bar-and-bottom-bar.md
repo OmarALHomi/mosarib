@@ -1,7 +1,6 @@
-status: draft
+status: ready
 
-<!-- Claude: waiting for the owner's decision on the bottom-bar style (decision 2 in
-.ai/reviews/device-review-2026-11-01.md). Do not start until this says ready. -->
+<!-- Owner chose the standard Material 3 NavigationBar on 2026-11-01. -->
 
 # Task 009: Status-bar icons and a bottom bar that never hides its label
 
