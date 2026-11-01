@@ -168,6 +168,41 @@ object Formatters {
     }
 
     /**
+     * Converts a numeric amount to approximate Arabic words for card display (round to nearest 100).
+     * Keeps vouchers, PDFs, messages and detail sheets exact via [amountToArabicWords].
+     */
+    fun amountToArabicWordsApprox(amount: Double, currency: String = "ر.ي"): String {
+        val absAmount = kotlin.math.abs(amount)
+        val cleanCurrency = if (currency.contains("ر") || currency.contains("ريال")) currency else "$currency ريال"
+
+        if (absAmount < 100.0) {
+            return cleanTafqeetWords(amountToArabicWords(absAmount, currency), cleanCurrency)
+        }
+
+        val bd = java.math.BigDecimal.valueOf(absAmount)
+        val roundedBd = bd.divide(java.math.BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP)
+            .multiply(java.math.BigDecimal.valueOf(100))
+        val rounded = roundedBd.toDouble()
+
+        val baseWords = cleanTafqeetWords(amountToArabicWords(rounded, currency), cleanCurrency)
+        return if (absAmount == rounded) {
+            baseWords
+        } else {
+            "$baseWords تقريباً"
+        }
+    }
+
+    private fun cleanTafqeetWords(raw: String, cleanCurrency: String): String {
+        return raw
+            .removePrefix("سالب فقط ")
+            .removePrefix("فقط ")
+            .removeSuffix(" لا غير")
+            .removeSuffix(" لاغير")
+            .replace("مائتان $cleanCurrency", "مائتا $cleanCurrency")
+            .trim()
+    }
+
+    /**
      * Formats duration into a natural Arabic string
      * e.g. "3 ساعات و 45 دقيقة", "ساعة واحدة", "45 دقيقة"
      */

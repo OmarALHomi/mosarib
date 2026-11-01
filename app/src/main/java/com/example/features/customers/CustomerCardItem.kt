@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,10 +27,15 @@ import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,12 +48,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
+import androidx.compose.ui.unit.sp
 import com.example.core.ui.isAppDark
 import com.example.core.util.Formatters
 import com.example.ui.theme.AccentGold
@@ -55,6 +66,29 @@ import com.example.ui.theme.AvatarPalette
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.mosarib
 
+@Suppress("DEPRECATION")
+private val TightPlatformTextStyle = androidx.compose.ui.text.PlatformTextStyle(
+    includeFontPadding = false
+)
+
+private val TightLineHeightStyle = LineHeightStyle(
+    alignment = LineHeightStyle.Alignment.Center,
+    trim = LineHeightStyle.Trim.Both
+)
+
+@Suppress("DEPRECATION")
+private fun TextStyle.tight(overrideSize: TextUnit? = null): TextStyle {
+    val size = if (overrideSize != null && overrideSize.isSpecified) overrideSize else this.fontSize
+    val effectiveSize = if (size.isSpecified) size else 14.sp
+    return this.copy(
+        fontSize = effectiveSize,
+        lineHeight = (effectiveSize.value * 1.25f).sp,
+        lineHeightStyle = TightLineHeightStyle,
+        platformStyle = TightPlatformTextStyle
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomerCardItem(
     item: CustomerWithBalance,
@@ -64,7 +98,8 @@ fun CustomerCardItem(
     onWhatsAppClick: () -> Unit,
     onPdfStatementClick: () -> Unit,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val customer = item.customer
     val isDark = isAppDark()
@@ -76,199 +111,304 @@ fun CustomerCardItem(
         when {
             words.isEmpty() -> ""
             words.size == 1 -> words[0].take(1)
-            else -> "${words[0].take(1)}${words[1].take(1)}"
+            else -> {
+                val firstLetter = words.first().take(1)
+                val lastWord = words.last()
+                val cleanLast = if (lastWord.startsWith("ال") && lastWord.length > 2) {
+                    lastWord.removePrefix("ال")
+                } else {
+                    lastWord
+                }
+                val lastLetter = cleanLast.take(1)
+                "$firstLetter$lastLetter"
+            }
         }
     }
-
-    val (statusText, statusAmount, statusColor) = if (customer.isWellOwner) {
+    val (stateColor, stateLabel, balanceAmount) = if (customer.isWellOwner) {
         val net = item.payableBalance - item.receivableBalance
         when {
-            net > 0.001 -> Triple("له", net, MaterialTheme.mosarib.credit)
-            net < -0.001 -> Triple("عليه", -net, MaterialTheme.mosarib.debt)
-            else -> Triple("مسدد", 0.0, MaterialTheme.mosarib.settled)
+            net > 0.001 -> Triple(MaterialTheme.mosarib.credit, "له", net)
+            net < -0.001 -> Triple(MaterialTheme.mosarib.debt, "عليه", -net)
+            else -> Triple(MaterialTheme.mosarib.settled, "مسدد", 0.0)
         }
     } else {
         when {
-            item.receivableBalance > 0.001 -> Triple("عليه", item.receivableBalance, MaterialTheme.mosarib.debt)
-            item.receivableBalance < -0.001 -> Triple("له", -item.receivableBalance, MaterialTheme.mosarib.credit)
-            else -> Triple("مسدد", 0.0, MaterialTheme.mosarib.settled)
+            item.receivableBalance > 0.001 -> Triple(MaterialTheme.mosarib.debt, "عليه", item.receivableBalance)
+            item.receivableBalance < -0.001 -> Triple(MaterialTheme.mosarib.credit, "له", -item.receivableBalance)
+            else -> Triple(MaterialTheme.mosarib.settled, "مسدد", 0.0)
         }
     }
 
+    val isZeroBalance = stateLabel == "مسدد" || balanceAmount <= 0.001
+    val amountText = if (isZeroBalance) "مسدد" else "$stateLabel: ${Formatters.formatCurrency(balanceAmount, currencySymbol)}"
+    val amountInWords = if (isZeroBalance) "" else Formatters.amountToArabicWordsApprox(balanceAmount, currencySymbol)
+
+    val cleanWords = remember(amountInWords) {
+        amountInWords
+            .removePrefix("فقط ")
+            .removePrefix("سالب فقط ")
+            .removeSuffix(" لا غير")
+            .removeSuffix(" لاغير")
+            .trim()
+    }
+
+    val cardDescription = remember(customer.name, amountText, cleanWords) {
+        listOfNotNull(
+            customer.name,
+            amountText,
+            cleanWords.takeIf { it.isNotBlank() }
+        ).joinToString("، ")
+    }
+
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 3.dp)
-            .shadow(1.dp, MaterialTheme.shapes.medium)
-            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .shadow(
+                elevation = if (isDark) 0.dp else 1.dp,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = cardDescription }
             .testTag("customer_card_${customer.id}"),
-        shape = MaterialTheme.shapes.medium,
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        border = BorderStroke(1.4.dp, stateColor.copy(alpha = if (isDark) 0.45f else 0.30f))
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // 1. Leading 44dp avatar circle with initials (+ well owner badge)
-            Box(
-                modifier = Modifier.size(44.dp),
-                contentAlignment = Alignment.Center
+            // Header: Accent bar + Avatar + 2 lines of text (Name/Balance, Chips/Tafqeet)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Accent bar: 4dp x 28dp
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .clip(CircleShape)
-                        .background(avatarColor.background),
+                        .width(4.dp)
+                        .height(24.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(stateColor)
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Avatar: 44dp circle
+                Box(
+                    modifier = Modifier.size(44.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = initials,
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = avatarColor.onBackground
-                    )
-                }
-
-                if (customer.isWellOwner) {
                     Box(
                         modifier = Modifier
-                            .size(16.dp)
-                            .align(Alignment.BottomEnd)
+                            .fillMaxSize()
                             .clip(CircleShape)
-                            .background(MaterialTheme.mosarib.info),
+                            .background(avatarColor.background),
                         contentAlignment = Alignment.Center
                     ) {
+                        Text(
+                            text = initials,
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = avatarColor.onBackground
+                        )
+                    }
+
+                    if (customer.isWellOwner) {
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .align(Alignment.BottomEnd)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.mosarib.info),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.WaterDrop,
+                                contentDescription = "صاحب بئر",
+                                tint = Color.White,
+                                modifier = Modifier.size(10.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Text column: Line 1 + Line 2
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    // Line 1: Name (weight 1f) and Balance (intrinsic, titleMedium bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = customer.name,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleMedium.tight().copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = amountText,
+                            style = MaterialTheme.typography.titleMedium.tight().copy(fontWeight = FontWeight.Bold),
+                            color = stateColor,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+
+                    // Line 2: Chips (no shrink, no wrap) and Amount in words (weight 1f, end-aligned)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (customer.customGroup.isNotBlank()) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = customer.customGroup,
+                                        style = MaterialTheme.typography.labelSmall.tight(),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "${item.totalOperationsCount} حركة",
+                                    style = MaterialTheme.typography.labelSmall.tight(),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                )
+                            }
+
+                            if (customer.isWellOwner) {
+                                Surface(
+                                    color = MaterialTheme.mosarib.info.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = "صاحب بئر",
+                                        style = MaterialTheme.typography.labelSmall.tight().copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.mosarib.info,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        if (cleanWords.isNotBlank()) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = cleanWords,
+                                modifier = Modifier.weight(1f),
+                                textAlign = TextAlign.End,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelMedium.tight().copy(fontWeight = FontWeight.Bold),
+                                color = stateColor
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Bottom row: Phone + WhatsApp + PDF + Call + Kebab menu (height 32dp with LocalMinimumInteractiveComponentSize 32dp)
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 32.dp) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(32.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                Text(
+                    text = customer.phone,
+                    style = MaterialTheme.typography.labelSmall.tight(),
+                    color = MaterialTheme.mosarib.textMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+
+                if (customer.phone.isNotBlank()) {
+                    IconButton(
+                        onClick = onWhatsAppClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.WaterDrop,
-                            contentDescription = "صاحب بئر",
-                            tint = Color.White,
-                            modifier = Modifier.size(10.dp)
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "إرسال كشف عبر واتساب",
+                            tint = MaterialTheme.mosarib.success,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // 2. Middle Column: Name and Metadata
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text(
-                    text = customer.name,
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                val metaText = remember(customer.customGroup, item.totalOperationsCount, customer.phone) {
-                    buildList {
-                        if (customer.customGroup.isNotBlank()) add(customer.customGroup)
-                        add("${item.totalOperationsCount} حركة")
-                        if (customer.phone.isNotBlank()) add(customer.phone)
-                    }.joinToString(" • ")
+                IconButton(
+                    onClick = onPdfStatementClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PictureAsPdf,
+                        contentDescription = "كشف حساب PDF",
+                        tint = AccentGold,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
 
-                Text(
-                    text = metaText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.mosarib.textMuted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // 3. Trailing Column: Financial Status
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = if (statusText == "مسدد") "0" else Formatters.formatCurrency(statusAmount, currencySymbol),
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = statusColor,
-                    maxLines = 1,
-                    softWrap = false
-                )
-
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = statusColor,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-
-            Spacer(modifier = Modifier.width(4.dp))
-
-            // 4. Actions: Call button (if phone present) + Kebab Menu
-            Row(verticalAlignment = Alignment.CenterVertically) {
                 if (customer.phone.isNotBlank()) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable(
-                                role = Role.Button,
-                                onClick = onCallClick
-                            )
-                            .semantics {
-                                contentDescription = "اتصال"
-                            },
-                        contentAlignment = Alignment.Center
+                    IconButton(
+                        onClick = onCallClick,
+                        modifier = Modifier.size(32.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(PrimaryTeal.copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Call,
-                                contentDescription = null,
-                                tint = PrimaryTeal,
-                                modifier = Modifier.size(15.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.Call,
+                            contentDescription = "اتصال",
+                            tint = PrimaryTeal,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
 
-                Box {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable(
-                                role = Role.Button,
-                                onClick = { menuExpanded = true }
-                            )
-                            .semantics {
-                                contentDescription = "خيارات"
-                            },
-                        contentAlignment = Alignment.Center
+                Box(
+                    modifier = Modifier.size(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    IconButton(
+                        onClick = { menuExpanded = true },
+                        modifier = Modifier.size(32.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "خيارات",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
 
                     DropdownMenu(
@@ -326,6 +466,7 @@ fun CustomerCardItem(
                             }
                         )
                     }
+                }
                 }
             }
         }

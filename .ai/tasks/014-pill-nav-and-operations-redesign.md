@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 <!-- Owner reviewed 009/010 on the device on 2026-11-01: "not professional"; the bottom bar looks
 classic and old, and the irrigation cards in the operations screen look bad. The owner chose
@@ -161,4 +161,9 @@ Same visual language as the operations list:
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+**Verdict: A accepted; B, C and D superseded by task 015** (2026-11-01). Checked on the device.
+- The floating pill bar and the new icons look right in dark and light.
+- The grouped flat list (B, C, D) works as specified, but the owner rejected the look. The spec
+  was wrong, not the code: it removed the coloured cards and the amount in words, which real
+  users need.
+- Task 015 brings back coloured cards. Keep the day-grouping helper; 015 uses it.

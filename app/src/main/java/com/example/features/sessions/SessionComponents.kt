@@ -106,6 +106,7 @@ import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.SecondaryAqua
+import com.example.ui.theme.mosarib
 
 @Composable
 fun SessionCardItem(
@@ -941,5 +942,199 @@ private fun SessionMetricPill(
             softWrap = false,
             overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+
+@Composable
+fun SessionPaymentHistoryExpander(
+    session: WaterSession,
+    linkedVouchers: List<Voucher>,
+    debtToShow: Double,
+    currencySymbol: String,
+    onSettleClick: (() -> Unit)? = null,
+    onShareVoucher: ((Voucher) -> Unit)? = null
+) {
+    var isExpanded by remember(session.id) { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (!isExpanded) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { isExpanded = true }
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = "عرض سجل السداد",
+                        tint = PrimaryTeal,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = if (linkedVouchers.isNotEmpty()) "سجل السداد (${linkedVouchers.size} دفعة)" else "تفاصيل السداد",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = PrimaryTeal,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+
+                if (debtToShow > 0.001 && onSettleClick != null) {
+                    Button(
+                        onClick = onSettleClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(13.dp))
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text("سداد", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    }
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // الدفعة المسددة مقدماً
+                val upfront = Math.max(0.0, session.amountPaid - linkedVouchers.sumOf { it.amount })
+                if (upfront > 0) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier.size(6.dp).clip(CircleShape).background(AccentEmerald)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("دفعة مقدمة (فور التسجيل):", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+                        }
+                        Text(
+                            "${Formatters.formatCurrency(upfront, currencySymbol)} • ${Formatters.formatDate(session.startTime)}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold, color = AccentEmerald)
+                        )
+                    }
+                }
+
+                // سندات القبض المرتبطة
+                if (linkedVouchers.isNotEmpty()) {
+                    linkedVouchers.forEach { v ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier.size(6.dp).clip(CircleShape).background(PrimaryTeal)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("سند قبض (${v.voucherNumber}):", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    "${Formatters.formatCurrency(v.amount, currencySymbol)} • ${Formatters.formatDate(v.date)}",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold, color = PrimaryTeal)
+                                )
+                                if (onShareVoucher != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(PrimaryTeal.copy(alpha = 0.15f))
+                                            .clickable { onShareVoucher(v) },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.Send,
+                                            contentDescription = "مشاركة السند",
+                                            tint = PrimaryTeal,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (session.amountPaid == 0.0 && debtToShow > 0.001) {
+                    Text(
+                        text = "لم يتم تسجيل أي سداد لهذه الجلسة حتى الآن (مؤخر بالكامل)",
+                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.debt, fontWeight = FontWeight.Bold)
+                    )
+                } else if (debtToShow <= 0.001 && session.remainingDebt > 0.001) {
+                    Text(
+                        text = "مسددة بالكامل ضمن رصيد الحساب العام",
+                        style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
+                    )
+                }
+
+                // زر السداد في العرض المفصل
+                if (debtToShow > 0.001 && onSettleClick != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Button(
+                        onClick = onSettleClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(34.dp)
+                    ) {
+                        Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "سداد (${Formatters.formatCurrency(debtToShow, currencySymbol)})",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+
+                // زر طي التفاصيل أسفل الكرت
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { isExpanded = false }
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowUp,
+                        contentDescription = null,
+                        tint = PrimaryTeal,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "طي التفاصيل",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = PrimaryTeal,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+            }
+        }
     }
 }

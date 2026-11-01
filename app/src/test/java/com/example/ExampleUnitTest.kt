@@ -87,6 +87,44 @@ class ExampleUnitTest {
     }
 
     @Test
+    fun `test Arabic Tafqeet approximate conversion`() {
+        assertEquals("خمسون ر.ي", Formatters.amountToArabicWordsApprox(50.0, "ر.ي"))
+        assertEquals("اثنا عشر ألفاً وخمسمائة ر.ي", Formatters.amountToArabicWordsApprox(12500.0, "ر.ي"))
+        assertEquals("ثلاثة عشر ألفاً ومائتا ر.ي تقريباً", Formatters.amountToArabicWordsApprox(13163.0, "ر.ي"))
+        assertEquals("ثلاثة عشر ألفاً ومائة ر.ي تقريباً", Formatters.amountToArabicWordsApprox(13140.0, "ر.ي"))
+        assertEquals("مائتا ر.ي تقريباً", Formatters.amountToArabicWordsApprox(150.0, "ر.ي"))
+        assertEquals("تسعة وتسعون ر.ي وخمسون فلس", Formatters.amountToArabicWordsApprox(99.5, "ر.ي"))
+    }
+
+    @Test
+    fun `test customer initials extraction`() {
+        fun extractInitials(name: String): String {
+            val words = name.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
+            return when {
+                words.isEmpty() -> ""
+                words.size == 1 -> words[0].take(1)
+                else -> {
+                    val firstLetter = words.first().take(1)
+                    val lastWord = words.last()
+                    val cleanLast = if (lastWord.startsWith("ال") && lastWord.length > 2) {
+                        lastWord.removePrefix("ال")
+                    } else {
+                        lastWord
+                    }
+                    val lastLetter = cleanLast.take(1)
+                    "$firstLetter$lastLetter"
+                }
+            }
+        }
+
+        assertEquals("أع", extractInitials("أحمد بن حسين العولقي"))
+        assertEquals("أب", extractInitials("أحمد بن"))
+        assertEquals("أ", extractInitials("أحمد"))
+        assertEquals("سع", extractInitials("سالم العولقي"))
+        assertEquals("", extractInitials(""))
+    }
+
+    @Test
     fun `test comma input formatting`() {
         assertEquals("1,000", Formatters.formatAmountInput("1000"))
         assertEquals("10,000", Formatters.formatAmountInput("10000"))

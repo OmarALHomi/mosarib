@@ -16,5 +16,8 @@ Short version:
    (a KSP "AWT-EventQueue NullPointerException" printed by the test task is harmless noise).
 4. Write your report to `.ai/reports/<same number>.md` using `.ai/templates/report.md`,
    then set the task's status to `done`.
-5. Never commit, push, create branches, or run `git checkout/reset/stash` unless the task
+5. **Never rewrite a task file.** Re-read it from disk, then change only its `status:` line.
+   Claude writes review notes at the bottom of the task file and in `.ai/reviews/NNN-*.md`;
+   read both before a new round.
+6. Never commit, push, create branches, or run `git checkout/reset/stash` unless the task
    explicitly says so.

@@ -25,7 +25,8 @@ data class MosaribExtendedColors(
     val debt: Color,      // money the customer owes us ("عليه")
     val credit: Color,    // money we owe / customer credit ("له")
     val settled: Color,   // balance zero
-    val textMuted: Color  // secondary hints (replaces 0xFF94A3B8 / 0xFF64748B)
+    val textMuted: Color, // secondary hints (replaces 0xFF94A3B8 / 0xFF64748B)
+    val discount: Color   // discount vouchers and adjustments
 )
 
 val LightMosaribExtendedColors = MosaribExtendedColors(
@@ -44,7 +45,8 @@ val LightMosaribExtendedColors = MosaribExtendedColors(
     debt = Color(0xFFE53935),
     credit = Color(0xFF2E7D32),
     settled = Color(0xFF64748B),
-    textMuted = Color(0xFF64748B)
+    textMuted = Color(0xFF64748B),
+    discount = Color(0xFF7C3AED)
 )
 
 val DarkMosaribExtendedColors = MosaribExtendedColors(
@@ -63,7 +65,8 @@ val DarkMosaribExtendedColors = MosaribExtendedColors(
     debt = Color(0xFFF87171),
     credit = Color(0xFF4ADE80),
     settled = Color(0xFF94A3B8),
-    textMuted = Color(0xFF94A3B8)
+    textMuted = Color(0xFF94A3B8),
+    discount = Color(0xFFA78BFA)
 )
 
 val LocalMosaribExtendedColors = staticCompositionLocalOf { LightMosaribExtendedColors }

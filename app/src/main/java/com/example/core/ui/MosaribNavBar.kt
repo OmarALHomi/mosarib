@@ -1,472 +1,56 @@
 package com.example.core.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
+import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Group
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Exact Vector Icons from Reference Image (Canvas-drawn)
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Tab 0 (التقارير): Analytics bar chart with rising trendline.
- */
-@Composable
-fun AnalyticsChartIcon(
-    tint: Color,
-    modifier: Modifier = Modifier
-) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-
-        val barW = w * 0.18f
-        val b1H = h * 0.35f
-        val b2H = h * 0.55f
-        val b3H = h * 0.75f
-
-        val b1Left = w * 0.12f
-        val b2Left = w * 0.41f
-        val b3Left = w * 0.70f
-        val baseBottom = h * 0.88f
-
-        // Baseline
-        drawLine(
-            color = tint.copy(alpha = 0.5f),
-            start = Offset(w * 0.08f, baseBottom),
-            end = Offset(w * 0.92f, baseBottom),
-            strokeWidth = 1.2.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-
-        // Bar 1
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(b1Left, baseBottom - b1H),
-            size = Size(barW, b1H),
-            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
-        )
-
-        // Bar 2
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(b2Left, baseBottom - b2H),
-            size = Size(barW, b2H),
-            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
-        )
-
-        // Bar 3
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(b3Left, baseBottom - b3H),
-            size = Size(barW, b3H),
-            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
-        )
-
-        // Trendline dots
-        drawCircle(
-            color = tint,
-            radius = 2.dp.toPx(),
-            center = Offset(b1Left + barW / 2f, baseBottom - b1H - 4.dp.toPx())
-        )
-        drawCircle(
-            color = tint,
-            radius = 2.dp.toPx(),
-            center = Offset(b2Left + barW / 2f, baseBottom - b2H - 4.dp.toPx())
-        )
-        drawCircle(
-            color = tint,
-            radius = 2.dp.toPx(),
-            center = Offset(b3Left + barW / 2f, baseBottom - b3H - 4.dp.toPx())
-        )
-    }
-}
-
-/**
- * Tab 1 (العملاء): Customer ID badge with lanyard clip, photo frame, 3 lines, ribbon seal.
- */
-@Composable
-fun CustomersBadgeIcon(
-    tint: Color,
-    modifier: Modifier = Modifier
-) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-
-        // 1. Top lanyard clip tab
-        val clipW = w * 0.22f
-        val clipH = h * 0.14f
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset((w - clipW) / 2f, h * 0.05f),
-            size = Size(clipW, clipH),
-            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx()),
-            style = Stroke(width = 1.5.dp.toPx())
-        )
-        drawCircle(
-            color = tint,
-            radius = 1.5.dp.toPx(),
-            center = Offset(w * 0.5f, h * 0.12f)
-        )
-
-        // 2. ID Card main body
-        val cardLeft = w * 0.08f
-        val cardTop = h * 0.17f
-        val cardW = w * 0.84f
-        val cardH = h * 0.72f
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(cardLeft, cardTop),
-            size = Size(cardW, cardH),
-            cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-            style = Stroke(width = 1.8.dp.toPx())
-        )
-
-        // 3. Photo frame on the left
-        val photoLeft = cardLeft + cardW * 0.08f
-        val photoTop = cardTop + cardH * 0.15f
-        val photoW = cardW * 0.35f
-        val photoH = cardH * 0.70f
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(photoLeft, photoTop),
-            size = Size(photoW, photoH),
-            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx()),
-            style = Stroke(width = 1.1.dp.toPx())
-        )
-
-        // Avatar head
-        val headCx = photoLeft + photoW * 0.5f
-        val headCy = photoTop + photoH * 0.35f
-        drawCircle(
-            color = tint,
-            radius = photoW * 0.22f,
-            center = Offset(headCx, headCy)
-        )
-        // Avatar shoulders
-        val shoulderPath = Path().apply {
-            moveTo(photoLeft + photoW * 0.12f, photoTop + photoH * 0.90f)
-            cubicTo(
-                photoLeft + photoW * 0.18f, photoTop + photoH * 0.60f,
-                photoLeft + photoW * 0.82f, photoTop + photoH * 0.60f,
-                photoLeft + photoW * 0.88f, photoTop + photoH * 0.90f
-            )
-            close()
-        }
-        drawPath(shoulderPath, color = tint)
-
-        // 4. Three info lines on the right
-        val lineLeft = cardLeft + cardW * 0.48f
-        val lineRight = cardLeft + cardW * 0.90f
-        val l1Y = cardTop + cardH * 0.28f
-        val l2Y = cardTop + cardH * 0.48f
-        val l3Y = cardTop + cardH * 0.68f
-
-        drawLine(color = tint, start = Offset(lineLeft, l1Y), end = Offset(lineRight, l1Y), strokeWidth = 1.6.dp.toPx(), cap = StrokeCap.Round)
-        drawLine(color = tint, start = Offset(lineLeft, l2Y), end = Offset(lineRight, l2Y), strokeWidth = 1.6.dp.toPx(), cap = StrokeCap.Round)
-        drawLine(color = tint, start = Offset(lineLeft, l3Y), end = Offset(lineLeft + (lineRight - lineLeft) * 0.55f, l3Y), strokeWidth = 1.6.dp.toPx(), cap = StrokeCap.Round)
-
-        // 5. Medal ribbon seal on bottom-right
-        val sealCx = cardLeft + cardW * 0.82f
-        val sealCy = cardTop + cardH * 0.82f
-        val sealR = cardW * 0.18f
-        val ribbonPath = Path().apply {
-            moveTo(sealCx - sealR * 0.6f, sealCy + sealR * 0.5f)
-            lineTo(sealCx - sealR * 0.8f, sealCy + sealR * 1.6f)
-            lineTo(sealCx - sealR * 0.2f, sealCy + sealR * 1.2f)
-            close()
-            moveTo(sealCx + sealR * 0.6f, sealCy + sealR * 0.5f)
-            lineTo(sealCx + sealR * 0.8f, sealCy + sealR * 1.6f)
-            lineTo(sealCx + sealR * 0.2f, sealCy + sealR * 1.2f)
-            close()
-        }
-        drawPath(ribbonPath, color = tint)
-        drawCircle(color = tint, radius = sealR, center = Offset(sealCx, sealCy))
-    }
-}
-
-/**
- * Tab 2 (الرئيسية): Water drop silhouette containing a house (roof, chimney, walls, doorway).
- */
-@Composable
-fun HomeDropHouseIcon(
-    dropTint: Color,
-    houseTint: Color,
-    modifier: Modifier = Modifier
-) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val cx = w * 0.5f
-
-        // 1. Water drop shape
-        val dropPath = Path().apply {
-            val topY = h * 0.08f
-            val botY = h * 0.94f
-            val dropW = w * 0.74f
-
-            moveTo(cx, topY)
-            cubicTo(
-                cx + dropW * 0.60f, topY + (botY - topY) * 0.35f,
-                cx + dropW * 0.55f, botY,
-                cx, botY
-            )
-            cubicTo(
-                cx - dropW * 0.55f, botY,
-                cx - dropW * 0.60f, topY + (botY - topY) * 0.35f,
-                cx, topY
-            )
-            close()
-        }
-        drawPath(path = dropPath, color = dropTint)
-
-        // 2. House inside water drop
-        val roofTopY = h * 0.38f
-        val roofBaseY = h * 0.55f
-        val roofHalfW = w * 0.24f
-
-        val roofPath = Path().apply {
-            moveTo(cx, roofTopY)
-            lineTo(cx + roofHalfW, roofBaseY)
-            lineTo(cx - roofHalfW, roofBaseY)
-            close()
-        }
-        drawPath(roofPath, color = houseTint)
-
-        // Chimney on right
-        val chimneyLeft = cx + roofHalfW * 0.40f
-        val chimneyTop = roofTopY + (roofBaseY - roofTopY) * 0.25f
-        val chimneyW = roofHalfW * 0.25f
-        drawRect(
-            color = houseTint,
-            topLeft = Offset(chimneyLeft, chimneyTop),
-            size = Size(chimneyW, (roofBaseY - chimneyTop) * 0.9f)
-        )
-
-        // House walls / body
-        val houseBodyTop = roofBaseY - 1.dp.toPx()
-        val houseBodyW = roofHalfW * 1.6f
-        val houseBodyH = h * 0.22f
-        drawRect(
-            color = houseTint,
-            topLeft = Offset(cx - houseBodyW * 0.5f, houseBodyTop),
-            size = Size(houseBodyW, houseBodyH)
-        )
-
-        // Doorway
-        val doorW = houseBodyW * 0.32f
-        val doorH = houseBodyH * 0.68f
-        val doorLeft = cx - doorW * 0.5f
-        val doorTop = houseBodyTop + houseBodyH - doorH
-        drawRoundRect(
-            color = dropTint,
-            topLeft = Offset(doorLeft, doorTop),
-            size = Size(doorW, doorH),
-            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
-        )
-    }
-}
-
-/**
- * Tab 3 (سجل العمليات): Clipboard with flowchart tree and pressure gauge.
- */
-@Composable
-fun OperationsClipboardIcon(
-    tint: Color,
-    modifier: Modifier = Modifier
-) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-
-        // 1. Top clip
-        val clipW = w * 0.32f
-        val clipH = h * 0.12f
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset((w - clipW) * 0.40f, h * 0.04f),
-            size = Size(clipW, clipH),
-            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
-        )
-
-        // 2. Clipboard body
-        val boardLeft = w * 0.10f
-        val boardTop = h * 0.12f
-        val boardW = w * 0.68f
-        val boardH = h * 0.82f
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(boardLeft, boardTop),
-            size = Size(boardW, boardH),
-            cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx()),
-            style = Stroke(width = 1.8.dp.toPx())
-        )
-
-        // 3. Flowchart diagram
-        val topNodeW = boardW * 0.38f
-        val topNodeH = boardH * 0.14f
-        val topNodeX = boardLeft + (boardW - topNodeW) * 0.5f
-        val topNodeY = boardTop + boardH * 0.18f
-        drawRect(
-            color = tint,
-            topLeft = Offset(topNodeX, topNodeY),
-            size = Size(topNodeW, topNodeH),
-            style = Stroke(width = 1.4.dp.toPx())
-        )
-
-        val stemY = topNodeY + topNodeH
-        val forkY = stemY + boardH * 0.10f
-        val branchY = forkY + boardH * 0.10f
-        val leftNodeX = boardLeft + boardW * 0.18f
-        val rightNodeX = boardLeft + boardW * 0.62f
-
-        drawLine(color = tint, start = Offset(topNodeX + topNodeW * 0.5f, stemY), end = Offset(topNodeX + topNodeW * 0.5f, forkY), strokeWidth = 1.4.dp.toPx())
-        drawLine(color = tint, start = Offset(leftNodeX, forkY), end = Offset(rightNodeX, forkY), strokeWidth = 1.4.dp.toPx())
-        drawLine(color = tint, start = Offset(leftNodeX, forkY), end = Offset(leftNodeX, branchY), strokeWidth = 1.4.dp.toPx())
-        drawLine(color = tint, start = Offset(rightNodeX, forkY), end = Offset(rightNodeX, branchY), strokeWidth = 1.4.dp.toPx())
-
-        val subNodeW = boardW * 0.28f
-        val subNodeH = boardH * 0.14f
-        drawRect(
-            color = tint,
-            topLeft = Offset(leftNodeX - subNodeW * 0.5f, branchY),
-            size = Size(subNodeW, subNodeH),
-            style = Stroke(width = 1.4.dp.toPx())
-        )
-        drawRect(
-            color = tint,
-            topLeft = Offset(rightNodeX - subNodeW * 0.5f, branchY),
-            size = Size(subNodeW, subNodeH),
-            style = Stroke(width = 1.4.dp.toPx())
-        )
-
-        // 4. Circular meter on upper-right
-        val meterR = w * 0.18f
-        val meterCx = boardLeft + boardW + meterR * 0.35f
-        val meterCy = boardTop + boardH * 0.32f
-
-        val elbowY = branchY + subNodeH * 0.5f
-        drawLine(color = tint, start = Offset(rightNodeX + subNodeW * 0.5f, elbowY), end = Offset(meterCx, elbowY), strokeWidth = 1.4.dp.toPx())
-        drawLine(color = tint, start = Offset(meterCx, elbowY), end = Offset(meterCx, meterCy + meterR), strokeWidth = 1.4.dp.toPx())
-
-        drawCircle(
-            color = tint,
-            radius = meterR,
-            center = Offset(meterCx, meterCy),
-            style = Stroke(width = 1.6.dp.toPx())
-        )
-        drawLine(
-            color = tint,
-            start = Offset(meterCx, meterCy),
-            end = Offset(meterCx + meterR * 0.65f, meterCy - meterR * 0.5f),
-            strokeWidth = 1.4.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-    }
-}
-
-/**
- * Tab 4 (الإعدادات): Open-ended diagonal spanner wrench with two spoked gears.
- */
-@Composable
-fun SettingsMaintenanceIcon(
-    tint: Color,
-    modifier: Modifier = Modifier
-) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val cx = w * 0.5f
-        val cy = h * 0.5f
-
-        // 1. Upper-left gear
-        val g1Cx = cx - w * 0.24f
-        val g1Cy = cy - h * 0.24f
-        val g1R = w * 0.18f
-        drawCircle(color = tint, radius = g1R, center = Offset(g1Cx, g1Cy), style = Stroke(width = 1.6.dp.toPx()))
-        drawLine(color = tint, start = Offset(g1Cx - g1R, g1Cy), end = Offset(g1Cx + g1R, g1Cy), strokeWidth = 1.1.dp.toPx())
-        drawLine(color = tint, start = Offset(g1Cx, g1Cy - g1R), end = Offset(g1Cx, g1Cy + g1R), strokeWidth = 1.1.dp.toPx())
-        drawLine(color = tint, start = Offset(g1Cx - g1R * 0.7f, g1Cy - g1R * 0.7f), end = Offset(g1Cx + g1R * 0.7f, g1Cy + g1R * 0.7f), strokeWidth = 1.1.dp.toPx())
-        drawLine(color = tint, start = Offset(g1Cx - g1R * 0.7f, g1Cy + g1R * 0.7f), end = Offset(g1Cx + g1R * 0.7f, g1Cy - g1R * 0.7f), strokeWidth = 1.1.dp.toPx())
-        drawCircle(color = tint, radius = 2.dp.toPx(), center = Offset(g1Cx, g1Cy))
-
-        // 2. Lower-right gear
-        val g2Cx = cx + w * 0.24f
-        val g2Cy = cy + h * 0.24f
-        val g2R = w * 0.17f
-        drawCircle(color = tint, radius = g2R, center = Offset(g2Cx, g2Cy), style = Stroke(width = 1.6.dp.toPx()))
-        drawLine(color = tint, start = Offset(g2Cx - g2R, g2Cy), end = Offset(g2Cx + g2R, g2Cy), strokeWidth = 1.1.dp.toPx())
-        drawLine(color = tint, start = Offset(g2Cx, g2Cy - g2R), end = Offset(g2Cx, g2Cy + g2R), strokeWidth = 1.1.dp.toPx())
-        drawLine(color = tint, start = Offset(g2Cx - g2R * 0.7f, g2Cy - g2R * 0.7f), end = Offset(g2Cx + g2R * 0.7f, g2Cy + g2R * 0.7f), strokeWidth = 1.1.dp.toPx())
-        drawLine(color = tint, start = Offset(g2Cx - g2R * 0.7f, g2Cy + g2R * 0.7f), end = Offset(g2Cx + g2R * 0.7f, g2Cy - g2R * 0.7f), strokeWidth = 1.1.dp.toPx())
-        drawCircle(color = tint, radius = 2.dp.toPx(), center = Offset(g2Cx, g2Cy))
-
-        // 3. Diagonal wrench handle from bottom-left to top-right
-        val startX = cx - w * 0.32f
-        val startY = cy + h * 0.32f
-        val endX = cx + w * 0.20f
-        val endY = cy - h * 0.20f
-        drawLine(
-            color = tint,
-            start = Offset(startX, startY),
-            end = Offset(endX, endY),
-            strokeWidth = 4.2.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-
-        // Bottom ring of wrench
-        drawCircle(color = tint, radius = w * 0.12f, center = Offset(startX, startY), style = Stroke(width = 2.dp.toPx()))
-
-        // Open-end wrench head at top-right
-        val headCx = endX + w * 0.08f
-        val headCy = endY - h * 0.08f
-        val headR = w * 0.19f
-        val headPath = Path().apply {
-            arcTo(
-                rect = Rect(headCx - headR, headCy - headR, headCx + headR, headCy + headR),
-                startAngleDegrees = 45f,
-                sweepAngleDegrees = 270f,
-                forceMoveTo = false
-            )
-            close()
-        }
-        drawPath(headPath, color = tint)
-    }
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Navigation Bar Item Definitions (RTL Order: Index 0 = Rightmost)
-// ──────────────────────────────────────────────────────────────────────────────
 data class MosaribNavItemData(
     val id: Int,
     val label: String,
@@ -481,9 +65,9 @@ val mosaribNavItems = listOf(
     MosaribNavItemData(4, "الإعدادات", "tab_settings")
 )
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Main MosaribNavBar Component with Material 3 NavigationBar + NavigationBarItem
-// ──────────────────────────────────────────────────────────────────────────────
+/**
+ * شريط تنقل سفلي عائم وأنيق على شكل كبسولة (Floating Pill Navigation Bar).
+ */
 @Composable
 fun MosaribNavBar(
     selectedIndex: Int,
@@ -491,89 +75,131 @@ fun MosaribNavBar(
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val haptic = LocalHapticFeedback.current
 
-    val indicatorColor = if (isDark) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
+    val containerColor = if (isDark) {
+        MaterialTheme.colorScheme.surfaceContainerHigh
     } else {
-        MaterialTheme.colorScheme.primaryContainer
+        MaterialTheme.colorScheme.surface
     }
 
-    NavigationBar(
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 3.dp
+    val elevation = if (isDark) 0.dp else 6.dp
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 8.dp),
+        contentAlignment = Alignment.Center
     ) {
-        mosaribNavItems.forEachIndexed { index, item ->
-            val isSelected = selectedIndex == index
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp),
+            shape = RoundedCornerShape(28.dp),
+            color = containerColor,
+            shadowElevation = elevation,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                mosaribNavItems.forEachIndexed { index, item ->
+                    val isSelected = selectedIndex == index
 
-            var isBouncing by remember { mutableStateOf(false) }
-            LaunchedEffect(isSelected) {
-                if (isSelected) {
-                    isBouncing = true
-                    delay(120)
-                    isBouncing = false
-                }
-            }
+                    val targetIndicatorColor = if (isSelected) {
+                        if (isDark) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                        } else {
+                            MaterialTheme.colorScheme.primaryContainer
+                        }
+                    } else {
+                        Color.Transparent
+                    }
 
-            val iconScale by animateFloatAsState(
-                targetValue = if (isBouncing) 1.12f else 1.0f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMediumLow
-                ),
-                label = "nav_icon_bounce_${item.id}"
-            )
+                    val indicatorColor by animateColorAsState(
+                        targetValue = targetIndicatorColor,
+                        label = "indicator_color_${item.id}"
+                    )
 
-            val itemColors = NavigationBarItemDefaults.colors(
-                selectedIconColor = MaterialTheme.colorScheme.primary,
-                selectedTextColor = MaterialTheme.colorScheme.primary,
-                indicatorColor = indicatorColor,
-                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                    val contentColor = if (isSelected) {
+                        if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
 
-            NavigationBarItem(
-                selected = isSelected,
-                onClick = { onItemSelected(index) },
-                icon = {
+                    val (unselectedIcon, selectedIcon) = when (item.id) {
+                        0 -> Icons.Outlined.BarChart to Icons.Rounded.BarChart
+                        1 -> Icons.Outlined.Group to Icons.Rounded.Group
+                        2 -> Icons.Outlined.Home to Icons.Rounded.Home
+                        3 -> Icons.AutoMirrored.Outlined.ReceiptLong to Icons.AutoMirrored.Rounded.ReceiptLong
+                        else -> Icons.Outlined.Settings to Icons.Rounded.Settings
+                    }
+
                     Box(
                         modifier = Modifier
-                            .graphicsLayer {
-                                scaleX = iconScale
-                                scaleY = iconScale
-                            },
+                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                            .selectable(
+                                selected = isSelected,
+                                role = Role.Tab,
+                                onClick = {
+                                    if (!isSelected) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        onItemSelected(index)
+                                    }
+                                }
+                            )
+                            .semantics {
+                                contentDescription = item.label
+                            }
+                            .testTag(item.testTag),
                         contentAlignment = Alignment.Center
                     ) {
-                        val iconTint = if (isSelected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                        when (item.id) {
-                            0 -> AnalyticsChartIcon(tint = iconTint, modifier = Modifier.size(24.dp))
-                            1 -> CustomersBadgeIcon(tint = iconTint, modifier = Modifier.size(24.dp))
-                            2 -> HomeDropHouseIcon(
-                                dropTint = iconTint,
-                                houseTint = if (isSelected) indicatorColor else MaterialTheme.colorScheme.surface,
-                                modifier = Modifier.size(26.dp)
-                            )
-                            3 -> OperationsClipboardIcon(tint = iconTint, modifier = Modifier.size(24.dp))
-                            4 -> SettingsMaintenanceIcon(tint = iconTint, modifier = Modifier.size(24.dp))
+                        Box(
+                            modifier = Modifier
+                                .animateContentSize(
+                                    animationSpec = spring(
+                                        dampingRatio = 0.8f,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                )
+                                .height(40.dp)
+                                .clip(CircleShape)
+                                .background(indicatorColor)
+                                .padding(horizontal = if (isSelected) 14.dp else 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (isSelected) selectedIcon else unselectedIcon,
+                                    contentDescription = null,
+                                    tint = contentColor,
+                                    modifier = Modifier.size(24.dp)
+                                )
+
+                                if (isSelected) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = item.label,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = contentColor,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
+                            }
                         }
                     }
-                },
-                label = {
-                    Text(
-                        text = item.label,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                },
-                alwaysShowLabel = true,
-                colors = itemColors,
-                modifier = Modifier.testTag(item.testTag)
-            )
+                }
+            }
         }
     }
 }
