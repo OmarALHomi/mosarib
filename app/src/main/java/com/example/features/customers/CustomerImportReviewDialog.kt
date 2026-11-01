@@ -66,6 +66,7 @@ import com.example.core.ui.isAppDark
 import com.example.core.util.Formatters
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.AccentEmerald
+import com.example.ui.theme.AccentGold
 
 private enum class DraftFilterTab {
     ALL, SELECTED, NEW_ONLY, EXISTING_ONLY
@@ -75,6 +76,8 @@ private enum class DraftFilterTab {
 @Composable
 fun CustomerImportReviewDialog(
     drafts: List<ImportedCustomerDraft>,
+    currencySymbol: String = "ر.ي",
+    isSavingImport: Boolean = false,
     onDraftUpdated: (ImportedCustomerDraft) -> Unit,
     onDraftDeleted: (String) -> Unit,
     onToggleSelectAll: (Boolean) -> Unit,
@@ -159,6 +162,26 @@ fun CustomerImportReviewDialog(
                         Text(
                             text = "تم العثور على $totalCount حساب في الملف (المحدد: $selectedCount)",
                             style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = PrimaryTeal.copy(alpha = 0.10f),
+                    border = BorderStroke(0.5.dp, PrimaryTeal.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "العملة: $currencySymbol",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = PrimaryTeal,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
                         )
                     }
                 }
@@ -351,9 +374,9 @@ fun CustomerImportReviewDialog(
                 )
 
                 MosaribButton(
-                    text = "تأكيد واستيراد ($selectedCount)",
+                    text = if (isSavingImport) "جاري الاستيراد..." else "تأكيد واستيراد ($selectedCount)",
                     onClick = { onConfirmImport(updateExistingCustomers) },
-                    enabled = selectedCount > 0,
+                    enabled = selectedCount > 0 && !isSavingImport,
                     modifier = Modifier.weight(1.8f)
                 )
             }
@@ -443,6 +466,44 @@ private fun ImportDraftCard(
                                 text = "صاحب بئر",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    // شارة العمليات المجمعة
+                    if (draft.attachedOperations.size > 1) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = PrimaryTeal.copy(alpha = 0.12f),
+                            border = BorderStroke(0.5.dp, PrimaryTeal)
+                        ) {
+                            Text(
+                                text = "${draft.attachedOperations.size} عمليات مجمّعة",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = PrimaryTeal,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    // شارة عملة العملية
+                    if (draft.currency.isNotBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = AccentGold.copy(alpha = 0.15f),
+                            border = BorderStroke(0.5.dp, AccentGold)
+                        ) {
+                            Text(
+                                text = draft.currency,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = AccentGold,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 ),

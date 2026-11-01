@@ -26,6 +26,20 @@ import java.util.zip.ZipOutputStream
 /**
  * مسودة العميل المستورد من ملف إكسل أو CSV قبل اعتماده في قاعدة البيانات.
  */
+/**
+ * حركة أو عملية تابعة للحساب في ملف العمليات/اليومية المستورد.
+ */
+data class ImportedOperationItem(
+    val type: String, // "DEBIT" (مدين/سقي/دين) or "CREDIT" (دائن/قبض/سداد)
+    val amount: Double,
+    val description: String = "",
+    val currency: String = "",
+    val date: Long? = null
+)
+
+/**
+ * مسودة العميل المستورد من ملف إكسل أو CSV قبل اعتماده في قاعدة البيانات.
+ */
 data class ImportedCustomerDraft(
     val localId: String = UUID.randomUUID().toString(),
     var name: String = "",
@@ -42,7 +56,9 @@ data class ImportedCustomerDraft(
     var isExistingInDb: Boolean = false,
     var existingCustomerId: Long? = null,
     var existingCustomerName: String? = null,
-    var validationError: String? = null
+    var validationError: String? = null,
+    var currency: String = "",
+    var attachedOperations: List<ImportedOperationItem> = emptyList()
 )
 
 object CustomerExcelHelper {
@@ -86,6 +102,12 @@ object CustomerExcelHelper {
     )
     private val NOTES_KEYWORDS = listOf(
         "ملاحظات", "ملاحظة", "البيان", "الوصف", "تفاصيل", "notes", "note", "description", "remarks", "comment"
+    )
+    private val CURRENCY_KEYWORDS = listOf(
+        "العملة", "العمله", "نوع العملة", "رمز العملة", "currency", "curr"
+    )
+    private val DATE_KEYWORDS = listOf(
+        "التاريخ", "تاريخ", "تاريخ العملية", "تاريخ القيد", "date"
     )
 
     /**
@@ -401,6 +423,7 @@ object CustomerExcelHelper {
                 if (matchesKeywordWordOrPhrase(clean, LOCATION_KEYWORDS)) score += 2
                 if (matchesKeywordWordOrPhrase(clean, PRICE_KEYWORDS)) score += 2
                 if (matchesKeywordWordOrPhrase(clean, TYPE_KEYWORDS)) score += 2
+                if (matchesKeywordWordOrPhrase(clean, CURRENCY_KEYWORDS)) score += 2
             }
             if (score > bestHeaderScore) {
                 bestHeaderScore = score
@@ -425,6 +448,8 @@ object CustomerExcelHelper {
         var debitCol = -1
         var creditCol = -1
         var balanceTypeCol = -1
+        var currencyCol = -1
+        var dateCol = -1
 
         if (hasHeader) {
             for (c in headerRow.indices) {
@@ -442,6 +467,8 @@ object CustomerExcelHelper {
                     typeCol == -1 && matchesKeywordWordOrPhrase(clean, TYPE_KEYWORDS) -> typeCol = c
                     groupCol == -1 && matchesKeywordWordOrPhrase(clean, GROUP_KEYWORDS) -> groupCol = c
                     notesCol == -1 && matchesKeywordWordOrPhrase(clean, NOTES_KEYWORDS) -> notesCol = c
+                    currencyCol == -1 && matchesKeywordWordOrPhrase(clean, CURRENCY_KEYWORDS) -> currencyCol = c
+                    dateCol == -1 && matchesKeywordWordOrPhrase(clean, DATE_KEYWORDS) -> dateCol = c
                 }
             }
         }
@@ -449,21 +476,33 @@ object CustomerExcelHelper {
         // استدلال بديل في حال لم يتم التعرف على العمود أو غياب العناوين
         val firstDataRow = rawRows.getOrNull(dataStartIndex) ?: emptyList()
         if (nameCol == -1) {
-            // أول عمود نصي لا يمثل رقماً
             nameCol = firstDataRow.indices.firstOrNull { idx ->
                 val v = firstDataRow[idx]
                 v.isNotBlank() && !isPhoneLike(v) && v.toDoubleOrNull() == null
             } ?: 0
         }
         if (phoneCol == -1) {
-            // العمود الذي يحوي أرقاماً متسلسلة كالهاتف
             phoneCol = firstDataRow.indices.firstOrNull { idx ->
                 idx != nameCol && isPhoneLike(firstDataRow[idx])
             } ?: -1
         }
 
-        // 3. بناء مسودات العملاء
-        val drafts = mutableListOf<ImportedCustomerDraft>()
+        // 3. تجميع الصفوف تحت اسم العميل الواحد لمنع تكرار العميل بعدد عملياته
+        class CustomerAccumulator(
+            var name: String,
+            var phone: String = "",
+            var farmName: String = "",
+            var location: String = "",
+            var customPricePerHour: Double? = null,
+            var isWellOwner: Boolean = false,
+            var customGroup: String = "",
+            var currency: String = "",
+            var singleNotes: String = "",
+            val operations: MutableList<ImportedOperationItem> = mutableListOf()
+        )
+
+        val accumulators = LinkedHashMap<String, CustomerAccumulator>()
+
         for (r in dataStartIndex until rawRows.size) {
             val row = rawRows[r]
             if (row.all { it.isBlank() }) continue
@@ -476,8 +515,11 @@ object CustomerExcelHelper {
             val rawType = if (typeCol >= 0) row.getOrNull(typeCol).orEmpty() else ""
             val rawGroup = if (groupCol >= 0) row.getOrNull(groupCol)?.trim().orEmpty() else ""
             val rawNotes = if (notesCol >= 0) row.getOrNull(notesCol)?.trim().orEmpty() else ""
+            val rawCurrency = if (currencyCol >= 0) row.getOrNull(currencyCol)?.trim().orEmpty() else ""
 
-            // استخراج الرصيد الافتتاحي إن وجد (دفتر الحسابات أو التطبيقات المحاسبية)
+            if (rawName.isBlank() && rawPhone.isBlank()) continue
+
+            // استخراج الرصيد أو مبلغ العملية
             var computedBalance = 0.0
             var computedIsDebit = true // الافتراضي: مدين (عليه دين)
 
@@ -505,33 +547,88 @@ object CustomerExcelHelper {
 
             val isOwner = isWellOwnerString(rawType)
 
+            // مفتاح التجميع: بالهاتف أولاً، أو بالاسم المطابق لدمج العمليات تحت نفس العميل
+            val cleanNameKey = normalizeArabicText(rawName)
+            val groupKey = if (rawPhone.isNotBlank()) "p:$rawPhone" else "n:$cleanNameKey"
+
+            val acc = accumulators.getOrPut(groupKey) {
+                CustomerAccumulator(name = rawName)
+            }
+
+            if (acc.name.isBlank() && rawName.isNotBlank()) acc.name = rawName
+            if (acc.phone.isBlank() && rawPhone.isNotBlank()) acc.phone = rawPhone
+            if (acc.farmName.isBlank() && rawFarm.isNotBlank()) acc.farmName = rawFarm
+            if (acc.location.isBlank() && rawLocation.isNotBlank()) acc.location = rawLocation
+            if (acc.customPricePerHour == null && rawPrice > 0.0) acc.customPricePerHour = rawPrice
+            if (isOwner) acc.isWellOwner = true
+            if (acc.customGroup.isBlank() && rawGroup.isNotBlank()) acc.customGroup = rawGroup
+            if (acc.currency.isBlank() && rawCurrency.isNotBlank()) acc.currency = rawCurrency
+            if (acc.singleNotes.isBlank() && rawNotes.isNotBlank()) acc.singleNotes = rawNotes
+
+            if (computedBalance > 0.0) {
+                acc.operations.add(
+                    ImportedOperationItem(
+                        type = if (computedIsDebit) "DEBIT" else "CREDIT",
+                        amount = computedBalance,
+                        description = rawNotes,
+                        currency = rawCurrency
+                    )
+                )
+            }
+        }
+
+        // 4. بناء مسودات العملاء المجمعة
+        val drafts = mutableListOf<ImportedCustomerDraft>()
+        for ((_, acc) in accumulators) {
+            val ops = acc.operations
+            var totalBal = 0.0
+            var isDebit = true
+
+            if (ops.size == 1) {
+                totalBal = ops[0].amount
+                isDebit = (ops[0].type == "DEBIT")
+            } else if (ops.size > 1) {
+                val sumDebit = ops.filter { it.type == "DEBIT" }.sumOf { it.amount }
+                val sumCredit = ops.filter { it.type == "CREDIT" }.sumOf { it.amount }
+                val net = sumDebit - sumCredit
+                if (net >= 0) {
+                    totalBal = net
+                    isDebit = true
+                } else {
+                    totalBal = -net
+                    isDebit = false
+                }
+            }
+
             // المطابقة مع العملاء المسجلين مسبقاً في قاعدة البيانات
             val existingMatch = existingCustomers.find { existing ->
-                val matchName = normalizeArabicText(existing.name) == normalizeArabicText(rawName) && rawName.isNotBlank()
-                val matchPhone = existing.phone.isNotBlank() && rawPhone.isNotBlank() &&
-                    cleanPhoneString(existing.phone) == rawPhone
+                val matchName = normalizeArabicText(existing.name) == normalizeArabicText(acc.name) && acc.name.isNotBlank()
+                val matchPhone = existing.phone.isNotBlank() && acc.phone.isNotBlank() &&
+                    cleanPhoneString(existing.phone) == acc.phone
                 matchName || matchPhone
             }
 
-            val validationErr = if (rawName.isBlank()) "اسم العميل مطلوب" else null
+            val validationErr = if (acc.name.isBlank()) "اسم العميل مطلوب" else null
 
             drafts.add(
                 ImportedCustomerDraft(
-                    name = rawName,
-                    phone = rawPhone,
-                    farmName = rawFarm,
-                    location = rawLocation,
-                    customPricePerHour = if (rawPrice > 0.0) rawPrice else null,
-                    isWellOwner = isOwner,
-                    customGroup = rawGroup,
-                    initialBalance = computedBalance,
-                    isDebit = computedIsDebit,
-                    notes = rawNotes,
+                    name = acc.name,
+                    phone = acc.phone,
+                    farmName = acc.farmName,
+                    location = acc.location,
+                    customPricePerHour = acc.customPricePerHour,
+                    isWellOwner = acc.isWellOwner,
+                    customGroup = acc.customGroup,
+                    initialBalance = totalBal,
+                    isDebit = isDebit,
+                    notes = if (ops.size > 1) "مجمّع ${ops.size} عملية من ملف خارجي" else (acc.singleNotes.ifBlank { ops.firstOrNull()?.description.orEmpty() }),
                     isSelected = validationErr == null,
                     isExistingInDb = existingMatch != null,
                     existingCustomerId = existingMatch?.id,
                     existingCustomerName = existingMatch?.name,
-                    validationError = validationErr
+                    validationError = validationErr,
+                    currency = acc.currency,
+                    attachedOperations = ops
                 )
             )
         }

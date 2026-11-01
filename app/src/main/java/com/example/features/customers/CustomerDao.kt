@@ -46,6 +46,18 @@ interface CustomerDao {
     @Query("UPDATE customers SET isArchived = 1 WHERE id = :id")
     suspend fun archiveCustomer(id: Long)
 
+    @Query("SELECT * FROM customers WHERE isArchived = 1 ORDER BY name ASC")
+    fun getArchivedCustomers(): Flow<List<Customer>>
+
+    @Query("UPDATE customers SET isArchived = 0 WHERE id = :id")
+    suspend fun restoreCustomer(id: Long)
+
+    @Query("DELETE FROM customers WHERE id = :id")
+    suspend fun permanentlyDeleteCustomer(id: Long)
+
+    @Query("DELETE FROM customers WHERE isArchived = 1")
+    suspend fun emptyRecycleBin()
+
     @Query("UPDATE customers SET customGroup = :newGroup WHERE customGroup = :oldGroup")
     suspend fun renameCustomGroup(oldGroup: String, newGroup: String)
 
