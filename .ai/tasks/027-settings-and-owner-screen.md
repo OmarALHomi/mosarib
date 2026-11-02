@@ -1,4 +1,5 @@
-status: draft
+status: ready
+<!-- Ready 2026-11-03: 025 is merged. Mockup shown to the owner. Runs in worktree D:\Kotlin\mosarib-t023 (branch task/027). -->
 
 <!-- Owner request 2026-11-02. Runs AFTER 025 is merged: it touches CustomerDetailScreen.kt and the
 Settings files, which 025 also changes. Claude may show the owner a mockup before it becomes
@@ -35,11 +36,20 @@ settings:
 
 Sections and rows:
 1. **الحساب والاشتراك:** حالة الاشتراك (subtitle "اشتراك شهري · متبقي 12 يوماً", opens the
-   existing license dialog), رمز الجهاز (copy button).
+   existing license dialog), رمز الجهاز (copy button), **قفل التطبيق بالبصمة** (switch, from the
+   current `AppLockSection`; hide the row when biometrics are not available, as today).
 2. **التسعير والموزع:** سعر ساعة الماء ("5,000 ر.ي"), بيانات الموزع (name · phone), رمز العملة.
-3. **البيانات:** النسخ الاحتياطي (last backup date), سلة المحذوفات (count), إدارة المجموعات,
+3. **البيانات:** النسخ الاحتياطي (last backup date), سلة المحذوفات (count), إدارة المجموعات (count),
    فحص العمليات المستوردة المكررة (from 008).
-4. **المظهر والصوت:** الوضع الداكن (switch), القراءة الصوتية (from 025: rate, test, status).
+   - The backup row opens a sheet with the whole current backup UI (local and Drive tabs, auto
+     backup, import, share). Its behaviour does not change.
+4. **المظهر والصوت:**
+   - **المظهر:** the current three-way choice (فاتح / داكن / حسب الجهاز) from `ThemeModeSection`.
+     The subtitle shows the current value, and a tap opens a small sheet with the three options.
+     It is not a switch.
+   - **القراءة الصوتية:** one row with the subtitle "جاهز · Google · صوت 5". A tap opens a sheet
+     with everything from 025, unchanged: الصوت، سرعة القراءة، تجربة الصوت، تجربة النطق، and the
+     status line with "تحميل الآن".
 5. **المساعدة:** دليل الاستخدام، شاركنا رأيك، عن التطبيق.
 6. **أدوات المطور** (debug builds only, as today, at the very bottom).
 
