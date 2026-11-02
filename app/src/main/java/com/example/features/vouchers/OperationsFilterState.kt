@@ -267,6 +267,7 @@ object OperationsFilterEngine {
             ReportPeriod.THIS_WEEK -> parts.add("هذا الأسبوع")
             ReportPeriod.THIS_MONTH -> parts.add("هذا الشهر")
             ReportPeriod.LAST_MONTH -> parts.add("الشهر الماضي")
+            ReportPeriod.THIS_YEAR -> parts.add("هذه السنة")
             ReportPeriod.CUSTOM -> {
                 if (state.customRange != null) {
                     parts.add("من ${Formatters.formatDate(state.customRange.first)} إلى ${Formatters.formatDate(state.customRange.second)}")

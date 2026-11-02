@@ -6,6 +6,7 @@ import androidx.compose.material3.HorizontalDivider
 import com.example.features.customers.ManageGroupsDialog
 import com.example.features.customers.RecycleBinDialog
 import com.example.features.customers.CustomerGroupEditorDialog
+import com.example.features.customers.CustomerBalanceFilter
 
 import android.app.Activity
 import android.content.Context
@@ -498,7 +499,19 @@ fun MainApp(
                                     )
                                 }
                                 AppTab.REPORTS -> {
-                                    ReportsScreen(viewModel = reportsViewModel)
+                                    ReportsScreen(
+                                        viewModel = reportsViewModel,
+                                        onNavigateToCustomer = { custId ->
+                                            selectedCustomerId = custId
+                                        },
+                                        onViewAllDebtors = {
+                                            customersViewModel.setBalanceFilter(CustomerBalanceFilter.DEBTOR)
+                                            val custIdx = tabs.indexOf(AppTab.CUSTOMERS)
+                                            if (custIdx >= 0) {
+                                                coroutineScope.launch { pagerState.animateScrollToPage(custIdx) }
+                                            }
+                                        }
+                                    )
                                 }
                                 AppTab.CUSTOMERS -> {
                                     CustomersScreen(

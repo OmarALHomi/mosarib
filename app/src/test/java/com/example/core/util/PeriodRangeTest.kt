@@ -4,7 +4,6 @@ import com.example.features.reports.ReportPeriod
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Calendar
 
@@ -139,5 +138,80 @@ class PeriodRangeTest {
         assertEquals(23, endCal.get(Calendar.HOUR_OF_DAY))
         assertEquals(59, endCal.get(Calendar.MINUTE))
         assertEquals(999, endCal.get(Calendar.MILLISECOND))
+    }
+
+    @Test
+    fun testThisYearPeriod() {
+        val cal = Calendar.getInstance().apply {
+            set(2026, Calendar.MAY, 10, 10, 0, 0)
+        }
+        val (start, end) = PeriodRange.rangeFor(ReportPeriod.THIS_YEAR, nowMillis = cal.timeInMillis)
+        assertNotNull(start)
+        assertNotNull(end)
+
+        val startCal = Calendar.getInstance().apply { timeInMillis = start!! }
+        assertEquals(2026, startCal.get(Calendar.YEAR))
+        assertEquals(Calendar.JANUARY, startCal.get(Calendar.MONTH))
+        assertEquals(1, startCal.get(Calendar.DAY_OF_MONTH))
+        assertEquals(0, startCal.get(Calendar.HOUR_OF_DAY))
+
+        val endCal = Calendar.getInstance().apply { timeInMillis = end!! }
+        assertEquals(2026, endCal.get(Calendar.YEAR))
+        assertEquals(Calendar.DECEMBER, endCal.get(Calendar.MONTH))
+        assertEquals(31, endCal.get(Calendar.DAY_OF_MONTH))
+        assertEquals(23, endCal.get(Calendar.HOUR_OF_DAY))
+        assertEquals(59, endCal.get(Calendar.MINUTE))
+        assertEquals(999, endCal.get(Calendar.MILLISECOND))
+    }
+
+    @Test
+    fun testPreviousPeriodThisMonthIsLastMonth() {
+        val cal = Calendar.getInstance().apply {
+            set(2026, Calendar.NOVEMBER, 15, 12, 0, 0)
+        }
+        val (expectedStart, expectedEnd) = PeriodRange.rangeFor(ReportPeriod.LAST_MONTH, nowMillis = cal.timeInMillis)
+        val (prevStart, prevEnd) = PeriodRange.previousRangeFor(ReportPeriod.THIS_MONTH, nowMillis = cal.timeInMillis)
+
+        assertEquals(expectedStart, prevStart)
+        assertEquals(expectedEnd, prevEnd)
+
+        val prevCal = Calendar.getInstance().apply { timeInMillis = prevStart!! }
+        assertEquals(Calendar.OCTOBER, prevCal.get(Calendar.MONTH))
+        assertEquals(1, prevCal.get(Calendar.DAY_OF_MONTH))
+    }
+
+    @Test
+    fun testPreviousPeriodCustomRange10Days() {
+        // Custom range: Day 11 00:00:00.000 to Day 20 23:59:59.999 (10 days)
+        val startCal = Calendar.getInstance().apply {
+            set(2026, Calendar.NOVEMBER, 11, 0, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val endCal = Calendar.getInstance().apply {
+            set(2026, Calendar.NOVEMBER, 20, 23, 59, 59)
+            set(Calendar.MILLISECOND, 999)
+        }
+        val custom = Pair(startCal.timeInMillis, endCal.timeInMillis)
+
+        val (prevStart, prevEnd) = PeriodRange.previousRangeFor(ReportPeriod.CUSTOM, customRange = custom)
+        assertNotNull(prevStart)
+        assertNotNull(prevEnd)
+
+        // Previous range must end immediately before start (at start - 1 ms)
+        assertEquals(startCal.timeInMillis - 1, prevEnd)
+
+        // Duration must match exactly 10 days
+        assertEquals(endCal.timeInMillis - startCal.timeInMillis, prevEnd!! - prevStart!!)
+
+        val prevStartCal = Calendar.getInstance().apply { timeInMillis = prevStart }
+        assertEquals(1, prevStartCal.get(Calendar.DAY_OF_MONTH))
+        assertEquals(0, prevStartCal.get(Calendar.HOUR_OF_DAY))
+        assertEquals(0, prevStartCal.get(Calendar.MILLISECOND))
+
+        val prevEndCal = Calendar.getInstance().apply { timeInMillis = prevEnd }
+        assertEquals(10, prevEndCal.get(Calendar.DAY_OF_MONTH))
+        assertEquals(23, prevEndCal.get(Calendar.HOUR_OF_DAY))
+        assertEquals(59, prevEndCal.get(Calendar.MINUTE))
+        assertEquals(999, prevEndCal.get(Calendar.MILLISECOND))
     }
 }

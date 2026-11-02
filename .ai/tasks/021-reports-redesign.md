@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 <!-- Written 2026-11-02 after Claude's on-device audit, with a mockup shown to the owner. Owner approved
 the design on 2026-11-02. Can run in parallel with 019 and 011: touches only reports files. -->
@@ -96,4 +96,39 @@ only.
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+**Round 1: changes-requested** (2026-11-02). Build and 103 tests pass. Checked on the device (light
+theme). It looks very good:
+- the filter chips;
+- the 2×2 KPI grid with approximate words and "من 52 عميلاً";
+- the profit distribution with words, with "صرف للعملاء" hidden at 0;
+- the top debtors, the groups, pumps by hours;
+- "454 ساعة".
+
+Four fixes:
+
+1. **Trend chart labels are mirrored against the bars (RTL bug).** The bars are drawn on a
+   `Canvas`, which does not mirror in RTL. The X labels are laid out by Compose, which does. On
+   the device the bars of the latest months sit on the right, while the right-most label is
+   "ديس" and the left end shows "أكت نوف" overlapping.
+
+   Make bars, labels, grid and tooltip use one direction: **oldest on the right, newest on the
+   left** (Arabic reading order). Compute each bar's x position once, and place both the bar and
+   its label at that x. Show a label under every bar when there are ≤ 8 buckets, otherwise every
+   second bar, with no overlap. Put the Y-axis labels on the right edge.
+2. **Arabic month labels and compact numbers.**
+   - Month labels: use full short Arabic names from one list (يناير، فبراير، مارس، أبريل، مايو،
+     يونيو، يوليو، أغسطس، سبتمبر، أكتوبر، نوفمبر، ديسمبر), not "فبر/أبر/يون/أغس". If one does not
+     fit, use the month number ("11") with the year under the first bar of each year.
+   - Compact numbers: in the chart axis, tooltip and group rows use "2.3 مليون" and "771 ألف"
+     instead of "2.3M" / "771k". Keep digits 0-9. Update `ReportsFilter`'s formatter and its
+     tests.
+3. **Missing separator in the pumping card:** "إجمالي التشغيل: 1559 ساعة و 30 دقيقةهدر المسرب: 34
+   ساعة و 55 دقيقة". Put "هدر المسرب" on its own line, or separate the two parts with " • ".
+4. **Top debtors: names are cut** ("عصام بن حسين الهم..."). Give the name the full width on line 1
+   (with the amount at the end, intrinsic width), and the approximate words on line 2 under the
+   name, full width, the same pattern as the operation cards.
+
+Allowed files: `features/reports/TrendChart.kt`, `ReportsScreen.kt`, `ReportsFilter.kt`, its test.
+Append a "Round 2" section to `.ai/reports/021.md`.
+
+**Round 2 verdict: accepted (2026-11-02, code review). One coordinate source for bars and labels (oldest on the right), full Arabic month names, compact numbers as مليون / ألف, separate rows for total and waste, debtor rows with the name on line 1 and the words on line 2. 104 tests pass. Device check after the merge (phone disconnected).**
