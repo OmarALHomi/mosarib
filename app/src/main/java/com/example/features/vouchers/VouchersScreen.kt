@@ -1,5 +1,25 @@
 package com.example.features.vouchers
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.FilterListOff
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ModalBottomSheet
+import com.example.core.ui.MosaribAutoCompleteTextField
+import com.example.core.ui.MosaribDatePickerDialog
+import com.example.features.reports.ReportPeriod
+import com.example.core.ui.DropdownOption
+import com.example.core.ui.FilterClearAllChip
+import com.example.core.ui.FilterDropdownChip
+import com.example.core.ui.CustomerSearchPickerDialog
+import com.example.features.vouchers.AccountTypeFilter
+import com.example.features.vouchers.OperationsFilterState
+import com.example.features.vouchers.OperationsFilterEngine
+import com.example.features.vouchers.OperationsSort
+import com.example.features.vouchers.SessionPaymentFilter
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -173,6 +193,14 @@ fun VouchersScreen(
     val allSessions by viewModel.allSessions.collectAsStateWithLifecycle()
     val allVouchers by viewModel.allVouchers.collectAsStateWithLifecycle()
     val operationsFilter by viewModel.operationsFilter.collectAsStateWithLifecycle()
+    val filterState by viewModel.filterState.collectAsStateWithLifecycle()
+    val summaryOps by viewModel.summaryOperations.collectAsStateWithLifecycle()
+    val distinctPaymentMethods by viewModel.distinctPaymentMethods.collectAsStateWithLifecycle()
+    val distinctPumpNames by viewModel.distinctPumpNames.collectAsStateWithLifecycle()
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
+    var tempStartTimestamp by remember { mutableStateOf(System.currentTimeMillis()) }
+    var showCustomerPickerDialog by remember { mutableStateOf(false) }
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val frequentDescriptions by viewModel.frequentExpenseDescriptions.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
@@ -246,17 +274,144 @@ fun VouchersScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = 8.dp, bottom = if (isCompactHeight) 60.dp else 80.dp)
         ) {
+            stickyHeader {
+                Surface(
+                    color = MaterialTheme.colorScheme.background,
+                    shadowElevation = if (isStickyPinned) 3.dp else 0.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = if (isCompactHeight) 2.dp else 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(if (isCompactHeight) 34.dp else 38.dp)
+                                    .clip(RoundedCornerShape(if (isCompactHeight) 10.dp else 12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                                    .padding(horizontal = 10.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(if (isCompactHeight) 15.dp else 16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Box(
+                                        modifier = Modifier.weight(1f),
+                                        contentAlignment = Alignment.CenterStart
+                                    ) {
+                                        if (searchQuery.isEmpty()) {
+                                            Text(
+                                                text = "بحث بالعميل أو رقم السند...",
+                                                style = MaterialTheme.typography.bodyMedium.copy(
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+                                                ),
+                                                maxLines = 1
+                                            )
+                                        }
+                                        BasicTextField(
+                                            value = searchQuery,
+                                            onValueChange = { viewModel.setSearchQuery(it) },
+                                            singleLine = true,
+                                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("operations_search_input")
+                                        )
+                                    }
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(
+                                            onClick = { viewModel.setSearchQuery("") },
+                                            modifier = Modifier.size(20.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "مسح",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // زر طباعة سجل العمليات كتقرير PDF
+                            Box(
+                                modifier = Modifier
+                                    .size(if (isCompactHeight) 34.dp else 38.dp)
+                                    .clip(RoundedCornerShape(if (isCompactHeight) 10.dp else 12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                                    .clickable { viewModel.exportOperationsLogPdf(context) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PictureAsPdf,
+                                    contentDescription = "طباعة سجل العمليات PDF",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(if (isCompactHeight) 18.dp else 20.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(if (isCompactHeight) 4.dp else 6.dp))
+
+                        // صف شرائح الفلاتر المنسدلة (الترتيب، النوع، نوع الحساب، الحالة، المجموعة، الفترة، العميل)
+                        OperationsFilterChipsRow(
+                            filterState = filterState,
+                            customers = customers,
+                            onSelectSort = { viewModel.updateFilter { s -> s.copy(sort = it) } },
+                            onSelectType = { viewModel.updateFilter { s -> s.copy(type = it) } },
+                            onSelectAccountType = { viewModel.updateFilter { s -> s.copy(accountType = it) } },
+                            onSelectPayment = { viewModel.updateFilter { s -> s.copy(sessionPayment = it) } },
+                            onSelectGroup = { viewModel.updateFilter { s -> s.copy(group = it) } },
+                            onSelectPeriod = { viewModel.updateFilter { s -> s.copy(period = it, customRange = null) } },
+                            onRequestCustomRange = { showStartDatePicker = true },
+                            onSelectCustomer = { viewModel.updateFilter { s -> s.copy(customerId = it) } },
+                            onRequestPickCustomer = { showCustomerPickerDialog = true },
+                            onClearAll = { viewModel.clearFilters() }
+                        )
+                    }
+                }
+            }
+
             // Merged Integrated Financial Summary Card (يتلاشى بسلاسة تامة مع التمرير دون قفز)
             item {
                 val wellOwnerIds = remember(customers) { customers.filter { it.isWellOwner }.map { it.id }.toSet() }
-                val totalReceipts = allVouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount } +
-                    allSessions.sumOf { it.amountPaid }
-                val totalExpenses = allVouchers.filter { voucher ->
-                    voucher.type == VoucherType.EXPENSE && (voucher.customerId == null || wellOwnerIds.contains(voucher.customerId))
-                }.sumOf { it.amount }
-                val totalDebts = allSessions.sumOf { it.remainingDebt }
+                val totalReceipts = summaryOps.filterIsInstance<UnifiedOperation.VoucherOp>()
+                    .filter { it.voucherWithCustomer.voucher.type == VoucherType.RECEIPT }.sumOf { it.voucherWithCustomer.voucher.amount } +
+                    summaryOps.filterIsInstance<UnifiedOperation.SessionOp>().sumOf { it.sessionWithCustomer.session.amountPaid }
+                val totalExpenses = summaryOps.filterIsInstance<UnifiedOperation.VoucherOp>()
+                    .filter { voucherOp ->
+                        val v = voucherOp.voucherWithCustomer.voucher
+                        v.type == VoucherType.EXPENSE && (v.customerId == null || wellOwnerIds.contains(v.customerId))
+                    }.sumOf { it.voucherWithCustomer.voucher.amount }
+                val totalDebts = summaryOps.filterIsInstance<UnifiedOperation.SessionOp>()
+                    .sumOf { it.sessionWithCustomer.session.remainingDebt }
                 val netProfit = totalReceipts - totalExpenses
-                val totalWaterMinutes = allSessions.sumOf { it.durationMinutes }
+                val totalWaterMinutes = summaryOps.filterIsInstance<UnifiedOperation.SessionOp>()
+                    .sumOf { it.sessionWithCustomer.session.durationMinutes }
+
+                val customersMap = remember(customers) { customers.associateBy { it.id } }
+                val customerName = filterState.customerId?.let { customersMap[it]?.name }
+                val filterDesc = remember(filterState, customerName) {
+                    val stateWithoutType = filterState.copy(type = OperationsFilter.ALL)
+                    val d = OperationsFilterEngine.describe(stateWithoutType, customerName)
+                    if (d.isBlank() || d == "كل الوقت") "ملخص: كل الوقت" else "ملخص: $d"
+                }
 
                 Card(
                     modifier = Modifier
@@ -272,6 +427,14 @@ fun VouchersScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
+                        Text(
+                            text = filterDesc,
+                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+
                         // Top Row: Net Profit & Water Hours
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -393,311 +556,34 @@ fun VouchersScreen(
                     }
                 }
 
-            if (isCompactHeight) {
-                // في الوضع الأفقي: دمج حقل البحث وزر التصدير والفلاتر في صف أفقي واحد مدمج
-                item {
-                    Surface(
-                        color = MaterialTheme.colorScheme.background,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1.1f)
-                                    .height(36.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                                    .padding(horizontal = 8.dp),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Search,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Box(
-                                        modifier = Modifier.weight(1f),
-                                        contentAlignment = Alignment.CenterStart
-                                    ) {
-                                        if (searchQuery.isEmpty()) {
-                                            Text(
-                                                text = "بحث...",
-                                                style = MaterialTheme.typography.bodyMedium.copy(
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                                                    fontSize = 11.5.sp
-                                                ),
-                                                maxLines = 1
-                                            )
-                                        }
-                                        BasicTextField(
-                                            value = searchQuery,
-                                            onValueChange = { viewModel.setSearchQuery(it) },
-                                            singleLine = true,
-                                            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                fontSize = 11.5.sp
-                                            ),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .testTag("operations_search_input")
-                                        )
-                                    }
-                                    if (searchQuery.isNotEmpty()) {
-                                        IconButton(
-                                            onClick = { viewModel.setSearchQuery("") },
-                                            modifier = Modifier.size(18.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "مسح",
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(13.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            // زر طباعة سجل العمليات كتقرير PDF
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                                    .clickable { viewModel.exportOperationsLogPdf(context) },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PictureAsPdf,
-                                    contentDescription = "طباعة سجل العمليات PDF",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-
-                            LazyRow(
-                                modifier = Modifier.weight(1.9f),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                item {
-                                    MosaribFilterChip(
-                                        selected = operationsFilter == OperationsFilter.ALL,
-                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.ALL) },
-                                        label = "الكل",
-                                        isCompact = true
-                                    )
-                                }
-                                item {
-                                    MosaribFilterChip(
-                                        selected = operationsFilter == OperationsFilter.SESSIONS,
-                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.SESSIONS) },
-                                        label = "سقي",
-                                        isCompact = true
-                                    )
-                                }
-                                item {
-                                    MosaribFilterChip(
-                                        selected = operationsFilter == OperationsFilter.RECEIPTS,
-                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.RECEIPTS) },
-                                        label = "مقبوضات",
-                                        isCompact = true
-                                    )
-                                }
-                                item {
-                                    MosaribFilterChip(
-                                        selected = operationsFilter == OperationsFilter.EXPENSES,
-                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.EXPENSES) },
-                                        label = "مصروفات",
-                                        isCompact = true
-                                    )
-                                }
-                                item {
-                                    MosaribFilterChip(
-                                        selected = operationsFilter == OperationsFilter.DEFERRED,
-                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.DEFERRED) },
-                                        label = "آجل / ديون",
-                                        isCompact = true
-                                    )
-                                }
-                                item {
-                                    MosaribFilterChip(
-                                        selected = operationsFilter == OperationsFilter.PURCHASES,
-                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.PURCHASES) },
-                                        label = "شراء ساعات",
-                                        isCompact = true
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Search & Filters Row (Sticky Header تحت البوردر)
-                stickyHeader {
-                    Surface(
-                        color = MaterialTheme.colorScheme.background,
-                        shadowElevation = if (isStickyPinned) 3.dp else 0.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(40.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                                        .padding(horizontal = 10.dp),
-                                    contentAlignment = Alignment.CenterStart
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Search,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Box(
-                                            modifier = Modifier.weight(1f),
-                                            contentAlignment = Alignment.CenterStart
-                                        ) {
-                                            if (searchQuery.isEmpty()) {
-                                                Text(
-                                                    text = "بحث بالعميل أو رقم السند...",
-                                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                                                        fontSize = 12.5.sp
-                                                    ),
-                                                    maxLines = 1
-                                                )
-                                            }
-                                            BasicTextField(
-                                                value = searchQuery,
-                                                onValueChange = { viewModel.setSearchQuery(it) },
-                                                singleLine = true,
-                                                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                                    color = MaterialTheme.colorScheme.onSurface,
-                                                    fontSize = 12.5.sp
-                                                ),
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .testTag("operations_search_input")
-                                            )
-                                        }
-                                        if (searchQuery.isNotEmpty()) {
-                                            IconButton(
-                                                onClick = { viewModel.setSearchQuery("") },
-                                                modifier = Modifier.size(20.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Close,
-                                                    contentDescription = "مسح",
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier.size(14.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // زر طباعة سجل العمليات كتقرير PDF
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                                        .clickable { viewModel.exportOperationsLogPdf(context) },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.PictureAsPdf,
-                                        contentDescription = "طباعة سجل العمليات PDF",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                item {
-                                    MosaribFilterChip(
-                                        selected = operationsFilter == OperationsFilter.ALL,
-                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.ALL) },
-                                        label = "الكل"
-                                    )
-                                }
-                                item {
-                                    MosaribFilterChip(
-                                        selected = operationsFilter == OperationsFilter.SESSIONS,
-                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.SESSIONS) },
-                                        label = "سقي"
-                                    )
-                                }
-                                item {
-                                    MosaribFilterChip(
-                                        selected = operationsFilter == OperationsFilter.RECEIPTS,
-                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.RECEIPTS) },
-                                        label = "مقبوضات"
-                                    )
-                                }
-                                item {
-                                    MosaribFilterChip(
-                                        selected = operationsFilter == OperationsFilter.EXPENSES,
-                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.EXPENSES) },
-                                        label = "مصروفات"
-                                    )
-                                }
-                                item {
-                                    MosaribFilterChip(
-                                        selected = operationsFilter == OperationsFilter.DEFERRED,
-                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.DEFERRED) },
-                                        label = "آجل / ديون"
-                                    )
-                                }
-                                item {
-                                    MosaribFilterChip(
-                                        selected = operationsFilter == OperationsFilter.PURCHASES,
-                                        onClick = { viewModel.setOperationsFilter(OperationsFilter.PURCHASES) },
-                                        label = "شراء ساعات"
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Operations List (Combined: Sessions + Vouchers + Purchases)
             if (operations.isEmpty()) {
                 item {
-                    EmptyStateView(
-                        icon = Icons.Default.Receipt,
-                        title = "لا توجد عمليات مسجلة",
-                        description = "لم يتم العثور على أي حركة تطابق خيارات الفلترة المحددة"
-                    )
+                    val hasFilters = filterState.activeCount > 0 || searchQuery.isNotBlank()
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        EmptyStateView(
+                            icon = Icons.Default.Receipt,
+                            title = if (hasFilters) "لا توجد عمليات مطابقة للفلاتر" else "لا توجد عمليات مسجلة",
+                            description = if (hasFilters) "جرّب تغيير أو مسح الفلاتر لعرض العمليات" else "قم بإضافة عملية جديدة من الزر العائم (+)"
+                        )
+                        if (hasFilters) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            TextButton(
+                                onClick = {
+                                    viewModel.clearFilters()
+                                    viewModel.setSearchQuery("")
+                                }
+                            ) {
+                                Text(
+                                    text = "مسح الفلاتر",
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
                 }
             } else {
                 dayGroups.forEach { group ->
@@ -2029,6 +1915,58 @@ fun VouchersScreen(
         )
     }
 
+    if (showStartDatePicker) {
+        MosaribDatePickerDialog(
+            title = "من تاريخ",
+            initialTimestamp = filterState.customRange?.first ?: System.currentTimeMillis(),
+            onDismiss = { showStartDatePicker = false },
+            onDateSelected = { startTs ->
+                val startCal = java.util.Calendar.getInstance().apply {
+                    timeInMillis = startTs
+                    set(java.util.Calendar.HOUR_OF_DAY, 0)
+                    set(java.util.Calendar.MINUTE, 0)
+                    set(java.util.Calendar.SECOND, 0)
+                    set(java.util.Calendar.MILLISECOND, 0)
+                }
+                tempStartTimestamp = startCal.timeInMillis
+                showStartDatePicker = false
+                showEndDatePicker = true
+            }
+        )
+    }
+
+    if (showEndDatePicker) {
+        MosaribDatePickerDialog(
+            title = "إلى تاريخ",
+            initialTimestamp = filterState.customRange?.second ?: maxOf(tempStartTimestamp, System.currentTimeMillis()),
+            minTimestamp = tempStartTimestamp,
+            onDismiss = { showEndDatePicker = false },
+            onDateSelected = { endTs ->
+                val endCal = java.util.Calendar.getInstance().apply {
+                    timeInMillis = endTs
+                    set(java.util.Calendar.HOUR_OF_DAY, 23)
+                    set(java.util.Calendar.MINUTE, 59)
+                    set(java.util.Calendar.SECOND, 59)
+                    set(java.util.Calendar.MILLISECOND, 999)
+                }
+                val range = Pair(tempStartTimestamp, endCal.timeInMillis)
+                viewModel.updateFilter { it.copy(period = ReportPeriod.CUSTOM, customRange = range) }
+                showEndDatePicker = false
+            }
+        )
+    }
+
+    if (showCustomerPickerDialog) {
+        CustomerSearchPickerDialog(
+            customers = customers,
+            onSelect = { customer ->
+                viewModel.updateFilter { it.copy(customerId = customer.id) }
+                showCustomerPickerDialog = false
+            },
+            onDismiss = { showCustomerPickerDialog = false }
+        )
+    }
+
     // License Activation Dialog
     if (showActivationDialog) {
         LicenseDialog(
@@ -2948,4 +2886,204 @@ fun SettlementResultDialog(
             }
         }
     )
+}
+
+
+@Composable
+fun OperationsFilterChipsRow(
+    filterState: OperationsFilterState,
+    customers: List<Customer>,
+    onSelectSort: (OperationsSort) -> Unit,
+    onSelectType: (OperationsFilter) -> Unit,
+    onSelectAccountType: (AccountTypeFilter) -> Unit,
+    onSelectPayment: (SessionPaymentFilter) -> Unit,
+    onSelectGroup: (String?) -> Unit,
+    onSelectPeriod: (ReportPeriod) -> Unit,
+    onRequestCustomRange: () -> Unit,
+    onSelectCustomer: (Long?) -> Unit,
+    onRequestPickCustomer: () -> Unit,
+    onClearAll: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val sortOptions = listOf(
+        DropdownOption(OperationsSort.NEWEST, "الأحدث"),
+        DropdownOption(OperationsSort.OLDEST, "الأقدم"),
+        DropdownOption(OperationsSort.AMOUNT_DESC, "الأعلى مبلغاً"),
+        DropdownOption(OperationsSort.AMOUNT_ASC, "الأقل مبلغاً"),
+        DropdownOption(OperationsSort.NAME_ASC, "الاسم (أ-ي)"),
+        DropdownOption(OperationsSort.NAME_DESC, "الاسم (ي-أ)")
+    )
+
+    val typeOptions = listOf(
+        DropdownOption(OperationsFilter.ALL, "الكل"),
+        DropdownOption(OperationsFilter.SESSIONS, "سقي"),
+        DropdownOption(OperationsFilter.RECEIPTS, "قبض"),
+        DropdownOption(OperationsFilter.EXPENSES, "صرف"),
+        DropdownOption(OperationsFilter.DISCOUNTS, "خصم"),
+        DropdownOption(OperationsFilter.PURCHASES, "شراء ساعات"),
+        DropdownOption(OperationsFilter.DEFERRED, "آجل / ديون")
+    )
+
+    val accountOptions = listOf(
+        DropdownOption(AccountTypeFilter.ALL, "الكل"),
+        DropdownOption(AccountTypeFilter.FARMER, "مزارع"),
+        DropdownOption(AccountTypeFilter.WELL_OWNER, "صاحب بئر")
+    )
+
+    val paymentOptions = listOf(
+        DropdownOption(SessionPaymentFilter.ALL, "الكل"),
+        DropdownOption(SessionPaymentFilter.PAID, "مسدد"),
+        DropdownOption(SessionPaymentFilter.PARTIAL, "جزئي"),
+        DropdownOption(SessionPaymentFilter.UNPAID, "غير مسدد")
+    )
+
+    val distinctGroups = remember(customers) {
+        customers.mapNotNull { it.customGroup.trim().takeIf { g -> g.isNotBlank() } }.distinct().sorted()
+    }
+
+    val groupOptions = buildList<DropdownOption<String?>> {
+        add(DropdownOption(null, "الكل"))
+        distinctGroups.forEach { add(DropdownOption(it, it)) }
+        add(DropdownOption("", "بدون مجموعة"))
+    }
+
+    val periodOptions = listOf(
+        DropdownOption(ReportPeriod.ALL, "الكل"),
+        DropdownOption(ReportPeriod.TODAY, "اليوم"),
+        DropdownOption(ReportPeriod.YESTERDAY, "أمس"),
+        DropdownOption(ReportPeriod.THIS_WEEK, "هذا الأسبوع"),
+        DropdownOption(ReportPeriod.THIS_MONTH, "هذا الشهر"),
+        DropdownOption(ReportPeriod.LAST_MONTH, "الشهر الماضي"),
+        DropdownOption(ReportPeriod.CUSTOM, "من - إلى…")
+    )
+
+    val customerOptions = listOf<DropdownOption<Long?>>(
+        DropdownOption(null, "الكل"),
+        DropdownOption(-1L, "اختيار عميل…")
+    )
+
+    val periodDisplayText = remember(filterState.period, filterState.customRange) {
+        if (filterState.period == ReportPeriod.CUSTOM && filterState.customRange != null) {
+            val dFormat = java.text.SimpleDateFormat("d/M", java.util.Locale.US)
+            "${dFormat.format(java.util.Date(filterState.customRange.first))} - ${dFormat.format(java.util.Date(filterState.customRange.second))}"
+        } else null
+    }
+
+    val customerDisplayText = remember(filterState.customerId, customers) {
+        filterState.customerId?.let { id -> customers.find { it.id == id }?.name }
+    }
+
+    val hasAnyFilter = filterState.sort != OperationsSort.NEWEST ||
+            filterState.type != OperationsFilter.ALL ||
+            filterState.accountType != AccountTypeFilter.ALL ||
+            filterState.sessionPayment != SessionPaymentFilter.ALL ||
+            filterState.group != null ||
+            filterState.period != ReportPeriod.ALL ||
+            filterState.customRange != null ||
+            filterState.customerId != null
+
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 0.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 1. الترتيب
+        item(key = "sort") {
+            FilterDropdownChip(
+                label = "الترتيب",
+                selected = filterState.sort,
+                options = sortOptions,
+                isDefault = filterState.sort == OperationsSort.NEWEST,
+                onSelect = onSelectSort
+            )
+        }
+
+        // 2. النوع
+        item(key = "type") {
+            FilterDropdownChip(
+                label = "النوع",
+                selected = filterState.type,
+                options = typeOptions,
+                isDefault = filterState.type == OperationsFilter.ALL,
+                onSelect = onSelectType
+            )
+        }
+
+        // 3. نوع الحساب
+        item(key = "accountType") {
+            FilterDropdownChip(
+                label = "نوع الحساب",
+                selected = filterState.accountType,
+                options = accountOptions,
+                isDefault = filterState.accountType == AccountTypeFilter.ALL,
+                onSelect = onSelectAccountType
+            )
+        }
+
+        // 4. الحالة
+        item(key = "payment") {
+            FilterDropdownChip(
+                label = "الحالة",
+                selected = filterState.sessionPayment,
+                options = paymentOptions,
+                isDefault = filterState.sessionPayment == SessionPaymentFilter.ALL,
+                onSelect = onSelectPayment
+            )
+        }
+
+        // 5. المجموعة
+        item(key = "group") {
+            FilterDropdownChip(
+                label = "المجموعة",
+                selected = filterState.group,
+                options = groupOptions,
+                isDefault = filterState.group == null,
+                onSelect = onSelectGroup
+            )
+        }
+
+        // 6. الفترة
+        item(key = "period") {
+            FilterDropdownChip(
+                label = "الفترة",
+                selected = filterState.period,
+                options = periodOptions,
+                isDefault = filterState.period == ReportPeriod.ALL && filterState.customRange == null,
+                onSelect = { selectedPeriod ->
+                    if (selectedPeriod == ReportPeriod.CUSTOM) {
+                        onRequestCustomRange()
+                    } else {
+                        onSelectPeriod(selectedPeriod)
+                    }
+                },
+                customDisplayText = periodDisplayText
+            )
+        }
+
+        // 7. العميل
+        item(key = "customer") {
+            FilterDropdownChip(
+                label = "العميل",
+                selected = filterState.customerId,
+                options = customerOptions,
+                isDefault = filterState.customerId == null,
+                onSelect = { selectedId ->
+                    if (selectedId == -1L) {
+                        onRequestPickCustomer()
+                    } else {
+                        onSelectCustomer(null)
+                    }
+                },
+                customDisplayText = customerDisplayText
+            )
+        }
+
+        // زر مسح الكل عند تفعيل أي فلتر
+        if (hasAnyFilter) {
+            item(key = "clear_all") {
+                FilterClearAllChip(onClearAll = onClearAll)
+            }
+        }
+    }
 }

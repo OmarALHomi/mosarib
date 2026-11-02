@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -34,6 +35,7 @@ enum class OperationsFilter {
     SESSIONS,   // سقي
     RECEIPTS,   // مقبوضات
     EXPENSES,   // مصروفات
+    DISCOUNTS,  // خصم
     PURCHASES,  // شراء ساعات
     DEFERRED    // مؤخر / ديون
 }
@@ -99,8 +101,27 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
     val allVouchers: StateFlow<List<Voucher>> = voucherRepo.allVouchers
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private val _filterState = MutableStateFlow(OperationsFilterState())
+    val filterState: StateFlow<OperationsFilterState> = _filterState.asStateFlow()
+
     private val _operationsFilter = MutableStateFlow(OperationsFilter.ALL)
     val operationsFilter: StateFlow<OperationsFilter> = _operationsFilter.asStateFlow()
+
+    val distinctPaymentMethods: StateFlow<List<String>> = voucherRepo.allVouchers
+        .map { list ->
+            list.map { it.paymentMethod.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .sorted()
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val distinctPumpNames: StateFlow<List<String>> = sessionRepo.allSessions
+        .map { list ->
+            list.map { it.pumpName.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .sorted()
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _selectedTypeFilter = MutableStateFlow<VoucherType?>(null) // null = all
     val selectedTypeFilter: StateFlow<VoucherType?> = _selectedTypeFilter.asStateFlow()
@@ -152,56 +173,45 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
     val unifiedOperations: StateFlow<List<UnifiedOperation>> =
         combine(
             rawOperationsFlow,
-            _operationsFilter,
-            _searchQuery
-        ) { allOps, filter, query ->
-            val filteredList = when (filter) {
-                OperationsFilter.ALL -> allOps
-                OperationsFilter.SESSIONS -> allOps.filterIsInstance<UnifiedOperation.SessionOp>()
-                OperationsFilter.RECEIPTS -> allOps.filterIsInstance<UnifiedOperation.VoucherOp>()
-                    .filter { it.voucherWithCustomer.voucher.type == VoucherType.RECEIPT }
-                OperationsFilter.EXPENSES -> allOps.filterIsInstance<UnifiedOperation.VoucherOp>()
-                    .filter { it.voucherWithCustomer.voucher.type == VoucherType.EXPENSE }
-                OperationsFilter.PURCHASES -> allOps.filterIsInstance<UnifiedOperation.PurchaseOp>()
-                OperationsFilter.DEFERRED -> allOps.filterIsInstance<UnifiedOperation.SessionOp>()
-                    .filter { it.sessionWithCustomer.session.remainingDebt > 0 }
-            }
+            _filterState,
+            _searchQuery,
+            customerRepo.allCustomers
+        ) { allOps, filter, query, custList ->
+            val customersMap = custList.associateBy { it.id }
+            OperationsFilterEngine.apply(allOps, filter, customersMap, query, System.currentTimeMillis())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-            val searched = if (query.isBlank()) {
-                filteredList
-            } else {
-                filteredList.filter { op ->
-                    when (op) {
-                        is UnifiedOperation.SessionOp -> {
-                            val s = op.sessionWithCustomer.session
-                            val c = op.sessionWithCustomer.customer
-                            (c?.name?.contains(query, ignoreCase = true) == true) ||
-                            (c?.farmName?.contains(query, ignoreCase = true) == true) ||
-                            s.notes.contains(query, ignoreCase = true)
-                        }
-                        is UnifiedOperation.VoucherOp -> {
-                            val v = op.voucherWithCustomer.voucher
-                            val c = op.voucherWithCustomer.customer
-                            v.voucherNumber.contains(query, ignoreCase = true) ||
-                            v.category.contains(query, ignoreCase = true) ||
-                            v.notes.contains(query, ignoreCase = true) ||
-                            (c?.name?.contains(query, ignoreCase = true) == true)
-                        }
-                        is UnifiedOperation.PurchaseOp -> {
-                            val p = op.purchase
-                            val c = op.owner
-                            (c?.name?.contains(query, ignoreCase = true) == true) ||
-                            p.notes.contains(query, ignoreCase = true)
-                        }
-                    }
-                }
-            }
-
-            searched.sortedByDescending { it.timestamp }
+    val summaryOperations: StateFlow<List<UnifiedOperation>> =
+        combine(
+            rawOperationsFlow,
+            _filterState,
+            _searchQuery,
+            customerRepo.allCustomers
+        ) { allOps, state, query, custList ->
+            val customersMap = custList.associateBy { it.id }
+            val stateWithoutType = state.copy(type = OperationsFilter.ALL)
+            OperationsFilterEngine.apply(allOps, stateWithoutType, customersMap, query, System.currentTimeMillis())
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun setOperationsFilter(filter: OperationsFilter) {
         _operationsFilter.value = filter
+        _filterState.value = _filterState.value.copy(type = filter)
+    }
+
+    fun updateFilter(transform: (OperationsFilterState) -> OperationsFilterState) {
+        val newState = transform(_filterState.value)
+        _filterState.value = newState
+        _operationsFilter.value = newState.type
+    }
+
+    fun clearFilters(keepType: Boolean = true) {
+        val newState = if (keepType) {
+            OperationsFilterState(type = _filterState.value.type)
+        } else {
+            OperationsFilterState()
+        }
+        _filterState.value = newState
+        _operationsFilter.value = newState.type
     }
 
     fun setTypeFilter(type: VoucherType?) {
@@ -236,21 +246,29 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                     return@launch
                 }
                 val config = appConfig.value
-                val filterName = when (_operationsFilter.value) {
+                val typeName = when (_filterState.value.type) {
                     OperationsFilter.ALL -> "كافة العمليات"
                     OperationsFilter.SESSIONS -> "جلسات السقي"
                     OperationsFilter.RECEIPTS -> "سندات القبض"
                     OperationsFilter.EXPENSES -> "سندات المصروفات"
+                    OperationsFilter.DISCOUNTS -> "سندات الخصم"
                     OperationsFilter.PURCHASES -> "شراء ساعات الآبار"
                     OperationsFilter.DEFERRED -> "العمليات الآجلة والديون"
+                }
+                val customerName = _filterState.value.customerId?.let { id -> customers.value.find { it.id == id }?.name }
+                val filterDesc = OperationsFilterEngine.describe(_filterState.value, customerName)
+                val fullTitle = if (filterDesc.isNotBlank() && filterDesc != "كل الوقت") {
+                    "$typeName · $filterDesc"
+                } else {
+                    typeName
                 }
                 val file = PdfReportGenerator.generateOperationsLogPdf(
                     context = context,
                     config = config,
-                    filterTitle = filterName,
+                    filterTitle = fullTitle,
                     operations = list
                 )
-                _pdfReadyFile.value = Pair(file, "سجل العمليات - $filterName")
+                _pdfReadyFile.value = Pair(file, fullTitle)
             } catch (e: Exception) {
                 showToast("فشل في إنشاء تقرير سجل العمليات: ${e.localizedMessage}", ToastType.ERROR)
             }

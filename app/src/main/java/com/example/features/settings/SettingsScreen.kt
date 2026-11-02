@@ -1,5 +1,11 @@
 package com.example.features.settings
 
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.features.customers.CustomersViewModel
+import com.example.features.customers.ManageGroupsDialog
+import com.example.features.customers.RecycleBinDialog
+import com.example.features.customers.CustomerGroupEditorDialog
+
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -44,6 +50,15 @@ fun SettingsScreen(
     val config by viewModel.appConfig.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val operationsCount by viewModel.operationsCount.collectAsStateWithLifecycle()
+    val customersViewModel: CustomersViewModel = viewModel()
+    val archivedCustomers by customersViewModel.archivedCustomers.collectAsStateWithLifecycle()
+    val customGroups by customersViewModel.customGroups.collectAsStateWithLifecycle()
+    val rawCustomers by customersViewModel.rawCustomersWithBalance.collectAsStateWithLifecycle()
+    var showManageGroupsDialog by remember { mutableStateOf(false) }
+    var showRecycleBinDialog by remember { mutableStateOf(false) }
+    var showAddGroupDialog by remember { mutableStateOf(false) }
+    var groupToEdit by remember { mutableStateOf<String?>(null) }
+    var initialMemberIdsForEdit by remember { mutableStateOf<Set<Long>>(emptySet()) }
     val isActivated by viewModel.isActivated.collectAsStateWithLifecycle()
     val isSeedingData by viewModel.isSeedingData.collectAsStateWithLifecycle()
 
@@ -211,6 +226,14 @@ fun SettingsScreen(
             }
 
             item {
+                DataManagementSection(
+                    archivedCount = archivedCustomers.size,
+                    onOpenRecycleBin = { showRecycleBinDialog = true },
+                    onOpenManageGroups = { showManageGroupsDialog = true }
+                )
+            }
+
+            item {
                 LicenseSection(
                     isActivated = isActivated,
                     operationsCount = operationsCount,
@@ -322,6 +345,58 @@ fun SettingsScreen(
                         viewModel.backupToGoogleDriveAppData()
                     }
                 }
+            )
+        }
+ 
+        if (showManageGroupsDialog) {
+            ManageGroupsDialog(
+                groups = customGroups,
+                allCustomers = rawCustomers,
+                onDismiss = { showManageGroupsDialog = false },
+                onEditGroup = { grp, memberIds ->
+                    showManageGroupsDialog = false
+                    groupToEdit = grp
+                    initialMemberIdsForEdit = memberIds
+                },
+                onRenameGroup = { oldName, newName ->
+                    customersViewModel.renameGroup(oldName, newName)
+                },
+                onDeleteGroup = { grp ->
+                    customersViewModel.deleteGroup(grp)
+                },
+                onAddNewGroup = {
+                    showManageGroupsDialog = false
+                    showAddGroupDialog = true
+                }
+            )
+        }
+
+        if (showAddGroupDialog || groupToEdit != null) {
+            CustomerGroupEditorDialog(
+                groupToEdit = groupToEdit,
+                initialMemberIdsForEdit = initialMemberIdsForEdit,
+                rawCustomers = rawCustomers,
+                onDismiss = {
+                    showAddGroupDialog = false
+                    groupToEdit = null
+                    initialMemberIdsForEdit = emptySet()
+                },
+                onSave = { name, selectedIds ->
+                    customersViewModel.saveGroup(name, selectedIds, groupToEdit)
+                    showAddGroupDialog = false
+                    groupToEdit = null
+                    initialMemberIdsForEdit = emptySet()
+                }
+            )
+        }
+
+        if (showRecycleBinDialog) {
+            RecycleBinDialog(
+                archivedCustomers = archivedCustomers,
+                onRestore = { customersViewModel.restoreCustomer(it.id) },
+                onPermanentlyDelete = { customersViewModel.permanentlyDeleteCustomer(it.id) },
+                onEmptyBin = { customersViewModel.emptyRecycleBin() },
+                onDismiss = { showRecycleBinDialog = false }
             )
         }
     }
