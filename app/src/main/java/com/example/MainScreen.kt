@@ -1,5 +1,12 @@
 package com.example
 
+import androidx.compose.material.icons.filled.Bookmarks
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.HorizontalDivider
+import com.example.features.customers.ManageGroupsDialog
+import com.example.features.customers.RecycleBinDialog
+import com.example.features.customers.CustomerGroupEditorDialog
+
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -181,6 +188,14 @@ fun MainApp(
             var showLicenseDialog by remember { mutableStateOf(false) }
             var showFeedbackDialog by remember { mutableStateOf(false) }
             var showCustomerMenu by remember { mutableStateOf(false) }
+    var showManageGroupsDialog by remember { mutableStateOf(false) }
+    var showRecycleBinDialog by remember { mutableStateOf(false) }
+    var showAddGroupDialog by remember { mutableStateOf(false) }
+    var groupToEdit by remember { mutableStateOf<String?>(null) }
+    var initialMemberIdsForEdit by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    val archivedCustomers by customersViewModel.archivedCustomers.collectAsStateWithLifecycle()
+    val customGroups by customersViewModel.customGroups.collectAsStateWithLifecycle()
+    val rawCustomers by customersViewModel.rawCustomersWithBalance.collectAsStateWithLifecycle()
             var showExitConfirmationDialog by remember { mutableStateOf(false) }
 
             val customerExcelPickerLauncher = rememberLauncherForActivityResult(
@@ -314,6 +329,25 @@ fun MainApp(
                                                 expanded = showCustomerMenu,
                                                 onDismissRequest = { showCustomerMenu = false }
                                             ) {
+                                                DropdownMenuItem(
+                                                    text = { Text("إدارة المجموعات", fontWeight = FontWeight.Bold) },
+                                                    leadingIcon = { Icon(Icons.Default.Bookmarks, contentDescription = null, tint = PrimaryTeal) },
+                                                    onClick = {
+                                                        showCustomerMenu = false
+                                                        showManageGroupsDialog = true
+                                                    }
+                                                )
+                                                if (archivedCustomers.isNotEmpty()) {
+                                                    DropdownMenuItem(
+                                                        text = { Text("سلة المحذوفات (${archivedCustomers.size})", fontWeight = FontWeight.Bold) },
+                                                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                                        onClick = {
+                                                            showCustomerMenu = false
+                                                            showRecycleBinDialog = true
+                                                        }
+                                                    )
+                                                }
+                                                HorizontalDivider()
                                                 DropdownMenuItem(
                                                     text = { Text("استيراد من إكسل", fontWeight = FontWeight.Bold) },
                                                     leadingIcon = { Icon(Icons.Default.FileUpload, contentDescription = null, tint = PrimaryTeal) },
@@ -576,6 +610,57 @@ fun MainApp(
                     }
                 )
             }
+        if (showManageGroupsDialog) {
+            ManageGroupsDialog(
+                groups = customGroups,
+                allCustomers = rawCustomers,
+                onDismiss = { showManageGroupsDialog = false },
+                onEditGroup = { grp, memberIds ->
+                    showManageGroupsDialog = false
+                    groupToEdit = grp
+                    initialMemberIdsForEdit = memberIds
+                },
+                onRenameGroup = { oldName, newName ->
+                    customersViewModel.renameGroup(oldName, newName)
+                },
+                onDeleteGroup = { grp ->
+                    customersViewModel.deleteGroup(grp)
+                },
+                onAddNewGroup = {
+                    showManageGroupsDialog = false
+                    showAddGroupDialog = true
+                }
+            )
+        }
+
+        if (showAddGroupDialog || groupToEdit != null) {
+            CustomerGroupEditorDialog(
+                groupToEdit = groupToEdit,
+                initialMemberIdsForEdit = initialMemberIdsForEdit,
+                rawCustomers = rawCustomers,
+                onDismiss = {
+                    showAddGroupDialog = false
+                    groupToEdit = null
+                    initialMemberIdsForEdit = emptySet<Long>()
+                },
+                onSave = { name, selectedIds ->
+                    customersViewModel.saveGroup(name, selectedIds, groupToEdit)
+                    showAddGroupDialog = false
+                    groupToEdit = null
+                    initialMemberIdsForEdit = emptySet<Long>()
+                }
+            )
+        }
+
+        if (showRecycleBinDialog) {
+            RecycleBinDialog(
+                archivedCustomers = archivedCustomers,
+                onRestore = { customersViewModel.restoreCustomer(it.id) },
+                onPermanentlyDelete = { customersViewModel.permanentlyDeleteCustomer(it.id) },
+                onEmptyBin = { customersViewModel.emptyRecycleBin() },
+                onDismiss = { showRecycleBinDialog = false }
+            )
+        }
         }
     }
 }

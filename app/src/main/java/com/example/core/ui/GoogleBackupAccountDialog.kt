@@ -1,13 +1,17 @@
 package com.example.core.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CheckCircle
@@ -16,26 +20,35 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.PrimaryTeal
+import com.example.ui.theme.mosarib
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 
 /**
- * نافذة احترافية لطلب اسم ورقم المستخدم وربطهما بحساب Google Drive للنسخ الاحتياطي السحابي.
+ * صفيحة سفلية عائمة لطلب اسم ورقم المستخدم وربطهما بحساب Google Drive للنسخ الاحتياطي السحابي.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GoogleBackupAccountDialog(
     initialName: String = "",
@@ -44,88 +57,43 @@ fun GoogleBackupAccountDialog(
     onDismiss: () -> Unit,
     onProceed: (name: String, phone: String, shouldLaunchSignIn: Boolean) -> Unit
 ) {
-    val isDark = isAppDark()
     var name by remember { mutableStateOf(initialName) }
     var phone by remember { mutableStateOf(initialPhone) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    ModalBottomSheet(
+    val hasUnsavedChanges = (name.trim() != initialName.trim()) || (phone.trim() != initialPhone.trim())
+
+    MosaribBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = if (isDark) Color(0xFF101B20) else Color.White,
-        dragHandle = {
-            BottomSheetDefaults.DragHandle(color = if (isDark) Color(0xFF334B56) else Color(0xFFCBD5E1))
-        }
+        title = "النسخ الاحتياطي السحابي (Google Drive)",
+        subtitle = "احفظ بياناتك وسجلاتك الزراعية في سحابة Google Drive",
+        icon = Icons.Default.CloudDone,
+        iconTint = MaterialTheme.mosarib.success,
+        hasUnsavedChanges = hasUnsavedChanges
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp)
-                .verticalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // أيقونة سحابة Google Drive المتألقة
-            Box(
-                modifier = Modifier
-                    .size(68.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                Color(0xFF16A34A).copy(alpha = 0.2f),
-                                PrimaryTeal.copy(alpha = 0.25f)
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CloudDone,
-                    contentDescription = null,
-                    tint = Color(0xFF16A34A),
-                    modifier = Modifier.size(36.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Text(
-                text = "النسخ الاحتياطي السحابي (Google Drive)",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.ExtraBold,
-                    color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A),
-                    fontSize = 19.sp
-                ),
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
             Text(
                 text = "احفظ بياناتك وسجلاتك الزراعية في سحابة Google Drive الخاصة بك لتأمينها من الضياع واستعادتها في أي وقت.",
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                    fontSize = 12.5.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 18.sp
                 ),
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // كبسولة تنبيه الأمان والخصوصية
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isDark) Color(0xFF132822) else Color(0xFFF0FDF4)
+                    containerColor = MaterialTheme.mosarib.successContainer.copy(alpha = 0.5f)
                 ),
-                border = CardDefaults.outlinedCardBorder().copy(
-                    brush = Brush.horizontalGradient(
-                        listOf(Color(0xFF16A34A).copy(alpha = 0.35f), Color(0xFF16A34A).copy(alpha = 0.15f))
-                    )
-                )
+                border = BorderStroke(1.dp, MaterialTheme.mosarib.success.copy(alpha = 0.35f))
             ) {
                 Row(
                     modifier = Modifier
@@ -137,14 +105,13 @@ fun GoogleBackupAccountDialog(
                     Icon(
                         imageVector = Icons.Default.Security,
                         contentDescription = null,
-                        tint = Color(0xFF16A34A),
+                        tint = MaterialTheme.mosarib.success,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = "يتم ربط الاسم والرقم بحسابك السحابي لتسهيل استرجاع بياناتك وتوثيق ملكية النسخ الاحتياطية.",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = if (isDark) Color(0xFF86EFAC) else Color(0xFF166534),
-                            fontSize = 11.5.sp,
+                            color = MaterialTheme.mosarib.onSuccessContainer,
                             lineHeight = 16.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -152,7 +119,7 @@ fun GoogleBackupAccountDialog(
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // حقل الاسم الكامل
             OutlinedTextField(
@@ -170,17 +137,11 @@ fun GoogleBackupAccountDialog(
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
-                    unfocusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
-                    focusedLabelColor = PrimaryTeal,
-                    unfocusedLabelColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                    focusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
-                    unfocusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
-                    cursorColor = PrimaryTeal,
                     focusedBorderColor = PrimaryTeal,
-                    unfocusedBorderColor = if (isDark) Color(0xFF334B56) else Color(0xFFCBD5E1),
-                    focusedContainerColor = if (isDark) Color(0xFF162329) else Color(0xFFF8FAFC),
-                    unfocusedContainerColor = if (isDark) Color(0xFF142026) else Color(0xFFF8FAFC)
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    cursorColor = PrimaryTeal,
+                    focusedLabelColor = PrimaryTeal,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             )
 
@@ -203,17 +164,11 @@ fun GoogleBackupAccountDialog(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
-                    unfocusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
-                    focusedLabelColor = PrimaryTeal,
-                    unfocusedLabelColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                    focusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
-                    unfocusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
-                    cursorColor = PrimaryTeal,
                     focusedBorderColor = PrimaryTeal,
-                    unfocusedBorderColor = if (isDark) Color(0xFF334B56) else Color(0xFFCBD5E1),
-                    focusedContainerColor = if (isDark) Color(0xFF162329) else Color(0xFFF8FAFC),
-                    unfocusedContainerColor = if (isDark) Color(0xFF142026) else Color(0xFFF8FAFC)
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    cursorColor = PrimaryTeal,
+                    focusedLabelColor = PrimaryTeal,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             )
 
@@ -224,13 +179,9 @@ fun GoogleBackupAccountDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC)
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     ),
-                    border = CardDefaults.outlinedCardBorder().copy(
-                        brush = Brush.horizontalGradient(
-                            listOf(Color(0xFF38BDF8).copy(alpha = 0.4f), Color(0xFF38BDF8).copy(alpha = 0.1f))
-                        )
-                    )
+                    border = BorderStroke(1.dp, MaterialTheme.mosarib.info.copy(alpha = 0.35f))
                 ) {
                     Row(
                         modifier = Modifier
@@ -247,19 +198,19 @@ fun GoogleBackupAccountDialog(
                             Icon(
                                 imageVector = Icons.Default.AccountCircle,
                                 contentDescription = null,
-                                tint = Color(0xFF0284C7),
+                                tint = MaterialTheme.mosarib.info,
                                 modifier = Modifier.size(22.dp)
                             )
                             Column {
                                 Text(
                                     text = "الحساب الحالي:",
-                                    style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF64748B))
+                                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 )
                                 Text(
                                     text = currentGoogleAccount.email ?: "حساب Google",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1)
+                                        color = MaterialTheme.mosarib.info
                                     ),
                                     maxLines = 1
                                 )
@@ -269,7 +220,7 @@ fun GoogleBackupAccountDialog(
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
                             contentDescription = null,
-                            tint = AccentEmerald,
+                            tint = MaterialTheme.mosarib.success,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -281,9 +232,8 @@ fun GoogleBackupAccountDialog(
                 Text(
                     text = errorMessage!!,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFFEF4444),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
+                        color = MaterialTheme.mosarib.debt,
+                        fontWeight = FontWeight.Bold
                     )
                 )
             }
@@ -305,29 +255,27 @@ fun GoogleBackupAccountDialog(
                         return@Button
                     }
 
-                    // إذا كان الحساب غير متصل، يتم إطلاق تسجيل الدخول
-                    // إذا كان متصلاً، يستمر مع الحساب الحالي
                     val shouldSignIn = currentGoogleAccount == null
                     onProceed(cleanN, cleanP, shouldSignIn)
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
+                    .height(48.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.mosarib.success,
+                    contentColor = MaterialTheme.mosarib.onSuccess
+                )
             ) {
                 Icon(
                     imageVector = if (currentGoogleAccount == null) Icons.Default.CloudDone else Icons.Default.Sync,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = Color.White
+                    modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (currentGoogleAccount == null) "متابعة واختيار حساب Google 🚀" else "حفظ البيانات ومتابعة النسخ الاحتياطي ✨",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = Color.White
+                    text = if (currentGoogleAccount == null) "متابعة واختيار حساب Google" else "حفظ البيانات ومتابعة النسخ الاحتياطي",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                 )
             }
 
@@ -342,13 +290,13 @@ fun GoogleBackupAccountDialog(
                             errorMessage = "يرجى إدخال الاسم أولاً"
                             return@TextButton
                         }
-                        onProceed(cleanN, cleanP, true) // Force new account selection
+                        onProceed(cleanN, cleanP, true)
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "اختيار حساب Google آخر 🔄",
-                        style = MaterialTheme.typography.bodySmall.copy(
+                        text = "اختيار حساب Google آخر",
+                        style = MaterialTheme.typography.bodyMedium.copy(
                             color = PrimaryTeal,
                             fontWeight = FontWeight.Bold
                         )
@@ -365,7 +313,7 @@ fun GoogleBackupAccountDialog(
                 Text(
                     text = "إلغاء",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 )
             }

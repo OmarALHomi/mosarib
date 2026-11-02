@@ -91,10 +91,11 @@ import com.example.features.settings.SettingsViewModel
 import com.example.features.vouchers.AddVoucherBottomSheet
 import com.example.features.vouchers.VoucherType
 import com.example.features.vouchers.VouchersViewModel
-import com.example.ui.theme.AccentEmerald
-import com.example.ui.theme.AccentGold
-import com.example.ui.theme.PrimaryTeal
-import com.example.ui.theme.SecondaryAqua
+import com.example.ui.theme.mosarib
+
+
+
+
 import java.util.Calendar
 
 /**
@@ -143,8 +144,8 @@ fun LivingThemeToggleButton(
                 .scale(haloScale)
                 .clip(CircleShape)
                 .background(
-                    if (isDarkTheme) AccentGold.copy(alpha = haloAlpha)
-                    else PrimaryTeal.copy(alpha = haloAlpha)
+                    if (isDarkTheme) MaterialTheme.colorScheme.tertiary.copy(alpha = haloAlpha)
+                    else MaterialTheme.colorScheme.primary.copy(alpha = haloAlpha)
                 )
         )
 
@@ -154,8 +155,8 @@ fun LivingThemeToggleButton(
                 .size(38.dp)
                 .clip(CircleShape)
                 .background(
-                    if (isDarkTheme) Color(0xFF1E293B)
-                    else Color(0xFFE0F2F1)
+                    MaterialTheme.colorScheme.surfaceVariant
+
                 )
                 .clickable { onToggle() },
             contentAlignment = Alignment.Center
@@ -163,7 +164,7 @@ fun LivingThemeToggleButton(
             Icon(
                 imageVector = if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
                 contentDescription = "تبديل المظهر",
-                tint = if (isDarkTheme) AccentGold else PrimaryTeal,
+                tint = if (isDarkTheme) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .size(20.dp)
                     .graphicsLayer(rotationZ = rotation)
@@ -220,7 +221,7 @@ fun QuickActionCard(
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 13.sp
+
                     ),
                     maxLines = 1,
                     softWrap = false,
@@ -231,8 +232,7 @@ fun QuickActionCard(
                     text = subtitle,
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 10.sp
-                    ),
+                                            ),
                     maxLines = 1,
                     softWrap = false,
                     overflow = TextOverflow.Ellipsis
@@ -313,10 +313,9 @@ fun WeeklyIrrigationBarChartCard(
                 Text(
                     text = "إجمالي السقي: ${Formatters.formatDurationArabic(totalWeekMinutes)}",
                     style = MaterialTheme.typography.titleSmall.copy(
-                        color = PrimaryTeal,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 13.5.sp
-                    ),
+                                            ),
                     maxLines = 1,
                     softWrap = false,
                     overflow = TextOverflow.Ellipsis,
@@ -335,7 +334,7 @@ fun WeeklyIrrigationBarChartCard(
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp
+
                         )
                     )
                 }
@@ -362,9 +361,9 @@ fun WeeklyIrrigationBarChartCard(
                         Text(
                             text = "$hoursText س",
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 9.sp,
+
                                 fontWeight = if (stat.isToday) FontWeight.ExtraBold else FontWeight.SemiBold,
-                                color = if (stat.isToday) AccentEmerald else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (stat.isToday) MaterialTheme.mosarib.success else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         )
                         Spacer(modifier = Modifier.height(4.dp))
@@ -377,11 +376,11 @@ fun WeeklyIrrigationBarChartCard(
                                 .height((65 * fraction).dp.coerceAtLeast(6.dp))
                                 .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                                 .background(
-                                    if (stat.isToday) Brush.verticalGradient(listOf(AccentEmerald, PrimaryTeal))
-                                    else if (stat.totalMinutes > 0) Brush.verticalGradient(listOf(PrimaryTeal.copy(alpha = 0.85f), SecondaryAqua))
+                                    if (stat.isToday) Brush.verticalGradient(listOf(MaterialTheme.mosarib.success, MaterialTheme.colorScheme.primary))
+                                    else if (stat.totalMinutes > 0) Brush.verticalGradient(listOf(MaterialTheme.colorScheme.primary.copy(alpha = 0.85f), MaterialTheme.colorScheme.secondary))
                                     else Brush.verticalGradient(
-                                        if (isDark) listOf(Color(0xFF334155), Color(0xFF1E293B))
-                                        else listOf(Color(0xFFE2E8F0), Color(0xFFCBD5E1))
+                                        listOf(MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), MaterialTheme.colorScheme.surfaceVariant)
+
                                     )
                                 )
                         )
@@ -391,25 +390,25 @@ fun WeeklyIrrigationBarChartCard(
                         Text(
                             text = stat.dayName,
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 9.5.sp,
+
                                 fontWeight = if (stat.isToday) FontWeight.ExtraBold else FontWeight.SemiBold,
-                                color = if (stat.isToday) PrimaryTeal else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (stat.isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             ),
                             maxLines = 1
                         )
 
                         if (stat.isToday) {
                             Surface(
-                                color = AccentEmerald.copy(alpha = 0.15f),
+                                color = MaterialTheme.mosarib.successContainer,
                                 shape = RoundedCornerShape(4.dp),
                                 modifier = Modifier.padding(top = 2.dp)
                             ) {
                                 Text(
                                     text = "اليوم",
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 8.sp,
+
                                         fontWeight = FontWeight.Bold,
-                                        color = AccentEmerald
+                                        color = MaterialTheme.mosarib.success
                                     ),
                                     modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
                                 )
@@ -465,9 +464,8 @@ fun FinancialRecoveryGaugeCard(
                         text = "مؤشر تحصيل الديون",
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 14.sp
-                        ),
+                            color = MaterialTheme.colorScheme.onSurface
+                                                    ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -475,7 +473,7 @@ fun FinancialRecoveryGaugeCard(
                         text = "نسبة الدفعات المستلمة من إجمالي الديون والمستحقات",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 10.sp
+
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -488,18 +486,18 @@ fun FinancialRecoveryGaugeCard(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .background(
-                            if (percentInt >= 70) (if (isDark) Color(0xFF132A1C) else Color(0xFFE8F5E9))
-                            else (if (isDark) Color(0xFF2E1C0C) else Color(0xFFFFF3E0))
+                            if (percentInt >= 70) MaterialTheme.mosarib.successContainer
+                            else MaterialTheme.mosarib.warningContainer
                         )
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(
                         text = "$percentInt% محصل",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = if (percentInt >= 70) (if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32))
-                            else (if (isDark) Color(0xFFFFB74D) else Color(0xFFE65100)),
+                            color = if (percentInt >= 70) MaterialTheme.mosarib.success
+                            else MaterialTheme.mosarib.warning,
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 11.sp
+
                         )
                     )
                 }
@@ -522,7 +520,7 @@ fun FinancialRecoveryGaugeCard(
                         .clip(RoundedCornerShape(6.dp))
                         .background(
                             Brush.horizontalGradient(
-                                listOf(AccentEmerald, PrimaryTeal)
+                                listOf(MaterialTheme.mosarib.success, MaterialTheme.colorScheme.primary)
                             )
                         )
                 )
@@ -539,9 +537,9 @@ fun FinancialRecoveryGaugeCard(
                     Text(
                         text = "المقبوض كاش: ${Formatters.formatCurrency(homeStats.totalCollectedCash, currencySymbol)}",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = AccentEmerald,
+                            color = MaterialTheme.mosarib.success,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 11.5.sp
+
                         ),
                         maxLines = 1,
                         softWrap = false,
@@ -556,9 +554,9 @@ fun FinancialRecoveryGaugeCard(
                     Text(
                         text = "الديون القائمة: ${Formatters.formatCurrency(homeStats.totalOutstandingDebt, currencySymbol)}",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = if (homeStats.totalOutstandingDebt > 0) Color(0xFFD32F2F) else AccentEmerald,
+                            color = if (homeStats.totalOutstandingDebt > 0) MaterialTheme.mosarib.debt else MaterialTheme.mosarib.settled,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 11.5.sp
+
                         ),
                         maxLines = 1,
                         softWrap = false,
@@ -585,15 +583,15 @@ fun FinancialRecoveryGaugeCard(
                         text = "التدفق المالي (المقبوضات والمصروفات)",
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 13.5.sp
+                            color = MaterialTheme.colorScheme.onSurface
+
                         )
                     )
                     Text(
                         text = "مقارنة السيولة المحصلة بالنفقات التشغيلية",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 10.sp
+
                         )
                     )
                 }
@@ -602,15 +600,15 @@ fun FinancialRecoveryGaugeCard(
                 else "- " + Formatters.formatCurrency(kotlin.math.abs(netProfit), currencySymbol)
 
                 Surface(
-                    color = if (netProfit >= 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                    color = if (netProfit >= 0) MaterialTheme.mosarib.successContainer else MaterialTheme.colorScheme.errorContainer,
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
                         text = "الصافي: $profitBadgeText",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = if (netProfit >= 0) Color(0xFF2E7D32) else Color(0xFFD32F2F),
+                            color = if (netProfit >= 0) MaterialTheme.mosarib.success else MaterialTheme.mosarib.debt,
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 10.5.sp
+
                         ),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
@@ -631,14 +629,14 @@ fun FinancialRecoveryGaugeCard(
                     modifier = Modifier
                         .weight(receiptsRatio.coerceAtLeast(0.01f))
                         .fillMaxHeight()
-                        .background(AccentEmerald)
+                        .background(MaterialTheme.mosarib.success)
                 )
                 // Expenses share (Red)
                 Box(
                     modifier = Modifier
                         .weight((1f - receiptsRatio).coerceAtLeast(0.01f))
                         .fillMaxHeight()
-                        .background(Color(0xFFE53935))
+                        .background(MaterialTheme.mosarib.debt)
                 )
             }
 
@@ -652,14 +650,14 @@ fun FinancialRecoveryGaugeCard(
                     modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(AccentEmerald))
+                    Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(MaterialTheme.mosarib.success))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "مقبوض: ${Formatters.formatCurrency(homeStats.totalCollectedCash, currencySymbol)}",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 10.5.sp
+
                         ),
                         maxLines = 1,
                         softWrap = false,
@@ -672,14 +670,14 @@ fun FinancialRecoveryGaugeCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.End
                 ) {
-                    Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(Color(0xFFE53935)))
+                    Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(MaterialTheme.mosarib.debt))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "مصروف: ${Formatters.formatCurrency(homeStats.totalExpenses, currencySymbol)}",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 10.5.sp
+
                         ),
                         maxLines = 1,
                         softWrap = false,
@@ -730,13 +728,13 @@ fun RecentSessionMiniCard(
                     modifier = Modifier
                         .size(28.dp)
                         .clip(CircleShape)
-                        .background(PrimaryTeal.copy(alpha = 0.15f)),
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.WaterDrop,
                         contentDescription = null,
-                        tint = PrimaryTeal,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(15.dp)
                     )
                 }
@@ -747,8 +745,8 @@ fun RecentSessionMiniCard(
                             text = c?.name ?: "عميل غير محدد",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 13.sp
+                                color = MaterialTheme.colorScheme.onSurface
+        
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -758,9 +756,9 @@ fun RecentSessionMiniCard(
                             Text(
                                 text = "(على: ${billedOwner.name})",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = PrimaryTeal,
+                                    color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp
+        
                                 ),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -774,7 +772,7 @@ fun RecentSessionMiniCard(
                         text = "من $startTimeStr إلى $endTimeStr  •  $dateStr (${Formatters.formatDurationArabic(s.durationMinutes)})",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 10.sp
+
                         ),
                         maxLines = 1,
                         softWrap = false,
@@ -794,8 +792,8 @@ fun RecentSessionMiniCard(
                     text = Formatters.formatCurrency(s.totalAmount, currencySymbol),
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        color = PrimaryTeal,
-                        fontSize = 13.sp
+                        color = MaterialTheme.colorScheme.primary,
+
                     ),
                     maxLines = 1,
                     softWrap = false
@@ -804,9 +802,9 @@ fun RecentSessionMiniCard(
                     Text(
                         text = "متبقي آجل",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = if (isDark) Color(0xFFF87171) else Color(0xFFC62828),
+                            color = MaterialTheme.mosarib.debt,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 9.5.sp
+
                         )
                     )
                 } else {
@@ -817,15 +815,15 @@ fun RecentSessionMiniCard(
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
                             contentDescription = "مسدد",
-                            tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
+                            tint = MaterialTheme.mosarib.success,
                             modifier = Modifier.size(11.dp)
                         )
                         Text(
                             text = if (isSponsored) "مقاصة المالك" else "مسدد",
                             style = MaterialTheme.typography.labelSmall.copy(
-                                color = if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
+                                color = MaterialTheme.mosarib.success,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 9.5.sp
+    
                             )
                         )
                     }

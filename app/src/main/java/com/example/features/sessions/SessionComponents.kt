@@ -60,8 +60,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.example.core.ui.MosaribMenu
+import com.example.core.ui.MosaribMenuItem
+import com.example.core.ui.MosaribMenuDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
@@ -316,34 +317,36 @@ fun SessionCardItem(
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
-                            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                                DropdownMenuItem(
-                                    text = { Text("إرسال الفاتورة", fontWeight = FontWeight.Bold) },
-                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF2E7D32)) },
+                            MosaribMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                                MosaribMenuItem(
+                                    text = "إرسال الفاتورة",
+                                    icon = Icons.AutoMirrored.Filled.Send,
                                     onClick = {
                                         menuExpanded = false
                                         onMessageClick()
                                     }
                                 )
-                                DropdownMenuItem(
-                                    text = { Text("تصدير PDF", fontWeight = FontWeight.Bold) },
-                                    leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
+                                MosaribMenuItem(
+                                    text = "تصدير PDF",
+                                    icon = Icons.Default.PictureAsPdf,
                                     onClick = {
                                         menuExpanded = false
                                         onPdfClick()
                                     }
                                 )
-                                DropdownMenuItem(
-                                    text = { Text("تعديل", fontWeight = FontWeight.Bold) },
-                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryTeal) },
+                                MosaribMenuItem(
+                                    text = "تعديل",
+                                    icon = Icons.Default.Edit,
                                     onClick = {
                                         menuExpanded = false
                                         onEditClick()
                                     }
                                 )
-                                DropdownMenuItem(
-                                    text = { Text("حذف", color = Color(0xFFE53935), fontWeight = FontWeight.Bold) },
-                                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFE53935)) },
+                                MosaribMenuDivider()
+                                MosaribMenuItem(
+                                    text = "حذف",
+                                    icon = Icons.Default.Delete,
+                                    destructive = true,
                                     onClick = {
                                         menuExpanded = false
                                         onDeleteClick()

@@ -293,23 +293,32 @@ object Formatters {
         return String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
     }
 
+    private val arabicLocale = Locale.forLanguageTag("ar-u-nu-latn")
+    private val usSymbols = java.text.DecimalFormatSymbols(Locale.US)
+
+    private fun arabicDateFormat(pattern: String): SimpleDateFormat {
+        return SimpleDateFormat(pattern, arabicLocale).apply {
+            numberFormat = DecimalFormat("0", usSymbols)
+        }
+    }
+
     fun formatDateShort(timestamp: Long): String {
         val sdf = SimpleDateFormat("MM/dd", Locale.US)
         return sdf.format(Date(timestamp))
     }
 
     fun formatDate(timestamp: Long): String {
-        val sdf = SimpleDateFormat("yyyy/MM/dd", Locale.forLanguageTag("ar"))
+        val sdf = SimpleDateFormat("yyyy/MM/dd", Locale.US)
         return sdf.format(Date(timestamp))
     }
 
     fun formatDateFull(timestamp: Long): String {
-        val sdf = SimpleDateFormat("EEEE، d MMMM yyyy", Locale.forLanguageTag("ar"))
+        val sdf = arabicDateFormat("EEEE، d MMMM yyyy")
         return sdf.format(Date(timestamp))
     }
 
     fun formatTime(timestamp: Long): String {
-        val sdf = SimpleDateFormat("hh:mm a", Locale.forLanguageTag("ar"))
+        val sdf = arabicDateFormat("hh:mm a")
         return sdf.format(Date(timestamp))
     }
 
@@ -324,7 +333,7 @@ object Formatters {
     }
 
     fun formatDateTime(timestamp: Long): String {
-        val sdf = SimpleDateFormat("yyyy/MM/dd - hh:mm a", Locale.forLanguageTag("ar"))
+        val sdf = arabicDateFormat("yyyy/MM/dd - hh:mm a")
         return sdf.format(Date(timestamp))
     }
 

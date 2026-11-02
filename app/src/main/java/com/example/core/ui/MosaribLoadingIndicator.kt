@@ -184,11 +184,11 @@ fun MosaribLoadingDialog(
         )
     ) {
         Surface(
-            shape = RoundedCornerShape(22.dp),
-            color = if (isDark) Color(0xFF131F24) else Color.White,
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp,
             shadowElevation = 14.dp,
-            border = BorderStroke(1.dp, if (isDark) Color(0xFF24363F) else Color(0xFFE2E8F0)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
             modifier = Modifier.padding(horizontal = 24.dp)
         ) {
             Column(

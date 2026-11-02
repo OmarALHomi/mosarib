@@ -1,5 +1,7 @@
 package com.example.features.customers
 
+
+
 import android.content.res.Configuration
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
@@ -50,26 +52,9 @@ fun CustomersScreen(
     var showRecycleBinDialog by remember { mutableStateOf(false) }
     var groupToEdit by remember { mutableStateOf<String?>(null) }
     var initialMemberIdsForEdit by remember { mutableStateOf<Set<Long>>(emptySet()) }
-
     // حساب المركز المالي التفاعلي للشريط السفلي (دفتر الحسابات) تفاعلياً مع الفلتر المختار
     val (cardOwedByUs, cardOwedToUs) = remember(rawCustomers, accountFilter) {
         computeLedgerTotals(rawCustomers, accountFilter)
-    }
-
-    // إحصائيات الفلترة بالرصيد (عليه / له / مسدد) المتجاوبة مع الفئة والمجموعة المحددة
-    val baseListForBadges = remember(rawCustomers, accountFilter, selectedGroup) {
-        filterForBalanceBadges(rawCustomers, accountFilter, selectedGroup)
-    }
-    val debtorCount = remember(baseListForBadges) {
-        baseListForBadges.count { it.receivableBalance > 0.001 }
-    }
-    val creditorCount = remember(baseListForBadges) {
-        baseListForBadges.count { it.payableBalance > 0.001 || it.receivableBalance < -0.001 }
-    }
-    val settledCount = remember(baseListForBadges) {
-        baseListForBadges.count {
-            it.receivableBalance <= 0.001 && it.receivableBalance >= -0.001 && it.payableBalance <= 0.001
-        }
     }
 
     val configuration = LocalConfiguration.current
@@ -83,26 +68,21 @@ fun CustomersScreen(
         derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 24 }
     }
 
-    // شريط الفلاتر الموحّد (نوع الحساب | حالة الرصيد | المجموعة | الترتيب)
+    // صف شرائح الفلاتر المنسدلة المحدث (الترتيب، نوع الحساب، الحالة، المجموعة)
     val filterRow: @Composable () -> Unit = {
-        CustomersDropdownFilterRow(
+        CustomersFilterChipsRow(
+            sortType = sortType,
             accountFilter = accountFilter,
             balanceFilter = balanceFilter,
             selectedGroup = selectedGroup,
             customGroups = customGroups,
-            sortType = sortType,
             rawCustomers = rawCustomers,
-            debtorCount = debtorCount,
-            creditorCount = creditorCount,
-            settledCount = settledCount,
-            onSelectAccountFilter = { viewModel.setAccountFilter(it) },
-            onSelectBalanceFilter = { viewModel.setBalanceFilter(it) },
+            onSelectSort = { viewModel.setSortType(it) },
+            onSelectAccount = { viewModel.setAccountFilter(it) },
+            onSelectBalance = { viewModel.setBalanceFilter(it) },
             onSelectGroup = { viewModel.setSelectedGroup(it) },
-            onSelectSortType = { viewModel.setSortType(it) },
-            onAddGroupClick = { showAddGroupDialog = true },
-            onManageGroupsClick = { showManageGroupsDialog = true },
-            archivedCount = archivedCustomers.size,
-            onOpenRecycleBin = { showRecycleBinDialog = true }
+            onAddNewGroup = { showAddGroupDialog = true },
+            onClearAll = { viewModel.clearFilters() }
         )
     }
 

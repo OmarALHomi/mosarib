@@ -35,7 +35,7 @@ import java.util.Calendar
 import kotlin.math.max
 
 enum class ReportPeriod {
-    ALL, TODAY, THIS_WEEK, THIS_MONTH, CUSTOM
+    ALL, TODAY, YESTERDAY, THIS_WEEK, THIS_MONTH, LAST_MONTH, CUSTOM
 }
 
 data class GeneralReportStats(
@@ -122,31 +122,17 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
      * artificial end time: newly entered transactions remain visible while the report screen stays open.
      */
     private fun periodStartMillis(period: ReportPeriod): Long? {
-        if (period == ReportPeriod.ALL || period == ReportPeriod.CUSTOM) return null
-        val calendar = Calendar.getInstance()
-        when (period) {
-            ReportPeriod.TODAY -> calendar.set(Calendar.HOUR_OF_DAY, 0)
-            ReportPeriod.THIS_WEEK -> {
-                calendar.set(Calendar.DAY_OF_WEEK, calendar.firstDayOfWeek)
-                calendar.set(Calendar.HOUR_OF_DAY, 0)
-            }
-            ReportPeriod.THIS_MONTH -> {
-                calendar.set(Calendar.DAY_OF_MONTH, 1)
-                calendar.set(Calendar.HOUR_OF_DAY, 0)
-            }
-            ReportPeriod.ALL, ReportPeriod.CUSTOM -> Unit
-        }
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        return calendar.timeInMillis
+        val (start, _) = com.example.core.util.PeriodRange.rangeFor(period)
+        return start
     }
 
     private fun periodTitle(period: ReportPeriod): String = when (period) {
         ReportPeriod.ALL -> "كل الفترات"
         ReportPeriod.TODAY -> "اليوم"
+        ReportPeriod.YESTERDAY -> "أمس"
         ReportPeriod.THIS_WEEK -> "هذا الأسبوع"
         ReportPeriod.THIS_MONTH -> "هذا الشهر"
+        ReportPeriod.LAST_MONTH -> "الشهر الماضي"
         ReportPeriod.CUSTOM -> {
             val range = _customDateRange.value
             if (range != null) {
@@ -163,11 +149,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         selectedPeriod: ReportPeriod,
         customRange: Pair<Long, Long>? = null
     ): ReportSnapshot {
-        val (start, end) = when (selectedPeriod) {
-            ReportPeriod.ALL -> Pair(null, null)
-            ReportPeriod.CUSTOM -> customRange ?: Pair(null, null)
-            else -> Pair(periodStartMillis(selectedPeriod), null)
-        }
+        val (start, end) = com.example.core.util.PeriodRange.rangeFor(selectedPeriod, customRange = customRange)
 
         val sessions = allSessions.filter {
             (start == null || it.startTime >= start) && (end == null || it.startTime <= end)

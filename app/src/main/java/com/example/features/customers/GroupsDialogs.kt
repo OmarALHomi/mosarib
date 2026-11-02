@@ -56,9 +56,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.example.ui.theme.AccentEmerald
-import com.example.ui.theme.AccentGold
-import com.example.ui.theme.PrimaryTeal
+import com.example.ui.theme.mosarib
+
+
 
 /**
  * نافذة إضافة أو تعديل مجموعة وتحديد أعضائها من العملاء
@@ -107,13 +107,13 @@ fun AddEditGroupDialog(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
-                                .background(AccentGold.copy(alpha = 0.15f)),
+                                .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 Icons.Default.Bookmarks,
                                 contentDescription = null,
-                                tint = AccentGold,
+                                tint = MaterialTheme.colorScheme.tertiary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -160,14 +160,14 @@ fun AddEditGroupDialog(
                             },
                             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                         ) {
-                            Text("الكل", fontSize = 12.sp, color = PrimaryTeal)
+                            Text("الكل", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                         }
                         if (selectedIds.isNotEmpty()) {
                             TextButton(
                                 onClick = { selectedIds = emptySet() },
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                             ) {
-                                Text("إلغاء", fontSize = 12.sp, color = Color.Gray)
+                                Text("إلغاء", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.mosarib.textMuted)
                             }
                         }
                     }
@@ -177,7 +177,7 @@ fun AddEditGroupDialog(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("بحث في العملاء...", fontSize = 12.sp) },
+                    placeholder = { Text("بحث في العملاء...", style = MaterialTheme.typography.bodySmall) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp)) },
                     trailingIcon = if (searchQuery.isNotEmpty()) {
                         {
@@ -206,7 +206,7 @@ fun AddEditGroupDialog(
                         val isSelected = selectedIds.contains(item.customer.id)
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = if (isSelected) PrimaryTeal.copy(alpha = 0.08f)
+                            color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -233,14 +233,14 @@ fun AddEditGroupDialog(
                                             selectedIds - item.customer.id
                                         }
                                     },
-                                    colors = CheckboxDefaults.colors(checkedColor = PrimaryTeal),
+                                    colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary),
                                     modifier = Modifier.size(24.dp)
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Icon(
                                     imageVector = if (item.customer.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Park,
                                     contentDescription = null,
-                                    tint = if (item.customer.isWellOwner) PrimaryTeal else Color(0xFF2E7D32),
+                                    tint = if (item.customer.isWellOwner) MaterialTheme.colorScheme.primary else MaterialTheme.mosarib.success,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(Modifier.width(6.dp))
@@ -254,8 +254,8 @@ fun AddEditGroupDialog(
                                         Text(
                                             text = item.customer.farmName.ifBlank { item.customer.phone },
                                             style = MaterialTheme.typography.labelSmall.copy(
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontSize = 10.sp
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+
                                             ),
                                             maxLines = 1
                                         )
@@ -287,7 +287,7 @@ fun AddEditGroupDialog(
                             }
                         },
                         enabled = name.isNotBlank(),
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.weight(1.5f)
                     ) {
@@ -337,7 +337,7 @@ fun ManageGroupsDialog(
                         Icon(
                             Icons.Default.Group,
                             contentDescription = null,
-                            tint = PrimaryTeal,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(Modifier.width(8.dp))
@@ -412,8 +412,8 @@ fun ManageGroupsDialog(
                                         Text(
                                             text = "$memberCount عميل",
                                             style = MaterialTheme.typography.labelSmall.copy(
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontSize = 11.sp
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+
                                             )
                                         )
                                     }
@@ -427,7 +427,7 @@ fun ManageGroupsDialog(
                                             Icon(
                                                 Icons.Default.Edit,
                                                 contentDescription = "تعديل",
-                                                tint = PrimaryTeal,
+                                                tint = MaterialTheme.colorScheme.primary,
                                                 modifier = Modifier.size(18.dp)
                                             )
                                         }
@@ -440,7 +440,7 @@ fun ManageGroupsDialog(
                                             Icon(
                                                 Icons.Default.Delete,
                                                 contentDescription = "حذف",
-                                                tint = Color(0xFFE53935),
+                                                tint = MaterialTheme.colorScheme.error,
                                                 modifier = Modifier.size(18.dp)
                                             )
                                         }
@@ -459,7 +459,7 @@ fun ManageGroupsDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(44.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -482,7 +482,7 @@ fun ManageGroupsDialog(
                         onDeleteGroup(grp)
                         groupToDelete = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("حذف")
                 }

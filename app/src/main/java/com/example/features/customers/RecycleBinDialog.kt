@@ -23,8 +23,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.core.ui.isAppDark
-import com.example.ui.theme.AccentEmerald
-import com.example.ui.theme.PrimaryTeal
+import com.example.ui.theme.mosarib
+
 
 /**
  * نافذة سلة المحذوفات لحماية الحسابات واستعادتها أو مسحها نهائياً.
@@ -64,13 +64,13 @@ fun RecycleBinDialog(
                         Surface(
                             modifier = Modifier.size(36.dp),
                             shape = CircleShape,
-                            color = Color(0xFFEF4444).copy(alpha = 0.12f)
+                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.DeleteSweep,
                                     contentDescription = null,
-                                    tint = Color(0xFFEF4444),
+                                    tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -81,14 +81,14 @@ fun RecycleBinDialog(
                                 text = "سلة المحذوفات",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 17.sp
+
                                 )
                             )
                             Text(
                                 text = "الحسابات المحذوفة (${archivedCustomers.size})",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color.Gray,
-                                    fontSize = 11.sp
+                                    color = MaterialTheme.mosarib.textMuted
+
                                 )
                             )
                         }
@@ -97,9 +97,9 @@ fun RecycleBinDialog(
                     if (archivedCustomers.isNotEmpty()) {
                         TextButton(
                             onClick = { showEmptyBinConfirm = true },
-                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF4444))
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                         ) {
-                            Text("تفريغ الكل", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                            Text("تفريغ الكل", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                         }
                     }
                 }
@@ -121,7 +121,7 @@ fun RecycleBinDialog(
                                 Icon(
                                     imageVector = Icons.Default.DeleteSweep,
                                     contentDescription = null,
-                                    tint = Color.Gray.copy(alpha = 0.4f),
+                                    tint = MaterialTheme.mosarib.textMuted.copy(alpha = 0.4f),
                                     modifier = Modifier.size(48.dp)
                                 )
                                 Spacer(modifier = Modifier.height(10.dp))
@@ -129,14 +129,14 @@ fun RecycleBinDialog(
                                     text = "سلة المحذوفات فارغة",
                                     style = MaterialTheme.typography.titleSmall.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = Color.Gray
+                                        color = MaterialTheme.mosarib.textMuted
                                     )
                                 )
                                 Text(
                                     text = "لا توجد أي حسابات محذوفة حالياً",
                                     style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color.Gray.copy(alpha = 0.8f),
-                                        fontSize = 11.sp
+                                        color = MaterialTheme.mosarib.textMuted
+    
                                     )
                                 )
                             }
@@ -151,7 +151,7 @@ fun RecycleBinDialog(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(12.dp),
                                     colors = CardDefaults.cardColors(
-                                        containerColor = if (isDark) Color(0xFF1B2830) else Color(0xFFF8FAFC)
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
                                     ),
                                     border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
                                 ) {
@@ -170,13 +170,13 @@ fun RecycleBinDialog(
                                                 Icon(
                                                     imageVector = if (customer.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Park,
                                                     contentDescription = null,
-                                                    tint = if (customer.isWellOwner) PrimaryTeal else Color(0xFF2E7D32),
+                                                    tint = if (customer.isWellOwner) MaterialTheme.colorScheme.primary else MaterialTheme.mosarib.success,
                                                     modifier = Modifier.size(15.dp)
                                                 )
                                                 Text(
                                                     text = customer.name,
                                                     fontWeight = FontWeight.Bold,
-                                                    fontSize = 13.5.sp,
+
                                                     color = MaterialTheme.colorScheme.onSurface
                                                 )
                                             }
@@ -190,8 +190,8 @@ fun RecycleBinDialog(
                                                 Spacer(modifier = Modifier.height(3.dp))
                                                 Text(
                                                     text = sub,
-                                                    fontSize = 11.sp,
-                                                    color = Color.Gray
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.mosarib.textMuted
                                                 )
                                             }
                                         }
@@ -205,15 +205,15 @@ fun RecycleBinDialog(
                                                 onClick = { onRestore(customer) },
                                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                                                 colors = ButtonDefaults.buttonColors(
-                                                    containerColor = AccentEmerald.copy(alpha = 0.15f),
-                                                    contentColor = AccentEmerald
+                                                    containerColor = MaterialTheme.mosarib.successContainer,
+                                                    contentColor = MaterialTheme.mosarib.success
                                                 ),
                                                 shape = RoundedCornerShape(8.dp),
                                                 modifier = Modifier.height(32.dp)
                                             ) {
                                                 Icon(Icons.Default.Restore, null, modifier = Modifier.size(13.dp))
                                                 Spacer(modifier = Modifier.width(3.dp))
-                                                Text("استعادة", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                Text("استعادة", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                                             }
 
                                             // زر حذف نهائي
@@ -224,7 +224,7 @@ fun RecycleBinDialog(
                                                 Icon(
                                                     imageVector = Icons.Default.DeleteForever,
                                                     contentDescription = "حذف نهائي",
-                                                    tint = Color(0xFFEF4444),
+                                                    tint = MaterialTheme.colorScheme.error,
                                                     modifier = Modifier.size(17.dp)
                                                 )
                                             }
@@ -258,21 +258,21 @@ fun RecycleBinDialog(
         AlertDialog(
             onDismissRequest = { customerToDeletePermanently = null },
             shape = RoundedCornerShape(16.dp),
-            title = { Text("حذف نهائي لا رجعة فيه", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+            title = { Text("حذف نهائي لا رجعة فيه", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) },
             text = {
                 if (isLoadingCounts) {
-                    Text("جاري فحص السجلات المرتبطة بالحساب...", fontSize = 13.sp)
+                    Text("جاري فحص السجلات المرتبطة بالحساب...", style = MaterialTheme.typography.bodyMedium)
                 } else {
                     val counts = deleteCounts
                     if (counts == null) {
                         Text(
                             text = "تعذر حساب عدد السجلات المرتبطة. لا يمكن التراجع.",
-                            fontSize = 13.sp
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     } else {
                         Text(
                             text = "سيتم حذف الحساب \"${cust.name}\" نهائياً مع ${counts.sessions} جلسة و ${counts.vouchers} سندات و ${counts.purchases} مشتريات. لا يمكن التراجع.",
-                            fontSize = 13.sp
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
@@ -284,7 +284,7 @@ fun RecycleBinDialog(
                         customerToDeletePermanently = null
                     },
                     enabled = !isLoadingCounts,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("نعم، احذف نهائياً", fontWeight = FontWeight.Bold)
                 }
@@ -311,21 +311,21 @@ fun RecycleBinDialog(
         AlertDialog(
             onDismissRequest = { showEmptyBinConfirm = false },
             shape = RoundedCornerShape(16.dp),
-            title = { Text("تفريغ سلة المحذوفات", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+            title = { Text("تفريغ سلة المحذوفات", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) },
             text = {
                 if (isLoadingTotalCounts) {
-                    Text("جاري فحص السجلات المرتبطة بسلة المحذوفات...", fontSize = 13.sp)
+                    Text("جاري فحص السجلات المرتبطة بسلة المحذوفات...", style = MaterialTheme.typography.bodyMedium)
                 } else {
                     val counts = totalCounts
                     if (counts == null) {
                         Text(
                             text = "تعذر حساب عدد السجلات المرتبطة. لا يمكن التراجع.",
-                            fontSize = 13.sp
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     } else {
                         Text(
                             text = "سيتم حذف جميع الحسابات المحذوفة (${archivedCustomers.size}) نهائياً مع ${counts.sessions} جلسة و ${counts.vouchers} سندات و ${counts.purchases} مشتريات. لا يمكن التراجع.",
-                            fontSize = 13.sp
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
@@ -337,7 +337,7 @@ fun RecycleBinDialog(
                         showEmptyBinConfirm = false
                     },
                     enabled = !isLoadingTotalCounts,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("تفريغ السلة نهائياً", fontWeight = FontWeight.Bold)
                 }
