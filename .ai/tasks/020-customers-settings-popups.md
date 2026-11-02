@@ -1,42 +1,49 @@
-status: draft
+status: ready
 
-<!-- Becomes ready when 011, 012, 016 and 018 are accepted and merged into master. -->
-# Task 020: Migrate customer, settings, feedback and license popups to the shared components
+<!-- 2026-11-02: split into two parallel halves. 020 = customer popups (worktree
+D:\Kotlin\mosarib-t020). 023 = settings, feedback, license, app bar, shared fields (worktree
+D:\Kotlin\mosarib-t023). The files do not overlap. -->
+# Task 020: Move the customer popups to the shared components
 
 ## Goal
-Same as 019, for the rest of the app.
+Every sheet, dialog and menu in the files below uses `MosaribBottomSheet` /
+`MosaribBottomSheetLazy` / `MosaribDialog` / `MosaribMenu` / `MosaribMenuItem` from task 018.
+That stops sheets from closing when a list is dragged, and makes the popups look the same.
+The results of 019 (irrigation and voucher popups) are the reference.
 
-## Files and what to migrate
-- `features/customers/AddEditCustomerDialog.kt` (form sheet, ~21 colours),
-  `CustomersScreenDialogs.kt`, `CustomerImportReviewDialog.kt` (keep the task-002 badge
-  `FlowRow` layout), `RecycleBinDialog.kt`, `GroupsDialogs.kt`.
-- `features/customers/CustomerDetailComponents.kt` (2 sheets) and the 7 `DropdownMenu`s plus 2
-  dialogs in `CustomerDetailScreen.kt`. Menus and dialogs only: the layout belongs to task 011,
-  which must already be merged.
-- `features/settings/SettingsBackupDialogs.kt`, `RestoreWarningDialog.kt`,
-  `SettingsDebugToolsSection.kt` (dialogs).
-- `features/feedback/FeedbackDialog.kt`.
-- `core/license/LicenseDialog.kt` (1,942 lines, sheet + 2 dialogs + 2 menus; ~42 colours, ~51
-  `fontSize`). Keep every licensing behaviour exactly. Styling only.
-- `MainScreen.kt`: the top-bar ⋮ menus on `MosaribMenu`.
-- `core/ui/MosaribTextField.kt`: its dropdown on `MosaribMenu`.
-
-- Leftovers from 012: remove `isAppDark()` from `CustomerImportReviewDialog.kt` and
-  `RecycleBinDialog.kt` (use tokens). In `core/ui/MosaribTimePickerDialog.kt` use
-  `String.format(Locale.US, "%02d", …)`, so digits stay 0-9 on Arabic phones.
+## Files (only these)
+- `features/customers/AddEditCustomerDialog.kt`: the add/edit customer form sheet (~21
+  colours) → `MosaribBottomSheet` with `hasUnsavedChanges` and a sticky footer.
+- `features/customers/CustomersScreenDialogs.kt`: its sheet and dialog.
+- `features/customers/CustomerImportReviewDialog.kt`: the import review sheet →
+  `MosaribBottomSheetLazy` (long list). Keep the task-002 badge `FlowRow` layout and the
+  full-width name. Remove `isAppDark()` (a 012 leftover); use tokens only.
+- `features/customers/RecycleBinDialog.kt` (3 dialogs): remove `isAppDark()`. The confirm
+  dialogs for "حذف نهائي" and "إفراغ السلة" use `MosaribDialog(tone = Danger)`.
+- `features/customers/GroupsDialogs.kt` (3 dialogs, including `ManageGroupsDialog` and the
+  group editor).
+- `features/customers/CustomerDetailComponents.kt`: its 2 sheets.
+- `features/customers/CustomerDetailScreen.kt`: **only** its 7 `DropdownMenu`s → `MosaribMenu`,
+  and its 2 dialogs → `MosaribDialog`. Do not touch the layout, which belongs to task 011.
+- `features/customers/CustomerCardItem.kt`: its "خيارات" menu → `MosaribMenu`.
+- `features/customers/CustomersFilterRow.kt`: any remaining `DropdownMenu` / dialog.
 
 ## Rules
-Same as task 019:
-- form sheets set `hasUnsavedChanges`;
-- destructive items last, after a divider;
-- no emoji in labels;
-- tokens and typography only;
-- texts and behaviour unchanged.
+- Form sheets set `hasUnsavedChanges` as soon as a field changes.
+- Destructive items ("حذف", "أرشفة", "حذف نهائي") go last, after `MosaribMenuDivider()`, with
+  `destructive = true`.
+- No emoji in labels.
+- Tokens and typography only: no `Color(0x…)`, no `fontSize`, no `isAppDark()` in the code you
+  touch.
+- Texts, validation, behaviour and handlers stay exactly the same. Do not remove any menu item.
 
 ## Done when
 - Build and tests pass.
-- The same device checks as 019 on: add customer, import review, recycle bin, groups, license.
-- The report has a table: popup → component used.
+- On the device: the add customer and import review sheets survive "scroll to top, fling down
+  ×5"; a half-filled add-customer form asks "تجاهل التغييرات؟" on X, back and a scrim tap; the
+  recycle bin and the groups dialogs open and work.
+- The report has a table: popup → component used, and the menu items before → after for every
+  migrated menu.
 
 ---
 ## Review notes (written by Claude)
