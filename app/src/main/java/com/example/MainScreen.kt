@@ -41,8 +41,9 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.example.core.ui.MosaribMenu
+import com.example.core.ui.MosaribMenuItem
+import com.example.core.ui.MosaribMenuDivider
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Settings
@@ -326,32 +327,21 @@ fun MainApp(
                                                     tint = MaterialTheme.colorScheme.onSurface
                                                 )
                                             }
-                                            DropdownMenu(
+                                            MosaribMenu(
                                                 expanded = showCustomerMenu,
                                                 onDismissRequest = { showCustomerMenu = false }
                                             ) {
-                                                DropdownMenuItem(
-                                                    text = { Text("إدارة المجموعات", fontWeight = FontWeight.Bold) },
-                                                    leadingIcon = { Icon(Icons.Default.Bookmarks, contentDescription = null, tint = PrimaryTeal) },
+                                                MosaribMenuItem(
+                                                    text = "إدارة المجموعات",
+                                                    icon = Icons.Default.Bookmarks,
                                                     onClick = {
                                                         showCustomerMenu = false
                                                         showManageGroupsDialog = true
                                                     }
                                                 )
-                                                if (archivedCustomers.isNotEmpty()) {
-                                                    DropdownMenuItem(
-                                                        text = { Text("سلة المحذوفات (${archivedCustomers.size})", fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                                                        onClick = {
-                                                            showCustomerMenu = false
-                                                            showRecycleBinDialog = true
-                                                        }
-                                                    )
-                                                }
-                                                HorizontalDivider()
-                                                DropdownMenuItem(
-                                                    text = { Text("استيراد من إكسل", fontWeight = FontWeight.Bold) },
-                                                    leadingIcon = { Icon(Icons.Default.FileUpload, contentDescription = null, tint = PrimaryTeal) },
+                                                MosaribMenuItem(
+                                                    text = "استيراد من إكسل",
+                                                    icon = Icons.Default.FileUpload,
                                                     onClick = {
                                                         showCustomerMenu = false
                                                         customerExcelPickerLauncher.launch(
@@ -366,30 +356,43 @@ fun MainApp(
                                                         )
                                                     }
                                                 )
-                                                DropdownMenuItem(
-                                                    text = { Text("تصدير إلى إكسل (XLSX)", fontWeight = FontWeight.Bold) },
-                                                    leadingIcon = { Icon(Icons.Default.TableChart, contentDescription = null, tint = PrimaryTeal) },
+                                                MosaribMenuItem(
+                                                    text = "تصدير إلى إكسل (XLSX)",
+                                                    icon = Icons.Default.TableChart,
                                                     onClick = {
                                                         showCustomerMenu = false
                                                         customersViewModel.exportCustomersToExcel(context)
                                                     }
                                                 )
-                                                DropdownMenuItem(
-                                                    text = { Text("تصدير كملف CSV", fontWeight = FontWeight.Bold) },
-                                                    leadingIcon = { Icon(Icons.Default.Description, contentDescription = null, tint = PrimaryTeal) },
+                                                MosaribMenuItem(
+                                                    text = "تصدير كملف CSV",
+                                                    icon = Icons.Default.Description,
                                                     onClick = {
                                                         showCustomerMenu = false
                                                         customersViewModel.exportCustomersToCsv(context)
                                                     }
                                                 )
-                                                DropdownMenuItem(
-                                                    text = { Text("طباعة كشف الحسابات (PDF)", fontWeight = FontWeight.Bold) },
-                                                    leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
+                                                MosaribMenuItem(
+                                                    text = "طباعة كشف الحسابات (PDF)",
+                                                    icon = Icons.Default.PictureAsPdf,
                                                     onClick = {
                                                         showCustomerMenu = false
                                                         customersViewModel.generateAllCustomersReportPdf()
                                                     }
                                                 )
+                                                if (archivedCustomers.isNotEmpty()) {
+                                                    MosaribMenuDivider()
+                                                    MosaribMenuItem(
+                                                        text = "سلة المحذوفات",
+                                                        trailing = "${archivedCustomers.size}",
+                                                        icon = Icons.Default.Delete,
+                                                        destructive = true,
+                                                        onClick = {
+                                                            showCustomerMenu = false
+                                                            showRecycleBinDialog = true
+                                                        }
+                                                    )
+                                                }
                                             }
                                         }
                                     }

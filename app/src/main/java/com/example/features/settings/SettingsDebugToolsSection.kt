@@ -15,8 +15,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -26,7 +26,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +35,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.core.ui.DialogTone
+import com.example.core.ui.MosaribDialog
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
 
@@ -129,26 +130,16 @@ internal fun ConfirmSeedDebugDataDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    MosaribDialog(
         onDismissRequest = onDismiss,
-        title = { Text("توليد بيانات تجريبية ضخمة", fontWeight = FontWeight.Bold) },
-        text = {
-            Text("سيتم توليد 100 عميل يمني، و 1,000 عملية متنوعة تشمل جلسات سقي، سندات قبض وصرف، وخصومات تسوية، ومشتريات ماء شبكة. هل تريد المتابعة؟")
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("بدء التوليد", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("إلغاء")
-            }
-        }
+        title = "توليد بيانات تجريبية ضخمة",
+        icon = Icons.Default.Settings,
+        tone = DialogTone.Neutral,
+        message = "سيتم توليد 100 عميل يمني، و 1,000 عملية متنوعة تشمل جلسات سقي، سندات قبض وصرف، وخصومات تسوية، ومشتريات ماء شبكة. هل تريد المتابعة؟",
+        confirmText = "بدء التوليد",
+        onConfirm = onConfirm,
+        dismissText = "إلغاء",
+        onDismiss = onDismiss
     )
 }
 
@@ -157,25 +148,15 @@ internal fun ConfirmClearDebugDataDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    MosaribDialog(
         onDismissRequest = onDismiss,
-        title = { Text("تأكيد تصفير البيانات", fontWeight = FontWeight.Bold) },
-        text = {
-            Text("تنبيه: سيتم مسح كافة العملاء وجلسات السقي والسندات والمشتريات الحالية في قاعدة البيانات لاختبار بيئة نظيفة. هل أنت متأكد؟")
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("تصفير الكل", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("إلغاء")
-            }
-        }
+        title = "تأكيد تصفير البيانات",
+        icon = Icons.Default.Delete,
+        tone = DialogTone.Danger,
+        message = "تنبيه: سيتم مسح كافة العملاء وجلسات السقي والسندات والمشتريات الحالية في قاعدة البيانات لاختبار بيئة نظيفة. هل أنت متأكد؟",
+        confirmText = "تصفير الكل",
+        onConfirm = onConfirm,
+        dismissText = "إلغاء",
+        onDismiss = onDismiss
     )
 }

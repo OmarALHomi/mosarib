@@ -35,7 +35,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -48,11 +47,22 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
+import android.os.SystemClock
+import com.example.core.ui.DialogTone
+import com.example.core.ui.MosaribDialog
+import com.example.core.ui.MosaribMenu
+import com.example.ui.theme.mosarib
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.border
@@ -62,9 +72,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
-import com.example.ui.theme.PrimaryTeal
+
 
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Smartphone
@@ -104,7 +113,6 @@ import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.window.Dialog
@@ -164,10 +172,47 @@ fun LicenseDialog(
     LaunchedEffect(Unit) {
         refreshConfig()
     }
+    var lastDragAtMillis by remember { mutableLongStateOf(0L) }
+    var isDismissingAllowed by remember { mutableStateOf(false) }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y != 0f) {
+                    lastDragAtMillis = SystemClock.uptimeMillis()
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                lastDragAtMillis = SystemClock.uptimeMillis()
+                return Velocity.Zero
+            }
+        }
+    }
+
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
         confirmValueChange = { sheetValue ->
-            if (isMandatory) sheetValue != androidx.compose.material3.SheetValue.Hidden else true
+            if (isMandatory) {
+                sheetValue != androidx.compose.material3.SheetValue.Hidden
+            } else if (sheetValue == androidx.compose.material3.SheetValue.Hidden) {
+                if (isDismissingAllowed) {
+                    true
+                } else {
+                    val now = SystemClock.uptimeMillis()
+                    val timeSinceLastDrag = now - lastDragAtMillis
+                    if (timeSinceLastDrag > 400L) {
+                        coroutineScope.launch {
+                            isDismissingAllowed = true
+                            onDismiss()
+                        }
+                    }
+                    false
+                }
+            } else {
+                true
+            }
         }
     )
 
@@ -234,17 +279,17 @@ fun LicenseDialog(
     }
 
     val textFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
-        unfocusedTextColor = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
-        focusedLabelColor = PrimaryTeal,
-        unfocusedLabelColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-        focusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
-        unfocusedPlaceholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
-        cursorColor = PrimaryTeal,
-        focusedBorderColor = PrimaryTeal,
-        unfocusedBorderColor = if (isDark) Color(0xFF334B56) else MaterialTheme.colorScheme.outlineVariant,
-        focusedContainerColor = if (isDark) Color(0xFF162329) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-        unfocusedContainerColor = if (isDark) Color(0xFF142026) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+        focusedLabelColor = MaterialTheme.colorScheme.primary,
+        unfocusedLabelColor = MaterialTheme.mosarib.textMuted,
+        focusedPlaceholderColor = MaterialTheme.mosarib.textMuted,
+        unfocusedPlaceholderColor = MaterialTheme.mosarib.textMuted,
+        cursorColor = MaterialTheme.colorScheme.primary,
+        focusedBorderColor = MaterialTheme.colorScheme.primary,
+        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
     )
 
     fun refreshInternet() {
@@ -438,12 +483,12 @@ fun LicenseDialog(
                     modifier = Modifier
                         .fillMaxWidth(0.92f)
                         .padding(vertical = 16.dp)
-                        .shadow(24.dp, RoundedCornerShape(24.dp), spotColor = PrimaryTeal.copy(alpha = 0.3f))
+                        .shadow(24.dp, RoundedCornerShape(24.dp), spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
                         .clip(RoundedCornerShape(24.dp))
                         .border(
                             1.dp,
                             Brush.verticalGradient(
-                                listOf(PrimaryTeal.copy(alpha = 0.6f), AccentGold.copy(alpha = 0.35f))
+                                listOf(MaterialTheme.colorScheme.primary.copy(alpha = 0.6f), AccentGold.copy(alpha = 0.35f))
                             ),
                             RoundedCornerShape(24.dp)
                         ),
@@ -501,8 +546,8 @@ fun LicenseDialog(
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            color = if (isDark) Color(0xFF14242A) else PrimaryTeal.copy(alpha = 0.08f),
-                            border = BorderStroke(1.dp, PrimaryTeal.copy(alpha = 0.2f))
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
                         ) {
                             Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                                 Row(
@@ -525,8 +570,8 @@ fun LicenseDialog(
                                         else -> "متبقي $remainingDays يوماً"
                                     }
                                     val statusColor = when {
-                                        isExpired || remainingDays <= 5 -> Color(0xFFEF4444)
-                                        else -> AccentEmerald
+                                        isExpired || remainingDays <= 5 -> MaterialTheme.mosarib.debt
+                                        else -> MaterialTheme.mosarib.success
                                     }
                                     Text(
                                         text = statusText,
@@ -558,7 +603,7 @@ fun LicenseDialog(
                                         Text(
                                             text = "كود الجهاز: $deviceCode",
                                             style = MaterialTheme.typography.labelSmall.copy(
-                                                color = PrimaryTeal,
+                                                color = MaterialTheme.colorScheme.primary,
                                                 fontWeight = FontWeight.SemiBold
                                             )
                                         )
@@ -566,7 +611,7 @@ fun LicenseDialog(
                                         Icon(
                                             imageVector = Icons.Default.ContentCopy,
                                             contentDescription = "نسخ الكود",
-                                            tint = PrimaryTeal,
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(13.dp)
                                         )
                                     }
@@ -590,7 +635,7 @@ fun LicenseDialog(
                                     Icon(
                                         imageVector = if (isPaymentDropdownExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                         contentDescription = null,
-                                        tint = PrimaryTeal
+                                        tint = MaterialTheme.colorScheme.primary
                                     )
                                 },
                                 modifier = Modifier.fillMaxWidth(),
@@ -606,7 +651,7 @@ fun LicenseDialog(
                                     .clickable { isPaymentDropdownExpanded = !isPaymentDropdownExpanded }
                             )
 
-                            DropdownMenu(
+                            MosaribMenu(
                                 expanded = isPaymentDropdownExpanded,
                                 onDismissRequest = { isPaymentDropdownExpanded = false },
                                 modifier = Modifier.fillMaxWidth(0.85f)
@@ -616,10 +661,10 @@ fun LicenseDialog(
                                         DropdownMenuItem(
                                             text = {
                                                 Column {
-                                                    Text(acc.bankName, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
-                                                    Text("حساب: ${acc.accountNumber} (${acc.accountCurrency})", fontSize = 11.sp, color = PrimaryTeal)
+                                                    Text(acc.bankName, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                                                    Text("حساب: ${acc.accountNumber} (${acc.accountCurrency})", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary))
                                                     if (acc.accountHolder.isNotBlank()) {
-                                                        Text("باسم: ${acc.accountHolder}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        Text("باسم: ${acc.accountHolder}", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
                                                     }
                                                 }
                                             },
@@ -636,8 +681,8 @@ fun LicenseDialog(
                                 DropdownMenuItem(
                                     text = {
                                         Column {
-                                            Text("بنك الكريمي للتمويل الأصغر", fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
-                                            Text("حساب أو إيداع مباشر / محفظة كريمي جواد", fontSize = 11.sp, color = PrimaryTeal)
+                                            Text("بنك الكريمي للتمويل الأصغر", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                                            Text("حساب أو إيداع مباشر / محفظة كريمي جواد", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary))
                                         }
                                     },
                                     onClick = {
@@ -651,8 +696,8 @@ fun LicenseDialog(
                                 DropdownMenuItem(
                                     text = {
                                         Column {
-                                            Text("بنك التضامن الإسلامي / محفظة محفظتي", fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
-                                            Text("تحويل لحساب البنك أو المحفظة", fontSize = 11.sp, color = PrimaryTeal)
+                                            Text("بنك التضامن الإسلامي / محفظة محفظتي", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                                            Text("تحويل لحساب البنك أو المحفظة", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary))
                                         }
                                     },
                                     onClick = {
@@ -665,14 +710,14 @@ fun LicenseDialog(
                                 )
                                 DropdownMenuItem(
                                     text = {
-                                        Text("حوالة عبر صراف آخر / شبكة صرافة", fontWeight = FontWeight.SemiBold, fontSize = 12.5.sp)
+                                        Text("حوالة عبر صراف آخر / شبكة صرافة", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                                     },
                                     onClick = {
                                         selectedPaymentMethod = "حوالة صرافة / شبكة أخرى"
                                         isPaymentDropdownExpanded = false
                                     },
                                     leadingIcon = {
-                                        Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                                        Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                     }
                                 )
                             }
@@ -687,7 +732,7 @@ fun LicenseDialog(
                             label = { Text("رقم سند التحويل / الحوالة (إن وجد)") },
                             placeholder = { Text("مثال: 94827103") },
                             leadingIcon = {
-                                Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                                Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                             },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
@@ -722,7 +767,7 @@ fun LicenseDialog(
                                 .height(44.dp),
                             shape = RoundedCornerShape(11.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = PrimaryTeal,
+                                containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = Color.White
                             )
                         ) {
@@ -731,7 +776,7 @@ fun LicenseDialog(
                             } else {
                                 Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text(renewalButtonTitle, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                                Text(renewalButtonTitle, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                             }
                         }
 
@@ -758,7 +803,7 @@ fun LicenseDialog(
                             ) {
                                 Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Black)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("طلب ترقية إلى سنوي$upgradePriceStr", fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                                Text("طلب ترقية إلى سنوي$upgradePriceStr", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                             }
                         }
 
@@ -776,23 +821,22 @@ fun LicenseDialog(
                                 .height(44.dp),
                             shape = RoundedCornerShape(11.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF25D366),
+                                containerColor = MaterialTheme.mosarib.success,
                                 contentColor = Color.White
                             )
                         ) {
                             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("طلب عبر واتساب", fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                            Text("طلب عبر واتساب", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                         }
 
                         if (requestSuccessMessage != null) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = requestSuccessMessage!!,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF16A34A),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.5.sp
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = MaterialTheme.mosarib.success,
+                                    fontWeight = FontWeight.Bold
                                 ),
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth()
@@ -831,7 +875,7 @@ fun LicenseDialog(
                             onValueChange = { enteredKey = it.uppercase() },
                             label = { Text("أدخل رمز التجديد المستلم (ACTV-X-XXXX-XXXX-XXXX)") },
                             leadingIcon = {
-                                Icon(Icons.Default.Key, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Default.Key, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                             },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
@@ -843,10 +887,9 @@ fun LicenseDialog(
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = errorMessage!!,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFFE53935),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = MaterialTheme.mosarib.debt,
+                                    fontWeight = FontWeight.Bold
                                 ),
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth()
@@ -863,9 +906,9 @@ fun LicenseDialog(
                                 .height(46.dp),
                             shape = RoundedCornerShape(11.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = PrimaryTeal,
+                                containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = Color.White,
-                                disabledContainerColor = PrimaryTeal.copy(alpha = 0.35f),
+                                disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
                                 disabledContentColor = Color.White.copy(alpha = 0.5f)
                             )
                         ) {
@@ -878,7 +921,7 @@ fun LicenseDialog(
                             Text(
                                 text = "تأكيد الرمز والتفعيل",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.5.sp
+                                style = MaterialTheme.typography.labelLarge
                             )
                         }
                     }
@@ -896,6 +939,7 @@ fun LicenseDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .nestedScroll(nestedScrollConnection)
                 .verticalScroll(sheetScrollState)
                 .padding(horizontal = 22.dp, vertical = 12.dp)
                 .imePadding()
@@ -933,13 +977,16 @@ fun LicenseDialog(
                 }
 
                 if (!isMandatory) {
-                    IconButton(onClick = onDismiss) {
+                    IconButton(onClick = {
+                        isDismissingAllowed = true
+                        onDismiss()
+                    }) {
                         Icon(Icons.Default.Close, contentDescription = "إغلاق")
                     }
                 } else {
                     TextButton(
                         onClick = { (context as? android.app.Activity)?.finishAffinity() },
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF4444))
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.mosarib.debt)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "خروج", modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -955,8 +1002,8 @@ fun LicenseDialog(
                 Spacer(modifier = Modifier.height(10.dp))
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = if (isDark) Color(0xFF3B1E1E) else Color(0xFFFEF2F2),
-                    border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f))
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, MaterialTheme.mosarib.debt.copy(alpha = 0.5f))
                 ) {
                     Row(
                         modifier = Modifier
@@ -967,7 +1014,7 @@ fun LicenseDialog(
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = null,
-                            tint = Color(0xFFEF4444),
+                            tint = MaterialTheme.mosarib.debt,
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
@@ -975,7 +1022,7 @@ fun LicenseDialog(
                             text = mandatoryReason ?: "لقد تجاوزت الحد التجريبي المجاني (${LicenseManager.FREE_OPERATIONS_LIMIT} عملية) أو قمت باستعادة نسخة تتجاوزه. تم حفظ كافة بياناتك بأمان تام، ويرجى تفعيل الاشتراك لمتابعة العمل بالتطبيق.",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.SemiBold,
-                                color = if (isDark) Color(0xFFFCA5A5) else Color(0xFF991B1B)
+                                color = MaterialTheme.colorScheme.onErrorContainer
                             )
                         )
                     }
@@ -990,11 +1037,7 @@ fun LicenseDialog(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
                     .background(
-                        if (isOnline) {
-                            if (isDark) Color(0xFF143022) else Color(0xFFE8F5E9)
-                        } else {
-                            if (isDark) Color(0xFF381A1A) else Color(0xFFFFEBEE)
-                        }
+                        if (isOnline) MaterialTheme.mosarib.successContainer else MaterialTheme.colorScheme.errorContainer
                     )
                     .padding(horizontal = 12.dp, vertical = 7.dp)
             ) {
@@ -1010,7 +1053,7 @@ fun LicenseDialog(
                         Icon(
                             imageVector = if (isOnline) Icons.Default.Wifi else Icons.Default.WifiOff,
                             contentDescription = null,
-                            tint = if (isOnline) (if (isDark) Color(0xFF86EFAC) else Color(0xFF2E7D32)) else (if (isDark) Color(0xFFFCA5A5) else Color(0xFFD32F2F)),
+                            tint = if (isOnline) MaterialTheme.mosarib.success else MaterialTheme.mosarib.debt,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -1018,8 +1061,7 @@ fun LicenseDialog(
                             text = if (isOnline) "متصل بالإنترنت" else "لا يوجد اتصال بالإنترنت",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = if (isOnline) (if (isDark) Color(0xFF86EFAC) else Color(0xFF2E7D32)) else (if (isDark) Color(0xFFFCA5A5) else Color(0xFFD32F2F)),
-                                fontSize = 11.5.sp
+                                color = if (isOnline) MaterialTheme.mosarib.success else MaterialTheme.mosarib.debt
                             )
                         )
                     }
@@ -1031,8 +1073,8 @@ fun LicenseDialog(
                         ) {
                             Text(
                                 "إعادة فحص",
-                                fontSize = 10.5.sp,
-                                color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFD32F2F),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.mosarib.debt,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -1047,15 +1089,15 @@ fun LicenseDialog(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = PrimaryTeal.copy(alpha = 0.08f))
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.mosarib.success, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "بيانات الترخيص النشط:",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal)
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             )
                         }
                         Spacer(modifier = Modifier.height(6.dp))
@@ -1069,7 +1111,7 @@ fun LicenseDialog(
                         )
                         Text(
                             text = "الباقة: ${existingRecord.plan.titleArabic} • المتبقي: ${LicenseManager.getRemainingDays(context)} يوماً",
-                            style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.success, fontWeight = FontWeight.Bold)
                         )
                     }
                 }
@@ -1084,10 +1126,9 @@ fun LicenseDialog(
                     isRegistered -> "بيانات اشتراكك مسجلة في النظام. يمكنك إرسال طلب تجديد اشتراكك أو ترقية الباقة مباشرة."
                     else -> "لتفعيل التطبيق، اكتب اسمك، واختر الباقة، ثم انسخ الكود وأرسله عبر الواتساب للمطور لاستلام رمز التفعيل وتأكيده مع توفر الإنترنت."
                 },
-                style = MaterialTheme.typography.bodySmall.copy(
+                style = MaterialTheme.typography.labelSmall.copy(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 18.sp,
-                    fontSize = 11.5.sp
+                    lineHeight = 18.sp
                 )
             )
 
@@ -1100,7 +1141,7 @@ fun LicenseDialog(
                 label = { Text("اسم المشترك / الموزع (مطلوب للتوثيق)") },
                 placeholder = { Text("مثال: عبدالملك الحومي") },
                 leadingIcon = {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -1117,7 +1158,7 @@ fun LicenseDialog(
                 label = { Text("رقم الهاتف (للتواصل واستلام الرمز)") },
                 placeholder = { Text("مثال: 773712030") },
                 leadingIcon = {
-                    Icon(Icons.Default.Phone, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -1135,7 +1176,7 @@ fun LicenseDialog(
                 label = { Text("المنطقة / المحافظة") },
                 placeholder = { Text("مثال: صنعاء / ذمار / إب / الحديدة") },
                 leadingIcon = {
-                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -1157,7 +1198,7 @@ fun LicenseDialog(
                         Icon(
                             imageVector = if (isPaymentDropdownExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                             contentDescription = null,
-                            tint = PrimaryTeal
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -1174,7 +1215,7 @@ fun LicenseDialog(
                         .clickable { isPaymentDropdownExpanded = !isPaymentDropdownExpanded }
                 )
 
-                DropdownMenu(
+                MosaribMenu(
                     expanded = isPaymentDropdownExpanded,
                     onDismissRequest = { isPaymentDropdownExpanded = false },
                     modifier = Modifier.fillMaxWidth(0.9f)
@@ -1184,8 +1225,8 @@ fun LicenseDialog(
                             DropdownMenuItem(
                                 text = {
                                     Column {
-                                        Text(acc.bankName, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
-                                        Text("${acc.accountNumber} (${acc.accountCurrency})", fontSize = 11.sp, color = PrimaryTeal)
+                                        Text(acc.bankName, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                                        Text("${acc.accountNumber} (${acc.accountCurrency})", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary))
                                     }
                                 },
                                 onClick = {
@@ -1202,7 +1243,7 @@ fun LicenseDialog(
                             text = {
                                 Text(
                                     if (isOnline) "جاري جلب طرق الدفع من الخادم..." else "يلزم توفر إنترنت لجلب الحسابات (إضغط للتحديث)",
-                                    fontSize = 11.5.sp,
+                                    style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.error
                                 )
                             },
@@ -1210,21 +1251,21 @@ fun LicenseDialog(
                                 coroutineScope.launch { refreshConfig() }
                             },
                             leadingIcon = {
-                                Icon(Icons.Default.Refresh, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                             }
                         )
                     }
 
                     DropdownMenuItem(
                         text = {
-                            Text("حوالة عبر صراف آخر / شبكة صرافة", fontWeight = FontWeight.SemiBold, fontSize = 12.5.sp)
+                            Text("حوالة عبر صراف آخر / شبكة صرافة", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                         },
                         onClick = {
                             selectedPaymentMethod = "حوالة صرافة / شبكة أخرى"
                             isPaymentDropdownExpanded = false
                         },
                         leadingIcon = {
-                            Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                            Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                         }
                     )
                 }
@@ -1239,7 +1280,7 @@ fun LicenseDialog(
                 label = { Text("رقم سند التحويل أو الإيداع (إن وجد)") },
                 placeholder = { Text("مثال: 94827103") },
                 leadingIcon = {
-                    Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -1254,17 +1295,16 @@ fun LicenseDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (isDark) Color(0xFF162329) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Smartphone, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(15.dp))
+                Icon(Icons.Default.Smartphone, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "جهازك المسجل: $deviceModel • $androidVersion",
                     style = MaterialTheme.typography.labelSmall.copy(
-                        color = if (isDark) Color(0xFF94A3B8) else MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 10.5.sp
+                        color = MaterialTheme.mosarib.textMuted
                     )
                 )
             }
@@ -1290,16 +1330,16 @@ fun LicenseDialog(
                         onClick = { selectedPlan = LicenseManager.SubscriptionPlan.MONTHLY },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (selectedPlan == LicenseManager.SubscriptionPlan.MONTHLY) PrimaryTeal else MaterialTheme.colorScheme.surfaceVariant,
+                            containerColor = if (selectedPlan == LicenseManager.SubscriptionPlan.MONTHLY) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
                             contentColor = if (selectedPlan == LicenseManager.SubscriptionPlan.MONTHLY) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("اشتراك شهري", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            Text(monthlyPriceText, fontSize = 10.sp)
+                            Text("اشتراك شهري", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                            Text(monthlyPriceText, style = MaterialTheme.typography.labelSmall)
                             if (pricing.monthly.discountText.isNotBlank()) {
-                                Text(pricing.monthly.discountText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+                                Text(pricing.monthly.discountText, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold))
                             }
                         }
                     }
@@ -1326,10 +1366,10 @@ fun LicenseDialog(
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("اشتراك سنوي ⭐", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            Text(yearlyPriceText, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold)
+                            Text("اشتراك سنوي", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                            Text(yearlyPriceText, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold))
                             if (pricing.yearly.discountText.isNotBlank()) {
-                                Text(pricing.yearly.discountText, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                Text(pricing.yearly.discountText, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                             }
                         }
                     }
@@ -1340,8 +1380,8 @@ fun LicenseDialog(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
-                        color = if (isDark) Color(0xFF1C242B) else Color(0xFFF1F5F9),
-                        border = BorderStroke(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -1350,13 +1390,13 @@ fun LicenseDialog(
                         ) {
                             Text(
                                 text = if (isOnline) "جاري تحديث الأسعار من السيرفر..." else "الأسعار تتطلب اتصالاً بالإنترنت لأول مرة",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp)
+                                style = MaterialTheme.typography.labelSmall
                             )
                             IconButton(
                                 onClick = { coroutineScope.launch { refreshConfig() } },
                                 modifier = Modifier.size(24.dp)
                             ) {
-                                Icon(Icons.Default.Refresh, contentDescription = "تحديث الأسعار", tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Refresh, contentDescription = "تحديث الأسعار", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -1369,35 +1409,35 @@ fun LicenseDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDark) Color(0xFF132228) else Color(0xFFF0FDF4)
+                        containerColor = MaterialTheme.mosarib.successContainer
                     ),
-                    border = BorderStroke(1.dp, if (isDark) Color(0xFF1E3A3A) else Color(0xFFBBF7D0))
+                    border = BorderStroke(1.dp, MaterialTheme.mosarib.success.copy(alpha = 0.3f))
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
                             text = "مميزات الاشتراك في تطبيق المُسَرِّب:",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
-                                color = if (isDark) AccentEmerald else Color(0xFF15803D)
+                                color = MaterialTheme.mosarib.onSuccessContainer
                             )
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.SupportAgent, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(15.dp))
+                            Icon(Icons.Default.SupportAgent, contentDescription = null, tint = MaterialTheme.mosarib.success, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("دعم فني مخصص عند الحاجة", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold))
+                            Text("دعم فني مخصص عند الحاجة", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Sync, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(15.dp))
+                            Icon(Icons.Default.Sync, contentDescription = null, tint = MaterialTheme.mosarib.success, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("تحديثات متواصلة وحل المشاكل بشكل فوري", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold))
+                            Text("تحديثات متواصلة وحل المشاكل بشكل فوري", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Smartphone, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(15.dp))
+                            Icon(Icons.Default.Smartphone, contentDescription = null, tint = MaterialTheme.mosarib.success, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("إمكانية تغيير الهاتف ونقل الاشتراك بأي وقت", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold))
+                            Text("إمكانية تغيير الهاتف ونقل الاشتراك بأي وقت", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
                         }
                     }
                 }
@@ -1429,16 +1469,16 @@ fun LicenseDialog(
                             enabled = !isCheckingGoogleLogin,
                             modifier = Modifier.fillMaxWidth().height(42.dp),
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F766E), contentColor = Color.White)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
                         ) {
                             if (isCheckingGoogleLogin) {
                                 MosaribInlineLoading(size = 18.dp, primaryColor = Color.White, accentColor = Color.White.copy(alpha = 0.5f))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("جاري فحص الحساب في السحابة...", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                Text("جاري فحص الحساب في السحابة...", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                             } else {
                                 Icon(Icons.Default.CloudDone, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("تسجيل الدخول واستعادة الحساب عبر Google", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                Text("تسجيل الدخول واستعادة الحساب عبر Google", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                             }
                         }
                     }
@@ -1451,9 +1491,9 @@ fun LicenseDialog(
                         .clickable { isPaymentAccountsExpanded = !isPaymentAccountsExpanded },
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDark) Color(0xFF1B2A32) else Color(0xFFF8FAFC)
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
                     ),
-                    border = BorderStroke(1.dp, if (isDark) Color(0xFF2C3E49) else Color(0xFFE2E8F0))
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Row(
@@ -1488,8 +1528,7 @@ fun LicenseDialog(
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
                                 text = "يمكنك التحويل إلى أي من الحسابات المعتمدة التالية، ثم تدوين رقم السند:",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontSize = 11.sp,
+                                style = MaterialTheme.typography.labelSmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             )
@@ -1502,8 +1541,8 @@ fun LicenseDialog(
                                             .fillMaxWidth()
                                             .padding(vertical = 4.dp),
                                         shape = RoundedCornerShape(8.dp),
-                                        color = if (isDark) Color(0xFF142026) else Color(0xFFFFFFFF),
-                                        border = BorderStroke(1.dp, if (isDark) Color(0xFF263843) else Color(0xFFE2E8F0))
+                                        color = MaterialTheme.colorScheme.surface,
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                                     ) {
                                         Row(
                                             modifier = Modifier
@@ -1520,7 +1559,7 @@ fun LicenseDialog(
                                                 Text(
                                                     text = "رقم الحساب: ${acc.accountNumber} (${acc.accountCurrency})",
                                                     style = MaterialTheme.typography.bodySmall.copy(
-                                                        color = PrimaryTeal,
+                                                        color = MaterialTheme.colorScheme.primary,
                                                         fontWeight = FontWeight.ExtraBold
                                                     )
                                                 )
@@ -1528,8 +1567,7 @@ fun LicenseDialog(
                                                     Text(
                                                         text = "باسم: ${acc.accountHolder}",
                                                         style = MaterialTheme.typography.labelSmall.copy(
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                            fontSize = 10.sp
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                                         )
                                                     )
                                                 }
@@ -1537,8 +1575,7 @@ fun LicenseDialog(
                                                     Text(
                                                         text = acc.notes,
                                                         style = MaterialTheme.typography.labelSmall.copy(
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                            fontSize = 9.5.sp
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                                         )
                                                     )
                                                 }
@@ -1555,7 +1592,7 @@ fun LicenseDialog(
                                                 Icon(
                                                     Icons.Default.ContentCopy,
                                                     contentDescription = "نسخ رقم الحساب",
-                                                    tint = PrimaryTeal,
+                                                    tint = MaterialTheme.colorScheme.primary,
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                             }
@@ -1568,8 +1605,8 @@ fun LicenseDialog(
                                         .fillMaxWidth()
                                         .padding(vertical = 4.dp),
                                     shape = RoundedCornerShape(8.dp),
-                                    color = if (isDark) Color(0xFF1E2830) else Color(0xFFF8FAFC),
-                                    border = BorderStroke(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0))
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                                 ) {
                                     Column(
                                         modifier = Modifier
@@ -1579,8 +1616,7 @@ fun LicenseDialog(
                                     ) {
                                         Text(
                                             text = if (isOnline) "جاري مزامنة بيانات حسابات الدفع من السيرفر..." else "يلزم توفر إنترنت لأول مرة لجلب بيانات حسابات الدفع المعتمدة",
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                fontSize = 11.sp,
+                                            style = MaterialTheme.typography.labelSmall.copy(
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             ),
                                             textAlign = TextAlign.Center
@@ -1593,7 +1629,7 @@ fun LicenseDialog(
                                         ) {
                                             Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text("مزامنة الآن 🔄", fontSize = 11.sp)
+                                            Text("مزامنة الآن", style = MaterialTheme.typography.labelSmall)
                                         }
                                     }
                                 }
@@ -1653,18 +1689,18 @@ fun LicenseDialog(
                             ) {
                                 Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("نسخ الكود", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                Text("نسخ الكود", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                             }
 
                             Button(
                                 onClick = { openWhatsApp() },
                                 modifier = Modifier.weight(1.4f),
                                 shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.success)
                             ) {
                                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("طلب تفعيل عبر واتساب", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("طلب تفعيل عبر واتساب", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                             }
                         }
 
@@ -1678,7 +1714,7 @@ fun LicenseDialog(
                                 .height(44.dp),
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = PrimaryTeal,
+                                containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = Color.White
                             )
                         ) {
@@ -1687,7 +1723,7 @@ fun LicenseDialog(
                             } else {
                                 Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("إرسال طلب اشتراك", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("إرسال طلب اشتراك", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                             }
                         }
                     } else if (isYearlySubscriber) {
@@ -1703,18 +1739,18 @@ fun LicenseDialog(
                             ) {
                                 Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("نسخ الكود", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("نسخ الكود", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                             }
 
                             Button(
                                 onClick = { openWhatsApp(LicenseManager.SubscriptionPlan.YEARLY, overrideIsUpgrade = false) },
                                 modifier = Modifier.weight(1.1f),
                                 shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.success)
                             ) {
                                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("تجديد عبر واتساب", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("تجديد عبر واتساب", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                             }
                         }
 
@@ -1728,7 +1764,7 @@ fun LicenseDialog(
                                 .height(44.dp),
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = PrimaryTeal,
+                                containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = Color.White
                             )
                         ) {
@@ -1737,7 +1773,7 @@ fun LicenseDialog(
                             } else {
                                 Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("طلب تجديد الاشتراك", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("طلب تجديد الاشتراك", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                             }
                         }
                     } else {
@@ -1753,18 +1789,18 @@ fun LicenseDialog(
                             ) {
                                 Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("نسخ الكود", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("نسخ الكود", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                             }
 
                             Button(
                                 onClick = { openWhatsApp(LicenseManager.SubscriptionPlan.MONTHLY, overrideIsUpgrade = false) },
                                 modifier = Modifier.weight(1.1f),
                                 shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.success)
                             ) {
                                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("تجديد عبر واتساب", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("تجديد عبر واتساب", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                             }
                         }
 
@@ -1779,7 +1815,7 @@ fun LicenseDialog(
                                 .height(44.dp),
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = PrimaryTeal,
+                                containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = Color.White
                             )
                         ) {
@@ -1788,7 +1824,7 @@ fun LicenseDialog(
                             } else {
                                 Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("طلب تجديد الاشتراك", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("طلب تجديد الاشتراك", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                             }
                         }
 
@@ -1810,7 +1846,7 @@ fun LicenseDialog(
                             Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Black)
                             Spacer(modifier = Modifier.width(6.dp))
                             val yearlyUpgradeSuffix = if (pricing.yearly.price.isNotBlank()) " (${pricing.yearly.price}${pricing.yearly.currency})" else ""
-                            Text("طلب ترقية الاشتراك إلى سنوي$yearlyUpgradeSuffix", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("طلب ترقية الاشتراك إلى سنوي$yearlyUpgradeSuffix", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                         }
                     }
 
@@ -1819,9 +1855,8 @@ fun LicenseDialog(
                         Text(
                             text = requestSuccessMessage!!,
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF16A34A),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
+                                color = MaterialTheme.mosarib.success,
+                                fontWeight = FontWeight.Bold
                             ),
                             textAlign = TextAlign.Center
                         )
@@ -1847,7 +1882,7 @@ fun LicenseDialog(
                 Text(
                     text = errorMessage!!,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFFE53935),
+                        color = MaterialTheme.mosarib.debt,
                         fontWeight = FontWeight.Bold
                     )
                 )
@@ -1864,9 +1899,9 @@ fun LicenseDialog(
                     .height(50.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryTeal,
+                    containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = Color.White,
-                    disabledContainerColor = PrimaryTeal.copy(alpha = 0.35f),
+                    disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
                     disabledContentColor = Color.White.copy(alpha = 0.5f)
                 )
             ) {
@@ -1879,7 +1914,7 @@ fun LicenseDialog(
                 Text(
                     text = if (isRegistered) "تأكيد رمز التجديد / الترقية" else "تفعيل التطبيق الآن",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
             }
 
@@ -1889,54 +1924,21 @@ fun LicenseDialog(
     }
 
     if (showNotRegisteredDialog) {
-        AlertDialog(
+        MosaribDialog(
             onDismissRequest = { showNotRegisteredDialog = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.WarningAmber,
-                    contentDescription = null,
-                    tint = AccentGold,
-                    modifier = Modifier.size(32.dp)
-                )
-            },
-            title = {
-                Text(
-                    text = "لا يوجد حساب مسجل مسبقاً",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    textAlign = TextAlign.Center
-                )
-            },
-            text = {
-                Text(
-                    text = "لا يوجد حساب أو اشتراك مرتبط بهذا البريد الإلكتروني مسبقاً:\n($unregisteredEmailAttempt)\n\nيمكنك تسجيل حساب جديد ببياناتك الآن لطلب التفعيل، أو المتابعة بالنسخة المجانية.",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        lineHeight = 22.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    textAlign = TextAlign.Center
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = { showNotRegisteredDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("تسجيل حساب جديد", fontWeight = FontWeight.Bold)
+            title = "لا يوجد حساب مسجل مسبقاً",
+            icon = Icons.Default.WarningAmber,
+            tone = DialogTone.Warning,
+            message = "لا يوجد حساب أو اشتراك مرتبط بهذا البريد الإلكتروني مسبقاً:\n($unregisteredEmailAttempt)\n\nيمكنك تسجيل حساب جديد ببياناتك الآن لطلب التفعيل، أو المتابعة بالنسخة المجانية.",
+            confirmText = "تسجيل حساب جديد",
+            onConfirm = { showNotRegisteredDialog = false },
+            dismissText = if (!isMandatory) "المتابعة مجاناً" else null,
+            onDismiss = if (!isMandatory) {
+                {
+                    showNotRegisteredDialog = false
+                    onDismiss()
                 }
-            },
-            dismissButton = {
-                if (!isMandatory) {
-                    TextButton(
-                        onClick = {
-                            showNotRegisteredDialog = false
-                            onDismiss()
-                        }
-                    ) {
-                        Text("المتابعة مجاناً", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
+            } else null
         )
     }
 }

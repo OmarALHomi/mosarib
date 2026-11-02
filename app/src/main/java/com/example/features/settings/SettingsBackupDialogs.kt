@@ -21,15 +21,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CleaningServices
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,12 +41,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.core.ui.MosaribActionConfirmDialog
+import com.example.core.ui.DialogTone
+import com.example.core.ui.MosaribDialog
 import com.example.core.util.Formatters
 import com.example.core.util.GoogleDriveBackupHelper
 import com.example.features.customers.DuplicateCandidate
 import com.example.features.customers.DuplicateReason
-import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.mosarib
 import java.io.File
 
@@ -189,26 +186,16 @@ private fun DeleteSafetyCheckpointDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    MosaribDialog(
         onDismissRequest = onDismiss,
-        title = { Text("تأكيد حذف نقطة الأمان", fontWeight = FontWeight.Bold) },
-        text = {
-            Text("هل تريد حذف نقطة الأمان الوقائية ($checkpointTitle) نهائياً؟")
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("حذف", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("إلغاء")
-            }
-        }
+        title = "تأكيد حذف نقطة الأمان",
+        icon = Icons.Default.Delete,
+        tone = DialogTone.Danger,
+        message = "هل تريد حذف نقطة الأمان الوقائية ($checkpointTitle) نهائياً؟",
+        confirmText = "حذف",
+        onConfirm = onConfirm,
+        dismissText = "إلغاء",
+        onDismiss = onDismiss
     )
 }
 
@@ -219,26 +206,16 @@ private fun DeleteLocalBackupDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    MosaribDialog(
         onDismissRequest = onDismiss,
-        title = { Text("تأكيد حذف النسخة", fontWeight = FontWeight.Bold) },
-        text = {
-            Text("هل تريد حذف ملف النسخة الاحتياطية ($backupName) نهائياً من الهاتف؟")
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("حذف", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("إلغاء")
-            }
-        }
+        title = "تأكيد حذف النسخة",
+        icon = Icons.Default.Delete,
+        tone = DialogTone.Danger,
+        message = "هل تريد حذف ملف النسخة الاحتياطية ($backupName) نهائياً من الهاتف؟",
+        confirmText = "حذف",
+        onConfirm = onConfirm,
+        dismissText = "إلغاء",
+        onDismiss = onDismiss
     )
 }
 
@@ -248,50 +225,16 @@ private fun CleanOldBackupsDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    MosaribDialog(
         onDismissRequest = onDismiss,
-        icon = {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFFEF3C7)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CleaningServices,
-                    contentDescription = null,
-                    tint = Color(0xFFD97706),
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        },
-        title = {
-            Text(
-                text = "تنظيف النسخ القديمة",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-            )
-        },
-        text = {
-            Text(
-                text = "سيتم حذف النسخ الاحتياطية القديمة على الهاتف والإبقاء على أحدث 3 نسخ فقط لتوفير المساحة وتجنب تراكم الملفات.\n\nهل تريد المتابعة؟",
-                style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("تنظيف الآن", fontWeight = FontWeight.Bold, color = Color.White)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("إلغاء")
-            }
-        }
+        title = "تنظيف النسخ القديمة",
+        icon = Icons.Default.CleaningServices,
+        tone = DialogTone.Danger,
+        message = "سيتم حذف النسخ الاحتياطية القديمة على الهاتف والإبقاء على أحدث 3 نسخ فقط لتوفير المساحة وتجنب تراكم الملفات.\n\nهل تريد المتابعة؟",
+        confirmText = "تنظيف الآن",
+        onConfirm = onConfirm,
+        dismissText = "إلغاء",
+        onDismiss = onDismiss
     )
 }
 
@@ -302,25 +245,16 @@ private fun DeleteDriveBackupDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    MosaribDialog(
         onDismissRequest = onDismiss,
-        title = { Text("حذف نسخة من Google Drive", fontWeight = FontWeight.Bold) },
-        text = {
-            Text("هل تريد حذف هذه النسخة السحابية ($backupName) نهائياً من سحابة Google Drive؟")
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
-            ) {
-                Text("حذف من السحابة", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("إلغاء")
-            }
-        }
+        title = "حذف نسخة من Google Drive",
+        icon = Icons.Default.Delete,
+        tone = DialogTone.Danger,
+        message = "هل تريد حذف هذه النسخة السحابية ($backupName) نهائياً من سحابة Google Drive؟",
+        confirmText = "حذف من السحابة",
+        onConfirm = onConfirm,
+        dismissText = "إلغاء",
+        onDismiss = onDismiss
     )
 }
 
@@ -333,124 +267,98 @@ private fun ImportDuplicatesPreviewDialog(
     var showConfirmDelete by remember { mutableStateOf(false) }
 
     if (showConfirmDelete) {
-        MosaribActionConfirmDialog(
+        MosaribDialog(
+            onDismissRequest = { showConfirmDelete = false },
             title = "تأكيد حذف العمليات المكررة",
+            icon = Icons.Default.Delete,
+            tone = DialogTone.Danger,
             message = "سيتم إنشاء نسخة احتياطية محلية أولاً، ثم حذف ${candidates.size} عملية مكررة. يمكنك الاستعادة من النسخة إن لزم.",
             confirmText = "حذف الآن",
-            dismissText = "إلغاء",
-            confirmColor = MaterialTheme.mosarib.debt,
-            icon = Icons.Default.Delete,
             onConfirm = {
                 showConfirmDelete = false
                 onDeleteDuplicates(candidates.map { it.candidate })
             },
+            dismissText = "إلغاء",
             onDismiss = { showConfirmDelete = false }
         )
     }
 
-    AlertDialog(
+    MosaribDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        title = "فحص العمليات المستوردة المكررة",
+        icon = if (candidates.isEmpty()) Icons.Default.CheckCircle else Icons.Default.ContentCopy,
+        tone = if (candidates.isEmpty()) DialogTone.Success else DialogTone.Neutral,
+        confirmText = if (candidates.isNotEmpty()) "حذف المكرر (${candidates.size})" else "حسناً",
+        onConfirm = {
+            if (candidates.isNotEmpty()) {
+                showConfirmDelete = true
+            } else {
+                onDismiss()
+            }
+        },
+        dismissText = if (candidates.isNotEmpty()) "إلغاء" else null,
+        onDismiss = if (candidates.isNotEmpty()) onDismiss else null
+    ) {
+        if (candidates.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "فحص العمليات المستوردة المكررة",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    text = "لا توجد عمليات مكررة",
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
-        },
-        text = {
-            if (candidates.isEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+        } else {
+            val totalAmount = candidates.sumOf { it.candidate.amount }
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Summary row: count and total amount
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = AccentEmerald,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "لا توجد عمليات مكررة",
-                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            } else {
-                val totalAmount = candidates.sumOf { it.candidate.amount }
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // Summary row: count and total amount
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "العدد: ${candidates.size} عملية",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                            )
-                            Text(
-                                text = "الإجمالي: ${Formatters.formatCurrency(totalAmount, "")}",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.mosarib.debt
-                                )
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    LazyColumn(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 300.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        items(candidates) { item ->
-                            DuplicateCandidateRow(item = item)
-                        }
+                        Text(
+                            text = "العدد: ${candidates.size} عملية",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            text = "الإجمالي: ${Formatters.formatCurrency(totalAmount, "")}",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.mosarib.debt
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 300.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(candidates) { item ->
+                        DuplicateCandidateRow(item = item)
                     }
                 }
             }
-        },
-        confirmButton = {
-            if (candidates.isNotEmpty()) {
-                Button(
-                    onClick = { showConfirmDelete = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.debt),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        text = "حذف المكرر (${candidates.size})",
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(if (candidates.isEmpty()) "إغلاق" else "إلغاء")
-            }
         }
-    )
+    }
 }
 
 @Composable

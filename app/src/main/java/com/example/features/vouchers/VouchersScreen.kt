@@ -608,7 +608,7 @@ fun VouchersScreen(
                                 Column(modifier = Modifier.padding(8.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                                         Icon(Icons.Default.Schedule, contentDescription = null, tint = Color(0xFFE65100), modifier = Modifier.size(12.dp))
-                                        Text("على العملاء", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp), maxLines = 1)
+                                        Text("على العملاء", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted), maxLines = 1)
                                     }
                                     Text(
                                         text = "الرصيد الحالي",

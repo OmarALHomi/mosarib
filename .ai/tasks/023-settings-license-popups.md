@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 <!-- 2026-11-02: second half of the old task 020. Runs in parallel with 020 in its own worktree
 D:\Kotlin\mosarib-t023. The files do not overlap with 020. -->
@@ -51,4 +51,34 @@ Same as task 020:
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+**Round 1: changes-requested** (2026-11-02). Build and tests pass. Checked on the device:
+- the customers top-bar ⋮ menu is a clean single surface;
+- the subscription renewal dialog survives drags and closes with back and an outside tap;
+- the settings dialogs build.
+
+Claude reviewed the `LicenseDialog.kt` diff line by line. All changes are styling **except one**:
+
+**Restore the original rule for a mandatory license sheet.** Before:
+```kotlin
+confirmValueChange = { sheetValue ->
+    if (isMandatory) sheetValue != SheetValue.Hidden else true
+}
+```
+Now `if (isMandatory) false` rejects **every** transition, including opening to `Expanded`.
+That may stop the mandatory sheet from opening, or from expanding fully, when free operations run
+out. That is the licensing gate, so it must behave exactly as before.
+
+Fix:
+```kotlin
+if (isMandatory) {
+    sheetValue != SheetValue.Hidden          // exactly as before
+} else if (sheetValue == SheetValue.Hidden) {
+    … your scrim-tap / drag logic (keep it) …
+} else true
+```
+Do not touch any other logic line.
+
+Allowed file: `core/license/LicenseDialog.kt`. Append a "Round 2" section to
+`.ai/reports/023.md`.
+
+**Round 2 verdict: accepted** (2026-11-02). The mandatory rule is back exactly as it was (`sheetValue != Hidden`). The only other `isMandatory` lines in the diff move the "المتابعة مجاناً" button into `MosaribDialog` with the same condition. Build and tests pass.

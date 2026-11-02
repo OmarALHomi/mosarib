@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,7 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.PopupProperties
+import com.example.ui.theme.mosarib
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.PrimaryTealLight
 
@@ -243,14 +242,9 @@ fun <T> MosaribAutoCompleteTextField(
             modifier = Modifier.fillMaxWidth()
         )
 
-        DropdownMenu(
+        MosaribMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            properties = PopupProperties(
-                focusable = false,
-                dismissOnBackPress = true,
-                dismissOnClickOutside = true
-            ),
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .heightIn(max = 300.dp)
@@ -270,17 +264,17 @@ fun <T> MosaribAutoCompleteTextField(
                                     text = addNewPrompt ?: "غير مسجل: \"$value\"",
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = PrimaryTeal
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 )
                                 Text(
                                     text = "انقر هنا لتسجيله كعميل جديد فوراً",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.textMuted)
                                 )
                             }
                         },
                         leadingIcon = {
-                            Icon(Icons.Default.PersonAdd, contentDescription = null, tint = PrimaryTeal)
+                            Icon(Icons.Default.PersonAdd, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         },
                         onClick = {
                             expanded = false
@@ -290,7 +284,7 @@ fun <T> MosaribAutoCompleteTextField(
                 } else {
                     DropdownMenuItem(
                         text = {
-                            Text("لا توجد نتائج مطابقة", color = Color.Gray, fontSize = 13.sp)
+                            Text("لا توجد نتائج مطابقة", color = MaterialTheme.mosarib.textMuted, style = MaterialTheme.typography.bodyMedium)
                         },
                         onClick = { expanded = false }
                     )
@@ -305,7 +299,7 @@ fun <T> MosaribAutoCompleteTextField(
                     DropdownMenuItem(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(if (isSelected) PrimaryTeal.copy(alpha = 0.08f) else Color.Transparent),
+                            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent),
                         text = {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -323,7 +317,7 @@ fun <T> MosaribAutoCompleteTextField(
                                             style = MaterialTheme.typography.bodyMedium.copy(
                                                 fontWeight = FontWeight.Bold,
                                                 color = if (isSecondary) (if (isDark) Color(0xFFE0F2FE) else Color(0xFF0369A1))
-                                                        else (if (isDark) Color(0xFF5EEAD4) else PrimaryTeal)
+                                                        else (if (isDark) Color(0xFF5EEAD4) else MaterialTheme.colorScheme.primary)
                                             )
                                         )
                                     }
@@ -340,7 +334,7 @@ fun <T> MosaribAutoCompleteTextField(
                                         Text(
                                             text = detail,
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = Color.Gray
+                                            color = MaterialTheme.mosarib.textMuted
                                         )
                                     }
                                 }
