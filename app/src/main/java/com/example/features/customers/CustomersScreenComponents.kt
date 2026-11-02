@@ -76,7 +76,8 @@ internal fun CustomersListContent(
     onDeleteClick: (CustomerWithBalance) -> Unit,
     onQuickAddClick: () -> Unit,
     onDismissToast: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    filterHint: String? = null
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -139,6 +140,7 @@ internal fun CustomersListContent(
                 owedToUs = owedToUs,
                 currencySymbol = currencySymbol,
                 onQuickAddClick = onQuickAddClick,
+                filterHint = filterHint,
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
         } else {
@@ -186,7 +188,8 @@ internal fun CustomersBalanceBar(
     owedToUs: Double,
     currencySymbol: String,
     onQuickAddClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    filterHint: String? = null
 ) {
     val filterIcon = accountFilterIcon(accountFilter)
 
@@ -221,10 +224,20 @@ internal fun CustomersBalanceBar(
                             Spacer(modifier = Modifier.width(3.dp))
                         }
                         Text(
-                            text = "عليك للموردين",
+                            text = "عليك",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = MaterialTheme.mosarib.debt,
                                 fontWeight = FontWeight.Bold
+                            ),
+                            softWrap = false,
+                            maxLines = 1
+                        )
+                    }
+                    if (!filterHint.isNullOrBlank()) {
+                        Text(
+                            text = filterHint,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = MaterialTheme.mosarib.textMuted
                             ),
                             softWrap = false,
                             maxLines = 1
@@ -243,7 +256,7 @@ internal fun CustomersBalanceBar(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "لك عند العملاء",
+                            text = "لك",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = MaterialTheme.mosarib.credit,
                                 fontWeight = FontWeight.Bold
@@ -257,6 +270,16 @@ internal fun CustomersBalanceBar(
                         }
                         Spacer(modifier = Modifier.width(4.dp))
                         BalanceBarDot(color = MaterialTheme.mosarib.credit)
+                    }
+                    if (!filterHint.isNullOrBlank()) {
+                        Text(
+                            text = filterHint,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = MaterialTheme.mosarib.textMuted
+                            ),
+                            softWrap = false,
+                            maxLines = 1
+                        )
                     }
                     BalanceBarAmount(amount = owedToUs, currencySymbol = currencySymbol, color = MaterialTheme.mosarib.credit)
                 }

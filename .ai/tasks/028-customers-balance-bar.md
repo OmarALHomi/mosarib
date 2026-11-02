@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 <!-- Owner request 2026-11-03. Runs now in worktree D:\Kotlin\mosarib-t023 (branch task/028), in
 parallel with 025. Does NOT touch CustomerDetailScreen.kt (025 and 027 change it). -->
 # Task 028: Customers screen balance bar: short labels, totals follow every filter
@@ -48,4 +48,4 @@ other chip.
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+**Verdict: accepted (2026-11-03, device check). Labels "عليك" / "لك"; unfiltered totals unchanged (1,975,776 / 983,981); with status "عليه" the totals follow the 53 shown customers and "للمعروضين (53)" shows.**

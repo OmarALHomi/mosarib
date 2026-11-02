@@ -52,9 +52,16 @@ fun CustomersScreen(
     var showRecycleBinDialog by remember { mutableStateOf(false) }
     var groupToEdit by remember { mutableStateOf<String?>(null) }
     var initialMemberIdsForEdit by remember { mutableStateOf<Set<Long>>(emptySet()) }
-    // حساب المركز المالي التفاعلي للشريط السفلي (دفتر الحسابات) تفاعلياً مع الفلتر المختار
-    val (cardOwedByUs, cardOwedToUs) = remember(rawCustomers, accountFilter) {
-        computeLedgerTotals(rawCustomers, accountFilter)
+    val isFilterActive = searchQuery.isNotBlank() ||
+        accountFilter != AccountFilter.ALL ||
+        balanceFilter != CustomerBalanceFilter.ALL ||
+        !selectedGroup.isNullOrBlank()
+
+    val filterHint = if (isFilterActive) "للمعروضين (${customersWithBalance.size})" else null
+
+    // حساب المركز المالي التفاعلي للشريط السفلي (دفتر الحسابات) تفاعلياً مع القائمة المعروضة
+    val (cardOwedByUs, cardOwedToUs) = remember(customersWithBalance) {
+        ledgerTotalsFor(customersWithBalance)
     }
 
     val configuration = LocalConfiguration.current
@@ -99,6 +106,7 @@ fun CustomersScreen(
         currencySymbol = config.currencySymbol,
         owedByUs = cardOwedByUs,
         owedToUs = cardOwedToUs,
+        filterHint = filterHint,
         toast = toast,
         onCustomerClick = { onNavigateToDetail(it.customer.id) },
         onCallClick = { FileSharingHelper.makePhoneCall(context, it.customer.phone) },
@@ -259,33 +267,31 @@ fun CustomersScreen(
 }
 
 /**
- * إجمالي (عليك / لك) للشريط المالي السفلي حسب نوع الحساب المختار
+ * إجمالي (عليك / لك) للشريط المالي من قائمة العملاء المعروضة
+ * - عليك (owedBy): مستحقات أصحاب الآبار (payable) + المبالغ الدائنة للعملاء (سالب receivable)
+ * - لك (owedTo): ديون العملاء (موجب receivable)
  */
-private fun computeLedgerTotals(
+fun ledgerTotalsFor(customers: List<CustomerWithBalance>): Pair<Double, Double> {
+    if (customers.isEmpty()) return Pair(0.0, 0.0)
+    val owedBy = customers.sumOf {
+        if (it.customer.isWellOwner) it.payableBalance
+        else if (it.receivableBalance < 0) -it.receivableBalance
+        else 0.0
+    }
+    val owedTo = customers.sumOf { it.receivableBalance.coerceAtLeast(0.0) }
+    return Pair(owedBy, owedTo)
+}
+
+/**
+ * إجمالي (عليك / لك) للشريط المالي السفلي حسب نوع الحساب المختار (للتوافق واختبارات التطابق)
+ */
+fun computeLedgerTotals(
     rawCustomers: List<CustomerWithBalance>,
     accountFilter: AccountFilter
 ): Pair<Double, Double> = when (accountFilter) {
-    AccountFilter.ALL -> {
-        val owedBy = rawCustomers.sumOf {
-            if (it.customer.isWellOwner) it.payableBalance
-            else if (it.receivableBalance < 0) -it.receivableBalance
-            else 0.0
-        }
-        val owedTo = rawCustomers.sumOf { it.receivableBalance.coerceAtLeast(0.0) }
-        Pair(owedBy, owedTo)
-    }
-    AccountFilter.FARMERS -> {
-        val farmers = rawCustomers.filter { !it.customer.isWellOwner }
-        val owedBy = farmers.sumOf { if (it.receivableBalance < 0) -it.receivableBalance else 0.0 }
-        val owedTo = farmers.sumOf { it.receivableBalance.coerceAtLeast(0.0) }
-        Pair(owedBy, owedTo)
-    }
-    AccountFilter.WELL_OWNERS -> {
-        val owners = rawCustomers.filter { it.customer.isWellOwner }
-        val owedBy = owners.sumOf { it.payableBalance }
-        val owedTo = owners.sumOf { it.receivableBalance.coerceAtLeast(0.0) }
-        Pair(owedBy, owedTo)
-    }
+    AccountFilter.ALL -> ledgerTotalsFor(rawCustomers)
+    AccountFilter.FARMERS -> ledgerTotalsFor(rawCustomers.filter { !it.customer.isWellOwner })
+    AccountFilter.WELL_OWNERS -> ledgerTotalsFor(rawCustomers.filter { it.customer.isWellOwner })
 }
 
 /**
