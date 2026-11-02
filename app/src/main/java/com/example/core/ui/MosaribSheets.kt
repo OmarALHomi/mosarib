@@ -349,24 +349,20 @@ fun MosaribMenu(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val isDark = isAppDark()
-    MaterialTheme(
-        shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(16.dp))
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+        modifier = modifier.widthIn(min = 200.dp),
+        offset = offset,
+        shape = RoundedCornerShape(16.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 0.dp,
+        shadowElevation = if (isDark) 0.dp else 6.dp,
+        border = if (isDark) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)) else null
     ) {
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = onDismissRequest,
-            modifier = modifier
-                .widthIn(min = 200.dp)
-                .shadow(elevation = if (isDark) 0.dp else 6.dp, shape = RoundedCornerShape(16.dp)),
-            offset = offset,
-            shape = RoundedCornerShape(16.dp),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            border = if (isDark) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)) else null
-        ) {
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                    content()
-                }
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                content()
             }
         }
     }

@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 <!-- ready 2026-11-02: 016 and 018 are merged. Runs in its own worktree D:\Kotlin\mosarib-t019. -->
 # Task 019: Migrate irrigation, voucher and well-owner popups to the shared components
@@ -37,4 +37,40 @@ popups consistent.
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+**Round 1: changes-requested** (2026-11-02). Build and 93 tests pass. Every old menu action is still
+there ("فتح حساب العميل", share, PDF, edit, delete). Checked on the device:
+- new irrigation form: content flings keep it open ✅;
+- clean form + scrim tap closes ✅;
+- changed price + back shows "تجاهل التغييرات؟" with "تجاهل" / "متابعة التعديل" ✅.
+
+Two small fixes:
+
+1. **Menus have a grey frame (halo).** The speed-dial menu ("دورة سقي / سند / شراء ساعات") shows a
+   thick grey border around a lighter box. `MosaribMenu` adds `Modifier.shadow(6.dp,
+   RoundedCornerShape(16.dp))` on top of `DropdownMenu`, which draws its own container, shape and
+   elevation, so two surfaces show.
+
+   Fix in `core/ui/MosaribSheets.kt` → `MosaribMenu`: remove the `.shadow(...)` modifier and use
+   the `DropdownMenu` parameters (material3 1.3):
+   - `shape = RoundedCornerShape(16.dp)`;
+   - `containerColor = surfaceContainer`;
+   - `tonalElevation = 0.dp`;
+   - `shadowElevation = 6.dp` in light, `0.dp` in dark;
+   - `border` only in dark.
+
+   Check the speed dial, a card kebab and a filter dropdown on the device.
+2. **Wrong "ينتهي السقي في اليوم التالي" notice.** On a new irrigation from 04:45 to 05:45 on the
+   same day, the form says "ينتهي السقي في اليوم التالي (2026/11/02)". The bug was already there
+   before this task: `SessionDialogs.kt` ~line 300 uses `endDateMillis > startDateMillis`, which is
+   true for any later time on the same day. Compare **calendar days** (year + day of year) of the
+   start and end, here and in `isInitiallyOvernight`. Show the notice only when the end day is
+   after the start day. Add a small pure helper with a unit test (same day, crossing midnight,
+   crossing the year end).
+
+Allowed files: `core/ui/MosaribSheets.kt` (the `MosaribMenu` part only),
+`features/sessions/SessionDialogs.kt`, a test file. Append a "Round 2" section to
+`.ai/reports/019.md`.
+
+**Round 2 verdict: accepted** (2026-11-02). Build and 99 tests pass. On the device:
+- the speed-dial menu is a clean single rounded surface, with no grey frame;
+- a new irrigation from 05:05 to 06:05 on the same day no longer shows the "اليوم التالي" notice.

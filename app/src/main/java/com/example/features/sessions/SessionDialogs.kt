@@ -1,5 +1,14 @@
 package com.example.features.sessions
 
+import com.example.core.ui.MosaribBottomSheet
+import com.example.core.ui.MosaribDialog
+import com.example.core.ui.MosaribMenu
+import com.example.core.ui.MosaribMenuItem
+import com.example.core.ui.MosaribMenuDivider
+import com.example.core.ui.MosaribPrimaryButton
+import com.example.core.ui.MosaribSecondaryButton
+import com.example.core.ui.DialogTone
+import com.example.ui.theme.mosarib
 import android.content.Intent
 import android.provider.ContactsContract
 import android.widget.Toast
@@ -129,6 +138,22 @@ import java.util.Locale
 enum class SessionTimeMode {
     MANUAL,
     PICKER
+}
+
+/**
+ * مقارنة الأيام التقويمية لتحديد ما إذا كان وقت الانتهاء يقع في يوم بعد يوم البدء.
+ * تقارن السنة واليوم في السنة لتغطية حالات عبور منتصف الليل ونهاية العام بشكل سليم.
+ */
+fun isEndDayAfterStartDay(startMillis: Long, endMillis: Long): Boolean {
+    val startCal = Calendar.getInstance().apply { timeInMillis = startMillis }
+    val endCal = Calendar.getInstance().apply { timeInMillis = endMillis }
+    val startYear = startCal.get(Calendar.YEAR)
+    val endYear = endCal.get(Calendar.YEAR)
+    return when {
+        endYear > startYear -> true
+        endYear < startYear -> false
+        else -> endCal.get(Calendar.DAY_OF_YEAR) > startCal.get(Calendar.DAY_OF_YEAR)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -288,11 +313,11 @@ fun AddEditSessionBottomSheet(
     val isInitiallyOvernight = remember {
         val sTotal = startHour * 60 + startMinute
         val eTotal = endHour * 60 + endMinute
-        endDateMillis > startDateMillis || eTotal < sTotal
+        isEndDayAfterStartDay(startDateMillis, endDateMillis) || eTotal < sTotal
     }
     var overnightNotice by remember {
         mutableStateOf<String?>(
-            if (isInitiallyOvernight && endDateMillis > startDateMillis) {
+            if (isInitiallyOvernight && isEndDayAfterStartDay(startDateMillis, endDateMillis)) {
                 "ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
             } else null
         )
@@ -382,9 +407,7 @@ fun AddEditSessionBottomSheet(
             endDateMillis = newEndCal.timeInMillis
             endHour = newEndCal.get(Calendar.HOUR_OF_DAY)
             endMinute = newEndCal.get(Calendar.MINUTE)
-            val startDay = Calendar.getInstance().apply { timeInMillis = startDateMillis }.get(Calendar.DAY_OF_YEAR)
-            val endDay = newEndCal.get(Calendar.DAY_OF_YEAR)
-            if (endDay != startDay) {
+            if (isEndDayAfterStartDay(startDateMillis, endDateMillis)) {
                 overnightNotice = "ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
             } else {
                 overnightNotice = null
@@ -431,9 +454,7 @@ fun AddEditSessionBottomSheet(
             overnightNotice = "تم تقديم وقت الانتهاء تلقائياً إلى اليوم التالي ($dateStr) لأن ساعة الانتهاء تقع بعد منتصف الليل."
             Toast.makeText(context, "تم التقديم إلى اليوم التالي: $dateStr", Toast.LENGTH_SHORT).show()
         } else {
-            val startDay = Calendar.getInstance().apply { timeInMillis = startDateMillis }.get(Calendar.DAY_OF_YEAR)
-            val endDay = Calendar.getInstance().apply { timeInMillis = endDateMillis }.get(Calendar.DAY_OF_YEAR)
-            if (endDay == startDay + 1 && overnightNotice != null) {
+            if (isEndDayAfterStartDay(startDateMillis, endDateMillis) && overnightNotice != null) {
                 endDateMillis = startDateMillis
                 overnightNotice = null
             }
@@ -509,38 +530,101 @@ fun AddEditSessionBottomSheet(
     var showDiscountDetails by remember { mutableStateOf(discountAmount > 0) }
     var showNotes by remember { mutableStateOf(!notes.isNullOrBlank()) }
 
-    BackHandler(onBack = onDismiss)
-    ModalBottomSheet(
+    val hasUnsavedChanges by remember(
+        initialSession,
+        customerInputText,
+        selectedCustomerId,
+        manualHoursStr,
+        manualMinutesStr,
+        amountPaidStr,
+        discountAmountStr,
+        wastedHoursStr,
+        wastedMinutesStr,
+        wastedReason,
+        notes
+    ) {
+        derivedStateOf {
+            if (initialSession == null) {
+                customerInputText.isNotBlank() ||
+                selectedCustomerId > 0L ||
+                manualHoursStr.isNotBlank() ||
+                manualMinutesStr.isNotBlank() ||
+                amountPaidStr.isNotBlank() ||
+                discountAmountStr.isNotBlank() ||
+                wastedTotalMinutes > 0 ||
+                notes.isNotBlank()
+            } else {
+                selectedCustomerId != initialSession.customerId ||
+                grossMinutes != initialSession.durationMinutes ||
+                amountPaid != initialSession.amountPaid ||
+                discountAmount != (initialSession.discountAmount ?: 0.0) ||
+                wastedTotalMinutes != (initialSession.wastedMinutes ?: 0) ||
+                notes != (initialSession.notes ?: "") ||
+                billedToCustomerId != initialSession.billedToCustomerId
+            }
+        }
+    }
+
+    val trimmedInput = customerInputText.trim()
+    val matchedCust = customers.find { it.name.trim().equals(trimmedInput, ignoreCase = true) }
+    val finalCustId = if (selectedCustomerId > 0) selectedCustomerId else (matchedCust?.id ?: 0L)
+    val canSaveSession = (selectedCustomerId > 0 || customerInputText.isNotBlank()) && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes
+
+    MosaribBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
-        dragHandle = null
+        title = if (initialSession == null) "تسجيل دورة سقي جديدة" else "تعديل دورة سقي #${initialSession.id}",
+        subtitle = selectedCustomer?.name ?: "اختر العميل...",
+        icon = Icons.Default.WaterDrop,
+        hasUnsavedChanges = hasUnsavedChanges,
+        footer = {
+            MosaribPrimaryButton(
+                text = if (initialSession == null) "حفظ السقي" else "حفظ التعديل",
+                onClick = {
+                    if (finalCustId == 0L && trimmedInput.isNotBlank()) {
+                        showQuickCustomerDialog = true
+                        return@MosaribPrimaryButton
+                    }
+
+                    if (finalCustId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes) {
+                        if (endCal.timeInMillis < startCal.timeInMillis) {
+                            Toast.makeText(context, "لا يمكن اختيار تاريخ أو وقت انتهاء قبل تاريخ ووقت البدء", Toast.LENGTH_SHORT).show()
+                            return@MosaribPrimaryButton
+                        }
+                        onSave(
+                            initialSession?.id ?: 0L,
+                            finalCustId,
+                            legacyPumpName,
+                            startCal.timeInMillis,
+                            endCal.timeInMillis,
+                            hours,
+                            minutes,
+                            pricePerHour,
+                            amountPaid,
+                            notes,
+                            billedToCustomerId,
+                            wastedTotalMinutes,
+                            wastedReason,
+                            discountAmount,
+                            historicalCostPricePerHour,
+                            initialSession?.pumpSourceId
+                        )
+                        onDismiss()
+                    }
+                },
+                enabled = canSaveSession,
+                modifier = Modifier.weight(1f)
+            )
+            MosaribSecondaryButton(
+                text = "إلغاء",
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f)
+            )
+        }
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp)
-                .verticalScroll(rememberScrollState())
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (initialSession == null) "تسجيل سقي جديد" else "تعديل بيانات السقي",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                )
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "إلغاء")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
 
             // اختيار العميل مع إمكانية الكتابة المباشرة وظهور الاقتراحات فوراً عبر الحقل الموحد
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -599,8 +683,8 @@ fun AddEditSessionBottomSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp)),
-                    color = if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE),
-                    border = BorderStroke(1.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD)),
+                    color = MaterialTheme.mosarib.info.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, MaterialTheme.mosarib.info.copy(alpha = 0.4f)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Row(
@@ -612,7 +696,7 @@ fun AddEditSessionBottomSheet(
                         Icon(
                             Icons.Default.WaterDrop,
                             contentDescription = null,
-                            tint = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
+                            tint = MaterialTheme.mosarib.info,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -620,8 +704,8 @@ fun AddEditSessionBottomSheet(
                             text = "حساب صاحب بئر: يُحتسب هذا السقي مقاصة تلقائية وتُخصم قيمته من مستحقات مشتريات الساعات لديه.",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
-                                fontSize = 11.5.sp
+                                color = MaterialTheme.mosarib.info,
+                                
                             )
                         )
                     }
@@ -633,14 +717,14 @@ fun AddEditSessionBottomSheet(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp)),
                     color = if (billedToCustomerId != null) {
-                        if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE)
+                        MaterialTheme.mosarib.info.copy(alpha = 0.12f)
                     } else {
-                        if (isDark) Color(0xFF141F25) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                        if (isDark) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
                     },
                     border = BorderStroke(1.dp, if (billedToCustomerId != null) {
-                        if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD)
+                        MaterialTheme.mosarib.info.copy(alpha = 0.4f)
                     } else {
-                        if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0)
+                        MaterialTheme.colorScheme.outlineVariant
                     }),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -656,7 +740,7 @@ fun AddEditSessionBottomSheet(
                                         Icons.Default.WaterDrop,
                                         contentDescription = null,
                                         tint = if (billedToCustomerId != null) {
-                                            if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
+                                            MaterialTheme.mosarib.info
                                         } else MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(16.dp)
                                     )
@@ -666,7 +750,7 @@ fun AddEditSessionBottomSheet(
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = if (billedToCustomerId != null) {
-                                                if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
+                                                MaterialTheme.mosarib.info
                                             } else MaterialTheme.colorScheme.onSurface
                                         )
                                     )
@@ -674,8 +758,7 @@ fun AddEditSessionBottomSheet(
                                 Text(
                                     text = "تُخصم القيمة كتسديد من مستحقات صاحب البئر لدى المسرب",
                                     style = MaterialTheme.typography.bodySmall.copy(
-                                        color = if (isDark) Color(0xFF94A3B8) else Color.Gray,
-                                        fontSize = 11.sp
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 )
                             }
@@ -703,13 +786,14 @@ fun AddEditSessionBottomSheet(
                                         .matchParentSize()
                                         .clickable { billedToOwnerDropdownExpanded = true }
                                 )
-                                DropdownMenu(
+                                MosaribMenu(
                                     expanded = billedToOwnerDropdownExpanded,
                                     onDismissRequest = { billedToOwnerDropdownExpanded = false }
                                 ) {
                                     wellOwners.forEach { owner ->
-                                        DropdownMenuItem(
-                                            text = { Text(owner.name, fontWeight = FontWeight.Bold) },
+                                        MosaribMenuItem(
+                                            text = owner.name,
+                                            icon = Icons.Default.Person,
                                             onClick = {
                                                 billedToCustomerId = owner.id
                                                 billedToOwnerDropdownExpanded = false
@@ -819,7 +903,7 @@ fun AddEditSessionBottomSheet(
                         Column {
                             Text(
                                 text = "انقر على الساعة لتغيير الوقت، أو على التاريخ إذا أردت تعديل اليوم:",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontSize = 11.sp)
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
                             )
                             Spacer(modifier = Modifier.height(6.dp))
 
@@ -872,7 +956,7 @@ fun AddEditSessionBottomSheet(
                                             Spacer(modifier = Modifier.width(3.dp))
                                             Text(
                                                 text = Formatters.formatDate(startDateMillis),
-                                                style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp)
+                                                style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
                                             )
                                         }
                                     }
@@ -927,16 +1011,15 @@ fun AddEditSessionBottomSheet(
                                             Icon(
                                                 Icons.Default.CalendarToday,
                                                 contentDescription = null,
-                                                tint = if (overnightNotice != null) Color(0xFF2563EB) else Color.Gray,
+                                                tint = if (overnightNotice != null) MaterialTheme.mosarib.info else Color.Gray,
                                                 modifier = Modifier.size(11.dp)
                                             )
                                             Spacer(modifier = Modifier.width(3.dp))
                                             Text(
                                                 text = Formatters.formatDate(endDateMillis),
                                                 style = MaterialTheme.typography.labelSmall.copy(
-                                                    color = if (overnightNotice != null) Color(0xFF2563EB) else Color.Gray,
-                                                    fontWeight = if (overnightNotice != null) FontWeight.Bold else FontWeight.Normal,
-                                                    fontSize = 10.sp
+                                                    color = if (overnightNotice != null) MaterialTheme.mosarib.info else Color.Gray,
+                                                    fontWeight = if (overnightNotice != null) FontWeight.Bold else FontWeight.Normal
                                                 )
                                             )
                                         }
@@ -950,9 +1033,9 @@ fun AddEditSessionBottomSheet(
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = CardDefaults.cardColors(
-                                        containerColor = if (isDark) Color(0xFF0E2338) else Color(0xFFEFF6FF)
+                                        containerColor = MaterialTheme.mosarib.info.copy(alpha = 0.12f)
                                     ),
-                                    border = BorderStroke(1.dp, if (isDark) Color(0xFF1D4ED8) else Color(0xFF93C5FD)),
+                                    border = BorderStroke(1.dp, MaterialTheme.mosarib.info.copy(alpha = 0.4f)),
                                     shape = RoundedCornerShape(10.dp)
                                 ) {
                                     Row(
@@ -962,16 +1045,15 @@ fun AddEditSessionBottomSheet(
                                         Icon(
                                             imageVector = if (isEndNight) Icons.Default.DarkMode else Icons.Default.WbSunny,
                                             contentDescription = null,
-                                            tint = if (isEndNight) (if (isDark) Color(0xFF93C5FD) else Color(0xFF2563EB)) else (if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706)),
+                                            tint = if (isEndNight) (MaterialTheme.mosarib.info) else (if (isDark) MaterialTheme.mosarib.warning else MaterialTheme.mosarib.warning),
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = dayDescription ?: overnightNotice.orEmpty(),
                                             style = MaterialTheme.typography.bodySmall.copy(
-                                                color = if (isDark) Color(0xFF93C5FD) else Color(0xFF1E40AF),
-                                                fontWeight = FontWeight.Medium,
-                                                fontSize = 11.sp
+                                                color = MaterialTheme.mosarib.info,
+                                                fontWeight = FontWeight.Medium
                                             )
                                         )
                                     }
@@ -1093,7 +1175,7 @@ fun AddEditSessionBottomSheet(
                                         Icon(
                                             imageVector = if (isEndNight) Icons.Default.DarkMode else Icons.Default.WbSunny,
                                             contentDescription = null,
-                                            tint = if (isEndNight) (if (isDark) Color(0xFF93C5FD) else Color(0xFF2563EB)) else (if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706)),
+                                            tint = if (isEndNight) (MaterialTheme.mosarib.info) else (if (isDark) MaterialTheme.mosarib.warning else MaterialTheme.mosarib.warning),
                                             modifier = Modifier.size(17.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
@@ -1111,15 +1193,14 @@ fun AddEditSessionBottomSheet(
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Surface(
                                                 shape = RoundedCornerShape(6.dp),
-                                                color = if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE),
-                                                border = BorderStroke(0.5.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD))
+                                                color = MaterialTheme.mosarib.info.copy(alpha = 0.12f),
+                                                border = BorderStroke(0.5.dp, MaterialTheme.mosarib.info.copy(alpha = 0.4f))
                                             ) {
                                                 Text(
                                                     text = dayDescription!!,
                                                     style = MaterialTheme.typography.labelSmall.copy(
-                                                        color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1),
-                                                        fontWeight = FontWeight.Bold,
-                                                        fontSize = 10.sp
+                                                        color = MaterialTheme.mosarib.info,
+                                                        fontWeight = FontWeight.Bold
                                                     ),
                                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                                 )
@@ -1136,9 +1217,9 @@ fun AddEditSessionBottomSheet(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
-                                containerColor = if (isDark) Color(0xFF2B1313) else Color(0xFFFEF2F2)
+                                containerColor = MaterialTheme.mosarib.debt.copy(alpha = 0.12f)
                             ),
-                            border = BorderStroke(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFF87171)),
+                            border = BorderStroke(1.dp, MaterialTheme.mosarib.debt.copy(alpha = 0.4f)),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Row(
@@ -1148,14 +1229,14 @@ fun AddEditSessionBottomSheet(
                                 Icon(
                                     Icons.Default.Warning,
                                     contentDescription = null,
-                                    tint = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
+                                    tint = MaterialTheme.mosarib.debt,
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "الحد الأقصى المسموح به للدورة الواحدة هو 10 أيام (240 ساعة).",
                                     style = MaterialTheme.typography.bodySmall.copy(
-                                        color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
+                                        color = MaterialTheme.mosarib.debt,
                                         fontWeight = FontWeight.Bold
                                     )
                                 )
@@ -1183,9 +1264,8 @@ fun AddEditSessionBottomSheet(
                     Text(
                         text = Formatters.amountToArabicWords(pricePerHour, currencySymbol),
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 11.sp
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
                         ),
                         modifier = Modifier.padding(horizontal = 4.dp)
                     )
@@ -1204,17 +1284,17 @@ fun AddEditSessionBottomSheet(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp)),
                 color = when {
-                    wastedTotalMinutes > 0 || discountAmount > 0 -> if (isDark) Color(0xFF162329) else Color(0xFFF8FAFC)
-                    isDark -> Color(0xFF141F25)
+                    wastedTotalMinutes > 0 || discountAmount > 0 -> MaterialTheme.colorScheme.surfaceVariant
+                    isDark -> MaterialTheme.colorScheme.surfaceVariant
                     else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
                 },
                 border = BorderStroke(
                     1.dp,
                     when {
-                        wastedTotalMinutes > 0 -> if (isDark) Color(0xFF9A3412) else Color(0xFFFED7AA)
-                        discountAmount > 0 -> if (isDark) Color(0xFF166534) else Color(0xFFBBF7D0)
-                        isDark -> Color(0xFF2A3C45)
-                        else -> Color(0xFFE2E8F0)
+                        wastedTotalMinutes > 0 -> MaterialTheme.mosarib.warning.copy(alpha = 0.4f)
+                        discountAmount > 0 -> MaterialTheme.mosarib.credit.copy(alpha = 0.4f)
+                        isDark -> MaterialTheme.colorScheme.outlineVariant
+                        else -> MaterialTheme.colorScheme.outlineVariant
                     }
                 ),
                 shape = RoundedCornerShape(12.dp)
@@ -1250,14 +1330,13 @@ fun AddEditSessionBottomSheet(
                             if (wastedTotalMinutes > 0) {
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
-                                    color = if (isDark) Color(0xFF261811) else Color(0xFFFFF7ED),
-                                    border = BorderStroke(0.5.dp, if (isDark) Color(0xFF9A3412) else Color(0xFFFED7AA))
+                                    color = MaterialTheme.mosarib.warning.copy(alpha = 0.12f),
+                                    border = BorderStroke(0.5.dp, MaterialTheme.mosarib.warning.copy(alpha = 0.4f))
                                 ) {
                                     Text(
                                         text = "هدر: ${Formatters.formatDurationArabic(wastedTotalMinutes)}",
                                         style = MaterialTheme.typography.labelSmall.copy(
-                                            color = if (isDark) Color(0xFFFB923C) else Color(0xFFC2410C),
-                                            fontSize = 10.sp,
+                                            color = MaterialTheme.mosarib.warning,
                                             fontWeight = FontWeight.Bold
                                         ),
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -1268,14 +1347,13 @@ fun AddEditSessionBottomSheet(
                             if (discountAmount > 0) {
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
-                                    color = if (isDark) Color(0xFF11261B) else Color(0xFFF0FDF4),
-                                    border = BorderStroke(0.5.dp, if (isDark) Color(0xFF166534) else Color(0xFFBBF7D0))
+                                    color = MaterialTheme.mosarib.credit.copy(alpha = 0.12f),
+                                    border = BorderStroke(0.5.dp, MaterialTheme.mosarib.credit.copy(alpha = 0.4f))
                                 ) {
                                     Text(
                                         text = "خصم: ${Formatters.formatCurrency(discountAmount, currencySymbol)}",
                                         style = MaterialTheme.typography.labelSmall.copy(
-                                            color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D),
-                                            fontSize = 10.sp,
+                                            color = MaterialTheme.mosarib.credit,
                                             fontWeight = FontWeight.Bold
                                         ),
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -1348,8 +1426,8 @@ fun AddEditSessionBottomSheet(
                             Spacer(modifier = Modifier.height(6.dp))
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = if (isDark) Color(0xFF2B1313) else Color(0xFFFEF2F2),
-                                border = BorderStroke(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFFECACA))
+                                color = MaterialTheme.mosarib.debt.copy(alpha = 0.12f),
+                                border = BorderStroke(1.dp, MaterialTheme.mosarib.debt.copy(alpha = 0.4f))
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -1358,14 +1436,14 @@ fun AddEditSessionBottomSheet(
                                     Icon(
                                         Icons.Default.ErrorOutline,
                                         contentDescription = null,
-                                        tint = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F),
+                                        tint = MaterialTheme.mosarib.debt,
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         "لا يمكن أن يكون الهدر أكبر من مدة السقي!",
                                         style = MaterialTheme.typography.bodySmall.copy(
-                                            color = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F),
+                                            color = MaterialTheme.mosarib.debt,
                                             fontWeight = FontWeight.Bold
                                         )
                                     )
@@ -1398,7 +1476,7 @@ fun AddEditSessionBottomSheet(
                             Text(
                                 text = Formatters.amountToArabicWords(discountAmount, currencySymbol),
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D),
+                                    color = MaterialTheme.mosarib.credit,
                                     fontWeight = FontWeight.Medium
                                 ),
                                 modifier = Modifier.padding(horizontal = 4.dp)
@@ -1415,9 +1493,9 @@ fun AddEditSessionBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isDark) Color(0xFF141F25) else PrimaryTeal.copy(alpha = 0.08f)
+                    containerColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant else PrimaryTeal.copy(alpha = 0.08f)
                 ),
-                border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else PrimaryTeal.copy(alpha = 0.2f))
+                border = BorderStroke(1.dp, if (isDark) MaterialTheme.colorScheme.outlineVariant else PrimaryTeal.copy(alpha = 0.2f))
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     // سطر الساعات
@@ -1437,8 +1515,8 @@ fun AddEditSessionBottomSheet(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("الهدر", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFFB923C) else Color(0xFFC2410C)))
-                            Text("- ${Formatters.formatDurationArabic(wastedTotalMinutes)}", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFFB923C) else Color(0xFFC2410C), fontWeight = FontWeight.Bold))
+                            Text("الهدر", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.warning))
+                            Text("- ${Formatters.formatDurationArabic(wastedTotalMinutes)}", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.warning, fontWeight = FontWeight.Bold))
                         }
                     }
 
@@ -1462,18 +1540,18 @@ fun AddEditSessionBottomSheet(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE))
-                                .border(1.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD), RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.mosarib.info.copy(alpha = 0.12f))
+                                .border(1.dp, MaterialTheme.mosarib.info.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.WaterDrop, contentDescription = null, tint = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.WaterDrop, contentDescription = null, tint = MaterialTheme.mosarib.info, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("مسجل على حساب صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                                Text("مسجل على حساب صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.info, fontWeight = FontWeight.Bold))
                             }
-                            Text(ownerName, style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                            Text(ownerName, style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.info, fontWeight = FontWeight.Bold))
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(
@@ -1491,15 +1569,15 @@ fun AddEditSessionBottomSheet(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("المحتسب على صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1)))
-                                Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.bodyMedium.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                                Text("المحتسب على صاحب البئر:", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.info))
+                                Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.mosarib.info, fontWeight = FontWeight.Bold))
                             }
                             if (finalFarmerCharge > 0) {
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     Formatters.amountToArabicWords(finalFarmerCharge, currencySymbol),
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1),
+                                        color = MaterialTheme.mosarib.info,
                                         fontWeight = FontWeight.Medium
                                     )
                                 )
@@ -1521,7 +1599,7 @@ fun AddEditSessionBottomSheet(
                                 Text(
                                     Formatters.amountToArabicWords(finalFarmerCharge, currencySymbol),
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontWeight = FontWeight.Medium
                                     )
                                 )
@@ -1544,8 +1622,8 @@ fun AddEditSessionBottomSheet(
                     text = "المبلغ المستلم ($currencySymbol)",
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B)
+                        
+                        color = MaterialTheme.colorScheme.onSurface
                     ),
                     modifier = Modifier.padding(bottom = 6.dp, start = 2.dp)
                 )
@@ -1564,8 +1642,8 @@ fun AddEditSessionBottomSheet(
                                 .clickable {
                                     amountPaidStr = if (isFullPaid) "" else Formatters.formatAmountInput(finalFarmerCharge.toString())
                                 },
-                            color = if (isFullPaid) AccentEmerald.copy(alpha = 0.12f) else (if (isDark) Color(0xFF141F25) else Color.White),
-                            border = BorderStroke(1.dp, if (isFullPaid) AccentEmerald else (if (isDark) Color(0xFF2A3F4D) else Color(0xFFCBD5E1))),
+                            color = if (isFullPaid) AccentEmerald.copy(alpha = 0.12f) else (MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, if (isFullPaid) AccentEmerald else (MaterialTheme.colorScheme.outlineVariant)),
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Row(
@@ -1637,12 +1715,12 @@ fun AddEditSessionBottomSheet(
                                 showDiscountDetails = true
                             }
                             .background(
-                                color = if (isDark) Color(0xFF2E2415) else Color(0xFFFEF3C7),
+                                color = MaterialTheme.mosarib.warning.copy(alpha = 0.12f),
                                 shape = RoundedCornerShape(8.dp)
                             )
                             .border(
                                 width = 1.dp,
-                                color = Color(0xFFF59E0B).copy(alpha = 0.5f),
+                                color = MaterialTheme.mosarib.warning.copy(alpha = 0.5f),
                                 shape = RoundedCornerShape(8.dp)
                             )
                             .padding(horizontal = 10.dp, vertical = 6.dp),
@@ -1653,14 +1731,14 @@ fun AddEditSessionBottomSheet(
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = null,
-                                tint = Color(0xFFD97706),
+                                tint = MaterialTheme.mosarib.warning,
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
                                 text = "تسوية وتصفير باقي الجلسة كخصم:",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isDark) Color(0xFFFCD34D) else Color(0xFF92400E)
+                                    color = MaterialTheme.mosarib.warning
                                 )
                             )
                         }
@@ -1668,7 +1746,7 @@ fun AddEditSessionBottomSheet(
                             text = Formatters.formatCurrency(diffToSettle, currencySymbol),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309)
+                                color = MaterialTheme.mosarib.warning
                             )
                         )
                     }
@@ -1681,8 +1759,8 @@ fun AddEditSessionBottomSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp)),
-                        color = if (isDark) Color(0xFF0F291E) else Color(0xFFECFDF5),
-                        border = BorderStroke(1.dp, if (isDark) Color(0xFF059669) else Color(0xFFA7F3D0)),
+                        color = MaterialTheme.mosarib.credit.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, MaterialTheme.mosarib.credit.copy(alpha = 0.4f)),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
@@ -1698,7 +1776,7 @@ fun AddEditSessionBottomSheet(
                                     text = "المبلغ المستلم أكبر من المطلوب بفائض: ${Formatters.formatCurrency(excessAmount, currencySymbol)}",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isDark) Color(0xFF6EE7B7) else Color(0xFF065F46)
+                                        color = MaterialTheme.mosarib.credit
                                     )
                                 )
                             }
@@ -1706,8 +1784,7 @@ fun AddEditSessionBottomSheet(
                             Text(
                                 text = "سيتم تلقائياً إصدار سند قبض مباشر بالفائض (${Formatters.formatCurrency(excessAmount, currencySymbol)}) لتسديد ديون العميل السابقة إن وُجدت، أو قيده كرصيد دائن لصالحه عند الحفظ.",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = if (isDark) Color(0xFFA7F3D0) else Color(0xFF047857),
-                                    fontSize = 11.sp
+                                    color = MaterialTheme.mosarib.credit
                                 )
                             )
                         }
@@ -1721,14 +1798,14 @@ fun AddEditSessionBottomSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE))
-                        .border(1.dp, if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD), RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.mosarib.info.copy(alpha = 0.12f))
+                        .border(1.dp, MaterialTheme.mosarib.info.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("المعاملة المحاسبية:", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1)))
-                    Text("مقاصة تخصم من مستحقات الشراء", style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1), fontWeight = FontWeight.Bold))
+                    Text("المعاملة المحاسبية:", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.info))
+                    Text("مقاصة تخصم من مستحقات الشراء", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.info, fontWeight = FontWeight.Bold))
                 }
             } else if (remainingDebt > 0) {
                 Spacer(modifier = Modifier.height(6.dp))
@@ -1736,8 +1813,8 @@ fun AddEditSessionBottomSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp)),
-                    color = if (isDark) Color(0xFF2B1313) else Color(0xFFFEF2F2),
-                    border = BorderStroke(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFFECACA)),
+                    color = MaterialTheme.mosarib.debt.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, MaterialTheme.mosarib.debt.copy(alpha = 0.4f)),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
@@ -1749,14 +1826,14 @@ fun AddEditSessionBottomSheet(
                             Text(
                                 text = "المتبقي (آجل):",
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
+                                    color = MaterialTheme.mosarib.debt,
                                     fontWeight = FontWeight.Bold
                                 )
                             )
                             Text(
                                 text = Formatters.formatCurrency(remainingDebt, currencySymbol),
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
+                                    color = MaterialTheme.mosarib.debt,
                                     fontWeight = FontWeight.ExtraBold
                                 )
                             )
@@ -1765,9 +1842,8 @@ fun AddEditSessionBottomSheet(
                         Text(
                             text = Formatters.amountToArabicWords(remainingDebt, currencySymbol),
                             style = MaterialTheme.typography.labelSmall.copy(
-                                color = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 11.sp
+                                color = MaterialTheme.mosarib.debt,
+                                fontWeight = FontWeight.Medium
                             )
                         )
                     }
@@ -1798,57 +1874,6 @@ fun AddEditSessionBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Save Button (حفظ مع أيقونة دالة ودعم الحفظ الفوري للعميل الجديد)
-            MosaribButton(
-                text = if (initialSession == null) "حفظ السقي" else "حفظ التعديل",
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                onClick = {
-                    val trimmedInput = customerInputText.trim()
-                    val matchedCust = customers.find { it.name.trim().equals(trimmedInput, ignoreCase = true) }
-                    val finalCustId = if (selectedCustomerId > 0) selectedCustomerId else (matchedCust?.id ?: 0L)
-
-                    if (finalCustId == 0L && trimmedInput.isNotBlank()) {
-                        showQuickCustomerDialog = true
-                        return@MosaribButton
-                    }
-
-                    if (finalCustId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes) {
-                        if (endCal.timeInMillis < startCal.timeInMillis) {
-                            Toast.makeText(context, "لا يمكن اختيار تاريخ أو وقت انتهاء قبل تاريخ ووقت البدء", Toast.LENGTH_SHORT).show()
-                            return@MosaribButton
-                        }
-                        onSave(
-                            initialSession?.id ?: 0L,
-                            finalCustId,
-                            legacyPumpName,
-                            startCal.timeInMillis,
-                            endCal.timeInMillis,
-                            hours,
-                            minutes,
-                            pricePerHour,
-                            amountPaid,
-                            notes,
-                            billedToCustomerId,
-                            wastedTotalMinutes,
-                            wastedReason,
-                            discountAmount,
-                            historicalCostPricePerHour,
-                            initialSession?.pumpSourceId
-                        )
-                        onDismiss()
-                    }
-                },
-                enabled = (selectedCustomerId > 0 || customerInputText.isNotBlank()) && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("save_session_button")
-            )
         }
     }
 
@@ -1972,8 +1997,8 @@ fun AddEditSessionBottomSheet(
         Dialog(onDismissRequest = { if (!isQuickSubmitting) showQuickCustomerDialog = false }) {
             Card(
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF141F25) else Color.White),
-                border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(8.dp)
@@ -2066,7 +2091,7 @@ fun AddEditSessionBottomSheet(
                                 .weight(1f)
                                 .clip(RoundedCornerShape(10.dp))
                                 .clickable { quickIsWellOwner = false },
-                            color = if (!quickIsWellOwner) PrimaryTeal.copy(alpha = 0.15f) else (if (isDark) Color(0xFF162329) else Color(0xFFF8FAFC)),
+                            color = if (!quickIsWellOwner) PrimaryTeal.copy(alpha = 0.15f) else (MaterialTheme.colorScheme.surfaceVariant),
                             border = BorderStroke(1.dp, if (!quickIsWellOwner) PrimaryTeal else Color.Gray.copy(alpha = 0.3f)),
                             shape = RoundedCornerShape(10.dp)
                         ) {
@@ -2086,8 +2111,8 @@ fun AddEditSessionBottomSheet(
                                 .weight(1f)
                                 .clip(RoundedCornerShape(10.dp))
                                 .clickable { quickIsWellOwner = true },
-                            color = if (quickIsWellOwner) Color(0xFF0284C7).copy(alpha = 0.15f) else (if (isDark) Color(0xFF162329) else Color(0xFFF8FAFC)),
-                            border = BorderStroke(1.dp, if (quickIsWellOwner) Color(0xFF0284C7) else Color.Gray.copy(alpha = 0.3f)),
+                            color = if (quickIsWellOwner) MaterialTheme.mosarib.info.copy(alpha = 0.15f) else (MaterialTheme.colorScheme.surfaceVariant),
+                            border = BorderStroke(1.dp, if (quickIsWellOwner) MaterialTheme.mosarib.info else Color.Gray.copy(alpha = 0.3f)),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Text(
@@ -2096,7 +2121,7 @@ fun AddEditSessionBottomSheet(
                                 textAlign = TextAlign.Center,
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = if (quickIsWellOwner) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (quickIsWellOwner) Color(0xFF0284C7) else MaterialTheme.colorScheme.onSurface
+                                    color = if (quickIsWellOwner) MaterialTheme.mosarib.info else MaterialTheme.colorScheme.onSurface
                                 )
                             )
                         }
@@ -2171,334 +2196,64 @@ fun SettleSessionDialog(
     val parsedDiscount = Formatters.parseAmountInput(discountStr)
     val totalSettled = parsedAmount + parsedDiscount
     val remainingAfter = (debtToSettle - totalSettled).coerceAtLeast(0.0)
-    val isAppDarkTheme = isAppDark()
 
-    AlertDialog(
+    MosaribDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+        title = "سداد سقي",
+        message = "#${session.id} • $customerName",
+        icon = Icons.Default.Payments,
+        tone = DialogTone.Neutral,
+        confirmText = "تأكيد السداد",
+        onConfirm = {
+            if (totalSettled > 0.0) {
+                showConfirmDialog = true
+            }
+        },
+        dismissText = "إلغاء",
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // بطاقة ملخص الحساب بتنسيق نظيف متوافق مع هوية التطبيق
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(AccentEmerald.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Payments,
-                        contentDescription = null,
-                        tint = AccentEmerald,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Column {
-                    Text(
-                        text = "سداد سقي",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Text(
-                        text = "#${session.id} • $customerName",
-                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                        maxLines = 1
-                    )
-                }
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // بطاقة ملخص الحساب بتنسيق نظيف متوافق مع هوية التطبيق
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "الإجمالي:",
-                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            )
-                            Text(
-                                text = Formatters.formatCurrency(session.totalAmount, currencySymbol),
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
-                            )
-                        }
-
-                        if (session.amountPaid > 0) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "المسدد:",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                )
-                                Text(
-                                    text = Formatters.formatCurrency(session.amountPaid, currencySymbol),
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = AccentEmerald
-                                    )
-                                )
-                            }
-                        }
-
-                        if (session.discountAmount > 0) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "الخصم:",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                )
-                                Text(
-                                    text = Formatters.formatCurrency(session.discountAmount, currencySymbol),
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
-                                )
-                            }
-                        }
-
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                            thickness = 0.5.dp
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "المطلوب:",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                            )
-                            Text(
-                                text = Formatters.formatCurrency(debtToSettle, currencySymbol),
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFFE53935)
-                                )
-                            )
-                        }
-                    }
-                }
-
-                // حقل المبلغ
-                MosaribTextField(
-                    value = amountStr,
-                    onValueChange = { amountStr = Formatters.formatAmountInput(it) },
-                    label = "المبلغ ($currencySymbol)",
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                if (parsedAmount > 0) {
-                    Text(
-                        text = "فقط: ${Formatters.amountToArabicWords(parsedAmount, currencySymbol)}",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = AccentEmerald,
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-                }
-
-                // حقل الخصم / التصفير
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "الخصم ($currencySymbol):",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        val uncollected = (debtToSettle - parsedAmount).coerceAtLeast(0.0)
-                        if (uncollected > 0.0) {
-                            Text(
-                                text = "تصفير (${Formatters.formatNumber(uncollected)})",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = PrimaryTeal,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(PrimaryTeal.copy(alpha = 0.10f))
-                                    .clickable {
-                                        discountStr = Formatters.formatAmountInput(uncollected.toString())
-                                    }
-                                    .padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
-
-                    MosaribTextField(
-                        value = discountStr,
-                        onValueChange = { discountStr = Formatters.formatAmountInput(it) },
-                        label = "مبلغ الخصم",
-                        placeholder = "0",
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                // حالة الحساب بعد السداد
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (remainingAfter <= 0.0) {
-                        if (isAppDarkTheme) Color(0xFF132A1C) else Color(0xFFE8F5E9)
-                    } else {
-                        if (isAppDarkTheme) Color(0xFF2E1F12) else Color(0xFFFFF3E0)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (remainingAfter <= 0.0) Icons.Default.CheckCircle else Icons.Default.Info,
-                            contentDescription = null,
-                            tint = if (remainingAfter <= 0.0) AccentEmerald else Color(0xFFE65100),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = if (remainingAfter <= 0.0) {
-                                "خالص بالكامل (0 $currencySymbol)"
-                            } else {
-                                "المتبقي: ${Formatters.formatCurrency(remainingAfter, currencySymbol)}"
-                            },
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = if (remainingAfter <= 0.0) AccentEmerald else Color(0xFFE65100)
-                            )
-                        )
-                    }
-                }
-
-                // طريقة الدفع
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = "الدفع:",
-                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("نقداً", "تحويل بنكي", "شبكة").forEach { method ->
-                            MosaribFilterChip(
-                                selected = paymentMethod == method,
-                                onClick = { paymentMethod = method },
-                                label = method
-                            )
-                        }
-                    }
-                }
-
-                // البيان
-                MosaribTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = "البيان",
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            MosaribButton(
-                text = "سداد",
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                },
-                onClick = {
-                    if (totalSettled > 0.0) {
-                        showConfirmDialog = true
-                    }
-                },
-                enabled = totalSettled > 0.0,
-                containerColor = AccentEmerald,
-                height = 46.dp,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("إلغاء", fontWeight = FontWeight.Bold)
-            }
-        }
-    )
-
-    // نافذة تأكيد السداد مع التفقيط والبيانات الكاملة
-    if (showConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showConfirmDialog = false },
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(AccentEmerald.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = AccentEmerald,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Text(
-                        text = "تأكيد السداد",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                }
-            },
-            text = {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = "العميل: $customerName",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Text(
-                        text = "السقي: #${session.id}",
-                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "المبلغ المطلوب سداده:",
+                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        )
+                        Text(
+                            text = Formatters.formatCurrency(debtToSettle, currencySymbol),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
 
-                    HorizontalDivider(
-                        thickness = 0.5.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                    )
+                    if (effectiveDebt < session.remainingDebt) {
+                        Text(
+                            text = "(محدد حسب المبلغ المتبقي من الدفعة)",
+                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary)
+                        )
+                    }
+
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2506,47 +2261,16 @@ fun SettleSessionDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "المبلغ:",
-                            style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            text = "إجمالي السداد + الخصم:",
+                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                         )
                         Text(
-                            text = Formatters.formatCurrency(parsedAmount, currencySymbol),
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Black,
-                                color = AccentEmerald,
-                                fontSize = 16.sp
-                            )
-                        )
-                    }
-
-                    if (parsedAmount > 0) {
-                        Text(
-                            text = "فقط: ${Formatters.amountToArabicWords(parsedAmount, currencySymbol)}",
-                            style = MaterialTheme.typography.labelSmall.copy(
+                            text = Formatters.formatCurrency(totalSettled, currencySymbol),
+                            style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = AccentEmerald
+                                color = MaterialTheme.mosarib.credit
                             )
                         )
-                    }
-
-                    if (parsedDiscount > 0) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "الخصم:",
-                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            )
-                            Text(
-                                text = Formatters.formatCurrency(parsedDiscount, currencySymbol),
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF8B5CF6)
-                                )
-                            )
-                        }
                     }
 
                     Row(
@@ -2555,55 +2279,224 @@ fun SettleSessionDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "المتبقي:",
+                            text = "المتبقي بعد هذه الدفعة:",
                             style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                         )
                         Text(
                             text = Formatters.formatCurrency(remainingAfter, currencySymbol),
-                            style = MaterialTheme.typography.bodySmall.copy(
+                            style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = if (remainingAfter <= 0) AccentEmerald else Color(0xFFE53935)
+                                color = if (remainingAfter <= 0.0) MaterialTheme.mosarib.credit else MaterialTheme.mosarib.debt
                             )
                         )
                     }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "طريقة الدفع:",
-                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        )
-                        Text(
-                            text = paymentMethod,
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                MosaribButton(
-                    text = "تأكيد",
-                    onClick = {
-                        showConfirmDialog = false
-                        onConfirmSettle(parsedAmount, parsedDiscount, paymentMethod, notes)
-                        onDismiss()
-                    },
-                    containerColor = AccentEmerald,
-                    height = 42.dp
-                )
-            },
-            dismissButton = {
-                TextButton(onClick = { showConfirmDialog = false }) {
-                    Text("تراجع", fontWeight = FontWeight.Bold)
                 }
             }
-        )
+
+            // حقل إدخال المبلغ المدفوع
+            MosaribTextField(
+                value = amountStr,
+                onValueChange = { amountStr = Formatters.formatAmountInput(it) },
+                label = "المبلغ المدفوع ($currencySymbol)",
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Payments,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            // حقل إدخال خصم المسامحة
+            MosaribTextField(
+                value = discountStr,
+                onValueChange = { discountStr = Formatters.formatAmountInput(it) },
+                label = "خصم تسوية / مسامحة ($currencySymbol) - اختياري",
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.LocalOffer,
+                        contentDescription = null,
+                        tint = MaterialTheme.mosarib.warning,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            // خيارات طريقة الدفع
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "طريقة الدفع:",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val methods = listOf("نقداً", "تحويل بنكي", "كريمي", "شبكة")
+                    methods.forEach { method ->
+                        val isSelected = paymentMethod == method
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(
+                                1.dp,
+                                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { paymentMethod = method }
+                        ) {
+                            Text(
+                                text = method,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                ),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // حقل الملاحظات
+            MosaribTextField(
+                value = notes,
+                onValueChange = { notes = it },
+                label = "البيان / ملاحظات السداد",
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+
+    // نافذة تأكيد السداد مع التفقيط والبيانات الكاملة
+    if (showConfirmDialog) {
+        val tafqeetCash = if (parsedAmount > 0.0) Formatters.amountToArabicWords(parsedAmount, currencySymbol) else ""
+        val tafqeetDisc = if (parsedDiscount > 0.0) Formatters.amountToArabicWords(parsedDiscount, currencySymbol) else ""
+
+        MosaribDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = "تأكيد السداد",
+            message = "العميل: $customerName",
+            icon = Icons.Default.CheckCircle,
+            tone = DialogTone.Success,
+            confirmText = "تأكيد وترحيل",
+            onConfirm = {
+                showConfirmDialog = false
+                onConfirmSettle(parsedAmount, parsedDiscount, paymentMethod, notes)
+                onDismiss()
+            },
+            dismissText = "تراجع",
+            onDismiss = { showConfirmDialog = false }
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // المبلغ والبيان
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "المبلغ المدفوع:",
+                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            )
+                            Text(
+                                text = Formatters.formatCurrency(parsedAmount, currencySymbol),
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.mosarib.credit
+                                )
+                            )
+                        }
+
+                        if (tafqeetCash.isNotBlank()) {
+                            Text(
+                                text = tafqeetCash,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = MaterialTheme.mosarib.credit,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            )
+                        }
+
+                        if (parsedDiscount > 0.0) {
+                            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "خصم مسامحة:",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                )
+                                Text(
+                                    text = Formatters.formatCurrency(parsedDiscount, currencySymbol),
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.mosarib.warning
+                                    )
+                                )
+                            }
+                            if (tafqeetDisc.isNotBlank()) {
+                                Text(
+                                    text = tafqeetDisc,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = MaterialTheme.mosarib.warning,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "طريقة الدفع:",
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    )
+                    Text(
+                        text = paymentMethod,
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+            }
+        }
     }
 }
-
 @Composable
 private fun TimePickerBox(
     modifier: Modifier = Modifier,
@@ -2656,7 +2549,7 @@ private fun TimePickerBox(
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.ExtraBold,
                     color = accentColor,
-                    fontSize = 19.sp
+                    
                 )
             )
 
@@ -2665,8 +2558,7 @@ private fun TimePickerBox(
             Text(
                 text = "انقر للتعديل",
                 style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 10.sp,
-                    color = androidx.compose.ui.graphics.Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             )
         }

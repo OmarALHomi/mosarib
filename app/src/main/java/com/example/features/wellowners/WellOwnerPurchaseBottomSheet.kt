@@ -1,55 +1,24 @@
 package com.example.features.wellowners
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,9 +26,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.example.core.ui.MosaribBottomSheet
 import com.example.core.ui.MosaribButton
 import com.example.core.ui.MosaribDatePickerDialog
+import com.example.core.ui.MosaribMenu
+import com.example.core.ui.MosaribMenuItem
+import com.example.core.ui.MosaribPrimaryButton
+import com.example.core.ui.MosaribSecondaryButton
 import com.example.core.ui.MosaribTextField
 import com.example.core.ui.MosaribTimePickerDialog
 import com.example.core.ui.isAppDark
@@ -67,13 +40,23 @@ import com.example.core.util.Formatters
 import com.example.features.customers.Customer
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.PrimaryTeal
+import com.example.ui.theme.mosarib
 import java.util.Calendar
 
+/**
+ * نمط إدخال أوقات الشراء:
+ * - PICKER: تحديد وقت البدء والانتهاء عبر منتقي الوقت والتاريخ.
+ * - MANUAL: تحديد وقت البدء + عدد الساعات والدقائق مباشرة.
+ */
 enum class PurchaseTimeMode {
     PICKER,
     MANUAL
 }
 
+/**
+ * صفيحة سفلية عائمة لتسجيل أو تعديل شراء ساعات ري من صاحب بئر.
+ * تدعم حماية الإغلاق العرضي وتأكيد التغييرات غير المحفوظة عبر [MosaribBottomSheet].
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WellOwnerPurchaseBottomSheet(
@@ -104,8 +87,6 @@ fun WellOwnerPurchaseBottomSheet(
         endTime: Long
     ) -> Unit)? = null
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val isDark = isAppDark()
     val now = System.currentTimeMillis()
 
     val ownersList = remember(availableOwners, owner) {
@@ -245,72 +226,123 @@ fun WellOwnerPurchaseBottomSheet(
     }
     val valid = durationMinutes in 1..6000 && wastedMinutes in 0..durationMinutes && rate > 0
 
-    BackHandler(onBack = onDismiss)
-    ModalBottomSheet(
+    // التحقق من وجود تغييرات غير محفوظة لمنع الإغلاق العرضي
+    val hasUnsavedChanges by remember(
+        initialPurchase,
+        hoursText,
+        minutesText,
+        wastedHoursText,
+        wastedMinutesText,
+        rateText,
+        amountPaidText,
+        notes,
+        selectedOwner
+    ) {
+        derivedStateOf {
+            if (initialPurchase == null) {
+                hoursText.isNotBlank() ||
+                minutesText.isNotBlank() ||
+                wastedHoursText.isNotBlank() ||
+                wastedMinutesText.isNotBlank() ||
+                amountPaidText.isNotBlank() ||
+                notes.isNotBlank()
+            } else {
+                notes != (initialPurchase.notes ?: "") ||
+                rate != initialPurchase.purchaseRatePerHour ||
+                amountPaidText.isNotBlank() ||
+                durationMinutes != initialPurchase.durationMinutes ||
+                wastedMinutes != initialPurchase.wastedMinutesOnOwner ||
+                selectedOwner?.id != initialPurchase.ownerCustomerId
+            }
+        }
+    }
+
+    val curOwner = selectedOwner
+    val canSave = valid && curOwner != null
+
+    MosaribBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface
+        title = if (initialPurchase != null) "تعديل شراء ساعات" else "شراء ساعات من بئر",
+        subtitle = if (owner != null) owner.name else selectedOwner?.name ?: "اختر صاحب البئر...",
+        icon = Icons.Default.WaterDrop,
+        hasUnsavedChanges = hasUnsavedChanges,
+        footer = {
+            MosaribPrimaryButton(
+                text = if (initialPurchase != null) "حفظ التعديل" else "حفظ الشراء",
+                onClick = {
+                    if (canSave) {
+                        val purchaseDate = computedStartTime
+                        if (onSaveWithOwner != null) {
+                            onSaveWithOwner.invoke(curOwner!!.id, purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
+                        } else {
+                            onSave?.invoke(purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
+                        }
+                    }
+                },
+                enabled = canSave,
+                modifier = Modifier.weight(1f)
+            )
+            MosaribSecondaryButton(
+                text = "إلغاء",
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f)
+            )
+        }
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp, vertical = 16.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // شريط العنوان
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        if (initialPurchase != null) "تعديل شراء ساعات" else "شراء ساعات من بئر",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+            // اختيار صاحب البئر إذا كان هناك أكثر من خيار ولم يتم تمريره ثابتاً
+            if (owner == null && ownersList.size > 1) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
                     )
-                    if (owner != null) {
-                        Text(owner.name, style = MaterialTheme.typography.bodyMedium, color = PrimaryTeal, fontWeight = FontWeight.SemiBold)
-                    } else if (ownersList.size > 1) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Box {
-                            Row(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { ownerDropdownExpanded = true }
-                                    .padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    selectedOwner?.name ?: "اختر صاحب البئر...",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = PrimaryTeal,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = PrimaryTeal)
-                            }
-                            DropdownMenu(
-                                expanded = ownerDropdownExpanded,
-                                onDismissRequest = { ownerDropdownExpanded = false }
-                            ) {
-                                ownersList.forEach { o ->
-                                    DropdownMenuItem(
-                                        text = { Text(o.name, fontWeight = FontWeight.Bold) },
-                                        onClick = {
-                                            selectedOwner = o
-                                            ownerDropdownExpanded = false
-                                        }
-                                    )
-                                }
-                            }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { ownerDropdownExpanded = true }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "صاحب البئر",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = selectedOwner?.name ?: "اختر صاحب البئر...",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
-                    } else {
-                        Text(selectedOwner?.name ?: "صاحب بئر", style = MaterialTheme.typography.bodyMedium, color = PrimaryTeal, fontWeight = FontWeight.SemiBold)
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
-                }
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "إغلاق")
+                    MosaribMenu(
+                        expanded = ownerDropdownExpanded,
+                        onDismissRequest = { ownerDropdownExpanded = false }
+                    ) {
+                        ownersList.forEach { o ->
+                            MosaribMenuItem(
+                                text = o.name,
+                                icon = Icons.Default.Person,
+                                onClick = {
+                                    selectedOwner = o
+                                    ownerDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
                 }
             }
 
@@ -340,7 +372,7 @@ fun WellOwnerPurchaseBottomSheet(
                                 .weight(1f)
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable { timeMode = PurchaseTimeMode.PICKER },
-                            color = if (timeMode == PurchaseTimeMode.PICKER) PrimaryTeal else Color.Transparent,
+                            color = if (timeMode == PurchaseTimeMode.PICKER) MaterialTheme.colorScheme.primary else Color.Transparent,
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Row(
@@ -351,7 +383,7 @@ fun WellOwnerPurchaseBottomSheet(
                                 Icon(
                                     imageVector = Icons.Default.AccessTime,
                                     contentDescription = null,
-                                    tint = if (timeMode == PurchaseTimeMode.PICKER) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = if (timeMode == PurchaseTimeMode.PICKER) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(15.dp)
                                 )
                                 Spacer(modifier = Modifier.width(5.dp))
@@ -359,7 +391,7 @@ fun WellOwnerPurchaseBottomSheet(
                                     text = "اختيار (بدء وانتهاء)",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = if (timeMode == PurchaseTimeMode.PICKER) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (timeMode == PurchaseTimeMode.PICKER) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 )
                             }
@@ -375,7 +407,7 @@ fun WellOwnerPurchaseBottomSheet(
                                     hoursText = (durationMinutes / 60).toString()
                                     minutesText = if (durationMinutes % 60 > 0) (durationMinutes % 60).toString() else ""
                                 },
-                            color = if (timeMode == PurchaseTimeMode.MANUAL) PrimaryTeal else Color.Transparent,
+                            color = if (timeMode == PurchaseTimeMode.MANUAL) MaterialTheme.colorScheme.primary else Color.Transparent,
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Row(
@@ -386,7 +418,7 @@ fun WellOwnerPurchaseBottomSheet(
                                 Icon(
                                     imageVector = Icons.Default.Edit,
                                     contentDescription = null,
-                                    tint = if (timeMode == PurchaseTimeMode.MANUAL) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = if (timeMode == PurchaseTimeMode.MANUAL) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(15.dp)
                                 )
                                 Spacer(modifier = Modifier.width(5.dp))
@@ -394,7 +426,7 @@ fun WellOwnerPurchaseBottomSheet(
                                     text = "من + عدد الساعات",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = if (timeMode == PurchaseTimeMode.MANUAL) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (timeMode == PurchaseTimeMode.MANUAL) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 )
                             }
@@ -422,14 +454,17 @@ fun WellOwnerPurchaseBottomSheet(
                                 Column(modifier = Modifier.padding(10.dp)) {
                                     Text(
                                         text = "بدء الشراء (من)",
-                                        style = MaterialTheme.typography.labelSmall.copy(color = PrimaryTeal, fontWeight = FontWeight.Bold)
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(8.dp))
-                                            .background(PrimaryTeal.copy(alpha = 0.08f))
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
                                             .clickable { showStartTimePicker = true }
                                             .padding(vertical = 6.dp, horizontal = 4.dp),
                                         contentAlignment = Alignment.Center
@@ -449,11 +484,18 @@ fun WellOwnerPurchaseBottomSheet(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.Center
                                     ) {
-                                        Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(11.dp))
+                                        Icon(
+                                            Icons.Default.CalendarToday,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(11.dp)
+                                        )
                                         Spacer(modifier = Modifier.width(3.dp))
                                         Text(
                                             text = Formatters.formatDate(startDateMillis),
-                                            style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp)
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
                                         )
                                     }
                                 }
@@ -462,7 +504,7 @@ fun WellOwnerPurchaseBottomSheet(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = null,
-                                tint = PrimaryTeal.copy(alpha = 0.6f),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
                                 modifier = Modifier.size(18.dp)
                             )
 
@@ -478,7 +520,10 @@ fun WellOwnerPurchaseBottomSheet(
                                 Column(modifier = Modifier.padding(10.dp)) {
                                     Text(
                                         text = "نهاية الشراء (إلى)",
-                                        style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = AccentEmerald,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Box(
@@ -505,11 +550,18 @@ fun WellOwnerPurchaseBottomSheet(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.Center
                                     ) {
-                                        Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(11.dp))
+                                        Icon(
+                                            Icons.Default.CalendarToday,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(11.dp)
+                                        )
                                         Spacer(modifier = Modifier.width(3.dp))
                                         Text(
                                             text = Formatters.formatDate(endDateMillis),
-                                            style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp)
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
                                         )
                                     }
                                 }
@@ -537,7 +589,10 @@ fun WellOwnerPurchaseBottomSheet(
                                     Column {
                                         Text(
                                             text = "وقت بدء الضخ (من):",
-                                            style = MaterialTheme.typography.labelSmall.copy(color = PrimaryTeal, fontWeight = FontWeight.Bold)
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold
+                                            )
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -548,7 +603,9 @@ fun WellOwnerPurchaseBottomSheet(
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Text(
                                                 text = "• ${Formatters.formatDate(startDateMillis)}",
-                                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
                                             )
                                         }
                                     }
@@ -596,23 +653,22 @@ fun WellOwnerPurchaseBottomSheet(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(if (isDark) Color(0xFF1E293B) else Color(0xFFEFF6FF))
+                                .background(MaterialTheme.mosarib.info.copy(alpha = 0.12f))
                                 .padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 imageVector = Icons.Default.DarkMode,
                                 contentDescription = null,
-                                tint = if (isDark) Color(0xFF93C5FD) else Color(0xFF2563EB),
+                                tint = MaterialTheme.mosarib.info,
                                 modifier = Modifier.size(13.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "ينتهي الضخ في اليوم التالي (${Formatters.formatDate(computedEndTime)})",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = if (isDark) Color(0xFF93C5FD) else Color(0xFF2563EB),
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 11.sp
+                                    color = MaterialTheme.mosarib.info,
+                                    fontWeight = FontWeight.Medium
                                 )
                             )
                         }
@@ -625,18 +681,24 @@ fun WellOwnerPurchaseBottomSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
-                            .background(PrimaryTeal.copy(alpha = 0.08f))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = "المدة الإجمالية:",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal)
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         )
                         Text(
                             text = Formatters.formatDurationArabic(durationMinutes),
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, color = PrimaryTeal)
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         )
                     }
                 }
@@ -666,14 +728,14 @@ fun WellOwnerPurchaseBottomSheet(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDark) Color(0xFF2B1313) else Color(0xFFFEF2F2)
+                        containerColor = MaterialTheme.mosarib.debt.copy(alpha = 0.12f)
                     ),
-                    border = BorderStroke(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFF87171)),
+                    border = BorderStroke(1.dp, MaterialTheme.mosarib.debt.copy(alpha = 0.4f)),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Text(
                         text = "لا يمكن أن يكون وقت الهدر ($wastedMinutes د) أكبر من مدة الشراء ($durationMinutes د)",
-                        color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
+                        color = MaterialTheme.mosarib.debt,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(10.dp)
                     )
@@ -717,29 +779,40 @@ fun WellOwnerPurchaseBottomSheet(
                     if (wasteCredit > 0) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("خصم الهدر")
-                            Text(Formatters.formatCurrency(wasteCredit, currencySymbol), color = if (isDark) Color(0xFFF87171) else Color(0xFFD32F2F))
+                            Text(
+                                Formatters.formatCurrency(wasteCredit, currencySymbol),
+                                color = MaterialTheme.mosarib.debt
+                            )
                         }
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("المستحق لصاحب البئر", fontWeight = FontWeight.Bold)
-                        Text(Formatters.formatCurrency(payableAmount, currencySymbol), color = PrimaryTeal, fontWeight = FontWeight.Bold)
+                        Text(
+                            Formatters.formatCurrency(payableAmount, currencySymbol),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                     if (amountPaid > 0) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("المدفوع نقداً فوراً", color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D), fontWeight = FontWeight.SemiBold)
-                            Text(Formatters.formatCurrency(amountPaid, currencySymbol), color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D), fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "المدفوع نقداً فوراً",
+                                color = MaterialTheme.mosarib.credit,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                Formatters.formatCurrency(amountPaid, currencySymbol),
+                                color = MaterialTheme.mosarib.credit,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
-                    HorizontalDivider(color = PrimaryTeal.copy(alpha = 0.2f), modifier = Modifier.padding(vertical = 2.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 2.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("المتبقي بذمتك له", fontWeight = FontWeight.ExtraBold)
                         Text(
                             Formatters.formatCurrency(remainingDueToOwner, currencySymbol),
-                            color = if (remainingDueToOwner > 0) {
-                                if (isDark) Color(0xFFF87171) else Color(0xFFB91C1C)
-                            } else {
-                                if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D)
-                            },
+                            color = if (remainingDueToOwner > 0) MaterialTheme.mosarib.debt else MaterialTheme.mosarib.credit,
                             fontWeight = FontWeight.ExtraBold
                         )
                     }
@@ -753,25 +826,6 @@ fun WellOwnerPurchaseBottomSheet(
                 leadingIcon = { Icon(Icons.Default.WaterDrop, contentDescription = null, tint = PrimaryTeal) },
                 modifier = Modifier.fillMaxWidth()
             )
-
-            val curOwner = selectedOwner
-            val canSave = valid && curOwner != null
-            MosaribButton(
-                text = if (initialPurchase != null) "حفظ التعديل" else "حفظ الشراء",
-                onClick = {
-                    if (canSave) {
-                        val purchaseDate = computedStartTime
-                        if (onSaveWithOwner != null) {
-                            onSaveWithOwner.invoke(curOwner!!.id, purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
-                        } else {
-                            onSave?.invoke(purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
-                        }
-                    }
-                },
-                enabled = canSave,
-                leadingIcon = { Icon(if (initialPurchase != null) Icons.Default.Check else Icons.Default.AccessTime, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth()
-            )
         }
     }
 
@@ -779,10 +833,10 @@ fun WellOwnerPurchaseBottomSheet(
     if (showStartDatePicker) {
         MosaribDatePickerDialog(
             initialTimestamp = startDateMillis,
-            title = "تحديد تاريخ بدء الشراء",
             onDismiss = { showStartDatePicker = false },
-            onDateSelected = { newDate ->
-                startDateMillis = newDate
+            onDateSelected = { ts ->
+                startDateMillis = ts
+                if (endDateMillis < ts) endDateMillis = ts
                 showStartDatePicker = false
             }
         )
@@ -792,7 +846,7 @@ fun WellOwnerPurchaseBottomSheet(
         MosaribTimePickerDialog(
             initialHour24 = startHour,
             initialMinute = startMinute,
-            title = "تحديد وقت بدء الشراء (من)",
+            title = "وقت بدء الضخ",
             onDismiss = { showStartTimePicker = false },
             onTimeSelected = { h, m ->
                 startHour = h
@@ -805,10 +859,10 @@ fun WellOwnerPurchaseBottomSheet(
     if (showEndDatePicker) {
         MosaribDatePickerDialog(
             initialTimestamp = endDateMillis,
-            title = "تحديد تاريخ انتهاء الشراء",
+            minTimestamp = startDateMillis,
             onDismiss = { showEndDatePicker = false },
-            onDateSelected = { newDate ->
-                endDateMillis = newDate
+            onDateSelected = { ts ->
+                endDateMillis = ts
                 showEndDatePicker = false
             }
         )
@@ -818,7 +872,7 @@ fun WellOwnerPurchaseBottomSheet(
         MosaribTimePickerDialog(
             initialHour24 = endHour,
             initialMinute = endMinute,
-            title = "تحديد وقت انتهاء الشراء (إلى)",
+            title = "وقت نهاية الضخ",
             onDismiss = { showEndTimePicker = false },
             onTimeSelected = { h, m ->
                 endHour = h
