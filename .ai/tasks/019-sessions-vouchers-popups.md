@@ -1,7 +1,6 @@
-status: draft
+status: ready
 
-<!-- Becomes ready when 016 and 018 are accepted and merged into master (it uses MosaribSheets and
-touches VouchersScreen after 016). -->
+<!-- ready 2026-11-02: 016 and 018 are merged. Runs in its own worktree D:\Kotlin\mosarib-t019. -->
 # Task 019: Migrate irrigation, voucher and well-owner popups to the shared components
 
 ## Goal
@@ -17,6 +16,11 @@ popups consistent.
 - `features/wellowners/WellOwnerPurchaseBottomSheet.kt` (sheet + menu; ~11 colours).
 - `features/vouchers/VouchersScreen.kt`: add-voucher / add-expense sheets, delete dialogs, the
   kebab menus of the cards, the speed-dial. Do not change the cards or the 016 filters.
+
+- `core/ui/FilterBarComponents.kt`: the dropdown of `FilterDropdownChip` on `MosaribMenu` /
+  `MosaribMenuItem`, keeping the check mark on the selected option.
+- The two "اختيار عميل…" / date-range dialogs that 016 added in `VouchersScreen.kt` go on
+  `MosaribDialog` / `MosaribBottomSheet`.
 
 ## Rules
 - Forms (add/edit irrigation, voucher, purchase) pass `hasUnsavedChanges = true` once any field
