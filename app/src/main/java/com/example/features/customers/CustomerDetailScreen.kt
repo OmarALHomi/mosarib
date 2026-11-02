@@ -61,13 +61,10 @@ import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
@@ -78,6 +75,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import com.example.core.ui.DialogTone
+import com.example.core.ui.MosaribDialog
+import com.example.core.ui.MosaribMenu
+import com.example.core.ui.MosaribMenuItem
+import com.example.core.ui.MosaribMenuDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -1219,29 +1221,33 @@ fun CustomerDetailScreen(
                                                         modifier = Modifier.size(18.dp)
                                                     )
                                                 }
-                                                DropdownMenu(
+                                                MosaribMenu(
                                                     expanded = purchaseMenuExpanded,
                                                     onDismissRequest = { purchaseMenuExpanded = false }
                                                 ) {
-                                                    DropdownMenuItem(
-                                                        text = { Text("تعديل", fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                                    MosaribMenuItem(
+                                                        text = "تعديل",
+                                                        icon = Icons.Default.Edit,
+                                                        tint = MaterialTheme.colorScheme.primary,
                                                         onClick = {
                                                             purchaseMenuExpanded = false
                                                             purchaseToEdit = purchase
                                                         }
                                                     )
-                                                    DropdownMenuItem(
-                                                        text = { Text("مشاركة", fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = MaterialTheme.mosarib.credit) },
+                                                    MosaribMenuItem(
+                                                        text = "مشاركة",
+                                                        icon = Icons.AutoMirrored.Filled.Send,
+                                                        tint = MaterialTheme.mosarib.credit,
                                                         onClick = {
                                                             purchaseMenuExpanded = false
                                                             messagePurchaseTarget = purchase
                                                         }
                                                     )
-                                                    DropdownMenuItem(
-                                                        text = { Text("حذف", color = MaterialTheme.mosarib.debt, fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.mosarib.debt) },
+                                                    MosaribMenuDivider()
+                                                    MosaribMenuItem(
+                                                        text = "حذف",
+                                                        icon = Icons.Default.Delete,
+                                                        destructive = true,
                                                         onClick = {
                                                             purchaseMenuExpanded = false
                                                             purchaseToDelete = purchase
@@ -1384,21 +1390,23 @@ fun CustomerDetailScreen(
                                                         modifier = Modifier.size(18.dp)
                                                     )
                                                 }
-                                                DropdownMenu(
+                                                MosaribMenu(
                                                     expanded = sessionMenuExpanded,
                                                     onDismissRequest = { sessionMenuExpanded = false }
                                                 ) {
-                                                    DropdownMenuItem(
-                                                        text = { Text("مشاركة (واتساب)", fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = MaterialTheme.mosarib.credit) },
+                                                    MosaribMenuItem(
+                                                        text = "مشاركة (واتساب)",
+                                                        icon = Icons.AutoMirrored.Filled.Send,
+                                                        tint = MaterialTheme.mosarib.credit,
                                                         onClick = {
                                                             sessionMenuExpanded = false
                                                             messageSessionTarget = session
                                                         }
                                                     )
-                                                    DropdownMenuItem(
-                                                        text = { Text("تصدير PDF", fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = MaterialTheme.mosarib.warning) },
+                                                    MosaribMenuItem(
+                                                        text = "تصدير PDF",
+                                                        icon = Icons.Default.PictureAsPdf,
+                                                        tint = MaterialTheme.mosarib.warning,
                                                         onClick = {
                                                             sessionMenuExpanded = false
                                                             val file = PdfReportGenerator.generateSessionInvoicePdf(
@@ -1411,17 +1419,20 @@ fun CustomerDetailScreen(
                                                             localPdfReady = Pair(file, "فاتورة ري #${session.id}")
                                                         }
                                                     )
-                                                    DropdownMenuItem(
-                                                        text = { Text("تعديل", fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                                    MosaribMenuItem(
+                                                        text = "تعديل",
+                                                        icon = Icons.Default.Edit,
+                                                        tint = MaterialTheme.colorScheme.primary,
                                                         onClick = {
                                                             sessionMenuExpanded = false
                                                             sessionToEdit = session
                                                         }
                                                     )
-                                                    DropdownMenuItem(
-                                                        text = { Text("حذف", color = MaterialTheme.mosarib.debt, fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.mosarib.debt) },
+                                                    MosaribMenuDivider()
+                                                    MosaribMenuItem(
+                                                        text = "حذف",
+                                                        icon = Icons.Default.Delete,
+                                                        destructive = true,
                                                         onClick = {
                                                             sessionMenuExpanded = false
                                                             sessionToDelete = session
@@ -1532,21 +1543,23 @@ fun CustomerDetailScreen(
                                                         modifier = Modifier.size(18.dp)
                                                     )
                                                 }
-                                                DropdownMenu(
+                                                MosaribMenu(
                                                     expanded = voucherMenuExpanded,
                                                     onDismissRequest = { voucherMenuExpanded = false }
                                                 ) {
-                                                    DropdownMenuItem(
-                                                        text = { Text("مشاركة (واتساب)", fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = MaterialTheme.mosarib.credit) },
+                                                    MosaribMenuItem(
+                                                        text = "مشاركة (واتساب)",
+                                                        icon = Icons.AutoMirrored.Filled.Send,
+                                                        tint = MaterialTheme.mosarib.credit,
                                                         onClick = {
                                                             voucherMenuExpanded = false
                                                             messageCustomTarget = "سند قبض #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nطريقة الدفع: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
                                                         }
                                                     )
-                                                    DropdownMenuItem(
-                                                        text = { Text("تصدير PDF", fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = MaterialTheme.mosarib.warning) },
+                                                    MosaribMenuItem(
+                                                        text = "تصدير PDF",
+                                                        icon = Icons.Default.PictureAsPdf,
+                                                        tint = MaterialTheme.mosarib.warning,
                                                         onClick = {
                                                             voucherMenuExpanded = false
                                                             val file = PdfReportGenerator.generateReceiptVoucherPdf(
@@ -1558,17 +1571,20 @@ fun CustomerDetailScreen(
                                                             localPdfReady = Pair(file, "سند قبض #${voucher.voucherNumber}")
                                                         }
                                                     )
-                                                    DropdownMenuItem(
-                                                        text = { Text("تعديل", fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                                    MosaribMenuItem(
+                                                        text = "تعديل",
+                                                        icon = Icons.Default.Edit,
+                                                        tint = MaterialTheme.colorScheme.primary,
                                                         onClick = {
                                                             voucherMenuExpanded = false
                                                             voucherToEdit = voucher
                                                         }
                                                     )
-                                                    DropdownMenuItem(
-                                                        text = { Text("حذف", color = MaterialTheme.mosarib.debt, fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.mosarib.debt) },
+                                                    MosaribMenuDivider()
+                                                    MosaribMenuItem(
+                                                        text = "حذف",
+                                                        icon = Icons.Default.Delete,
+                                                        destructive = true,
                                                         onClick = {
                                                             voucherMenuExpanded = false
                                                             voucherToDelete = voucher
@@ -1615,21 +1631,23 @@ fun CustomerDetailScreen(
                                                         modifier = Modifier.size(18.dp)
                                                     )
                                                 }
-                                                DropdownMenu(
+                                                MosaribMenu(
                                                     expanded = voucherMenuExpanded,
                                                     onDismissRequest = { voucherMenuExpanded = false }
                                                 ) {
-                                                    DropdownMenuItem(
-                                                        text = { Text("مشاركة (واتساب)", fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = MaterialTheme.mosarib.credit) },
+                                                    MosaribMenuItem(
+                                                        text = "مشاركة (واتساب)",
+                                                        icon = Icons.AutoMirrored.Filled.Send,
+                                                        tint = MaterialTheme.mosarib.credit,
                                                         onClick = {
                                                             voucherMenuExpanded = false
                                                             messageCustomTarget = "سند صرف #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ المصروف: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nالبيان: ${voucher.notes.ifBlank { voucher.category }}\nطريقة الصرف: ${voucher.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
                                                         }
                                                     )
-                                                    DropdownMenuItem(
-                                                        text = { Text("تصدير PDF", fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = MaterialTheme.mosarib.warning) },
+                                                    MosaribMenuItem(
+                                                        text = "تصدير PDF",
+                                                        icon = Icons.Default.PictureAsPdf,
+                                                        tint = MaterialTheme.mosarib.warning,
                                                         onClick = {
                                                             voucherMenuExpanded = false
                                                             val file = PdfReportGenerator.generateExpenseVoucherPdf(
@@ -1641,17 +1659,20 @@ fun CustomerDetailScreen(
                                                             localPdfReady = Pair(file, "سند صرف #${voucher.voucherNumber}")
                                                         }
                                                     )
-                                                    DropdownMenuItem(
-                                                        text = { Text("تعديل", fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                                    MosaribMenuItem(
+                                                        text = "تعديل",
+                                                        icon = Icons.Default.Edit,
+                                                        tint = MaterialTheme.colorScheme.primary,
                                                         onClick = {
                                                             voucherMenuExpanded = false
                                                             voucherToEdit = voucher
                                                         }
                                                     )
-                                                    DropdownMenuItem(
-                                                        text = { Text("حذف", color = MaterialTheme.mosarib.debt, fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.mosarib.debt) },
+                                                    MosaribMenuDivider()
+                                                    MosaribMenuItem(
+                                                        text = "حذف",
+                                                        icon = Icons.Default.Delete,
+                                                        destructive = true,
                                                         onClick = {
                                                             voucherMenuExpanded = false
                                                             voucherToDelete = voucher
@@ -1697,29 +1718,33 @@ fun CustomerDetailScreen(
                                                         modifier = Modifier.size(18.dp)
                                                     )
                                                 }
-                                                DropdownMenu(
+                                                MosaribMenu(
                                                     expanded = voucherMenuExpanded,
                                                     onDismissRequest = { voucherMenuExpanded = false }
                                                 ) {
-                                                    DropdownMenuItem(
-                                                        text = { Text("مشاركة (واتساب)", fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = MaterialTheme.mosarib.credit) },
+                                                    MosaribMenuItem(
+                                                        text = "مشاركة (واتساب)",
+                                                        icon = Icons.AutoMirrored.Filled.Send,
+                                                        tint = MaterialTheme.mosarib.credit,
                                                         onClick = {
                                                             voucherMenuExpanded = false
                                                             messageCustomTarget = "سند تسوية وخصم #${voucher.voucherNumber.ifEmpty { voucher.id.toString() }}\nالعميل: ${customer.name}\nمبلغ الخصم: ${Formatters.formatCurrency(voucher.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)})\nالبيان: ${voucher.notes.ifBlank { voucher.category }}\nالتاريخ: ${Formatters.formatDateTime(voucher.date)}"
                                                         }
                                                     )
-                                                    DropdownMenuItem(
-                                                        text = { Text("تعديل", fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                                    MosaribMenuItem(
+                                                        text = "تعديل",
+                                                        icon = Icons.Default.Edit,
+                                                        tint = MaterialTheme.colorScheme.primary,
                                                         onClick = {
                                                             voucherMenuExpanded = false
                                                             voucherToEdit = voucher
                                                         }
                                                     )
-                                                    DropdownMenuItem(
-                                                        text = { Text("حذف", color = MaterialTheme.mosarib.debt, fontWeight = FontWeight.Bold) },
-                                                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.mosarib.debt) },
+                                                    MosaribMenuDivider()
+                                                    MosaribMenuItem(
+                                                        text = "حذف",
+                                                        icon = Icons.Default.Delete,
+                                                        destructive = true,
                                                         onClick = {
                                                             voucherMenuExpanded = false
                                                             voucherToDelete = voucher
@@ -2277,15 +2302,14 @@ fun CustomerDetailScreen(
     if (showOwnerWasteDialog && customer.isWellOwner) {
         val latestPurchase = purchases.maxByOrNull { it.date }
         if (latestPurchase == null) {
-            AlertDialog(
+            MosaribDialog(
                 onDismissRequest = { showOwnerWasteDialog = false },
-                title = { Text("لا توجد مشتريات سابقة", fontWeight = FontWeight.Bold) },
-                text = { Text("يجب تسجيل عملية شراء ساعات أولاً ليتم خصم الهدر منها لصالح المسرب.") },
-                confirmButton = {
-                    TextButton(onClick = { showOwnerWasteDialog = false }) {
-                        Text("حسناً")
-                    }
-                }
+                title = "لا توجد مشتريات سابقة",
+                message = "يجب تسجيل عملية شراء ساعات أولاً ليتم خصم الهدر منها لصالح المسرب.",
+                tone = DialogTone.Neutral,
+                confirmText = "حسناً",
+                onConfirm = { showOwnerWasteDialog = false },
+                dismissText = null
             )
         } else {
             val availableMinutes = (latestPurchase.durationMinutes - latestPurchase.wastedMinutesOnOwner).coerceAtLeast(0)
@@ -2304,109 +2328,94 @@ fun CustomerDetailScreen(
             }
             val canConfirm = newWasteMinutes in 1..availableMinutes
 
-            AlertDialog(
+            MosaribDialog(
                 onDismissRequest = { showOwnerWasteDialog = false },
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.AccessTime, contentDescription = null, tint = Color(0xFFE65100))
-                        Spacer(Modifier.width(8.dp))
-                        Text("تسجيل هدر للبئر", fontWeight = FontWeight.Bold)
+                title = "تسجيل هدر للبئر",
+                icon = Icons.Default.AccessTime,
+                tone = DialogTone.Warning,
+                confirmText = "خصم الهدر من المستحق",
+                onConfirm = {
+                    if (canConfirm) {
+                        viewModel.recordWasteOnOwner(customer.id, newWasteMinutes, wasteReason)
+                        showOwnerWasteDialog = false
                     }
                 },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            text = "يُخصم من آخر شراء (${Formatters.formatDate(latestPurchase.date)}) بسعر (${Formatters.formatCurrency(latestPurchase.purchaseRatePerHour, config.currencySymbol)}/ساعة).",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                dismissText = "إلغاء",
+                onDismiss = { showOwnerWasteDialog = false }
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "يُخصم من آخر شراء (${Formatters.formatDate(latestPurchase.date)}) بسعر (${Formatters.formatCurrency(latestPurchase.purchaseRatePerHour, config.currencySymbol)}/ساعة).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
 
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("مدة آخر شراء:")
-                                    Text(Formatters.formatDurationArabic(latestPurchase.durationMinutes), fontWeight = FontWeight.Bold)
-                                }
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("الهدر السابق المسجل:")
-                                    Text(Formatters.formatDurationArabic(latestPurchase.wastedMinutesOnOwner), color = Color(0xFFD32F2F))
-                                }
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("أقصى هدر متاح للخصم:", fontWeight = FontWeight.Bold)
-                                    Text(Formatters.formatDurationArabic(availableMinutes), color = PrimaryTeal, fontWeight = FontWeight.ExtraBold)
-                                }
-                            }
-                        }
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
-                                value = wasteHoursText,
-                                onValueChange = { wasteHoursText = it.filter(Char::isDigit).take(2) },
-                                label = { Text("ساعات الهدر") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                            OutlinedTextField(
-                                value = wasteMinutesText,
-                                onValueChange = { wasteMinutesText = it.filter(Char::isDigit).take(2) },
-                                label = { Text("دقائق الهدر") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                        }
-
-                        if (isExceeded) {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-                                border = BorderStroke(1.dp, Color(0xFFF87171)),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = "لا يمكن أن يكون الهدر أكبر من عملية الشراء! الحد المتاح: ${Formatters.formatDurationArabic(availableMinutes)}",
-                                    color = Color(0xFFB91C1C),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(8.dp)
-                                )
-                            }
-                        }
-
-                        OutlinedTextField(
-                            value = wasteReason,
-                            onValueChange = { wasteReason = it },
-                            label = { Text("سبب الهدر (اختياري)") },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp)
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            if (canConfirm) {
-                                viewModel.recordWasteOnOwner(customer.id, newWasteMinutes, wasteReason)
-                                showOwnerWasteDialog = false
-                            }
-                        },
-                        enabled = canConfirm,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100))
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("خصم الهدر من المستحق", fontWeight = FontWeight.Bold)
+                        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("مدة آخر شراء:")
+                                Text(Formatters.formatDurationArabic(latestPurchase.durationMinutes), fontWeight = FontWeight.Bold)
+                            }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("الهدر السابق المسجل:")
+                                Text(Formatters.formatDurationArabic(latestPurchase.wastedMinutesOnOwner), color = MaterialTheme.mosarib.debt)
+                            }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("أقصى هدر متاح للخصم:", fontWeight = FontWeight.Bold)
+                                Text(Formatters.formatDurationArabic(availableMinutes), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold)
+                            }
+                        }
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showOwnerWasteDialog = false }) {
-                        Text("إلغاء")
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = wasteHoursText,
+                            onValueChange = { wasteHoursText = it.filter(Char::isDigit).take(2) },
+                            label = { Text("ساعات الهدر") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        OutlinedTextField(
+                            value = wasteMinutesText,
+                            onValueChange = { wasteMinutesText = it.filter(Char::isDigit).take(2) },
+                            label = { Text("دقائق الهدر") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(10.dp)
+                        )
                     }
+
+                    if (isExceeded) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "لا يمكن أن يكون الهدر أكبر من عملية الشراء! الحد المتاح: ${Formatters.formatDurationArabic(availableMinutes)}",
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = wasteReason,
+                        onValueChange = { wasteReason = it },
+                        label = { Text("سبب الهدر (اختياري)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
                 }
-            )
+            }
         }
     }
 
@@ -2541,119 +2550,102 @@ private fun CustomerActionsDropdownMenu(
     onOwnerPurchase: () -> Unit,
     onOwnerWaste: () -> Unit
 ) {
-    DropdownMenu(
+    MosaribMenu(
         expanded = expanded,
-        onDismissRequest = onDismissRequest,
-        modifier = Modifier
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(vertical = 4.dp)
+        onDismissRequest = onDismissRequest
     ) {
         if (customer.isWellOwner) {
-            DropdownMenuItem(
-                text = { Text("شراء ساعات", fontWeight = FontWeight.Bold) },
+            MosaribMenuItem(
+                text = "شراء ساعات",
                 onClick = onOwnerPurchase,
-                leadingIcon = {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = AccentGold, modifier = Modifier.size(20.dp))
-                }
+                icon = Icons.Default.Add,
+                tint = MaterialTheme.mosarib.warning
             )
-            DropdownMenuItem(
-                text = { Text("سقي له", fontWeight = FontWeight.Bold) },
+            MosaribMenuItem(
+                text = "سقي له",
                 onClick = onAddSession,
-                leadingIcon = {
-                    Icon(Icons.Default.WaterDrop, contentDescription = null, tint = SecondaryAquaDark, modifier = Modifier.size(20.dp))
-                }
+                icon = Icons.Default.WaterDrop,
+                tint = MaterialTheme.mosarib.info
             )
-            DropdownMenuItem(
-                text = { Text("تسجيل هدر", fontWeight = FontWeight.Bold) },
+            MosaribMenuItem(
+                text = "تسجيل هدر",
                 onClick = onOwnerWaste,
-                leadingIcon = {
-                    Icon(Icons.Default.AccessTime, contentDescription = null, tint = Color(0xFFFFB74D), modifier = Modifier.size(20.dp))
-                }
+                icon = Icons.Default.AccessTime,
+                tint = MaterialTheme.mosarib.warning
             )
-            DropdownMenuItem(
-                text = { Text("سند صرف (عليه)", fontWeight = FontWeight.Bold) },
+            MosaribMenuItem(
+                text = "سند صرف (عليه)",
                 onClick = onAddDisbursement,
-                leadingIcon = {
-                    Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = Color(0xFFFF8A80), modifier = Modifier.size(20.dp))
-                }
+                icon = Icons.Default.ArrowDownward,
+                tint = MaterialTheme.mosarib.debt
             )
-            DropdownMenuItem(
-                text = { Text("سند قبض (له)", fontWeight = FontWeight.Bold) },
+            MosaribMenuItem(
+                text = "سند قبض (له)",
                 onClick = onAddReceipt,
-                leadingIcon = {
-                    Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(20.dp))
-                }
+                icon = Icons.Default.Payments,
+                tint = MaterialTheme.mosarib.success
             )
             if (customer.phone.isNotBlank()) {
-                DropdownMenuItem(
-                    text = { Text("اتصال هاتفياً", fontWeight = FontWeight.Bold) },
+                MosaribMenuItem(
+                    text = "اتصال هاتفياً",
                     onClick = onCall,
-                    leadingIcon = {
-                        Icon(Icons.Default.Call, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(20.dp))
-                    }
+                    icon = Icons.Default.Call,
+                    tint = MaterialTheme.mosarib.success
                 )
-                DropdownMenuItem(
-                    text = { Text("إرسال كشف حساب", fontWeight = FontWeight.Bold) },
+                MosaribMenuItem(
+                    text = "إرسال كشف حساب",
                     onClick = onSendMessage,
-                    leadingIcon = {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF00897B), modifier = Modifier.size(20.dp))
-                    }
+                    icon = Icons.AutoMirrored.Filled.Send,
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
         } else {
             if (customer.phone.isNotBlank()) {
-                DropdownMenuItem(
-                    text = { Text("اتصال", fontWeight = FontWeight.Bold) },
+                MosaribMenuItem(
+                    text = "اتصال",
                     onClick = onCall,
-                    leadingIcon = {
-                        Icon(Icons.Default.Call, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(20.dp))
-                    }
+                    icon = Icons.Default.Call,
+                    tint = MaterialTheme.mosarib.success
                 )
-                DropdownMenuItem(
-                    text = { Text("إرسال كشف", fontWeight = FontWeight.Bold) },
+                MosaribMenuItem(
+                    text = "إرسال كشف",
                     onClick = onSendMessage,
-                    leadingIcon = {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF00897B), modifier = Modifier.size(20.dp))
-                    }
+                    icon = Icons.AutoMirrored.Filled.Send,
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
-            DropdownMenuItem(
-                text = { Text("سقي جديد", fontWeight = FontWeight.Bold) },
+            MosaribMenuItem(
+                text = "سقي جديد",
                 onClick = onAddSession,
-                leadingIcon = {
-                    Icon(Icons.Default.WaterDrop, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(20.dp))
-                }
+                icon = Icons.Default.WaterDrop,
+                tint = MaterialTheme.colorScheme.primary
             )
-            DropdownMenuItem(
-                text = { Text("سند قبض (له)", fontWeight = FontWeight.Bold) },
+            MosaribMenuItem(
+                text = "سند قبض (له)",
                 onClick = onAddReceipt,
-                leadingIcon = {
-                    Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(20.dp))
-                }
+                icon = Icons.Default.Payments,
+                tint = MaterialTheme.mosarib.success
             )
-            DropdownMenuItem(
-                text = { Text("سند صرف (عليه)", fontWeight = FontWeight.Bold) },
+            MosaribMenuItem(
+                text = "سند صرف (عليه)",
                 onClick = onAddDisbursement,
-                leadingIcon = {
-                    Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = Color(0xFFFF8A80), modifier = Modifier.size(20.dp))
-                }
+                icon = Icons.Default.ArrowDownward,
+                tint = MaterialTheme.mosarib.debt
             )
         }
 
-        DropdownMenuItem(
-            text = { Text("كشف حساب PDF", fontWeight = FontWeight.Bold) },
+        MosaribMenuItem(
+            text = "كشف حساب PDF",
             onClick = onPdf,
-            leadingIcon = {
-                Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold, modifier = Modifier.size(20.dp))
-            }
+            icon = Icons.Default.PictureAsPdf,
+            tint = MaterialTheme.mosarib.warning
         )
 
-        DropdownMenuItem(
-            text = { Text("تعديل البيانات", fontWeight = FontWeight.Bold) },
+        MosaribMenuItem(
+            text = "تعديل البيانات",
             onClick = onEdit,
-            leadingIcon = {
-                Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(20.dp))
-            }
+            icon = Icons.Default.Edit,
+            tint = MaterialTheme.colorScheme.primary
         )
     }
 }

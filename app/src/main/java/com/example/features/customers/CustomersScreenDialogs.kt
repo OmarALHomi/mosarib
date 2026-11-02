@@ -1,6 +1,7 @@
 package com.example.features.customers
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,17 +19,11 @@ import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -40,8 +35,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.core.ui.DialogTone
+import com.example.core.ui.MosaribBottomSheet
+import com.example.core.ui.MosaribDialog
 import com.example.core.ui.MosaribFileActionDialog
 import com.example.core.ui.MosaribLoadingDialog
 import com.example.core.ui.SendMessageChoiceDialog
@@ -52,8 +49,7 @@ import com.example.features.sessions.WaterSession
 import com.example.features.vouchers.AddVoucherBottomSheet
 import com.example.features.vouchers.VoucherType
 import com.example.features.vouchers.VouchersViewModel
-import com.example.ui.theme.AccentGold
-import com.example.ui.theme.PrimaryTeal
+import com.example.ui.theme.mosarib
 import java.io.File
 
 /**
@@ -192,7 +188,9 @@ internal fun CustomerStatementMessageDialog(
 /**
  * نافذة الإضافة السريعة (عميل جديد / سقي / معاملة)
  */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * نافذة الإضافة السريعة (عميل جديد / سقي / معاملة)
+ */
 @Composable
 internal fun QuickAddChoiceSheet(
     onDismiss: () -> Unit,
@@ -200,81 +198,44 @@ internal fun QuickAddChoiceSheet(
     onAddSession: () -> Unit,
     onAddVoucher: () -> Unit
 ) {
-    ModalBottomSheet(
+    MosaribBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(top = 10.dp, bottom = 6.dp)
-                    .width(36.dp)
-                    .height(4.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
-            )
-        }
+        title = "إضافة سريعة",
+        subtitle = "اختر الإجراء الذي تود تسجيله مباشرة"
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 6.dp)
-                .navigationBarsPadding(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text(
-                text = "إضافة سريعة",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 17.sp
-                )
-            )
-            Text(
-                text = "اختر الإجراء الذي تود تسجيله مباشرة",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp
-                ),
-                modifier = Modifier.padding(top = 2.dp, bottom = 16.dp)
-            )
-
             // 1. عميل جديد
             QuickAddOptionItem(
                 icon = Icons.Default.PersonAdd,
-                iconTint = PrimaryTeal,
-                iconBg = PrimaryTeal.copy(alpha = 0.12f),
+                iconTint = MaterialTheme.colorScheme.primary,
+                iconBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 title = "عميل أو صاحب بئر جديد",
                 subtitle = "تسجيل حساب مزارع جديد أو صاحب بئر",
                 onClick = onAddCustomer
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
-
             // 2. سقي
             QuickAddOptionItem(
                 icon = Icons.Default.WaterDrop,
-                iconTint = Color(0xFF0288D1),
-                iconBg = Color(0xFF0288D1).copy(alpha = 0.12f),
+                iconTint = MaterialTheme.mosarib.info,
+                iconBg = MaterialTheme.mosarib.info.copy(alpha = 0.12f),
                 title = "تسجيل دورة سقي",
                 subtitle = "حساب ساعات ري مزارع وتحديث الحساب",
                 onClick = onAddSession
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
-
             // 3. معاملة
             QuickAddOptionItem(
                 icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                iconTint = AccentGold,
-                iconBg = AccentGold.copy(alpha = 0.14f),
+                iconTint = MaterialTheme.mosarib.warning,
+                iconBg = MaterialTheme.mosarib.warning.copy(alpha = 0.14f),
                 title = "معاملة مالية (سند)",
                 subtitle = "تسجيل سند قبض نقد/بنك أو سند صرف",
                 onClick = onAddVoucher
             )
-
-            Spacer(modifier = Modifier.height(18.dp))
         }
     }
 }
@@ -320,15 +281,13 @@ private fun QuickAddOptionItem(
                     text = title,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 15.sp
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 )
             }
@@ -431,23 +390,15 @@ internal fun ArchiveCustomerDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    MosaribDialog(
         onDismissRequest = onDismiss,
-        title = { Text("أرشفة الحساب", fontWeight = FontWeight.Bold) },
-        text = { Text("سيتم أرشفة حساب (${customer.name}) وإخفاؤه مع الاحتفاظ بجميع عملياته.") },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
-            ) {
-                Text("حذف نهائي")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("إلغاء")
-            }
-        }
+        title = "أرشفة الحساب",
+        message = "سيتم أرشفة حساب (${customer.name}) وإخفاؤه مع الاحتفاظ بجميع عملياته.",
+        tone = DialogTone.Danger,
+        confirmText = "حذف نهائي",
+        onConfirm = onConfirm,
+        dismissText = "إلغاء",
+        onDismiss = onDismiss
     )
 }
 

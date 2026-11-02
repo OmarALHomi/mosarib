@@ -30,8 +30,9 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.example.core.ui.MosaribMenu
+import com.example.core.ui.MosaribMenuItem
+import com.example.core.ui.MosaribMenuDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -411,55 +412,62 @@ fun CustomerCardItem(
                         )
                     }
 
-                    DropdownMenu(
+                    MosaribMenu(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false }
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("إرسال كشف عبر واتساب") },
-                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = MaterialTheme.mosarib.success) },
+                        MosaribMenuItem(
+                            text = "إرسال كشف عبر واتساب",
+                            icon = Icons.AutoMirrored.Filled.Send,
+                            tint = MaterialTheme.mosarib.success,
                             onClick = {
                                 menuExpanded = false
                                 onWhatsAppClick()
                             }
                         )
-                        DropdownMenuItem(
-                            text = { Text("كشف حساب PDF") },
-                            leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
+                        MosaribMenuItem(
+                            text = "كشف حساب PDF",
+                            icon = Icons.Default.PictureAsPdf,
+                            tint = MaterialTheme.colorScheme.tertiary,
                             onClick = {
                                 menuExpanded = false
                                 onPdfStatementClick()
                             }
                         )
-                        DropdownMenuItem(
-                            text = { Text("عرض كشف الحساب", fontWeight = FontWeight.Bold) },
-                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        MosaribMenuItem(
+                            text = "عرض كشف الحساب",
+                            icon = Icons.Default.Person,
+                            tint = MaterialTheme.colorScheme.primary,
                             onClick = {
                                 menuExpanded = false
                                 onClick()
                             }
                         )
                         if (customer.phone.isNotEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text("اتصال هاتفي (${customer.phone})") },
-                                leadingIcon = { Icon(Icons.Default.Call, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            MosaribMenuItem(
+                                text = "اتصال هاتفي (${customer.phone})",
+                                icon = Icons.Default.Call,
+                                tint = MaterialTheme.colorScheme.primary,
                                 onClick = {
                                     menuExpanded = false
                                     onCallClick()
                                 }
                             )
                         }
-                        DropdownMenuItem(
-                            text = { Text(if (customer.isWellOwner) "تعديل حساب البئر" else "تعديل العميل") },
-                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                        MosaribMenuItem(
+                            text = if (customer.isWellOwner) "تعديل حساب البئر" else "تعديل العميل",
+                            icon = Icons.Default.Edit,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             onClick = {
                                 menuExpanded = false
                                 onEditClick()
                             }
                         )
-                        DropdownMenuItem(
-                            text = { Text("أرشفة الحساب", color = MaterialTheme.mosarib.debt, fontWeight = FontWeight.Bold) },
-                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.mosarib.debt) },
+                        MosaribMenuDivider()
+                        MosaribMenuItem(
+                            text = "أرشفة الحساب",
+                            icon = Icons.Default.Delete,
+                            destructive = true,
                             onClick = {
                                 menuExpanded = false
                                 onDeleteClick()
