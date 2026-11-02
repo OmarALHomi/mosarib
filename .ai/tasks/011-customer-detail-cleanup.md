@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 <!-- ready since 015 was accepted (2026-11-02). Runs in parallel with 012, 016 and 018 in its own worktree. -->
 
 # Task 011: Customer detail — one place per action, compact ledger, clearer header
@@ -75,4 +75,34 @@ status: ready
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+**Round 1: changes-requested** (2026-11-02). Build and tests pass. Checked on the device:
+- the header has contact and documents only;
+- the big "قبض (له)" / "صرف (عليه)" buttons work;
+- the stats are shown;
+- the ledger cards are grouped by day;
+- the running balance ends at the header balance (15,339 له);
+- the amount in words shows under every amount.
+
+Good work. Two fixes:
+
+1. **Keep the type colours of the cards.** This is the owner's rule: users recognise an operation
+   by its colour. In the ledger, the border, bar, icon and badge use the customer's
+   point-of-view colour. A session shows **red**, while the same session is **blue** on the
+   operations screen. A discount is green here and purple there.
+
+   Pass the **type** accent to `OperationCard`, exactly as `VouchersScreen` does:
+   - session `info`;
+   - receipt `success`;
+   - expense `debt`;
+   - discount `discount`;
+   - purchase `warning`.
+
+   The customer's point of view stays only in the **sign** of the amount ("+" / "−"), and the
+   running-balance line explains the effect. If `OperationCard` has no separate amount-colour
+   parameter, keep the amount in the type colour. Do not add one.
+2. **Collapsed top bar:** when the header collapses, a generic green tree icon shows next to the
+   name. Use the same initials avatar (32dp, `AvatarPalette`) as the expanded header.
+
+Allowed files: `CustomerDetailScreen.kt`. Append a "Round 2" section to `.ai/reports/011.md`.
+
+**Round 2 verdict: accepted (2026-11-02, code review). Ledger cards now use the type accents (session info, receipt success, expense debt, discount discount, purchase warning); the collapsed top bar uses the initials avatar. Tests pass. The device check was not possible because the phone was disconnected; Claude checks after the merge.**
