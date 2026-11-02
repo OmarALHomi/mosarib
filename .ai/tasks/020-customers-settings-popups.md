@@ -21,6 +21,10 @@ Same as 019, for the rest of the app.
 - `MainScreen.kt`: the top-bar ⋮ menus on `MosaribMenu`.
 - `core/ui/MosaribTextField.kt`: its dropdown on `MosaribMenu`.
 
+- Leftovers from 012: remove `isAppDark()` from `CustomerImportReviewDialog.kt` and
+  `RecycleBinDialog.kt` (use tokens). In `core/ui/MosaribTimePickerDialog.kt` use
+  `String.format(Locale.US, "%02d", …)`, so digits stay 0-9 on Arabic phones.
+
 ## Rules
 Same as task 019:
 - form sheets set `hasUnsavedChanges`;
