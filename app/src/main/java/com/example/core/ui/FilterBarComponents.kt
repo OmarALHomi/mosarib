@@ -9,7 +9,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,13 +19,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.core.util.Formatters
 import com.example.features.customers.Customer
 import com.example.ui.theme.mosarib
+import java.util.Calendar
 
 data class DropdownOption<out T>(val value: T, val label: String)
 
 /**
- * شريحة منسدلة موحدة للفلاتر.
+ * شريحة منسدلة موحدة للفلاتر تعتمد على MosaribMenu و MosaribMenuItem.
  * ارتفاع 36dp، حواف دائرية CircleShape، وحاشية أفقية 12dp.
  * إذا كانت القيمة افتراضية: إطار 1dp outline مع نص onSurfaceVariant.
  * إذا كانت غير افتراضية: خلفية primaryContainer مع نص onPrimaryContainer بدون إطار.
@@ -81,32 +85,18 @@ fun <T> FilterDropdownChip(
             }
         }
 
-        DropdownMenu(
+        MosaribMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier.widthIn(min = 180.dp)
         ) {
             options.forEach { opt ->
                 val isSelected = opt.value == selected
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = opt.label,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        )
-                    },
-                    trailingIcon = if (isSelected) {
-                        {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    } else null,
+                MosaribMenuItem(
+                    text = opt.label,
+                    icon = null,
+                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    trailing = if (isSelected) "✓" else null,
                     onClick = {
                         expanded = false
                         onSelect(opt.value)
@@ -115,7 +105,7 @@ fun <T> FilterDropdownChip(
             }
 
             if (footer != null) {
-                HorizontalDivider()
+                MosaribMenuDivider()
                 footer()
             }
         }
@@ -157,7 +147,7 @@ fun FilterClearAllChip(
 }
 
 /**
- * نافذة اختيار عميل سريعة مع البحث.
+ * نافذة اختيار عميل سريعة مع البحث على MosaribDialog.
  */
 @Composable
 fun CustomerSearchPickerDialog(
@@ -178,74 +168,218 @@ fun CustomerSearchPickerDialog(
         }
     }
 
-    AlertDialog(
+    MosaribDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "اختيار عميل",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 380.dp)
-            ) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    placeholder = { Text("بحث عن عميل...", style = MaterialTheme.typography.bodyMedium) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
-                )
+        title = "اختيار عميل",
+        icon = Icons.Default.Person,
+        tone = DialogTone.Neutral,
+        message = null,
+        confirmText = "إلغاء",
+        onConfirm = onDismiss,
+        dismissText = null
+    ) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            placeholder = { Text("بحث عن عميل...", style = MaterialTheme.typography.bodyMedium) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
+        )
 
-                Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-                LazyColumn(
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 300.dp)
+        ) {
+            items(filteredCustomers, key = { it.id }) { customer ->
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f, fill = false)
+                        .clickable { onSelect(customer) }
+                        .padding(vertical = 10.dp, horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    items(filteredCustomers, key = { it.id }) { customer ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelect(customer) }
-                                .padding(vertical = 10.dp, horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = customer.name,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                if (customer.farmName.isNotBlank() || customer.phone.isNotBlank()) {
-                                    Text(
-                                        text = listOfNotNull(
-                                            customer.farmName.takeIf { it.isNotBlank() },
-                                            customer.phone.takeIf { it.isNotBlank() }
-                                        ).joinToString(" · "),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = customer.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        if (customer.farmName.isNotBlank() || customer.phone.isNotBlank()) {
+                            Text(
+                                text = listOfNotNull(
+                                    customer.farmName.takeIf { it.isNotBlank() },
+                                    customer.phone.takeIf { it.isNotBlank() }
+                                ).joinToString(" · "),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     }
                 }
-            }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("إلغاء", fontWeight = FontWeight.Bold)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             }
         }
-    )
+    }
+}
+
+/**
+ * نافذة حوار لتحديد فترة مخصصة (من تاريخ - إلى تاريخ) على MosaribDialog.
+ */
+@Composable
+fun MosaribDateRangeDialog(
+    initialStartTs: Long?,
+    initialEndTs: Long?,
+    onDismiss: () -> Unit,
+    onConfirm: (startTs: Long, endTs: Long) -> Unit
+) {
+    val now = remember { System.currentTimeMillis() }
+    var startTimestamp by remember {
+        mutableLongStateOf(initialStartTs ?: now)
+    }
+    var endTimestamp by remember {
+        mutableLongStateOf(initialEndTs ?: maxOf(startTimestamp, now))
+    }
+
+    var showStartPicker by remember { mutableStateOf(false) }
+    var showEndPicker by remember { mutableStateOf(false) }
+
+    MosaribDialog(
+        onDismissRequest = onDismiss,
+        title = "تحديد الفترة (من - إلى)",
+        icon = Icons.Default.DateRange,
+        tone = DialogTone.Neutral,
+        message = "اختر تاريخ البداية والنهاية لتصفية العمليات",
+        confirmText = "تطبيق",
+        onConfirm = {
+            val startCal = Calendar.getInstance().apply {
+                timeInMillis = startTimestamp
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            val endCal = Calendar.getInstance().apply {
+                timeInMillis = endTimestamp
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+                set(Calendar.MILLISECOND, 999)
+            }
+            onConfirm(startCal.timeInMillis, endCal.timeInMillis)
+        },
+        dismissText = "إلغاء",
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // من تاريخ
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { showStartPicker = true }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            text = "من تاريخ",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = Formatters.formatDate(startTimestamp),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+
+            // إلى تاريخ
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { showEndPicker = true }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            text = "إلى تاريخ",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = Formatters.formatDate(endTimestamp),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
+    }
+
+    if (showStartPicker) {
+        MosaribDatePickerDialog(
+            title = "من تاريخ",
+            initialTimestamp = startTimestamp,
+            onDismiss = { showStartPicker = false },
+            onDateSelected = { ts ->
+                startTimestamp = ts
+                if (endTimestamp < ts) endTimestamp = ts
+                showStartPicker = false
+            }
+        )
+    }
+
+    if (showEndPicker) {
+        MosaribDatePickerDialog(
+            title = "إلى تاريخ",
+            initialTimestamp = endTimestamp,
+            minTimestamp = startTimestamp,
+            onDismiss = { showEndPicker = false },
+            onDateSelected = { ts ->
+                endTimestamp = ts
+                showEndPicker = false
+            }
+        )
+    }
 }

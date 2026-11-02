@@ -7,6 +7,7 @@ import com.example.core.database.AppDatabase
 import com.example.core.ui.ToastMessage
 import com.example.core.ui.ToastType
 import com.example.features.customers.Customer
+import com.example.features.customers.CustomerWithBalance
 import com.example.features.customers.CustomerRepository
 import com.example.features.sessions.WaterSessionRepository
 import com.example.features.sessions.WaterSessionWithCustomer
@@ -192,6 +193,14 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
             val stateWithoutType = state.copy(type = OperationsFilter.ALL)
             OperationsFilterEngine.apply(allOps, stateWithoutType, customersMap, query, System.currentTimeMillis())
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val totalReceivableDebt: StateFlow<Double> =
+        combine(
+            customerRepo.customersWithBalance,
+            _filterState
+        ) { cwbList, filter ->
+            calculateFilteredReceivableTotal(cwbList, filter)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
     fun setOperationsFilter(filter: OperationsFilter) {
         _operationsFilter.value = filter
@@ -895,3 +904,36 @@ fun calculateFifoAllocation(
     )
 }
 
+
+/**
+ * حساب إجمالي الديون المستحقة على العملاء (Receivables) بما يطابق شاشة التقارير وشاشة العملاء،
+ * مع مراعاة فلاتر العمليات (المجموعة، نوع الحساب، والعميل المحدد).
+ * لا ينطبق فلتر الفترة الزمنية لأن المبلغ يمثل رصيداً تراكمياً حالياً.
+ */
+fun calculateFilteredReceivableTotal(
+    customersWithBalance: List<CustomerWithBalance>,
+    filterState: OperationsFilterState
+): Double {
+    return customersWithBalance
+        .asSequence()
+        .filter { cwb ->
+            val customer = cwb.customer
+            if (filterState.customerId != null && customer.id != filterState.customerId) {
+                return@filter false
+            }
+            val matchesAccountType = when (filterState.accountType) {
+                AccountTypeFilter.ALL -> true
+                AccountTypeFilter.FARMER -> !customer.isWellOwner
+                AccountTypeFilter.WELL_OWNER -> customer.isWellOwner
+            }
+            if (!matchesAccountType) return@filter false
+
+            val matchesGroup = when {
+                filterState.group == null -> true
+                filterState.group.isEmpty() -> customer.customGroup.isBlank()
+                else -> customer.customGroup == filterState.group
+            }
+            matchesGroup
+        }
+        .sumOf { it.receivableBalance }
+}
