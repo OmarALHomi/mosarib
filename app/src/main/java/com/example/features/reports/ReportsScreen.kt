@@ -70,11 +70,11 @@ import com.example.core.ui.MosaribDatePickerDialog
 import com.example.core.ui.isAppDark
 import com.example.core.util.FileSharingHelper
 import com.example.core.util.Formatters
-import com.example.ui.theme.AccentEmerald
-import com.example.ui.theme.AccentGold
-import com.example.ui.theme.PrimaryTeal
+
+
+
 import com.example.ui.theme.mosarib
-import com.example.ui.theme.SecondaryAqua
+
 import kotlin.math.max
 
 @Composable
@@ -282,8 +282,8 @@ private fun PeriodFilterChip(
         },
         shape = RoundedCornerShape(16.dp),
         colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = PrimaryTeal,
-            selectedLabelColor = Color.White,
+            selectedContainerColor = MaterialTheme.colorScheme.primary,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             labelColor = MaterialTheme.colorScheme.onSurfaceVariant
         ),
@@ -327,7 +327,7 @@ private fun HeroProfitCard(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            if (isProfit) AccentEmerald.copy(alpha = 0.08f) else Color(0xFFE53935).copy(alpha = 0.08f),
+                            if (isProfit) MaterialTheme.mosarib.credit.copy(alpha = 0.08f) else MaterialTheme.mosarib.debt.copy(alpha = 0.08f),
                             Color.Transparent
                         )
                     )
@@ -347,15 +347,15 @@ private fun HeroProfitCard(
                                 .size(32.dp)
                                 .clip(CircleShape)
                             .background(
-                                if (isProfit) (if (isDark) Color(0xFF132A1C) else AccentEmerald.copy(alpha = 0.15f))
-                                else (if (isDark) Color(0xFF2A1517) else Color(0xFFFFEBEE))
+                                if (isProfit) MaterialTheme.mosarib.successContainer
+                                else MaterialTheme.colorScheme.errorContainer
                             ),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.TrendingUp,
                                 contentDescription = null,
-                                tint = if (isProfit) (if (isDark) Color(0xFF4ADE80) else AccentEmerald) else (if (isDark) Color(0xFFF87171) else Color(0xFFE53935)),
+                                tint = if (isProfit) MaterialTheme.mosarib.credit else MaterialTheme.mosarib.debt,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -370,16 +370,16 @@ private fun HeroProfitCard(
                     }
 
                     Surface(
-                        color = if (isProfit) (if (isDark) Color(0xFF132A1C) else AccentEmerald.copy(alpha = 0.12f))
-                        else (if (isDark) Color(0xFF2A1517) else Color(0xFFFFEBEE)),
+                        color = if (isProfit) MaterialTheme.mosarib.successContainer
+                        else MaterialTheme.colorScheme.errorContainer,
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
                             text = if (isProfit) "ربح" else "عجز",
-                            color = if (isProfit) (if (isDark) Color(0xFF4ADE80) else Color(0xFF1B5E20))
-                            else (if (isDark) Color(0xFFF87171) else Color(0xFFC62828)),
+                            color = if (isProfit) MaterialTheme.mosarib.credit
+                            else MaterialTheme.mosarib.debt,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
+
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
@@ -394,10 +394,10 @@ private fun HeroProfitCard(
                 ) {
                     Text(
                         text = Formatters.formatCurrency(stats.netOperatingProfit, currencySymbol),
-                        style = MaterialTheme.typography.headlineMedium.copy(
+                        style = MaterialTheme.typography.headlineLarge.copy(
                             fontWeight = FontWeight.Black,
-                            color = if (isProfit) AccentEmerald else Color(0xFFE53935),
-                            fontSize = 28.sp
+                            color = if (isProfit) MaterialTheme.mosarib.credit else MaterialTheme.mosarib.debt
+
                         )
                     )
                 }
@@ -408,7 +408,7 @@ private fun HeroProfitCard(
                 if (totalRevenue > 0) {
                     Text(
                         text = "الإيراد: ${Formatters.formatCurrency(totalRevenue, currencySymbol)}",
-                        style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted, fontWeight = FontWeight.Bold)
                     )
                     Spacer(modifier = Modifier.height(6.dp))
 
@@ -417,14 +417,14 @@ private fun HeroProfitCard(
                             .fillMaxWidth()
                             .height(10.dp)
                             .clip(RoundedCornerShape(5.dp))
-                            .background(Color(0xFFEEEEEE))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         if (profitRatio > 0f) {
                             Box(
                                 modifier = Modifier
                                     .weight(profitRatio)
                                     .fillMaxHeight()
-                                    .background(AccentEmerald)
+                                    .background(MaterialTheme.mosarib.credit)
                             )
                         }
                         if (wellRatio > 0f) {
@@ -432,7 +432,7 @@ private fun HeroProfitCard(
                                 modifier = Modifier
                                     .weight(wellRatio)
                                     .fillMaxHeight()
-                                    .background(SecondaryAqua)
+                                    .background(MaterialTheme.colorScheme.secondary)
                             )
                         }
                         if (expRatio > 0f) {
@@ -440,7 +440,7 @@ private fun HeroProfitCard(
                                 modifier = Modifier
                                     .weight(expRatio)
                                     .fillMaxHeight()
-                                    .background(Color(0xFFFF6B6B))
+                                    .background(MaterialTheme.colorScheme.error)
                             )
                         }
                     }
@@ -453,17 +453,17 @@ private fun HeroProfitCard(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         FinancialLegendItem(
-                            color = AccentEmerald,
+                            color = MaterialTheme.mosarib.credit,
                             label = "الربح",
                             value = "${(profitRatio * 100).toInt()}%"
                         )
                         FinancialLegendItem(
-                            color = SecondaryAqua,
+                            color = MaterialTheme.colorScheme.secondary,
                             label = "تكلفة الآبار",
                             value = Formatters.formatCurrency(stats.totalWellCost, currencySymbol)
                         )
                         FinancialLegendItem(
-                            color = Color(0xFFFF6B6B),
+                            color = MaterialTheme.colorScheme.error,
                             label = "مصاريف التشغيل",
                             value = Formatters.formatCurrency(stats.totalPumpExpenses, currencySymbol)
                         )
@@ -492,7 +492,7 @@ private fun HeroProfitCard(
                 } else {
                     Text(
                         text = "لا توجد حركات مسجلة في هذه الفترة",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.textMuted)
                     )
                 }
             }
@@ -514,8 +514,8 @@ private fun FinancialLegendItem(
                 .background(color)
         )
         Column {
-            Text(label, style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp))
-            Text(value, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp))
+            Text(label, style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted))
+            Text(value, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
         }
     }
 }
@@ -555,13 +555,13 @@ private fun LiquidityCollectionCard(
                         modifier = Modifier
                             .size(30.dp)
                             .clip(CircleShape)
-                            .background(AccentEmerald.copy(alpha = 0.12f)),
+                            .background(MaterialTheme.mosarib.credit.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Payments,
                             contentDescription = null,
-                            tint = AccentEmerald,
+                            tint = MaterialTheme.mosarib.credit,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -574,18 +574,18 @@ private fun LiquidityCollectionCard(
 
                 Surface(
                     color = if (isDark) {
-                        if (collectionPercent >= 70) Color(0xFF132A1C) else Color(0xFF2E1C0C)
+                        if (collectionPercent >= 70) MaterialTheme.mosarib.successContainer else MaterialTheme.mosarib.warningContainer
                     } else {
-                        if (collectionPercent >= 70) AccentEmerald.copy(alpha = 0.12f) else Color(0xFFFFF3E0)
+                        if (collectionPercent >= 70) MaterialTheme.mosarib.successContainer else MaterialTheme.mosarib.warningContainer
                     },
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
                         text = "$collectionPercent% محصّل",
                         color = if (isDark) {
-                            if (collectionPercent >= 70) Color(0xFF4ADE80) else Color(0xFFFBBF24)
+                            if (collectionPercent >= 70) MaterialTheme.mosarib.success else MaterialTheme.mosarib.warning
                         } else {
-                            if (collectionPercent >= 70) Color(0xFF1B5E20) else Color(0xFFE65100)
+                            if (collectionPercent >= 70) MaterialTheme.mosarib.success else MaterialTheme.mosarib.warning
                         },
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp,
@@ -604,8 +604,8 @@ private fun LiquidityCollectionCard(
                     .fillMaxWidth()
                     .height(8.dp)
                     .clip(RoundedCornerShape(4.dp)),
-                color = AccentEmerald,
-                trackColor = if (isDark) Color(0xFF381A1A) else Color(0xFFFFCDD2)
+                color = MaterialTheme.mosarib.credit,
+                trackColor = MaterialTheme.colorScheme.errorContainer
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -618,7 +618,7 @@ private fun LiquidityCollectionCard(
                 // Cash Collected
                 Card(
                     modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(containerColor = AccentEmerald.copy(alpha = 0.08f)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.mosarib.credit.copy(alpha = 0.08f)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
@@ -626,15 +626,15 @@ private fun LiquidityCollectionCard(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(14.dp))
-                            Text("المحصّل", fontSize = 11.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = MaterialTheme.mosarib.credit, modifier = Modifier.size(14.dp))
+                            Text("المحصّل", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted, fontWeight = FontWeight.Bold))
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = Formatters.formatCurrency(stats.totalCollectedCash, currencySymbol),
                             fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
-                            color = AccentEmerald
+
+                            color = MaterialTheme.mosarib.credit
                         )
                     }
                 }
@@ -642,7 +642,7 @@ private fun LiquidityCollectionCard(
                 // Outstanding Debt
                 Card(
                     modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF2A1517) else Color(0xFFFFEBEE)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
@@ -650,15 +650,15 @@ private fun LiquidityCollectionCard(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Icon(Icons.Default.ArrowUpward, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(14.dp))
-                            Text("الآجل", fontSize = 11.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.ArrowUpward, contentDescription = null, tint = MaterialTheme.mosarib.debt, modifier = Modifier.size(14.dp))
+                            Text("الآجل", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted, fontWeight = FontWeight.Bold))
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = Formatters.formatCurrency(stats.totalOutstandingDebt, currencySymbol),
                             fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
-                            color = Color(0xFFE53935)
+
+                            color = MaterialTheme.mosarib.debt
                         )
                     }
                 }
@@ -700,13 +700,13 @@ private fun IrrigationEfficiencyCard(
                         modifier = Modifier
                             .size(30.dp)
                             .clip(CircleShape)
-                            .background(PrimaryTeal.copy(alpha = 0.12f)),
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.WaterDrop,
                             contentDescription = null,
-                            tint = PrimaryTeal,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -718,12 +718,12 @@ private fun IrrigationEfficiencyCard(
                 }
 
                 Surface(
-                    color = PrimaryTeal.copy(alpha = 0.12f),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
                         text = "$efficiencyPercent% كفاءة",
-                        color = PrimaryTeal,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -740,12 +740,12 @@ private fun IrrigationEfficiencyCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column {
-                    Text("ساعات السقي المباعة", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray))
+                    Text("ساعات السقي المباعة", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted))
                     Text(
                         text = Formatters.formatDurationArabic(stats.totalWaterMinutes),
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            color = PrimaryTeal
+                            color = MaterialTheme.colorScheme.primary
                         )
                     )
                 }
@@ -759,11 +759,11 @@ private fun IrrigationEfficiencyCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Icon(Icons.Default.AccessTime, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.AccessTime, contentDescription = null, tint = MaterialTheme.mosarib.textMuted, modifier = Modifier.size(14.dp))
                         Text(
                             text = "${stats.totalSessionsCount} سقي",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
+
                         )
                     }
                 }
@@ -778,8 +778,8 @@ private fun IrrigationEfficiencyCard(
                     .fillMaxWidth()
                     .height(8.dp)
                     .clip(RoundedCornerShape(4.dp)),
-                color = PrimaryTeal,
-                trackColor = Color(0xFFFFCC80)
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.mosarib.warningContainer
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -790,11 +790,11 @@ private fun IrrigationEfficiencyCard(
             ) {
                 Text(
                     text = "إجمالي التشغيل: ${Formatters.formatDurationShort(totalIrrigationMinutes)}",
-                    style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
+                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted)
                 )
                 Text(
                     text = "هدر المسرب: ${Formatters.formatDurationShort(stats.totalDistributorWasteMinutes)}",
-                    style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFE65100), fontWeight = FontWeight.Bold)
+                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.warning, fontWeight = FontWeight.Bold)
                 )
             }
         }
@@ -834,13 +834,13 @@ private fun WellOwnerAccountingCard(
                         modifier = Modifier
                             .size(30.dp)
                             .clip(CircleShape)
-                            .background(AccentGold.copy(alpha = 0.15f)),
+                            .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.AttachMoney,
                             contentDescription = null,
-                            tint = Color(0xFFB8860B),
+                            tint = MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -854,9 +854,9 @@ private fun WellOwnerAccountingCard(
                 val isDark = isAppDark()
                 Surface(
                     color = if (isDark) {
-                        if (stats.totalOwnerPayable <= 0) Color(0xFF132A1C) else Color(0xFF2A1517)
+                        if (stats.totalOwnerPayable <= 0) MaterialTheme.mosarib.successContainer else MaterialTheme.colorScheme.errorContainer
                     } else {
-                        if (stats.totalOwnerPayable <= 0) AccentEmerald.copy(alpha = 0.12f) else Color(0xFFFFEBEE)
+                        if (stats.totalOwnerPayable <= 0) MaterialTheme.mosarib.successContainer else MaterialTheme.colorScheme.errorContainer
                     },
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -869,22 +869,22 @@ private fun WellOwnerAccountingCard(
                             Icon(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = null,
-                                tint = if (isDark) Color(0xFF4ADE80) else Color(0xFF1B5E20),
+                                tint = MaterialTheme.mosarib.success,
                                 modifier = Modifier.size(12.dp)
                             )
                             Text(
                                 text = "مسدد",
-                                color = if (isDark) Color(0xFF4ADE80) else Color(0xFF1B5E20),
+                                color = MaterialTheme.mosarib.success,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
+
                             )
                         }
                     } else {
                         Text(
                             text = "متبقي مستحقات",
-                            color = if (isDark) Color(0xFFF87171) else Color(0xFFC62828),
+                            color = MaterialTheme.mosarib.debt,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
+
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
@@ -902,21 +902,21 @@ private fun WellOwnerAccountingCard(
                     title = "صافي المشتريات",
                     value = Formatters.formatCurrency(stats.totalOwnerPurchaseAmount, currencySymbol),
                     subtitle = Formatters.formatDurationShort(stats.totalChargeablePurchasedMinutes),
-                    color = PrimaryTeal,
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f)
                 )
                 MetricChip(
                     title = "المسدد للبئر",
                     value = Formatters.formatCurrency(stats.totalOwnerPayments, currencySymbol),
                     subtitle = "تحويلات وسداد",
-                    color = AccentEmerald,
+                    color = MaterialTheme.mosarib.credit,
                     modifier = Modifier.weight(1f)
                 )
                 MetricChip(
                     title = "المتبقي للبئر",
                     value = Formatters.formatCurrency(stats.totalOwnerPayable, currencySymbol),
                     subtitle = "رصيد دائن",
-                    color = if (stats.totalOwnerPayable > 0) Color(0xFFE53935) else AccentEmerald,
+                    color = if (stats.totalOwnerPayable > 0) MaterialTheme.mosarib.debt else MaterialTheme.mosarib.success,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -929,7 +929,7 @@ private fun WellOwnerAccountingCard(
                         .fillMaxWidth()
                         .height(6.dp)
                         .clip(RoundedCornerShape(3.dp)),
-                    color = AccentEmerald,
+                    color = MaterialTheme.mosarib.credit,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             }
@@ -951,10 +951,10 @@ private fun MetricChip(
         shape = RoundedCornerShape(10.dp)
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
-            Text(title, style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp))
+            Text(title, style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted))
             Spacer(modifier = Modifier.height(2.dp))
             Text(value, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = color))
-            Text(subtitle, style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 9.sp))
+            Text(subtitle, style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted))
         }
     }
 }
@@ -987,13 +987,13 @@ private fun TopCustomersLeaderboardCard(
                         modifier = Modifier
                             .size(30.dp)
                             .clip(CircleShape)
-                            .background(AccentGold.copy(alpha = 0.15f)),
+                            .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.WorkspacePremium,
                             contentDescription = null,
-                            tint = Color(0xFFB8860B),
+                            tint = MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -1006,7 +1006,7 @@ private fun TopCustomersLeaderboardCard(
 
                 Text(
                     text = "${topCustomers.size} حسابات",
-                    style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
+                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted)
                 )
             }
 
@@ -1015,7 +1015,7 @@ private fun TopCustomersLeaderboardCard(
             if (topCustomers.isEmpty()) {
                 Text(
                     text = "لا توجد بيانات استهلاك مسجلة في هذه الفترة",
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray),
+                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.textMuted),
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
             } else {
@@ -1048,24 +1048,24 @@ private fun TopCustomersLeaderboardCard(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier.weight(1f, fill = false)
                                     ) {
-                                        Text(medal, fontSize = 14.sp)
+                                        Text(medal)
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
                                             text = top.customer.name,
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp,
+
                                             maxLines = 1
                                         )
                                         if (top.customer.isWellOwner) {
                                             Spacer(modifier = Modifier.width(4.dp))
                                             Surface(
-                                                color = PrimaryTeal.copy(alpha = 0.12f),
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                                                 shape = RoundedCornerShape(4.dp)
                                             ) {
                                                 Text(
                                                     text = "بئر",
-                                                    color = PrimaryTeal,
-                                                    fontSize = 9.sp,
+                                                    color = MaterialTheme.colorScheme.primary,
+
                                                     fontWeight = FontWeight.Bold,
                                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                                 )
@@ -1077,13 +1077,13 @@ private fun TopCustomersLeaderboardCard(
                                         Text(
                                             text = Formatters.formatDurationArabic(top.totalMinutes),
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
-                                            color = PrimaryTeal
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.primary
                                         )
                                         Text(
                                             text = Formatters.formatCurrency(top.totalBilled, currencySymbol),
-                                            fontSize = 10.sp,
-                                            color = Color.Gray
+
+                                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted)
                                         )
                                     }
                                 }
@@ -1097,8 +1097,8 @@ private fun TopCustomersLeaderboardCard(
                                         .fillMaxWidth()
                                         .height(5.dp)
                                         .clip(RoundedCornerShape(2.5.dp)),
-                                    color = if (index == 0) AccentGold else PrimaryTeal,
-                                    trackColor = Color.LightGray.copy(alpha = 0.25f)
+                                    color = if (index == 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
                                 )
                             }
                         }

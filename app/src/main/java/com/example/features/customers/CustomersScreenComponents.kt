@@ -45,7 +45,7 @@ import com.example.core.ui.EmptyStateView
 import com.example.core.ui.LuxuryToastNotification
 import com.example.core.ui.ToastMessage
 import com.example.core.util.Formatters
-import com.example.ui.theme.PrimaryTeal
+
 import com.example.ui.theme.mosarib
 
 /**
@@ -263,8 +263,8 @@ internal fun CustomersBalanceBar(
             // زر الإضافة السريع (+) الدائري في المنتصف الهندسي الدقيق للكرت دائماً
             FloatingActionButton(
                 onClick = onQuickAddClick,
-                containerColor = PrimaryTeal,
-                contentColor = Color.White,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape,
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -291,8 +291,8 @@ internal fun CustomersCompactAddButton(
 ) {
     FloatingActionButton(
         onClick = onClick,
-        containerColor = PrimaryTeal,
-        contentColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
         shape = CircleShape,
         modifier = modifier
             .padding(start = 16.dp, bottom = 12.dp)
@@ -340,8 +340,8 @@ private fun BalanceBarAmount(amount: Double, currencySymbol: String, color: Colo
         text = Formatters.formatCurrency(amount, currencySymbol),
         style = MaterialTheme.typography.titleMedium.copy(
             color = color,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 15.sp
+            fontWeight = FontWeight.ExtraBold
+
         ),
         softWrap = false,
         maxLines = 1,

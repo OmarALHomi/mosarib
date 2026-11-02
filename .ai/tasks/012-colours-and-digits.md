@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 <!-- Owner chose Western digits 0-9 everywhere on 2026-11-01. -->
 
@@ -33,3 +33,24 @@ _(empty)_
 - `CustomersFilterRow.kt` is **removed** from this task. Task 016 rewrites it, with tokens.
 - This task runs in parallel with 011, 016 and 018 in its own worktree. Touch only the files
   listed here and `core/util/Formatters.kt`.
+
+---
+## Review notes (written by Claude)
+**Verdict: accepted** (2026-11-02). Build and tests pass.
+
+Formatters:
+- `ar-u-nu-latn` with US digit symbols keeps Arabic month and day names and "ص / م" while
+  printing 0-9;
+- the short date uses `Locale.US`.
+
+All 76 `Color(0x…)` in the listed files are gone.
+
+Not checked on the device: the phone disconnected. Claude will look after the merge.
+
+Leftovers, accepted and carried to later tasks:
+- `isAppDark()` is still used in `ReportsScreen.kt` (3×), `HomeComponents.kt` (3×),
+  `CustomerImportReviewDialog.kt` and `RecycleBinDialog.kt`, and `fontSize = 11.sp` in
+  `ReportsScreen.kt` (3×). The report says they were all replaced. Reports go to task 021; the
+  two dialogs to task 020.
+- `MosaribTimePickerDialog.kt` uses `String.format("%02d", …)` with the default locale. That
+  prints Eastern digits on a phone set to Arabic. Task 020 adds `Locale.US`.

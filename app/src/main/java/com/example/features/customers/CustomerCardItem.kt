@@ -61,9 +61,9 @@ import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import com.example.core.ui.isAppDark
 import com.example.core.util.Formatters
-import com.example.ui.theme.AccentGold
+
 import com.example.ui.theme.AvatarPalette
-import com.example.ui.theme.PrimaryTeal
+
 import com.example.ui.theme.mosarib
 
 @Suppress("DEPRECATION")
@@ -229,7 +229,7 @@ fun CustomerCardItem(
                             Icon(
                                 imageVector = Icons.Default.WaterDrop,
                                 contentDescription = "صاحب بئر",
-                                tint = Color.White,
+                                tint = MaterialTheme.mosarib.onInfo,
                                 modifier = Modifier.size(10.dp)
                             )
                         }
@@ -376,7 +376,7 @@ fun CustomerCardItem(
                     Icon(
                         imageVector = Icons.Default.PictureAsPdf,
                         contentDescription = "كشف حساب PDF",
-                        tint = AccentGold,
+                        tint = MaterialTheme.colorScheme.tertiary,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -389,7 +389,7 @@ fun CustomerCardItem(
                         Icon(
                             imageVector = Icons.Default.Call,
                             contentDescription = "اتصال",
-                            tint = PrimaryTeal,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -425,7 +425,7 @@ fun CustomerCardItem(
                         )
                         DropdownMenuItem(
                             text = { Text("كشف حساب PDF") },
-                            leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = AccentGold) },
+                            leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
                             onClick = {
                                 menuExpanded = false
                                 onPdfStatementClick()
@@ -433,7 +433,7 @@ fun CustomerCardItem(
                         )
                         DropdownMenuItem(
                             text = { Text("عرض كشف الحساب", fontWeight = FontWeight.Bold) },
-                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal) },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                             onClick = {
                                 menuExpanded = false
                                 onClick()
@@ -442,7 +442,7 @@ fun CustomerCardItem(
                         if (customer.phone.isNotEmpty()) {
                             DropdownMenuItem(
                                 text = { Text("اتصال هاتفي (${customer.phone})") },
-                                leadingIcon = { Icon(Icons.Default.Call, contentDescription = null, tint = PrimaryTeal) },
+                                leadingIcon = { Icon(Icons.Default.Call, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                                 onClick = {
                                     menuExpanded = false
                                     onCallClick()

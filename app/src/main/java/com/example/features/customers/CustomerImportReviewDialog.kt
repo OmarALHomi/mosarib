@@ -68,9 +68,9 @@ import com.example.core.ui.MosaribOutlinedButton
 import com.example.core.ui.MosaribTextField
 import com.example.core.ui.isAppDark
 import com.example.core.util.Formatters
-import com.example.ui.theme.PrimaryTeal
-import com.example.ui.theme.AccentEmerald
-import com.example.ui.theme.AccentGold
+import com.example.ui.theme.mosarib
+
+
 
 private enum class DraftFilterTab {
     ALL, SELECTED, NEW_ONLY, EXISTING_ONLY
@@ -153,13 +153,13 @@ fun CustomerImportReviewDialog(
                     Surface(
                         modifier = Modifier.size(40.dp),
                         shape = CircleShape,
-                        color = PrimaryTeal.copy(alpha = 0.12f)
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.TableChart,
                                 contentDescription = null,
-                                tint = PrimaryTeal,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
@@ -175,7 +175,7 @@ fun CustomerImportReviewDialog(
                         )
                         Text(
                             text = "تم العثور على $totalCount حساب (المحدد: $selectedCount) • العملة: $currencySymbol",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.textMuted)
                         )
                     }
                 }
@@ -192,7 +192,7 @@ fun CustomerImportReviewDialog(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isDark) Color(0xFF131D24) else Color(0xFFF1F5F9)
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
                 ),
                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
             ) {
@@ -205,9 +205,9 @@ fun CustomerImportReviewDialog(
                     Text(
                         text = sourceText,
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = PrimaryTeal,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.5.sp
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+
                         )
                     )
 
@@ -221,8 +221,8 @@ fun CustomerImportReviewDialog(
                         Text(
                             text = "تسجيل العمليات المدينة كـ:",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
+                                fontWeight = FontWeight.Bold
+
                             )
                         )
 
@@ -230,19 +230,19 @@ fun CustomerImportReviewDialog(
                             FilterChip(
                                 selected = debitMode == ImportDebitMode.EXPENSE,
                                 onClick = { debitMode = ImportDebitMode.EXPENSE },
-                                label = { Text("صرف للعميل", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                                label = { Text("صرف للعميل", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)) },
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal,
-                                    selectedLabelColor = Color.White
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                                 )
                             )
                             FilterChip(
                                 selected = debitMode == ImportDebitMode.SESSION,
                                 onClick = { debitMode = ImportDebitMode.SESSION },
-                                label = { Text("سقي", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                                label = { Text("سقي", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)) },
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryTeal,
-                                    selectedLabelColor = Color.White
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                                 )
                             )
                         }
@@ -279,10 +279,10 @@ fun CustomerImportReviewDialog(
                     FilterChip(
                         selected = filterTab == DraftFilterTab.ALL,
                         onClick = { filterTab = DraftFilterTab.ALL },
-                        label = { Text("الكل ($totalCount)", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                        label = { Text("الكل ($totalCount)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = PrimaryTeal,
-                            selectedLabelColor = Color.White
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                         )
                     )
                 }
@@ -290,10 +290,10 @@ fun CustomerImportReviewDialog(
                     FilterChip(
                         selected = filterTab == DraftFilterTab.SELECTED,
                         onClick = { filterTab = DraftFilterTab.SELECTED },
-                        label = { Text("المحدد ($selectedCount)", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                        label = { Text("المحدد ($selectedCount)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = PrimaryTeal,
-                            selectedLabelColor = Color.White
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                         )
                     )
                 }
@@ -301,10 +301,10 @@ fun CustomerImportReviewDialog(
                     FilterChip(
                         selected = filterTab == DraftFilterTab.NEW_ONLY,
                         onClick = { filterTab = DraftFilterTab.NEW_ONLY },
-                        label = { Text("حسابات جديدة ($newCount)", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                        label = { Text("حسابات جديدة ($newCount)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = PrimaryTeal,
-                            selectedLabelColor = Color.White
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                         )
                     )
                 }
@@ -313,10 +313,10 @@ fun CustomerImportReviewDialog(
                         FilterChip(
                             selected = filterTab == DraftFilterTab.EXISTING_ONLY,
                             onClick = { filterTab = DraftFilterTab.EXISTING_ONLY },
-                            label = { Text("موجود مسبقاً ($existingCount)", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                            label = { Text("موجود مسبقاً ($existingCount)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFFD97706),
-                                selectedLabelColor = Color.White
+                                selectedContainerColor = MaterialTheme.mosarib.warning,
+                                selectedLabelColor = MaterialTheme.mosarib.onWarning
                             )
                         )
                     }
@@ -330,7 +330,7 @@ fun CustomerImportReviewDialog(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isDark) Color(0xFF131D24) else Color(0xFFF1F5F9)
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             ) {
                 Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
@@ -354,8 +354,8 @@ fun CustomerImportReviewDialog(
                             Text(
                                 text = if (allSelected) "إلغاء تحديد الكل" else "تحديد الكل ($totalCount)",
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
+                                    fontWeight = FontWeight.Bold
+
                                 )
                             )
                         }
@@ -370,7 +370,7 @@ fun CustomerImportReviewDialog(
                             Text(
                                 text = "تحديث بيانات المسجلين مسبقاً ($existingCount)",
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 ),
                                 modifier = Modifier.weight(1f)
                             )
@@ -395,7 +395,7 @@ fun CustomerImportReviewDialog(
                         Text(
                             text = "لا توجد نتائج مطابقة للبحث أو التصفية",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.Gray
+                            color = MaterialTheme.mosarib.textMuted
                         )
                     }
                 } else {
@@ -471,10 +471,10 @@ private fun ImportDraftCard(
 ) {
     val hasError = draft.validationError != null
     val borderColor = when {
-        hasError -> Color(0xFFEF4444)
-        draft.isSelected -> PrimaryTeal
-        isDark -> Color(0xFF2A3C45)
-        else -> Color(0xFFE2E8F0)
+        hasError -> MaterialTheme.colorScheme.error
+        draft.isSelected -> MaterialTheme.colorScheme.primary
+
+        else -> MaterialTheme.colorScheme.outline
     }
 
     Card(
@@ -484,9 +484,9 @@ private fun ImportDraftCard(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (draft.isSelected) {
-                if (isDark) Color(0xFF14242A) else Color(0xFFF0FDFA)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
             } else {
-                if (isDark) Color(0xFF131D24) else Color(0xFFFFFFFF)
+                MaterialTheme.colorScheme.surface
             }
         ),
         border = BorderStroke(if (draft.isSelected) 1.5.dp else 1.dp, borderColor)
@@ -512,8 +512,8 @@ private fun ImportDraftCard(
                     text = if (draft.name.isNotBlank()) draft.name else "اسم العميل مفقود!",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = if (hasError) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurface,
-                        fontSize = 14.sp
+                        color = if (hasError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+
                     ),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -530,33 +530,33 @@ private fun ImportDraftCard(
                         if (draft.isWellOwner) {
                             ImportDraftBadge(
                                 text = "صاحب بئر",
-                                textColor = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
-                                background = if (isDark) Color(0xFF0C2433) else Color(0xFFE0F2FE),
-                                borderColor = if (isDark) Color(0xFF0369A1) else Color(0xFFBAE6FD)
+                                textColor = MaterialTheme.mosarib.info,
+                                background = MaterialTheme.mosarib.infoContainer,
+                                borderColor = MaterialTheme.mosarib.info.copy(alpha = 0.35f)
                             )
                         }
                         if (draft.attachedOperations.size > 1) {
                             ImportDraftBadge(
                                 text = "${draft.attachedOperations.size} عمليات مجمّعة",
-                                textColor = PrimaryTeal,
-                                background = PrimaryTeal.copy(alpha = 0.12f),
-                                borderColor = PrimaryTeal
+                                textColor = MaterialTheme.colorScheme.primary,
+                                background = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                borderColor = MaterialTheme.colorScheme.primary
                             )
                         }
                         if (draft.currency.isNotBlank()) {
                             ImportDraftBadge(
                                 text = draft.currency,
-                                textColor = AccentGold,
-                                background = AccentGold.copy(alpha = 0.15f),
-                                borderColor = AccentGold
+                                textColor = MaterialTheme.colorScheme.tertiary,
+                                background = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f),
+                                borderColor = MaterialTheme.colorScheme.tertiary
                             )
                         }
                         if (draft.isExistingInDb) {
                             ImportDraftBadge(
                                 text = "مسجل مسبقاً",
-                                textColor = Color(0xFFD97706),
-                                background = if (isDark) Color(0xFF2C1E0A) else Color(0xFFFEF3C7),
-                                borderColor = Color(0xFFD97706)
+                                textColor = MaterialTheme.mosarib.warning,
+                                background = MaterialTheme.mosarib.warningContainer,
+                                borderColor = MaterialTheme.mosarib.warning
                             )
                         }
                     }
@@ -566,9 +566,9 @@ private fun ImportDraftCard(
                     Text(
                         text = draft.validationError.orEmpty(),
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0xFFEF4444),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
+
                         )
                     )
                 }
@@ -583,9 +583,9 @@ private fun ImportDraftCard(
                 ) {
                     if (draft.phone.isNotEmpty()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(12.dp), tint = Color.Gray)
+                            Icon(Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.mosarib.textMuted)
                             Spacer(modifier = Modifier.width(3.dp))
-                            Text(draft.phone, style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontSize = 11.sp), maxLines = 1, softWrap = false)
+                            Text(draft.phone, style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted), maxLines = 1, softWrap = false)
                         }
                     }
 
@@ -598,7 +598,7 @@ private fun ImportDraftCard(
                     if (locDetail.isNotEmpty()) {
                         Text(
                             text = locDetail,
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontSize = 11.sp),
+                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -608,9 +608,9 @@ private fun ImportDraftCard(
                         Text(
                             text = "${Formatters.formatCurrency(price, "").trim()} $currencySymbol/س",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = PrimaryTeal,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+    
                             ),
                             maxLines = 1,
                             softWrap = false
@@ -618,14 +618,14 @@ private fun ImportDraftCard(
                     }
 
                     if (draft.initialBalance > 0.0) {
-                        val balColor = if (draft.isDebit) Color(0xFFEF4444) else AccentEmerald
+                        val balColor = if (draft.isDebit) MaterialTheme.mosarib.debt else MaterialTheme.mosarib.credit
                         val balPrefix = if (draft.isDebit) "عليه: " else "له: "
                         Text(
                             text = "$balPrefix${Formatters.formatCurrency(draft.initialBalance, currencySymbol)}",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = balColor,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
+                                fontWeight = FontWeight.Bold
+    
                             ),
                             maxLines = 1,
                             softWrap = false
@@ -643,7 +643,7 @@ private fun ImportDraftCard(
                     imageVector = Icons.Default.Edit,
                     contentDescription = "تعديل",
                     modifier = Modifier.size(16.dp),
-                    tint = PrimaryTeal
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
 
@@ -655,7 +655,7 @@ private fun ImportDraftCard(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "حذف من القائمة",
                     modifier = Modifier.size(16.dp),
-                    tint = Color(0xFFEF4444)
+                    tint = MaterialTheme.colorScheme.error
                 )
             }
         }
@@ -787,16 +787,16 @@ private fun EditImportDraftDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("طبيعة الرصيد السابق:", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("طبيعة الرصيد السابق:", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
                         FilterChip(
                             selected = isDebit,
                             onClick = { isDebit = true },
-                            label = { Text("عليه (مدين)", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                            label = { Text("عليه (مدين)", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)) }
                         )
                         FilterChip(
                             selected = !isDebit,
                             onClick = { isDebit = false },
-                            label = { Text("له (دائن)", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                            label = { Text("له (دائن)", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)) }
                         )
                     }
                 }
@@ -808,7 +808,7 @@ private fun EditImportDraftDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("حساب صاحب بئر مستقل", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("حساب صاحب بئر مستقل", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                     Switch(checked = isWellOwner, onCheckedChange = { isWellOwner = it })
                 }
 
