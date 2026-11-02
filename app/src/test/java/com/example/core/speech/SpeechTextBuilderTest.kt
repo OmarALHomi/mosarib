@@ -65,7 +65,7 @@ class SpeechTextBuilderTest {
         }
 
         // Test explicit replacement of any residual tanween
-        assertEquals("أربعةْ عشرْ أَلْفْ رِيَالْ", SpeechPronunciation.forSpeech("أربعة عشر ألفاً ريال"))
+        assertEquals("أربعهْ عشرْ أَلْفْ رِيَالْ", SpeechPronunciation.forSpeech("أربعة عشر ألفاً ريال"))
     }
 
     @Test
@@ -81,6 +81,14 @@ class SpeechTextBuilderTest {
         // Words outside the dictionary get the pause ending too; marked endings stay
         assertEquals("أحمدْ", SpeechPronunciation.forSpeech("أحمد"))
         assertEquals("عَلَيْكَ", SpeechPronunciation.forSpeech("عليك"))
+        // ة: "ه" in pause, "ت" in idafa before ألف / آلاف / مليون
+        assertEquals("دَقِيقَهْ", SpeechPronunciation.forSpeech("دقيقة"))
+        assertEquals("مِئهْ وَخَمْسِينْ", SpeechPronunciation.forSpeech("مئة وخمسون"))
+        assertEquals("مِئتْ أَلْفْ", SpeechPronunciation.forSpeech("مئة ألف"))
+        assertEquals("خمستْ آلَافْ", SpeechPronunciation.forSpeech("خمسة آلاف"))
+        assertEquals("ثلاثتْ مِلْيُونْ", SpeechPronunciation.forSpeech("ثلاثة مليون"))
+        assertEquals("ثلاثهْ وَعِشْرِينْ", SpeechPronunciation.forSpeech("ثلاثة وعشرون"))
+        assertEquals("ثلاثتْ آلَافْ وخمسْ مِئهْ رِيَالْ", SpeechPronunciation.forSpeech("ثلاثة آلاف وخمس مِئة ريال"))
     }
 
     @Test
@@ -113,7 +121,7 @@ class SpeechTextBuilderTest {
         assertEquals("فَعَلَيْكُمْ", SpeechPronunciation.forSpeech("فعليكم"))
 
         assertEquals("سَقْيْ", SpeechPronunciation.forSpeech("سقي"))
-        assertEquals("سَقْيَةْ", SpeechPronunciation.forSpeech("سقية"))
+        assertEquals("سَقْيَهْ", SpeechPronunciation.forSpeech("سقية"))
         assertEquals("سَنَدْ", SpeechPronunciation.forSpeech("سند"))
         assertEquals("قَبْضْ", SpeechPronunciation.forSpeech("قبض"))
         assertEquals("صَرْفْ", SpeechPronunciation.forSpeech("صرف"))
@@ -128,14 +136,14 @@ class SpeechTextBuilderTest {
         assertEquals("كَشْفْ", SpeechPronunciation.forSpeech("كشف"))
         assertEquals("حِسَابْ", SpeechPronunciation.forSpeech("حساب"))
         assertEquals("الرَّصِيدْ", SpeechPronunciation.forSpeech("الرصيد"))
-        assertEquals("مِضَخَّةْ", SpeechPronunciation.forSpeech("مضخة"))
+        assertEquals("مِضَخَّهْ", SpeechPronunciation.forSpeech("مضخة"))
         assertEquals("هَدْرْ", SpeechPronunciation.forSpeech("هدر"))
-        assertEquals("دَوْرَةْ", SpeechPronunciation.forSpeech("دورة"))
+        assertEquals("دَوْرَهْ", SpeechPronunciation.forSpeech("دورة"))
         assertEquals("المُسَرِّبْ", SpeechPronunciation.forSpeech("المسرب"))
         assertEquals("تَقْرِيبًا", SpeechPronunciation.forSpeech("تقريباً"))
-        assertEquals("سَاعَةْ", SpeechPronunciation.forSpeech("ساعة"))
+        assertEquals("سَاعَهْ", SpeechPronunciation.forSpeech("ساعة"))
         assertEquals("سَاعَتَانْ", SpeechPronunciation.forSpeech("ساعتان"))
-        assertEquals("دَقِيقَةْ", SpeechPronunciation.forSpeech("دقيقة"))
+        assertEquals("دَقِيقَهْ", SpeechPronunciation.forSpeech("دقيقة"))
 
         // With prefixes: و / ب / ل / ال / ف
         assertEquals("وَسَقْيْ", SpeechPronunciation.forSpeech("وسقي"))

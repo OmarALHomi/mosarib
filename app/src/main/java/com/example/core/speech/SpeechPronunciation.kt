@@ -163,6 +163,8 @@ object SpeechPronunciation {
             .replace("مئتين", "مِئَتَيْن")
             .replace("مائة", "مِئة")
             .replace("مئة", "مِئة")
+            // Idafa: a number before ألف / آلاف / مليون keeps its ة as "ت" ("مِئَتْ ألف", "خمستْ آلاف")
+            .replace(IDAFA_TAA_REGEX, "ت$SUKUN")
 
         // Replace whole words using diacritics dictionary, then read every word in pause form
         processed = WORD_REGEX.replace(processed) { matchResult ->
@@ -177,15 +179,18 @@ object SpeechPronunciation {
     private const val SUKUN = 'ْ'
     // Endings that are already a vowel; a sukun on them changes nothing or sounds wrong.
     private val VOWEL_ENDINGS = setOf('ا', 'ى', 'آ')
+    private val IDAFA_TAA_REGEX = Regex("ة(?=\\s+(?:ألف|آلاف|مليون|ملايين)(?![\\p{L}\\p{M}]))")
 
     /**
      * Waqf: puts a sukun on the last letter of an Arabic word that has no ending mark yet, so the
      * engine stops adding case endings and tanween ("قبضُ" → "قبضْ", "ريالٍ" → "ريالْ").
-     * Words that already end with a mark ("عَلَيْكَ", "لَهُ") keep it.
+     * A final ة is read as "ه" ("دقيقة" → "دقيقه", "مِئة وخمسون" → "مِئه وخمسين").
+     * Words that already end with a mark ("عَلَيْكَ", "لَهُ", "مِئَتْ") keep it.
      */
     internal fun withPauseEnding(word: String): String {
         if (word.length < 2) return word
         val last = word.last()
+        if (last == 'ة') return word.dropLast(1) + "ه$SUKUN"
         if (last !in 'ء'..'ي' || last in VOWEL_ENDINGS) return word
         return word + SUKUN
     }
