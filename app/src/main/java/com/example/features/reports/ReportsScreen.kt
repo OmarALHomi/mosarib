@@ -1,5 +1,7 @@
 package com.example.features.reports
 
+import com.example.core.ui.AmountWithWords
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -463,29 +465,19 @@ private fun KpiTile(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Amount
-            Text(
-                text = Formatters.formatCurrency(amount, currencySymbol),
+            // Amount with words on tap
+            AmountWithWords(
+                amount = amount,
+                currency = currencySymbol,
                 style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = amountColor
+                    fontWeight = FontWeight.Bold
                 ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = amountColor
             )
 
-            Spacer(modifier = Modifier.height(2.dp))
-
-            // Amount in words
-            val words = Formatters.amountToArabicWordsApprox(amount, currencySymbol)
-            Text(
-                text = words,
-                style = MaterialTheme.typography.labelSmall.copy(color = amountColor),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
+            if (comparison != null || subText != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+            }
 
             // Comparison line or Sub text
             if (comparison != null) {
@@ -693,18 +685,14 @@ private fun FinancialBreakdownRow(
                     .clip(CircleShape)
                     .background(color)
             )
-            Column {
-                Text(label, style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted))
-                Text(
-                    text = Formatters.amountToArabicWordsApprox(amount, currencySymbol),
-                    style = MaterialTheme.typography.labelSmall.copy(color = color)
-                )
-            }
+            Text(label, style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted))
         }
 
-        Text(
-            text = Formatters.formatCurrency(amount, currencySymbol),
-            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+        AmountWithWords(
+            amount = amount,
+            currency = currencySymbol,
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
@@ -882,29 +870,31 @@ private fun GroupBreakdownCard(
                     val colCompact = ReportsFilter.formatCompactNumber(grp.collected)
                     val remCompact = ReportsFilter.formatCompactNumber(grp.remainingDebt)
 
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Text(
                             text = grp.groupName,
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                            modifier = Modifier.weight(1f, fill = false),
+                            modifier = Modifier.fillMaxWidth(),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+
+                        Spacer(modifier = Modifier.height(2.dp))
 
                         Text(
                             text = "إيراد $revCompact · محصّل $colCompact · آجل $remCompact $currencySymbol",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = MaterialTheme.mosarib.textMuted,
                                 fontWeight = FontWeight.Bold
-                            )
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
