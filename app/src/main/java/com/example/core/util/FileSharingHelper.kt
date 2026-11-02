@@ -75,7 +75,7 @@ object FileSharingHelper {
         }
     }
 
-    const val MESSAGE_FOOTER = "\n\n---\nتطبيق المسرّب | م. عمر الحومي\nwa.me/967773712030"
+    const val MESSAGE_FOOTER = "\n\n---\nتطبيق المسرّب | م. عمر الحومي\nmosarib.tubbasoft.com\nwa.me/967773712030"
 
     /**
      * يضيف فوتر مختصر للرسالة يحتوي على اسم التطبيق والمطور ورابط الواتساب المباشر

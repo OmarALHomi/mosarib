@@ -1,4 +1,5 @@
 package com.example.features.customers
+import androidx.lifecycle.lifecycleScope
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -17,7 +18,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import com.example.core.license.LicenseDialog
+import com.example.core.license.LicenseManager
+import com.example.core.speech.SpeechStatus
+import com.example.core.speech.TtsMissingDataDialog
+import com.example.core.speech.VoiceStatementExporter
+import com.example.core.ui.MosaribLoadingDialog
+import com.example.core.ui.MosaribDialog
+import com.example.core.ui.DialogTone
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -31,7 +45,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.CompositionLocalProvider
 import com.example.core.ui.MosaribMenu
-import com.example.core.ui.MosaribMenuItem
+import com.example.core.speech.*
 import com.example.core.ui.MosaribMenuDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -101,10 +115,28 @@ fun CustomerCardItem(
     onPdfStatementClick: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onVoiceStatementClick: (() -> Unit)? = null
 ) {
     val customer = item.customer
     val isDark = isAppDark()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isSubscribed by remember(context) { mutableStateOf(LicenseManager.isActivated(context)) }
+    var showSpeechLicenseDialog by remember { mutableStateOf(false) }
+    var missingSpeechStatus by remember { mutableStateOf<SpeechStatus?>(null) }
+    var isGeneratingVoiceStatement by remember { mutableStateOf(false) }
+    var exportError by remember { mutableStateOf<String?>(null) }
+    var speechError by remember { mutableStateOf<SpeechError?>(null) }
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        MosaribSpeaker.errors.collect { err ->
+            speechError = err
+        }
+    }
+
+    val activity = context as? androidx.activity.ComponentActivity
+    val exportScope = activity?.lifecycleScope ?: scope
     var menuExpanded by remember(customer.id) { mutableStateOf(false) }
 
     val avatarColor = AvatarPalette.forId(customer.id, isDark)
@@ -364,6 +396,21 @@ fun CustomerCardItem(
                     modifier = Modifier.weight(1f)
                 )
 
+                SpeakButton(
+                    text = {
+                        SpeechTextBuilder.buildBalanceSentence(
+                            customerName = customer.name,
+                            balance = item.balance,
+                            currency = currencySymbol,
+                            isWellOwner = customer.isWellOwner,
+                            payableBalance = item.payableBalance,
+                            receivableBalance = item.receivableBalance
+                        )
+                    },
+                    modifier = Modifier.size(32.dp),
+                    iconSize = 18.dp
+                )
+
                 if (customer.phone.isNotBlank()) {
                     IconButton(
                         onClick = onWhatsAppClick,
@@ -434,6 +481,49 @@ fun CustomerCardItem(
                             }
                         )
                         MosaribMenuItem(
+                            text = "إرسال كشف صوتي",
+                            icon = Icons.AutoMirrored.Filled.VolumeUp,
+                            tint = MaterialTheme.colorScheme.primary,
+                            trailingIcon = if (isSubscribed) null else Icons.Default.Lock,
+                            onClick = {
+                                menuExpanded = false
+                                if (!isSubscribed) {
+                                    showSpeechLicenseDialog = true
+                                } else {
+                                    if (onVoiceStatementClick != null) {
+                                        onVoiceStatementClick()
+                                    } else {
+                                        isGeneratingVoiceStatement = true
+                                        exportScope.launch {
+                                            try {
+                                                val res = VoiceStatementExporter.generateAndShareVoiceStatement(
+                                                    context = context,
+                                                    customer = customer,
+                                                    balance = item.balance,
+                                                    isWellOwner = customer.isWellOwner,
+                                                    payableBalance = item.payableBalance,
+                                                    receivableBalance = item.receivableBalance,
+                                                    currencySymbol = currencySymbol,
+                                                    onStatus = { st ->
+                                                        isGeneratingVoiceStatement = false
+                                                        missingSpeechStatus = st
+                                                    }
+                                                )
+                                                if (res.isFailure) {
+                                                    val ex = res.exceptionOrNull()
+                                                    exportError = ex?.message ?: "تعذّر تجهيز الكشف الصوتي ومشاركته."
+                                                }
+                                            } catch (e: Exception) {
+                                                exportError = e.message ?: "تعذّر تجهيز الكشف الصوتي."
+                                            } finally {
+                                                isGeneratingVoiceStatement = false
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        )
+                        MosaribMenuItem(
                             text = "كشف حساب PDF",
                             icon = Icons.Default.PictureAsPdf,
                             tint = MaterialTheme.colorScheme.tertiary,
@@ -486,5 +576,57 @@ fun CustomerCardItem(
                 }
             }
         }
+    }
+
+    if (showSpeechLicenseDialog) {
+        LicenseDialog(
+            onDismiss = { showSpeechLicenseDialog = false },
+            onActivated = {
+                isSubscribed = LicenseManager.isActivated(context)
+                showSpeechLicenseDialog = false
+            },
+            isMandatory = false,
+            mandatoryReason = "القراءة الصوتية والكشف الصوتي متاحان للمشتركين."
+        )
+    }
+
+    missingSpeechStatus?.let { status ->
+        TtsMissingDataDialog(
+            status = status,
+            onDismiss = { missingSpeechStatus = null }
+        )
+    }
+
+    if (isGeneratingVoiceStatement) {
+        MosaribLoadingDialog(
+            message = "جاري تجهيز الكشف الصوتي…"
+        )
+    }
+
+    speechError?.let { err ->
+        SpeechErrorDialog(
+            error = err,
+            onDismiss = { speechError = null }
+        )
+    }
+
+    exportError?.let { msg ->
+        MosaribDialog(
+            onDismissRequest = { exportError = null },
+            title = "تعذّر تجهيز الكشف الصوتي",
+            message = if (msg.contains("TTS", ignoreCase = true) || msg.contains("voice", ignoreCase = true) || msg.contains("synth", ignoreCase = true)) {
+                "تعذّر تحويل نص الكشف إلى صوت. يرجى التأكد من تحميل حزمة الصوت العربي وتوفر مساحة كافية."
+            } else {
+                "تعذّر تجهيز ومشاركة الكشف الصوتي: $msg"
+            },
+            tone = DialogTone.Danger,
+            confirmText = "تحميل الصوت العربي",
+            dismissText = "إلغاء",
+            onConfirm = {
+                exportError = null
+                MosaribSpeaker.openInstallTtsData(context)
+            },
+            onDismiss = { exportError = null }
+        )
     }
 }

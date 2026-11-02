@@ -101,6 +101,7 @@ fun OperationCard(
     extraNote: String? = null,        // used by task 011: "الرصيد بعد العملية: X"
     onClick: () -> Unit,
     actions: (@Composable RowScope.() -> Unit)? = null, // [سداد] and expand chevron [⌄]
+    speakText: (() -> String)? = null, // Task 025
     menu: @Composable () -> Unit,     // kebab button + DropdownMenu, placed in the meta row
     footer: (@Composable () -> Unit)? = null, // e.g. the expanded payment-history
     modifier: Modifier = Modifier
@@ -393,6 +394,14 @@ fun OperationCard(
                         actions()
                     }
 
+                    if (speakText != null) {
+                        Spacer(modifier = Modifier.width(2.dp))
+                        com.example.core.speech.SpeakButton(
+                            text = speakText,
+                            modifier = Modifier.size(32.dp),
+                            iconSize = 18.dp
+                        )
+                    }
                     Spacer(modifier = Modifier.width(2.dp))
                     menu()
                 }

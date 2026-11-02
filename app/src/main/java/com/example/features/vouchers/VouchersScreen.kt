@@ -1,11 +1,17 @@
 package com.example.features.vouchers
 
+import com.example.core.speech.MosaribSpeaker
+import com.example.core.speech.SpeechStatus
+import com.example.core.speech.SpeechTextBuilder
+import com.example.core.speech.TtsMissingDataDialog
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import java.util.Date
 import com.example.core.ui.AmountWithWords
 import com.example.core.ui.MosaribBottomSheet
 import com.example.core.ui.MosaribDateRangeDialog
 import com.example.core.ui.MosaribDialog
 import com.example.core.ui.MosaribMenu
-import com.example.core.ui.MosaribMenuItem
+import com.example.core.speech.*
 import com.example.core.ui.MosaribMenuDivider
 import com.example.core.ui.MosaribPrimaryButton
 import com.example.core.ui.MosaribSecondaryButton
@@ -63,6 +69,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Checkbox
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccessTime
@@ -122,6 +129,8 @@ import com.example.core.ui.SendMessageChoiceDialog
 import com.example.core.util.PdfReportGenerator
 import java.io.File
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -221,9 +230,20 @@ fun VouchersScreen(
     val operationsCount by viewModel.operationsCount.collectAsStateWithLifecycle()
     val settlementResult by viewModel.settlementResult.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val isDark = isAppDark()
 
     var showActivationDialog by remember { mutableStateOf(false) }
+    var isSubscribed by remember(context) { mutableStateOf(LicenseManager.isActivated(context)) }
+    var showSpeechLicenseDialog by remember { mutableStateOf(false) }
+    var missingSpeechStatus by remember { mutableStateOf<SpeechStatus?>(null) }
+    var speechError by remember { mutableStateOf<SpeechError?>(null) }
+
+    LaunchedEffect(Unit) {
+        MosaribSpeaker.errors.collect { err ->
+            speechError = err
+        }
+    }
     var showAddSheet by remember { mutableStateOf(false) }
     var showAddManualSheet by remember { mutableStateOf(false) }
     var showAddPurchaseSheet by remember { mutableStateOf(false) }
@@ -756,6 +776,13 @@ fun VouchersScreen(
                                     chips = chips,
                                     statement = statement,
                                     meta = meta,
+                                    speakText = {
+                                        SpeechTextBuilder.buildSessionSentence(
+                                            session = session,
+                                            customerName = customer?.name ?: "عميل غير محدد",
+                                            currency = config.currencySymbol
+                                        )
+                                    },
                                     onClick = { sessionForDetails = op.sessionWithCustomer },
                                     actions = {
                                         if (session.remainingDebt > 0.001) {
@@ -866,6 +893,31 @@ fun VouchersScreen(
                                                         sessionToEdit = session
                                                     }
                                                 )
+                                                MosaribMenuItem(
+                                                    text = "قراءة العملية",
+                                                    icon = Icons.AutoMirrored.Filled.VolumeUp,
+                                                    trailingIcon = if (isSubscribed) null else Icons.Default.Lock,
+                                                    onClick = {
+                                                        sessionMenuExpanded = false
+                                                        if (!isSubscribed) {
+                                                            showSpeechLicenseDialog = true
+                                                        } else {
+                                                            scope.launch {
+                                                                val status = MosaribSpeaker.prepare(context)
+                                                                if (status == SpeechStatus.Ready) {
+                                                                    val speechText = SpeechTextBuilder.buildSessionSentence(
+                                                                        session = session,
+                                                                        customerName = customer?.name ?: "عميل غير محدد",
+                                                                        currency = config.currencySymbol
+                                                                    )
+                                                                    MosaribSpeaker.speak(speechText)
+                                                                } else {
+                                                                    missingSpeechStatus = status
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                )
                                                 MosaribMenuDivider()
                                                 MosaribMenuItem(
                                                     text = "حذف",
@@ -965,6 +1017,13 @@ fun VouchersScreen(
                                     amountInWords = amountInWords,
                                     statement = statement,
                                     meta = meta,
+                                    speakText = {
+                                        when (voucher.type) {
+                                            VoucherType.RECEIPT -> SpeechTextBuilder.buildReceiptSentence(customer?.name ?: "عميل غير محدد", voucher.amount, Date(voucher.date), config.currencySymbol)
+                                            VoucherType.EXPENSE -> SpeechTextBuilder.buildExpenseSentence(customer?.name ?: voucher.notes.ifBlank { voucher.category }, voucher.amount, Date(voucher.date), config.currencySymbol)
+                                            VoucherType.DISCOUNT -> SpeechTextBuilder.buildDiscountSentence(customer?.name ?: "عميل غير محدد", voucher.amount, currency = config.currencySymbol)
+                                        }
+                                    },
                                     onClick = { voucherForDetails = op.voucherWithCustomer },
                                     menu = {
                                         Box {
@@ -1045,6 +1104,45 @@ fun VouchersScreen(
                                                         voucherToEdit = voucher
                                                     }
                                                 )
+                                                MosaribMenuItem(
+                                                    text = "قراءة العملية",
+                                                    icon = Icons.AutoMirrored.Filled.VolumeUp,
+                                                    trailingIcon = if (isSubscribed) null else Icons.Default.Lock,
+                                                    onClick = {
+                                                        voucherMenuExpanded = false
+                                                        if (!isSubscribed) {
+                                                            showSpeechLicenseDialog = true
+                                                        } else {
+                                                            scope.launch {
+                                                                val status = MosaribSpeaker.prepare(context)
+                                                                if (status == SpeechStatus.Ready) {
+                                                                    val speechText = when (voucher.type) {
+                                                                        VoucherType.RECEIPT -> SpeechTextBuilder.buildReceiptSentence(
+                                                                            customerName = customer?.name ?: "عميل غير محدد",
+                                                                            amount = voucher.amount,
+                                                                            date = Date(voucher.date),
+                                                                            currency = config.currencySymbol
+                                                                        )
+                                                                        VoucherType.EXPENSE -> SpeechTextBuilder.buildExpenseSentence(
+                                                                            nameOrCategory = customer?.name ?: voucher.notes.ifBlank { voucher.category },
+                                                                            amount = voucher.amount,
+                                                                            date = Date(voucher.date),
+                                                                            currency = config.currencySymbol
+                                                                        )
+                                                                        VoucherType.DISCOUNT -> SpeechTextBuilder.buildDiscountSentence(
+                                                                            customerName = customer?.name ?: "عميل غير محدد",
+                                                                            amount = voucher.amount,
+                                                                            currency = config.currencySymbol
+                                                                        )
+                                                                    }
+                                                                    MosaribSpeaker.speak(speechText)
+                                                                } else {
+                                                                    missingSpeechStatus = status
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                )
                                                 MosaribMenuDivider()
                                                 MosaribMenuItem(
                                                     text = "حذف السند",
@@ -1098,6 +1196,14 @@ fun VouchersScreen(
                                     chips = chips,
                                     statement = statement,
                                     meta = meta,
+                                    speakText = {
+                                        SpeechTextBuilder.buildPurchaseSentence(
+                                            ownerName = owner?.name ?: "صاحب البئر",
+                                            durationMinutes = purchase.durationMinutes,
+                                            amount = WellOwnerPurchaseMath.payableAmount(purchase),
+                                            currency = config.currencySymbol
+                                        )
+                                    },
                                     onClick = { purchaseForDetails = Pair(purchase, owner) },
                                     menu = {
                                         Box {
@@ -1143,6 +1249,32 @@ fun VouchersScreen(
                                                     onClick = {
                                                         purchaseMenuExpanded = false
                                                         purchaseToEdit = purchase
+                                                    }
+                                                )
+                                                MosaribMenuItem(
+                                                    text = "قراءة العملية",
+                                                    icon = Icons.AutoMirrored.Filled.VolumeUp,
+                                                    trailingIcon = if (isSubscribed) null else Icons.Default.Lock,
+                                                    onClick = {
+                                                        purchaseMenuExpanded = false
+                                                        if (!isSubscribed) {
+                                                            showSpeechLicenseDialog = true
+                                                        } else {
+                                                            scope.launch {
+                                                                val status = MosaribSpeaker.prepare(context)
+                                                                if (status == SpeechStatus.Ready) {
+                                                                    val speechText = SpeechTextBuilder.buildPurchaseSentence(
+                                                                        ownerName = owner?.name ?: "صاحب البئر",
+                                                                        durationMinutes = purchase.durationMinutes,
+                                                                        amount = WellOwnerPurchaseMath.payableAmount(purchase),
+                                                                        currency = config.currencySymbol
+                                                                    )
+                                                                    MosaribSpeaker.speak(speechText)
+                                                                } else {
+                                                                    missingSpeechStatus = status
+                                                                }
+                                                            }
+                                                        }
                                                     }
                                                 )
                                                 MosaribMenuDivider()
@@ -1881,6 +2013,32 @@ fun VouchersScreen(
             onDismiss = { showActivationDialog = false },
             onActivated = { showActivationDialog = false },
             isMandatory = LicenseManager.isTrialLimitExceeded(context, operationsCount)
+        )
+    }
+
+    if (showSpeechLicenseDialog) {
+        LicenseDialog(
+            onDismiss = { showSpeechLicenseDialog = false },
+            onActivated = {
+                isSubscribed = LicenseManager.isActivated(context)
+                showSpeechLicenseDialog = false
+            },
+            isMandatory = false,
+            mandatoryReason = "القراءة الصوتية والكشف الصوتي متاحان للمشتركين."
+        )
+    }
+
+    missingSpeechStatus?.let { status ->
+        TtsMissingDataDialog(
+            status = status,
+            onDismiss = { missingSpeechStatus = null }
+        )
+    }
+
+    speechError?.let { err ->
+        SpeechErrorDialog(
+            error = err,
+            onDismiss = { speechError = null }
         )
     }
 }

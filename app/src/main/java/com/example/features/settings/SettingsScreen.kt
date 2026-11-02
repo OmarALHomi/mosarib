@@ -195,6 +195,10 @@ fun SettingsScreen(
             }
 
             item {
+                VoiceReadingSection()
+            }
+
+            item {
                 val isBackupAllowed by viewModel.isBackupAllowed.collectAsStateWithLifecycle()
                 val isDeviceBkLocked by viewModel.isDeviceBackupLocked.collectAsStateWithLifecycle()
                 val isCloudBackupAllowed = isBackupAllowed && RemoteConfigManager.isCloudBackupAllowed(context)

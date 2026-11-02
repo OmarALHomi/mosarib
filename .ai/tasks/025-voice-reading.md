@@ -1,4 +1,4 @@
-status: ready
+status: done
 <!-- Ready 2026-11-02: 013 and 024 are merged. Runs in worktree D:\Kotlin\mosarib-t020 (branch task/025), in parallel with 026. -->
 
 <!-- Owner approved on 2026-11-02: both phases, subscribers only, and the user must be told
@@ -119,4 +119,7 @@ On any speak or voice-statement action, when `prepare()` is not `Ready`:
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+Round 1 (2026-11-02): changes requested. See `.ai/reviews/025-review-round1.md`.
+Round 2 (2026-11-03): changes requested after the device check. See `.ai/reviews/025-review-round2.md`.
+Round 3 (2026-11-03): works on the device; short round for speed, length, WAV cleanup. See `.ai/reviews/025-review-round3.md`.
+Round 4 (2026-11-03): small last round (caption text, عليكَ pronunciation). See `.ai/reviews/025-review-round4.md`.
