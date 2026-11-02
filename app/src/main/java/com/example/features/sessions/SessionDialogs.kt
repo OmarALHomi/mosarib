@@ -156,6 +156,100 @@ fun isEndDayAfterStartDay(startMillis: Long, endMillis: Long): Boolean {
     }
 }
 
+data class SessionFormSnapshot(
+    val customerId: Long,
+    val customerInputText: String,
+    val billedToCustomerId: Long?,
+    val grossMinutes: Int,
+    val amountPaid: Double,
+    val discountAmount: Double,
+    val wastedMinutes: Int,
+    val wastedReason: String,
+    val notes: String,
+    val pricePerHour: Double,
+    val startTimeMinute: Long,
+    val quickName: String,
+    val quickPhone: String,
+    val quickIsWellOwner: Boolean
+) {
+    fun hasChangesFrom(other: SessionFormSnapshot): Boolean {
+        if (this.customerId != other.customerId) return true
+        if (this.customerId <= 0L && this.customerInputText != other.customerInputText) return true
+        return this.billedToCustomerId != other.billedToCustomerId ||
+            this.grossMinutes != other.grossMinutes ||
+            this.amountPaid != other.amountPaid ||
+            this.discountAmount != other.discountAmount ||
+            this.wastedMinutes != other.wastedMinutes ||
+            this.wastedReason != other.wastedReason ||
+            this.notes != other.notes ||
+            this.pricePerHour != other.pricePerHour ||
+            this.startTimeMinute != other.startTimeMinute ||
+            this.quickName != other.quickName ||
+            this.quickPhone != other.quickPhone ||
+            this.quickIsWellOwner != other.quickIsWellOwner
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is SessionFormSnapshot) return false
+        return !hasChangesFrom(other)
+    }
+
+    override fun hashCode(): Int {
+        var result = customerId.hashCode()
+        if (customerId <= 0L) {
+            result = 31 * result + customerInputText.hashCode()
+        }
+        result = 31 * result + (billedToCustomerId?.hashCode() ?: 0)
+        result = 31 * result + grossMinutes
+        result = 31 * result + amountPaid.hashCode()
+        result = 31 * result + discountAmount.hashCode()
+        result = 31 * result + wastedMinutes
+        result = 31 * result + wastedReason.hashCode()
+        result = 31 * result + notes.hashCode()
+        result = 31 * result + pricePerHour.hashCode()
+        result = 31 * result + startTimeMinute.hashCode()
+        result = 31 * result + quickName.hashCode()
+        result = 31 * result + quickPhone.hashCode()
+        result = 31 * result + quickIsWellOwner.hashCode()
+        return result
+    }
+
+    companion object {
+        fun from(
+            customerId: Long,
+            customerInputText: String,
+            billedToCustomerId: Long?,
+            grossMinutes: Int,
+            amountPaidStr: String,
+            discountAmountStr: String,
+            wastedMinutes: Int,
+            wastedReason: String,
+            notes: String,
+            pricePerHourStr: String,
+            startTimeMillis: Long,
+            quickName: String,
+            quickPhone: String,
+            quickIsWellOwner: Boolean
+        ): SessionFormSnapshot = SessionFormSnapshot(
+            customerId = customerId,
+            customerInputText = customerInputText.trim(),
+            billedToCustomerId = billedToCustomerId,
+            grossMinutes = grossMinutes,
+            amountPaid = Formatters.parseAmountInput(amountPaidStr),
+            discountAmount = Formatters.parseAmountInput(discountAmountStr),
+            wastedMinutes = wastedMinutes,
+            wastedReason = wastedReason.trim(),
+            notes = notes.trim(),
+            pricePerHour = Formatters.parseAmountInput(pricePerHourStr),
+            startTimeMinute = startTimeMillis / 60000L,
+            quickName = quickName.trim(),
+            quickPhone = quickPhone.trim(),
+            quickIsWellOwner = quickIsWellOwner
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditSessionBottomSheet(
@@ -530,39 +624,25 @@ fun AddEditSessionBottomSheet(
     var showDiscountDetails by remember { mutableStateOf(discountAmount > 0) }
     var showNotes by remember { mutableStateOf(!notes.isNullOrBlank()) }
 
-    val hasUnsavedChanges by remember(
-        initialSession,
-        customerInputText,
-        selectedCustomerId,
-        manualHoursStr,
-        manualMinutesStr,
-        amountPaidStr,
-        discountAmountStr,
-        wastedHoursStr,
-        wastedMinutesStr,
-        wastedReason,
-        notes
-    ) {
-        derivedStateOf {
-            if (initialSession == null) {
-                customerInputText.isNotBlank() ||
-                selectedCustomerId > 0L ||
-                manualHoursStr.isNotBlank() ||
-                manualMinutesStr.isNotBlank() ||
-                amountPaidStr.isNotBlank() ||
-                discountAmountStr.isNotBlank() ||
-                wastedTotalMinutes > 0 ||
-                notes.isNotBlank()
-            } else {
-                selectedCustomerId != initialSession.customerId ||
-                grossMinutes != initialSession.durationMinutes ||
-                amountPaid != initialSession.amountPaid ||
-                discountAmount != (initialSession.discountAmount ?: 0.0) ||
-                wastedTotalMinutes != (initialSession.wastedMinutes ?: 0) ||
-                notes != (initialSession.notes ?: "") ||
-                billedToCustomerId != initialSession.billedToCustomerId
-            }
-        }
+    val currentSnapshot = SessionFormSnapshot.from(
+        customerId = selectedCustomerId,
+        customerInputText = customerInputText,
+        billedToCustomerId = billedToCustomerId,
+        grossMinutes = grossMinutes,
+        amountPaidStr = amountPaidStr,
+        discountAmountStr = discountAmountStr,
+        wastedMinutes = wastedTotalMinutes,
+        wastedReason = wastedReason,
+        notes = notes,
+        pricePerHourStr = pricePerHourStr,
+        startTimeMillis = startCal.timeInMillis,
+        quickName = quickName,
+        quickPhone = quickPhone,
+        quickIsWellOwner = quickIsWellOwner
+    )
+    val initialSnapshot = remember { currentSnapshot }
+    val hasUnsavedChanges by remember(currentSnapshot, initialSnapshot) {
+        derivedStateOf { currentSnapshot != initialSnapshot }
     }
 
     val trimmedInput = customerInputText.trim()

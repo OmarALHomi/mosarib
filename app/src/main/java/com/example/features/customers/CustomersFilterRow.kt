@@ -1,8 +1,10 @@
 package com.example.features.customers
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -244,11 +246,56 @@ fun CustomersFilterChipsRow(
             )
         }
 
-        // 5. زر مسح الكل عند تفعيل أي فلتر
+        // 5. شريحة إضافة مجموعة (+ مجموعة) في نهاية صف الشرائح
+        item(key = "add_group") {
+            AddGroupChip(onClick = onAddNewGroup)
+        }
+
+        // 6. زر مسح الكل عند تفعيل أي فلتر
         if (hasActiveFilter) {
             item(key = "clear_all") {
                 FilterClearAllChip(onClearAll = onClearAll)
             }
+        }
+    }
+}
+
+/**
+ * شريحة إضافة مجموعة سريعة "+ مجموعة" بتصميم متناسق مع شرائح الفلاتر.
+ */
+@Composable
+fun AddGroupChip(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+        contentColor = MaterialTheme.colorScheme.primary,
+        modifier = modifier
+            .height(36.dp)
+            .clip(CircleShape)
+            .clickable { onClick() }
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(horizontal = 12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "مجموعة",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            )
         }
     }
 }
