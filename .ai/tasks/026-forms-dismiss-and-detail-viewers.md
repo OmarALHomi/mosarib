@@ -1,4 +1,5 @@
-status: draft
+status: ready
+<!-- Ready 2026-11-02: 013 is merged. Runs in worktree D:\Kotlin\mosarib-t023 (branch task/026), in parallel with 025. -->
 
 <!-- Owner request 2026-11-02. Runs IN PARALLEL with 025 after 013 is merged. Files do not overlap
 with 025: do NOT touch CustomerDetailScreen.kt, the Settings files, AmountWithWords.kt or the card

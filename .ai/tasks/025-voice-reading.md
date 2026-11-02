@@ -1,4 +1,5 @@
-status: draft
+status: ready
+<!-- Ready 2026-11-02: 013 and 024 are merged. Runs in worktree D:\Kotlin\mosarib-t020 (branch task/025), in parallel with 026. -->
 
 <!-- Owner approved on 2026-11-02: both phases, subscribers only, and the user must be told
 clearly when the Arabic voice data is missing. Becomes ready after 013 and 024 are merged, because
