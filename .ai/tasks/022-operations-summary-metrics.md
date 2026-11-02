@@ -1,7 +1,7 @@
-status: draft
+status: ready
 
-<!-- Written 2026-11-02. Owner approved the change on 2026-11-02. Waits only for task 019 to be merged,
-because it edits the summary card in VouchersScreen.kt. -->
+<!-- Written 2026-11-02. Owner approved the change on 2026-11-02. 019 is merged. Runs in the main folder
+D:\Kotlin\mosarib (window 1). -->
 # Task 022: Make the operations summary card agree with the reports
 
 ## Problem (seen on the device, "الكل")
