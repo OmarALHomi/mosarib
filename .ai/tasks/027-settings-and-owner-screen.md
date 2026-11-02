@@ -45,10 +45,17 @@ Sections and rows:
 
 Every existing setting and action must still be reachable. List old → new place in the report.
 
+## C. Leftover from 026 (session detail viewer)
+- In "الدفعات المرتبطة", label each line by the voucher type: "خصم · 750", "قبض · 6,000"
+  (not "سداد" for everything), with the type colour.
+- The count on the ledger card ("السداد (N)") and the count in the viewer must match. Use one
+  shared definition.
+
 ## Allowed files
 - `features/customers/CustomerDetailScreen.kt` (owner section only)
 - `features/settings/*` (layout only, no change to ViewModel logic or backup behaviour)
 - new `features/settings/SettingsRow.kt` (shared row and section composables)
+- `core/ui/SessionDetailBottomSheet.kt` (part C only); the ledger card count in `CustomerDetailScreen.kt`
 
 ## Done when
 - Build and tests pass. Device screenshots in light and dark themes are described in the report.
