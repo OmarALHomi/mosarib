@@ -53,6 +53,33 @@ enum class PurchaseTimeMode {
     MANUAL
 }
 
+data class PurchaseFormSnapshot(
+    val ownerId: Long?,
+    val durationMinutes: Int,
+    val wastedMinutes: Int,
+    val rate: Double,
+    val amountPaid: Double,
+    val notes: String
+) {
+    companion object {
+        fun from(
+            ownerId: Long?,
+            durationMinutes: Int,
+            wastedMinutes: Int,
+            rateStr: String,
+            amountPaidStr: String,
+            notes: String
+        ): PurchaseFormSnapshot = PurchaseFormSnapshot(
+            ownerId = ownerId,
+            durationMinutes = durationMinutes,
+            wastedMinutes = wastedMinutes,
+            rate = Formatters.parseAmountInput(rateStr),
+            amountPaid = Formatters.parseAmountInput(amountPaidStr),
+            notes = notes.trim()
+        )
+    }
+}
+
 /**
  * صفيحة سفلية عائمة لتسجيل أو تعديل شراء ساعات ري من صاحب بئر.
  * تدعم حماية الإغلاق العرضي وتأكيد التغييرات غير المحفوظة عبر [MosaribBottomSheet].
@@ -226,35 +253,17 @@ fun WellOwnerPurchaseBottomSheet(
     }
     val valid = durationMinutes in 1..6000 && wastedMinutes in 0..durationMinutes && rate > 0
 
-    // التحقق من وجود تغييرات غير محفوظة لمنع الإغلاق العرضي
-    val hasUnsavedChanges by remember(
-        initialPurchase,
-        hoursText,
-        minutesText,
-        wastedHoursText,
-        wastedMinutesText,
-        rateText,
-        amountPaidText,
-        notes,
-        selectedOwner
-    ) {
-        derivedStateOf {
-            if (initialPurchase == null) {
-                hoursText.isNotBlank() ||
-                minutesText.isNotBlank() ||
-                wastedHoursText.isNotBlank() ||
-                wastedMinutesText.isNotBlank() ||
-                amountPaidText.isNotBlank() ||
-                notes.isNotBlank()
-            } else {
-                notes != (initialPurchase.notes ?: "") ||
-                rate != initialPurchase.purchaseRatePerHour ||
-                amountPaidText.isNotBlank() ||
-                durationMinutes != initialPurchase.durationMinutes ||
-                wastedMinutes != initialPurchase.wastedMinutesOnOwner ||
-                selectedOwner?.id != initialPurchase.ownerCustomerId
-            }
-        }
+    val currentSnapshot = PurchaseFormSnapshot.from(
+        ownerId = selectedOwner?.id,
+        durationMinutes = durationMinutes,
+        wastedMinutes = wastedMinutes,
+        rateStr = rateText,
+        amountPaidStr = amountPaidText,
+        notes = notes
+    )
+    val initialSnapshot = remember { currentSnapshot }
+    val hasUnsavedChanges by remember(currentSnapshot, initialSnapshot) {
+        derivedStateOf { currentSnapshot != initialSnapshot }
     }
 
     val curOwner = selectedOwner

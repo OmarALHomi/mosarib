@@ -4,298 +4,321 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.mosarib
 import com.example.core.util.Formatters
+import com.example.ui.theme.mosarib
 
 /**
- * الهيكل الموحّد للشاشات العائمة لتفاصيل العمليات (اتجاه عربي + تمرير عمودي)
+ * كتلة المبلغ المالية الكبيرة الموحدة بعرض كامل وخلفية بلون العملية 8% مع التفقيط
  */
 @Composable
-internal fun OperationDetailSheetScaffold(
-    onDismiss: () -> Unit,
-    content: @Composable ColumnScope.() -> Unit
+fun OperationDetailAmountBlock(
+    amount: Double,
+    currencySymbol: String,
+    typeColor: Color,
+    modifier: Modifier = Modifier,
+    extraContent: (@Composable () -> Unit)? = null
 ) {
-    MosaribBottomSheet(
-        onDismissRequest = onDismiss,
-        title = "",
-        content = content
-    )
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = typeColor.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, typeColor.copy(alpha = 0.20f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = Formatters.formatCurrency(amount, currencySymbol),
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = typeColor
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = Formatters.amountToArabicWords(amount, currencySymbol),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (extraContent != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = typeColor.copy(alpha = 0.15f)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                extraContent()
+            }
+        }
+    }
 }
 
 /**
- * رأس الشاشة: أيقونة دائرية + العنوان والتاريخ + شارة الحالة
+ * الكرت الموحد لقائمة تفاصيل العملية (surface, 1dp outlineVariant, 12dp radius)
  */
 @Composable
-internal fun OperationDetailHeader(
+fun OperationDetailCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            content = content
+        )
+    }
+}
+
+/**
+ * صف معلومة في كرت التفاصيل بارتفاع 48dp مع أيقونة وعنوان باهت على اليمين وقيمة على اليسار
+ */
+@Composable
+fun OperationDetailRow(
     icon: ImageVector,
-    accentColor: Color,
-    iconSize: Dp,
-    title: String,
-    subtitle: String,
-    badgeText: String,
-    badgeContainerColor: Color,
-    badgeContentColor: Color
+    label: String,
+    value: String,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface,
+    onClick: (() -> Unit)? = null,
+    trailingActions: (@Composable () -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.weight(1f, fill = false)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(accentColor.copy(alpha = 0.14f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = accentColor,
-                    modifier = Modifier.size(iconSize)
-                )
-            }
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
             Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f, fill = false)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 16.sp
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.5.sp
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // شارة الحالة
-        Surface(
-            color = badgeContainerColor,
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Text(
-                text = badgeText,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = badgeContentColor,
-                    fontSize = 11.sp
-                ),
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                maxLines = 1
-            )
-        }
-    }
-}
-
-/**
- * الكرت الرمادي الموحّد لأقسام التفاصيل
- */
-@Composable
-internal fun OperationDetailCard(content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-        ),
-        content = content
-    )
-}
-
-/**
- * كرت المبلغ الفخم مع التفقيط بالعربية
- */
-@Composable
-internal fun OperationDetailAmountCard(
-    label: String,
-    amount: Double,
-    currencySymbol: String,
-    accentColor: Color
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = accentColor.copy(alpha = 0.08f)
-        ),
-        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.25f))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium.copy(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.5.sp
-                )
-            )
-            Spacer(modifier = Modifier.height(3.dp))
-            Text(
-                text = Formatters.formatCurrency(amount, currencySymbol),
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Black,
-                    color = accentColor,
-                    fontSize = 26.sp
-                ),
-                maxLines = 1
-            )
-            Spacer(modifier = Modifier.height(3.dp))
-            Text(
-                text = Formatters.amountToArabicWords(amount, currencySymbol),
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
-                    fontSize = 11.5.sp
-                ),
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
-        }
-    }
-}
-
-/**
- * كرت الطرف المقابل (عميل / مستفيد / صاحب بئر): صورة رمزية + الاسم + سطر فرعي + إجراءات جانبية
- */
-@Composable
-internal fun OperationDetailPartyCard(
-    avatarIcon: ImageVector,
-    avatarTint: Color,
-    avatarBackground: Color,
-    name: String,
-    nameFontSize: TextUnit,
-    subtitle: @Composable ColumnScope.() -> Unit = {},
-    trailing: @Composable RowScope.() -> Unit = {}
-) {
-    OperationDetailCard {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.End
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(avatarBackground),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = avatarIcon,
-                        contentDescription = null,
-                        tint = avatarTint,
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = valueColor
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (trailingActions != null) {
                 Spacer(modifier = Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f, fill = false)) {
-                    Text(
-                        text = name,
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = nameFontSize
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    subtitle()
-                }
+                trailingActions()
             }
-
-            trailing()
         }
     }
 }
 
+/**
+ * فاصل 1dp بين صفوف التفاصيل
+ */
 @Composable
-internal fun OperationDetailPhoneText(phone: String, fontSize: TextUnit) {
-    Text(
-        text = phone,
-        style = MaterialTheme.typography.bodySmall.copy(
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = fontSize
-        ),
-        maxLines = 1
+fun OperationDetailDivider(modifier: Modifier = Modifier) {
+    HorizontalDivider(
+        modifier = modifier,
+        thickness = 1.dp,
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
     )
 }
 
 /**
- * أزرار اتصال وواتساب سريعة للطرف المقابل
+ * صندوق البيان الموحد مطابق لبطاقات العمليات (لون العملية 8% وأيقونة أسطر)
  */
 @Composable
-internal fun OperationDetailContactActions(phone: String) {
+fun OperationDetailStatement(
+    statement: String,
+    typeColor: Color,
+    modifier: Modifier = Modifier
+) {
+    if (statement.isBlank() || statement == "عام") return
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = typeColor.copy(alpha = if (isDark) 0.12f else 0.08f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, typeColor.copy(alpha = if (isDark) 0.35f else 0.20f))
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.Notes,
+                contentDescription = null,
+                tint = typeColor,
+                modifier = Modifier.size(18.dp).padding(top = 2.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+                Text(
+                    text = "البيان:",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = typeColor
+                    )
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = statement,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+            }
+        }
+    }
+}
+
+/**
+ * قائمة الخيارات الإضافية في ترويسة الشاشة المنبثقة ⋮ (تتضمن PDF وحذف بشكل تخريبي)
+ */
+@Composable
+fun OperationDetailHeaderMenu(
+    onPdf: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
+    deleteLabel: String = "حذف"
+) {
+    if (onPdf == null && onDelete == null) return
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(
+            onClick = { expanded = true },
+            modifier = Modifier.size(40.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = "خيارات إضافية",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        MosaribMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            if (onPdf != null) {
+                MosaribMenuItem(
+                    text = "تصدير PDF",
+                    icon = Icons.Default.PictureAsPdf,
+                    onClick = {
+                        expanded = false
+                        onPdf()
+                    }
+                )
+            }
+            if (onDelete != null) {
+                if (onPdf != null) {
+                    MosaribMenuDivider()
+                }
+                MosaribMenuItem(
+                    text = deleteLabel,
+                    icon = Icons.Default.Delete,
+                    destructive = true,
+                    onClick = {
+                        expanded = false
+                        onDelete()
+                    }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * أزرار اتصال وواتساب سريعة لرقم الهاتف
+ */
+@Composable
+fun OperationDetailContactActions(phone: String) {
     val context = LocalContext.current
 
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        FilledTonalIconButton(
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        IconButton(
             onClick = {
                 try {
                     val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
                     context.startActivity(intent)
                 } catch (_: Exception) {}
             },
-            modifier = Modifier.size(34.dp)
+            modifier = Modifier.size(32.dp)
         ) {
-            Icon(Icons.Default.Phone, contentDescription = "اتصال", modifier = Modifier.size(16.dp))
+            Icon(
+                Icons.Default.Phone,
+                contentDescription = "اتصال",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp)
+            )
         }
 
-        FilledTonalIconButton(
+        IconButton(
             onClick = {
                 try {
                     val cleanPhone = phone.replace("+", "").replace(" ", "").trim()
@@ -303,189 +326,14 @@ internal fun OperationDetailContactActions(phone: String) {
                     context.startActivity(Intent(Intent.ACTION_VIEW, uri))
                 } catch (_: Exception) {}
             },
-            modifier = Modifier.size(34.dp),
-            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                containerColor = MaterialTheme.mosarib.success.copy(alpha = 0.15f),
-                contentColor = MaterialTheme.mosarib.success
-            )
+            modifier = Modifier.size(32.dp)
         ) {
-            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", modifier = Modifier.size(16.dp))
-        }
-    }
-}
-
-/**
- * صف معلومة بسيط: عنوان باهت يميناً وقيمة بارزة يساراً
- */
-@Composable
-internal fun OperationDetailInfoRow(
-    label: String,
-    value: String,
-    valueColor: Color = MaterialTheme.colorScheme.onSurface,
-    fontSize: TextUnit = 12.5.sp,
-    valueMaxLines: Int = Int.MAX_VALUE,
-    valueOverflow: TextOverflow = TextOverflow.Clip
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = fontSize
+            Icon(
+                Icons.AutoMirrored.Filled.Send,
+                contentDescription = "واتساب",
+                tint = MaterialTheme.mosarib.success,
+                modifier = Modifier.size(16.dp)
             )
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.Bold,
-                color = valueColor,
-                fontSize = fontSize
-            ),
-            maxLines = valueMaxLines,
-            overflow = valueOverflow
-        )
-    }
-}
-
-/**
- * كتلة البيان / الملاحظات بأيقونة وعنوان ونص بارز
- */
-@Composable
-internal fun OperationDetailNotes(
-    notes: String,
-    accentColor: Color,
-    iconSize: Dp,
-    iconSpacing: Dp,
-    labelFontSize: TextUnit,
-    labelSpacing: Dp,
-    notesFontSize: TextUnit,
-    notesLineHeight: TextUnit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.Top
-    ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.Notes,
-            contentDescription = null,
-            tint = accentColor,
-            modifier = Modifier.size(iconSize).padding(top = 2.dp)
-        )
-        Spacer(modifier = Modifier.width(iconSpacing))
-        Column {
-            Text(
-                text = "البيان / الملاحظات:",
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = accentColor,
-                    fontSize = labelFontSize
-                )
-            )
-            Spacer(modifier = Modifier.height(labelSpacing))
-            Text(
-                text = notes,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = notesFontSize,
-                    lineHeight = notesLineHeight
-                )
-            )
-        }
-    }
-}
-
-/**
- * عمود أزرار الإجراءات السفلية
- */
-@Composable
-internal fun OperationDetailActions(content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .navigationBarsPadding(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        content = content
-    )
-}
-
-/**
- * زر إجراء ممتلئ (مشاركة / إرسال / PDF)
- */
-@Composable
-internal fun OperationDetailFilledButton(
-    text: String,
-    icon: ImageVector,
-    containerColor: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.height(44.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = containerColor),
-        shape = RoundedCornerShape(10.dp),
-        contentPadding = PaddingValues(horizontal = 8.dp)
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(text, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, maxLines = 1)
-    }
-}
-
-/**
- * صف التعديل والحذف (يظهر فقط عند توفر أحدهما)
- */
-@Composable
-internal fun OperationDetailEditDeleteRow(
-    editLabel: String,
-    deleteLabel: String,
-    editAccentColor: Color,
-    onEdit: (() -> Unit)?,
-    onDelete: (() -> Unit)?
-) {
-    if (onEdit != null || onDelete != null) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (onEdit != null) {
-                OutlinedButton(
-                    onClick = onEdit,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(42.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, editAccentColor.copy(alpha = 0.5f)),
-                    contentPadding = PaddingValues(horizontal = 8.dp)
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp), tint = editAccentColor)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(editLabel, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, color = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-
-            if (onDelete != null) {
-                OutlinedButton(
-                    onClick = onDelete,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(42.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.mosarib.debt),
-                    border = BorderStroke(1.dp, MaterialTheme.mosarib.debt.copy(alpha = 0.5f)),
-                    contentPadding = PaddingValues(horizontal = 8.dp)
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.mosarib.debt)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(deleteLabel, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, color = MaterialTheme.mosarib.debt)
-                }
-            }
         }
     }
 }

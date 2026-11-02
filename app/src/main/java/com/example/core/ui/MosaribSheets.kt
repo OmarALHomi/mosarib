@@ -43,6 +43,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
@@ -519,16 +520,26 @@ fun MosaribBottomSheet(
     icon: ImageVector? = null,
     iconTint: Color = MaterialTheme.colorScheme.primary,
     headerBadge: (@Composable () -> Unit)? = null,
+    headerActions: (@Composable () -> Unit)? = null,
     hasUnsavedChanges: Boolean = false,
     footer: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     var showDiscardDialog by remember { mutableStateOf(false) }
     var isDismissingAllowed by remember { mutableStateOf(false) }
+    var isDismissingInProgress by remember { mutableStateOf(false) }
+    var hasDismissBeenCalled by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val (nestedScrollConnection, dragModifier, getLastDragTime) = rememberSheetDragTracker()
 
     var requestDismiss: () -> Unit = {}
+
+    val notifyDismiss = {
+        if (!hasDismissBeenCalled) {
+            hasDismissBeenCalled = true
+            onDismissRequest()
+        }
+    }
 
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
@@ -552,14 +563,16 @@ fun MosaribBottomSheet(
         }
     )
 
-    val executeDismiss = {
-        if (!isDismissingAllowed) {
+    val executeDismiss: () -> Unit = {
+        if (!isDismissingInProgress && !hasDismissBeenCalled) {
+            isDismissingInProgress = true
             isDismissingAllowed = true
             coroutineScope.launch {
                 try {
                     sheetState.hide()
+                } catch (_: Throwable) {
                 } finally {
-                    onDismissRequest()
+                    notifyDismiss()
                 }
             }
         }
@@ -573,26 +586,6 @@ fun MosaribBottomSheet(
         }
     }
 
-    BackHandler(enabled = true) {
-        requestDismiss()
-    }
-
-    if (showDiscardDialog) {
-        MosaribDialog(
-            onDismissRequest = { showDiscardDialog = false },
-            title = "تجاهل التغييرات؟",
-            message = "لديك بيانات أو تغييرات غير محفوظة، هل أنت متأكد من التجاهل والإغلاق؟",
-            tone = DialogTone.Danger,
-            confirmText = "تجاهل",
-            onConfirm = {
-                showDiscardDialog = false
-                executeDismiss()
-            },
-            dismissText = "متابعة التعديل",
-            onDismiss = { showDiscardDialog = false }
-        )
-    }
-
     val isDark = isAppDark()
     val containerColor = if (isDark) {
         MaterialTheme.colorScheme.surfaceContainerLow
@@ -604,8 +597,15 @@ fun MosaribBottomSheet(
     val maxHeight = screenHeight * 0.92f
 
     ModalBottomSheet(
-        onDismissRequest = requestDismiss,
+        onDismissRequest = {
+            if (!isDismissingInProgress && !hasDismissBeenCalled) {
+                requestDismiss()
+            } else {
+                notifyDismiss()
+            }
+        },
         sheetState = sheetState,
+        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = false),
         containerColor = containerColor,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         dragHandle = {
@@ -619,6 +619,25 @@ fun MosaribBottomSheet(
             )
         }
     ) {
+        BackHandler(enabled = true) {
+            requestDismiss()
+        }
+
+        if (showDiscardDialog) {
+            MosaribDialog(
+                onDismissRequest = { showDiscardDialog = false },
+                title = "تجاهل التغييرات؟",
+                message = "لديك بيانات أو تغييرات غير محفوظة، هل أنت متأكد من التجاهل والإغلاق؟",
+                tone = DialogTone.Danger,
+                confirmText = "تجاهل",
+                onConfirm = {
+                    showDiscardDialog = false
+                    executeDismiss()
+                },
+                dismissText = "متابعة التعديل",
+                onDismiss = { showDiscardDialog = false }
+            )
+        }
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
             Column(
                 modifier = Modifier
@@ -663,40 +682,43 @@ fun MosaribBottomSheet(
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                                if (!subtitle.isNullOrBlank() || headerBadge != null) {
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        if (headerBadge != null) {
-                                            headerBadge()
-                                        }
-                                        if (!subtitle.isNullOrBlank()) {
-                                            Text(
-                                                text = subtitle,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
+                                if (!subtitle.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = subtitle,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                if (headerBadge != null) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    headerBadge()
                                 }
                             }
                         }
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        IconButton(
-                            onClick = requestDismiss,
-                            modifier = Modifier.size(40.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.End
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "إغلاق",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            if (headerActions != null) {
+                                headerActions()
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            IconButton(
+                                onClick = requestDismiss,
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "إغلاق",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
 
@@ -712,6 +734,10 @@ fun MosaribBottomSheet(
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        if (headerActions != null) {
+                            headerActions()
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
                         IconButton(
                             onClick = requestDismiss,
                             modifier = Modifier.size(40.dp)
@@ -771,16 +797,26 @@ fun MosaribBottomSheetLazy(
     icon: ImageVector? = null,
     iconTint: Color = MaterialTheme.colorScheme.primary,
     headerBadge: (@Composable () -> Unit)? = null,
+    headerActions: (@Composable () -> Unit)? = null,
     hasUnsavedChanges: Boolean = false,
     footer: (@Composable RowScope.() -> Unit)? = null,
     content: LazyListScope.() -> Unit
 ) {
     var showDiscardDialog by remember { mutableStateOf(false) }
     var isDismissingAllowed by remember { mutableStateOf(false) }
+    var isDismissingInProgress by remember { mutableStateOf(false) }
+    var hasDismissBeenCalled by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val (nestedScrollConnection, dragModifier, getLastDragTime) = rememberSheetDragTracker()
 
     var requestDismiss: () -> Unit = {}
+
+    val notifyDismiss = {
+        if (!hasDismissBeenCalled) {
+            hasDismissBeenCalled = true
+            onDismissRequest()
+        }
+    }
 
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
@@ -804,14 +840,16 @@ fun MosaribBottomSheetLazy(
         }
     )
 
-    val executeDismiss = {
-        if (!isDismissingAllowed) {
+    val executeDismiss: () -> Unit = {
+        if (!isDismissingInProgress && !hasDismissBeenCalled) {
+            isDismissingInProgress = true
             isDismissingAllowed = true
             coroutineScope.launch {
                 try {
                     sheetState.hide()
+                } catch (_: Throwable) {
                 } finally {
-                    onDismissRequest()
+                    notifyDismiss()
                 }
             }
         }
@@ -825,26 +863,6 @@ fun MosaribBottomSheetLazy(
         }
     }
 
-    BackHandler(enabled = true) {
-        requestDismiss()
-    }
-
-    if (showDiscardDialog) {
-        MosaribDialog(
-            onDismissRequest = { showDiscardDialog = false },
-            title = "تجاهل التغييرات؟",
-            message = "لديك بيانات أو تغييرات غير محفوظة، هل أنت متأكد من التجاهل والإغلاق؟",
-            tone = DialogTone.Danger,
-            confirmText = "تجاهل",
-            onConfirm = {
-                showDiscardDialog = false
-                executeDismiss()
-            },
-            dismissText = "متابعة التعديل",
-            onDismiss = { showDiscardDialog = false }
-        )
-    }
-
     val isDark = isAppDark()
     val containerColor = if (isDark) {
         MaterialTheme.colorScheme.surfaceContainerLow
@@ -856,8 +874,15 @@ fun MosaribBottomSheetLazy(
     val maxHeight = screenHeight * 0.92f
 
     ModalBottomSheet(
-        onDismissRequest = requestDismiss,
+        onDismissRequest = {
+            if (!isDismissingInProgress && !hasDismissBeenCalled) {
+                requestDismiss()
+            } else {
+                notifyDismiss()
+            }
+        },
         sheetState = sheetState,
+        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = false),
         containerColor = containerColor,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         dragHandle = {
@@ -871,6 +896,25 @@ fun MosaribBottomSheetLazy(
             )
         }
     ) {
+        BackHandler(enabled = true) {
+            requestDismiss()
+        }
+
+        if (showDiscardDialog) {
+            MosaribDialog(
+                onDismissRequest = { showDiscardDialog = false },
+                title = "تجاهل التغييرات؟",
+                message = "لديك بيانات أو تغييرات غير محفوظة، هل أنت متأكد من التجاهل والإغلاق؟",
+                tone = DialogTone.Danger,
+                confirmText = "تجاهل",
+                onConfirm = {
+                    showDiscardDialog = false
+                    executeDismiss()
+                },
+                dismissText = "متابعة التعديل",
+                onDismiss = { showDiscardDialog = false }
+            )
+        }
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
             Column(
                 modifier = Modifier
@@ -915,40 +959,43 @@ fun MosaribBottomSheetLazy(
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                                if (!subtitle.isNullOrBlank() || headerBadge != null) {
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        if (headerBadge != null) {
-                                            headerBadge()
-                                        }
-                                        if (!subtitle.isNullOrBlank()) {
-                                            Text(
-                                                text = subtitle,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
+                                if (!subtitle.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = subtitle,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                if (headerBadge != null) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    headerBadge()
                                 }
                             }
                         }
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        IconButton(
-                            onClick = requestDismiss,
-                            modifier = Modifier.size(40.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.End
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "إغلاق",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            if (headerActions != null) {
+                                headerActions()
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            IconButton(
+                                onClick = requestDismiss,
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "إغلاق",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
 
@@ -964,6 +1011,10 @@ fun MosaribBottomSheetLazy(
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        if (headerActions != null) {
+                            headerActions()
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
                         IconButton(
                             onClick = requestDismiss,
                             modifier = Modifier.size(40.dp)

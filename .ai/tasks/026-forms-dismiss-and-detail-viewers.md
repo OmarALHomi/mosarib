@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 <!-- Ready 2026-11-02: 013 is merged. Runs in worktree D:\Kotlin\mosarib-t023 (branch task/026), in parallel with 025. -->
 
 <!-- Owner request 2026-11-02. Runs IN PARALLEL with 025 after 013 is merged. Files do not overlap
@@ -120,4 +120,5 @@ the customers dropdown chip row (as before task 016). It opens the existing grou
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+Round 1 (2026-11-02): changes requested. See `.ai/reviews/026-review-round1.md`.
+**Verdict: accepted (2026-11-03, device check, round 2). The flicker and back press are fixed, the snapshots are correct, the viewers follow the new layout. Leftover discount label and count moved to task 027.**

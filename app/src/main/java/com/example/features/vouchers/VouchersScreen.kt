@@ -1885,6 +1885,39 @@ fun VouchersScreen(
     }
 }
 
+data class VoucherFormSnapshot(
+    val type: VoucherType,
+    val customerId: Long,
+    val beneficiaryId: Long?,
+    val amount: Double,
+    val discount: Double,
+    val paymentMethod: String,
+    val notes: String,
+    val selectedSessionIds: Set<Long>
+) {
+    companion object {
+        fun from(
+            type: VoucherType,
+            customerId: Long,
+            beneficiaryId: Long?,
+            amountStr: String,
+            discountStr: String,
+            paymentMethod: String,
+            notes: String,
+            selectedSessionIds: Set<Long>
+        ): VoucherFormSnapshot = VoucherFormSnapshot(
+            type = type,
+            customerId = customerId,
+            beneficiaryId = beneficiaryId,
+            amount = Formatters.parseAmountInput(amountStr),
+            discount = Formatters.parseAmountInput(discountStr),
+            paymentMethod = paymentMethod.trim(),
+            notes = notes.trim(),
+            selectedSessionIds = selectedSessionIds
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddVoucherBottomSheet(
@@ -1918,8 +1951,22 @@ fun AddVoucherBottomSheet(
     var selectedBeneficiaryId by remember {
         mutableStateOf<Long?>(initialVoucher?.customerId)
     }
-    var selectedSessionIds by remember { mutableStateOf(setOf<Long>()) }
-    var amountStr by remember { mutableStateOf(if (initialVoucher != null && initialVoucher.amount > 0) initialVoucher.amount.toString() else "") }
+    val initSessionsForCust = remember(initCustId, initialType, initialVoucher) {
+        if (initialVoucher == null && initialType == VoucherType.RECEIPT) {
+            allSessions.filter { it.customerId == initCustId && it.remainingDebt > 0 }
+                .sortedBy { it.startTime }
+        } else emptyList()
+    }
+    val initSessionIds = remember(initSessionsForCust) { initSessionsForCust.map { it.id }.toSet() }
+    val initAmountStr = remember(initialVoucher, initSessionsForCust) {
+        if (initialVoucher != null && initialVoucher.amount > 0) {
+            Formatters.formatAmountInput(initialVoucher.amount.toString())
+        } else if (initSessionsForCust.isNotEmpty()) {
+            Formatters.formatAmountInput(initSessionsForCust.sumOf { it.remainingDebt }.toString())
+        } else ""
+    }
+    var selectedSessionIds by remember { mutableStateOf(initSessionIds) }
+    var amountStr by remember { mutableStateOf(initAmountStr) }
     var discountAmountStr by remember { mutableStateOf("") }
     var paymentMethod by remember { mutableStateOf(initialVoucher?.paymentMethod ?: "نقداً") }
     var notes by remember { mutableStateOf(initialVoucher?.notes ?: "") }
@@ -1939,7 +1986,12 @@ fun AddVoucherBottomSheet(
     }
 
     // النظام الهجين: التحديد التلقائي الذكي للجلسات غير المسددة وتعبئة المبلغ الافتراضي بالأقدمية
+    var hasUserChangedCustomerOrType by remember { mutableStateOf(false) }
     LaunchedEffect(selectedCustomerId, type) {
+        if (!hasUserChangedCustomerOrType) {
+            hasUserChangedCustomerOrType = true
+            return@LaunchedEffect
+        }
         if (initialVoucher == null && type == VoucherType.RECEIPT) {
             val sessionsForCust = allSessions.filter { it.customerId == selectedCustomerId && it.remainingDebt > 0 }
                 .sortedBy { it.startTime }
@@ -1959,31 +2011,19 @@ fun AddVoucherBottomSheet(
     val parsedDisc = remember(discountAmountStr) { Formatters.parseAmountInput(discountAmountStr) }
     val canSave = parsedAmt > 0 || (type == VoucherType.RECEIPT && parsedDisc > 0)
 
-    val hasUnsavedChanges by remember(
-        initialVoucher,
-        amountStr,
-        discountAmountStr,
-        notes,
-        paymentMethod,
-        type,
-        selectedCustomerId,
-        selectedSessionIds
-    ) {
-        derivedStateOf {
-            if (initialVoucher == null) {
-                amountStr.isNotBlank() ||
-                discountAmountStr.isNotBlank() ||
-                notes.isNotBlank() ||
-                selectedSessionIds.isNotEmpty() ||
-                paymentMethod != "نقداً"
-            } else {
-                amountStr != initialVoucher.amount.toString() ||
-                notes != (initialVoucher.notes ?: "") ||
-                paymentMethod != initialVoucher.paymentMethod ||
-                type != initialVoucher.type ||
-                selectedCustomerId != (initialVoucher.customerId ?: 0L)
-            }
-        }
+    val currentSnapshot = VoucherFormSnapshot.from(
+        type = type,
+        customerId = selectedCustomerId,
+        beneficiaryId = selectedBeneficiaryId,
+        amountStr = amountStr,
+        discountStr = discountAmountStr,
+        paymentMethod = paymentMethod,
+        notes = notes,
+        selectedSessionIds = selectedSessionIds
+    )
+    val initialSnapshot = remember { currentSnapshot }
+    val hasUnsavedChanges by remember(currentSnapshot, initialSnapshot) {
+        derivedStateOf { currentSnapshot != initialSnapshot }
     }
 
     val headerTitle = when {

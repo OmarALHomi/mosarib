@@ -69,6 +69,42 @@ import com.example.core.ui.MosaribTextField
 import com.example.core.util.Formatters
 import com.example.ui.theme.mosarib
 
+data class CustomerFormSnapshot(
+    val name: String,
+    val phone: String,
+    val farmName: String,
+    val location: String,
+    val notes: String,
+    val customGroup: String,
+    val isWellOwner: Boolean,
+    val isBeneficiary: Boolean,
+    val customPricePerHour: Double?
+) {
+    companion object {
+        fun from(
+            name: String,
+            phone: String,
+            farmName: String,
+            location: String,
+            notes: String,
+            customGroup: String,
+            isWellOwner: Boolean,
+            isBeneficiary: Boolean,
+            customPriceStr: String
+        ): CustomerFormSnapshot = CustomerFormSnapshot(
+            name = name.trim(),
+            phone = phone.trim(),
+            farmName = farmName.trim(),
+            location = location.trim(),
+            notes = notes.trim(),
+            customGroup = customGroup.trim(),
+            isWellOwner = isWellOwner,
+            isBeneficiary = isBeneficiary,
+            customPricePerHour = Formatters.parseAmountInput(customPriceStr).takeIf { it > 0.0 }
+        )
+    }
+}
+
 /**
  * صفيحة إضافة وتعديل العميل وصاحب البئر مبنية على [MosaribBottomSheet] مع رصد التغييرات وتذييل ثابت.
  */
@@ -114,26 +150,19 @@ fun AddEditCustomerBottomSheet(
         label = "active_theme_color"
     )
 
-    val hasUnsavedChanges = remember(
-        name, phone, farmName, location, notes, customGroup,
-        isWellOwner, isBeneficiary, customPriceStr, initialCustomer
-    ) {
-        if (initialCustomer == null) {
-            name.isNotBlank() || phone.isNotBlank() || farmName.isNotBlank() ||
-                location.isNotBlank() || notes.isNotBlank() || customGroup.isNotBlank() ||
-                isWellOwner || customPriceStr.isNotBlank()
-        } else {
-            name != initialCustomer.name ||
-                phone != (initialCustomer.phone) ||
-                farmName != (initialCustomer.farmName) ||
-                location != (initialCustomer.location) ||
-                notes != (initialCustomer.notes) ||
-                customGroup != (initialCustomer.customGroup) ||
-                isWellOwner != initialCustomer.isWellOwner ||
-                isBeneficiary != initialCustomer.isBeneficiary ||
-                customPriceStr != (initialCustomer.customPricePerHour?.let { it.toString() } ?: "")
-        }
-    }
+    val currentSnapshot = CustomerFormSnapshot.from(
+        name = name,
+        phone = phone,
+        farmName = farmName,
+        location = location,
+        notes = notes,
+        customGroup = customGroup,
+        isWellOwner = isWellOwner,
+        isBeneficiary = isBeneficiary,
+        customPriceStr = customPriceStr
+    )
+    val initialSnapshot = remember { currentSnapshot }
+    val hasUnsavedChanges = currentSnapshot != initialSnapshot
 
     // أداة استيراد الاسم ورقم الهاتف من جهات الاتصال
     val contactPickerLauncher = rememberLauncherForActivityResult(
