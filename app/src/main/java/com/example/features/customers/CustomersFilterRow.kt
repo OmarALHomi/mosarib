@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.example.core.ui.DropdownOption
 import com.example.core.ui.FilterClearAllChip
 import com.example.core.ui.FilterDropdownChip
+import com.example.core.ui.MosaribMenuItem
 
 /**
  * رأس قائمة الحسابات: حقل البحث ثم صف شرائح الفلاتر المنسدلة.
@@ -233,23 +234,10 @@ fun CustomersFilterChipsRow(
                 isDefault = selectedGroup == null,
                 onSelect = onSelectGroup,
                 footer = {
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = "+ مجموعة جديدة",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        },
+                    MosaribMenuItem(
+                        text = "مجموعة جديدة",
+                        icon = Icons.Default.Add,
+                        tint = MaterialTheme.colorScheme.primary,
                         onClick = onAddNewGroup
                     )
                 }

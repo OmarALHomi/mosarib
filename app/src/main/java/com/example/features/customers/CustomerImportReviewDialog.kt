@@ -1,8 +1,8 @@
 package com.example.features.customers
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,43 +10,33 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -55,28 +45,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import com.example.core.ui.MosaribButton
-import com.example.core.ui.MosaribOutlinedButton
+import com.example.core.ui.MosaribBottomSheetLazy
+import com.example.core.ui.MosaribDialog
+import com.example.core.ui.MosaribPrimaryButton
+import com.example.core.ui.MosaribSecondaryButton
 import com.example.core.ui.MosaribTextField
-import com.example.core.ui.isAppDark
 import com.example.core.util.Formatters
 import com.example.ui.theme.mosarib
-
-
 
 private enum class DraftFilterTab {
     ALL, SELECTED, NEW_ONLY, EXISTING_ONLY
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomerImportReviewDialog(
     drafts: List<ImportedCustomerDraft>,
@@ -89,9 +74,6 @@ fun CustomerImportReviewDialog(
     onConfirmImport: (updateExisting: Boolean, debitMode: ImportDebitMode) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val isDark = isAppDark()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
     var searchQuery by remember { mutableStateOf("") }
     var filterTab by remember { mutableStateOf(DraftFilterTab.ALL) }
     var updateExistingCustomers by remember { mutableStateOf(true) }
@@ -128,73 +110,36 @@ fun CustomerImportReviewDialog(
         }
     }
 
-    ModalBottomSheet(
+    MosaribBottomSheetLazy(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
-        dragHandle = null
+        title = "مراجعة استيراد العملاء",
+        subtitle = "تم العثور على $totalCount حساب (المحدد: $selectedCount) • العملة: $currencySymbol",
+        icon = Icons.Default.TableChart,
+        iconTint = MaterialTheme.colorScheme.primary,
+        footer = {
+            MosaribSecondaryButton(
+                text = "إلغاء",
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f)
+            )
+
+            MosaribPrimaryButton(
+                text = if (isSavingImport) "جاري الاستيراد..." else "تأكيد واستيراد ($selectedCount)",
+                onClick = { onConfirmImport(updateExistingCustomers, debitMode) },
+                enabled = selectedCount > 0 && !isSavingImport,
+                modifier = Modifier.weight(1.8f)
+            )
+        }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            // 1. الرأس الرئيسي
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Surface(
-                        modifier = Modifier.size(40.dp),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.TableChart,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "مراجعة استيراد العملاء",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        )
-                        Text(
-                            text = "تم العثور على $totalCount حساب (المحدد: $selectedCount) • العملة: $currencySymbol",
-                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.textMuted)
-                        )
-                    }
-                }
-
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "إلغاء")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // بطاقة كشف مصدر الملف وتحديد نوع قيد العمليات المدينة
+        // 1. بطاقة كشف مصدر الملف وتحديد نوع قيد العمليات المدينة
+        item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 ),
-                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                     val sourceText = if (detectedSource == ImportSource.MOSARIB_EXPORT) {
@@ -207,7 +152,6 @@ fun CustomerImportReviewDialog(
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
-
                         )
                     )
 
@@ -222,7 +166,6 @@ fun CustomerImportReviewDialog(
                             text = "تسجيل العمليات المدينة كـ:",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.Bold
-
                             )
                         )
 
@@ -249,10 +192,11 @@ fun CustomerImportReviewDialog(
                     }
                 }
             }
-
             Spacer(modifier = Modifier.height(8.dp))
+        }
 
-            // 2. حقل البحث السريع في المسودات
+        // 2. حقل البحث السريع في المسودات
+        item {
             MosaribTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -267,65 +211,61 @@ fun CustomerImportReviewDialog(
                 } else null,
                 modifier = Modifier.fillMaxWidth()
             )
-
             Spacer(modifier = Modifier.height(8.dp))
+        }
 
-            // 3. أزرار الفلترة السريعة
-            LazyRow(
+        // 3. أزرار الفلترة السريعة
+        item {
+            Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
             ) {
-                item {
-                    FilterChip(
-                        selected = filterTab == DraftFilterTab.ALL,
-                        onClick = { filterTab = DraftFilterTab.ALL },
-                        label = { Text("الكل ($totalCount)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                        )
+                FilterChip(
+                    selected = filterTab == DraftFilterTab.ALL,
+                    onClick = { filterTab = DraftFilterTab.ALL },
+                    label = { Text("الكل ($totalCount)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                     )
-                }
-                item {
-                    FilterChip(
-                        selected = filterTab == DraftFilterTab.SELECTED,
-                        onClick = { filterTab = DraftFilterTab.SELECTED },
-                        label = { Text("المحدد ($selectedCount)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                        )
+                )
+                FilterChip(
+                    selected = filterTab == DraftFilterTab.SELECTED,
+                    onClick = { filterTab = DraftFilterTab.SELECTED },
+                    label = { Text("المحدد ($selectedCount)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                     )
-                }
-                item {
-                    FilterChip(
-                        selected = filterTab == DraftFilterTab.NEW_ONLY,
-                        onClick = { filterTab = DraftFilterTab.NEW_ONLY },
-                        label = { Text("حسابات جديدة ($newCount)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                        )
+                )
+                FilterChip(
+                    selected = filterTab == DraftFilterTab.NEW_ONLY,
+                    onClick = { filterTab = DraftFilterTab.NEW_ONLY },
+                    label = { Text("حسابات جديدة ($newCount)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                     )
-                }
+                )
                 if (existingCount > 0) {
-                    item {
-                        FilterChip(
-                            selected = filterTab == DraftFilterTab.EXISTING_ONLY,
-                            onClick = { filterTab = DraftFilterTab.EXISTING_ONLY },
-                            label = { Text("موجود مسبقاً ($existingCount)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.mosarib.warning,
-                                selectedLabelColor = MaterialTheme.mosarib.onWarning
-                            )
+                    FilterChip(
+                        selected = filterTab == DraftFilterTab.EXISTING_ONLY,
+                        onClick = { filterTab = DraftFilterTab.EXISTING_ONLY },
+                        label = { Text("موجود مسبقاً ($existingCount)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.mosarib.warning,
+                            selectedLabelColor = MaterialTheme.mosarib.onWarning
                         )
-                    }
+                    )
                 }
             }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // 4. شريط الإجراءات الجماعية وخيار تحديث المسجلين مسبقاً
+        // 4. شريط الإجراءات الجماعية وخيار تحديث المسجلين مسبقاً
+        item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -355,11 +295,9 @@ fun CustomerImportReviewDialog(
                                 text = if (allSelected) "إلغاء تحديد الكل" else "تحديد الكل ($totalCount)",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.Bold
-
                                 )
                             )
                         }
-
                     }
 
                     if (existingCount > 0) {
@@ -382,66 +320,38 @@ fun CustomerImportReviewDialog(
                     }
                 }
             }
-
             Spacer(modifier = Modifier.height(10.dp))
+        }
 
-            // 5. قائمة الحسابات المستوردة
-            Box(modifier = Modifier.weight(1f)) {
-                if (filteredDrafts.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "لا توجد نتائج مطابقة للبحث أو التصفية",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.mosarib.textMuted
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(filteredDrafts, key = { it.localId }) { draft ->
-                            ImportDraftCard(
-                                draft = draft,
-                                isDark = isDark,
-                                currencySymbol = currencySymbol,
-                                onToggleSelected = {
-                                    val updated = draft.copy(isSelected = !draft.isSelected)
-                                    onDraftUpdated(updated)
-                                },
-                                onEditClick = { draftToEdit = draft },
-                                onDeleteClick = { onDraftDeleted(draft.localId) }
-                            )
-                        }
-                    }
+        // 5. قائمة الحسابات المستوردة
+        if (filteredDrafts.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "لا توجد نتائج مطابقة للبحث أو التصفية",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.mosarib.textMuted
+                    )
                 }
             }
-
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // 6. شريط الحفظ والتأكيد السفلي
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                MosaribOutlinedButton(
-                    text = "إلغاء",
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
+        } else {
+            items(filteredDrafts, key = { it.localId }) { draft ->
+                ImportDraftCard(
+                    draft = draft,
+                    currencySymbol = currencySymbol,
+                    onToggleSelected = {
+                        val updated = draft.copy(isSelected = !draft.isSelected)
+                        onDraftUpdated(updated)
+                    },
+                    onEditClick = { draftToEdit = draft },
+                    onDeleteClick = { onDraftDeleted(draft.localId) }
                 )
-
-                MosaribButton(
-                    text = if (isSavingImport) "جاري الاستيراد..." else "تأكيد واستيراد ($selectedCount)",
-                    onClick = { onConfirmImport(updateExistingCustomers, debitMode) },
-                    enabled = selectedCount > 0 && !isSavingImport,
-                    modifier = Modifier.weight(1.8f)
-                )
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
@@ -450,6 +360,7 @@ fun CustomerImportReviewDialog(
     draftToEdit?.let { editingDraft ->
         EditImportDraftDialog(
             draft = editingDraft,
+            currencySymbol = currencySymbol,
             onSave = { updated ->
                 onDraftUpdated(updated)
                 draftToEdit = null
@@ -463,7 +374,6 @@ fun CustomerImportReviewDialog(
 @Composable
 private fun ImportDraftCard(
     draft: ImportedCustomerDraft,
-    isDark: Boolean,
     currencySymbol: String,
     onToggleSelected: () -> Unit,
     onEditClick: () -> Unit,
@@ -473,8 +383,7 @@ private fun ImportDraftCard(
     val borderColor = when {
         hasError -> MaterialTheme.colorScheme.error
         draft.isSelected -> MaterialTheme.colorScheme.primary
-
-        else -> MaterialTheme.colorScheme.outline
+        else -> MaterialTheme.colorScheme.outlineVariant
     }
 
     Card(
@@ -513,7 +422,6 @@ private fun ImportDraftCard(
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = if (hasError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-
                     ),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -568,7 +476,6 @@ private fun ImportDraftCard(
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.Bold
-
                         )
                     )
                 }
@@ -610,7 +517,6 @@ private fun ImportDraftCard(
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold
-    
                             ),
                             maxLines = 1,
                             softWrap = false
@@ -625,7 +531,6 @@ private fun ImportDraftCard(
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = balColor,
                                 fontWeight = FontWeight.Bold
-    
                             ),
                             maxLines = 1,
                             softWrap = false
@@ -690,6 +595,7 @@ private fun ImportDraftBadge(
 @Composable
 private fun EditImportDraftDialog(
     draft: ImportedCustomerDraft,
+    currencySymbol: String = "ر.ي",
     onSave: (ImportedCustomerDraft) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -703,153 +609,124 @@ private fun EditImportDraftDialog(
     var isWellOwner by remember { mutableStateOf(draft.isWellOwner) }
     var notes by remember { mutableStateOf(draft.notes) }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
+    MosaribDialog(
+        onDismissRequest = onDismiss,
+        title = "تعديل بيانات الحساب المستورد",
+        confirmText = "تم وحفظ",
+        onConfirm = {
+            if (name.isNotBlank()) {
+                val parsedPrice = Formatters.parseAmountInput(priceStr).takeIf { it > 0 }
+                val parsedBal = Formatters.parseAmountInput(balanceStr)
+                val cleanName = name.trim()
+                val validationErr = if (cleanName.isBlank()) "اسم العميل مطلوب" else null
+                onSave(
+                    draft.copy(
+                        name = cleanName,
+                        phone = phone.trim(),
+                        farmName = farmName.trim(),
+                        location = location.trim(),
+                        customPricePerHour = parsedPrice,
+                        isWellOwner = isWellOwner,
+                        initialBalance = parsedBal,
+                        isDebit = isDebit,
+                        notes = notes.trim(),
+                        validationError = validationErr,
+                        isSelected = validationErr == null
+                    )
+                )
+            }
+        },
+        dismissText = "إلغاء",
+        onDismiss = onDismiss
+    ) {
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                Text(
-                    text = "تعديل بيانات الحساب المستورد",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
+            MosaribTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = "اسم العميل *",
+                placeholder = "الاسم الكامل...",
+                modifier = Modifier.fillMaxWidth()
+            )
 
-                Spacer(modifier = Modifier.height(14.dp))
+            MosaribTextField(
+                value = phone,
+                onValueChange = { phone = it },
+                label = "رقم الهاتف",
+                placeholder = "77XXXXXXX",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                modifier = Modifier.fillMaxWidth()
+            )
 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 MosaribTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = "اسم العميل *",
-                    placeholder = "الاسم الكامل...",
-                    modifier = Modifier.fillMaxWidth()
+                    value = farmName,
+                    onValueChange = { farmName = it },
+                    label = "المزرعة",
+                    modifier = Modifier.weight(1f)
                 )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
                 MosaribTextField(
-                    value = phone,
-                    onValueChange = { phone = it },
-                    label = "رقم الهاتف",
-                    placeholder = "77XXXXXXX",
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    modifier = Modifier.fillMaxWidth()
+                    value = location,
+                    onValueChange = { location = it },
+                    label = "الموقع",
+                    modifier = Modifier.weight(1f)
                 )
+            }
 
-                Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                MosaribTextField(
+                    value = priceStr,
+                    onValueChange = { priceStr = Formatters.formatAmountInput(it) },
+                    label = "سعر الساعة ($currencySymbol)",
+                    placeholder = "اختياري",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+                MosaribTextField(
+                    value = balanceStr,
+                    onValueChange = { balanceStr = Formatters.formatAmountInput(it) },
+                    label = "الرصيد السابق ($currencySymbol)",
+                    placeholder = "اختياري",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
+            if (balanceStr.isNotBlank() && Formatters.parseAmountInput(balanceStr) > 0.0) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    MosaribTextField(
-                        value = farmName,
-                        onValueChange = { farmName = it },
-                        label = "المزرعة",
-                        modifier = Modifier.weight(1f)
-                    )
-                    MosaribTextField(
-                        value = location,
-                        onValueChange = { location = it },
-                        label = "الموقع",
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    MosaribTextField(
-                        value = priceStr,
-                        onValueChange = { priceStr = Formatters.formatAmountInput(it) },
-                        label = "سعر الساعة (ر.ي)",
-                        placeholder = "اختياري",
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
-                    MosaribTextField(
-                        value = balanceStr,
-                        onValueChange = { balanceStr = Formatters.formatAmountInput(it) },
-                        label = "الرصيد السابق (ر.ي)",
-                        placeholder = "اختياري",
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                if (balanceStr.isNotBlank() && Formatters.parseAmountInput(balanceStr) > 0.0) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("طبيعة الرصيد السابق:", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
-                        FilterChip(
-                            selected = isDebit,
-                            onClick = { isDebit = true },
-                            label = { Text("عليه (مدين)", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)) }
-                        )
-                        FilterChip(
-                            selected = !isDebit,
-                            onClick = { isDebit = false },
-                            label = { Text("له (دائن)", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)) }
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("حساب صاحب بئر مستقل", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                    Switch(checked = isWellOwner, onCheckedChange = { isWellOwner = it })
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    MosaribOutlinedButton(
-                        text = "إلغاء",
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
+                    Text("طبيعة الرصيد السابق:", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+                    FilterChip(
+                        selected = isDebit,
+                        onClick = { isDebit = true },
+                        label = { Text("عليه (مدين)", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)) }
                     )
-                    MosaribButton(
-                        text = "تم وحفظ",
-                        onClick = {
-                            val parsedPrice = Formatters.parseAmountInput(priceStr).takeIf { it > 0 }
-                            val parsedBal = Formatters.parseAmountInput(balanceStr)
-                            val cleanName = name.trim()
-                            val validationErr = if (cleanName.isBlank()) "اسم العميل مطلوب" else null
-                            onSave(
-                                draft.copy(
-                                    name = cleanName,
-                                    phone = phone.trim(),
-                                    farmName = farmName.trim(),
-                                    location = location.trim(),
-                                    customPricePerHour = parsedPrice,
-                                    isWellOwner = isWellOwner,
-                                    initialBalance = parsedBal,
-                                    isDebit = isDebit,
-                                    notes = notes.trim(),
-                                    validationError = validationErr,
-                                    isSelected = validationErr == null
-                                )
-                            )
-                        },
-                        enabled = name.isNotBlank(),
-                        modifier = Modifier.weight(1f)
+                    FilterChip(
+                        selected = !isDebit,
+                        onClick = { isDebit = false },
+                        label = { Text("له (دائن)", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)) }
                     )
                 }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("حساب صاحب بئر مستقل", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                Switch(checked = isWellOwner, onCheckedChange = { isWellOwner = it })
             }
         }
     }

@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 <!-- 2026-11-02: split into two parallel halves. 020 = customer popups (worktree
 D:\Kotlin\mosarib-t020). 023 = settings, feedback, license, app bar, shared fields (worktree
@@ -48,3 +48,16 @@ The results of 019 (irrigation and voucher popups) are the reference.
 ---
 ## Review notes (written by Claude)
 _(empty)_
+
+**Verdict: accepted** (2026-11-02). Build and tests pass. No UI text or menu item was lost: Claude
+diffed the strings, and the strings that looked missing moved into `MosaribDialog` parameters.
+On the device:
+- the add-customer form survives 5 content flings;
+- after typing a name, X shows "تجاهل التغييرات؟";
+- the card "خيارات" menu is a clean single surface, with "أرشفة الحساب" last, in red, after a
+  divider;
+- the quick-add sheet uses the shared header.
+
+Leftovers outside this task's list, accepted: `CustomerDetailScreen.kt` still has 6
+`Color(0x…)`, 7 `fontSize` and 1 `isAppDark()`; `CustomerCardItem.kt` has 1 `isAppDark()`
+(avatar palette choice, which is legitimate).

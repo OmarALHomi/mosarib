@@ -2,7 +2,6 @@ package com.example.features.customers
 
 import android.content.Intent
 import android.provider.ContactsContract
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -13,6 +12,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,41 +22,32 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
-import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Yard
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,30 +58,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.core.ui.MosaribButton
-import com.example.core.ui.MosaribOutlinedButton
+import com.example.core.ui.MosaribBottomSheet
+import com.example.core.ui.MosaribPrimaryButton
+import com.example.core.ui.MosaribSecondaryButton
 import com.example.core.ui.MosaribTextField
-import com.example.core.ui.isAppDark
 import com.example.core.util.Formatters
-import com.example.ui.theme.AccentGold
-import com.example.ui.theme.PrimaryTeal
+import com.example.ui.theme.mosarib
 
 /**
- * نموذج إضافة وتعديل العميل وصاحب البئر بتصميم عصري فائق التباين والفخامة (Design System Overhaul).
- * - بطاقة هوية تفاعلية تعكس الحساب والحرف الأول ديناميكياً.
- * - محوّل نمط الحساب المقسم (مزارع / صاحب بئر) بألوان متناسقة وتأثيرات بصرية حية.
- * - تنظيم مدخلات البيانات ضمن كروت أقسام واضحة (البيانات الأساسية، الموقع والأرض، الحساب والتسعير).
- * - استيراد فوري ذكي من جهات الاتصال عبر دليل الهاتف المدمج.
- * - دعم كامل ودقيق لنظام RTL والوضعين الفاتح والمظلم.
+ * صفيحة إضافة وتعديل العميل وصاحب البئر مبنية على [MosaribBottomSheet] مع رصد التغييرات وتذييل ثابت.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditCustomerBottomSheet(
     initialCustomer: Customer? = null,
@@ -110,12 +91,7 @@ fun AddEditCustomerBottomSheet(
         customGroup: String
     ) -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true,
-        confirmValueChange = { it != SheetValue.Hidden }
-    )
     val context = LocalContext.current
-    val isDark = isAppDark()
 
     var name by remember { mutableStateOf(initialCustomer?.name ?: "") }
     var phone by remember { mutableStateOf(initialCustomer?.phone ?: "") }
@@ -129,15 +105,35 @@ fun AddEditCustomerBottomSheet(
         mutableStateOf(initialCustomer?.customPricePerHour?.let { it.toString() } ?: "")
     }
 
-    val FarmerColor = Color(0xFF2E7D32)
-    val WellOwnerColor = Color(0xFF0284C7)
+    val farmerColor = MaterialTheme.mosarib.success
+    val wellOwnerColor = MaterialTheme.mosarib.info
 
-    // اللون الرئيسي النشط يتكيف ديناميكياً مع نوع الحساب (أخضر زمردي للمزارع، وأزرق مائي لصاحب البئر)
     val activeColor by animateColorAsState(
-        targetValue = if (isWellOwner) WellOwnerColor else FarmerColor,
+        targetValue = if (isWellOwner) wellOwnerColor else farmerColor,
         animationSpec = tween(300),
         label = "active_theme_color"
     )
+
+    val hasUnsavedChanges = remember(
+        name, phone, farmName, location, notes, customGroup,
+        isWellOwner, isBeneficiary, customPriceStr, initialCustomer
+    ) {
+        if (initialCustomer == null) {
+            name.isNotBlank() || phone.isNotBlank() || farmName.isNotBlank() ||
+                location.isNotBlank() || notes.isNotBlank() || customGroup.isNotBlank() ||
+                isWellOwner || customPriceStr.isNotBlank()
+        } else {
+            name != initialCustomer.name ||
+                phone != (initialCustomer.phone) ||
+                farmName != (initialCustomer.farmName) ||
+                location != (initialCustomer.location) ||
+                notes != (initialCustomer.notes) ||
+                customGroup != (initialCustomer.customGroup) ||
+                isWellOwner != initialCustomer.isWellOwner ||
+                isBeneficiary != initialCustomer.isBeneficiary ||
+                customPriceStr != (initialCustomer.customPricePerHour?.let { it.toString() } ?: "")
+        }
+    }
 
     // أداة استيراد الاسم ورقم الهاتف من جهات الاتصال
     val contactPickerLauncher = rememberLauncherForActivityResult(
@@ -228,367 +224,265 @@ fun AddEditCustomerBottomSheet(
         }
     }
 
-    BackHandler(onBack = onDismiss)
+    val sheetTitle = when {
+        initialCustomer != null -> if (isWellOwner) "تعديل حساب صاحب البئر" else "تعديل بيانات العميل"
+        isWellOwner -> "إضافة صاحب بئر جديد"
+        else -> "إضافة عميل / مزارع جديد"
+    }
+    val sheetSubtitle = if (initialCustomer != null) "تحديث البيانات المسجلة" else "تسجيل حساب جديد في النظام"
 
-    ModalBottomSheet(
+    MosaribBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = if (isDark) Color(0xFF10191F) else Color(0xFFF8FAFC),
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        dragHandle = {
-            Box(
+        title = sheetTitle,
+        subtitle = sheetSubtitle,
+        icon = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Park,
+        iconTint = activeColor,
+        hasUnsavedChanges = hasUnsavedChanges,
+        footer = {
+            MosaribSecondaryButton(
+                text = "إلغاء",
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f)
+            )
+
+            MosaribPrimaryButton(
+                text = when {
+                    initialCustomer != null -> "حفظ التعديلات"
+                    isWellOwner -> "حفظ صاحب البئر"
+                    else -> "حفظ وإضافة العميل"
+                },
+                onClick = {
+                    if (name.isNotBlank()) {
+                        val customRate = if (customPriceStr.isNotBlank()) Formatters.parseAmountInput(customPriceStr) else null
+                        onSave(
+                            initialCustomer?.id ?: 0L,
+                            name.trim(),
+                            phone.trim(),
+                            farmName.trim(),
+                            location.trim(),
+                            notes.trim(),
+                            customRate,
+                            isBeneficiary,
+                            isWellOwner,
+                            customGroup.trim()
+                        )
+                        onDismiss()
+                    }
+                },
+                enabled = name.isNotBlank(),
                 modifier = Modifier
-                    .padding(top = 10.dp, bottom = 4.dp)
-                    .width(42.dp)
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(if (isDark) Color(0xFF2C3E4A) else Color(0xFFCBD5E1))
+                    .weight(2f)
+                    .testTag("save_customer_button")
             )
         }
     ) {
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // 1. شريط اختيار نوع الحساب (مزارع vs صاحب بئر)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // 1. شريط العنوان العلوي الأنيق
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(activeColor.copy(alpha = if (isDark) 0.22f else 0.12f)),
-                            contentAlignment = Alignment.Center
-                        ) {
+                PersonaTypeCard(
+                    title = "مزارع (عميل)",
+                    subtitle = "سقي ومستحقات",
+                    icon = Icons.Default.Park,
+                    isSelected = !isWellOwner,
+                    activeColor = farmerColor,
+                    modifier = Modifier.weight(1f),
+                    onClick = { isWellOwner = false }
+                )
+                PersonaTypeCard(
+                    title = "صاحب بئر (مورد)",
+                    subtitle = "شراء ومقاصة",
+                    icon = Icons.Default.WaterDrop,
+                    isSelected = isWellOwner,
+                    activeColor = wellOwnerColor,
+                    modifier = Modifier.weight(1f),
+                    onClick = { isWellOwner = true }
+                )
+            }
+
+            // 2. البطاقة الأولى: البيانات الأساسية
+            FormSectionCard(
+                title = "البيانات الأساسية",
+                icon = Icons.Default.Person,
+                iconColor = activeColor
+            ) {
+                MosaribTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = if (isWellOwner) "اسم صاحب البئر *" else "اسم العميل / المزارع *",
+                    placeholder = if (isWellOwner) "مثال: الحاج علي ناصر (مالك بئر الوادي)" else "مثال: أبو صالح العامري",
+                    isDense = true,
+                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = activeColor) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("customer_name_input")
+                )
+
+                MosaribTextField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    label = "رقم الهاتف (للاتصال والتواصل)",
+                    placeholder = "مثال: 777123456",
+                    isDense = true,
+                    leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = activeColor) },
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
+                            contactPickerLauncher.launch(intent)
+                        }) {
                             Icon(
-                                imageVector = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Park,
-                                contentDescription = null,
+                                imageVector = Icons.Default.Contacts,
+                                contentDescription = "جهات الاتصال",
                                 tint = activeColor,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(19.dp)
                             )
                         }
-                        Column {
-                            Text(
-                                text = when {
-                                    initialCustomer != null -> if (isWellOwner) "تعديل حساب صاحب البئر" else "تعديل بيانات العميل"
-                                    isWellOwner -> "إضافة صاحب بئر جديد"
-                                    else -> "إضافة عميل / مزارع جديد"
-                                },
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                    color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
-                                )
-                            )
-                            Text(
-                                text = if (initialCustomer != null) "تحديث البيانات المسجلة" else "تسجيل حساب جديد في النظام",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                                    fontSize = 11.sp
-                                )
-                            )
-                        }
-                    }
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("customer_phone_input")
+                )
+            }
 
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(if (isDark) Color(0xFF1A262E) else Color(0xFFE2E8F0))
-                    ) {
+            // 3. البطاقة الثانية: بيانات الأرض / البئر والموقع
+            FormSectionCard(
+                title = if (isWellOwner) "بيانات البئر والموقع" else "بيانات المزرعة والموقع",
+                icon = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Yard,
+                iconColor = activeColor
+            ) {
+                MosaribTextField(
+                    value = farmName,
+                    onValueChange = { farmName = it },
+                    label = if (isWellOwner) "اسم البئر أو المحطة (اختياري)" else "اسم المزرعة أو الأرض (اختياري)",
+                    placeholder = if (isWellOwner) "مثال: بئر الخير، بئر الصافية" else "مثال: بستان النخيل، أرض السد",
+                    isDense = true,
+                    leadingIcon = {
                         Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "إلغاء",
-                            modifier = Modifier.size(16.dp),
-                            tint = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
+                            imageVector = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Yard,
+                            contentDescription = null,
+                            tint = activeColor
                         )
-                    }
-                }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-                // 2. شريط اختيار نوع الحساب (مزارع vs صاحب بئر) بتصميم مجزأ وعصري
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    PersonaTypeCard(
-                        title = "مزارع (عميل)",
-                        subtitle = "سقي ومستحقات",
-                        icon = Icons.Default.Park,
-                        isSelected = !isWellOwner,
-                        activeColor = FarmerColor,
-                        modifier = Modifier.weight(1f),
-                        onClick = { isWellOwner = false }
-                    )
-                    PersonaTypeCard(
-                        title = "صاحب بئر (مورد)",
-                        subtitle = "شراء ومقاصة",
-                        icon = Icons.Default.WaterDrop,
-                        isSelected = isWellOwner,
-                        activeColor = WellOwnerColor,
-                        modifier = Modifier.weight(1f),
-                        onClick = { isWellOwner = true }
-                    )
-                }
+                MosaribTextField(
+                    value = location,
+                    onValueChange = { location = it },
+                    label = if (isWellOwner) "موقع البئر (اختياري)" else "الموقع أو المنطقة (اختياري)",
+                    placeholder = if (isWellOwner) "مثال: وادي ضهر، المحطة الشمالية" else "مثال: القطاع الغربي، وادي الخير",
+                    isDense = true,
+                    leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = activeColor) },
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-                // 3. البطاقة الأولى: البيانات الأساسية
-                FormSectionCard(
-                    title = "البيانات الأساسية",
-                    icon = Icons.Default.Person,
-                    iconColor = activeColor
-                ) {
-                    // حقل الاسم
-                    MosaribTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = if (isWellOwner) "اسم صاحب البئر *" else "اسم العميل / المزارع *",
-                        placeholder = if (isWellOwner) "مثال: الحاج علي ناصر (مالك بئر الوادي)" else "مثال: أبو صالح العامري",
-                        isDense = true,
-                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = activeColor) },
+                MosaribTextField(
+                    value = customGroup,
+                    onValueChange = { customGroup = it },
+                    label = "المجموعة (اختياري)",
+                    placeholder = if (isWellOwner) "مثال: آبار الوادي..." else "مثال: مجموعة الشرق...",
+                    isDense = true,
+                    leadingIcon = { Icon(Icons.Default.Bookmarks, contentDescription = null, tint = activeColor) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (existingGroups.isNotEmpty()) {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("customer_name_input")
-                    )
-
-                    // حقل الهاتف مع زر الاتصال السريع
-                    MosaribTextField(
-                        value = phone,
-                        onValueChange = { phone = it },
-                        label = "رقم الهاتف (للاتصال والتواصل)",
-                        placeholder = "مثال: 777123456",
-                        isDense = true,
-                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = activeColor) },
-                        trailingIcon = {
-                            IconButton(onClick = {
-                                val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
-                                contactPickerLauncher.launch(intent)
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Default.Contacts,
-                                    contentDescription = "جهات الاتصال",
-                                    tint = activeColor,
-                                    modifier = Modifier.size(19.dp)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        existingGroups.forEach { grp ->
+                            val isSelected = customGroup.trim().equals(grp.trim(), ignoreCase = true)
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSelected) activeColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                border = BorderStroke(1.dp, if (isSelected) activeColor else MaterialTheme.colorScheme.outlineVariant),
+                                modifier = Modifier.clickable {
+                                    customGroup = if (isSelected) "" else grp
+                                }
+                            ) {
+                                Text(
+                                    text = grp,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                 )
                             }
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("customer_phone_input")
-                    )
+                        }
+                    }
                 }
+            }
 
-                // 4. البطاقة الثانية: بيانات الأرض / البئر والموقع
-                FormSectionCard(
-                    title = if (isWellOwner) "بيانات البئر والموقع" else "بيانات المزرعة والموقع",
-                    icon = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Yard,
-                    iconColor = activeColor
+            // 4. البطاقة الثالثة: التسعير والحساب المالي
+            FormSectionCard(
+                title = "التسعير والحساب المالي",
+                icon = Icons.Default.AttachMoney,
+                iconColor = MaterialTheme.mosarib.warning
+            ) {
+                MosaribTextField(
+                    value = customPriceStr,
+                    onValueChange = { customPriceStr = Formatters.formatAmountInput(it) },
+                    label = if (isWellOwner) "تكلفة شراء ساعة الضخ ($currencySymbol/ساعة) - اختياري" else "سعر سقي مخصص لهذا العميل ($currencySymbol/ساعة) - اختياري",
+                    placeholder = if (isWellOwner) "تكلفة الشراء الافتراضية من هذا البئر" else "اتركه فارغاً لاستخدام السعر العام",
+                    isDense = true,
+                    leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = MaterialTheme.mosarib.warning) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                val customPriceNum = Formatters.parseAmountInput(customPriceStr)
+                AnimatedVisibility(
+                    visible = customPriceNum > 0,
+                    enter = fadeIn(tween(250)),
+                    exit = fadeOut(tween(200))
                 ) {
-                    // اسم المزرعة أو البئر
-                    MosaribTextField(
-                        value = farmName,
-                        onValueChange = { farmName = it },
-                        label = if (isWellOwner) "اسم البئر أو المحطة (اختياري)" else "اسم المزرعة أو الأرض (اختياري)",
-                        placeholder = if (isWellOwner) "مثال: بئر الخير، بئر الصافية" else "مثال: بستان النخيل، أرض السد",
-                        isDense = true,
-                        leadingIcon = {
-                            Icon(
-                                imageVector = if (isWellOwner) Icons.Default.WaterDrop else Icons.Default.Yard,
-                                contentDescription = null,
-                                tint = activeColor
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // الموقع أو المنطقة
-                    MosaribTextField(
-                        value = location,
-                        onValueChange = { location = it },
-                        label = if (isWellOwner) "موقع البئر (اختياري)" else "الموقع أو المنطقة (اختياري)",
-                        placeholder = if (isWellOwner) "مثال: وادي ضهر، المحطة الشمالية" else "مثال: القطاع الغربي، وادي الخير",
-                        isDense = true,
-                        leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = activeColor) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // القائمة أو المجموعة
-                    MosaribTextField(
-                        value = customGroup,
-                        onValueChange = { customGroup = it },
-                        label = "المجموعة (اختياري)",
-                        placeholder = if (isWellOwner) "مثال: آبار الوادي..." else "مثال: مجموعة الشرق...",
-                        isDense = true,
-                        leadingIcon = { Icon(Icons.Default.Bookmarks, contentDescription = null, tint = activeColor) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    if (existingGroups.isNotEmpty()) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.mosarib.warningContainer,
+                        border = BorderStroke(1.dp, MaterialTheme.mosarib.warning.copy(alpha = 0.35f))
+                    ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            existingGroups.forEach { grp ->
-                                val isSelected = customGroup.trim().equals(grp.trim(), ignoreCase = true)
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = if (isSelected) activeColor.copy(alpha = 0.2f) else (if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)),
-                                    border = BorderStroke(1.dp, if (isSelected) activeColor else (if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))),
-                                    modifier = Modifier.clickable {
-                                        customGroup = if (isSelected) "" else grp
-                                    }
-                                ) {
-                                    Text(
-                                        text = grp,
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isSelected) activeColor else (if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)),
-                                            fontSize = 11.sp
-                                        ),
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 5. البطاقة الثالثة: التسعير والحساب المالي
-                FormSectionCard(
-                    title = "التسعير والحساب المالي",
-                    icon = Icons.Default.AttachMoney,
-                    iconColor = AccentGold
-                ) {
-                    // السعر المخصص للساعة
-                    MosaribTextField(
-                        value = customPriceStr,
-                        onValueChange = { customPriceStr = Formatters.formatAmountInput(it) },
-                        label = if (isWellOwner) "تكلفة شراء ساعة الضخ ($currencySymbol/ساعة) - اختياري" else "سعر سقي مخصص لهذا العميل ($currencySymbol/ساعة) - اختياري",
-                        placeholder = if (isWellOwner) "تكلفة الشراء الافتراضية من هذا البئر" else "اتركه فارغاً لاستخدام السعر العام",
-                        isDense = true,
-                        leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = AccentGold) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // لافتة التفقيط بالكلمات العربية عند تحديد مبلغ
-                    val customPriceNum = Formatters.parseAmountInput(customPriceStr)
-                    AnimatedVisibility(
-                        visible = customPriceNum > 0,
-                        enter = fadeIn(tween(250)),
-                        exit = fadeOut(tween(200))
-                    ) {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp),
-                            color = AccentGold.copy(alpha = if (isDark) 0.16f else 0.10f),
-                            border = BorderStroke(1.dp, AccentGold.copy(alpha = 0.35f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = AccentGold,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Text(
-                                    text = Formatters.amountToArabicWords(customPriceNum, currencySymbol),
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = if (isDark) Color(0xFFFDE68A) else Color(0xFFB45309),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 11.5.sp
-                                    )
-                                )
-                            }
-                        }
-                    }
-
-                    // الملاحظات
-                    MosaribTextField(
-                        value = notes,
-                        onValueChange = { notes = it },
-                        label = "ملاحظات إضافية (اختياري)",
-                        placeholder = "أي معلومات أو شروط خاصة بالحساب...",
-                        isDense = true,
-                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null, tint = activeColor) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // 6. أزرار الإجراءات السفلية (إلغاء وحفظ الحساب)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    MosaribOutlinedButton(
-                        text = "إلغاء",
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        height = 46.dp
-                    )
-
-                    MosaribButton(
-                        text = when {
-                            initialCustomer != null -> "حفظ التعديلات"
-                            isWellOwner -> "حفظ صاحب البئر"
-                            else -> "حفظ وإضافة العميل"
-                        },
-                        onClick = {
-                            if (name.isNotBlank()) {
-                                val customRate = if (customPriceStr.isNotBlank()) Formatters.parseAmountInput(customPriceStr) else null
-                                onSave(
-                                    initialCustomer?.id ?: 0L,
-                                    name.trim(),
-                                    phone.trim(),
-                                    farmName.trim(),
-                                    location.trim(),
-                                    notes.trim(),
-                                    customRate,
-                                    isBeneficiary,
-                                    isWellOwner,
-                                    customGroup.trim()
-                                )
-                                onDismiss()
-                            }
-                        },
-                        enabled = name.isNotBlank(),
-                        containerColor = activeColor,
-                        leadingIcon = {
                             Icon(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
+                                tint = MaterialTheme.mosarib.warning,
+                                modifier = Modifier.size(15.dp)
                             )
-                        },
-                        modifier = Modifier
-                            .weight(2f)
-                            .testTag("save_customer_button"),
-                        height = 46.dp
-                    )
+                            Text(
+                                text = Formatters.amountToArabicWords(customPriceNum, currencySymbol),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.mosarib.onWarningContainer,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                MosaribTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = "ملاحظات إضافية (اختياري)",
+                    placeholder = "أي معلومات أو شروط خاصة بالحساب...",
+                    isDense = true,
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null, tint = activeColor) },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }
@@ -607,19 +501,17 @@ private fun PersonaTypeCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val isDark = isAppDark()
     val bgColor by animateColorAsState(
         targetValue = if (isSelected) {
-            if (isDark) activeColor.copy(alpha = 0.22f) else activeColor.copy(alpha = 0.12f)
+            activeColor.copy(alpha = 0.16f)
         } else {
-            if (isDark) Color(0xFF141F25) else Color(0xFFF8FAFC)
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
         },
         animationSpec = tween(250),
         label = "persona_bg"
     )
     val borderColor by animateColorAsState(
-        targetValue = if (isSelected) activeColor
-        else if (isDark) Color(0xFF263842) else Color(0xFFE2E8F0),
+        targetValue = if (isSelected) activeColor else MaterialTheme.colorScheme.outlineVariant,
         animationSpec = tween(250),
         label = "persona_border"
     )
@@ -642,13 +534,13 @@ private fun PersonaTypeCard(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(if (isSelected) activeColor else (if (isDark) Color(0xFF202E36) else Color(0xFFE2E8F0))),
+                    .background(if (isSelected) activeColor else MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = if (isSelected) Color.White else (if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)),
+                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(17.dp)
                 )
             }
@@ -658,15 +550,13 @@ private fun PersonaTypeCard(
                     text = title,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                        color = if (isSelected) activeColor else (if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)),
-                        fontSize = 12.sp
+                        color = if (isSelected) activeColor else MaterialTheme.colorScheme.onSurface
                     )
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.labelSmall.copy(
-                        color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                        fontSize = 10.sp
+                        color = MaterialTheme.mosarib.textMuted
                     ),
                     maxLines = 1
                 )
@@ -693,15 +583,14 @@ private fun FormSectionCard(
     iconColor: Color,
     content: @Composable () -> Unit
 ) {
-    val isDark = isAppDark()
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDark) Color(0xFF141F25) else Color.White
+            containerColor = MaterialTheme.colorScheme.surface
         ),
-        border = BorderStroke(1.dp, if (isDark) Color(0xFF263842) else Color(0xFFE2E8F0)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
     ) {
         Column(
             modifier = Modifier
@@ -717,7 +606,7 @@ private fun FormSectionCard(
                     modifier = Modifier
                         .size(24.dp)
                         .clip(CircleShape)
-                        .background(iconColor.copy(alpha = if (isDark) 0.22f else 0.12f)),
+                        .background(iconColor.copy(alpha = 0.14f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -731,8 +620,7 @@ private fun FormSectionCard(
                     text = title,
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.Bold,
-                        color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A),
-                        fontSize = 13.sp
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 )
             }
