@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 <!-- Written 2026-11-02. Owner approved the change on 2026-11-02. 019 is merged. Runs in the main folder
 D:\Kotlin\mosarib (window 1). -->
@@ -36,3 +36,5 @@ Why they differ:
 - a shared helper if the receivable sum must be reused from `ReportsViewModel` (no behaviour
   change there)
 - tests
+
+**Verdict: accepted (2026-11-02, code review). على العملاء from receivable balances with the الرصيد الحالي note, صافي النقد label, sold hours, approximate words under the amounts. 106 tests pass. Minor: the new label uses Color.Gray and 10.sp, below the 11sp minimum; fix it in a later polish pass. Device check after the merge.**

@@ -44,6 +44,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -204,6 +206,7 @@ fun VouchersScreen(
     val operationsFilter by viewModel.operationsFilter.collectAsStateWithLifecycle()
     val filterState by viewModel.filterState.collectAsStateWithLifecycle()
     val summaryOps by viewModel.summaryOperations.collectAsStateWithLifecycle()
+    val totalReceivableDebt by viewModel.totalReceivableDebt.collectAsStateWithLifecycle()
     val distinctPaymentMethods by viewModel.distinctPaymentMethods.collectAsStateWithLifecycle()
     val distinctPumpNames by viewModel.distinctPumpNames.collectAsStateWithLifecycle()
     var showDateRangeDialog by remember { mutableStateOf(false) }
@@ -406,11 +409,12 @@ fun VouchersScreen(
                         val v = voucherOp.voucherWithCustomer.voucher
                         v.type == VoucherType.EXPENSE && (v.customerId == null || wellOwnerIds.contains(v.customerId))
                     }.sumOf { it.voucherWithCustomer.voucher.amount }
-                val totalDebts = summaryOps.filterIsInstance<UnifiedOperation.SessionOp>()
-                    .sumOf { it.sessionWithCustomer.session.remainingDebt }
                 val netProfit = totalReceipts - totalExpenses
-                val totalWaterMinutes = summaryOps.filterIsInstance<UnifiedOperation.SessionOp>()
-                    .sumOf { it.sessionWithCustomer.session.durationMinutes }
+                val totalSoldWaterMinutes = summaryOps.filterIsInstance<UnifiedOperation.SessionOp>()
+                    .sumOf {
+                        val s = it.sessionWithCustomer.session
+                        (s.durationMinutes - s.wastedMinutes.coerceAtLeast(0)).coerceAtLeast(0)
+                    }
 
                 val customersMap = remember(customers) { customers.associateBy { it.id } }
                 val customerName = filterState.customerId?.let { customersMap[it]?.name }
@@ -443,38 +447,62 @@ fun VouchersScreen(
                         Spacer(modifier = Modifier.height(6.dp))
 
                         // Top Row: Net Profit & Water Hours
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(
-                                        text = "صافي العائد والربح",
-                                        style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.5.sp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f, fill = false)) {
+                                Text(
+                                    text = "صافي النقد (المقبوض − المصروف)",
+                                    style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.5.sp)
+                                )
+                                Text(
+                                    text = Formatters.formatCurrency(netProfit, config.currencySymbol),
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = if (netProfit >= 0) AccentEmerald else Color(0xFFE53935),
+                                        fontSize = 17.sp
                                     )
+                                )
+                                val netWords = Formatters.amountToArabicWordsApprox(netProfit, config.currencySymbol)
+                                if (netWords.isNotBlank()) {
                                     Text(
-                                        text = Formatters.formatCurrency(netProfit, config.currencySymbol),
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = if (netProfit >= 0) AccentEmerald else Color(0xFFE53935),
-                                            fontSize = 17.sp
-                                        )
+                                        text = netWords,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 9.sp,
+                                            color = MaterialTheme.mosarib.textMuted,
+                                            fontWeight = FontWeight.Medium
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
+                            }
 
-                                Surface(
-                                    color = PrimaryTeal.copy(alpha = 0.10f),
-                                    shape = RoundedCornerShape(10.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Surface(
+                                color = PrimaryTeal.copy(alpha = 0.10f),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Icon(Icons.Default.WaterDrop, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(13.dp))
+                                    Icon(Icons.Default.WaterDrop, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(13.dp))
+                                    Column {
                                         Text(
-                                            text = Formatters.formatDurationArabic(totalWaterMinutes),
+                                            text = "ساعات مباعة",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 9.sp,
+                                                color = PrimaryTeal.copy(alpha = 0.85f),
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        )
+                                        Text(
+                                            text = Formatters.formatDurationArabic(totalSoldWaterMinutes),
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 11.5.sp,
                                             color = PrimaryTeal
@@ -482,78 +510,133 @@ fun VouchersScreen(
                                     }
                                 }
                             }
+                        }
 
-                            Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                            // Bottom 3-Metric Strip: Receipts, Expenses, Debts
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        // Bottom 3-Metric Strip: Receipts, Expenses, Debts (Receivables)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(IntrinsicSize.Min),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // المقبوض
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                                colors = CardDefaults.cardColors(containerColor = AccentEmerald.copy(alpha = 0.08f)),
+                                shape = RoundedCornerShape(10.dp)
                             ) {
-                                // المقبوض
-                                Card(
-                                    modifier = Modifier.weight(1f),
-                                    colors = CardDefaults.cardColors(containerColor = AccentEmerald.copy(alpha = 0.08f)),
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Column(modifier = Modifier.padding(8.dp)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                                            Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(12.dp))
-                                            Text("المقبوض", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp))
-                                        }
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(12.dp))
+                                        Text("المقبوض", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp))
+                                    }
+                                    Text(
+                                        text = Formatters.formatCurrency(totalReceipts, config.currencySymbol),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = AccentEmerald,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    val receiptsWords = Formatters.amountToArabicWordsApprox(totalReceipts, config.currencySymbol)
+                                    if (receiptsWords.isNotBlank()) {
                                         Text(
-                                            text = Formatters.formatCurrency(totalReceipts, config.currencySymbol),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
-                                            color = AccentEmerald,
-                                            maxLines = 1,
-                                            softWrap = false,
+                                            text = receiptsWords,
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 8.5.sp,
+                                                color = AccentEmerald.copy(alpha = 0.85f),
+                                                fontWeight = FontWeight.Medium
+                                            ),
+                                            maxLines = 2,
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
+                            }
 
-                                // المصروف
-                                Card(
-                                    modifier = Modifier.weight(1f),
-                                    colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF2A1517) else Color(0xFFFFEBEE)),
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Column(modifier = Modifier.padding(8.dp)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                                            Icon(Icons.Default.ArrowUpward, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(12.dp))
-                                            Text("المصروف", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp), maxLines = 1)
-                                        }
+                            // المصروف
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                                colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF2A1517) else Color(0xFFFFEBEE)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Icon(Icons.Default.ArrowUpward, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(12.dp))
+                                        Text("المصروف", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp), maxLines = 1)
+                                    }
+                                    Text(
+                                        text = Formatters.formatCurrency(totalExpenses, config.currencySymbol),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = Color(0xFFE53935),
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    val expensesWords = Formatters.amountToArabicWordsApprox(totalExpenses, config.currencySymbol)
+                                    if (expensesWords.isNotBlank()) {
                                         Text(
-                                            text = Formatters.formatCurrency(totalExpenses, config.currencySymbol),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
-                                            color = Color(0xFFE53935),
-                                            maxLines = 1,
-                                            softWrap = false,
+                                            text = expensesWords,
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 8.5.sp,
+                                                color = Color(0xFFE53935).copy(alpha = 0.85f),
+                                                fontWeight = FontWeight.Medium
+                                            ),
+                                            maxLines = 2,
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
+                            }
 
-                                // الدائن / الديون
-                                Card(
-                                    modifier = Modifier.weight(1f),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Column(modifier = Modifier.padding(8.dp)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                                            Icon(Icons.Default.Schedule, contentDescription = null, tint = Color(0xFFE65100), modifier = Modifier.size(12.dp))
-                                            Text("الديون (آجل)", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp), maxLines = 1)
-                                        }
+                            // على العملاء (الرصيد الحالي)
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Icon(Icons.Default.Schedule, contentDescription = null, tint = Color(0xFFE65100), modifier = Modifier.size(12.dp))
+                                        Text("على العملاء", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp), maxLines = 1)
+                                    }
+                                    Text(
+                                        text = "الرصيد الحالي",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = MaterialTheme.mosarib.textMuted,
+                                            fontSize = 8.5.sp
+                                        ),
+                                        maxLines = 1
+                                    )
+                                    Text(
+                                        text = Formatters.formatCurrency(totalReceivableDebt, config.currencySymbol),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = if (totalReceivableDebt > 0) Color(0xFFE65100) else AccentEmerald,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    val debtsWords = Formatters.amountToArabicWordsApprox(totalReceivableDebt, config.currencySymbol)
+                                    if (debtsWords.isNotBlank()) {
                                         Text(
-                                            text = Formatters.formatCurrency(totalDebts, config.currencySymbol),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
-                                            color = if (totalDebts > 0) Color(0xFFE65100) else AccentEmerald,
-                                            maxLines = 1,
-                                            softWrap = false,
+                                            text = debtsWords,
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 8.5.sp,
+                                                color = (if (totalReceivableDebt > 0) Color(0xFFE65100) else AccentEmerald).copy(alpha = 0.85f),
+                                                fontWeight = FontWeight.Medium
+                                            ),
+                                            maxLines = 2,
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     }
@@ -562,6 +645,7 @@ fun VouchersScreen(
                         }
                     }
                 }
+            }
 
             if (operations.isEmpty()) {
                 item {
