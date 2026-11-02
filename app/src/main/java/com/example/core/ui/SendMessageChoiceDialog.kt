@@ -45,7 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.AccentEmerald
+import com.example.ui.theme.mosarib
 import com.example.ui.theme.PrimaryTeal
 
 import androidx.compose.runtime.getValue
@@ -54,7 +54,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.example.core.util.MessageFormatHelper
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SendMessageChoiceDialog(
     recipientName: String,
@@ -65,50 +64,19 @@ fun SendMessageChoiceDialog(
     onSendWhatsApp: () -> Unit,
     onSendSms: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
     val actualSmsText = smsMessageText ?: messageText
     var selectedChannel by remember { mutableStateOf(if (smsMessageText != null) "sms" else "whatsapp") }
     val currentPreviewText = if (selectedChannel == "sms") actualSmsText else messageText
     val smsSegments = MessageFormatHelper.calculateSmsSegments(actualSmsText)
 
-    ModalBottomSheet(
+    MosaribBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface
+        title = "إرسال الإشعار والتفاصيل",
+        subtitle = "إلى: $recipientName ($recipientPhone)",
+        icon = Icons.AutoMirrored.Filled.Send,
+        iconTint = PrimaryTeal
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 14.dp)
-        ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "إرسال الإشعار والتفاصيل",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
-                    Text(
-                        text = "إلى: $recipientName ($recipientPhone)",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                }
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "إلغاء")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
 
             // Channel Preview Switcher (واتساب vs SMS)
             if (smsMessageText != null) {
@@ -121,11 +89,11 @@ fun SendMessageChoiceDialog(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (selectedChannel == "whatsapp") AccentEmerald.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                            containerColor = if (selectedChannel == "whatsapp") MaterialTheme.mosarib.success.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                         ),
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            if (selectedChannel == "whatsapp") AccentEmerald else Color.Transparent
+                            if (selectedChannel == "whatsapp") MaterialTheme.mosarib.success else Color.Transparent
                         )
                     ) {
                         Row(
@@ -138,7 +106,7 @@ fun SendMessageChoiceDialog(
                             Icon(
                                 Icons.AutoMirrored.Filled.Send,
                                 contentDescription = null,
-                                tint = if (selectedChannel == "whatsapp") AccentEmerald else MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = if (selectedChannel == "whatsapp") MaterialTheme.mosarib.success else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(15.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
@@ -146,7 +114,7 @@ fun SendMessageChoiceDialog(
                                 text = "واتساب (منسق)",
                                 fontSize = 12.sp,
                                 fontWeight = if (selectedChannel == "whatsapp") FontWeight.Bold else FontWeight.Medium,
-                                color = if (selectedChannel == "whatsapp") AccentEmerald else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (selectedChannel == "whatsapp") MaterialTheme.mosarib.success else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -222,13 +190,13 @@ fun SendMessageChoiceDialog(
                             if (selectedChannel == "sms") {
                                 androidx.compose.material3.Surface(
                                     shape = RoundedCornerShape(6.dp),
-                                    color = if (smsSegments <= 1) AccentEmerald.copy(alpha = 0.15f) else PrimaryTeal.copy(alpha = 0.15f)
+                                    color = if (smsSegments <= 1) MaterialTheme.mosarib.success.copy(alpha = 0.15f) else PrimaryTeal.copy(alpha = 0.15f)
                                 ) {
                                     Text(
                                         text = "${actualSmsText.length} حرف ($smsSegments ${if (smsSegments == 1) "رسالة" else "رسائل"})",
                                         fontSize = 10.5.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (smsSegments <= 1) AccentEmerald else PrimaryTeal,
+                                        color = if (smsSegments <= 1) MaterialTheme.mosarib.success else PrimaryTeal,
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
@@ -287,7 +255,7 @@ fun SendMessageChoiceDialog(
                     .fillMaxWidth()
                     .height(48.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.success)
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.Send,
@@ -330,6 +298,5 @@ fun SendMessageChoiceDialog(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-        }
     }
 }

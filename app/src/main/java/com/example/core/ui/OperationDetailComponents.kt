@@ -31,36 +31,22 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.theme.mosarib
 import com.example.core.util.Formatters
 
 /**
  * الهيكل الموحّد للشاشات العائمة لتفاصيل العمليات (اتجاه عربي + تمرير عمودي)
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun OperationDetailSheetScaffold(
     onDismiss: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        ModalBottomSheet(
-            onDismissRequest = onDismiss,
-            sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 16.dp)
-                    .verticalScroll(rememberScrollState()),
-                content = content
-            )
-        }
-    }
+    MosaribBottomSheet(
+        onDismissRequest = onDismiss,
+        title = "",
+        content = content
+    )
 }
 
 /**
@@ -319,8 +305,8 @@ internal fun OperationDetailContactActions(phone: String) {
             },
             modifier = Modifier.size(34.dp),
             colors = IconButtonDefaults.filledTonalIconButtonColors(
-                containerColor = Color(0xFF2E7D32).copy(alpha = 0.15f),
-                contentColor = Color(0xFF2E7D32)
+                containerColor = MaterialTheme.mosarib.success.copy(alpha = 0.15f),
+                contentColor = MaterialTheme.mosarib.success
             )
         ) {
             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "واتساب", modifier = Modifier.size(16.dp))
@@ -491,13 +477,13 @@ internal fun OperationDetailEditDeleteRow(
                         .weight(1f)
                         .height(42.dp),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE53935)),
-                    border = BorderStroke(1.dp, Color(0xFFE53935).copy(alpha = 0.5f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.mosarib.debt),
+                    border = BorderStroke(1.dp, MaterialTheme.mosarib.debt.copy(alpha = 0.5f)),
                     contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
-                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFFE53935))
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.mosarib.debt)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(deleteLabel, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, color = Color(0xFFE53935))
+                    Text(deleteLabel, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, color = MaterialTheme.mosarib.debt)
                 }
             }
         }

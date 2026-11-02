@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 <!-- Owner request 2026-11-02: all popups (menus, bottom sheets, dialogs) look inconsistent, and a
 sheet that contains a list closes by mistake when the user scrolls the list down. This task builds
@@ -130,4 +130,54 @@ A debug-only composable `core/ui/MosaribSheetsPreview.kt` with `@Preview`s:
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+**Round 1: changes-requested** (2026-11-02). Build and tests pass. Claude installed this worktree's
+build on the phone and tested the session detail sheet (dark theme):
+
+| Action | Expected | Result |
+|---|---|---|
+| Fling down ×5 on the content, and drag from the handle | stays open | ✅ stays open |
+| X button | closes | ✅ |
+| System back | closes | ✅ |
+| **Tap on the scrim** (dimmed area above the sheet) | closes, or asks "تجاهل التغييرات؟" | ❌ **nothing happens** |
+
+**Why:** in material3 1.3.0 the scrim tap calls `animateToDismiss()`, which first checks
+`confirmValueChange(Hidden)`. Your `confirmValueChange` returns `false` unless
+`isDismissingAllowed`, so the scrim tap is swallowed together with the drags.
+
+**Fix (in `MosaribBottomSheet` and `MosaribBottomSheetLazy`):** tell a scrim tap apart from a
+drag.
+- Mark drags: on the sheet content and the handle, add a `pointerInput` that records
+  `lastDragAtMillis` when a vertical drag starts or continues
+  (`awaitEachGesture { … awaitTouchSlopOrCancellation … }`, without consuming the events).
+  Sheet nested-scroll flings also count: wrap the content in a `nestedScroll` connection that
+  updates the same timestamp in `onPreScroll` / `onPreFling`.
+- In `confirmValueChange`, when the target is `Hidden` and dismiss is not yet allowed:
+  - if there was **no drag in the last 400ms**, it is a scrim tap: call `requestDismiss()` (post
+    it with `coroutineScope.launch`) and return `false`. `requestDismiss` then closes, or shows
+    the discard dialog;
+  - otherwise return `false` (a drag must never close).
+- Keep the X and back behaviour as they are now.
+- Re-test on the device: fling ×5 stays open; scrim tap closes; scrim tap with
+  `hasUnsavedChanges` shows the dialog.
+
+Minor, in the same round: in `SessionDetailBottomSheet` the header title is cut ("تفاصيل دورة
+السق…") because the "مسدد بالكامل" badge shares the row. In `MosaribBottomSheet`, put the
+optional `headerBadge` **under** the title, next to the subtitle, so the title gets the full
+width (max 2 lines).
+
+Allowed files: `core/ui/MosaribSheets.kt` (and `SessionDetailBottomSheet.kt` only if the badge
+change needs it). Append a "Round 2" section to `.ai/reports/018.md`; do not rewrite files.
+
+**Round 2 verdict: accepted** (2026-11-02). Claude installed the build and tested it on the device
+(light theme, session detail sheet):
+- content flings ×2 and a slow drag: stays open ✅;
+- scrim tap closes ✅;
+- back closes ✅;
+- X closes ✅;
+- title on its own line, badge under it ✅.
+
+A drag that starts **on the handle** closes the sheet. That is a deliberate gesture and standard
+Material behaviour, so it is accepted. Content drags, the reported bug, never close.
+
+Process: the status was left `in-progress` and the report has no Round 2 section. Please always
+finish both.

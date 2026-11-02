@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.theme.mosarib
 import com.example.core.util.Formatters
 import com.example.features.customers.Customer
 import com.example.features.sessions.WaterSession
@@ -48,34 +49,38 @@ fun SessionDetailBottomSheet(
     val isSettled = session.remainingDebt <= 0
     val isSettledByOffset = isWellOwner || session.billedToCustomerId != null || sponsorCustomer != null
 
-    OperationDetailSheetScaffold(onDismiss = onDismiss) {
-        // 1. رأس الشاشة
-        val sponsorName = sponsorCustomer?.name ?: "صاحب البئر"
-        OperationDetailHeader(
-            icon = Icons.Default.WaterDrop,
-            accentColor = PrimaryTeal,
-            iconSize = 22.dp,
-            title = "تفاصيل دورة السقي #${session.id}",
-            subtitle = Formatters.formatDateFull(session.startTime),
-            badgeText = when {
-                sponsorCustomer != null -> "مقاصة على: $sponsorName 🔄"
-                isSettledByOffset -> "مقاصة بئر 🔄"
-                isSettled -> "مسدد بالكامل ✅"
-                else -> "متبقي دين ⏳"
-            },
-            badgeContainerColor = when {
-                sponsorCustomer != null || isSettledByOffset -> Color(0xFFE0F2FE)
-                isSettled -> AccentEmerald.copy(alpha = 0.15f)
-                else -> Color(0xFFE53935).copy(alpha = 0.15f)
-            },
-            badgeContentColor = when {
-                sponsorCustomer != null || isSettledByOffset -> Color(0xFF0369A1)
-                isSettled -> AccentEmerald
-                else -> Color(0xFFE53935)
-            }
-        )
+    val sponsorName = sponsorCustomer?.name ?: "صاحب البئر"
+    val (badgeText, badgeBg, badgeFg) = when {
+        sponsorCustomer != null -> Triple("مقاصة على: $sponsorName", MaterialTheme.mosarib.infoContainer, MaterialTheme.mosarib.info)
+        isSettledByOffset -> Triple("مقاصة بئر", MaterialTheme.mosarib.infoContainer, MaterialTheme.mosarib.info)
+        isSettled -> Triple("مسدد بالكامل", MaterialTheme.mosarib.successContainer, MaterialTheme.mosarib.success)
+        else -> Triple("متبقي دين", MaterialTheme.mosarib.debt.copy(alpha = 0.15f), MaterialTheme.mosarib.debt)
+    }
 
-        Spacer(modifier = Modifier.height(10.dp))
+    MosaribBottomSheet(
+        onDismissRequest = onDismiss,
+        title = "تفاصيل دورة السقي #${session.id}",
+        subtitle = Formatters.formatDateFull(session.startTime),
+        icon = Icons.Default.WaterDrop,
+        iconTint = PrimaryTeal,
+        headerBadge = {
+            Surface(
+                color = badgeBg,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = badgeText,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = badgeFg,
+                        fontSize = 11.sp
+                    ),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    maxLines = 1
+                )
+            }
+        }
+    ) {
 
         // 2. كرت العميل
         SessionCustomerCard(customer = customer, sponsorCustomer = sponsorCustomer)
@@ -128,8 +133,8 @@ private fun SessionCustomerCard(customer: Customer?, sponsorCustomer: Customer?)
 
     OperationDetailPartyCard(
         avatarIcon = if (isWellOwnerCustomer) Icons.Default.WaterDrop else Icons.Default.Person,
-        avatarTint = if (isWellOwnerCustomer) Color(0xFF0288D1) else PrimaryTeal,
-        avatarBackground = if (isWellOwnerCustomer) Color(0xFFE1F5FE) else PrimaryTeal.copy(alpha = 0.12f),
+        avatarTint = if (isWellOwnerCustomer) MaterialTheme.mosarib.info else PrimaryTeal,
+        avatarBackground = if (isWellOwnerCustomer) MaterialTheme.mosarib.infoContainer else PrimaryTeal.copy(alpha = 0.12f),
         name = customer?.name ?: "عميل غير محدد",
         nameFontSize = 14.sp,
         subtitle = {
@@ -137,7 +142,7 @@ private fun SessionCustomerCard(customer: Customer?, sponsorCustomer: Customer?)
                 Text(
                     text = "على حساب: ${sponsorCustomer.name}",
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF0369A1),
+                        color = MaterialTheme.mosarib.info,
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.5.sp
                     ),
@@ -253,7 +258,7 @@ private fun SessionTimeCard(session: WaterSession) {
                         text = "التوقف: ${session.wastedMinutes} دقيقة",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFB45309)
+                            color = MaterialTheme.mosarib.warning
                         ),
                         maxLines = 1
                     )
@@ -261,7 +266,7 @@ private fun SessionTimeCard(session: WaterSession) {
                         Text(
                             text = session.wastedReason,
                             style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color(0xFFB45309)
+                                color = MaterialTheme.mosarib.warning
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -275,7 +280,7 @@ private fun SessionTimeCard(session: WaterSession) {
 
 @Composable
 private fun SessionFinanceCard(session: WaterSession, currencySymbol: String) {
-    val debtColor = if (session.remainingDebt > 0) Color(0xFFE53935) else AccentEmerald
+    val debtColor = if (session.remainingDebt > 0) MaterialTheme.mosarib.debt else AccentEmerald
 
     OperationDetailCard {
         Column(
@@ -522,7 +527,7 @@ private fun SessionLinkedVoucherItem(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = "مشاركة",
-                            tint = Color(0xFF2E7D32),
+                            tint = MaterialTheme.mosarib.success,
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -598,7 +603,7 @@ private fun SessionActions(
                 OperationDetailFilledButton(
                     text = "إرسال فاتورة",
                     icon = Icons.AutoMirrored.Filled.Send,
-                    containerColor = Color(0xFF2E7D32),
+                    containerColor = MaterialTheme.mosarib.success,
                     onClick = onMessage,
                     modifier = Modifier.weight(1f)
                 )

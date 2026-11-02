@@ -38,7 +38,12 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 enum class CustomerSort {
-    NAME, HIGHEST_DEBT, MOST_WATER_HOURS
+    NAME,               // الاسم (أ-ي)
+    NAME_DESC,          // الاسم (ي-أ)
+    HIGHEST_DEBT,       // الأعلى رصيداً
+    LOWEST_DEBT,        // الأقل رصيداً
+    NEWEST,             // الأحدث إضافة
+    MOST_WATER_HOURS    // الأكثر ساعات سقي
 }
 
 enum class AccountFilter {
@@ -92,6 +97,13 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setSelectedGroup(group: String?) {
         _selectedGroup.value = group
+    }
+
+    fun clearFilters() {
+        _selectedGroup.value = null
+        _accountFilter.value = AccountFilter.ALL
+        _balanceFilter.value = CustomerBalanceFilter.ALL
+        _sortType.value = CustomerSort.NAME
     }
 
     private val _toast = MutableStateFlow<ToastMessage?>(null)
@@ -160,7 +172,10 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
 
             when (params.sort) {
                 CustomerSort.NAME -> filtered.sortedBy { it.customer.name }
+                CustomerSort.NAME_DESC -> filtered.sortedByDescending { it.customer.name }
                 CustomerSort.HIGHEST_DEBT -> filtered.sortedByDescending { it.balance }
+                CustomerSort.LOWEST_DEBT -> filtered.sortedBy { it.balance }
+                CustomerSort.NEWEST -> filtered.sortedByDescending { it.customer.createdAt }
                 CustomerSort.MOST_WATER_HOURS -> filtered.sortedByDescending { it.totalMinutes }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

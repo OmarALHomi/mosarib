@@ -1,60 +1,29 @@
 package com.example.features.customers
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.Bookmarks
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.core.ui.MosaribFilterChip
-import com.example.core.ui.MosaribFilterRow
-import com.example.ui.theme.AccentEmerald
-import com.example.ui.theme.AccentGold
-import com.example.ui.theme.PrimaryTeal
+import com.example.core.ui.DropdownOption
+import com.example.core.ui.FilterClearAllChip
+import com.example.core.ui.FilterDropdownChip
 
 /**
- * رأس قائمة الحسابات: حقل البحث ثم شريط الفلاتر
- * (نسخة مضغوطة للوضع الأفقي، ونسخة أوسع للوضع الرأسي مع ظل عند التثبيت)
+ * رأس قائمة الحسابات: حقل البحث ثم صف شرائح الفلاتر المنسدلة.
  */
 @Composable
 internal fun CustomersListHeader(
@@ -69,17 +38,17 @@ internal fun CustomersListHeader(
         shadowElevation = if (!isCompact && isPinned) 3.dp else 0.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = if (isCompact) 2.dp else 4.dp)) {
-            // حقل البحث بمظهر واسع وأنيق ومستغل للمساحة السابقة
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = if (isCompact) 4.dp else 6.dp)) {
+            // حقل البحث بكامل العرض
             CustomersSearchField(
                 isCompact = isCompact,
                 searchQuery = searchQuery,
                 onSearchQueryChange = onSearchQueryChange
             )
 
-            Spacer(modifier = Modifier.height(if (isCompact) 3.dp else 5.dp))
+            Spacer(modifier = Modifier.height(if (isCompact) 4.dp else 6.dp))
 
-            // شريط الفلاتر الموحّد (نوع الحساب | حالة الرصيد | المجموعة | الترتيب)
+            // صف شرائح الفلاتر المنسدلة
             filterRow()
         }
     }
@@ -91,7 +60,7 @@ private fun CustomersSearchField(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit
 ) {
-    val fontSize = if (isCompact) 11.5.sp else 12.sp
+    val searchTextStyle = if (isCompact) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium
 
     Box(
         modifier = Modifier
@@ -120,9 +89,8 @@ private fun CustomersSearchField(
                 if (searchQuery.isEmpty()) {
                     Text(
                         text = "بحث بالاسم، المزرعة، أو الهاتف...",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                            fontSize = fontSize
+                        style = searchTextStyle.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
                         ),
                         maxLines = 1
                     )
@@ -132,9 +100,8 @@ private fun CustomersSearchField(
                     onValueChange = { onSearchQueryChange(it) },
                     singleLine = true,
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = fontSize
+                    textStyle = searchTextStyle.copy(
+                        color = MaterialTheme.colorScheme.onSurface
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -148,7 +115,7 @@ private fun CustomersSearchField(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "مسح",
+                        contentDescription = "مسح البحث",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(if (isCompact) 13.dp else 14.dp)
                     )
@@ -158,375 +125,142 @@ private fun CustomersSearchField(
     }
 }
 
+/**
+ * صف شرائح الفلاتر المنسدلة لشاشة العملاء:
+ * 1. الترتيب
+ * 2. نوع الحساب
+ * 3. الحالة
+ * 4. المجموعة
+ * 5. زر "مسح الكل ✕" إذا كان أي منها غير افتراضي
+ */
 @Composable
-internal fun CustomersDropdownFilterRow(
+fun CustomersFilterChipsRow(
+    sortType: CustomerSort,
     accountFilter: AccountFilter,
     balanceFilter: CustomerBalanceFilter,
     selectedGroup: String?,
     customGroups: List<String>,
-    sortType: CustomerSort,
     rawCustomers: List<CustomerWithBalance>,
-    debtorCount: Int,
-    creditorCount: Int,
-    settledCount: Int,
-    archivedCount: Int = 0,
-    onSelectAccountFilter: (AccountFilter) -> Unit,
-    onSelectBalanceFilter: (CustomerBalanceFilter) -> Unit,
+    onSelectSort: (CustomerSort) -> Unit,
+    onSelectAccount: (AccountFilter) -> Unit,
+    onSelectBalance: (CustomerBalanceFilter) -> Unit,
     onSelectGroup: (String?) -> Unit,
-    onSelectSortType: (CustomerSort) -> Unit,
-    onAddGroupClick: () -> Unit,
-    onManageGroupsClick: () -> Unit,
-    onOpenRecycleBin: () -> Unit = {},
+    onAddNewGroup: () -> Unit,
+    onClearAll: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    MosaribFilterRow(
+    val sortOptions = listOf(
+        DropdownOption(CustomerSort.NAME, "الاسم (أ-ي)"),
+        DropdownOption(CustomerSort.NAME_DESC, "الاسم (ي-أ)"),
+        DropdownOption(CustomerSort.HIGHEST_DEBT, "الأعلى رصيداً"),
+        DropdownOption(CustomerSort.LOWEST_DEBT, "الأقل رصيداً"),
+        DropdownOption(CustomerSort.NEWEST, "الأحدث إضافة"),
+        DropdownOption(CustomerSort.MOST_WATER_HOURS, "الأكثر ساعات سقي")
+    )
+
+    val accountOptions = listOf(
+        DropdownOption(AccountFilter.ALL, "الكل"),
+        DropdownOption(AccountFilter.FARMERS, "مزارع"),
+        DropdownOption(AccountFilter.WELL_OWNERS, "صاحب بئر")
+    )
+
+    val balanceOptions = listOf(
+        DropdownOption(CustomerBalanceFilter.ALL, "الكل"),
+        DropdownOption(CustomerBalanceFilter.DEBTOR, "عليه"),
+        DropdownOption(CustomerBalanceFilter.CREDITOR, "له"),
+        DropdownOption(CustomerBalanceFilter.SETTLED, "متوازن")
+    )
+
+    val groupOptions = buildList<DropdownOption<String?>> {
+        add(DropdownOption(null, "الكل"))
+        customGroups.forEach { grp ->
+            val count = rawCustomers.count { it.customer.customGroup == grp }
+            add(DropdownOption(grp, "$grp ($count)"))
+        }
+        add(DropdownOption("", "بدون مجموعة"))
+    }
+
+    val hasActiveFilter = sortType != CustomerSort.NAME ||
+            accountFilter != AccountFilter.ALL ||
+            balanceFilter != CustomerBalanceFilter.ALL ||
+            selectedGroup != null
+
+    LazyRow(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(0.dp)
+        contentPadding = PaddingValues(horizontal = 0.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // 1. فلتر النوع (الكل، مزارعين، آبار)
-        AccountTypeFilterChip(
-            accountFilter = accountFilter,
-            rawCustomers = rawCustomers,
-            onSelectAccountFilter = onSelectAccountFilter
-        )
-
-        // 2. فلتر الحالة / الرصيد (الكل، عليه، له، متوازن)
-        BalanceFilterChip(
-            balanceFilter = balanceFilter,
-            debtorCount = debtorCount,
-            creditorCount = creditorCount,
-            settledCount = settledCount,
-            onSelectBalanceFilter = onSelectBalanceFilter
-        )
-
-        // 3. فلتر المجموعة
-        GroupFilterChip(
-            selectedGroup = selectedGroup,
-            customGroups = customGroups,
-            rawCustomers = rawCustomers,
-            archivedCount = archivedCount,
-            onSelectGroup = onSelectGroup,
-            onManageGroupsClick = onManageGroupsClick,
-            onOpenRecycleBin = onOpenRecycleBin
-        )
-
-        // 4. زر إضافة مجموعة (+ مجموعة)
-        AddGroupChip(onClick = onAddGroupClick)
-
-        // فاصل
-        Box(
-            modifier = Modifier
-                .width(1.dp)
-                .height(18.dp)
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-        )
-
-        // 5. الترتيب
-        SortFilterChip(
-            sortType = sortType,
-            onSelectSortType = onSelectSortType
-        )
-    }
-}
-
-@Composable
-private fun AccountTypeFilterChip(
-    accountFilter: AccountFilter,
-    rawCustomers: List<CustomerWithBalance>,
-    onSelectAccountFilter: (AccountFilter) -> Unit
-) {
-    var showTypeMenu by remember { mutableStateOf(false) }
-
-    Box {
-        MosaribFilterChip(
-            selected = accountFilter != AccountFilter.ALL,
-            onClick = { showTypeMenu = true },
-            label = when (accountFilter) {
-                AccountFilter.ALL -> "النوع: الكل"
-                AccountFilter.FARMERS -> "مزارعون"
-                AccountFilter.WELL_OWNERS -> "أصحاب الآبار"
-            },
-            isCompact = true,
-            leadingIcon = {
-                when (accountFilter) {
-                    AccountFilter.ALL -> null
-                    AccountFilter.FARMERS -> Icon(Icons.Default.Park, null, modifier = Modifier.size(14.dp), tint = if (accountFilter != AccountFilter.ALL) Color.White else Color(0xFF2E7D32))
-                    AccountFilter.WELL_OWNERS -> Icon(Icons.Default.WaterDrop, null, modifier = Modifier.size(14.dp), tint = if (accountFilter != AccountFilter.ALL) Color.White else PrimaryTeal)
-                }
-            }
-        )
-        DropdownMenu(
-            expanded = showTypeMenu,
-            onDismissRequest = { showTypeMenu = false }
-        ) {
-            DropdownMenuItem(
-                text = { Text("الكل (${rawCustomers.size})") },
-                onClick = {
-                    onSelectAccountFilter(AccountFilter.ALL)
-                    showTypeMenu = false
-                }
+        // 1. الترتيب
+        item(key = "sort") {
+            FilterDropdownChip(
+                label = "الترتيب",
+                selected = sortType,
+                options = sortOptions,
+                isDefault = sortType == CustomerSort.NAME,
+                onSelect = onSelectSort
             )
-            DropdownMenuItem(
-                text = { Text("مزارعون (${rawCustomers.count { !it.customer.isWellOwner }})") },
-                leadingIcon = { Icon(Icons.Default.Park, null, tint = Color(0xFF2E7D32), modifier = Modifier.size(18.dp)) },
-                onClick = {
-                    onSelectAccountFilter(AccountFilter.FARMERS)
-                    showTypeMenu = false
-                }
+        }
+
+        // 2. نوع الحساب
+        item(key = "account") {
+            FilterDropdownChip(
+                label = "نوع الحساب",
+                selected = accountFilter,
+                options = accountOptions,
+                isDefault = accountFilter == AccountFilter.ALL,
+                onSelect = onSelectAccount
             )
-            DropdownMenuItem(
-                text = { Text("أصحاب الآبار (${rawCustomers.count { it.customer.isWellOwner }})") },
-                leadingIcon = { Icon(Icons.Default.WaterDrop, null, tint = PrimaryTeal, modifier = Modifier.size(18.dp)) },
-                onClick = {
-                    onSelectAccountFilter(AccountFilter.WELL_OWNERS)
-                    showTypeMenu = false
+        }
+
+        // 3. الحالة
+        item(key = "balance") {
+            FilterDropdownChip(
+                label = "الحالة",
+                selected = balanceFilter,
+                options = balanceOptions,
+                isDefault = balanceFilter == CustomerBalanceFilter.ALL,
+                onSelect = onSelectBalance
+            )
+        }
+
+        // 4. المجموعة
+        item(key = "group") {
+            FilterDropdownChip(
+                label = "المجموعة",
+                selected = selectedGroup,
+                options = groupOptions,
+                isDefault = selectedGroup == null,
+                onSelect = onSelectGroup,
+                footer = {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = "+ مجموعة جديدة",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        onClick = onAddNewGroup
+                    )
                 }
             )
         }
-    }
-}
 
-@Composable
-private fun BalanceFilterChip(
-    balanceFilter: CustomerBalanceFilter,
-    debtorCount: Int,
-    creditorCount: Int,
-    settledCount: Int,
-    onSelectBalanceFilter: (CustomerBalanceFilter) -> Unit
-) {
-    var showBalanceMenu by remember { mutableStateOf(false) }
-
-    Box {
-        MosaribFilterChip(
-            selected = balanceFilter != CustomerBalanceFilter.ALL,
-            onClick = { showBalanceMenu = true },
-            label = when (balanceFilter) {
-                CustomerBalanceFilter.ALL -> "الحالة: الكل"
-                CustomerBalanceFilter.DEBTOR -> "عليه ($debtorCount)"
-                CustomerBalanceFilter.CREDITOR -> "له ($creditorCount)"
-                CustomerBalanceFilter.SETTLED -> "متوازن ($settledCount)"
-            },
-            isCompact = true,
-            leadingIcon = {
-                when (balanceFilter) {
-                    CustomerBalanceFilter.ALL -> null
-                    CustomerBalanceFilter.DEBTOR -> Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(if (balanceFilter != CustomerBalanceFilter.ALL) Color.White else Color(0xFFE53935)))
-                    CustomerBalanceFilter.CREDITOR -> Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(if (balanceFilter != CustomerBalanceFilter.ALL) Color.White else Color(0xFF2E7D32)))
-                    CustomerBalanceFilter.SETTLED -> Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(13.dp), tint = if (balanceFilter != CustomerBalanceFilter.ALL) Color.White else AccentEmerald)
-                }
+        // 5. زر مسح الكل عند تفعيل أي فلتر
+        if (hasActiveFilter) {
+            item(key = "clear_all") {
+                FilterClearAllChip(onClearAll = onClearAll)
             }
-        )
-        DropdownMenu(
-            expanded = showBalanceMenu,
-            onDismissRequest = { showBalanceMenu = false }
-        ) {
-            DropdownMenuItem(
-                text = { Text("الكل") },
-                onClick = {
-                    onSelectBalanceFilter(CustomerBalanceFilter.ALL)
-                    showBalanceMenu = false
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("عليه ($debtorCount)") },
-                leadingIcon = { Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(Color(0xFFE53935))) },
-                onClick = {
-                    onSelectBalanceFilter(CustomerBalanceFilter.DEBTOR)
-                    showBalanceMenu = false
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("له ($creditorCount)") },
-                leadingIcon = { Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(Color(0xFF2E7D32))) },
-                onClick = {
-                    onSelectBalanceFilter(CustomerBalanceFilter.CREDITOR)
-                    showBalanceMenu = false
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("متوازن ($settledCount)") },
-                leadingIcon = { Icon(Icons.Default.CheckCircle, null, tint = AccentEmerald, modifier = Modifier.size(16.dp)) },
-                onClick = {
-                    onSelectBalanceFilter(CustomerBalanceFilter.SETTLED)
-                    showBalanceMenu = false
-                }
-            )
-        }
-    }
-}
-
-@Composable
-private fun GroupFilterChip(
-    selectedGroup: String?,
-    customGroups: List<String>,
-    rawCustomers: List<CustomerWithBalance>,
-    archivedCount: Int = 0,
-    onSelectGroup: (String?) -> Unit,
-    onManageGroupsClick: () -> Unit,
-    onOpenRecycleBin: () -> Unit = {}
-) {
-    var showGroupMenu by remember { mutableStateOf(false) }
-
-    Box {
-        MosaribFilterChip(
-            selected = selectedGroup != null,
-            onClick = { showGroupMenu = true },
-            label = selectedGroup ?: "المجموعة: الكل",
-            isCompact = true,
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Bookmarks,
-                    contentDescription = null,
-                    modifier = Modifier.size(13.dp),
-                    tint = if (selectedGroup != null) Color.White else AccentGold
-                )
-            }
-        )
-        DropdownMenu(
-            expanded = showGroupMenu,
-            onDismissRequest = { showGroupMenu = false }
-        ) {
-            DropdownMenuItem(
-                text = { Text("كل المجموعات") },
-                onClick = {
-                    onSelectGroup(null)
-                    showGroupMenu = false
-                }
-            )
-            customGroups.forEach { grp ->
-                val count = rawCustomers.count { it.customer.customGroup.trim().equals(grp.trim(), ignoreCase = true) }
-                DropdownMenuItem(
-                    text = { Text("$grp ($count)") },
-                    leadingIcon = { Icon(Icons.Default.Bookmarks, null, tint = AccentGold, modifier = Modifier.size(16.dp)) },
-                    onClick = {
-                        onSelectGroup(grp)
-                        showGroupMenu = false
-                    }
-                )
-            }
-            if (customGroups.isNotEmpty()) {
-                HorizontalDivider()
-            }
-            DropdownMenuItem(
-                text = { Text("إدارة المجموعات ⚙️", fontWeight = FontWeight.Bold) },
-                onClick = {
-                    showGroupMenu = false
-                    onManageGroupsClick()
-                }
-            )
-            HorizontalDivider()
-            DropdownMenuItem(
-                text = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "سلة المحذوفات 🗑️",
-                            fontWeight = FontWeight.Bold,
-                            color = if (archivedCount > 0) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurface
-                        )
-                        if (archivedCount > 0) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Surface(
-                                shape = CircleShape,
-                                color = Color(0xFFEF4444).copy(alpha = 0.15f)
-                            ) {
-                                Text(
-                                    text = "$archivedCount",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFEF4444),
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                )
-                            }
-                        }
-                    }
-                },
-                onClick = {
-                    showGroupMenu = false
-                    onOpenRecycleBin()
-                }
-            )
-        }
-    }
-}
-
-@Composable
-private fun AddGroupChip(onClick: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(9.dp),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-        modifier = Modifier
-            .clip(RoundedCornerShape(9.dp))
-            .clickable { onClick() }
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.width(3.dp))
-            Text(
-                text = "مجموعة",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            )
-        }
-    }
-}
-
-@Composable
-private fun SortFilterChip(
-    sortType: CustomerSort,
-    onSelectSortType: (CustomerSort) -> Unit
-) {
-    var showSortMenu by remember { mutableStateOf(false) }
-
-    Box {
-        MosaribFilterChip(
-            selected = sortType != CustomerSort.NAME,
-            onClick = { showSortMenu = true },
-            label = when (sortType) {
-                CustomerSort.NAME -> "الاسم"
-                CustomerSort.HIGHEST_DEBT -> "الأعلى رصيداً"
-                CustomerSort.MOST_WATER_HOURS -> "الأكثر ساعات"
-            },
-            isCompact = true,
-            leadingIcon = {
-                Icon(Icons.Default.ArrowDownward, null, modifier = Modifier.size(13.dp))
-            }
-        )
-        DropdownMenu(
-            expanded = showSortMenu,
-            onDismissRequest = { showSortMenu = false }
-        ) {
-            DropdownMenuItem(
-                text = { Text("الاسم") },
-                onClick = {
-                    onSelectSortType(CustomerSort.NAME)
-                    showSortMenu = false
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("الأعلى رصيداً") },
-                onClick = {
-                    onSelectSortType(CustomerSort.HIGHEST_DEBT)
-                    showSortMenu = false
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("الأكثر ساعات") },
-                onClick = {
-                    onSelectSortType(CustomerSort.MOST_WATER_HOURS)
-                    showSortMenu = false
-                }
-            )
         }
     }
 }

@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 
 <!-- Owner request 2026-11-02. Do this AFTER task 015 is accepted. -->
 # Task 016: Organised filters (period, group, customer…), reachable recycle bin and groups
@@ -153,4 +153,46 @@ Rules:
 
 ---
 ## Review notes (written by Claude)
-_(empty)_
+**Round 1: changes-requested** (2026-11-02). Build and 89 tests pass. The code review is good:
+- a pure engine with tests;
+- `PeriodRange` with Saturday weeks;
+- the summary card follows the filters without the type chip;
+- no literals;
+- recycle bin and groups are reachable from the ⋮ menu and Settings.
+
+Not checked on the device yet: the phone is disconnected.
+
+Two small fixes:
+1. **Payment method and pump filters cancel each other.** In `OperationsFilterEngine.apply`
+   the method filter drops every non-voucher, and the pump filter drops every non-session. With
+   both set, the result is always empty.
+
+   Rule:
+   - only methods set → vouchers with those methods;
+   - only pumps set → sessions with those pumps;
+   - **both set → vouchers matching a method OR sessions matching a pump**;
+   - purchases are hidden when either set is non-empty.
+
+   Add a test for "both set".
+2. **PDF title:** `exportOperationsPdf` still builds the title from the type only. Use
+   `OperationsFilterEngine.describe(filterState, customerName)` together with the type name, for
+   example "سندات القبض · هذا الشهر · مجموعة الشرق", for both `filterTitle` and the share title.
+
+Allowed files: `features/vouchers/OperationsFilterState.kt`, `features/vouchers/VouchersViewModel.kt`,
+and the test file. Append a "Round 2" section to `.ai/reports/016.md`; do not rewrite the
+report or this file.
+
+**Owner change for round 2** (2026-11-02): replace the filter button, the sheet and the chip rows with a
+row of dropdown chips (sort, type, account type, status, group, period, customer). The full spec is in
+`.ai/reviews/016-review-round1.md`. It supersedes the two-fix list above but includes both fixes.
+
+**Round 2 verdict: accepted** (2026-11-02). Build and 93 tests pass on master, with 018 merged.
+Checked on the device:
+- the dropdown chip row on operations (الترتيب، النوع، نوع الحساب، الحالة، المجموعة، الفترة،
+  العميل);
+- choosing "سقي" filtered the list;
+- choosing "هذا الشهر" highlighted the chip and changed the summary to "ملخص: هذا الشهر";
+- "مسح الكل ✕" appears;
+- the customers chips (الترتيب، نوع الحساب، الحالة، المجموعة) show;
+- the ⋮ menu has "إدارة المجموعات". "سلة المحذوفات" is hidden because the bin is empty, as
+  specified.
