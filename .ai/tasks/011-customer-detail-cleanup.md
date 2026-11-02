@@ -1,5 +1,5 @@
-status: draft
-<!-- draft until task 015 is accepted (the ledger uses OperationCard). -->
+status: ready
+<!-- ready since 015 was accepted (2026-11-02). Runs in parallel with 012, 016 and 018 in its own worktree. -->
 
 # Task 011: Customer detail — one place per action, compact ledger, clearer header
 
@@ -54,6 +54,12 @@ status: draft
    - tapping a row opens the detail bottom sheet that exists today for that type; the kebab menu
      keeps every action the old card had (سداد, edit, delete, share, payment history…).
    - remove the five old card composables if nothing else uses them.
+
+## Parallel-work rules
+- Do not migrate the menus, dialogs or the two sheets in `CustomerDetailComponents.kt` to new
+  components. Task 020 does that later. Keep them working as they are.
+- Any colour or text style you write or touch in these files uses `MaterialTheme.mosarib` /
+  `colorScheme` / `typography`, not literals.
 
 ## Allowed files
 - `features/customers/CustomerDetailScreen.kt`, `features/customers/CustomerDetailComponents.kt`

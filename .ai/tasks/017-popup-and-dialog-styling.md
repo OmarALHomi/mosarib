@@ -1,4 +1,5 @@
-status: draft
+status: superseded
+<!-- replaced by tasks 018 (foundation), 019 and 020 on 2026-11-02 -->
 
 <!-- Owner asked on 2026-11-02 for nicer popup menus and dialogs, "but not now".
 Claude will audit them on the device and write this task when the owner asks. -->

@@ -1,4 +1,5 @@
-status: ready
+status: draft
+<!-- 2026-11-02: held until 011, 012, 016, 018, 019 and 020 are merged; it touches files of all of them. -->
 
 # Task 013: Motion polish (subtle, fast, consistent)
 

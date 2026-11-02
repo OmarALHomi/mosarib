@@ -109,6 +109,12 @@ Rules:
   `RecycleBinDialog` already does.
 - Keep the restore and delete behaviour exactly as it is (task 001).
 
+## Parallel-work note
+- The rewritten `CustomersFilterRow.kt` and every new composable use theme tokens and typography
+  only (no `Color(0x…)`, no `fontSize`). Task 012 no longer touches that file.
+- Use plain Material 3 `ModalBottomSheet` for the filter sheets with
+  `skipPartiallyExpanded = true`. Task 019 moves them onto the shared `MosaribBottomSheet` later.
+
 ## Allowed files
 - `features/vouchers/VouchersScreen.kt` (header, filters, summary card and PDF call only)
 - `features/vouchers/VouchersViewModel.kt`

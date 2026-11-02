@@ -18,7 +18,7 @@ status: ready
    `if (isAppDark()/isDark) A else B` colour pair with `MaterialTheme.colorScheme.*` or
    `MaterialTheme.mosarib.*`. Pick the nearest token, and list any colour with no fitting token in
    the report instead of inventing one. Literal `fontSize` → nearest typography style.
-   Files: `CustomerCardItem.kt`, `CustomersScreenComponents.kt`, `CustomersFilterRow.kt`,
+   Files: `CustomerCardItem.kt`, `CustomersScreenComponents.kt`,
    `CustomerImportReviewDialog.kt`, `RecycleBinDialog.kt`, `GroupsDialogs.kt`,
    `HomeComponents.kt`, `ReportsScreen.kt`.
 
@@ -28,3 +28,8 @@ status: ready
 ---
 ## Review notes (written by Claude)
 _(empty)_
+
+## Parallel-work note (Claude, 2026-11-02)
+- `CustomersFilterRow.kt` is **removed** from this task. Task 016 rewrites it, with tokens.
+- This task runs in parallel with 011, 016 and 018 in its own worktree. Touch only the files
+  listed here and `core/util/Formatters.kt`.

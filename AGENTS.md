@@ -21,3 +21,13 @@ Short version:
    read both before a new round.
 6. Never commit, push, create branches, or run `git checkout/reset/stash` unless the task
    explicitly says so.
+
+## Parallel work (worktrees)
+- Several agents may work at the same time. Each one works in **its own folder** (a git
+  worktree such as `D:\Kotlin\mosarib-t016`), on its own branch. That folder is your project
+  root: build and test there.
+- When the user names a task ("نفّذ المهمة 016"), do **only that task**, even if other tasks are
+  `ready`.
+- Never edit a file outside your task's allowed list, even if the build shows an error in it.
+  Report it instead.
+- Do not commit. Claude reviews in your folder, commits and merges.
