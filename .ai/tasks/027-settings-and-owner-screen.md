@@ -51,8 +51,25 @@ Every existing setting and action must still be reachable. List old → new plac
 - The count on the ledger card ("السداد (N)") and the count in the viewer must match. Use one
   shared definition.
 
+## D. Customer page balance colour and label (owner, 2026-11-03)
+On the customer page the main balance looks red whatever its kind. Seen on the device: customer
+"أحمد بن حسين العولقي" with a card that shows "له: 15,339" in green has the page label "رصيد دائن
+لصالح العميل (عليك)" with **15,339 in red**. Use the same convention as the customer cards,
+everywhere on this page (normal customers, beneficiaries and well owners):
+- **عليه** (the customer owes you): `MaterialTheme.mosarib.debt` (red). Label: "عليه (لك)".
+- **له** (you owe the customer): `MaterialTheme.mosarib.credit` (green). Label: "له (عليك)".
+- **مسدد**: `primary`, with the existing "مسدد" chip.
+- Find out why the credit case renders red today. There are two balance branches
+  (`customerWithBalance.balance` near line 704 and `receivableBalance` near line 787); check
+  which one runs for each account type. Use the **same** sign rule as `CustomerCardItem` so the
+  card and the page can never disagree.
+- Replace the hard-coded `Color(0xFFE53935)` / `AccentEmerald` / `PrimaryTeal` in this card with
+  the tokens.
+- On the device, check one customer with عليه, one with له, one مسدد and one well owner, and
+  list the four in the report.
+
 ## Allowed files
-- `features/customers/CustomerDetailScreen.kt` (owner section only)
+- `features/customers/CustomerDetailScreen.kt` (owner section, and the balance card for part D)
 - `features/settings/*` (layout only, no change to ViewModel logic or backup behaviour)
 - new `features/settings/SettingsRow.kt` (shared row and section composables)
 - `core/ui/SessionDetailBottomSheet.kt` (part C only); the ledger card count in `CustomerDetailScreen.kt`

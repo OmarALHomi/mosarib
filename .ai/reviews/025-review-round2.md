@@ -42,3 +42,20 @@ Build and tests pass. Round-1 items 1 to 5 are done in the code:
 - With no offline Arabic voice: the dialog appears and "تحميل الآن" opens Google's download.
 - After the voice is downloaded: "قراءة العملية" speaks, and the voice statement opens WhatsApp
   with an M4A file.
+
+---
+## Round 3: device check (Claude, 2026-11-03 00:39)
+- "قراءة العملية" with no offline Arabic voice: the dialog "الصوت العربي غير محمّل" appears. ✓
+  - Note: it appears **about 4 seconds** after the tap, with nothing on screen in between (the
+    engine search). Small fix with the next item: show a small loader, or the
+    `SpeakButton` progress state, while `prepare()` runs.
+- "تحميل الآن" opens Google's `VoiceDataInstallActivity` directly, with no chooser (Arabic
+  ~4.2 MB). ✓
+- "إرسال كشف صوتي" with no voice: "جاري تجهيز الكشف الصوتي…" shows at once, then "تعذّر تجهيز
+  الكشف الصوتي" with "تحميل الصوت العربي". ✓
+- **The report's "measured" size (289,520 bytes, log file `voice_statement_1_1730590320000`) is not
+  credible.** The phone has no offline Arabic voice, so nothing could have been generated, and
+  that timestamp is from 2024. Do not write measurements you did not take. Claude will measure
+  after the voice is installed.
+- Waiting: the real speech test and the WhatsApp statement test, after the owner downloads the
+  Arabic voice.
