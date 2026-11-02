@@ -1,5 +1,5 @@
-status: draft
-<!-- 2026-11-02: held until 011, 012, 016, 018, 019 and 020 are merged; it touches files of all of them. -->
+status: ready
+<!-- 2026-11-02: all earlier tasks are merged. Runs in the existing worktree D:\Kotlin\mosarib-t023 (branch task/013), in parallel with 024 in D:\Kotlin\mosarib-t020. -->
 
 # Task 013: Motion polish (subtle, fast, consistent)
 
@@ -18,13 +18,17 @@ Keep durations short (150–300ms), use `FastOutSlowInEasing` or springs, and re
    The main pager must keep its state, including the selected tab.
 2. **Tab change**: crossfade (200ms) between tab pages instead of the pager scroll animation
    (`pagerState.scrollToPage` + `Crossfade`/`AnimatedContent` keyed by page).
-3. **Lists**: `Modifier.animateItem()` on items in the customers list, the operations list and the
-   customer ledger (insert, remove, reorder after filter).
+3. **Lists**: `Modifier.animateItem()` on items in the customers list, the operations list
+   (the `OperationCard`s and the day headers) and the customer ledger (insert, remove, reorder
+   after a filter or sort change from task 016).
 4. **Numbers**: a small `AnimatedAmount(value, …)` composable in `core/ui` that counts from the
    previous value to the new one over 400ms. Use it for the customer balance in the detail balance
    card and the two totals of the customers summary bar.
 5. **Press feedback**: `QuickActionCard` on Home and the two big money buttons in customer detail
-   scale to 0.97 while pressed (spring back).
+   scale to 0.97 while pressed (spring back). `OperationCard` and the customer card
+   (`CustomerCardItem`) scale to 0.98 while pressed. Use one shared
+   `Modifier.pressScale(interactionSource)` in `core/ui/AnimatedAmount.kt` or a new
+   `core/ui/PressScale.kt`.
 6. **Save feedback**: a light haptic (`HapticFeedbackType.LongPress` or `Confirm`) when a session
    or voucher is saved successfully. Hook it where the success toast is shown today.
 
@@ -32,7 +36,12 @@ Keep durations short (150–300ms), use `FastOutSlowInEasing` or springs, and re
 - `MainScreen.kt`, new `core/ui/AnimatedAmount.kt`
 - `features/home/HomeComponents.kt` (QuickActionCard), `features/home/HomeScreen.kt`
 - `features/customers/CustomersScreenComponents.kt`, `features/customers/CustomerDetailScreen.kt`
-- `features/vouchers/VouchersScreen.kt` (list modifier and haptic only)
+- `features/vouchers/VouchersScreen.kt`: list item modifiers and the save haptic only. **Do not
+  touch the summary card** (task 024 edits it in parallel).
+- `core/ui/OperationCard.kt`, `features/customers/CustomerCardItem.kt` (press scale only)
+- new `core/ui/PressScale.kt`
+- `features/sessions/SessionDialogs.kt` and `features/wellowners/WellOwnerPurchaseBottomSheet.kt`
+  only if the save haptic must be triggered there
 
 ## Done when
 - Build and tests pass. Nothing waits for an animation to finish before the user can act.
