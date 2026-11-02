@@ -131,6 +131,9 @@ import androidx.compose.material3.FilledTonalButton
 import com.example.core.ui.CardBadge
 import com.example.core.ui.CardChip
 import com.example.core.ui.OperationCard
+import com.example.core.ui.AnimatedAmount
+import com.example.core.ui.pressScale
+import com.example.core.ui.ToastType
 import com.example.core.util.DayGrouping
 import com.example.ui.theme.AvatarPalette
 import com.example.ui.theme.mosarib
@@ -739,8 +742,9 @@ fun CustomerDetailScreen(
                                     )
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = Formatters.formatCurrency(netAmount, config.currencySymbol),
+                                AnimatedAmount(
+                                    value = netAmount,
+                                    currencySymbol = config.currencySymbol,
                                     style = MaterialTheme.typography.displaySmall.copy(
                                         color = statusColor,
                                         fontWeight = FontWeight.ExtraBold,
@@ -798,8 +802,9 @@ fun CustomerDetailScreen(
                                     isCredit -> AccentEmerald
                                     else -> PrimaryTeal
                                 }
-                                Text(
-                                    text = Formatters.formatCurrency(kotlin.math.abs(customerWithBalance.receivableBalance), config.currencySymbol),
+                                AnimatedAmount(
+                                    value = kotlin.math.abs(customerWithBalance.receivableBalance),
+                                    currencySymbol = config.currencySymbol,
                                     style = MaterialTheme.typography.displaySmall.copy(
                                         color = balanceColor,
                                         fontWeight = FontWeight.ExtraBold,
@@ -989,9 +994,12 @@ fun CustomerDetailScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         if (customer.isWellOwner) {
+                            val purchaseInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                             Button(
                                 onClick = { showOwnerPurchaseSheet = true },
+                                interactionSource = purchaseInteraction,
                                 modifier = Modifier
+                                    .pressScale(targetScale = 0.97f, interactionSource = purchaseInteraction)
                                     .weight(1f)
                                     .height(46.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.warning),
@@ -1007,9 +1015,12 @@ fun CustomerDetailScreen(
                                 )
                             }
 
+                            val disburseInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                             Button(
                                 onClick = { showAddDisbursementSheet = true },
+                                interactionSource = disburseInteraction,
                                 modifier = Modifier
+                                    .pressScale(targetScale = 0.97f, interactionSource = disburseInteraction)
                                     .weight(1f)
                                     .height(46.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.debt),
@@ -1025,9 +1036,12 @@ fun CustomerDetailScreen(
                                 )
                             }
                         } else {
+                            val receiptInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                             Button(
                                 onClick = { showAddReceiptSheet = true },
+                                interactionSource = receiptInteraction,
                                 modifier = Modifier
+                                    .pressScale(targetScale = 0.97f, interactionSource = receiptInteraction)
                                     .weight(1f)
                                     .height(46.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.credit),
@@ -1043,9 +1057,12 @@ fun CustomerDetailScreen(
                                 )
                             }
 
+                            val disburseCustInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                             Button(
                                 onClick = { showAddDisbursementSheet = true },
+                                interactionSource = disburseCustInteraction,
                                 modifier = Modifier
+                                    .pressScale(targetScale = 0.97f, interactionSource = disburseCustInteraction)
                                     .weight(1f)
                                     .height(46.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.debt),
@@ -1119,6 +1136,7 @@ fun CustomerDetailScreen(
                         item(key = "day_${group.dayKey}") {
                             Row(
                                 modifier = Modifier
+                                    .animateItem()
                                     .fillMaxWidth()
                                     .padding(horizontal = 16.dp)
                                     .padding(top = 12.dp, bottom = 4.dp),
@@ -1197,6 +1215,7 @@ fun CustomerDetailScreen(
                                     var purchaseMenuExpanded by remember(purchase.id) { mutableStateOf(false) }
 
                                     OperationCard(
+                                        modifier = Modifier.animateItem(),
                                         accent = MaterialTheme.mosarib.warning,
                                         icon = Icons.Default.AccessTime,
                                         title = "شراء ساعات",
@@ -1325,6 +1344,7 @@ fun CustomerDetailScreen(
                                     var sessionMenuExpanded by remember(session.id) { mutableStateOf(false) }
 
                                     OperationCard(
+                                        modifier = Modifier.animateItem(),
                                         accent = MaterialTheme.mosarib.info,
                                         icon = Icons.Default.WaterDrop,
                                         title = "سقي",
@@ -1520,6 +1540,7 @@ fun CustomerDetailScreen(
                                     var voucherMenuExpanded by remember(voucher.id) { mutableStateOf(false) }
 
                                     OperationCard(
+                                        modifier = Modifier.animateItem(),
                                         accent = MaterialTheme.mosarib.success,
                                         icon = Icons.Default.Payments,
                                         title = title,
@@ -1608,6 +1629,7 @@ fun CustomerDetailScreen(
                                     var voucherMenuExpanded by remember(voucher.id) { mutableStateOf(false) }
 
                                     OperationCard(
+                                        modifier = Modifier.animateItem(),
                                         accent = MaterialTheme.mosarib.debt,
                                         icon = Icons.Default.ArrowDownward,
                                         title = title,
@@ -1695,6 +1717,7 @@ fun CustomerDetailScreen(
                                     var voucherMenuExpanded by remember(voucher.id) { mutableStateOf(false) }
 
                                     OperationCard(
+                                        modifier = Modifier.animateItem(),
                                         accent = MaterialTheme.mosarib.discount,
                                         icon = Icons.Default.Bookmarks,
                                         title = title,
@@ -1911,6 +1934,13 @@ fun CustomerDetailScreen(
                             )
                         }
                     }
+                }
+            }
+
+            val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+            androidx.compose.runtime.LaunchedEffect(toast) {
+                if (toast?.type == ToastType.SUCCESS) {
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                 }
             }
 

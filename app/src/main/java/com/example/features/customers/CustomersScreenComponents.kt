@@ -45,6 +45,7 @@ import com.example.core.ui.EmptyStateView
 import com.example.core.ui.LuxuryToastNotification
 import com.example.core.ui.ToastMessage
 import com.example.core.util.Formatters
+import com.example.core.ui.AnimatedAmount
 
 import com.example.ui.theme.mosarib
 
@@ -116,6 +117,7 @@ internal fun CustomersListContent(
             } else {
                 items(customers, key = { it.customer.id }) { item ->
                     CustomerCardItem(
+                        modifier = Modifier.animateItem(),
                         item = item,
                         currencySymbol = currencySymbol,
                         onClick = { onCustomerClick(item) },
@@ -336,15 +338,12 @@ private fun BalanceBarIcon(icon: ImageVector, tint: Color) {
 
 @Composable
 private fun BalanceBarAmount(amount: Double, currencySymbol: String, color: Color) {
-    Text(
-        text = Formatters.formatCurrency(amount, currencySymbol),
+    AnimatedAmount(
+        value = amount,
+        currencySymbol = currencySymbol,
         style = MaterialTheme.typography.titleMedium.copy(
             color = color,
             fontWeight = FontWeight.ExtraBold
-
-        ),
-        softWrap = false,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis
+        )
     )
 }

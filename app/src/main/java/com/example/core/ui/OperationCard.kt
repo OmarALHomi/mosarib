@@ -132,16 +132,23 @@ fun OperationCard(
         ).joinToString("، ")
     }
 
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp)
+            .pressScale(targetScale = 0.98f, interactionSource = interactionSource)
             .shadow(
                 elevation = if (isDark) 0.dp else 1.dp,
                 shape = RoundedCornerShape(12.dp)
             )
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = androidx.compose.foundation.LocalIndication.current,
+                onClick = onClick
+            )
             .semantics { contentDescription = cardDescription },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),

@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import com.example.core.ui.isAppDark
 import com.example.core.util.Formatters
+import com.example.core.ui.pressScale
 
 import com.example.ui.theme.AvatarPalette
 
@@ -161,16 +162,23 @@ fun CustomerCardItem(
         ).joinToString("، ")
     }
 
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp)
+            .pressScale(targetScale = 0.98f, interactionSource = interactionSource)
             .shadow(
                 elevation = if (isDark) 0.dp else 1.dp,
                 shape = RoundedCornerShape(12.dp)
             )
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = androidx.compose.foundation.LocalIndication.current,
+                onClick = onClick
+            )
             .semantics { contentDescription = cardDescription }
             .testTag("customer_card_${customer.id}"),
         shape = RoundedCornerShape(12.dp),

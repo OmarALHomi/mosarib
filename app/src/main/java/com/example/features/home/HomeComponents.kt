@@ -92,6 +92,7 @@ import com.example.features.vouchers.AddVoucherBottomSheet
 import com.example.features.vouchers.VoucherType
 import com.example.features.vouchers.VouchersViewModel
 import com.example.ui.theme.mosarib
+import com.example.core.ui.pressScale
 
 
 
@@ -186,11 +187,18 @@ fun QuickActionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .pressScale(targetScale = 0.97f, interactionSource = interactionSource)
             .shadow(1.5.dp, RoundedCornerShape(14.dp))
-            .clickable { onClick() },
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = androidx.compose.foundation.LocalIndication.current,
+                onClick = onClick
+            ),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {

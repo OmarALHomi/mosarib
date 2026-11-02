@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 <!-- 2026-11-02: all earlier tasks are merged. Runs in the existing worktree D:\Kotlin\mosarib-t023 (branch task/013), in parallel with 024 in D:\Kotlin\mosarib-t020. -->
 
 # Task 013: Motion polish (subtle, fast, consistent)
@@ -49,3 +49,30 @@ Keep durations short (150–300ms), use `FastOutSlowInEasing` or springs, and re
 ---
 ## Review notes (written by Claude)
 _(empty)_
+
+---
+**Verdict: accepted (2026-11-02, code review). Detail slide with AnimatedContent (Start/End, RTL-aware, 250ms) with the pager state hoisted, so the tab is kept; tab crossfade 200ms with snap() when animations are off; animateItem on the operation, customer and ledger items; AnimatedAmount; shared PressScale that respects ValueAnimator.areAnimatorsEnabled(); save haptic on SUCCESS toasts. The operations summary card is untouched. Tests pass. Device check after the merge (phone disconnected). Note: the haptic fires on every SUCCESS toast, not only saves. Acceptable.**
+
+**Device check after the code review: changes-requested** (2026-11-02). **Blocker:** on the device,
+tapping any bottom-bar tab (العملاء، العمليات، التقارير) does nothing. The app stays on Home and
+the pill stays on "الرئيسية".
+
+Cause: the `HorizontalPager` was removed and replaced with a `Crossfade` keyed on
+`pagerState.currentPage`. That `PagerState` is no longer attached to any pager. Without layout,
+`scrollToPage(idx)` never updates `currentPage`, so the Crossfade never changes.
+
+Fix (`MainScreen.kt`):
+- Replace the pager state with a plain hoisted index:
+  `var selectedTab by rememberSaveable { mutableIntStateOf(HOME_INDEX) }`.
+- `MosaribNavBar(selectedIndex = selectedTab, onItemSelected = { selectedTab = it })`.
+- `Crossfade(targetState = selectedTab, …)`.
+- Every place that called `pagerState.scrollToPage(x)` or `animateScrollToPage(x)` sets
+  `selectedTab = x` instead: lines ~276, 535, 542, 556 and 636, plus the reports "عرض الكل"
+  callback from 021.
+- Remove the unused `pagerState`.
+
+Re-test on the device: every tab switches with the crossfade; Home quick actions that change tab
+still work; reports "عرض الكل" opens customers with "عليه"; opening a customer and coming back
+keeps the tab. Append a "Round 2" section to `.ai/reports/013.md`.
+
+**Round 2 verdict: accepted** (2026-11-02). Device check: every tab switches (العملاء، العمليات، التقارير، الإعدادات، الرئيسية); opening a customer slides in and back returns to the customers tab with the list kept. Tests pass.

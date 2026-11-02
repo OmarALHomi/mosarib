@@ -75,13 +75,23 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.example.core.ui.areAnimationsEnabled
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
 import com.example.core.license.LicenseDialog
 import com.example.core.license.LicenseManager
 import com.example.core.license.UserDeviceTracker
@@ -254,15 +264,14 @@ fun MainApp(
             }
 
             val tabs = remember { listOf(AppTab.REPORTS, AppTab.CUSTOMERS, AppTab.HOME, AppTab.VOUCHERS, AppTab.SETTINGS) }
-            val pagerState = rememberPagerState(initialPage = 2) { tabs.size }
-            val coroutineScope = rememberCoroutineScope()
-            val currentTab = tabs[pagerState.currentPage]
+            var selectedTab by rememberSaveable { mutableIntStateOf(2) }
+            val currentTab = tabs[selectedTab]
 
             // اعتراض زر التراجع: التبديل للرئيسية أولاً إن كان في شاشة فرعية، وتأكيد الخروج إن كان في الرئيسية
             val shouldInterceptExit = !showSplashScreen && !showOnboarding && !showAboutScreen && selectedCustomerId == 0L
             BackHandler(enabled = shouldInterceptExit) {
                 if (currentTab != AppTab.HOME) {
-                    coroutineScope.launch { pagerState.animateScrollToPage(2) }
+                    selectedTab = 2
                 } else {
                     showExitConfirmationDialog = true
                 }
@@ -280,14 +289,44 @@ fun MainApp(
                 BiometricLockScreen(onUnlock = { isBiometricUnlocked = true })
             } else if (showAboutScreen) {
                 AboutScreen(onBack = { showAboutScreen = false })
-            } else if (selectedCustomerId > 0) {
-                CustomerDetailScreen(
-                    customerId = selectedCustomerId,
-                    viewModel = customersViewModel,
-                    vouchersViewModel = vouchersViewModel,
-                    onBack = { selectedCustomerId = 0L }
-                )
             } else {
+                AnimatedContent(
+                    targetState = selectedCustomerId,
+                    transitionSpec = {
+                        if (!areAnimationsEnabled()) {
+                            EnterTransition.None togetherWith ExitTransition.None
+                        } else if (targetState > 0L && initialState == 0L) {
+                            (slideIntoContainer(
+                                towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                                animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing)
+                            ) + fadeIn(animationSpec = tween(250))) togetherWith
+                            (slideOutOfContainer(
+                                towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                                animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing)
+                            ) + fadeOut(animationSpec = tween(200)))
+                        } else if (targetState == 0L && initialState > 0L) {
+                            (slideIntoContainer(
+                                towards = AnimatedContentTransitionScope.SlideDirection.End,
+                                animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing)
+                            ) + fadeIn(animationSpec = tween(250))) togetherWith
+                            (slideOutOfContainer(
+                                towards = AnimatedContentTransitionScope.SlideDirection.End,
+                                animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing)
+                            ) + fadeOut(animationSpec = tween(200)))
+                        } else {
+                            fadeIn(tween(200)) togetherWith fadeOut(tween(200))
+                        }
+                    },
+                    label = "customer_detail_transition"
+                ) { custId ->
+                    if (custId > 0L) {
+                        CustomerDetailScreen(
+                            customerId = custId,
+                            viewModel = customersViewModel,
+                            vouchersViewModel = vouchersViewModel,
+                            onBack = { selectedCustomerId = 0L }
+                        )
+                    } else {
                 Scaffold(
                     topBar = {
                         if (currentTab != AppTab.HOME) {
@@ -461,12 +500,8 @@ fun MainApp(
                     },
                     bottomBar = {
                         MosaribNavBar(
-                            selectedIndex = pagerState.currentPage,
-                            onItemSelected = { idx ->
-                                coroutineScope.launch {
-                                    pagerState.animateScrollToPage(idx)
-                                }
-                            }
+                            selectedIndex = selectedTab,
+                            onItemSelected = { selectedTab = it }
                         )
                     }
                 ) { innerPadding ->
@@ -475,9 +510,10 @@ fun MainApp(
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        HorizontalPager(
-                            state = pagerState,
-                            userScrollEnabled = false,
+                        Crossfade(
+                            targetState = selectedTab,
+                            animationSpec = if (areAnimationsEnabled()) tween(200) else snap(),
+                            label = "tab_crossfade",
                             modifier = Modifier.fillMaxSize()
                         ) { page ->
                             when (tabs[page]) {
@@ -490,14 +526,14 @@ fun MainApp(
                                         onNavigateToTab = { tab ->
                                             val targetIdx = tabs.indexOf(tab)
                                             if (targetIdx >= 0) {
-                                                coroutineScope.launch { pagerState.animateScrollToPage(targetIdx) }
+                                                selectedTab = targetIdx
                                             }
                                         },
                                         onNavigateToCustomer = { custId ->
                                             selectedCustomerId = custId
                                         },
                                         onOpenReports = {
-                                            coroutineScope.launch { pagerState.animateScrollToPage(0) }
+                                            selectedTab = 0
                                         }
                                     )
                                 }
@@ -511,7 +547,7 @@ fun MainApp(
                                             customersViewModel.setBalanceFilter(CustomerBalanceFilter.DEBTOR)
                                             val custIdx = tabs.indexOf(AppTab.CUSTOMERS)
                                             if (custIdx >= 0) {
-                                                coroutineScope.launch { pagerState.animateScrollToPage(custIdx) }
+                                                selectedTab = custIdx
                                             }
                                         }
                                     )
@@ -543,6 +579,8 @@ fun MainApp(
                                 }
                             }
                         }
+                    }
+                }
                     }
                 }
             }
@@ -589,7 +627,7 @@ fun MainApp(
                         showBackupReminderDialog = false
                         PeriodicBackupReminderManager.recordBackupPerformed(context)
                         // التنقل لتبويب الإعدادات لإجراء النسخ
-                        coroutineScope.launch { pagerState.animateScrollToPage(4) }
+                        selectedTab = 4
                     },
                     onRemindLater = {
                         showBackupReminderDialog = false

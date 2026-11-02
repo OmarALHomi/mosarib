@@ -142,6 +142,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.core.ui.EmptyStateView
 import com.example.core.ui.LuxuryToastNotification
+import com.example.core.ui.ToastType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.example.core.ui.RowGroupPosition
 import com.example.core.ui.RowStatus
 import com.example.core.util.DayGrouping
@@ -681,6 +684,7 @@ fun VouchersScreen(
                     item(key = group.dayKey) {
                         Row(
                             modifier = Modifier
+                                .animateItem()
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp)
                                 .padding(top = 14.dp, bottom = 6.dp),
@@ -776,6 +780,7 @@ fun VouchersScreen(
                                 val hasLinkedPayments = op.linkedVouchers.isNotEmpty() || session.amountPaid > 0.001
 
                                 OperationCard(
+                                    modifier = Modifier.animateItem(),
                                     accent = MaterialTheme.mosarib.info,
                                     icon = Icons.Default.WaterDrop,
                                     title = title,
@@ -985,6 +990,7 @@ fun VouchersScreen(
                                 var voucherMenuExpanded by remember(voucher.id) { mutableStateOf(false) }
 
                                 OperationCard(
+                                    modifier = Modifier.animateItem(),
                                     accent = accent,
                                     icon = icon,
                                     title = title,
@@ -1116,6 +1122,7 @@ fun VouchersScreen(
                                 var purchaseMenuExpanded by remember(purchase.id) { mutableStateOf(false) }
 
                                 OperationCard(
+                                    modifier = Modifier.animateItem(),
                                     accent = MaterialTheme.mosarib.warning,
                                     icon = Icons.Default.AccessTime,
                                     title = owner?.name ?: "صاحب بئر #${purchase.ownerCustomerId}",
@@ -1264,6 +1271,13 @@ fun VouchersScreen(
                         }
                     }
                 )
+            }
+        }
+
+        val haptic = LocalHapticFeedback.current
+        LaunchedEffect(toast) {
+            if (toast?.type == ToastType.SUCCESS) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             }
         }
 
