@@ -581,4 +581,26 @@ class VoiceParsersTest {
         assertEquals(150, cmdDigitsMinutes.durationMinutes)
         assertEquals(10000.0, cmdDigitsMinutes.ratePerHour!!, 0.01)
     }
+
+
+    // =========================================================================
+    // 7. Review 030 Round 3 Tests (Unprefixed duration phrases & candidate lists)
+    // =========================================================================
+
+    @Test
+    fun testReviewRound3Item1OwnerPhraseCandidates() {
+        val candidates = listOf(
+            "ثلاث ساعات ونص مع احمد علي من 10,000 ومسلم 20,000",
+            "… مسلم 20,000",
+            "3 ساعات ونص مع احمد علي من 10,000 ومسلم 20,000"
+        )
+        val cmd = VoiceRecognitionHelper.parseFirstValidCommand(candidates)
+        assertNotNull("Command must be parsed successfully", cmd)
+        assertEquals(VoiceCommandType.SESSION, cmd!!.type)
+        assertEquals(210, cmd.durationMinutes)
+        assertEquals(10000.0, cmd.ratePerHour!!, 0.01)
+        assertEquals(20000.0, cmd.paid!!, 0.01)
+        assertEquals("احمد علي", cmd.customerQuery)
+        assertTrue("Unparsed list should be empty: ${cmd.unparsed}", cmd.unparsed.isEmpty())
+    }
 }

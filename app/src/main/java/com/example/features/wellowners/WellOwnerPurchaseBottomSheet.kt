@@ -5,6 +5,8 @@ import com.example.core.voice.VoiceFieldMic
 import com.example.core.voice.VoiceSummaryBanner
 import com.example.core.voice.VoiceDialogType
 import com.example.core.voice.VoiceSupportDialogs
+import com.example.core.voice.VoiceRecordSheet
+import com.example.core.voice.VoiceUnrecognizedDialog
 import com.example.core.voice.CustomerMatcher
 import com.example.core.voice.SpokenNumberParser
 import com.example.core.voice.VoiceRecognitionHelper
@@ -275,56 +277,71 @@ fun WellOwnerPurchaseBottomSheet(
     }
 
     var pendingVoiceTarget by remember { mutableStateOf<String?>(null) }
-    val purchaseVoiceLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            val matches = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
-            val spoken = matches?.firstOrNull()?.trim().orEmpty()
-            if (spoken.isNotBlank()) {
-                when (pendingVoiceTarget) {
-                    "rate" -> {
-                        val parsed = SpokenNumberParser.parseSpokenNumber(spoken)
-                        if (parsed != null && parsed > 0) {
-                            rateText = Formatters.formatAmountInput(parsed.toString())
-                        }
+    var showPurchaseVoiceSheet by remember { mutableStateOf(false) }
+    var isPurchaseVoiceCompact by remember { mutableStateOf(false) }
+    var purchaseVoicePrompt by remember { mutableStateOf("تحدث بالعملية...") }
+    var unrecognizedPurchaseVoiceText by remember { mutableStateOf<String?>(null) }
+
+    fun launchVoiceFor(target: String) {
+        pendingVoiceTarget = target
+        isPurchaseVoiceCompact = target != "form_command"
+        purchaseVoicePrompt = when (target) {
+            "rate" -> "تحدث بسعر الساعة..."
+            "paid" -> "تحدث بالمبلغ المدفوع..."
+            "notes" -> "أملِ الملاحظة..."
+            else -> "تحدث بأمر الشراء..."
+        }
+        showPurchaseVoiceSheet = true
+    }
+
+    fun handlePurchaseVoiceResults(matches: List<String>) {
+        val spoken = matches.firstOrNull()?.trim().orEmpty()
+        VoiceRecognitionHelper.logDebug("VoiceInput", "Purchase voice target: $pendingVoiceTarget, spoken='$spoken'")
+        if (spoken.isNotBlank()) {
+            when (pendingVoiceTarget) {
+                "rate" -> {
+                    val parsed = SpokenNumberParser.parseSpokenNumber(spoken)
+                    if (parsed != null && parsed > 0) {
+                        rateText = Formatters.formatAmountInput(parsed.toString())
                     }
-                    "paid" -> {
-                        val parsed = SpokenNumberParser.parseSpokenNumber(spoken)
-                        if (parsed != null && parsed >= 0) {
-                            amountPaidText = Formatters.formatAmountInput(parsed.toString())
+                }
+                "paid" -> {
+                    val parsed = SpokenNumberParser.parseSpokenNumber(spoken)
+                    if (parsed != null && parsed >= 0) {
+                        amountPaidText = Formatters.formatAmountInput(parsed.toString())
+                    }
+                }
+                "notes" -> {
+                    notes = if (notes.isBlank()) spoken else "$notes $spoken"
+                }
+                "form_command" -> {
+                    val cmd = VoiceRecognitionHelper.parseFirstValidCommand(matches)
+                    if (cmd != null && (cmd.durationMinutes != null || cmd.ratePerHour != null || cmd.paid != null || !cmd.customerQuery.isNullOrBlank())) {
+                        currentVoiceCommand = cmd
+                        if (cmd.durationMinutes != null && cmd.durationMinutes > 0) {
+                            timeMode = PurchaseTimeMode.MANUAL
+                            hoursText = (cmd.durationMinutes / 60).toString()
+                            minutesText = (cmd.durationMinutes % 60).let { if (it > 0) it.toString() else "" }
                         }
-                    }
-                    "notes" -> {
-                        notes = if (notes.isBlank()) spoken else "$notes $spoken"
-                    }
-                    "form_command" -> {
-                        val cmd = VoiceRecognitionHelper.parseFirstValidCommand(matches)
-                        if (cmd != null) {
-                            currentVoiceCommand = cmd
-                            if (cmd.durationMinutes != null && cmd.durationMinutes > 0) {
-                                timeMode = PurchaseTimeMode.MANUAL
-                                hoursText = (cmd.durationMinutes / 60).toString()
-                                minutesText = (cmd.durationMinutes % 60).let { if (it > 0) it.toString() else "" }
+                        if (cmd.ratePerHour != null && cmd.ratePerHour > 0) {
+                            rateText = Formatters.formatAmountInput(cmd.ratePerHour.toString())
+                        }
+                        if (cmd.paid != null && cmd.paid >= 0) {
+                            amountPaidText = Formatters.formatAmountInput(cmd.paid.toString())
+                        }
+                        if (!cmd.customerQuery.isNullOrBlank()) {
+                            val foundOwner = ownersList.find {
+                                it.name.trim().contains(cmd.customerQuery.trim(), ignoreCase = true)
                             }
-                            if (cmd.ratePerHour != null && cmd.ratePerHour > 0) {
-                                rateText = Formatters.formatAmountInput(cmd.ratePerHour.toString())
-                            }
-                            if (cmd.paid != null && cmd.paid >= 0) {
-                                amountPaidText = Formatters.formatAmountInput(cmd.paid.toString())
-                            }
-                            if (!cmd.customerQuery.isNullOrBlank()) {
-                                val foundOwner = ownersList.find {
-                                    it.name.trim().contains(cmd.customerQuery.trim(), ignoreCase = true)
-                                }
-                                if (foundOwner != null) {
-                                    selectedOwner = foundOwner
-                                }
-                            }
-                            if (!cmd.notes.isNullOrBlank()) {
-                                notes = cmd.notes
+                            if (foundOwner != null) {
+                                selectedOwner = foundOwner
                             }
                         }
+                        if (!cmd.notes.isNullOrBlank()) {
+                            notes = cmd.notes
+                        }
+                    } else {
+                        unrecognizedPurchaseVoiceText = spoken
                     }
                 }
             }
@@ -333,21 +350,6 @@ fun WellOwnerPurchaseBottomSheet(
     }
 
     var voiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
-
-    fun launchVoiceFor(target: String) {
-        pendingVoiceTarget = target
-        VoiceRecognitionHelper.launchRecognition(
-            context = context,
-            launcher = purchaseVoiceLauncher,
-            onShowDialog = { voiceDialogType = it },
-            prompt = when (target) {
-                "rate" -> "تحدث بسعر الساعة..."
-                "paid" -> "تحدث بالمبلغ المدفوع..."
-                "notes" -> "أملِ الملاحظة..."
-                else -> "تحدث بأمر الشراء..."
-            }
-        )
-    }
 
     val wastedMinutes by remember(wastedHoursText, wastedMinutesText) {
         derivedStateOf {
@@ -1025,6 +1027,33 @@ fun WellOwnerPurchaseBottomSheet(
                 endMinute = m
                 showEndTimePicker = false
             }
+        )
+    }
+
+    if (showPurchaseVoiceSheet) {
+        VoiceRecordSheet(
+            title = if (isPurchaseVoiceCompact) "إملاء صوتي" else "الإدخال الصوتي للشراء",
+            subtitle = purchaseVoicePrompt,
+            compact = isPurchaseVoiceCompact,
+            onDismiss = { showPurchaseVoiceSheet = false },
+            onResult = { candidates ->
+                showPurchaseVoiceSheet = false
+                handlePurchaseVoiceResults(candidates)
+            }
+        )
+    }
+
+    unrecognizedPurchaseVoiceText?.let { spoken ->
+        VoiceUnrecognizedDialog(
+            spokenText = spoken,
+            onReSpeak = {
+                unrecognizedPurchaseVoiceText = null
+                launchVoiceFor("form_command")
+            },
+            onShowExamples = {
+                unrecognizedPurchaseVoiceText = null
+            },
+            onDismiss = { unrecognizedPurchaseVoiceText = null }
         )
     }
 

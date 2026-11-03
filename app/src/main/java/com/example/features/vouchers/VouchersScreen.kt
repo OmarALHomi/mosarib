@@ -6,6 +6,8 @@ import com.example.core.voice.VoiceFieldMic
 import com.example.core.voice.VoiceSummaryBanner
 import com.example.core.voice.VoiceDialogType
 import com.example.core.voice.VoiceSupportDialogs
+import com.example.core.voice.VoiceRecordSheet
+import com.example.core.voice.VoiceUnrecognizedDialog
 import com.example.core.voice.CustomerMatcher
 import com.example.core.voice.SpokenNumberParser
 import com.example.core.voice.VoiceRecognitionHelper
@@ -241,17 +243,7 @@ fun VouchersScreen(
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val operationsCount by viewModel.operationsCount.collectAsStateWithLifecycle()
     var searchVoiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
-    val searchVoiceLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            val matches = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
-            val spoken = matches?.firstOrNull()?.trim().orEmpty()
-            if (spoken.isNotBlank()) {
-                viewModel.setSearchQuery(spoken)
-            }
-        }
-    }
+    var showSearchVoiceSheet by remember { mutableStateOf(false) }
     val settlementResult by viewModel.settlementResult.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -392,12 +384,7 @@ fun VouchersScreen(
                                         )
                                     }
                                     VoiceFieldMic(onClick = {
-                                        VoiceRecognitionHelper.launchRecognition(
-                                            context = context,
-                                            launcher = searchVoiceLauncher,
-                                            onShowDialog = { searchVoiceDialogType = it },
-                                            prompt = "ابحث في العمليات..."
-                                        )
+                                        showSearchVoiceSheet = true
                                     })
                                     if (searchQuery.isNotEmpty()) {
                                         IconButton(
@@ -2074,6 +2061,22 @@ fun VouchersScreen(
         )
     }
 
+    if (showSearchVoiceSheet) {
+        VoiceRecordSheet(
+            title = "بحث صوتي في السندات",
+            subtitle = "تحدث للبحث...",
+            compact = true,
+            onDismiss = { showSearchVoiceSheet = false },
+            onResult = { candidates ->
+                showSearchVoiceSheet = false
+                val spoken = candidates.firstOrNull()?.trim().orEmpty()
+                if (spoken.isNotBlank()) {
+                    viewModel.setSearchQuery(spoken)
+                }
+            }
+        )
+    }
+
     VoiceSupportDialogs(
         dialogType = searchVoiceDialogType,
         onDismiss = { searchVoiceDialogType = VoiceDialogType.NONE }
@@ -2201,67 +2204,73 @@ fun AddVoucherBottomSheet(
 
     var currentVoiceCommand by remember(voiceCommand) { mutableStateOf(voiceCommand) }
     var pendingVoiceTarget by remember { mutableStateOf<String?>(null) }
-    val voucherVoiceLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            val matches = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
-            val spoken = matches?.firstOrNull()?.trim().orEmpty()
-            if (spoken.isNotBlank()) {
-                when (pendingVoiceTarget) {
-                    "amount" -> {
-                        val parsed = SpokenNumberParser.parseSpokenNumber(spoken)
-                        if (parsed != null && parsed > 0) {
-                            amountStr = Formatters.formatAmountInput(parsed.toString())
+    var showVoucherVoiceSheet by remember { mutableStateOf(false) }
+    var isVoucherVoiceCompact by remember { mutableStateOf(false) }
+    var voucherVoicePrompt by remember { mutableStateOf("تحدث بالعملية...") }
+    var unrecognizedVoucherVoiceText by remember { mutableStateOf<String?>(null) }
+
+    fun launchVoiceFor(target: String) {
+        pendingVoiceTarget = target
+        isVoucherVoiceCompact = target != "form_command"
+        voucherVoicePrompt = when (target) {
+            "amount" -> "تحدث بالمبلغ..."
+            "discount" -> "تحدث بمبلغ الخصم..."
+            "notes" -> "أملِ البيان أو الملاحظة..."
+            "customer" -> "تحدث باسم العميل..."
+            else -> "تحدث بأمر السند..."
+        }
+        showVoucherVoiceSheet = true
+    }
+
+    fun handleVoucherVoiceResults(matches: List<String>) {
+        val spoken = matches.firstOrNull()?.trim().orEmpty()
+        VoiceRecognitionHelper.logDebug("VoiceInput", "Voucher voice target: $pendingVoiceTarget, spoken='$spoken'")
+        if (spoken.isNotBlank()) {
+            when (pendingVoiceTarget) {
+                "amount" -> {
+                    val parsed = SpokenNumberParser.parseSpokenNumber(spoken)
+                    if (parsed != null && parsed > 0) {
+                        amountStr = Formatters.formatAmountInput(parsed.toString())
+                    }
+                }
+                "discount" -> {
+                    val parsed = SpokenNumberParser.parseSpokenNumber(spoken)
+                    if (parsed != null && parsed > 0) {
+                        discountAmountStr = Formatters.formatAmountInput(parsed.toString())
+                    }
+                }
+                "notes" -> {
+                    notes = if (notes.isBlank()) spoken else "$notes $spoken"
+                }
+                "customer" -> {
+                    val cust = CustomerMatcher.match(spoken, customers).firstOrNull()?.customer
+                    if (cust != null) {
+                        if (type == VoucherType.RECEIPT) {
+                            selectedCustomerId = cust.id
+                        } else {
+                            selectedBeneficiaryId = cust.id
                         }
                     }
-                    "discount" -> {
-                        val parsed = SpokenNumberParser.parseSpokenNumber(spoken)
-                        if (parsed != null && parsed > 0) {
-                            discountAmountStr = Formatters.formatAmountInput(parsed.toString())
+                }
+                "form_command" -> {
+                    val cmd = VoiceRecognitionHelper.parseFirstValidCommand(matches)
+                    if (cmd != null && (cmd.amount != null || cmd.type != null || !cmd.customerQuery.isNullOrBlank())) {
+                        currentVoiceCommand = cmd
+                        if (cmd.type == VoiceCommandType.RECEIPT || cmd.type == VoiceCommandType.DISCOUNT) {
+                            type = VoucherType.RECEIPT
+                        } else if (cmd.type == VoiceCommandType.EXPENSE) {
+                            type = VoucherType.EXPENSE
                         }
-                    }
-                    "notes" -> {
-                        notes = if (notes.isBlank()) spoken else "$notes $spoken"
-                    }
-                    "form_command" -> {
-                        val cmd = VoiceRecognitionHelper.parseFirstValidCommand(matches)
-                        if (cmd != null) {
-                            currentVoiceCommand = cmd
-                            if (cmd.type == VoiceCommandType.RECEIPT || cmd.type == VoiceCommandType.DISCOUNT) {
-                                type = VoucherType.RECEIPT
-                            } else if (cmd.type == VoiceCommandType.EXPENSE) {
-                                type = VoucherType.EXPENSE
-                            }
-                            if (cmd.amount != null && cmd.amount > 0) {
-                                if (cmd.type == VoiceCommandType.DISCOUNT) {
-                                    discountAmountStr = Formatters.formatAmountInput(cmd.amount.toString())
-                                    amountStr = "0"
-                                } else {
-                                    amountStr = Formatters.formatAmountInput(cmd.amount.toString())
-                                }
-                            }
-                            if (!cmd.customerQuery.isNullOrBlank()) {
-                                val cust = CustomerMatcher.match(cmd.customerQuery, customers).firstOrNull()?.customer
-                                if (cust != null) {
-                                    if (type == VoucherType.RECEIPT) {
-                                        selectedCustomerId = cust.id
-                                    } else {
-                                        selectedBeneficiaryId = cust.id
-                                    }
-                                }
-                            }
-                            if (!cmd.category.isNullOrBlank()) {
-                                notes = cmd.category
-                            }
-                            if (!cmd.notes.isNullOrBlank()) {
-                                notes = if (notes.isBlank()) cmd.notes else "$notes - ${cmd.notes}"
+                        if (cmd.amount != null && cmd.amount > 0) {
+                            if (cmd.type == VoiceCommandType.DISCOUNT) {
+                                discountAmountStr = Formatters.formatAmountInput(cmd.amount.toString())
+                                amountStr = "0"
+                            } else {
+                                amountStr = Formatters.formatAmountInput(cmd.amount.toString())
                             }
                         }
-                    }
-                    "customer" -> {
-                        val cust = CustomerMatcher.match(spoken, customers).firstOrNull()?.customer
-                        if (cust != null) {
+                        if (!cmd.customerQuery.isNullOrBlank()) {
+                            val cust = CustomerMatcher.match(cmd.customerQuery, customers).firstOrNull()?.customer
                             if (cust != null) {
                                 if (type == VoucherType.RECEIPT) {
                                     selectedCustomerId = cust.id
@@ -2270,6 +2279,14 @@ fun AddVoucherBottomSheet(
                                 }
                             }
                         }
+                        if (!cmd.category.isNullOrBlank()) {
+                            notes = cmd.category
+                        }
+                        if (!cmd.notes.isNullOrBlank()) {
+                            notes = if (notes.isBlank()) cmd.notes else "$notes - ${cmd.notes}"
+                        }
+                    } else {
+                        unrecognizedVoucherVoiceText = spoken
                     }
                 }
             }
@@ -2278,21 +2295,6 @@ fun AddVoucherBottomSheet(
     }
 
     var voiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
-
-    fun launchVoiceFor(target: String) {
-        pendingVoiceTarget = target
-        VoiceRecognitionHelper.launchRecognition(
-            context = context,
-            launcher = voucherVoiceLauncher,
-            onShowDialog = { voiceDialogType = it },
-            prompt = when (target) {
-                "amount" -> "تحدث بالمبلغ..."
-                "discount" -> "تحدث بمبلغ الخصم..."
-                "notes" -> "أملِ البيان أو الملاحظة..."
-                else -> "تحدث بأمر السند..."
-            }
-        )
-    }
 
     var custDropdownExpanded by remember { mutableStateOf(false) }
     var custSearchQuery by remember { mutableStateOf("") }
@@ -2919,6 +2921,33 @@ fun AddVoucherBottomSheet(
             }
 
         }
+    }
+
+    if (showVoucherVoiceSheet) {
+        VoiceRecordSheet(
+            title = if (isVoucherVoiceCompact) "إملاء صوتي" else "الإدخال الصوتي للسند",
+            subtitle = voucherVoicePrompt,
+            compact = isVoucherVoiceCompact,
+            onDismiss = { showVoucherVoiceSheet = false },
+            onResult = { candidates ->
+                showVoucherVoiceSheet = false
+                handleVoucherVoiceResults(candidates)
+            }
+        )
+    }
+
+    unrecognizedVoucherVoiceText?.let { spoken ->
+        VoiceUnrecognizedDialog(
+            spokenText = spoken,
+            onReSpeak = {
+                unrecognizedVoucherVoiceText = null
+                launchVoiceFor("form_command")
+            },
+            onShowExamples = {
+                unrecognizedVoucherVoiceText = null
+            },
+            onDismiss = { unrecognizedVoucherVoiceText = null }
+        )
     }
 
     VoiceSupportDialogs(

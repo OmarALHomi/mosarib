@@ -10,6 +10,10 @@ import com.example.core.voice.VoiceMissingDialog
 import com.example.core.voice.VoiceDialogType
 import com.example.core.voice.VoiceSupportDialogs
 import com.example.core.voice.VoiceCustomerChooserDialog
+import com.example.core.voice.VoiceRecordSheet
+import com.example.core.voice.VoiceWellOwnerActionChooserDialog
+import com.example.core.voice.VoiceVoucherTypeChooserDialog
+import com.example.core.voice.VoiceUnrecognizedDialog
 import com.example.core.voice.CustomerMatcher
 import com.example.core.voice.VoiceRecognitionHelper
 import com.example.core.voice.VoiceAliasRepository
@@ -175,9 +179,13 @@ fun HomeScreen(
     val coroutineScope = rememberCoroutineScope()
     var activeVoiceCommand by remember { mutableStateOf<VoiceCommand?>(null) }
     var showVoiceHintSheet by remember { mutableStateOf(false) }
+    var showHomeVoiceRecordSheet by remember { mutableStateOf(false) }
     var voiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
     var ambiguousVoiceCommand by remember { mutableStateOf<VoiceCommand?>(null) }
     var ambiguousCandidates by remember { mutableStateOf<List<Customer>>(emptyList()) }
+    var wellOwnerActionCommand by remember { mutableStateOf<Pair<VoiceCommand, Customer>?>(null) }
+    var voucherTypeChooserCommand by remember { mutableStateOf<VoiceCommand?>(null) }
+    var unrecognizedSpokenText by remember { mutableStateOf<String?>(null) }
 
     fun openFormForVoiceCommand(cmd: VoiceCommand) {
         activeVoiceCommand = cmd
@@ -200,46 +208,87 @@ fun HomeScreen(
                 voucherInitialType = VoucherType.RECEIPT
                 showAddVoucherSheet = true
             }
-            null -> {}
+            null -> {
+                if (cmd.amount != null) {
+                    voucherTypeChooserCommand = cmd
+                } else {
+                    unrecognizedSpokenText = cmd.rawText
+                }
+            }
         }
     }
 
-    val homeVoiceLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            val matches = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS).orEmpty()
-            val parsedCmd = VoiceRecognitionHelper.parseFirstValidCommand(matches)
-            if (parsedCmd == null) {
-                Toast.makeText(context, "لم أفهم، حاول مرة أخرى", Toast.LENGTH_LONG).show()
-                showVoiceHintSheet = true
-                return@rememberLauncherForActivityResult
-            }
+    fun handleVoiceCandidates(matches: List<String>) {
+        if (matches.isEmpty()) {
+            unrecognizedSpokenText = ""
+            return
+        }
+        val parsedCmd = VoiceRecognitionHelper.parseFirstValidCommand(matches)
+        val firstCandidate = matches.first().trim()
+        VoiceRecognitionHelper.logDebug("VoiceInput", "candidates: $matches, parsed: $parsedCmd")
 
-            coroutineScope.launch {
-                if (parsedCmd.customerQuery != null) {
-                    val list = if (parsedCmd.type == VoiceCommandType.PURCHASE) {
-                        customers.filter { it.isWellOwner }
-                    } else {
-                        customers
-                    }
-                    val aliases = VoiceAliasRepository.getAliases(context)
-                    val ranked = CustomerMatcher.match(parsedCmd.customerQuery, list, aliases)
-                    if (ranked.isNotEmpty()) {
-                        if (!CustomerMatcher.isHighConfidence(ranked) && ranked.size > 1) {
-                            ambiguousVoiceCommand = parsedCmd
-                            ambiguousCandidates = ranked.map { it.customer }
-                            return@launch
-                        }
+        if (parsedCmd == null || (parsedCmd.type == null && parsedCmd.amount == null && parsedCmd.durationMinutes == null)) {
+            VoiceRecognitionHelper.logDebug("VoiceInput", "branch: UNRECOGNIZED_COMMAND, spoken='$firstCandidate'")
+            unrecognizedSpokenText = firstCandidate
+            return
+        }
+
+        // Branch 1: Voucher type chooser (amount + customer with no explicit verb)
+        if (parsedCmd.type == null && parsedCmd.amount != null) {
+            VoiceRecognitionHelper.logDebug("VoiceInput", "branch: VOUCHER_TYPE_CHOOSER, cmd=$parsedCmd")
+            voucherTypeChooserCommand = parsedCmd
+            return
+        }
+
+        coroutineScope.launch {
+            // Branch 2: Well owner duration ambiguity ("سقي على حسابه / شراء ساعات منه")
+            if (parsedCmd.durationMinutes != null && parsedCmd.durationMinutes > 0 && !parsedCmd.customerQuery.isNullOrBlank()) {
+                val aliases = VoiceAliasRepository.getAliases(context)
+                val matched = CustomerMatcher.match(parsedCmd.customerQuery, customers, aliases).firstOrNull()?.customer
+                if (matched != null && matched.isWellOwner) {
+                    val raw = parsedCmd.rawText
+                    val hasExplicitVerb = raw.contains("سقي") || raw.contains("شراء") || raw.contains("اشترينا") || raw.contains("جلسة")
+                    if (!hasExplicitVerb) {
+                        VoiceRecognitionHelper.logDebug("VoiceInput", "branch: WELL_OWNER_CHOOSER, owner=${matched.name}")
+                        wellOwnerActionCommand = Pair(parsedCmd, matched)
+                        return@launch
                     }
                 }
-                openFormForVoiceCommand(parsedCmd)
             }
-        } else {
-            val err = result.data?.getIntExtra("android.speech.extra.ERROR_CODE", -1) ?: -1
-            if (err > 0) {
-                Toast.makeText(context, VoiceRecognitionHelper.getErrorMessage(err), Toast.LENGTH_SHORT).show()
+
+            // Branch 3: Customer matching
+            if (!parsedCmd.customerQuery.isNullOrBlank()) {
+                val list = if (parsedCmd.type == VoiceCommandType.PURCHASE) {
+                    customers.filter { it.isWellOwner }
+                } else {
+                    customers
+                }
+                val aliases = VoiceAliasRepository.getAliases(context)
+                val ranked = CustomerMatcher.match(parsedCmd.customerQuery, list, aliases)
+                if (ranked.isNotEmpty()) {
+                    if (!CustomerMatcher.isHighConfidence(ranked) && ranked.size > 1) {
+                        VoiceRecognitionHelper.logDebug("VoiceInput", "branch: AMBIGUOUS_CUSTOMERS, query='${parsedCmd.customerQuery}'")
+                        ambiguousVoiceCommand = parsedCmd
+                        ambiguousCandidates = ranked.map { it.customer }
+                        return@launch
+                    }
+                } else {
+                    // Spoken name not found in database!
+                    // Review Round 3:
+                    // "open the inferred form;
+                    //  put the spoken name in the customer field;
+                    //  show the chooser with the closest customers + 'إضافة عميل جديد باسم «احمد علي»'"
+                    VoiceRecognitionHelper.logDebug("VoiceInput", "branch: CUSTOMER_NOT_FOUND, query='${parsedCmd.customerQuery}'")
+                    ambiguousVoiceCommand = parsedCmd
+                    ambiguousCandidates = customers.take(3)
+                    openFormForVoiceCommand(parsedCmd)
+                    return@launch
+                }
             }
+
+            // Branch 4: Open form
+            VoiceRecognitionHelper.logDebug("VoiceInput", "branch: OPEN_FORM_${parsedCmd.type}")
+            openFormForVoiceCommand(parsedCmd)
         }
     }
     var homePurchaseTarget by remember { mutableStateOf<Triple<Customer, String, String>?>(null) }
@@ -483,7 +532,7 @@ fun HomeScreen(
                                 if (!VoiceRecognitionHelper.isRecognitionAvailable(context)) {
                                     voiceDialogType = VoiceDialogType.MISSING_ENGINE
                                 } else {
-                                    showVoiceHintSheet = true
+                                    showHomeVoiceRecordSheet = true
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
@@ -637,12 +686,7 @@ fun HomeScreen(
             voiceCommand = activeVoiceCommand,
             onReSpeak = {
                 showAddManualSheet = false
-                VoiceRecognitionHelper.launchRecognition(
-                    context = context,
-                    launcher = homeVoiceLauncher,
-                    onShowDialog = { voiceDialogType = it },
-                    prompt = "تحدث الآن..."
-                )
+                showHomeVoiceRecordSheet = true
             },
             onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes, billedTo, wastedMins, wastedReason, discount, costRate, pumpId ->
                 sessionsViewModel.saveManualSession(
@@ -681,12 +725,7 @@ fun HomeScreen(
             voiceCommand = activeVoiceCommand,
             onReSpeak = {
                 showAddVoucherSheet = false
-                VoiceRecognitionHelper.launchRecognition(
-                    context = context,
-                    launcher = homeVoiceLauncher,
-                    onShowDialog = { voiceDialogType = it },
-                    prompt = "تحدث الآن..."
-                )
+                showHomeVoiceRecordSheet = true
             },
             onSave = { type, customerId, amount, category, method, notes, sessionId, selectedSessionIds, discountAmount ->
                 vouchersViewModel.addVoucher(
@@ -718,12 +757,7 @@ fun HomeScreen(
             voiceCommand = activeVoiceCommand,
             onReSpeak = {
                 showAddPurchaseSheet = false
-                VoiceRecognitionHelper.launchRecognition(
-                    context = context,
-                    launcher = homeVoiceLauncher,
-                    onShowDialog = { voiceDialogType = it },
-                    prompt = "تحدث الآن..."
-                )
+                showHomeVoiceRecordSheet = true
             },
             onSaveWithOwner = { ownerId, date, duration, wasted, rate, paid, notes, startTime, endTime ->
                 customersViewModel.addOwnerPurchase(
@@ -813,13 +847,70 @@ fun HomeScreen(
             onDismiss = { showVoiceHintSheet = false },
             onStartListening = {
                 showVoiceHintSheet = false
-                VoiceRecognitionHelper.launchRecognition(
-                    context = context,
-                    launcher = homeVoiceLauncher,
-                    onShowDialog = { voiceDialogType = it },
-                    prompt = "تحدث الآن..."
-                )
+                showHomeVoiceRecordSheet = true
             }
+        )
+    }
+
+    if (showHomeVoiceRecordSheet) {
+        VoiceRecordSheet(
+            onDismiss = { showHomeVoiceRecordSheet = false },
+            onResult = { candidates ->
+                showHomeVoiceRecordSheet = false
+                handleVoiceCandidates(candidates)
+            }
+        )
+    }
+
+    wellOwnerActionCommand?.let { (cmd, owner) ->
+        VoiceWellOwnerActionChooserDialog(
+            ownerName = owner.name,
+            onIrrigationOnAccount = {
+                wellOwnerActionCommand = null
+                openFormForVoiceCommand(cmd.copy(type = VoiceCommandType.SESSION, customerQuery = owner.name))
+            },
+            onPurchaseHours = {
+                wellOwnerActionCommand = null
+                openFormForVoiceCommand(cmd.copy(type = VoiceCommandType.PURCHASE, customerQuery = owner.name))
+            },
+            onDismiss = { wellOwnerActionCommand = null }
+        )
+    }
+
+    voucherTypeChooserCommand?.let { cmd ->
+        VoiceVoucherTypeChooserDialog(
+            spokenText = cmd.rawText,
+            onReceipt = {
+                voucherTypeChooserCommand = null
+                voucherInitialType = VoucherType.RECEIPT
+                openFormForVoiceCommand(cmd.copy(type = VoiceCommandType.RECEIPT))
+            },
+            onExpense = {
+                voucherTypeChooserCommand = null
+                voucherInitialType = VoucherType.EXPENSE
+                openFormForVoiceCommand(cmd.copy(type = VoiceCommandType.EXPENSE))
+            },
+            onDiscount = {
+                voucherTypeChooserCommand = null
+                voucherInitialType = VoucherType.RECEIPT
+                openFormForVoiceCommand(cmd.copy(type = VoiceCommandType.DISCOUNT))
+            },
+            onDismiss = { voucherTypeChooserCommand = null }
+        )
+    }
+
+    unrecognizedSpokenText?.let { spoken ->
+        VoiceUnrecognizedDialog(
+            spokenText = spoken,
+            onReSpeak = {
+                unrecognizedSpokenText = null
+                showHomeVoiceRecordSheet = true
+            },
+            onShowExamples = {
+                unrecognizedSpokenText = null
+                showVoiceHintSheet = true
+            },
+            onDismiss = { unrecognizedSpokenText = null }
         )
     }
 
@@ -844,6 +935,14 @@ fun HomeScreen(
             onChooseOther = {
                 ambiguousVoiceCommand = null
                 openFormForVoiceCommand(cmd.copy(customerQuery = null))
+            },
+            onAddNewCustomer = { newName ->
+                ambiguousVoiceCommand = null
+                coroutineScope.launch {
+                    val newCustId = sessionsViewModel.createCustomer(Customer(name = newName))
+                    val newCust = Customer(id = newCustId, name = newName)
+                    openFormForVoiceCommand(cmd.copy(customerQuery = newCust.name))
+                }
             },
             onDismiss = {
                 ambiguousVoiceCommand = null

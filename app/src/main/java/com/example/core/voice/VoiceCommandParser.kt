@@ -19,7 +19,7 @@ object VoiceCommandParser {
     )
 
     private val PAID_TRIGGER_REGEX = Regex(
-        "(?:\\b|(?<=\\s)|(?<=^))(?:و\\s*)?(?:دفعه|دفعنا|دفعت|دافع|مدفوع|سلمه|سلمت|دفع|سلم)(?:\\s*[:\\-]?\\s+|\\s+|$)",
+        "(?:\\b|(?<=\\s)|(?<=^))(?:و\\s*)?(?:دفعه|دفعنا|دفعت|دافع|مدفوع|سلمه|سلمت|مسلم|دفع|سلم)(?:\\s*[:\\-]?\\s+|\\s+|$)",
         RegexOption.IGNORE_CASE
     )
 
@@ -36,7 +36,7 @@ object VoiceCommandParser {
         val norm = SpokenNumberParser.normalizeToken(trimmed)
 
         // 1. Identify command type (priority to prefix matching)
-        val type = when {
+        var type = when {
             norm.startsWith("سقي") || norm.startsWith("سقيه") || norm.startsWith("سقايه") || norm.startsWith("سقيت") -> VoiceCommandType.SESSION
             norm.startsWith("قبض") || norm.startsWith("قبضت") || norm.startsWith("استلمت") || norm.startsWith("سدد") || norm.startsWith("سداد") -> VoiceCommandType.RECEIPT
             norm.startsWith("شراء") || norm.startsWith("اشتريت") || norm.startsWith("شريت") -> VoiceCommandType.PURCHASE
@@ -52,8 +52,23 @@ object VoiceCommandParser {
             else -> null
         }
 
+        // Inferred type when explicit verb prefix is absent
         if (type == null) {
-            return VoiceCommand(type = null, unparsed = listOf(rawText), rawText = rawText)
+            val hasDuration = SpokenDurationParser.findDurationSpan(trimmed) != null
+            if (hasDuration) {
+                type = if (norm.contains("بئر") || norm.contains("صاحب البئر") || norm.contains("صاحب بئر")) {
+                    VoiceCommandType.PURCHASE
+                } else {
+                    VoiceCommandType.SESSION
+                }
+            } else {
+                for (cat in EXPENSE_CATEGORIES) {
+                    if (Regex("\\b$cat\\b", RegexOption.IGNORE_CASE).containsMatchIn(norm)) {
+                        type = VoiceCommandType.EXPENSE
+                        break
+                    }
+                }
+            }
         }
 
         // Strip the command trigger prefix
@@ -63,6 +78,7 @@ object VoiceCommandParser {
             VoiceCommandType.PURCHASE -> trimmed.replaceFirst(Regex("^(شراء|اشتريت|شريت)\\s*", RegexOption.IGNORE_CASE), "")
             VoiceCommandType.DISCOUNT -> trimmed.replaceFirst(Regex("^(خصم|سامحت)\\s*", RegexOption.IGNORE_CASE), "")
             VoiceCommandType.EXPENSE -> trimmed.replaceFirst(Regex("^(صرف|صرفت|دفعت\\s+لـ?)\\s*", RegexOption.IGNORE_CASE), "")
+            null -> trimmed
         }.trim()
 
         // 2. Extract Notes (ملاحظة / البيان)
@@ -110,13 +126,15 @@ object VoiceCommandParser {
                     val beforeDur = workingText.substring(0, durSpan.first).trim()
                     val afterDur = workingText.substring(durSpan.last + 1).trim()
 
-                    customerQuery = cleanCustomerJoiners(beforeDur)
+                    if (beforeDur.isNotBlank()) {
+                        customerQuery = cleanCustomerJoiners(beforeDur)
+                    }
 
                     if (afterDur.isNotBlank()) {
                         // Split rate and paid parts before parsing rate: the text after "من" ends at the paid word.
                         val normAfter = SpokenNumberParser.normalizeToken(afterDur)
                         val paidMatch = PAID_TRIGGER_REGEX.find(normAfter)
-                        val (ratePart, paidPart) = if (paidMatch != null) {
+                        val (rateAndCustPart, paidPart) = if (paidMatch != null) {
                             val r = afterDur.substring(0, paidMatch.range.first).trim()
                             val p = afterDur.substring(paidMatch.range.last + 1).trim()
                             Pair(r, p)
@@ -124,11 +142,22 @@ object VoiceCommandParser {
                             Pair(afterDur, null)
                         }
 
-                        if (ratePart.isNotBlank()) {
-                            var cleanRateStr = ratePart
-                                .replace(Regex("^(من|بسعر|سعر\\s+الساعه|سعر\\s+الساعة|الساعه\\s+بـ?|الساعة\\s+بـ?)\\s*"), "")
-                                .trim()
-                            cleanRateStr = cleanRateStr.replace(
+                        if (rateAndCustPart.isNotBlank()) {
+                            // Check if customer query is inside afterDur (e.g. "مع احمد علي من 10,000")
+                            val rateMatch = Regex("(?:^|\\s)(من|بسعر|سعر\\s+الساعه|سعر\\s+الساعة|الساعه\\s+بـ?|الساعة\\s+بـ?)\\s+(.*)$").find(rateAndCustPart)
+                            val rateStr = if (rateMatch != null) {
+                                val beforeRate = rateAndCustPart.substring(0, rateMatch.range.first).trim()
+                                if (customerQuery.isNullOrBlank() && beforeRate.isNotBlank()) {
+                                    customerQuery = cleanCustomerJoiners(beforeRate)
+                                }
+                                rateMatch.groupValues[2].trim()
+                            } else {
+                                rateAndCustPart
+                                    .replace(Regex("^(من|بسعر|سعر\\s+الساعه|سعر\\s+الساعة|الساعه\\s+بـ?|الساعة\\s+بـ?)\\s*"), "")
+                                    .trim()
+                            }
+
+                            var cleanRateStr = rateStr.replace(
                                 Regex("\\b(المجموع|الإجمالي|اجمالي|مجموع)(?:\\s+هو)?(?:\\s+بـ?)?\\s+([\\p{L}\\d]+(?:\\s+[\\p{L}\\d]+){0,4}?)(?=\\s+(?:و\\s*)?(?:دفع|دفعه|سلم|سلمه|مدفوع|دافع)|$)", RegexOption.IGNORE_CASE),
                                 " "
                             ).trim()
@@ -238,6 +267,41 @@ object VoiceCommandParser {
                     notes = workingText
                 }
             }
+
+            null -> {
+                // If there's an amount and a customer name, extract them so caller can show Type Chooser!
+                val words = workingText.split(Regex("\\s+")).filter { it.isNotBlank() }
+                var bestSplitIndex = -1
+                var parsedAmt: Double? = null
+
+                for (k in words.indices) {
+                    val potentialAmtStr = words.subList(k, words.size).joinToString(" ")
+                    val parsed = SpokenNumberParser.parseSpokenNumber(potentialAmtStr)
+                    if (parsed != null) {
+                        bestSplitIndex = k
+                        parsedAmt = parsed
+                        break
+                    }
+                }
+
+                if (bestSplitIndex > 0 && parsedAmt != null) {
+                    val custStr = words.subList(0, bestSplitIndex).joinToString(" ")
+                    customerQuery = cleanCustomerJoiners(custStr)
+                    amount = parsedAmt
+                } else {
+                    val num = SpokenNumberParser.parseSpokenNumber(workingText)
+                    if (num != null) {
+                        amount = num
+                    } else {
+                        val cleanedCust = cleanCustomerJoiners(workingText)
+                        if (cleanedCust.isNotBlank()) {
+                            customerQuery = cleanedCust
+                        } else {
+                            unparsedList.add(workingText)
+                        }
+                    }
+                }
+            }
         }
 
         return VoiceCommand(
@@ -256,7 +320,7 @@ object VoiceCommandParser {
 
     private fun cleanCustomerJoiners(text: String): String {
         return text
-            .replace(Regex("^(من|لـ|عند|حق)\\s*|^ل(?=[\\p{L}])"), "")
+            .replace(Regex("^(من|لـ|عند|حق|مع)\\s*|^ل(?=[\\p{L}])"), "")
             .replace(Regex("^(الأخ|الاخ|العم|الحاج|الشيخ)\\s+"), "")
             .trim()
             .removeSuffix("،")

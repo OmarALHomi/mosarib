@@ -147,3 +147,4 @@ ignored, and recognizer digit output.
 _(empty)_
 Round 1 (2026-11-03): changes requested. See `.ai/reviews/030-review-round1.md`.
 Round 2 (2026-11-03): changes requested after the owner voice test. See `.ai/reviews/030-review-round2.md`.
+Round 3 (2026-11-03): changes requested (silent end, push-to-talk). See `.ai/reviews/030-review-round3.md`.

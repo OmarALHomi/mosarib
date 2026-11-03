@@ -371,14 +371,25 @@ object VoiceRecognitionHelper {
     }
 
     /**
+     * Safe debug logger that does not throw in unit tests where android.util.Log is unmocked.
+     */
+    fun logDebug(tag: String, message: String) {
+        try {
+            if (BuildConfig.DEBUG) {
+                Log.d(tag, message)
+            }
+        } catch (_: Throwable) {
+            // Ignored in unit test environments
+        }
+    }
+
+    /**
      * Evaluates speech recognition candidates in order and returns the first one that parses.
      * Logs candidate list in debug builds.
      */
     fun parseFirstValidCommand(candidates: List<String>?): VoiceCommand? {
         if (candidates.isNullOrEmpty()) return null
-        if (BuildConfig.DEBUG) {
-            Log.d("VoiceInput", "candidates: $candidates")
-        }
+        logDebug("VoiceInput", "candidates: $candidates")
         for (cand in candidates) {
             val cmd = VoiceCommandParser.parse(cand)
             if (cmd.type != null) {
