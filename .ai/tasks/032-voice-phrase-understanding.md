@@ -196,12 +196,100 @@ first description starter or amount; if neither exists, all the words are the na
 | مع احمد علي من 25/10 الساعه 7 الصبح لا الساعه 11 الصبح | 240 | 10-25 07:00 → 10-25 11:00 | | |
 | مع احمد علي 10 ساعات من امس الساعه 8 بالصبح لا الساعه 10 بالليل | 840 (+ banner line: 10 vs 14) | 11-02 08:00 → 11-02 22:00 | | |
 
+## 7. Breadth and robustness (owner: "اجعل الموضوع فيه توسع وشمولية")
+The patterns above are the core. This section makes them hold with real speech, dialect and the way
+Google writes Arabic. Put every list in `VoicePhraseRules.kt`.
+
+**7.1 Normalization (before any rule)**
+- Arabic letters: أ إ آ ٱ → ا; ى → ي; ة → ه; ؤ → و; ئ → ي.
+- Remove marks and tatweel; Eastern digits ٠-٩ and ۰-۹ → 0-9.
+- "٫" and "," inside numbers are removed; "،" and "." between words become spaces.
+- Repeated letters collapse ("لااا" → "لا", "ايوووه" → "ايوه"). Never inside digits.
+- "و" glued to a word is split when the rest is a known word ("ومسلم" → "و مسلم", "وربع",
+  "ونص").
+
+**7.2 Spoken numbers (dialect forms)**
+- Units: الف، ألف، الاف، آلاف، تلاف (as in "عشر تلاف")، الفين، الفان، مليون، ملايين.
+- Hundreds: مية، ميه، مئه، ميتين، ثلاثميه / تلتميه … تسعميه.
+- Tens and units in dialect: تلاته، تلاتين، تمنيه، تمانين، اتنين، اتنعش، حداعش، طنعش، خمستاشر…
+- Fractions with thousands: "خمسه آلاف ونص" = 5500, "عشره ونص" (with الف) = 10500, "الف ونص" =
+  1500, "ربع مليون" = 250000, "نص مليون" = 500000.
+- "عشرين الف وخمسميه" = 20500; "10 الاف و500" = 10500.
+- The same amount said twice in a row (a speech repeat) counts once.
+
+**7.3 Paid / debt / cash words**
+- Paid: سلم، مسلم، سلّم، سلمه، سلمها، سلمنا، اعطى، عطى، اعطانا، دفع، دفعه، دفع منها، واصل، وصل
+  منه، ادى، وادي، جاب، نقد منها، عربون، مقدم.
+- Full paid: كامل، كامل المبلغ، كله، خالص، مخلص، نقد، نقدا، كاش، دفع الكل، ما عليه شي.
+- Explicit debt (paid empty, no question): دين، دينه، عليه، اجل، آجل، على الحساب، قيده عليه، ما
+  سلم، ما دفع، بدون تسليم، ولا ريال.
+
+**7.4 Durations in dialect**
+- ساعه، ساعتين، ساعات، ساعتين الا ربع، ساعه وثلث، ساعتين وتلت، نص ساعه، ربع ساعه، ثلث ساعه،
+  دقيقه، دقايق، دقائق، "ساعه وعشر دقايق", "45 دقيقه", "ساعه الا عشر".
+- "ثلاث ونص" / "ثلاث وربع" without the word ساعات count as hours only when followed by a rate
+  marker ("من …") or a paid marker, or preceded by "مع {name}" in the SESSION pattern.
+
+**7.5 Times and day parts**
+- "الساعه 2 ونص"، "2 وربع"، "2 الا ربع"، "2 وتلت"، "2 وعشر"، "2 و 20"، "14:30"، "2:30".
+- Day parts: الفجر، الصبح، بالصبح، صباحا، الضحى، الظهر، الظهريه، العصر، بعد العصر، المغرب،
+  العشاء، بالليل، الليل، نص الليل (00:00)، اخر الليل (AM).
+- "لا"، "الى"، "إلى"، "لين"، "لما"، "حتى"، "لعند" between two times all mean "to".
+
+**7.6 Corrections inside one phrase**
+"لا لا"، "لا قصدي"، "قصدي"، "اقصد"، "عفوا"، "بل"، "اقول": the part after the correction replaces the
+same kind of piece said before it ("من 10 الف لا قصدي 12 الف" → rate 12000; "مع احمد علي لا قصدي
+احمد سعيد" → name احمد سعيد). A single "لا" between two times is still "to".
+
+**7.7 Two operations in one phrase**
+If a second operation is clearly started ("… وقبض من …"، "… وصرف …"), fill the form with the first
+one and add a banner line: "قلت عمليتين، سُجّلت الأولى، أعد قول الثانية". Never save anything.
+
+**7.8 Fuzzy keyword match**
+Keywords of 4 letters or more match with one letter different (Google spelling slips: "مسلّم" /
+"مسلمه" / "مسلم"، "سقيه" / "سقيا"). Never fuzzy-match short words (من، مع، لا، ل) or names.
+
+**7.9 The phrases the app did not understand (to grow the rules)**
+- Store the last 50 phrases that ended in the type chooser, the "لم يتم التعرف" dialog or a field
+  the user changed right after a voice fill. Store them **on the phone only** (`app_settings`, key
+  `voice_unparsed_log`, JSON list of {text, date, result}). Never Firebase, never network.
+- In `SettingsVoiceScreen` (the voice settings page) add a row "جمل لم تُفهم ({n})" that opens a
+  list with copy and share (text) buttons and "مسح القائمة". The owner sends this list to Claude so
+  the rules grow from real use.
+
+**7.10 Generated tests**
+Besides the table, add a generated test: for each core pattern (A, B, B2, C, D, E) build variants
+automatically: amount in digits / words / with and without "ريال"; "ومسلم" / "وسلم" / "ودفع";
+"الى" / "لا" / "لين"; with and without "الساعه"; name before or after the duration; with and without
+notes. At least 200 generated phrases, all expected to parse to the same fields as the base. List the
+counts per pattern in the report.
+
+**7.11 More table rows** (same `knownNames` and `now` as above):
+
+| Phrase | Expect |
+|---|---|
+| مع احمد علي تلات ساعات من عشر تلاف وسلم خمستاشر الف | SESSION 180 min, rate 10000, paid 15000 |
+| مع احمد علي ساعتين الا ربع من 10 الف دين | SESSION 105 min, rate 10000, paid empty |
+| مع احمد علي ساعه وتلت من 9 الاف نقدا | SESSION 80 min, rate 9000, paidFull |
+| مع احمد علي من 10 الف لا قصدي 12 الف ساعتين | SESSION 120 min, rate 12000 |
+| مع احمد علي لا قصدي يوسف قاسم ساعتين من 10 الف | SESSION, name يوسف قاسم |
+| مع احمد علي من الساعه 2 الا ربع لين الساعه 5 العصر | SESSION 13:45 → 17:00, 195 min |
+| مع احمد علي من نص الليل لا الفجر الساعه 4 | SESSION 00:00 → 04:00, 240 min (today; earlier than now) |
+| خمسه آلاف ونص من حارث سعيد | RECEIPT 5500 |
+| ربع مليون من حارث سعيد بن علي | RECEIPT 250000, name حارث سعيد بن علي |
+| ٢٠٠٠٠ من احمد علي | RECEIPT 20000 |
+| مع يوسف قاسم عشرين الف وخمسميه حق قطع غيار | EXPENSE 20500, notes "حق قطع غيار" |
+| 10 الاف ديزل و5 الاف زيت | EXPENSE 10000 ديزل + banner "قلت عمليتين…" |
+| سقي احمد علي ساعتين من 10 الف وقبض من حارث سعيد 5 الف | SESSION (first) + banner "قلت عمليتين…" |
+
 ## Allowed files
 - `core/voice/VoiceCommandParser.kt`, `core/voice/SpokenNumberParser.kt`,
   `core/voice/SpokenDurationParser.kt`, `core/voice/VoicePhraseRules.kt` (new),
   `core/voice/VoiceCommand.kt` (`paidFull`, `startMillis`, `endMillis`, a banner warning line),
   `core/voice/VoiceRecognitionHelper.kt` (pass `knownNames` / `now` through),
-  `core/voice/VoiceUiComponents.kt` (only the banner warning line of B2)
+  `core/voice/VoiceUiComponents.kt` (banner warning lines of B2 and 7.7, the 7.9 list UI)
+- `features/settings/SettingsVoiceScreen.kt` (only the 7.9 row and list)
+- `core/voice/VoiceUnparsedLog.kt` (new, 7.9 storage)
 - `features/home/HomeScreen.kt` (section 5, and passing the customer names)
 - `features/sessions/SessionDialogs.kt` (prefill only: time-range mode with start/end, paidFull)
 - `features/vouchers/VouchersScreen.kt` (prefill only, if notes or "no customer" are not already
