@@ -132,3 +132,4 @@ wrong next to the real date.
 ---
 ## Review notes (written by Claude)
 _(empty)_
+Round 1 (2026-11-03): small changes. See `.ai/reviews/031-review-round1.md`.

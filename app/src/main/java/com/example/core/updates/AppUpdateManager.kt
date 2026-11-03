@@ -42,6 +42,37 @@ object AppUpdateManager {
     private const val KEY_DISMISSED_TODAY_PREFIX = "dismissed_broadcast_day_"
     private const val KEY_DISMISSED_EXPIRY_DAY = "dismissed_expiry_day"
 
+    fun updateCachedForceUpdate(
+        context: Context,
+        minVersionCode: Int,
+        requiredVersionName: String = "",
+        actionUrl: String = "",
+        message: String = ""
+    ) {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        sp.edit()
+            .putInt(KEY_CACHED_MIN_VERSION_CODE, minVersionCode)
+            .putString(KEY_CACHED_REQUIRED_VERSION_NAME, requiredVersionName)
+            .putString(KEY_CACHED_FORCE_ACTION_URL, actionUrl)
+            .putString(KEY_CACHED_FORCE_MESSAGE, message)
+            .apply()
+    }
+
+    fun clearForceUpdateCache(context: Context) {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        sp.edit()
+            .remove(KEY_CACHED_MIN_VERSION_CODE)
+            .remove(KEY_CACHED_REQUIRED_VERSION_NAME)
+            .remove(KEY_CACHED_FORCE_ACTION_URL)
+            .remove(KEY_CACHED_FORCE_MESSAGE)
+            .apply()
+    }
+
+    fun getCachedMinVersionCode(context: Context): Int {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        return sp.getInt(KEY_CACHED_MIN_VERSION_CODE, 1)
+    }
+
     /**
      * Pure decision function for force update.
      * Force only when currentCode < minCode.
@@ -62,7 +93,7 @@ object AppUpdateManager {
         if (!LicenseManager.isInternetAvailable(context)) {
             // Offline fallback: use cached minimum version code so an old version
             // cannot skip a force update by turning off the internet.
-            val cachedMinVersion = sp.getInt(KEY_CACHED_MIN_VERSION_CODE, 1)
+            val cachedMinVersion = getCachedMinVersionCode(context)
             if (shouldForceUpdate(BuildConfig.VERSION_CODE, cachedMinVersion)) {
                 val cachedReqName = sp.getString(KEY_CACHED_REQUIRED_VERSION_NAME, "") ?: ""
                 val cachedActionUrl = sp.getString(KEY_CACHED_FORCE_ACTION_URL, "") ?: ""
@@ -84,8 +115,16 @@ object AppUpdateManager {
 
         try {
             // Managed by the web dashboard (/app_broadcast)
-            val obj = FirebaseRest.get("app_broadcast.json", timeoutMs = 4000).jsonObject()
-            if (obj != null) {
+            val resp = FirebaseRest.get("app_broadcast.json", timeoutMs = 4000)
+            if (resp.isSuccess) {
+                val text = resp.body?.trim()
+                val obj = resp.jsonObject()
+                if (text.isNullOrEmpty() || text == "null" || obj == null || obj.length() == 0) {
+                    // When /app_broadcast is empty or removed, clear the cache so offline users aren't locked
+                    clearForceUpdateCache(context)
+                    return@withContext null
+                }
+
                 val id = obj.optString("id", "")
                 val minVersion = obj.optInt("minRequiredVersionCode", 1)
                 val reqVersionName = obj.optString("requiredVersionName", obj.optString("versionName", ""))
@@ -93,15 +132,8 @@ object AppUpdateManager {
                 val message = obj.optString("message", "")
                 val isForceUpdateFlag = obj.optBoolean("isForceUpdate", false)
 
-                // Cache the last minRequiredVersionCode that was read (never written to Firebase)
-                if (minVersion > 1) {
-                    sp.edit()
-                        .putInt(KEY_CACHED_MIN_VERSION_CODE, minVersion)
-                        .putString(KEY_CACHED_REQUIRED_VERSION_NAME, reqVersionName)
-                        .putString(KEY_CACHED_FORCE_ACTION_URL, actionUrl)
-                        .putString(KEY_CACHED_FORCE_MESSAGE, message)
-                        .apply()
-                }
+                // Write the value that was read every time a broadcast is fetched (including 1)
+                updateCachedForceUpdate(context, minVersion, reqVersionName, actionUrl, message)
 
                 // Parse optional release notes
                 val notesList = mutableListOf<String>()
@@ -162,7 +194,7 @@ object AppUpdateManager {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to fetch updates/broadcasts: ${e.message}")
             // Fallback to cached force update if network error occurs
-            val cachedMin = sp.getInt(KEY_CACHED_MIN_VERSION_CODE, 1)
+            val cachedMin = getCachedMinVersionCode(context)
             if (shouldForceUpdate(BuildConfig.VERSION_CODE, cachedMin)) {
                 val cachedReqName = sp.getString(KEY_CACHED_REQUIRED_VERSION_NAME, "") ?: ""
                 val cachedActionUrl = sp.getString(KEY_CACHED_FORCE_ACTION_URL, "") ?: ""

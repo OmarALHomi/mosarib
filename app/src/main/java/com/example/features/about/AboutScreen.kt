@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.WaterDrop
@@ -320,15 +321,19 @@ fun AboutScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         )
                         FeatureRow(
                             icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                            text = "السندات وكشوف الحساب PDF وواتساب"
+                            text = "السندات وكشوف الحساب \u2068PDF\u2069 وواتساب"
                         )
                         FeatureRow(
                             icon = Icons.Default.VolumeUp,
                             text = "القراءة الصوتية للمبالغ والعمليات"
                         )
                         FeatureRow(
+                            icon = Icons.Default.Mic,
+                            text = "الإدخال الصوتي للعمليات"
+                        )
+                        FeatureRow(
                             icon = Icons.Default.CloudDone,
-                            text = "النسخ الاحتياطي المحلي وGoogle Drive، ويعمل بدون إنترنت"
+                            text = "النسخ الاحتياطي على الهاتف وعلى \u2068Google Drive\u2069، ويعمل بدون إنترنت"
                         )
                     }
                 }
