@@ -674,20 +674,11 @@ fun VoiceSummaryBanner(
                 }
 
                 // Speaker button reading aloud
-                IconButton(
-                    onClick = {
-                        val cleanToSpeak = summaryText.removePrefix("فهمت: ")
-                        MosaribSpeaker.speak(cleanToSpeak)
-                    },
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                        contentDescription = "استماع",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
+                // The shared button prepares the engine first (a bare speak() fails silently when not ready).
+                com.example.core.speech.SpeakButton(
+                    text = { summaryText.removePrefix("فهمت: ") },
+                    iconSize = 18.dp
+                )
 
                 Spacer(modifier = Modifier.width(2.dp))
 
