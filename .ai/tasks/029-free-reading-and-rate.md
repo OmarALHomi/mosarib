@@ -30,6 +30,13 @@ The owner's spoken style is "ساعتين ونص **من عشرة آلاف**". In
 
 Update the tests.
 
+## C. Pronunciation of مِئَة (owner, 2026-11-03)
+The engine reads "مِئِه" / "مِئِة" because the speech text writes "مِئة" with a kasra on the م
+only, so the hamza has no vowel. In `SpeechPronunciation` (all hundreds replacements, the
+dictionary and `SAMPLE_PRONUNCIATION_TEXT`), write **"مِئَة"** (fatha on the hamza), so it is read
+"مِئَه" in pause and "مِئَتْ" before ألف. Check that "مِئَتَيْن" keeps its marks. Update the tests
+(`"مِئَهْ وَخَمْسِينْ"`, `"مِئَتْ أَلْفْ"`).
+
 ## Allowed files
 - `core/speech/*` (new `SpeechAccess.kt`)
 - `core/ui/AmountWithWords.kt`, `core/ui/OperationCard.kt` (lock removal only)
