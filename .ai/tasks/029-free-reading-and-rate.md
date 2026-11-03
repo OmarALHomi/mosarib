@@ -67,7 +67,7 @@ A sukun on **every** word (today) may make the engine pause between words. Add t
 - `core/speech/*` (new `SpeechAccess.kt`)
 - `core/ui/AmountWithWords.kt`, `core/ui/OperationCard.kt` (lock removal only)
 - `features/customers/CustomerCardItem.kt`, `features/customers/CustomerDetailScreen.kt`,
-  `features/vouchers/VouchersScreen.kt`, `features/settings/SettingsGeneralSections.kt` (lock
+  `features/vouchers/VouchersScreen.kt`, `features/settings/SettingsGeneralSections.kt`, `features/settings/SettingsVoiceScreen.kt` (the voice page from 027: lock removal and the "قراءة متصلة" switch) (lock
   removal only)
 - tests
 
