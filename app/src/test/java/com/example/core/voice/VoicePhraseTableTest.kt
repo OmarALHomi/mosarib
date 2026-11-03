@@ -621,4 +621,14 @@ class VoicePhraseTableTest {
         assertEquals(5000.0, b4.paid!!, 0.01)
         assertTrue(b4.notes?.contains("باقي عليه") == true)
     }
+
+    @Test
+    fun testTwelveAtNightIsMidnight() {
+        val c = VoiceCommandParser.parse("مع حارث سعيد من الساعه 12 بالليل لا الساعه 4 الفجر", knownNames, fixedNow)
+        assertEquals(240, c.durationMinutes)
+        val start = Calendar.getInstance().apply { timeInMillis = c.startMillis!! }
+        assertEquals(0, start.get(Calendar.HOUR_OF_DAY))
+        val end = Calendar.getInstance().apply { timeInMillis = c.endMillis!! }
+        assertEquals(4, end.get(Calendar.HOUR_OF_DAY))
+    }
 }

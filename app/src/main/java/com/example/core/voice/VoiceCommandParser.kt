@@ -868,11 +868,14 @@ object VoiceCommandParser {
             val isAM = normAmList.contains(normDp)
 
             // Rule: بالليل / الليل with hour 1–4 means 01:00–04:00 (after midnight), not PM.
-            // "نص الليل" stays 00:00. Hours 6–12 with بالليل stay PM.
-            val isNightAfterMidnight = (normDp in listOf("بالليل", "الليل")) && (baseHour in 1..4)
+            // "نص الليل" and "12 بالليل" are 00:00. Hours 5–11 with بالليل are PM.
+            val isNight = normDp in listOf("بالليل", "الليل")
+            val isNightAfterMidnight = isNight && (baseHour in 1..4)
 
             if (isNightAfterMidnight) {
                 // Keep baseHour as 1..4 (01:00 - 04:00 AM after midnight)
+            } else if (isNight && baseHour == 12) {
+                baseHour = 0
             } else if (isPM && baseHour < 12) {
                 baseHour += 12
             } else if (isAM && baseHour == 12) {
