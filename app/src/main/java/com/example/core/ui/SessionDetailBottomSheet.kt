@@ -27,7 +27,17 @@ import com.example.core.util.Formatters
 import com.example.features.customers.Customer
 import com.example.features.sessions.WaterSession
 import com.example.features.vouchers.Voucher
+import com.example.features.vouchers.VoucherType
 import com.example.ui.theme.mosarib
+
+/**
+ * حساب إجمالي عدد الدفعات المرتبطة بدورة السقي (السداد النقدي الفوري + السندات اللاحقة)
+ */
+fun computeSessionPaymentsCount(session: WaterSession, linkedVouchers: List<Voucher>): Int {
+    val vouchersTotal = linkedVouchers.sumOf { it.amount }
+    val initialPaid = (session.amountPaid - vouchersTotal).coerceAtLeast(0.0)
+    return (if (initialPaid > 0.01) 1 else 0) + linkedVouchers.size
+}
 
 /**
  * شاشة تفاصيل عائمة موحدة لدورة السقي متناسقة مع لغة بطاقات العمليات (OperationCard)
@@ -313,9 +323,8 @@ fun SessionDetailBottomSheet(
             )
 
             // 5. السندات والدفعات المرتبطة
-            val vouchersTotal = linkedVouchers.sumOf { it.amount }
-            val initialPaid = (session.amountPaid - vouchersTotal).coerceAtLeast(0.0)
-            if (initialPaid > 0.01 || linkedVouchers.isNotEmpty()) {
+            val totalPaymentCount = computeSessionPaymentsCount(session, linkedVouchers)
+            if (totalPaymentCount > 0) {
                 SessionLinkedPaymentsSection(
                     session = session,
                     linkedVouchers = linkedVouchers,
@@ -341,7 +350,7 @@ private fun SessionLinkedPaymentsSection(
     val vouchersTotal = linkedVouchers.sumOf { it.amount }
     val initialPaid = (session.amountPaid - vouchersTotal).coerceAtLeast(0.0)
     val hasInitialPaid = initialPaid > 0.01
-    val totalCount = (if (hasInitialPaid) 1 else 0) + linkedVouchers.size
+    val totalCount = computeSessionPaymentsCount(session, linkedVouchers)
 
     OperationDetailCard {
         Row(
@@ -392,7 +401,7 @@ private fun SessionLinkedPaymentsSection(
                             text = "سداد نقدي · ${Formatters.formatCurrency(initialPaid, currencySymbol)} · ${Formatters.formatDateShort(session.startTime)}",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.mosarib.success
+                                color = MaterialTheme.mosarib.credit
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -401,6 +410,11 @@ private fun SessionLinkedPaymentsSection(
                 }
                 linkedVouchers.forEach { v ->
                     OperationDetailDivider()
+                    val (labelPrefix, labelColor) = when (v.type) {
+                        VoucherType.DISCOUNT -> Pair("خصم", MaterialTheme.mosarib.discount)
+                        VoucherType.RECEIPT -> Pair("قبض", MaterialTheme.mosarib.credit)
+                        VoucherType.EXPENSE -> Pair("صرف", MaterialTheme.mosarib.debt)
+                    }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -409,10 +423,10 @@ private fun SessionLinkedPaymentsSection(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "سداد · ${Formatters.formatCurrency(v.amount, currencySymbol)} · ${Formatters.formatDateShort(v.date)}",
+                            text = "$labelPrefix · ${Formatters.formatCurrency(v.amount, currencySymbol)} · ${Formatters.formatDateShort(v.date)}",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.mosarib.success
+                                color = labelColor
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -425,7 +439,7 @@ private fun SessionLinkedPaymentsSection(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.Send,
                                     contentDescription = "مشاركة السند",
-                                    tint = MaterialTheme.mosarib.success,
+                                    tint = labelColor,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }

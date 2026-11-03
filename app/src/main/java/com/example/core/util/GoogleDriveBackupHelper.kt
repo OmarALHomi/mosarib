@@ -188,7 +188,7 @@ object GoogleDriveBackupHelper {
                         val cleanedTime = if (createdTime.length >= 19) createdTime.substring(0, 19) else createdTime
                         val parsed = parserSdf.parse(cleanedTime)
                         if (parsed != null) {
-                            formattedDate = displaySdf.format(parsed)
+                            formattedDate = Formatters.formatDateTime(parsed.time)
                         }
                     } catch (_: Exception) {}
 

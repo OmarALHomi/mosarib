@@ -45,8 +45,11 @@ import com.example.core.speech.SpeakButton
 import com.example.core.speech.TtsMissingDataDialog
 import com.example.core.speech.VoiceStatementExporter
 import com.example.core.ui.MosaribLoadingDialog
+import com.example.core.ui.MosaribBottomSheet
+import com.example.core.ui.computeSessionPaymentsCount
 import com.example.core.license.LicenseDialog
 import com.example.core.license.LicenseManager
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmarks
@@ -80,6 +83,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.foundation.BorderStroke
@@ -234,6 +238,7 @@ fun CustomerDetailScreen(
     var selectedFilter by remember { mutableStateOf(CustomerOpFilter.ALL) }
     var showAddReceiptSheet by remember { mutableStateOf(false) }
     var showAddDisbursementSheet by remember { mutableStateOf(false) }
+    var showOwnerVoucherChoiceSheet by remember { mutableStateOf(false) }
     var showOwnerPurchaseSheet by remember { mutableStateOf(false) }
     var showAddSessionSheet by remember { mutableStateOf(false) }
     var showOwnerWasteDialog by remember { mutableStateOf(false) }
@@ -771,8 +776,22 @@ fun CustomerDetailScreen(
                     // 2. BALANCE + TOTALS CARD
                     // ============================================================
                     item {
-                        val isDebt = customerWithBalance.balance > 0
-                        val isCredit = customerWithBalance.balance < 0
+                        val (stateColor, stateLabel, balanceAmount) = if (customer.isWellOwner) {
+                            val net = customerWithBalance.payableBalance - customerWithBalance.receivableBalance
+                            when {
+                                net > 0.001 -> Triple(MaterialTheme.mosarib.credit, "المستحق لصاحب البئر", net)
+                                net < -0.001 -> Triple(MaterialTheme.mosarib.debt, "على صاحب البئر", -net)
+                                else -> Triple(MaterialTheme.colorScheme.primary, "حساب صاحب البئر مسدد", 0.0)
+                            }
+                        } else {
+                            when {
+                                customerWithBalance.receivableBalance > 0.001 -> Triple(MaterialTheme.mosarib.debt, "عليه (لك)", customerWithBalance.receivableBalance)
+                                customerWithBalance.receivableBalance < -0.001 -> Triple(MaterialTheme.mosarib.credit, "له (عليك)", -customerWithBalance.receivableBalance)
+                                else -> Triple(MaterialTheme.colorScheme.primary, "مسدد", 0.0)
+                            }
+                        }
+                        val isZeroBalance = balanceAmount <= 0.001
+                        val amountInWords = if (isZeroBalance) "" else Formatters.amountToArabicWords(balanceAmount, config.currencySymbol)
 
                         Spacer(modifier = Modifier.height(10.dp))
 
@@ -784,309 +803,277 @@ fun CustomerDetailScreen(
                             shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            if (customer.isWellOwner) {
-                                val hasPayable = customerWithBalance.payableBalance > 0
-                                val hasReceivable = customerWithBalance.receivableBalance > 0
-                                val statusText = when {
-                                    hasPayable -> "عليك لصاحب البئر (متبقي مستحقات الشراء بعد خصم السقي)"
-                                    hasReceivable -> "لك على صاحب البئر (ديون سقي متبقية بذمته بعد خصم الشراء)"
-                                    else -> "حساب صاحب البئر مسدد (لا توجد مطالبات)"
-                                }
-                                val statusColor = when {
-                                    hasPayable -> Color(0xFFD32F2F)
-                                    hasReceivable -> Color(0xFF2E7D32)
-                                    else -> AccentEmerald
-                                }
-                                val netAmount = if (hasPayable) customerWithBalance.payableBalance else customerWithBalance.receivableBalance
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = if (customer.isWellOwner) 8.dp else 12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                if (customer.isWellOwner) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = stateLabel,
+                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            AnimatedAmount(
+                                                value = balanceAmount,
+                                                currencySymbol = config.currencySymbol,
+                                                style = MaterialTheme.typography.headlineSmall.copy(
+                                                    color = stateColor,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            )
+                                            SpeakButton(
+                                                text = {
+                                                    SpeechTextBuilder.buildBalanceSentence(
+                                                        customerName = customer.name,
+                                                        balance = customerWithBalance.balance,
+                                                        currency = config.currencySymbol,
+                                                        isWellOwner = true,
+                                                        payableBalance = customerWithBalance.payableBalance,
+                                                        receivableBalance = customerWithBalance.receivableBalance
+                                                    )
+                                                }
+                                            )
+                                        }
+                                    }
 
-                                Text(
-                                    text = statusText,
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        color = statusColor,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    AnimatedAmount(
-                                        value = netAmount,
-                                        currencySymbol = config.currencySymbol,
-                                        style = MaterialTheme.typography.displaySmall.copy(
-                                            color = statusColor,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontSize = 28.sp
+                                    if (amountInWords.isNotBlank()) {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = amountInWords,
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+
+                                    val ownerPrimary = MaterialTheme.colorScheme.primary
+                                    val ownerDebt = MaterialTheme.mosarib.debt
+                                    val ownerWarning = MaterialTheme.mosarib.warning
+                                    val wasteMinutes = (customerWithBalance.totalPurchasedMinutes - customerWithBalance.totalChargeablePurchasedMinutes).coerceAtLeast(0)
+                                    val ownerStats = remember(customerWithBalance, ownerPrimary, ownerDebt, ownerWarning) {
+                                        buildList {
+                                            if (customerWithBalance.totalPurchasedMinutes > 0) {
+                                                add(Triple("صافي الساعات المشتراة", Formatters.formatDurationArabic(customerWithBalance.totalPurchasedMinutes), ownerPrimary))
+                                            }
+                                            if (customerWithBalance.totalDisbursedAmount > 0) {
+                                                add(Triple("المدفوع له", Formatters.formatCurrency(customerWithBalance.totalDisbursedAmount, config.currencySymbol), ownerDebt))
+                                            }
+                                            if (wasteMinutes > 0 || customerWithBalance.totalOwnerWasteCredit > 0) {
+                                                val wasteText = if (wasteMinutes > 0) Formatters.formatDurationArabic(wasteMinutes) else Formatters.formatCurrency(customerWithBalance.totalOwnerWasteCredit, config.currencySymbol)
+                                                add(Triple("الهدر", wasteText, ownerWarning))
+                                            }
+                                        }
+                                    }
+
+                                    if (ownerStats.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(5.dp))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 0.8.dp)
+                                        Spacer(modifier = Modifier.height(5.dp))
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                                .padding(vertical = 5.dp, horizontal = 6.dp),
+                                            horizontalArrangement = Arrangement.SpaceEvenly,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            ownerStats.forEachIndexed { idx, (lbl, valStr, clr) ->
+                                                if (idx > 0) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .width(1.dp)
+                                                            .height(24.dp)
+                                                            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                                    )
+                                                }
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    modifier = Modifier.weight(1f)
+                                                ) {
+                                                    Text(
+                                                        text = lbl,
+                                                        style = MaterialTheme.typography.labelSmall.copy(
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            fontSize = 10.5.sp
+                                                        ),
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Spacer(modifier = Modifier.height(2.dp))
+                                                    Text(
+                                                        text = valStr,
+                                                        style = MaterialTheme.typography.bodySmall.copy(
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = clr
+                                                        ),
+                                                        maxLines = 1,
+                                                        softWrap = false,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Text(
+                                        text = stateLabel,
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontWeight = FontWeight.SemiBold
                                         )
                                     )
-                                    SpeakButton(
-                                        text = {
-                                            SpeechTextBuilder.buildBalanceSentence(
-                                                customerName = customer.name,
-                                                balance = customerWithBalance.balance,
-                                                currency = config.currencySymbol,
-                                                isWellOwner = true,
-                                                payableBalance = customerWithBalance.payableBalance,
-                                                receivableBalance = customerWithBalance.receivableBalance
-                                            )
-                                        }
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                                        .padding(8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Column(
-                                        modifier = Modifier.weight(1f),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Text("مشتريات ساعات", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(Formatters.formatCurrency(customerWithBalance.totalPurchaseAmount, config.currencySymbol), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = AccentGold), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
-                                    }
-                                    Column(
-                                        modifier = Modifier.weight(1f),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Text("مسدد نقداً له", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(Formatters.formatCurrency(customerWithBalance.totalDisbursedAmount, config.currencySymbol), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFE53935)), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
-                                    }
-                                    Column(
-                                        modifier = Modifier.weight(1f),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Text("سقي على حسابه", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(Formatters.formatCurrency(customerWithBalance.totalBilledAmount, config.currencySymbol), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
-                                    }
-                                }
-                            } else {
-                                val isDebt = customerWithBalance.receivableBalance > 0
-                                val isCredit = customerWithBalance.receivableBalance < 0
-                                Text(
-                                    text = when {
-                                        isDebt -> "صافي الدين المتبقي بذمة العميل (لك)"
-                                        isCredit -> "رصيد دائن لصالح العميل (عليك)"
-                                        else -> "الحساب مسدد (لا توجد مطالبات)"
-                                    },
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                val balanceColor = when {
-                                    isDebt -> Color(0xFFE53935)
-                                    isCredit -> AccentEmerald
-                                    else -> PrimaryTeal
-                                }
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    AnimatedAmount(
-                                        value = kotlin.math.abs(customerWithBalance.receivableBalance),
-                                        currencySymbol = config.currencySymbol,
-                                        style = MaterialTheme.typography.displaySmall.copy(
-                                            color = balanceColor,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontSize = 30.sp
-                                        )
-                                    )
-                                    SpeakButton(
-                                        text = {
-                                            SpeechTextBuilder.buildBalanceSentence(
-                                                customerName = customer.name,
-                                                balance = customerWithBalance.receivableBalance,
-                                                currency = config.currencySymbol,
-                                                isWellOwner = false
-                                            )
-                                        }
-                                    )
-                                }
-                                if (customerWithBalance.receivableBalance == 0.0) {
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(20.dp))
-                                            .background(AccentEmerald.copy(alpha = 0.12f))
-                                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
-                                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(14.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("مسدد", style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold))
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Dynamic Grid of Financial Indicators
-                            val statOnSurface = MaterialTheme.colorScheme.onSurface
-                            val statPrimary = MaterialTheme.colorScheme.primary
-                            val statDebt = MaterialTheme.mosarib.debt
-                            val statCredit = MaterialTheme.mosarib.credit
-
-                            val statCells = remember(customer, customerWithBalance, sessions, config.currencySymbol, statOnSurface, statPrimary, statDebt, statCredit) {
-                                buildList {
-                                    if (customer.isWellOwner) {
-                                        add(
-                                            StatCellData(
-                                                label = "قيمة الشراء الصافية",
-                                                value = Formatters.formatCurrency(customerWithBalance.totalPurchaseAmount, config.currencySymbol),
-                                                color = statOnSurface,
-                                                icon = Icons.Default.WaterDrop
+                                        AnimatedAmount(
+                                            value = balanceAmount,
+                                            currencySymbol = config.currencySymbol,
+                                            style = MaterialTheme.typography.displaySmall.copy(
+                                                color = stateColor,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                fontSize = 30.sp
                                             )
                                         )
-                                        add(
-                                            StatCellData(
-                                                label = "الساعات المشتراة",
-                                                value = Formatters.formatDurationArabic(customerWithBalance.totalPurchasedMinutes),
-                                                color = statPrimary,
-                                                icon = Icons.Default.AccessTime
-                                            )
-                                        )
-                                        add(
-                                            StatCellData(
-                                                label = "المسدد له",
-                                                value = Formatters.formatCurrency(customerWithBalance.totalDisbursedAmount, config.currencySymbol),
-                                                color = statDebt,
-                                                icon = Icons.Default.Payments
-                                            )
-                                        )
-                                        if (customerWithBalance.totalPaidAmount > 0) {
-                                            add(
-                                                StatCellData(
-                                                    label = "المحصل منه",
-                                                    value = Formatters.formatCurrency(customerWithBalance.totalPaidAmount, config.currencySymbol),
-                                                    color = statCredit,
-                                                    icon = Icons.Default.ArrowDownward
+                                        SpeakButton(
+                                            text = {
+                                                SpeechTextBuilder.buildBalanceSentence(
+                                                    customerName = customer.name,
+                                                    balance = customerWithBalance.receivableBalance,
+                                                    currency = config.currencySymbol,
+                                                    isWellOwner = false
                                                 )
-                                            )
+                                            }
+                                        )
+                                    }
+                                    if (amountInWords.isNotBlank()) {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = amountInWords,
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            ),
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                    if (isZeroBalance) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(20.dp))
+                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                                        ) {
+                                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("مسدد", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold))
                                         }
-                                        if (sessions.isNotEmpty() || customerWithBalance.totalBilledAmount > 0 || customerWithBalance.totalSoldMinutes > 0) {
+                                    }
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    // Dynamic Grid of Financial Indicators
+                                    val statOnSurface = MaterialTheme.colorScheme.onSurface
+                                    val statPrimary = MaterialTheme.colorScheme.primary
+                                    val statDebt = MaterialTheme.mosarib.debt
+                                    val statCredit = MaterialTheme.mosarib.credit
+
+                                    val statCells = remember(customer, customerWithBalance, sessions, config.currencySymbol, statOnSurface, statPrimary, statDebt, statCredit) {
+                                        buildList {
                                             add(
                                                 StatCellData(
-                                                    label = "سقي / بيع له",
+                                                    label = "إجمالي السقي",
                                                     value = Formatters.formatCurrency(customerWithBalance.totalBilledAmount, config.currencySymbol),
-                                                    color = statPrimary,
+                                                    color = statOnSurface,
                                                     icon = Icons.Default.WaterDrop
                                                 )
                                             )
+                                            if (customerWithBalance.totalSoldMinutes > 0) {
+                                                add(
+                                                    StatCellData(
+                                                        label = "ساعات الري",
+                                                        value = Formatters.formatDurationArabic(customerWithBalance.totalSoldMinutes),
+                                                        color = statPrimary,
+                                                        icon = Icons.Default.AccessTime
+                                                    )
+                                                )
+                                            }
                                             add(
                                                 StatCellData(
-                                                    label = "ساعات السقي له",
-                                                    value = Formatters.formatDurationArabic(customerWithBalance.totalSoldMinutes),
-                                                    color = statPrimary,
-                                                    icon = Icons.Default.AccessTime
+                                                    label = "المحصل نقداً",
+                                                    value = Formatters.formatCurrency(customerWithBalance.totalPaidAmount, config.currencySymbol),
+                                                    color = statCredit,
+                                                    icon = Icons.Default.Payments
                                                 )
                                             )
+                                            if (customerWithBalance.totalDisbursedAmount > 0) {
+                                                add(
+                                                    StatCellData(
+                                                        label = "إجمالي المنصرف",
+                                                        value = Formatters.formatCurrency(customerWithBalance.totalDisbursedAmount, config.currencySymbol),
+                                                        color = statDebt,
+                                                        icon = Icons.Default.ArrowDownward
+                                                    )
+                                                )
+                                            } else if (sessions.isNotEmpty()) {
+                                                add(
+                                                    StatCellData(
+                                                        label = "عدد دورات السقي",
+                                                        value = "${sessions.size} دورة",
+                                                        color = statOnSurface,
+                                                        icon = Icons.Default.Receipt
+                                                    )
+                                                )
+                                            }
                                         }
-                                        val wasteMinutes = (customerWithBalance.totalPurchasedMinutes - customerWithBalance.totalChargeablePurchasedMinutes).coerceAtLeast(0)
-                                        if (wasteMinutes > 0 || customerWithBalance.totalOwnerWasteCredit > 0) {
-                                            add(
-                                                StatCellData(
-                                                    label = "هدر على صاحب البئر",
-                                                    value = Formatters.formatDurationArabic(wasteMinutes),
-                                                    color = statDebt,
-                                                    icon = Icons.Default.AccessTime
-                                                )
-                                            )
-                                            add(
-                                                StatCellData(
-                                                    label = "خصم الهدر عليه",
-                                                    value = Formatters.formatCurrency(customerWithBalance.totalOwnerWasteCredit, config.currencySymbol),
-                                                    color = statDebt,
-                                                    icon = Icons.Default.ArrowDownward
-                                                )
-                                            )
-                                        }
-                                    } else {
-                                        add(
-                                            StatCellData(
-                                                label = "إجمالي السقي",
-                                                value = Formatters.formatCurrency(customerWithBalance.totalBilledAmount, config.currencySymbol),
-                                                color = statOnSurface,
-                                                icon = Icons.Default.WaterDrop
-                                            )
-                                        )
-                                        if (customerWithBalance.totalSoldMinutes > 0) {
-                                            add(
-                                                StatCellData(
-                                                    label = "ساعات الري",
-                                                    value = Formatters.formatDurationArabic(customerWithBalance.totalSoldMinutes),
-                                                    color = statPrimary,
-                                                    icon = Icons.Default.AccessTime
-                                                )
-                                            )
-                                        }
-                                        add(
-                                            StatCellData(
-                                                label = "المحصل نقداً",
-                                                value = Formatters.formatCurrency(customerWithBalance.totalPaidAmount, config.currencySymbol),
-                                                color = statCredit,
-                                                icon = Icons.Default.Payments
-                                            )
-                                        )
-                                        if (customerWithBalance.totalDisbursedAmount > 0) {
-                                            add(
-                                                StatCellData(
-                                                    label = "إجمالي المنصرف",
-                                                    value = Formatters.formatCurrency(customerWithBalance.totalDisbursedAmount, config.currencySymbol),
-                                                    color = statDebt,
-                                                    icon = Icons.Default.ArrowDownward
-                                                )
-                                            )
-                                        } else if (sessions.isNotEmpty()) {
-                                            add(
-                                                StatCellData(
-                                                    label = "عدد دورات السقي",
-                                                    value = "${sessions.size} دورة",
-                                                    color = statOnSurface,
-                                                    icon = Icons.Default.Receipt
-                                                )
-                                            )
+                                    }
+
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        statCells.chunked(2).forEach { rowCells ->
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                rowCells.forEach { cell ->
+                                                    StatCellBox(
+                                                        modifier = Modifier.weight(1f),
+                                                        label = cell.label,
+                                                        value = cell.value,
+                                                        color = cell.color,
+                                                        icon = cell.icon
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
-
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                statCells.chunked(2).forEach { rowCells ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        rowCells.forEach { cell ->
-                                            StatCellBox(
-                                                modifier = Modifier.weight(1f),
-                                                label = cell.label,
-                                                value = cell.value,
-                                                color = cell.color,
-                                                icon = cell.icon
-                                            )
-                                        }
-                                    }
-                                }
+                            if (!customer.isWellOwner) {
+                                Spacer(modifier = Modifier.height(8.dp))
                             }
                         }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-            }
+                    }
 
                 // 2. شريط أزرار تسجيل العمليات المالية
                 item {
@@ -1118,22 +1105,22 @@ fun CustomerDetailScreen(
                                 )
                             }
 
-                            val disburseInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                            val voucherInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                             Button(
-                                onClick = { showAddDisbursementSheet = true },
-                                interactionSource = disburseInteraction,
+                                onClick = { showOwnerVoucherChoiceSheet = true },
+                                interactionSource = voucherInteraction,
                                 modifier = Modifier
-                                    .pressScale(targetScale = 0.97f, interactionSource = disburseInteraction)
+                                    .pressScale(targetScale = 0.97f, interactionSource = voucherInteraction)
                                     .weight(1f)
                                     .height(46.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.debt),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.credit),
                                 shape = RoundedCornerShape(12.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp)
                             ) {
-                                Icon(Icons.Default.ArrowDownward, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "دفع له (صرف)",
+                                    text = "سند جديد",
                                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                                     maxLines = 1
                                 )
@@ -1420,7 +1407,8 @@ fun CustomerDetailScreen(
                                     val invoiceCustomer = ledgerItem.originalCustomer ?: customer
                                     val invoiceSponsor = ledgerItem.sponsorOwner ?: if (customer.isWellOwner && ledgerItem.originalCustomer != null) customer else null
                                     val sessionDebt = getEffectiveSessionDebt(session)
-                                    val hasLinkedPayments = ledgerItem.linkedVouchers.isNotEmpty() || session.amountPaid > 0.001
+                                    val linkedPaymentsCount = computeSessionPaymentsCount(session, ledgerItem.linkedVouchers)
+                                    val hasLinkedPayments = linkedPaymentsCount > 0
                                     val isExpanded = session.id in expandedSessionIds
                                     val statement = session.notes.trim().takeIf { it.isNotBlank() }
                                     val meta = listOfNotNull(Formatters.formatTime(session.startTime), "#SES-${session.id}").joinToString(" • ")
@@ -1529,7 +1517,7 @@ fun CustomerDetailScreen(
                                                         .padding(horizontal = 4.dp, vertical = 2.dp)
                                                 ) {
                                                     Text(
-                                                        text = if (isExpanded) "إخفاء" else "السداد (${if (session.amountPaid > 0) ledgerItem.linkedVouchers.size + 1 else 0})",
+                                                        text = if (isExpanded) "إخفاء" else "السداد ($linkedPaymentsCount)",
                                                         style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                                                     )
                                                     Icon(
@@ -1664,6 +1652,11 @@ fun CustomerDetailScreen(
                                                     }
 
                                                     ledgerItem.linkedVouchers.forEach { v ->
+                                                        val (voucherLabel, voucherColor) = when (v.type) {
+                                                            VoucherType.DISCOUNT -> "خصم" to MaterialTheme.mosarib.discount
+                                                            VoucherType.RECEIPT -> "قبض" to MaterialTheme.mosarib.credit
+                                                            VoucherType.EXPENSE -> "صرف" to MaterialTheme.mosarib.debt
+                                                        }
                                                         Row(
                                                             modifier = Modifier.fillMaxWidth(),
                                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1671,13 +1664,13 @@ fun CustomerDetailScreen(
                                                         ) {
                                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                                 Text(
-                                                                    text = "• سند قبض #${v.voucherNumber.ifEmpty { v.id.toString() }} (${Formatters.formatDateTime(v.date)})",
+                                                                    text = "• سند $voucherLabel #${v.voucherNumber.ifEmpty { v.id.toString() }} (${Formatters.formatDateTime(v.date)})",
                                                                     style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                                 )
                                                                 Spacer(modifier = Modifier.width(4.dp))
                                                                 IconButton(
                                                                     onClick = {
-                                                                        messageCustomTarget = "سند قبض سداد #${v.voucherNumber.ifEmpty { v.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(v.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(v.amount, config.currencySymbol)})\nطريقة الدفع: ${v.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(v.date)}"
+                                                                        messageCustomTarget = "سند $voucherLabel سداد #${v.voucherNumber.ifEmpty { v.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(v.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(v.amount, config.currencySymbol)})\nطريقة الدفع: ${v.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(v.date)}"
                                                                     },
                                                                     modifier = Modifier.size(20.dp)
                                                                 ) {
@@ -1686,7 +1679,7 @@ fun CustomerDetailScreen(
                                                             }
                                                             Text(
                                                                 text = "+ ${Formatters.formatCurrency(v.amount, config.currencySymbol)}",
-                                                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.mosarib.credit)
+                                                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = voucherColor)
                                                             )
                                                         }
                                                     }
@@ -2483,6 +2476,61 @@ fun CustomerDetailScreen(
                 showAddDisbursementSheet = false
             }
         )
+    }
+
+    // Owner Voucher Choice Sheet (اختيار نوع السند لصاحب البئر)
+    if (showOwnerVoucherChoiceSheet && customer.isWellOwner) {
+        MosaribBottomSheet(
+            onDismissRequest = { showOwnerVoucherChoiceSheet = false },
+            title = "سند جديد لصاحب البئر",
+            subtitle = customer.name
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = {
+                        showOwnerVoucherChoiceSheet = false
+                        showAddDisbursementSheet = true
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.debt),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.ArrowDownward, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "صرف له (دفع)",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        showOwnerVoucherChoiceSheet = false
+                        showAddReceiptSheet = true
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.credit),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "قبض منه",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
     }
 
     if ((showOwnerPurchaseSheet || purchaseToEdit != null) && customer.isWellOwner) {

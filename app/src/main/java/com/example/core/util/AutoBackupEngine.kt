@@ -151,7 +151,7 @@ object AutoBackupEngine {
             AutoBackupItem(
                 file = file,
                 title = title,
-                formattedDate = arabicDateSdf.format(Date(file.lastModified())),
+                formattedDate = Formatters.formatDateTime(file.lastModified()),
                 sizeText = sizeStr,
                 isSafetyCheckpoint = isSafety
             )

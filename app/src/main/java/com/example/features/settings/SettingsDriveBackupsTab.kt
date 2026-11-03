@@ -66,7 +66,11 @@ internal fun DriveBackupsTab(
     onDeleteDriveBackup: (GoogleDriveBackupHelper.DriveBackupFile) -> Unit
 ) {
     // ─── محتوى سحابة Google Drive ───
-    if (!isCloudBackupAllowed) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        if (!isCloudBackupAllowed) {
         Surface(
             shape = RoundedCornerShape(10.dp),
             color = if (isDark) Color(0xFF3B1E1E) else Color(0xFFFEF2F2),
@@ -182,6 +186,7 @@ internal fun DriveBackupsTab(
                 }
             }
         }
+    }
     }
 }
 

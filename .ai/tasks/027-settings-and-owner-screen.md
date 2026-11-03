@@ -1,4 +1,4 @@
-status: ready
+status: accepted
 <!-- Ready 2026-11-03: 025 is merged. Mockup shown to the owner. Runs in worktree D:\Kotlin\mosarib-t023 (branch task/027). -->
 
 <!-- Owner request 2026-11-02. Runs AFTER 025 is merged: it touches CustomerDetailScreen.kt and the
@@ -90,3 +90,5 @@ everywhere on this page (normal customers, beneficiaries and well owners):
 ---
 ## Review notes (written by Claude)
 _(empty)_
+Round 2 (2026-11-03): changes requested. See `.ai/reviews/027-review-round2.md`.
+**Verdict: accepted (2026-11-03 06:23, device check, round 2). Grouped settings list; backup and voice as full pages with one top bar and the bottom bar hidden; no overlapping text; Western digits in backup dates; compact well-owner card with "سند جديد"; balance colours match the cards; "خصم" label and shared payment count. Outside the allowed list but needed and accepted: MainScreen.kt (sub-page bar and back) and the three files that build backup `formattedDate`.**

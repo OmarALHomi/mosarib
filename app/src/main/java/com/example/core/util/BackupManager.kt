@@ -192,7 +192,7 @@ object BackupManager {
                 BackupFileInfo(
                     file = file,
                     name = file.name,
-                    formattedDate = sdf.format(Date(file.lastModified())),
+                    formattedDate = Formatters.formatDateTime(file.lastModified()),
                     sizeText = sizeStr
                 )
             } ?: emptyList()

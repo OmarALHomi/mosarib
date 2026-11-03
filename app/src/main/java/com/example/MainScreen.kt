@@ -197,6 +197,7 @@ fun MainApp(
             var isBiometricUnlocked by remember { mutableStateOf(false) }
             var selectedCustomerId by remember { mutableLongStateOf(0L) }
             var showAboutScreen by remember { mutableStateOf(false) }
+            var isSettingsSubPageOpen by remember { mutableStateOf(false) }
             var showLicenseDialog by remember { mutableStateOf(false) }
             var showFeedbackDialog by remember { mutableStateOf(false) }
             var showCustomerMenu by remember { mutableStateOf(false) }
@@ -329,7 +330,7 @@ fun MainApp(
                     } else {
                 Scaffold(
                     topBar = {
-                        if (currentTab != AppTab.HOME) {
+                        if (currentTab != AppTab.HOME && !(currentTab == AppTab.SETTINGS && isSettingsSubPageOpen)) {
                             CenterAlignedTopAppBar(
                                 title = {
                                     Text(
@@ -499,10 +500,12 @@ fun MainApp(
                         }
                     },
                     bottomBar = {
-                        MosaribNavBar(
-                            selectedIndex = selectedTab,
-                            onItemSelected = { selectedTab = it }
-                        )
+                        if (!(currentTab == AppTab.SETTINGS && isSettingsSubPageOpen)) {
+                            MosaribNavBar(
+                                selectedIndex = selectedTab,
+                                onItemSelected = { selectedTab = it }
+                            )
+                        }
                     }
                 ) { innerPadding ->
                     Box(
@@ -574,7 +577,8 @@ fun MainApp(
                                 AppTab.SETTINGS -> {
                                     SettingsScreen(
                                         viewModel = settingsViewModel,
-                                        onNavigateToAbout = { showAboutScreen = true }
+                                        onNavigateToAbout = { showAboutScreen = true },
+                                        onSubPageOpenChange = { isSettingsSubPageOpen = it }
                                     )
                                 }
                             }

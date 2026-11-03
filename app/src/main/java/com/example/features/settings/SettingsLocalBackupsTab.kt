@@ -68,96 +68,101 @@ internal fun LocalBackupsTab(
     onShareBackup: (BackupManager.BackupFileInfo) -> Unit,
     onDeleteBackup: (BackupManager.BackupFileInfo) -> Unit
 ) {
-    // ─── قسم النسخ التلقائي الدوري الذكي (Smart Rolling Auto-Backup) ───
-    AutoBackupPanel(
-        isDark = isDark,
-        isAutoBackupEnabled = isAutoBackupEnabled,
-        onAutoBackupEnabledChange = onAutoBackupEnabledChange,
-        autoBackups = autoBackups,
-        expandAllLocalBackups = expandAllLocalBackups,
-        onRestoreAutoBackup = onRestoreAutoBackup,
-        onDeleteAutoBackup = onDeleteAutoBackup
-    )
-
-    Spacer(modifier = Modifier.height(10.dp))
-    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-    Spacer(modifier = Modifier.height(10.dp))
-
-    // ─── محتوى النسخ المحفوظة على الهاتف ───
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text(
-            text = "أحدث النسخ المحلية المحفوظة:",
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF475569))
+        // ─── قسم النسخ التلقائي الدوري الذكي (Smart Rolling Auto-Backup) ───
+        AutoBackupPanel(
+            isDark = isDark,
+            isAutoBackupEnabled = isAutoBackupEnabled,
+            onAutoBackupEnabledChange = onAutoBackupEnabledChange,
+            autoBackups = autoBackups,
+            expandAllLocalBackups = expandAllLocalBackups,
+            onRestoreAutoBackup = onRestoreAutoBackup,
+            onDeleteAutoBackup = onDeleteAutoBackup
         )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (savedBackups.size > 3) {
-                TextButton(
-                    onClick = onCleanOldBackups,
-                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                ) {
-                    Icon(Icons.Default.CleaningServices, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(13.dp))
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text("تنظيف القديمة", fontSize = 10.5.sp, color = Color(0xFFD97706), fontWeight = FontWeight.Bold)
-                }
-            }
-            IconButton(onClick = onRefreshBackups, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.Default.Restore, contentDescription = "تحديث", modifier = Modifier.size(15.dp), tint = PrimaryTeal)
-            }
-        }
-    }
 
-    if (savedBackups.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-                .padding(12.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "لا توجد نسخ محلية محفوظة بعد. اضغط على 'نسخة جديدة' لإنشاء نسخة احتياطية.",
-                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp),
-                textAlign = TextAlign.Center
-            )
-        }
-    } else {
-        val displayedBackups = if (expandAllLocalBackups) savedBackups else savedBackups.take(3)
-        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            displayedBackups.forEach { backup ->
-                LocalBackupRow(
-                    backup = backup,
-                    isDark = isDark,
-                    onRestore = { onRestoreBackup(backup) },
-                    onShare = { onShareBackup(backup) },
-                    onDelete = { onDeleteBackup(backup) }
+        // ─── محتوى النسخ المحفوظة على الهاتف ───
+        if (savedBackups.isNotEmpty()) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "النسخ المحلية المحفوظة:",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF475569))
                 )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (savedBackups.size > 3) {
+                        TextButton(
+                            onClick = onCleanOldBackups,
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Icon(Icons.Default.CleaningServices, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(13.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("تنظيف القديمة", fontSize = 10.5.sp, color = Color(0xFFD97706), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    IconButton(onClick = onRefreshBackups, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Restore, contentDescription = "تحديث", modifier = Modifier.size(15.dp), tint = PrimaryTeal)
+                    }
+                }
             }
 
-            if (savedBackups.size > 3) {
-                TextButton(
-                    onClick = onToggleExpandAllLocalBackups,
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(vertical = 2.dp)
-                ) {
-                    Icon(
-                        if (expandAllLocalBackups) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = PrimaryTeal
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (expandAllLocalBackups) "عرض أحدث 3 نسخ فقط ▲" else "عرض كافة النسخ على الهاتف (${savedBackups.size}) ▼",
-                        fontSize = 11.sp,
-                        color = PrimaryTeal,
-                        fontWeight = FontWeight.Bold
+            val displayedBackups = if (expandAllLocalBackups) savedBackups else savedBackups.take(3)
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                displayedBackups.forEach { backup ->
+                    LocalBackupRow(
+                        backup = backup,
+                        isDark = isDark,
+                        onRestore = { onRestoreBackup(backup) },
+                        onShare = { onShareBackup(backup) },
+                        onDelete = { onDeleteBackup(backup) }
                     )
                 }
+
+                if (savedBackups.size > 3) {
+                    TextButton(
+                        onClick = onToggleExpandAllLocalBackups,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(vertical = 2.dp)
+                    ) {
+                        Icon(
+                            if (expandAllLocalBackups) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = PrimaryTeal
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (expandAllLocalBackups) "عرض أحدث 3 نسخ فقط ▲" else "عرض كافة النسخ على الهاتف (${savedBackups.size}) ▼",
+                            fontSize = 11.sp,
+                            color = PrimaryTeal,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        } else if (autoBackups.isEmpty()) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                    .padding(12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "لا توجد نسخ احتياطية على الهاتف بعد. اضغط على 'نسخة جديدة' لإنشاء نسخة احتياطية.",
+                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp),
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }

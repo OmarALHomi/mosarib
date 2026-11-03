@@ -288,7 +288,7 @@ private fun BackupSectionCard(
 }
 
 @Composable
-private fun BackupDisabledBanner(isDark: Boolean, isDeviceBackupLocked: Boolean) {
+internal fun BackupDisabledBanner(isDark: Boolean, isDeviceBackupLocked: Boolean) {
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = if (isDark) Color(0xFF3B1E1E) else Color(0xFFFEF2F2),
