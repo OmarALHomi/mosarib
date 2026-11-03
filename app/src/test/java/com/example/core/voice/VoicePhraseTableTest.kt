@@ -631,4 +631,12 @@ class VoicePhraseTableTest {
         val end = Calendar.getInstance().apply { timeInMillis = c.endMillis!! }
         assertEquals(4, end.get(Calendar.HOUR_OF_DAY))
     }
+
+    // Android's ICU regex engine rejects the (?U) flag (crash on device, passes on the JVM).
+    @Test
+    fun testNoUnicodeFlagInVoiceRegexes() {
+        val dir = java.io.File("src/main/java/com/example/core/voice")
+        val offenders = dir.listFiles().orEmpty().filter { it.readText().contains("(?U)") }.map { it.name }
+        assertTrue("(?U) is not supported on Android: $offenders", offenders.isEmpty())
+    }
 }

@@ -395,12 +395,22 @@ object VoiceRecognitionHelper {
         if (candidates.isNullOrEmpty()) return null
         logDebug("VoiceInput", "candidates: $candidates")
         for (cand in candidates) {
-            val cmd = VoiceCommandParser.parse(cand, knownNames, now)
+            // A parser bug must never crash the app: skip the candidate and fall back to the dialogs.
+            val cmd = try {
+                VoiceCommandParser.parse(cand, knownNames, now)
+            } catch (e: Exception) {
+                logDebug("VoiceInput", "parse failed for '$cand': ${e.message}")
+                continue
+            }
             if (cmd.type != null) {
                 return cmd
             }
         }
         val first = candidates.first()
-        return VoiceCommandParser.parse(first, knownNames, now)
+        return try {
+            VoiceCommandParser.parse(first, knownNames, now)
+        } catch (e: Exception) {
+            VoiceCommand(type = null, rawText = first)
+        }
     }
 }
