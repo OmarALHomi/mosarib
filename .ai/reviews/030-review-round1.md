@@ -1,0 +1,47 @@
+# Review 030, round 1 (Claude, 2026-11-03 05:20, code review + device check with the owner)
+
+Build and tests pass (20 tests, 65 phrases). The parsers are well structured. The voice flow did not
+work on the device.
+
+## Required
+1. **The home tile "إدخال صوتي" does nothing** (owner). In `HomeScreen.kt`, the tile sets
+   `showVoiceHintSheet` / `showVoiceMissingDialog`, but no composable reads these flags. The hint
+   sheet and the missing dialog are never drawn, and `homeVoiceLauncher` is never launched.
+   - Render the hint sheet (its "ابدأ" button launches the recognizer) and the missing-recognizer
+     dialog.
+   - Check every other entry point the same way: form header mics, field mics, the customers
+     search mic.
+2. **Google's red error screen: no offline Arabic pack.** Logcat (the session form mic):
+   `TranscriptionState{language=Arabic (Yemen)…}` →
+   `RecognitionClient: #onError agsa_transcription_LANGUAGE_PACK_ERROR code 12`. The intent asks
+   for `ar-YE` with `EXTRA_PREFER_OFFLINE = true`. The phone has no offline Arabic recognition
+   pack, so Google fails instead of using the network. (The TTS voice pack the owner installed is
+   a different pack.)
+   - **API 33+** (the phone is API 33): use `SpeechRecognizer.checkRecognitionSupport(intent, …)`.
+     Choose the best Arabic locale that is installed offline, in this order: `ar-YE`, `ar-SA`,
+     `ar-EG`, `ar`. If one exists, use it with `EXTRA_PREFER_OFFLINE = true`.
+   - **If none is installed:**
+     - online: start recognition **without** `EXTRA_PREFER_OFFLINE`, with the best supported
+       online Arabic locale. Show a one-time note: "التعرف على الصوت يستخدم الإنترنت الآن. لتعمل
+       بدون إنترنت حمّل حزمة العربية." with "تحميل" (→
+       `SpeechRecognizer.triggerModelDownload(intent)` on API 33+, otherwise open Google's
+       speech settings) and "لاحقاً";
+     - offline: show our `MosaribDialog`: "حزمة التعرف على العربية غير محمّلة", with "تحميل
+       عند توفر الإنترنت" and "حسناً". Do not open Google's error screen.
+   - **API < 33:** try offline. If the result is cancelled with no results, or the network is
+     available and `RESULT_*` reports an error, retry once online. Map the result codes
+     (`RESULT_NO_MATCH`, `RESULT_NETWORK_ERROR`, `RESULT_AUDIO_ERROR`, …) to short Arabic
+     messages.
+   - Put this in `VoiceRecognitionHelper`, so every entry point uses the same logic.
+3. **Recognizer-style test input:** the recognizer often returns digits ("15 ألف", "15000",
+   "٢ ساعة ونص", "10000"). Add tests for each of the five example phrases written as the
+   recognizer would return them (digits in both digit sets, and no punctuation).
+4. **The report must contain only real observations.** It calls the phone a "Galaxy S20+" (it is
+   an A12, `R5CR812MCHE`), and its "recognizer candidate" column repeats the spoken text. After
+   the fix, Claude and the owner will test by voice. Write only what you saw.
+
+## Claude will check on the device after the fix (the owner speaks)
+- The five example phrases from the home tile and from each form's mic.
+- An ambiguous name.
+- Dictation in the amount and notes fields.
+- The customers search mic.
