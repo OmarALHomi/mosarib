@@ -3,6 +3,29 @@ status: ready
 with 030). License LOGIC must not change: styling, texts and leaving the app only. -->
 # Task 031: About page, the mandatory subscription screen, update and announcement notices
 
+## 0. CRITICAL: force update locks users who already updated (do this first)
+`core/updates/AppUpdateManager.kt` line ~46:
+```kotlin
+val isForceUpdate = obj.optBoolean("isForceUpdate", false) || (BuildConfig.VERSION_CODE < minVersion)
+```
+When the dashboard publishes a release with "تحديث إجباري" (`web_dashboard/api/release_manager.php`),
+it writes `isForceUpdate: true` and `minRequiredVersionCode = <new code>` to `/app_broadcast`. Because
+of the `||`, users who **already installed** the new version still see `ForceUpdateScreen` and can
+never use the app.
+- The rule must be: **force only when `BuildConfig.VERSION_CODE < minRequiredVersionCode`.** The
+  `isForceUpdate` flag alone never blocks; it only marks that the broadcast is an update. When the
+  flag is true and the app is already at or above the minimum, show nothing for that broadcast
+  (no announcement either).
+- **Offline:** cache the last `minRequiredVersionCode` that was read (SharedPreferences, same
+  prefs file). At start, if there is no internet, use the cached value, so an old version cannot
+  skip a force update by turning the internet off. Never write it to Firebase.
+- Unit tests for a pure decision function `shouldForceUpdate(currentCode, minCode, flag)`:
+  - (4, 5, true) → true;
+  - (5, 5, true) → false;
+  - (6, 5, true) → false;
+  - (4, 1, true) → false;
+  - (4, 5, false) → true.
+
 ## A. About page (`features/about/AboutScreen.kt`)
 1. **Version from the build, never typed by hand:**
    - today the page shows a fixed "الإصدار 1.0.0";
