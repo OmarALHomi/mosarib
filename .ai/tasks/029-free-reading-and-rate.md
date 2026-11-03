@@ -37,6 +37,32 @@ dictionary and `SAMPLE_PRONUNCIATION_TEXT`), write **"مِئَة"** (fatha on th
 "مِئَه" in pause and "مِئَتْ" before ألف. Check that "مِئَتَيْن" keeps its marks. Update the tests
 (`"مِئَهْ وَخَمْسِينْ"`, `"مِئَتْ أَلْفْ"`).
 
+## D. Voice preview reads "تجربه قُراءه" with a broken sound (owner, 2026-11-03)
+The preview text in `MosaribSpeaker.previewVoice` is "مرحباً، هذه تجربة قراءة الصوت العربي في تطبيق
+المسرّب.". Its words are not in the dictionary, so they get only the pause ending and the engine
+guesses the vowels ("قُراءه").
+1. Add to the dictionary, with marks:
+   - تجربة → تَجْرِبَة، قراءة → قِرَاءَة، القراءة → القِرَاءَة؛
+   - صوت → صَوْت، الصوت → الصَّوْت، العربي → العَرَبِي، تطبيق → تَطْبِيق؛
+   - مرحبا / مرحباً → مَرْحَبًا، هذه → هَذِهِ.
+2. **Dictionary lookup must ignore marks already in the text:** remove diacritics and the shadda
+   from the word before the lookup. Today "المسرّب" (with a shadda) does not match the key
+   "المسرب".
+3. Use a better preview sentence that also tests a number: "مَرْحَبًا، هَذَا صَوْت تَطْبِيق المُسَرِّب.
+   رَصِيد أحمد عَلَيْه خمسة آلاف وخمس مِئَة رِيَال."
+
+## E. Choppy sound: compare two pause modes, the owner chooses by ear
+A sukun on **every** word (today) may make the engine pause between words. Add the switch
+**"قراءة متصلة"** in the voice page (default on):
+- **On:** put the pause ending only on the **last word of each phrase** (before ، . : ؛ ? or
+  the end), plus the dictionary words (they carry their own marks). Do not add a sukun to the
+  other words inside a phrase. The ة rule (ه in pause, ت before ألف/آلاف/مليون) applies at those
+  same positions.
+- **Off:** today's behaviour (pause ending on every word).
+- Save the choice; `forSpeech(text, connected: Boolean)`.
+- Test both modes.
+- In the report, write the preview sentence's speech text in both modes, so the owner can compare.
+
 ## Allowed files
 - `core/speech/*` (new `SpeechAccess.kt`)
 - `core/ui/AmountWithWords.kt`, `core/ui/OperationCard.kt` (lock removal only)
