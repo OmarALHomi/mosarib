@@ -1,5 +1,12 @@
 package com.example.features.customers
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.example.core.voice.CustomerMatcher
+import com.example.core.voice.VoiceRecognitionHelper
+import com.example.core.voice.VoiceDialogType
+import com.example.core.voice.VoiceSupportDialogs
+import com.example.core.voice.VoiceRecordSheet
 
 
 import android.content.res.Configuration
@@ -39,6 +46,8 @@ fun CustomersScreen(
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val allSessions = vouchersViewModel?.allSessions?.collectAsStateWithLifecycle()?.value ?: emptyList()
     val context = LocalContext.current
+    var voiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
+    var showSearchVoiceSheet by remember { mutableStateOf(false) }
 
     var showQuickAddChoice by remember { mutableStateOf(false) }
     var showAddSheet by remember { mutableStateOf(false) }
@@ -99,6 +108,9 @@ fun CustomersScreen(
         isStickyPinned = isStickyPinned,
         searchQuery = searchQuery,
         onSearchQueryChange = { viewModel.setSearchQuery(it) },
+        onVoiceSearchClick = {
+            showSearchVoiceSheet = true
+        },
         filterRow = filterRow,
         customers = customersWithBalance,
         balanceFilter = balanceFilter,
@@ -264,6 +276,33 @@ fun CustomersScreen(
             }
         )
     }
+
+    if (showSearchVoiceSheet) {
+        VoiceRecordSheet(
+            title = "بحث صوتي في العملاء",
+            subtitle = "تحدث باسم العميل للبحث...",
+            compact = true,
+            onDismiss = { showSearchVoiceSheet = false },
+            onResult = { candidates ->
+                showSearchVoiceSheet = false
+                val spoken = candidates.firstOrNull()?.trim().orEmpty()
+                if (spoken.isNotBlank()) {
+                    val ranked = CustomerMatcher.match(spoken, rawCustomers.map { it.customer })
+                    val best = ranked.firstOrNull()
+                    if (best != null && best.score >= 0.60f) {
+                        viewModel.setSearchQuery(best.customer.name)
+                    } else {
+                        viewModel.setSearchQuery(spoken)
+                    }
+                }
+            }
+        )
+    }
+
+    VoiceSupportDialogs(
+        dialogType = voiceDialogType,
+        onDismiss = { voiceDialogType = VoiceDialogType.NONE }
+    )
 }
 
 /**

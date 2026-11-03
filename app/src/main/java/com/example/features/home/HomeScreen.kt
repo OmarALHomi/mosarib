@@ -1,5 +1,26 @@
 package com.example.features.home
 
+import androidx.compose.material.icons.filled.Mic
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.example.core.voice.VoiceCommand
+import com.example.core.voice.VoiceCommandType
+import com.example.core.voice.VoiceHintSheet
+import com.example.core.voice.VoiceMissingDialog
+import com.example.core.voice.VoiceDialogType
+import com.example.core.voice.VoiceSupportDialogs
+import com.example.core.voice.VoiceCustomerChooserDialog
+import com.example.core.voice.VoiceRecordSheet
+import com.example.core.voice.VoiceWellOwnerActionChooserDialog
+import com.example.core.voice.VoiceVoucherTypeChooserDialog
+import com.example.core.voice.VoiceUnrecognizedDialog
+import com.example.core.voice.CustomerMatcher
+import com.example.core.voice.VoiceRecognitionHelper
+import com.example.core.voice.VoiceAliasRepository
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -146,13 +167,135 @@ fun HomeScreen(
 
     val context = LocalContext.current
     var showActivationDialog by remember { mutableStateOf(false) }
+
+
     var showHomeTour by remember { mutableStateOf(!LicenseManager.isHomeTourCompleted(context)) }
     var showAddManualSheet by remember { mutableStateOf(false) }
     var showAddVoucherSheet by remember { mutableStateOf(false) }
     var voucherInitialType by remember { mutableStateOf(VoucherType.RECEIPT) }
     var showAddCustomerSheet by remember { mutableStateOf(false) }
     var showAddPurchaseSheet by remember { mutableStateOf(false) }
+
+    val coroutineScope = rememberCoroutineScope()
+    var activeVoiceCommand by remember { mutableStateOf<VoiceCommand?>(null) }
+    var showVoiceHintSheet by remember { mutableStateOf(false) }
+    var showHomeVoiceRecordSheet by remember { mutableStateOf(false) }
+    var voiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
+    var ambiguousVoiceCommand by remember { mutableStateOf<VoiceCommand?>(null) }
+    var ambiguousCandidates by remember { mutableStateOf<List<Customer>>(emptyList()) }
+    var wellOwnerActionCommand by remember { mutableStateOf<Pair<VoiceCommand, Customer>?>(null) }
+    var voucherTypeChooserCommand by remember { mutableStateOf<VoiceCommand?>(null) }
+    var unrecognizedSpokenText by remember { mutableStateOf<String?>(null) }
+
+    fun openFormForVoiceCommand(cmd: VoiceCommand) {
+        activeVoiceCommand = cmd
+        when (cmd.type) {
+            VoiceCommandType.SESSION -> {
+                showAddManualSheet = true
+            }
+            VoiceCommandType.RECEIPT -> {
+                voucherInitialType = VoucherType.RECEIPT
+                showAddVoucherSheet = true
+            }
+            VoiceCommandType.EXPENSE -> {
+                voucherInitialType = VoucherType.EXPENSE
+                showAddVoucherSheet = true
+            }
+            VoiceCommandType.PURCHASE -> {
+                showAddPurchaseSheet = true
+            }
+            VoiceCommandType.DISCOUNT -> {
+                voucherInitialType = VoucherType.RECEIPT
+                showAddVoucherSheet = true
+            }
+            null -> {
+                if (cmd.amount != null) {
+                    voucherTypeChooserCommand = cmd
+                } else {
+                    unrecognizedSpokenText = cmd.rawText
+                }
+            }
+        }
+    }
+
+    fun handleVoiceCandidates(matches: List<String>) {
+        if (matches.isEmpty()) {
+            unrecognizedSpokenText = ""
+            return
+        }
+        val parsedCmd = VoiceRecognitionHelper.parseFirstValidCommand(matches)
+        val firstCandidate = matches.first().trim()
+        VoiceRecognitionHelper.logDebug("VoiceInput", "candidates: $matches, parsed: $parsedCmd")
+
+        if (parsedCmd == null || (parsedCmd.type == null && parsedCmd.amount == null && parsedCmd.durationMinutes == null)) {
+            VoiceRecognitionHelper.logDebug("VoiceInput", "branch: UNRECOGNIZED_COMMAND, spoken='$firstCandidate'")
+            unrecognizedSpokenText = firstCandidate
+            return
+        }
+
+        // Branch 1: Voucher type chooser (amount + customer with no explicit verb)
+        if (parsedCmd.type == null && parsedCmd.amount != null) {
+            VoiceRecognitionHelper.logDebug("VoiceInput", "branch: VOUCHER_TYPE_CHOOSER, cmd=$parsedCmd")
+            voucherTypeChooserCommand = parsedCmd
+            return
+        }
+
+        coroutineScope.launch {
+            // Branch 2: Well owner duration ambiguity ("سقي على حسابه / شراء ساعات منه")
+            if (parsedCmd.durationMinutes != null && parsedCmd.durationMinutes > 0 && !parsedCmd.customerQuery.isNullOrBlank()) {
+                val aliases = VoiceAliasRepository.getAliases(context)
+                val matched = CustomerMatcher.match(parsedCmd.customerQuery, customers, aliases).firstOrNull()?.customer
+                if (matched != null && matched.isWellOwner) {
+                    val raw = parsedCmd.rawText
+                    val hasExplicitVerb = raw.contains("سقي") || raw.contains("شراء") || raw.contains("اشترينا") || raw.contains("جلسة")
+                    if (!hasExplicitVerb) {
+                        VoiceRecognitionHelper.logDebug("VoiceInput", "branch: WELL_OWNER_CHOOSER, owner=${matched.name}")
+                        wellOwnerActionCommand = Pair(parsedCmd, matched)
+                        return@launch
+                    }
+                }
+            }
+
+            // Branch 3: Customer matching
+            if (!parsedCmd.customerQuery.isNullOrBlank()) {
+                val list = if (parsedCmd.type == VoiceCommandType.PURCHASE) {
+                    customers.filter { it.isWellOwner }
+                } else {
+                    customers
+                }
+                val aliases = VoiceAliasRepository.getAliases(context)
+                val ranked = CustomerMatcher.match(parsedCmd.customerQuery, list, aliases)
+                if (ranked.isNotEmpty()) {
+                    if (!CustomerMatcher.isHighConfidence(ranked) && ranked.size > 1) {
+                        VoiceRecognitionHelper.logDebug("VoiceInput", "branch: AMBIGUOUS_CUSTOMERS, query='${parsedCmd.customerQuery}'")
+                        ambiguousVoiceCommand = parsedCmd
+                        ambiguousCandidates = ranked.map { it.customer }
+                        return@launch
+                    }
+                } else {
+                    // Spoken name not found in database!
+                    // Review Round 3:
+                    // "open the inferred form;
+                    //  put the spoken name in the customer field;
+                    //  show the chooser with the closest customers + 'إضافة عميل جديد باسم «احمد علي»'"
+                    VoiceRecognitionHelper.logDebug("VoiceInput", "branch: CUSTOMER_NOT_FOUND, query='${parsedCmd.customerQuery}'")
+                    ambiguousVoiceCommand = parsedCmd
+                    ambiguousCandidates = customers.take(3)
+                    openFormForVoiceCommand(parsedCmd)
+                    return@launch
+                }
+            }
+
+            // Branch 4: Open form
+            VoiceRecognitionHelper.logDebug("VoiceInput", "branch: OPEN_FORM_${parsedCmd.type}")
+            openFormForVoiceCommand(parsedCmd)
+        }
+    }
     var homePurchaseTarget by remember { mutableStateOf<Triple<Customer, String, String>?>(null) }
+
+    LaunchedEffect(Unit) {
+        VoiceRecognitionHelper.checkArabicSupport(context) { _ -> }
+    }
 
     fun checkOperationAllowed(action: () -> Unit) {
         if (LicenseManager.canPerformOperation(context, operationsCount)) {
@@ -375,6 +518,26 @@ fun HomeScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        QuickActionCard(
+                            title = "إدخال صوتي",
+                            subtitle = "تسجيل دورة، سند، أو مصروف بالصوت",
+                            icon = Icons.Default.Mic,
+                            iconBgColor = PrimaryTeal.copy(alpha = 0.15f),
+                            iconTint = PrimaryTeal,
+                            onClick = {
+                                if (!VoiceRecognitionHelper.isRecognitionAvailable(context)) {
+                                    voiceDialogType = VoiceDialogType.MISSING_ENGINE
+                                } else {
+                                    showHomeVoiceRecordSheet = true
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
 
@@ -516,7 +679,15 @@ fun HomeScreen(
             defaultPricePerHour = config.defaultPricePerHour,
             currencySymbol = config.currencySymbol,
             onCreateCustomer = { customer -> sessionsViewModel.createCustomer(customer) },
-            onDismiss = { showAddManualSheet = false },
+            onDismiss = {
+                showAddManualSheet = false
+                activeVoiceCommand = null
+            },
+            voiceCommand = activeVoiceCommand,
+            onReSpeak = {
+                showAddManualSheet = false
+                showHomeVoiceRecordSheet = true
+            },
             onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes, billedTo, wastedMins, wastedReason, discount, costRate, pumpId ->
                 sessionsViewModel.saveManualSession(
                     id = id,
@@ -547,7 +718,15 @@ fun HomeScreen(
             customers = customers,
             allSessions = allSessions,
             currencySymbol = config.currencySymbol,
-            onDismiss = { showAddVoucherSheet = false },
+            onDismiss = {
+                showAddVoucherSheet = false
+                activeVoiceCommand = null
+            },
+            voiceCommand = activeVoiceCommand,
+            onReSpeak = {
+                showAddVoucherSheet = false
+                showHomeVoiceRecordSheet = true
+            },
             onSave = { type, customerId, amount, category, method, notes, sessionId, selectedSessionIds, discountAmount ->
                 vouchersViewModel.addVoucher(
                     type = type,
@@ -571,7 +750,15 @@ fun HomeScreen(
             owner = null,
             availableOwners = wellOwners,
             currencySymbol = config.currencySymbol,
-            onDismiss = { showAddPurchaseSheet = false },
+            onDismiss = {
+                showAddPurchaseSheet = false
+                activeVoiceCommand = null
+            },
+            voiceCommand = activeVoiceCommand,
+            onReSpeak = {
+                showAddPurchaseSheet = false
+                showHomeVoiceRecordSheet = true
+            },
             onSaveWithOwner = { ownerId, date, duration, wasted, rate, paid, notes, startTime, endTime ->
                 customersViewModel.addOwnerPurchase(
                     ownerCustomerId = ownerId,
@@ -653,5 +840,113 @@ fun HomeScreen(
             onDismiss = { showHomeTour = false }
         )
     }
-}
 
+    // Voice Hint Sheet, Support Dialogs, and Ambiguous Customer Chooser
+    if (showVoiceHintSheet) {
+        VoiceHintSheet(
+            onDismiss = { showVoiceHintSheet = false },
+            onStartListening = {
+                showVoiceHintSheet = false
+                showHomeVoiceRecordSheet = true
+            }
+        )
+    }
+
+    if (showHomeVoiceRecordSheet) {
+        VoiceRecordSheet(
+            onDismiss = { showHomeVoiceRecordSheet = false },
+            onResult = { candidates ->
+                showHomeVoiceRecordSheet = false
+                handleVoiceCandidates(candidates)
+            }
+        )
+    }
+
+    wellOwnerActionCommand?.let { (cmd, owner) ->
+        VoiceWellOwnerActionChooserDialog(
+            ownerName = owner.name,
+            onIrrigationOnAccount = {
+                wellOwnerActionCommand = null
+                openFormForVoiceCommand(cmd.copy(type = VoiceCommandType.SESSION, customerQuery = owner.name))
+            },
+            onPurchaseHours = {
+                wellOwnerActionCommand = null
+                openFormForVoiceCommand(cmd.copy(type = VoiceCommandType.PURCHASE, customerQuery = owner.name))
+            },
+            onDismiss = { wellOwnerActionCommand = null }
+        )
+    }
+
+    voucherTypeChooserCommand?.let { cmd ->
+        VoiceVoucherTypeChooserDialog(
+            spokenText = cmd.rawText,
+            onReceipt = {
+                voucherTypeChooserCommand = null
+                voucherInitialType = VoucherType.RECEIPT
+                openFormForVoiceCommand(cmd.copy(type = VoiceCommandType.RECEIPT))
+            },
+            onExpense = {
+                voucherTypeChooserCommand = null
+                voucherInitialType = VoucherType.EXPENSE
+                openFormForVoiceCommand(cmd.copy(type = VoiceCommandType.EXPENSE))
+            },
+            onDiscount = {
+                voucherTypeChooserCommand = null
+                voucherInitialType = VoucherType.RECEIPT
+                openFormForVoiceCommand(cmd.copy(type = VoiceCommandType.DISCOUNT))
+            },
+            onDismiss = { voucherTypeChooserCommand = null }
+        )
+    }
+
+    unrecognizedSpokenText?.let { spoken ->
+        VoiceUnrecognizedDialog(
+            spokenText = spoken,
+            onReSpeak = {
+                unrecognizedSpokenText = null
+                showHomeVoiceRecordSheet = true
+            },
+            onShowExamples = {
+                unrecognizedSpokenText = null
+                showVoiceHintSheet = true
+            },
+            onDismiss = { unrecognizedSpokenText = null }
+        )
+    }
+
+    VoiceSupportDialogs(
+        dialogType = voiceDialogType,
+        onDismiss = { voiceDialogType = VoiceDialogType.NONE }
+    )
+
+    ambiguousVoiceCommand?.let { cmd ->
+        VoiceCustomerChooserDialog(
+            spokenQuery = cmd.customerQuery.orEmpty(),
+            candidates = ambiguousCandidates,
+            onSelectCustomer = { chosenCustomer ->
+                coroutineScope.launch {
+                    cmd.customerQuery?.let { q ->
+                        VoiceAliasRepository.saveAlias(context, q, chosenCustomer.id)
+                    }
+                }
+                ambiguousVoiceCommand = null
+                openFormForVoiceCommand(cmd.copy(customerQuery = chosenCustomer.name))
+            },
+            onChooseOther = {
+                ambiguousVoiceCommand = null
+                openFormForVoiceCommand(cmd.copy(customerQuery = null))
+            },
+            onAddNewCustomer = { newName ->
+                ambiguousVoiceCommand = null
+                coroutineScope.launch {
+                    val newCustId = sessionsViewModel.createCustomer(Customer(name = newName))
+                    val newCust = Customer(id = newCustId, name = newName)
+                    openFormForVoiceCommand(cmd.copy(customerQuery = newCust.name))
+                }
+            },
+            onDismiss = {
+                ambiguousVoiceCommand = null
+            }
+        )
+    }
+}

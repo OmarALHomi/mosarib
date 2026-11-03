@@ -1,5 +1,13 @@
 package com.example.features.customers
 
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
+import com.example.core.voice.VoiceFieldMic
+import androidx.compose.material3.Surface
+import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -60,6 +68,7 @@ internal fun CustomersListContent(
     isStickyPinned: Boolean,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
+    onVoiceSearchClick: (() -> Unit)? = null,
     filterRow: @Composable () -> Unit,
     customers: List<CustomerWithBalance>,
     balanceFilter: CustomerBalanceFilter,
@@ -89,22 +98,24 @@ internal fun CustomersListContent(
             if (isCompactHeight) {
                 // في الوضع الأفقي: حقل البحث وشريط الفلاتر ثلاثي الأقسام
                 item {
-                    CustomersListHeader(
+                    CustomersSearchHeaderWithVoice(
                         isCompact = true,
                         isPinned = false,
                         searchQuery = searchQuery,
                         onSearchQueryChange = onSearchQueryChange,
+                        onVoiceSearchClick = onVoiceSearchClick,
                         filterRow = filterRow
                     )
                 }
             } else {
                 // في الوضع الرأسي: StickyHeader أنيق يضم حقل البحث أولاً ثم شريط الفلاتر ثلاثي الأقسام
                 stickyHeader {
-                    CustomersListHeader(
+                    CustomersSearchHeaderWithVoice(
                         isCompact = false,
                         isPinned = isStickyPinned,
                         searchQuery = searchQuery,
                         onSearchQueryChange = onSearchQueryChange,
+                        onVoiceSearchClick = onVoiceSearchClick,
                         filterRow = filterRow
                     )
                 }
@@ -369,4 +380,92 @@ private fun BalanceBarAmount(amount: Double, currencySymbol: String, color: Colo
             fontWeight = FontWeight.ExtraBold
         )
     )
+}
+
+@Composable
+internal fun CustomersSearchHeaderWithVoice(
+    isCompact: Boolean,
+    isPinned: Boolean,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onVoiceSearchClick: (() -> Unit)? = null,
+    filterRow: @Composable () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.background,
+        shadowElevation = if (!isCompact && isPinned) 3.dp else 0.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = if (isCompact) 4.dp else 6.dp)) {
+            val searchTextStyle = if (isCompact) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (isCompact) 34.dp else 38.dp)
+                    .clip(RoundedCornerShape(if (isCompact) 10.dp else 12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isCompact) 0.45f else 0.5f))
+                    .padding(horizontal = if (isCompact) 8.dp else 10.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(if (isCompact) 15.dp else 16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(if (isCompact) 4.dp else 6.dp))
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                text = "بحث بالاسم، المزرعة، أو الهاتف...",
+                                style = searchTextStyle.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+                                ),
+                                maxLines = 1
+                            )
+                        }
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { onSearchQueryChange(it) },
+                            singleLine = true,
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            textStyle = searchTextStyle.copy(
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("customers_search_input")
+                        )
+                    }
+                    if (onVoiceSearchClick != null) {
+                        VoiceFieldMic(onClick = onVoiceSearchClick)
+                    }
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(
+                            onClick = { onSearchQueryChange("") },
+                            modifier = Modifier.size(if (isCompact) 18.dp else 20.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "مسح",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(if (isCompact) 13.dp else 14.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(if (isCompact) 4.dp else 6.dp))
+            filterRow()
+        }
+    }
 }

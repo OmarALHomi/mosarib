@@ -1,5 +1,17 @@
 package com.example.features.sessions
 
+import com.example.core.voice.VoiceCommand
+import com.example.core.voice.VoiceFieldMic
+import com.example.core.voice.VoiceSummaryBanner
+import com.example.core.voice.VoiceDialogType
+import com.example.core.voice.VoiceSupportDialogs
+import com.example.core.voice.VoiceRecordSheet
+import com.example.core.voice.VoiceUnrecognizedDialog
+import com.example.core.voice.CustomerMatcher
+import com.example.core.voice.SpokenNumberParser
+import com.example.core.voice.VoiceRecognitionHelper
+import androidx.compose.runtime.LaunchedEffect
+
 import com.example.core.ui.MosaribBottomSheet
 import com.example.core.ui.MosaribDialog
 import com.example.core.ui.MosaribMenu
@@ -260,6 +272,8 @@ fun AddEditSessionBottomSheet(
     currencySymbol: String,
     onCreateCustomer: suspend (Customer) -> Long,
     onDismiss: () -> Unit,
+    voiceCommand: VoiceCommand? = null,
+    onReSpeak: (() -> Unit)? = null,
     onSave: (
         id: Long,
         customerId: Long,
@@ -287,8 +301,14 @@ fun AddEditSessionBottomSheet(
     val context = LocalContext.current
     val isDark = isAppDark()
 
-    var selectedCustomerId by remember(initialSession?.customerId, defaultCustomerId) {
-        mutableLongStateOf(initialSession?.customerId ?: defaultCustomerId ?: 0L)
+    var currentVoiceCommand by remember(voiceCommand) { mutableStateOf(voiceCommand) }
+    val initialCustomerFromVoice = remember(voiceCommand, customers) {
+        voiceCommand?.customerQuery?.let { q ->
+            CustomerMatcher.match(q, customers).firstOrNull()?.customer
+        }
+    }
+    var selectedCustomerId by remember(initialSession?.customerId, defaultCustomerId, initialCustomerFromVoice) {
+        mutableLongStateOf(initialSession?.customerId ?: initialCustomerFromVoice?.id ?: defaultCustomerId ?: 0L)
     }
 
     var quickName by remember { mutableStateOf("") }
@@ -350,7 +370,8 @@ fun AddEditSessionBottomSheet(
     val legacyPumpName = initialSession?.pumpName.orEmpty()
 
     val selectedCustomer = customers.find { it.id == selectedCustomerId }
-    val initialPrice = initialSession?.pricePerHour
+    val initialPrice = voiceCommand?.ratePerHour
+        ?: initialSession?.pricePerHour
         ?: selectedCustomer?.takeUnless { it.isWellOwner }?.customPricePerHour
         ?: defaultPricePerHour
 
@@ -387,7 +408,10 @@ fun AddEditSessionBottomSheet(
     var endHour by remember(initialSession?.id, formKey) { mutableIntStateOf(defaultEndCal.get(Calendar.HOUR_OF_DAY)) }
     var endMinute by remember(initialSession?.id, formKey) { mutableIntStateOf((defaultEndCal.get(Calendar.MINUTE) / 5) * 5) }
 
-    var timeMode by remember(initialSession?.id, formKey) { mutableStateOf(SessionTimeMode.PICKER) }
+    val initialVoiceDuration = voiceCommand?.durationMinutes
+    var timeMode by remember(initialSession?.id, formKey, voiceCommand) {
+        mutableStateOf(if (initialVoiceDuration != null) SessionTimeMode.MANUAL else SessionTimeMode.PICKER)
+    }
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
@@ -397,11 +421,23 @@ fun AddEditSessionBottomSheet(
         val diffMs = (initialSession?.endTime ?: now) - (initialSession?.startTime ?: (now - 3600000L))
         if (diffMs > 0) (diffMs / 60000L).toInt() else 60
     }
-    var manualHoursStr by remember(initialSession?.id, formKey) {
-        mutableStateOf((initialDurationMins / 60).let { if (it > 0) it.toString() else "1" })
+    var manualHoursStr by remember(initialSession?.id, formKey, voiceCommand) {
+        mutableStateOf(
+            if (initialVoiceDuration != null) {
+                (initialVoiceDuration / 60).toString()
+            } else {
+                (initialDurationMins / 60).let { if (it > 0) it.toString() else "1" }
+            }
+        )
     }
-    var manualMinutesStr by remember(initialSession?.id, formKey) {
-        mutableStateOf((initialDurationMins % 60).let { if (it > 0) it.toString() else "" })
+    var manualMinutesStr by remember(initialSession?.id, formKey, voiceCommand) {
+        mutableStateOf(
+            if (initialVoiceDuration != null) {
+                (initialVoiceDuration % 60).let { if (it > 0) it.toString() else "" }
+            } else {
+                (initialDurationMins % 60).let { if (it > 0) it.toString() else "" }
+            }
+        )
     }
 
     val isInitiallyOvernight = remember {
@@ -509,6 +545,12 @@ fun AddEditSessionBottomSheet(
         }
     }
 
+    LaunchedEffect(voiceCommand) {
+        if (voiceCommand?.durationMinutes != null) {
+            applyManualDuration(manualHoursStr, manualMinutesStr)
+        }
+    }
+
     fun onStartTimeChanged(newHour: Int, newMinute: Int) {
         startHour = newHour
         startMinute = newMinute
@@ -603,10 +645,17 @@ fun AddEditSessionBottomSheet(
         derivedStateOf { if (isBilledToWellOwner) 0.0 else finalFarmerCharge }
     }
 
-    var amountPaidStr by remember {
-        mutableStateOf(initialSession?.amountPaid?.let { if (it > 0) Formatters.formatAmountInput(it.toString()) else "" } ?: "")
+    var amountPaidStr by remember(voiceCommand) {
+        mutableStateOf(
+            if (voiceCommand?.paid != null) Formatters.formatAmountInput(voiceCommand.paid.toString())
+            else initialSession?.amountPaid?.let { if (it > 0) Formatters.formatAmountInput(it.toString()) else "" } ?: ""
+        )
     }
-    var notes by remember { mutableStateOf(initialSession?.notes ?: "") }
+    var notes by remember(voiceCommand) {
+        mutableStateOf(voiceCommand?.notes ?: initialSession?.notes ?: "")
+    }
+
+
     val amountPaid by remember { derivedStateOf { Formatters.parseAmountInput(amountPaidStr) } }
     val remainingDebt by remember(effectiveFarmerCharge, amountPaid, isBilledToWellOwner) {
         derivedStateOf {
@@ -615,9 +664,104 @@ fun AddEditSessionBottomSheet(
     }
 
     var customerInputText by remember(selectedCustomer?.name, formKey) {
-        mutableStateOf(selectedCustomer?.name ?: "")
+        mutableStateOf(selectedCustomer?.name ?: voiceCommand?.customerQuery ?: "")
     }
+
+    var pendingVoiceTarget by remember { mutableStateOf<String?>(null) }
+    var showVoiceRecordSheet by remember { mutableStateOf(false) }
+    var isVoiceCompact by remember { mutableStateOf(false) }
+    var voiceRecordPrompt by remember { mutableStateOf("تحدث بالعملية...") }
+    var unrecognizedSessionVoiceText by remember { mutableStateOf<String?>(null) }
     var showQuickCustomerDialog by remember { mutableStateOf(false) }
+
+    fun launchVoiceFor(target: String) {
+        pendingVoiceTarget = target
+        isVoiceCompact = target != "form_command"
+        voiceRecordPrompt = when (target) {
+            "customer" -> "تحدث باسم العميل..."
+            "price" -> "تحدث بسعر الساعة..."
+            "paid" -> "تحدث بالمبلغ المدفوع..."
+            "notes" -> "أملِ الملاحظة..."
+            else -> "تحدث بالعملية..."
+        }
+        showVoiceRecordSheet = true
+    }
+
+    fun handleSessionVoiceResults(matches: List<String>) {
+        val spoken = matches.firstOrNull()?.trim().orEmpty()
+        VoiceRecognitionHelper.logDebug("VoiceInput", "SessionDialog voice target: $pendingVoiceTarget, spoken='$spoken'")
+        if (spoken.isNotBlank()) {
+            when (pendingVoiceTarget) {
+                "price" -> {
+                    val parsed = SpokenNumberParser.parseSpokenNumber(spoken)
+                    if (parsed != null && parsed > 0) {
+                        pricePerHourStr = Formatters.formatAmountInput(parsed.toString())
+                    }
+                }
+                "paid" -> {
+                    val parsed = SpokenNumberParser.parseSpokenNumber(spoken)
+                    if (parsed != null && parsed >= 0) {
+                        amountPaidStr = Formatters.formatAmountInput(parsed.toString())
+                    }
+                }
+                "notes" -> {
+                    notes = if (notes.isBlank()) spoken else "$notes $spoken"
+                }
+                "customer" -> {
+                    val cust = CustomerMatcher.match(spoken, customers).firstOrNull()?.customer
+                    if (cust != null) {
+                        selectedCustomerId = cust.id
+                        customerInputText = cust.name
+                        val cp = if (cust.isWellOwner) null else cust.customPricePerHour
+                        if (cp != null && cp > 0) {
+                            pricePerHourStr = Formatters.formatAmountInput(cp.toString())
+                        }
+                    } else {
+                        customerInputText = spoken
+                        showQuickCustomerDialog = true
+                    }
+                }
+                "form_command" -> {
+                    val cmd = VoiceRecognitionHelper.parseFirstValidCommand(matches)
+                    if (cmd != null && (cmd.durationMinutes != null || cmd.ratePerHour != null || cmd.paid != null || !cmd.customerQuery.isNullOrBlank())) {
+                        currentVoiceCommand = cmd
+                        if (cmd.durationMinutes != null && cmd.durationMinutes > 0) {
+                            timeMode = SessionTimeMode.MANUAL
+                            val h = (cmd.durationMinutes / 60).toString()
+                            val m = (cmd.durationMinutes % 60).let { if (it > 0) it.toString() else "" }
+                            manualHoursStr = h
+                            manualMinutesStr = m
+                            applyManualDuration(h, m)
+                        }
+                        if (cmd.ratePerHour != null && cmd.ratePerHour > 0) {
+                            pricePerHourStr = Formatters.formatAmountInput(cmd.ratePerHour.toString())
+                        }
+                        if (cmd.paid != null && cmd.paid >= 0) {
+                            amountPaidStr = Formatters.formatAmountInput(cmd.paid.toString())
+                        }
+                        if (!cmd.customerQuery.isNullOrBlank()) {
+                            val cust = CustomerMatcher.match(cmd.customerQuery, customers).firstOrNull()?.customer
+                            if (cust != null) {
+                                selectedCustomerId = cust.id
+                                customerInputText = cust.name
+                            } else {
+                                customerInputText = cmd.customerQuery.trim()
+                                showQuickCustomerDialog = true
+                            }
+                        }
+                        if (!cmd.notes.isNullOrBlank()) {
+                            notes = cmd.notes
+                        }
+                    } else {
+                        unrecognizedSessionVoiceText = spoken
+                    }
+                }
+            }
+        }
+        pendingVoiceTarget = null
+    }
+
+    var voiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
     var showAddCustomerSheet by remember { mutableStateOf(false) }
     var customerSaveError by remember { mutableStateOf<String?>(null) }
     var showWastedDetails by remember { mutableStateOf(wastedTotalMinutes > 0) }
@@ -642,7 +786,7 @@ fun AddEditSessionBottomSheet(
     )
     val initialSnapshot = remember { currentSnapshot }
     val hasUnsavedChanges by remember(currentSnapshot, initialSnapshot) {
-        derivedStateOf { currentSnapshot != initialSnapshot }
+        derivedStateOf { (currentSnapshot != initialSnapshot) || (currentVoiceCommand != null) }
     }
 
     val trimmedInput = customerInputText.trim()
@@ -656,6 +800,17 @@ fun AddEditSessionBottomSheet(
         subtitle = selectedCustomer?.name ?: "اختر العميل...",
         icon = Icons.Default.WaterDrop,
         hasUnsavedChanges = hasUnsavedChanges,
+        headerActions = {
+            VoiceFieldMic(
+                onClick = {
+                    if (onReSpeak != null) {
+                        onReSpeak()
+                    } else {
+                        launchVoiceFor("form_command")
+                    }
+                }
+            )
+        },
         footer = {
             MosaribPrimaryButton(
                 text = if (initialSession == null) "حفظ السقي" else "حفظ التعديل",
@@ -705,6 +860,13 @@ fun AddEditSessionBottomSheet(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            if (currentVoiceCommand != null) {
+                VoiceSummaryBanner(
+                    command = currentVoiceCommand!!,
+                    resolvedCustomerName = selectedCustomer?.name,
+                    onReSpeak = onReSpeak ?: { launchVoiceFor("form_command") }
+                )
+            }
 
             // اختيار العميل مع إمكانية الكتابة المباشرة وظهور الاقتراحات فوراً عبر الحقل الموحد
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -740,6 +902,7 @@ fun AddEditSessionBottomSheet(
                         showQuickCustomerDialog = true
                     },
                     addNewPrompt = "العميل غير مسجل: \"$customerInputText\"",
+                    trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("customer") }) },
                     modifier = Modifier
                         .weight(1f)
                         .testTag("session_customer_picker")
@@ -1335,6 +1498,7 @@ fun AddEditSessionBottomSheet(
                     onValueChange = { pricePerHourStr = Formatters.formatAmountInput(it) },
                     label = "سعر الساعة ($currencySymbol) *",
                     leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = AccentGold, modifier = Modifier.size(18.dp)) },
+                    trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("price") }) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     isDense = true,
                     modifier = Modifier.fillMaxWidth()
@@ -1757,13 +1921,16 @@ fun AddEditSessionBottomSheet(
                         onValueChange = { amountPaidStr = Formatters.formatAmountInput(it) },
                         placeholder = "0",
                         leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald) },
-                        trailingIcon = if (amountPaidStr.isNotBlank()) {
-                            {
-                                IconButton(onClick = { amountPaidStr = "" }) {
-                                    Icon(Icons.Default.Close, contentDescription = "مسح", modifier = Modifier.size(16.dp))
+                        trailingIcon = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                VoiceFieldMic(onClick = { launchVoiceFor("paid") })
+                                if (amountPaidStr.isNotBlank()) {
+                                    IconButton(onClick = { amountPaidStr = "" }) {
+                                        Icon(Icons.Default.Close, contentDescription = "مسح", modifier = Modifier.size(16.dp))
+                                    }
                                 }
                             }
-                        } else null,
+                        },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier
                             .weight(1f)
@@ -1948,6 +2115,7 @@ fun AddEditSessionBottomSheet(
                     value = notes,
                     onValueChange = { notes = it },
                     label = "ملاحظات",
+                    trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("notes") }) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -2254,6 +2422,38 @@ fun AddEditSessionBottomSheet(
             }
         }
     }
+
+    if (showVoiceRecordSheet) {
+        VoiceRecordSheet(
+            title = if (isVoiceCompact) "إملاء صوتي" else "الإدخال الصوتي للسقي",
+            subtitle = voiceRecordPrompt,
+            compact = isVoiceCompact,
+            onDismiss = { showVoiceRecordSheet = false },
+            onResult = { candidates ->
+                showVoiceRecordSheet = false
+                handleSessionVoiceResults(candidates)
+            }
+        )
+    }
+
+    unrecognizedSessionVoiceText?.let { spoken ->
+        VoiceUnrecognizedDialog(
+            spokenText = spoken,
+            onReSpeak = {
+                unrecognizedSessionVoiceText = null
+                launchVoiceFor("form_command")
+            },
+            onShowExamples = {
+                unrecognizedSessionVoiceText = null
+            },
+            onDismiss = { unrecognizedSessionVoiceText = null }
+        )
+    }
+
+    VoiceSupportDialogs(
+        dialogType = voiceDialogType,
+        onDismiss = { voiceDialogType = VoiceDialogType.NONE }
+    )
 }
 
 @Composable

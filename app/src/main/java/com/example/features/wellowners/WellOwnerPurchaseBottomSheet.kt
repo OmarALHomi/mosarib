@@ -1,5 +1,19 @@
 package com.example.features.wellowners
 
+import com.example.core.voice.VoiceCommand
+import com.example.core.voice.VoiceFieldMic
+import com.example.core.voice.VoiceSummaryBanner
+import com.example.core.voice.VoiceDialogType
+import com.example.core.voice.VoiceSupportDialogs
+import com.example.core.voice.VoiceRecordSheet
+import com.example.core.voice.VoiceUnrecognizedDialog
+import com.example.core.voice.CustomerMatcher
+import com.example.core.voice.SpokenNumberParser
+import com.example.core.voice.VoiceRecognitionHelper
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -92,6 +106,8 @@ fun WellOwnerPurchaseBottomSheet(
     currencySymbol: String,
     initialPurchase: WellOwnerPurchase? = null,
     onDismiss: () -> Unit,
+    voiceCommand: VoiceCommand? = null,
+    onReSpeak: (() -> Unit)? = null,
     onSaveWithOwner: ((
         ownerId: Long,
         date: Long,
@@ -119,8 +135,14 @@ fun WellOwnerPurchaseBottomSheet(
     val ownersList = remember(availableOwners, owner) {
         if (owner != null) listOf(owner) else availableOwners.filter { it.isWellOwner }
     }
-    var selectedOwner by remember(owner, ownersList) {
-        mutableStateOf(owner ?: ownersList.firstOrNull())
+    var currentVoiceCommand by remember(voiceCommand) { mutableStateOf(voiceCommand) }
+    val voiceOwner = remember(voiceCommand, ownersList) {
+        voiceCommand?.customerQuery?.let { q ->
+            CustomerMatcher.match(q, ownersList).firstOrNull()?.customer
+        }
+    }
+    var selectedOwner by remember(owner, ownersList, voiceOwner) {
+        mutableStateOf(owner ?: voiceOwner ?: ownersList.firstOrNull())
     }
     var ownerDropdownExpanded by remember { mutableStateOf(false) }
 
@@ -145,7 +167,10 @@ fun WellOwnerPurchaseBottomSheet(
     var endHour by remember(initialPurchase) { mutableIntStateOf(defaultEndCal.get(Calendar.HOUR_OF_DAY)) }
     var endMinute by remember(initialPurchase) { mutableIntStateOf((defaultEndCal.get(Calendar.MINUTE) / 5) * 5) }
 
-    var timeMode by remember(initialPurchase) { mutableStateOf(PurchaseTimeMode.PICKER) }
+    val initialVoiceDuration = voiceCommand?.durationMinutes
+    var timeMode by remember(initialPurchase, voiceCommand) {
+        mutableStateOf(if (initialVoiceDuration != null) PurchaseTimeMode.MANUAL else PurchaseTimeMode.PICKER)
+    }
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
@@ -154,11 +179,20 @@ fun WellOwnerPurchaseBottomSheet(
     val initialDurationMins = remember(initialPurchase) {
         initialPurchase?.durationMinutes?.takeIf { it > 0 } ?: 60
     }
-    var hoursText by remember(initialPurchase) {
-        mutableStateOf((initialDurationMins / 60).toString())
+    var hoursText by remember(initialPurchase, voiceCommand) {
+        mutableStateOf(
+            if (initialVoiceDuration != null) (initialVoiceDuration / 60).toString()
+            else (initialDurationMins / 60).toString()
+        )
     }
-    var minutesText by remember(initialPurchase) {
-        mutableStateOf(if (initialDurationMins % 60 > 0) (initialDurationMins % 60).toString() else "")
+    var minutesText by remember(initialPurchase, voiceCommand) {
+        mutableStateOf(
+            if (initialVoiceDuration != null) {
+                (initialVoiceDuration % 60).let { if (it > 0) it.toString() else "" }
+            } else {
+                if (initialDurationMins % 60 > 0) (initialDurationMins % 60).toString() else ""
+            }
+        )
     }
 
     val computedStartTime by remember(startDateMillis, startHour, startMinute) {
@@ -222,17 +256,100 @@ fun WellOwnerPurchaseBottomSheet(
     var wastedMinutesText by remember(initialPurchase) {
         mutableStateOf(initialPurchase?.let { if (it.wastedMinutesOnOwner > 0) (it.wastedMinutesOnOwner % 60).toString() else "" } ?: "")
     }
-    var amountPaidText by remember(initialPurchase) { mutableStateOf("") }
-    var rateText by remember(initialPurchase, selectedOwner?.id, selectedOwner?.customPricePerHour) {
+    val context = LocalContext.current
+    var amountPaidText by remember(initialPurchase, voiceCommand) {
         mutableStateOf(
-            initialPurchase?.let { Formatters.formatAmountInput(it.purchaseRatePerHour.toString()) }
+            voiceCommand?.paid?.let { Formatters.formatAmountInput(it.toString()) } ?: ""
+        )
+    }
+    var rateText by remember(initialPurchase, selectedOwner?.id, selectedOwner?.customPricePerHour, voiceCommand) {
+        mutableStateOf(
+            voiceCommand?.ratePerHour?.let { Formatters.formatAmountInput(it.toString()) }
+                ?: initialPurchase?.let { Formatters.formatAmountInput(it.purchaseRatePerHour.toString()) }
                 ?: selectedOwner?.customPricePerHour
                     ?.takeIf { it > 0 }
                     ?.let { Formatters.formatAmountInput(it.toString()) }
                 ?: ""
         )
     }
-    var notes by remember(initialPurchase) { mutableStateOf(initialPurchase?.notes ?: "") }
+    var notes by remember(initialPurchase, voiceCommand) {
+        mutableStateOf(voiceCommand?.notes ?: initialPurchase?.notes ?: "")
+    }
+
+    var pendingVoiceTarget by remember { mutableStateOf<String?>(null) }
+    var showPurchaseVoiceSheet by remember { mutableStateOf(false) }
+    var isPurchaseVoiceCompact by remember { mutableStateOf(false) }
+    var purchaseVoicePrompt by remember { mutableStateOf("تحدث بالعملية...") }
+    var unrecognizedPurchaseVoiceText by remember { mutableStateOf<String?>(null) }
+
+    fun launchVoiceFor(target: String) {
+        pendingVoiceTarget = target
+        isPurchaseVoiceCompact = target != "form_command"
+        purchaseVoicePrompt = when (target) {
+            "rate" -> "تحدث بسعر الساعة..."
+            "paid" -> "تحدث بالمبلغ المدفوع..."
+            "notes" -> "أملِ الملاحظة..."
+            else -> "تحدث بأمر الشراء..."
+        }
+        showPurchaseVoiceSheet = true
+    }
+
+    fun handlePurchaseVoiceResults(matches: List<String>) {
+        val spoken = matches.firstOrNull()?.trim().orEmpty()
+        VoiceRecognitionHelper.logDebug("VoiceInput", "Purchase voice target: $pendingVoiceTarget, spoken='$spoken'")
+        if (spoken.isNotBlank()) {
+            when (pendingVoiceTarget) {
+                "rate" -> {
+                    val parsed = SpokenNumberParser.parseSpokenNumber(spoken)
+                    if (parsed != null && parsed > 0) {
+                        rateText = Formatters.formatAmountInput(parsed.toString())
+                    }
+                }
+                "paid" -> {
+                    val parsed = SpokenNumberParser.parseSpokenNumber(spoken)
+                    if (parsed != null && parsed >= 0) {
+                        amountPaidText = Formatters.formatAmountInput(parsed.toString())
+                    }
+                }
+                "notes" -> {
+                    notes = if (notes.isBlank()) spoken else "$notes $spoken"
+                }
+                "form_command" -> {
+                    val cmd = VoiceRecognitionHelper.parseFirstValidCommand(matches)
+                    if (cmd != null && (cmd.durationMinutes != null || cmd.ratePerHour != null || cmd.paid != null || !cmd.customerQuery.isNullOrBlank())) {
+                        currentVoiceCommand = cmd
+                        if (cmd.durationMinutes != null && cmd.durationMinutes > 0) {
+                            timeMode = PurchaseTimeMode.MANUAL
+                            hoursText = (cmd.durationMinutes / 60).toString()
+                            minutesText = (cmd.durationMinutes % 60).let { if (it > 0) it.toString() else "" }
+                        }
+                        if (cmd.ratePerHour != null && cmd.ratePerHour > 0) {
+                            rateText = Formatters.formatAmountInput(cmd.ratePerHour.toString())
+                        }
+                        if (cmd.paid != null && cmd.paid >= 0) {
+                            amountPaidText = Formatters.formatAmountInput(cmd.paid.toString())
+                        }
+                        if (!cmd.customerQuery.isNullOrBlank()) {
+                            val foundOwner = ownersList.find {
+                                it.name.trim().contains(cmd.customerQuery.trim(), ignoreCase = true)
+                            }
+                            if (foundOwner != null) {
+                                selectedOwner = foundOwner
+                            }
+                        }
+                        if (!cmd.notes.isNullOrBlank()) {
+                            notes = cmd.notes
+                        }
+                    } else {
+                        unrecognizedPurchaseVoiceText = spoken
+                    }
+                }
+            }
+        }
+        pendingVoiceTarget = null
+    }
+
+    var voiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
 
     val wastedMinutes by remember(wastedHoursText, wastedMinutesText) {
         derivedStateOf {
@@ -263,7 +380,7 @@ fun WellOwnerPurchaseBottomSheet(
     )
     val initialSnapshot = remember { currentSnapshot }
     val hasUnsavedChanges by remember(currentSnapshot, initialSnapshot) {
-        derivedStateOf { currentSnapshot != initialSnapshot }
+        derivedStateOf { (currentSnapshot != initialSnapshot) || (currentVoiceCommand != null) }
     }
 
     val curOwner = selectedOwner
@@ -275,6 +392,17 @@ fun WellOwnerPurchaseBottomSheet(
         subtitle = if (owner != null) owner.name else selectedOwner?.name ?: "اختر صاحب البئر...",
         icon = Icons.Default.WaterDrop,
         hasUnsavedChanges = hasUnsavedChanges,
+        headerActions = {
+            VoiceFieldMic(
+                onClick = {
+                    if (onReSpeak != null) {
+                        onReSpeak()
+                    } else {
+                        launchVoiceFor("form_command")
+                    }
+                }
+            )
+        },
         footer = {
             MosaribPrimaryButton(
                 text = if (initialPurchase != null) "حفظ التعديل" else "حفظ الشراء",
@@ -302,6 +430,14 @@ fun WellOwnerPurchaseBottomSheet(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            if (currentVoiceCommand != null) {
+                VoiceSummaryBanner(
+                    command = currentVoiceCommand!!,
+                    resolvedCustomerName = selectedOwner?.name,
+                    onReSpeak = onReSpeak ?: { launchVoiceFor("form_command") }
+                )
+            }
+
             // اختيار صاحب البئر إذا كان هناك أكثر من خيار ولم يتم تمريره ثابتاً
             if (owner == null && ownersList.size > 1) {
                 Card(
@@ -755,6 +891,7 @@ fun WellOwnerPurchaseBottomSheet(
                 value = rateText,
                 onValueChange = { rateText = Formatters.formatAmountInput(it) },
                 label = "سعر الساعة ($currencySymbol) *",
+                trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("rate") }) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
@@ -765,6 +902,7 @@ fun WellOwnerPurchaseBottomSheet(
                 onValueChange = { amountPaidText = Formatters.formatAmountInput(it) },
                 label = "المدفوع نقداً (اختياري)",
                 leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald) },
+                trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("paid") }) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
@@ -833,6 +971,7 @@ fun WellOwnerPurchaseBottomSheet(
                 onValueChange = { notes = it },
                 label = "ملاحظات / البيان (اختياري)",
                 leadingIcon = { Icon(Icons.Default.WaterDrop, contentDescription = null, tint = PrimaryTeal) },
+                trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("notes") }) },
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -890,4 +1029,36 @@ fun WellOwnerPurchaseBottomSheet(
             }
         )
     }
+
+    if (showPurchaseVoiceSheet) {
+        VoiceRecordSheet(
+            title = if (isPurchaseVoiceCompact) "إملاء صوتي" else "الإدخال الصوتي للشراء",
+            subtitle = purchaseVoicePrompt,
+            compact = isPurchaseVoiceCompact,
+            onDismiss = { showPurchaseVoiceSheet = false },
+            onResult = { candidates ->
+                showPurchaseVoiceSheet = false
+                handlePurchaseVoiceResults(candidates)
+            }
+        )
+    }
+
+    unrecognizedPurchaseVoiceText?.let { spoken ->
+        VoiceUnrecognizedDialog(
+            spokenText = spoken,
+            onReSpeak = {
+                unrecognizedPurchaseVoiceText = null
+                launchVoiceFor("form_command")
+            },
+            onShowExamples = {
+                unrecognizedPurchaseVoiceText = null
+            },
+            onDismiss = { unrecognizedPurchaseVoiceText = null }
+        )
+    }
+
+    VoiceSupportDialogs(
+        dialogType = voiceDialogType,
+        onDismiss = { voiceDialogType = VoiceDialogType.NONE }
+    )
 }
