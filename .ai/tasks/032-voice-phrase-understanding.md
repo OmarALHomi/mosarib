@@ -104,11 +104,78 @@ above, change the expectation and list it in the report.
 When some pieces were found (an amount, a duration or a name) never show "لم يتم التعرف": open the
 type chooser or the closest form with what was found. Show the dialog only when nothing was found.
 
+## 6. The owner's most common patterns (owner, 2026-11-03, second message): these win over section 2
+"ريال" is optional after every amount. `[...]` = may be missing.
+
+**A. Irrigation by hours**
+`مع {name} {duration} من {rate} [ريال] [ومسلم {amount | كامل}] [{notes}]`
+- No paid part → the session is a debt (paid empty).
+- "كامل" (also: كامل المبلغ، كله، خالص) → paid = the full total; add `paidFull: Boolean` to
+  `VoiceCommand` and let the form fill paid with the computed total.
+- Any words after the last recognized piece = **البيان** (notes).
+
+**B. Irrigation by a time range**
+`مع {name} من الساعه {t1} {الى | لا | لين | حتى} الساعه {t2} [من {rate}] [ومسلم {amount | كامل}] [{notes}]`
+- "لا" means "إلى" **only between two times** ("من الساعه 12 لا الساعه 2"). Elsewhere "لا" is
+  ignored or treated as normal text. The word "الساعه" before t2 may be missing.
+- Times: "12"، "2 ونص"، "3 وربع"، "4 الا ربع"، "11 وعشر دقايق"، digits "2:30".
+- Day-part words: **بالصبح / الصبح / صباحاً = AM**, **بالليل / الليل / مساءً = PM**. Also: الفجر
+  (AM), الظهر (12–2 PM), العصر / بعد العصر (PM), المغرب (PM), العشاء (PM).
+- No day-part word: pick the most recent past time for t1 relative to the time of speaking
+  (people record after the irrigation), then t2 is the first time after t1 within 12 hours.
+  Crossing midnight is allowed ("من 9 بالليل لا 1" = 21:00 → 01:00, 240 min). The parser takes
+  `now` as a parameter so the tests are fixed.
+- Add `startMinuteOfDay: Int?` and `endMinuteOfDay: Int?` to `VoiceCommand`; the session form opens
+  in its time-range mode with the start and end filled (the date stays today, or yesterday when the
+  range is in the past across midnight). `durationMinutes` is also set.
+- No rate → leave the rate to the form's normal default (the customer's or the pump's price).
+
+**C. Payment voucher (صرف) to a person**
+`مع {name} {amount} [{notes}]` or `{amount} مع {name} [{notes}]` with no duration → **EXPENSE** to
+that customer, notes = the words after.
+
+**D. Receipt voucher (قبض)**
+`{amount} من {name} [بن {name}] [{notes}]` → **RECEIPT**. "بن / ابن / بنت" join name parts.
+
+**E. General expense (no person)**
+`{amount} {notes}` where the words right after the amount start a description and are not "من/مع
+{person}" → **EXPENSE with no customer**. Example: "20 الف ريال حق الديزل من محطة صالح بن علي" is a
+general expense with notes "حق الديزل من محطة صالح بن علي" and category ديزل: the "من" there is part
+of the description, because a description word came first. Description starters: حق، ثمن، قيمه،
+اجره، اجرة، مقابل، عشان، بدل، فاتوره، and every expense category.
+
+**Where the name ends and the notes begin**: `parse` gets an optional list of the known customer
+names (`parse(raw, knownNames = emptyList(), now = ...)`; HomeScreen passes the customers and
+aliases). Take the longest run of 1–5 words after the joiner that matches a known name (through
+the normalization of `CustomerMatcher`); the rest is notes. With no match, the name ends at the
+first description starter or amount; if neither exists, all the words are the name.
+
+**More tests** (add to the table; pass `knownNames` = [احمد علي، يوسف قاسم، يوسف قاسم سعيد، حارث سعيد
+بن علي، حارث سعيد] and a fixed `now` = 15:00):
+
+| Phrase | Type | Name | Min | Start→End | Rate | Paid | Notes |
+|---|---|---|---|---|---|---|---|
+| مع احمد علي ثلاث ساعات من 10 الف ريال ومسلم 20 الف حق الشهر الماضي | SESSION | احمد علي | 180 | | 10000 | 20000 | حق الشهر الماضي |
+| مع احمد علي ساعتين ونص من 8000 | SESSION | احمد علي | 150 | | 8000 | (debt) | |
+| مع احمد علي ساعتين من 10 الف ومسلم كامل | SESSION | احمد علي | 120 | | 10000 | paidFull | |
+| مع احمد علي من الساعه 12 لا الساعه 2 من 10 الف | SESSION | احمد علي | 120 | 12:00→14:00 | 10000 | | |
+| مع احمد علي من الساعه 8 بالصبح الى الساعه 11 ونص مسلم كامل | SESSION | احمد علي | 210 | 08:00→11:30 | | paidFull | |
+| مع احمد علي من الساعه 9 بالليل لا الساعه 1 | SESSION | احمد علي | 240 | 21:00→01:00 | | | |
+| مع احمد علي من 1 لا 2 ونص من 10 الف ومسلم 5 الف باقي امس | SESSION | احمد علي | 90 | 13:00→14:30 | 10000 | 5000 | باقي امس |
+| مع يوسف قاسم 50 الف سلفه للعيد | EXPENSE | يوسف قاسم | | | | | سلفه للعيد (amount 50000) |
+| 50 الف ريال مع يوسف قاسم سعيد حق العمال | EXPENSE | يوسف قاسم سعيد | | | | | حق العمال (amount 50000) |
+| 30 الف من حارث سعيد بن علي باقي حساب الشهر | RECEIPT | حارث سعيد بن علي | | | | | باقي حساب الشهر (amount 30000) |
+| 20 الف ريال حق الديزل من محطة صالح بن علي | EXPENSE | (none) | | | | | حق الديزل من محطة صالح بن علي (amount 20000, category ديزل) |
+
 ## Allowed files
 - `core/voice/VoiceCommandParser.kt`, `core/voice/SpokenNumberParser.kt`,
   `core/voice/SpokenDurationParser.kt`, `core/voice/VoicePhraseRules.kt` (new),
-  `core/voice/VoiceCommand.kt` (only if a field is truly needed)
-- `features/home/HomeScreen.kt` (section 5 only)
+  `core/voice/VoiceCommand.kt` (`paidFull`, `startMinuteOfDay`, `endMinuteOfDay`),
+  `core/voice/VoiceRecognitionHelper.kt` (pass `knownNames` / `now` through)
+- `features/home/HomeScreen.kt` (section 5, and passing the customer names)
+- `features/sessions/SessionDialogs.kt` (prefill only: time-range mode with start/end, paidFull)
+- `features/vouchers/VouchersScreen.kt` (prefill only, if notes or "no customer" are not already
+  filled)
 - tests
 
 ## Done when
