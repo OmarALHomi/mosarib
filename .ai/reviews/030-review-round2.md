@@ -37,5 +37,57 @@ online (Google, `Arabic (Yemen)`).
    only in the first case. In the report, write the exact lists `checkRecognitionSupport`
    returned on this phone (they are still missing).
 
+
+## 6. Free-form phrases with no type word (owner, 2026-11-03), required in this round
+People do not always start with "سقي" / "قبض". The owner's real examples:
+- "ثلاث ساعات ونص مع احمد علي من 10 الف ومسلم 20 الف" → session, 210 min, rate 10000, paid 20000
+- "ثلاث وربع مع احمد سعيد من 10 الف وادي 20 الف" → session, 195 min, rate 10000, paid 20000
+- "50 الف مع يونس قاسم" → **expense** voucher 50000 to that person (he has the money)
+- "20 الف ريال من احمد عبده لي" → **receipt** 20000 from that person
+
+When no explicit type word is found, infer the type from the structure, in this order:
+
+| Signal in the phrase | Type |
+|---|---|
+| An explicit type word anywhere (the current list + قبضت من، استلمت من، وصلني من، جاني من، اعطيت، عطيت، سلمت لـ، دفعت لـ، صرفت لـ، شريت من، اشتريت من، خصمت، سامحت، مسامحه، تخفيض) | that type |
+| A **duration** (see below) | SESSION. But if the matched person **is a well owner**, ask with a small choice: "سقي على حسابه" / "شراء ساعات منه" |
+| An amount + **"من {person}"** (optionally followed by لي، الي، عندي، وصلت، استلمتها) | RECEIPT |
+| An amount + **"مع {person}"**، "لـ{person}"، "حق {person}"، "عند {person}" | EXPENSE (to that person) |
+| An amount + an expense category word and no person | EXPENSE |
+| An amount + a person, with no direction word | ask: "قبض منه" / "صرف له" / "خصم له" |
+
+Field rules for these phrases:
+- **Joiners before the person:** مع، من، لـ، ل، حق، عند، الاخ، الحاج.
+- **"من" + a number = the rate** (after a duration). **"من" + a name = the source**
+  (receipt). Decide by whether the next tokens parse as a number.
+- **Paid words** (sessions and purchases), with or without و: دفع، دفعه، ادى، أدّى، وادي، اداني،
+  سلم، سلّم، مسلم، مسلّم، ومسلم، سدد، عطاني، اعطاني، حاسب، نقد، كاش.
+- **Rate forms:**
+  - "من 10 الف"؛
+  - "الساعه بـ10 الف" / "الساعه بعشره"؛
+  - "كل ساعه 10 الف"؛
+  - "سعر الساعه 10 الف"؛
+  - "بـ10 الف للساعه".
+- **Durations without the unit word:**
+  - at the start, "ثلاث وربع" / "ثلاث ونص" / "اربع الا ربع" (a number followed by
+    ونص/وربع/وثلث/الا ربع/الا ثلث means hours);
+  - "ساعتين الا ربع"، "نص ساعه"، "ساعه الا ثلث"، "ربع ساعه"، "2:30"، "3 و45 دقيقه".
+- **Ignore:** the words ريال، ر.ي، فقط، تقريبا، "والباقي عليه"، "والباقي". The remainder is
+  computed.
+- **Number words also include:** عشره الف، عشر تلاف، 10 الف، ١٠ الف، "عشرين الف ونص" (20500)، مية
+  الف، ميتين الف، الف وخمسميه.
+
+**When the type was inferred (not said):**
+- the banner says it clearly, "فهمت: سند صرف · يونس قاسم · 50,000";
+- next to it, quick chips **"غيّر إلى: قبض · صرف · خصم · سقي"** reopen the right form with the
+  same person and amount, with no new speaking. Never save.
+
+**Tests:**
+- the owner's four phrases exactly as above;
+- at least 40 more free-form phrases covering every row of the table, the paid words, the
+  rate forms, the durations without a unit, "من" with a number vs a name, a well owner with a
+  duration (gives "ask"), and an amount + name with no direction (gives "ask");
+- each written once with digits and once with words, as the recognizer may return either.
+
 After this round, Claude repeats the five phrases with the owner. Any phrase that fails then is
 added to the tests.
