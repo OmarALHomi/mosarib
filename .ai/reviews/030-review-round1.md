@@ -20,14 +20,24 @@ work on the device.
    - **API 33+** (the phone is API 33): use `SpeechRecognizer.checkRecognitionSupport(intent, …)`.
      Choose the best Arabic locale that is installed offline, in this order: `ar-YE`, `ar-SA`,
      `ar-EG`, `ar`. If one exists, use it with `EXTRA_PREFER_OFFLINE = true`.
-   - **If none is installed:**
-     - online: start recognition **without** `EXTRA_PREFER_OFFLINE`, with the best supported
-       online Arabic locale. Show a one-time note: "التعرف على الصوت يستخدم الإنترنت الآن. لتعمل
-       بدون إنترنت حمّل حزمة العربية." with "تحميل" (→
-       `SpeechRecognizer.triggerModelDownload(intent)` on API 33+, otherwise open Google's
-       speech settings) and "لاحقاً";
-     - offline: show our `MosaribDialog`: "حزمة التعرف على العربية غير محمّلة", with "تحميل
-       عند توفر الإنترنت" and "حسناً". Do not open Google's error screen.
+   - **If none is installed (owner decision 2026-11-03): always tell the user first.** Show our
+     `MosaribDialog` (tone Info). Never open Google's red error screen.
+     - Title "حزمة التعرف على العربية غير محمّلة".
+     - Message: "لاستخدام الإدخال الصوتي حمّل حزمة اللغة العربية مرة واحدة (تعمل بعدها بدون
+       إنترنت)."
+     - Primary button **"تحميل الآن"** starts the download **at once**:
+       `SpeechRecognizer.triggerModelDownload(intent)` for the chosen Arabic locale on API 33+
+       (this phone is API 33). Show "جاري تحميل حزمة العربية…" and, when the download is done
+       (use the download listener on API 34+, or re-check `checkRecognitionSupport` on resume or
+       after a short wait), say "تم التحميل، اضغط الميكرفون مرة أخرى". Below API 33, or if the
+       call fails, open Google's speech-recognition language settings directly. If no direct
+       screen exists, open the Speech Services app details.
+     - Secondary text button, shown only when the internet is available: "متابعة عبر الإنترنت
+       هذه المرة". It starts recognition without `EXTRA_PREFER_OFFLINE`, so the user is not
+       blocked.
+     - "لاحقاً".
+     - Offline with no pack: same dialog. "تحميل الآن" says "يحتاج التحميل إلى إنترنت" when
+       there is no connection.
    - **API < 33:** try offline. If the result is cancelled with no results, or the network is
      available and `RESULT_*` reports an error, retry once online. Map the result codes
      (`RESULT_NO_MATCH`, `RESULT_NETWORK_ERROR`, `RESULT_AUDIO_ERROR`, …) to short Arabic
