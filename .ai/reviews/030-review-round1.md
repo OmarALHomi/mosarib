@@ -43,6 +43,24 @@ work on the device.
      (`RESULT_NO_MATCH`, `RESULT_NETWORK_ERROR`, `RESULT_AUDIO_ERROR`, …) to short Arabic
      messages.
    - Put this in `VoiceRecognitionHelper`, so every entry point uses the same logic.
+
+### 2b. Arabic may not be available offline at all (owner checked, 2026-11-03)
+The owner looked at the offline languages list of Google's speech services on this phone, and
+Arabic is not there. Decide by what the phone reports, not by guessing. With
+`checkRecognitionSupport` (API 33+), read `installedOnDeviceLanguages`,
+`pendingOnDeviceLanguages`, `supportedOnDeviceLanguages` and `onlineLanguages`:
+
+| State | Behaviour |
+|---|---|
+| An Arabic locale is installed on the device | offline (`EXTRA_PREFER_OFFLINE = true`) |
+| Arabic is in `supportedOnDeviceLanguages` but not installed | the dialog with "تحميل الآن" (as above) |
+| Arabic is pending | "جاري تحميل حزمة العربية…" |
+| Arabic is **not supported on the device** (this phone) | start **online recognition directly**, with no download dialog. One time only, a small note: "الإدخال الصوتي يعمل عبر الإنترنت على جوالك." |
+| No internet, and Arabic is not installed | `MosaribDialog`: "الإدخال الصوتي يحتاج إنترنت على هذا الجوال. يمكنك الإدخال يدوياً." |
+
+Below API 33, assume online, with the same offline message when there is no network.
+Report what `checkRecognitionSupport` returned on this phone (the exact lists).
+
 3. **Recognizer-style test input:** the recognizer often returns digits ("15 ألف", "15000",
    "٢ ساعة ونص", "10000"). Add tests for each of the five example phrases written as the
    recognizer would return them (digits in both digit sets, and no punctuation).
