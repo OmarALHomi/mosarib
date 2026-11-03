@@ -93,6 +93,33 @@ uploading 1.4.0. Keep the design; text and data fixes only. No secrets in PHP/JS
    التحديث الإجباري أيضاً".
 4. Remove emojis from admin buttons and messages.
 
+## G. Design (Claude checked the page locally at 375 px, 2026-11-04)
+1. **Critical: horizontal overflow on phones.** At 375 px the page is 431 px wide, and text is cut on
+   the left: hero title, lead paragraph, stats, feature cards and section titles.
+   - Causes found: `nav.mobile-menu` is 431 px wide while closed. Keep it off-canvas with
+     `transform` plus `visibility:hidden`, or `inset-inline-end` with `max-width:100vw`.
+   - The hero `p.lead` / `em` reach 406 px, and `.btn-block` buttons are 383 px.
+   - Fix all of them, and add `overflow-x: clip` on `body` only as a safety net.
+   - Done when `document.documentElement.scrollWidth === clientWidth` at 360, 375 and 414 px.
+2. **Headings on phones:**
+   - h1 and h2 are too large: "صُمم خصيصاً ليلائم واقع الحقول الزراعية" takes 3 lines, and the hero
+     takes 4.
+   - Use `clamp()`, for example h1 `clamp(1.9rem, 7vw, 3.5rem)` and h2 `clamp(1.5rem, 5.5vw, 2.5rem)`,
+     with line-height 1.25.
+3. **Hero phone mockup:** inside the mock screen, the first list item shows a huge green check
+   graphic that fills the card ("مسدد" tag beside it). Make it look like the real app card: name,
+   amount, a small status chip, and **no large icon**.
+4. **Bidi:**
+   - "(Offline-" breaks the line order in the hero paragraph. Write "يعمل بدون إنترنت" without the
+     English word, or wrap it in `<bdi>`.
+   - Same for "Google Drive", "PDF" and "APK".
+5. **Top announcement bar:** it wraps to 2 lines on phones. Shorten the text or hide the bar under
+   400 px.
+6. **Spacing:** sections have large empty side margins on phones while the content is clipped.
+   Use a 16 px side gutter for every section container on phones.
+7. **Checks:** before and after screenshots at 375 px and 1280 px in light and dark (the page has a
+   theme switch). List them in the report.
+
 ## Allowed files
 `web_dashboard/index.php`, `web_dashboard/admin.php`, `web_dashboard/api/public_data.php`,
 `web_dashboard/api/release_manager.php`, `web_dashboard/assets/*`, `web_dashboard/api/auth.php` (C2, C6, C7 only),
