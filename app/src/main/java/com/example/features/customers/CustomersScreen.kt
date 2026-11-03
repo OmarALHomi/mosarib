@@ -1,5 +1,11 @@
 package com.example.features.customers
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.example.core.voice.CustomerMatcher
+import com.example.core.voice.VoiceRecognitionHelper
+import com.example.core.voice.VoiceDialogType
+import com.example.core.voice.VoiceSupportDialogs
 
 
 import android.content.res.Configuration
@@ -39,6 +45,24 @@ fun CustomersScreen(
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val allSessions = vouchersViewModel?.allSessions?.collectAsStateWithLifecycle()?.value ?: emptyList()
     val context = LocalContext.current
+    var voiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
+    val searchVoiceLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val matches = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS).orEmpty()
+            val spoken = matches.firstOrNull()?.trim().orEmpty()
+            if (spoken.isNotBlank()) {
+                val ranked = CustomerMatcher.match(spoken, rawCustomers.map { it.customer })
+                val best = ranked.firstOrNull()
+                if (best != null && best.score >= 0.60f) {
+                    viewModel.setSearchQuery(best.customer.name)
+                } else {
+                    viewModel.setSearchQuery(spoken)
+                }
+            }
+        }
+    }
 
     var showQuickAddChoice by remember { mutableStateOf(false) }
     var showAddSheet by remember { mutableStateOf(false) }
@@ -99,6 +123,14 @@ fun CustomersScreen(
         isStickyPinned = isStickyPinned,
         searchQuery = searchQuery,
         onSearchQueryChange = { viewModel.setSearchQuery(it) },
+        onVoiceSearchClick = {
+            VoiceRecognitionHelper.launchRecognition(
+                context = context,
+                launcher = searchVoiceLauncher,
+                onShowDialog = { voiceDialogType = it },
+                prompt = "ابحث بالصوت..."
+            )
+        },
         filterRow = filterRow,
         customers = customersWithBalance,
         balanceFilter = balanceFilter,
@@ -264,6 +296,11 @@ fun CustomersScreen(
             }
         )
     }
+
+    VoiceSupportDialogs(
+        dialogType = voiceDialogType,
+        onDismiss = { voiceDialogType = VoiceDialogType.NONE }
+    )
 }
 
 /**

@@ -1,5 +1,17 @@
 package com.example.features.vouchers
 
+import com.example.core.voice.VoiceCommand
+import com.example.core.voice.VoiceCommandType
+import com.example.core.voice.VoiceFieldMic
+import com.example.core.voice.VoiceSummaryBanner
+import com.example.core.voice.VoiceDialogType
+import com.example.core.voice.VoiceSupportDialogs
+import com.example.core.voice.CustomerMatcher
+import com.example.core.voice.SpokenNumberParser
+import com.example.core.voice.VoiceRecognitionHelper
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.Toast
 import com.example.core.speech.MosaribSpeaker
 import com.example.core.speech.SpeechStatus
 import com.example.core.speech.SpeechTextBuilder
@@ -228,6 +240,18 @@ fun VouchersScreen(
     val frequentDescriptions by viewModel.frequentExpenseDescriptions.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val operationsCount by viewModel.operationsCount.collectAsStateWithLifecycle()
+    var searchVoiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
+    val searchVoiceLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val matches = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+            val spoken = matches?.firstOrNull()?.trim().orEmpty()
+            if (spoken.isNotBlank()) {
+                viewModel.setSearchQuery(spoken)
+            }
+        }
+    }
     val settlementResult by viewModel.settlementResult.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -367,6 +391,14 @@ fun VouchersScreen(
                                                 .testTag("operations_search_input")
                                         )
                                     }
+                                    VoiceFieldMic(onClick = {
+                                        VoiceRecognitionHelper.launchRecognition(
+                                            context = context,
+                                            launcher = searchVoiceLauncher,
+                                            onShowDialog = { searchVoiceDialogType = it },
+                                            prompt = "ابحث في العمليات..."
+                                        )
+                                    })
                                     if (searchQuery.isNotEmpty()) {
                                         IconButton(
                                             onClick = { viewModel.setSearchQuery("") },
@@ -2041,6 +2073,11 @@ fun VouchersScreen(
             onDismiss = { speechError = null }
         )
     }
+
+    VoiceSupportDialogs(
+        dialogType = searchVoiceDialogType,
+        onDismiss = { searchVoiceDialogType = VoiceDialogType.NONE }
+    )
 }
 
 data class VoucherFormSnapshot(
@@ -2074,6 +2111,7 @@ data class VoucherFormSnapshot(
             selectedSessionIds = selectedSessionIds
         )
     }
+
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -2086,6 +2124,8 @@ fun AddVoucherBottomSheet(
     frequentDescriptions: List<String> = emptyList(),
     currencySymbol: String,
     onDismiss: () -> Unit,
+    voiceCommand: VoiceCommand? = null,
+    onReSpeak: (() -> Unit)? = null,
     onSave: (
         type: VoucherType,
         customerId: Long?,
@@ -2101,13 +2141,27 @@ fun AddVoucherBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isDark = isAppDark()
 
-    val initCustId = initialVoucher?.customerId ?: customers.firstOrNull()?.id ?: 0L
-    var type by remember { mutableStateOf(initialType) }
+    val context = LocalContext.current
+    val voiceCustomer = remember(voiceCommand, customers) {
+        voiceCommand?.customerQuery?.let { q ->
+            CustomerMatcher.match(q, customers).firstOrNull()?.customer
+        }
+    }
+    val initCustId = voiceCustomer?.id ?: initialVoucher?.customerId ?: customers.firstOrNull()?.id ?: 0L
+    var type by remember {
+        mutableStateOf(
+            when (voiceCommand?.type) {
+                VoiceCommandType.EXPENSE -> VoucherType.EXPENSE
+                VoiceCommandType.RECEIPT, VoiceCommandType.DISCOUNT -> VoucherType.RECEIPT
+                else -> initialType
+            }
+        )
+    }
     var selectedCustomerId by remember {
         mutableLongStateOf(initCustId)
     }
     var selectedBeneficiaryId by remember {
-        mutableStateOf<Long?>(initialVoucher?.customerId)
+        mutableStateOf<Long?>(voiceCustomer?.id ?: initialVoucher?.customerId)
     }
     val initSessionsForCust = remember(initCustId, initialType, initialVoucher) {
         if (initialVoucher == null && initialType == VoucherType.RECEIPT) {
@@ -2116,8 +2170,11 @@ fun AddVoucherBottomSheet(
         } else emptyList()
     }
     val initSessionIds = remember(initSessionsForCust) { initSessionsForCust.map { it.id }.toSet() }
-    val initAmountStr = remember(initialVoucher, initSessionsForCust) {
-        if (initialVoucher != null && initialVoucher.amount > 0) {
+    val initAmountStr = remember(initialVoucher, initSessionsForCust, voiceCommand) {
+        if (voiceCommand != null) {
+            if (voiceCommand.type == VoiceCommandType.DISCOUNT) ""
+            else voiceCommand.amount?.let { Formatters.formatAmountInput(it.toString()) } ?: ""
+        } else if (initialVoucher != null && initialVoucher.amount > 0) {
             Formatters.formatAmountInput(initialVoucher.amount.toString())
         } else if (initSessionsForCust.isNotEmpty()) {
             Formatters.formatAmountInput(initSessionsForCust.sumOf { it.remainingDebt }.toString())
@@ -2125,9 +2182,117 @@ fun AddVoucherBottomSheet(
     }
     var selectedSessionIds by remember { mutableStateOf(initSessionIds) }
     var amountStr by remember { mutableStateOf(initAmountStr) }
-    var discountAmountStr by remember { mutableStateOf("") }
+    var discountAmountStr by remember {
+        mutableStateOf(
+            if (voiceCommand?.type == VoiceCommandType.DISCOUNT && voiceCommand.amount != null) {
+                Formatters.formatAmountInput(voiceCommand.amount.toString())
+            } else ""
+        )
+    }
     var paymentMethod by remember { mutableStateOf(initialVoucher?.paymentMethod ?: "نقداً") }
-    var notes by remember { mutableStateOf(initialVoucher?.notes ?: "") }
+    var notes by remember {
+        mutableStateOf(
+            voiceCommand?.notes
+                ?: (if (voiceCommand?.type == VoiceCommandType.EXPENSE && voiceCommand.category != null) voiceCommand.category else "")
+                ?: initialVoucher?.notes
+                ?: ""
+        )
+    }
+
+    var currentVoiceCommand by remember(voiceCommand) { mutableStateOf(voiceCommand) }
+    var pendingVoiceTarget by remember { mutableStateOf<String?>(null) }
+    val voucherVoiceLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val matches = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+            val spoken = matches?.firstOrNull()?.trim().orEmpty()
+            if (spoken.isNotBlank()) {
+                when (pendingVoiceTarget) {
+                    "amount" -> {
+                        val parsed = SpokenNumberParser.parseSpokenNumber(spoken)
+                        if (parsed != null && parsed > 0) {
+                            amountStr = Formatters.formatAmountInput(parsed.toString())
+                        }
+                    }
+                    "discount" -> {
+                        val parsed = SpokenNumberParser.parseSpokenNumber(spoken)
+                        if (parsed != null && parsed > 0) {
+                            discountAmountStr = Formatters.formatAmountInput(parsed.toString())
+                        }
+                    }
+                    "notes" -> {
+                        notes = if (notes.isBlank()) spoken else "$notes $spoken"
+                    }
+                    "form_command" -> {
+                        val cmd = VoiceRecognitionHelper.parseFirstValidCommand(matches)
+                        if (cmd != null) {
+                            currentVoiceCommand = cmd
+                            if (cmd.type == VoiceCommandType.RECEIPT || cmd.type == VoiceCommandType.DISCOUNT) {
+                                type = VoucherType.RECEIPT
+                            } else if (cmd.type == VoiceCommandType.EXPENSE) {
+                                type = VoucherType.EXPENSE
+                            }
+                            if (cmd.amount != null && cmd.amount > 0) {
+                                if (cmd.type == VoiceCommandType.DISCOUNT) {
+                                    discountAmountStr = Formatters.formatAmountInput(cmd.amount.toString())
+                                    amountStr = "0"
+                                } else {
+                                    amountStr = Formatters.formatAmountInput(cmd.amount.toString())
+                                }
+                            }
+                            if (!cmd.customerQuery.isNullOrBlank()) {
+                                val cust = CustomerMatcher.match(cmd.customerQuery, customers).firstOrNull()?.customer
+                                if (cust != null) {
+                                    if (type == VoucherType.RECEIPT) {
+                                        selectedCustomerId = cust.id
+                                    } else {
+                                        selectedBeneficiaryId = cust.id
+                                    }
+                                }
+                            }
+                            if (!cmd.category.isNullOrBlank()) {
+                                notes = cmd.category
+                            }
+                            if (!cmd.notes.isNullOrBlank()) {
+                                notes = if (notes.isBlank()) cmd.notes else "$notes - ${cmd.notes}"
+                            }
+                        }
+                    }
+                    "customer" -> {
+                        val cust = CustomerMatcher.match(spoken, customers).firstOrNull()?.customer
+                        if (cust != null) {
+                            if (cust != null) {
+                                if (type == VoucherType.RECEIPT) {
+                                    selectedCustomerId = cust.id
+                                } else {
+                                    selectedBeneficiaryId = cust.id
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        pendingVoiceTarget = null
+    }
+
+    var voiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
+
+    fun launchVoiceFor(target: String) {
+        pendingVoiceTarget = target
+        VoiceRecognitionHelper.launchRecognition(
+            context = context,
+            launcher = voucherVoiceLauncher,
+            onShowDialog = { voiceDialogType = it },
+            prompt = when (target) {
+                "amount" -> "تحدث بالمبلغ..."
+                "discount" -> "تحدث بمبلغ الخصم..."
+                "notes" -> "أملِ البيان أو الملاحظة..."
+                else -> "تحدث بأمر السند..."
+            }
+        )
+    }
 
     var custDropdownExpanded by remember { mutableStateOf(false) }
     var custSearchQuery by remember { mutableStateOf("") }
@@ -2181,7 +2346,7 @@ fun AddVoucherBottomSheet(
     )
     val initialSnapshot = remember { currentSnapshot }
     val hasUnsavedChanges by remember(currentSnapshot, initialSnapshot) {
-        derivedStateOf { currentSnapshot != initialSnapshot }
+        derivedStateOf { (currentSnapshot != initialSnapshot) || (currentVoiceCommand != null) }
     }
 
     val headerTitle = when {
@@ -2197,6 +2362,17 @@ fun AddVoucherBottomSheet(
         subtitle = if (type == VoucherType.RECEIPT) selectedCustomer?.name else selectedBeneficiary?.name ?: "مصروف عام",
         icon = if (type == VoucherType.RECEIPT) Icons.AutoMirrored.Filled.ReceiptLong else Icons.Default.Payments,
         hasUnsavedChanges = hasUnsavedChanges,
+        headerActions = {
+            VoiceFieldMic(
+                onClick = {
+                    if (onReSpeak != null) {
+                        onReSpeak()
+                    } else {
+                        launchVoiceFor("form_command")
+                    }
+                }
+            )
+        },
         footer = {
             MosaribPrimaryButton(
                 text = if (initialVoucher != null) "حفظ التعديلات" else "حفظ وترحيل السند",
@@ -2224,6 +2400,14 @@ fun AddVoucherBottomSheet(
         Column(
             modifier = Modifier.fillMaxWidth()
         ) {
+            if (currentVoiceCommand != null) {
+                VoiceSummaryBanner(
+                    command = currentVoiceCommand!!,
+                    resolvedCustomerName = if (type == VoucherType.RECEIPT) selectedCustomer?.name else selectedBeneficiary?.name,
+                    onReSpeak = onReSpeak ?: { launchVoiceFor("form_command") }
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+            }
 
             // Type Toggle: له | عليه
             Row(
@@ -2611,6 +2795,7 @@ fun AddVoucherBottomSheet(
                 value = amountStr,
                 onValueChange = { amountStr = Formatters.formatAmountInput(it) },
                 label = "المبلغ ($currencySymbol) *",
+                trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("amount") }) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2711,6 +2896,7 @@ fun AddVoucherBottomSheet(
                 onValueChange = { notes = it },
                 label = if (type == VoucherType.RECEIPT) "البيان والملاحظات" else "بيان المصروف *",
                 placeholder = if (type == VoucherType.RECEIPT) "مثال: دفعة ري أو سداد حساب" else "اكتب بيان المصروف...",
+                trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("notes") }) },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -2734,6 +2920,11 @@ fun AddVoucherBottomSheet(
 
         }
     }
+
+    VoiceSupportDialogs(
+        dialogType = voiceDialogType,
+        onDismiss = { voiceDialogType = VoiceDialogType.NONE }
+    )
 }
 
 @Composable

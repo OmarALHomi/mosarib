@@ -1,4 +1,4 @@
-status: ready
+status: done
 <!-- Owner decisions 2026-11-03: free for everyone; no AI (offline rules only); the user says the
 hours and the hourly rate (and an optional payment), never the total; all operation types. Runs in
 worktree D:\Kotlin\mosarib-t020 (branch task/030) IN PARALLEL with 027. Do NOT touch
@@ -145,3 +145,5 @@ ignored, and recognizer digit output.
 ---
 ## Review notes (written by Claude)
 _(empty)_
+Round 1 (2026-11-03): changes requested. See `.ai/reviews/030-review-round1.md`.
+Round 2 (2026-11-03): changes requested after the owner voice test. See `.ai/reviews/030-review-round2.md`.

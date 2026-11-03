@@ -1,5 +1,22 @@
 package com.example.features.home
 
+import androidx.compose.material.icons.filled.Mic
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.example.core.voice.VoiceCommand
+import com.example.core.voice.VoiceCommandType
+import com.example.core.voice.VoiceHintSheet
+import com.example.core.voice.VoiceMissingDialog
+import com.example.core.voice.VoiceDialogType
+import com.example.core.voice.VoiceSupportDialogs
+import com.example.core.voice.VoiceCustomerChooserDialog
+import com.example.core.voice.CustomerMatcher
+import com.example.core.voice.VoiceRecognitionHelper
+import com.example.core.voice.VoiceAliasRepository
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -146,13 +163,90 @@ fun HomeScreen(
 
     val context = LocalContext.current
     var showActivationDialog by remember { mutableStateOf(false) }
+
+
     var showHomeTour by remember { mutableStateOf(!LicenseManager.isHomeTourCompleted(context)) }
     var showAddManualSheet by remember { mutableStateOf(false) }
     var showAddVoucherSheet by remember { mutableStateOf(false) }
     var voucherInitialType by remember { mutableStateOf(VoucherType.RECEIPT) }
     var showAddCustomerSheet by remember { mutableStateOf(false) }
     var showAddPurchaseSheet by remember { mutableStateOf(false) }
+
+    val coroutineScope = rememberCoroutineScope()
+    var activeVoiceCommand by remember { mutableStateOf<VoiceCommand?>(null) }
+    var showVoiceHintSheet by remember { mutableStateOf(false) }
+    var voiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
+    var ambiguousVoiceCommand by remember { mutableStateOf<VoiceCommand?>(null) }
+    var ambiguousCandidates by remember { mutableStateOf<List<Customer>>(emptyList()) }
+
+    fun openFormForVoiceCommand(cmd: VoiceCommand) {
+        activeVoiceCommand = cmd
+        when (cmd.type) {
+            VoiceCommandType.SESSION -> {
+                showAddManualSheet = true
+            }
+            VoiceCommandType.RECEIPT -> {
+                voucherInitialType = VoucherType.RECEIPT
+                showAddVoucherSheet = true
+            }
+            VoiceCommandType.EXPENSE -> {
+                voucherInitialType = VoucherType.EXPENSE
+                showAddVoucherSheet = true
+            }
+            VoiceCommandType.PURCHASE -> {
+                showAddPurchaseSheet = true
+            }
+            VoiceCommandType.DISCOUNT -> {
+                voucherInitialType = VoucherType.RECEIPT
+                showAddVoucherSheet = true
+            }
+            null -> {}
+        }
+    }
+
+    val homeVoiceLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val matches = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS).orEmpty()
+            val parsedCmd = VoiceRecognitionHelper.parseFirstValidCommand(matches)
+            if (parsedCmd == null) {
+                Toast.makeText(context, "لم أفهم، حاول مرة أخرى", Toast.LENGTH_LONG).show()
+                showVoiceHintSheet = true
+                return@rememberLauncherForActivityResult
+            }
+
+            coroutineScope.launch {
+                if (parsedCmd.customerQuery != null) {
+                    val list = if (parsedCmd.type == VoiceCommandType.PURCHASE) {
+                        customers.filter { it.isWellOwner }
+                    } else {
+                        customers
+                    }
+                    val aliases = VoiceAliasRepository.getAliases(context)
+                    val ranked = CustomerMatcher.match(parsedCmd.customerQuery, list, aliases)
+                    if (ranked.isNotEmpty()) {
+                        if (!CustomerMatcher.isHighConfidence(ranked) && ranked.size > 1) {
+                            ambiguousVoiceCommand = parsedCmd
+                            ambiguousCandidates = ranked.map { it.customer }
+                            return@launch
+                        }
+                    }
+                }
+                openFormForVoiceCommand(parsedCmd)
+            }
+        } else {
+            val err = result.data?.getIntExtra("android.speech.extra.ERROR_CODE", -1) ?: -1
+            if (err > 0) {
+                Toast.makeText(context, VoiceRecognitionHelper.getErrorMessage(err), Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     var homePurchaseTarget by remember { mutableStateOf<Triple<Customer, String, String>?>(null) }
+
+    LaunchedEffect(Unit) {
+        VoiceRecognitionHelper.checkArabicSupport(context) { _ -> }
+    }
 
     fun checkOperationAllowed(action: () -> Unit) {
         if (LicenseManager.canPerformOperation(context, operationsCount)) {
@@ -375,6 +469,26 @@ fun HomeScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        QuickActionCard(
+                            title = "إدخال صوتي",
+                            subtitle = "تسجيل دورة، سند، أو مصروف بالصوت",
+                            icon = Icons.Default.Mic,
+                            iconBgColor = PrimaryTeal.copy(alpha = 0.15f),
+                            iconTint = PrimaryTeal,
+                            onClick = {
+                                if (!VoiceRecognitionHelper.isRecognitionAvailable(context)) {
+                                    voiceDialogType = VoiceDialogType.MISSING_ENGINE
+                                } else {
+                                    showVoiceHintSheet = true
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
 
@@ -516,7 +630,20 @@ fun HomeScreen(
             defaultPricePerHour = config.defaultPricePerHour,
             currencySymbol = config.currencySymbol,
             onCreateCustomer = { customer -> sessionsViewModel.createCustomer(customer) },
-            onDismiss = { showAddManualSheet = false },
+            onDismiss = {
+                showAddManualSheet = false
+                activeVoiceCommand = null
+            },
+            voiceCommand = activeVoiceCommand,
+            onReSpeak = {
+                showAddManualSheet = false
+                VoiceRecognitionHelper.launchRecognition(
+                    context = context,
+                    launcher = homeVoiceLauncher,
+                    onShowDialog = { voiceDialogType = it },
+                    prompt = "تحدث الآن..."
+                )
+            },
             onSave = { id, custId, pumpName, startTime, endTime, hrs, mins, rate, paid, notes, billedTo, wastedMins, wastedReason, discount, costRate, pumpId ->
                 sessionsViewModel.saveManualSession(
                     id = id,
@@ -547,7 +674,20 @@ fun HomeScreen(
             customers = customers,
             allSessions = allSessions,
             currencySymbol = config.currencySymbol,
-            onDismiss = { showAddVoucherSheet = false },
+            onDismiss = {
+                showAddVoucherSheet = false
+                activeVoiceCommand = null
+            },
+            voiceCommand = activeVoiceCommand,
+            onReSpeak = {
+                showAddVoucherSheet = false
+                VoiceRecognitionHelper.launchRecognition(
+                    context = context,
+                    launcher = homeVoiceLauncher,
+                    onShowDialog = { voiceDialogType = it },
+                    prompt = "تحدث الآن..."
+                )
+            },
             onSave = { type, customerId, amount, category, method, notes, sessionId, selectedSessionIds, discountAmount ->
                 vouchersViewModel.addVoucher(
                     type = type,
@@ -571,7 +711,20 @@ fun HomeScreen(
             owner = null,
             availableOwners = wellOwners,
             currencySymbol = config.currencySymbol,
-            onDismiss = { showAddPurchaseSheet = false },
+            onDismiss = {
+                showAddPurchaseSheet = false
+                activeVoiceCommand = null
+            },
+            voiceCommand = activeVoiceCommand,
+            onReSpeak = {
+                showAddPurchaseSheet = false
+                VoiceRecognitionHelper.launchRecognition(
+                    context = context,
+                    launcher = homeVoiceLauncher,
+                    onShowDialog = { voiceDialogType = it },
+                    prompt = "تحدث الآن..."
+                )
+            },
             onSaveWithOwner = { ownerId, date, duration, wasted, rate, paid, notes, startTime, endTime ->
                 customersViewModel.addOwnerPurchase(
                     ownerCustomerId = ownerId,
@@ -653,5 +806,48 @@ fun HomeScreen(
             onDismiss = { showHomeTour = false }
         )
     }
-}
 
+    // Voice Hint Sheet, Support Dialogs, and Ambiguous Customer Chooser
+    if (showVoiceHintSheet) {
+        VoiceHintSheet(
+            onDismiss = { showVoiceHintSheet = false },
+            onStartListening = {
+                showVoiceHintSheet = false
+                VoiceRecognitionHelper.launchRecognition(
+                    context = context,
+                    launcher = homeVoiceLauncher,
+                    onShowDialog = { voiceDialogType = it },
+                    prompt = "تحدث الآن..."
+                )
+            }
+        )
+    }
+
+    VoiceSupportDialogs(
+        dialogType = voiceDialogType,
+        onDismiss = { voiceDialogType = VoiceDialogType.NONE }
+    )
+
+    ambiguousVoiceCommand?.let { cmd ->
+        VoiceCustomerChooserDialog(
+            spokenQuery = cmd.customerQuery.orEmpty(),
+            candidates = ambiguousCandidates,
+            onSelectCustomer = { chosenCustomer ->
+                coroutineScope.launch {
+                    cmd.customerQuery?.let { q ->
+                        VoiceAliasRepository.saveAlias(context, q, chosenCustomer.id)
+                    }
+                }
+                ambiguousVoiceCommand = null
+                openFormForVoiceCommand(cmd.copy(customerQuery = chosenCustomer.name))
+            },
+            onChooseOther = {
+                ambiguousVoiceCommand = null
+                openFormForVoiceCommand(cmd.copy(customerQuery = null))
+            },
+            onDismiss = {
+                ambiguousVoiceCommand = null
+            }
+        )
+    }
+}
