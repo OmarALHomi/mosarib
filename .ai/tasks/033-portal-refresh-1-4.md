@@ -44,7 +44,7 @@ uploading 1.4.0. Keep the design; text and data fixes only. No secrets in PHP/JS
    per-IP throttle (5 per hour, same file pattern as login attempts, with `flock`) and a hidden
    honeypot field; never let spam evict older real requests.
 4. **APK upload** (`release_manager.php` ~36–60): enforce `MAX_UPLOAD_SIZE`, check the ZIP magic
-   bytes `PK`, and allow only ADMIN / SUPER_ADMIN (not MODERATOR) to upload or publish a
+   bytes (the file starts with "PK" then bytes 03 04), and allow only ADMIN / SUPER_ADMIN (not MODERATOR) to upload or publish a
    force update.
 5. **set_cloud_link** (~107–140): accept only `https://` URLs (`filter_var`), and add a
    `version_name` field instead of inventing `1.{code}.0`.
