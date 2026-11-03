@@ -386,11 +386,11 @@ fun AddEditSessionBottomSheet(
     // تواريخ وساعات البدء والانتهاء (تُعاد تهيئتها دائماً عند فتح نموذج جديد دون الاحتفاظ بالوقت السابق)
     val formKey = remember { System.currentTimeMillis() }
     val now = if (initialSession != null) System.currentTimeMillis() else formKey
-    val initialStartTime = initialSession?.startTime ?: (now - 3600000L)
-    val initialEndTime = initialSession?.endTime ?: now
+    val initialStartTime = voiceCommand?.startMillis ?: (initialSession?.startTime ?: (now - 3600000L))
+    val initialEndTime = voiceCommand?.endMillis ?: (initialSession?.endTime ?: now)
 
-    var startDateMillis by remember(initialSession?.id, formKey) { mutableLongStateOf(initialStartTime) }
-    var endDateMillis by remember(initialSession?.id, formKey) { mutableLongStateOf(initialEndTime) }
+    var startDateMillis by remember(initialSession?.id, formKey, voiceCommand) { mutableLongStateOf(initialStartTime) }
+    var endDateMillis by remember(initialSession?.id, formKey, voiceCommand) { mutableLongStateOf(initialEndTime) }
 
     val defaultStartCal = remember(startDateMillis, initialSession?.id, formKey) {
         Calendar.getInstance().apply {
@@ -408,9 +408,14 @@ fun AddEditSessionBottomSheet(
     var endHour by remember(initialSession?.id, formKey) { mutableIntStateOf(defaultEndCal.get(Calendar.HOUR_OF_DAY)) }
     var endMinute by remember(initialSession?.id, formKey) { mutableIntStateOf((defaultEndCal.get(Calendar.MINUTE) / 5) * 5) }
 
+    val hasTimeRange = voiceCommand?.startMillis != null && voiceCommand?.endMillis != null
     val initialVoiceDuration = voiceCommand?.durationMinutes
     var timeMode by remember(initialSession?.id, formKey, voiceCommand) {
-        mutableStateOf(if (initialVoiceDuration != null) SessionTimeMode.MANUAL else SessionTimeMode.PICKER)
+        mutableStateOf(
+            if (hasTimeRange) SessionTimeMode.PICKER
+            else if (initialVoiceDuration != null) SessionTimeMode.MANUAL
+            else SessionTimeMode.PICKER
+        )
     }
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showStartDatePicker by remember { mutableStateOf(false) }
@@ -656,6 +661,12 @@ fun AddEditSessionBottomSheet(
     }
 
 
+    LaunchedEffect(effectiveFarmerCharge, currentVoiceCommand) {
+        if (currentVoiceCommand?.paidFull == true && effectiveFarmerCharge > 0) {
+            amountPaidStr = Formatters.formatAmountInput(effectiveFarmerCharge.toString())
+        }
+    }
+
     val amountPaid by remember { derivedStateOf { Formatters.parseAmountInput(amountPaidStr) } }
     val remainingDebt by remember(effectiveFarmerCharge, amountPaid, isBilledToWellOwner) {
         derivedStateOf {
@@ -722,10 +733,21 @@ fun AddEditSessionBottomSheet(
                     }
                 }
                 "form_command" -> {
-                    val cmd = VoiceRecognitionHelper.parseFirstValidCommand(matches)
+                    val knownCustomerNames = customers.map { it.name }
+                    val cmd = VoiceRecognitionHelper.parseFirstValidCommand(matches, knownCustomerNames)
                     if (cmd != null && (cmd.durationMinutes != null || cmd.ratePerHour != null || cmd.paid != null || !cmd.customerQuery.isNullOrBlank())) {
                         currentVoiceCommand = cmd
-                        if (cmd.durationMinutes != null && cmd.durationMinutes > 0) {
+                        if (cmd.startMillis != null && cmd.endMillis != null) {
+                            timeMode = SessionTimeMode.PICKER
+                            startDateMillis = cmd.startMillis
+                            endDateMillis = cmd.endMillis
+                            val sCal = Calendar.getInstance().apply { timeInMillis = cmd.startMillis }
+                            val eCal = Calendar.getInstance().apply { timeInMillis = cmd.endMillis }
+                            startHour = sCal.get(Calendar.HOUR_OF_DAY)
+                            startMinute = sCal.get(Calendar.MINUTE)
+                            endHour = eCal.get(Calendar.HOUR_OF_DAY)
+                            endMinute = eCal.get(Calendar.MINUTE)
+                        } else if (cmd.durationMinutes != null && cmd.durationMinutes > 0) {
                             timeMode = SessionTimeMode.MANUAL
                             val h = (cmd.durationMinutes / 60).toString()
                             val m = (cmd.durationMinutes % 60).let { if (it > 0) it.toString() else "" }

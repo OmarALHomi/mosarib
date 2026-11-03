@@ -1,4 +1,4 @@
-status: ready
+status: done
 <!-- Owner request 2026-11-03 after testing 1.4.0. Worktree D:\Kotlin\mosarib-t032, branch task/032.
 Rules only, no AI, no network. Never save by voice (forms are only prefilled, as in 030). -->
 # Task 032: Understand short and free-form spoken phrases (word order does not matter)

@@ -14,6 +14,7 @@ import com.example.core.voice.VoiceRecordSheet
 import com.example.core.voice.VoiceWellOwnerActionChooserDialog
 import com.example.core.voice.VoiceVoucherTypeChooserDialog
 import com.example.core.voice.VoiceUnrecognizedDialog
+import com.example.core.voice.VoiceUnparsedLog
 import com.example.core.voice.CustomerMatcher
 import com.example.core.voice.VoiceRecognitionHelper
 import com.example.core.voice.VoiceAliasRepository
@@ -223,24 +224,39 @@ fun HomeScreen(
             unrecognizedSpokenText = ""
             return
         }
-        val parsedCmd = VoiceRecognitionHelper.parseFirstValidCommand(matches)
-        val firstCandidate = matches.first().trim()
-        VoiceRecognitionHelper.logDebug("VoiceInput", "candidates: $matches, parsed: $parsedCmd")
-
-        if (parsedCmd == null || (parsedCmd.type == null && parsedCmd.amount == null && parsedCmd.durationMinutes == null)) {
-            VoiceRecognitionHelper.logDebug("VoiceInput", "branch: UNRECOGNIZED_COMMAND, spoken='$firstCandidate'")
-            unrecognizedSpokenText = firstCandidate
-            return
-        }
-
-        // Branch 1: Voucher type chooser (amount + customer with no explicit verb)
-        if (parsedCmd.type == null && parsedCmd.amount != null) {
-            VoiceRecognitionHelper.logDebug("VoiceInput", "branch: VOUCHER_TYPE_CHOOSER, cmd=$parsedCmd")
-            voucherTypeChooserCommand = parsedCmd
-            return
-        }
-
         coroutineScope.launch {
+            val aliases = VoiceAliasRepository.getAliases(context)
+            val knownCustomerNames = customers.map { it.name } + aliases.keys
+            val parsedCmd = VoiceRecognitionHelper.parseFirstValidCommand(
+                candidates = matches,
+                knownNames = knownCustomerNames,
+                now = System.currentTimeMillis()
+            )
+            val firstCandidate = matches.first().trim()
+            VoiceRecognitionHelper.logDebug("VoiceInput", "candidates: $matches, parsed: $parsedCmd")
+
+            val hasPieces = parsedCmd != null && (
+                parsedCmd.type != null ||
+                parsedCmd.amount != null ||
+                parsedCmd.durationMinutes != null ||
+                !parsedCmd.customerQuery.isNullOrBlank() ||
+                !parsedCmd.category.isNullOrBlank()
+            )
+
+            if (parsedCmd == null || !hasPieces) {
+                VoiceRecognitionHelper.logDebug("VoiceInput", "branch: UNRECOGNIZED_COMMAND, spoken='$firstCandidate'")
+                VoiceUnparsedLog.log(context, firstCandidate, "unrecognized")
+                unrecognizedSpokenText = firstCandidate
+                return@launch
+            }
+
+            // Branch 1: Voucher type chooser (when type is undecided, open chooser with filled pieces)
+            if (parsedCmd.type == null) {
+                VoiceRecognitionHelper.logDebug("VoiceInput", "branch: VOUCHER_TYPE_CHOOSER, cmd=$parsedCmd")
+                VoiceUnparsedLog.log(context, firstCandidate, "type_chooser")
+                voucherTypeChooserCommand = parsedCmd
+                return@launch
+            }
             // Branch 2: Well owner duration ambiguity ("سقي على حسابه / شراء ساعات منه")
             if (parsedCmd.durationMinutes != null && parsedCmd.durationMinutes > 0 && !parsedCmd.customerQuery.isNullOrBlank()) {
                 val aliases = VoiceAliasRepository.getAliases(context)

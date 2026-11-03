@@ -9,6 +9,7 @@ import com.example.core.voice.VoiceSupportDialogs
 import com.example.core.voice.VoiceRecordSheet
 import com.example.core.voice.VoiceUnrecognizedDialog
 import com.example.core.voice.CustomerMatcher
+import com.example.core.voice.VoiceAliasRepository
 import com.example.core.voice.SpokenNumberParser
 import com.example.core.voice.VoiceRecognitionHelper
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -2229,7 +2230,8 @@ fun AddVoucherBottomSheet(
                     }
                 }
                 "form_command" -> {
-                    val cmd = VoiceRecognitionHelper.parseFirstValidCommand(matches)
+                    val knownCustomerNames = customers.map { it.name }
+                    val cmd = VoiceRecognitionHelper.parseFirstValidCommand(matches, knownCustomerNames)
                     if (cmd != null && (cmd.amount != null || cmd.type != null || !cmd.customerQuery.isNullOrBlank())) {
                         currentVoiceCommand = cmd
                         if (cmd.type == VoiceCommandType.RECEIPT || cmd.type == VoiceCommandType.DISCOUNT) {
@@ -2255,7 +2257,9 @@ fun AddVoucherBottomSheet(
                                 }
                             }
                         }
-                        if (!cmd.category.isNullOrBlank()) {
+                        if (!cmd.notes.isNullOrBlank()) {
+                            notes = cmd.notes
+                        } else if (!cmd.category.isNullOrBlank()) {
                             notes = cmd.category
                         }
                         if (!cmd.notes.isNullOrBlank()) {

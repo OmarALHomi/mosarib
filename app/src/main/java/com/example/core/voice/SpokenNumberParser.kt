@@ -29,6 +29,7 @@ object SpokenNumberParser {
      * - Arabic thousands separator: "10٬000" -> "10000"
      * - Thousands dot (when followed by exactly 3 digits): "10.000" -> "10000"
      * - Thousands space: "10 000" -> "10000"
+     * - Arabic decimal separator ٫ inside digits
      */
     fun cleanNumberSeparators(text: String): String {
         var s = toAsciiDigits(text)
@@ -36,14 +37,28 @@ object SpokenNumberParser {
         s = s.replace(Regex("(?<=\\d)\\.(?=\\d{3}(?:\\D|$))"), "")
         // Arabic thousands separator (٬), comma (,), Arabic comma (،)
         s = s.replace(Regex("(?<=\\d)[,،٬](?=\\d{3}(?:\\D|$))"), "")
-        s = s.replace(Regex("(?<=\\d)[,٬](?=\\d)"), "")
+        s = s.replace(Regex("(?<=\\d)[,٬٫](?=\\d)"), "")
         // Space as thousands separator between digits
         s = s.replace(Regex("(?<=\\d)\\s+(?=\\d{3}(?:\\D|$))"), "")
         return s
     }
 
     /**
-     * Normalizes text for number matching (strips diacritics, tatweel, standardizes alef, taa marbuta, yaa).
+     * Collapses repeated Arabic letters in speech recognition (e.g. "لااا" -> "لا", "ايوووه" -> "ايوه").
+     * Never collapses digits.
+     */
+    fun collapseRepeatedLetters(text: String): String {
+        var s = text.replace(Regex("([\\p{L}&&[^0-9]])\\1{2,}")) { m -> m.groupValues[1] }
+        s = s.replace(Regex("[ا]{2,}"), "ا")
+        s = s.replace(Regex("[و]{2,}"), "و")
+        s = s.replace(Regex("[ي]{2,}"), "ي")
+        s = s.replace(Regex("[ه]{2,}"), "ه")
+        return s
+    }
+
+    /**
+     * Normalizes text for number and slot matching.
+     * Strips diacritics, tatweel, standardizes alef, taa marbuta, yaa, waw/yaa with hamza.
      */
     fun normalizeToken(text: String): String {
         var t = toAsciiDigits(text)
@@ -52,11 +67,40 @@ object SpokenNumberParser {
         t = t.replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا').replace('ٱ', 'ا')
         t = t.replace('ة', 'ه')
         t = t.replace('ى', 'ي')
+        t = t.replace('ؤ', 'و')
+        t = t.replace('ئ', 'ي')
+        t = collapseRepeatedLetters(t)
         return t
+    }
+
+    /**
+     * Splits glued conjunction "و" from known words (e.g. "ومسلم" -> "و مسلم", "وربع" -> "و ربع", "ونص" -> "و نص").
+     */
+    fun splitGluedConjunction(text: String): String {
+        val words = text.split(" ")
+        val sb = StringBuilder()
+        for ((idx, w) in words.withIndex()) {
+            if (idx > 0) sb.append(" ")
+            if (w.startsWith("و") && w.length > 2 && !w.startsWith("واحد") && !w.startsWith("واحده") && !w.startsWith("وحده")) {
+                val rem = w.substring(1)
+                val isKnown = rem in listOf(
+                    "مسلم", "سلم", "سلمه", "سلمت", "سلمنا", "دفع", "دفعه", "دفعت", "دفعنا",
+                    "نص", "نصف", "ربع", "ثلث", "تلت", "ادي", "أدى", "ادى",
+                    "قبض", "صرف", "شراء", "اشتريت", "خصم", "سدد", "واصل", "كامل", "خمسميه", "عشرين"
+                ) || rem.all { it.isDigit() } || VoicePhraseRules.EXPENSE_CATEGORIES.contains(rem)
+                if (isKnown) {
+                    sb.append("و ").append(rem)
+                    continue
+                }
+            }
+            sb.append(w)
+        }
+        return sb.toString()
     }
 
     private fun stripConjunctionWaw(token: String): String {
         if (token in listOf("واحد", "واحده", "وحدة", "وحدي")) return token
+        if (token == "و") return ""
         return if (token.startsWith("و") && token.length > 2) token.drop(1) else token
     }
 
@@ -74,7 +118,7 @@ object SpokenNumberParser {
         "عشره" to 10.0, "عشر" to 10.0,
         // Teens (MSA and Yemeni dialect)
         "حداعش" to 11.0, "احداعش" to 11.0, "احدعشر" to 11.0, "احداعشر" to 11.0,
-        "اطناعش" to 12.0, "طناعش" to 12.0, "اثناعشر" to 12.0, "اثنيعشر" to 12.0,
+        "اطناعش" to 12.0, "طناعش" to 12.0, "طنعش" to 12.0, "اتنعش" to 12.0, "اثناعش" to 12.0, "اثناعشر" to 12.0, "اثنيعشر" to 12.0,
         "تلطاعش" to 13.0, "ثلاثطعش" to 13.0, "تلاتاشر" to 13.0, "ثلاثتاشر" to 13.0,
         "اربعطعش" to 14.0, "ارباطاعش" to 14.0, "اربعتاشر" to 14.0,
         "خمسطعش" to 15.0, "خموسطاعش" to 15.0, "خمستاشر" to 15.0,
@@ -122,6 +166,13 @@ object SpokenNumberParser {
         norm = norm.replace(Regex("^(المجموع|الاجمالي|مجموع|اجمالي)\\s*"), " ")
         norm = norm.replace(Regex("\\s+"), " ").trim()
         if (norm.isBlank()) return null
+
+        // Handle speech repeat of identical phrase (e.g. "50 الف 50 الف")
+        val repeatMatch = Regex("^(.+?)\\s+\\1$").matchEntire(norm)
+        if (repeatMatch != null) {
+            val single = parseSpokenNumber(repeatMatch.groupValues[1])
+            if (single != null) return single
+        }
 
         // Direct raw digits check (e.g. "5000", "5000.0")
         val cleanDigits = norm.replace(" ", "")
@@ -184,6 +235,10 @@ object SpokenNumberParser {
         var j = 0
         while (j < tokens.size) {
             val tok = tokens[j]
+            if (tok == "و" || tok.isBlank()) {
+                j++
+                continue
+            }
 
             // Check if token is raw digits
             val numVal = tok.toDoubleOrNull()

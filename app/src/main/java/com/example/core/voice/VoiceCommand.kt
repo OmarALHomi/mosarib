@@ -18,5 +18,9 @@ data class VoiceCommand(
     val category: String? = null,
     val notes: String? = null,
     val unparsed: List<String> = emptyList(),
-    val rawText: String = ""
+    val rawText: String = "",
+    val paidFull: Boolean = false,
+    val startMillis: Long? = null,
+    val endMillis: Long? = null,
+    val warningBanner: String? = null
 )

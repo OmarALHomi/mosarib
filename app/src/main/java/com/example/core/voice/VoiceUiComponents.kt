@@ -39,6 +39,11 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -607,6 +612,7 @@ fun VoiceSummaryBanner(
         summaryText = summary,
         rawSpokenText = command.rawText,
         unparsedWarnings = command.unparsed,
+        warningBanner = command.warningBanner,
         onReSpeak = onReSpeak ?: {},
         modifier = modifier
     )
@@ -622,6 +628,7 @@ fun VoiceSummaryBanner(
     summaryText: String,
     rawSpokenText: String? = null,
     unparsedWarnings: List<String> = emptyList(),
+    warningBanner: String? = null,
     onReSpeak: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -711,6 +718,26 @@ fun VoiceSummaryBanner(
                     Text(
                         text = "كلمات لم يتم التعرف عليها: ${unparsedWarnings.joinToString(", ")}",
                         style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.warning)
+                    )
+                }
+            }
+
+            if (!warningBanner.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.WarningAmber,
+                        contentDescription = null,
+                        tint = MaterialTheme.mosarib.warning,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = warningBanner,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.mosarib.warning
+                        )
                     )
                 }
             }
@@ -1292,6 +1319,162 @@ fun VoiceRecordSheet(
                             text = "أو اضغط للبدء ثم اضغط للإنهاء",
                             style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted)
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+/**
+ * Bottom sheet displaying the last 50 unparsed voice phrases with copy, share and clear actions (Section 7.9).
+ */
+@Composable
+fun VoiceUnparsedPhrasesSheet(
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var entries by remember { mutableStateOf(VoiceUnparsedLog.getEntries(context)) }
+
+    fun buildShareableText(): String {
+        return entries.joinToString("\n---\n") { e ->
+            "النص: ${e.text}\nالتاريخ: ${com.example.core.util.Formatters.formatDateTime(e.date)}\nالنتيجة: ${e.result}"
+        }
+    }
+
+    com.example.core.ui.MosaribBottomSheet(
+        onDismissRequest = onDismiss,
+        title = "جمل لم تُفهم (${entries.size})",
+        subtitle = "الجمل التي انتهت في محدد نوع العملية أو لم يتم التعرف عليها",
+        icon = Icons.Default.WarningAmber
+    ) {
+        if (entries.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "لا توجد جمل غير مفهومة حالياً",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.mosarib.textMuted
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        val textToCopy = buildShareableText()
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("unparsed_phrases", textToCopy))
+                        android.widget.Toast.makeText(context, "تم نسخ جميع الجمل", android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("نسخ الكل", style = MaterialTheme.typography.labelSmall)
+                }
+
+                Button(
+                    onClick = {
+                        val textToShare = buildShareableText()
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, textToShare)
+                        }
+                        context.startActivity(Intent.createChooser(shareIntent, "مشاركة الجمل غير المفهومة"))
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("مشاركة", style = MaterialTheme.typography.labelSmall)
+                }
+
+                TextButton(
+                    onClick = {
+                        VoiceUnparsedLog.clear(context)
+                        entries = emptyList()
+                        android.widget.Toast.makeText(context, "تم مسح القائمة", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                ) {
+                    Text("مسح القائمة", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            androidx.compose.foundation.lazy.LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(350.dp)
+                    .padding(horizontal = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(entries) { entry ->
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = entry.text,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("phrase", entry.text))
+                                        android.widget.Toast.makeText(context, "تم النسخ", android.widget.Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "نسخ",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = com.example.core.util.Formatters.formatDateTime(entry.date),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.mosarib.textMuted
+                                )
+                                Text(
+                                    text = when (entry.result) {
+                                        "unrecognized" -> "لم يتم التعرف"
+                                        "type_chooser" -> "محدد نوع العملية"
+                                        else -> entry.result
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.mosarib.warning
+                                )
+                            }
+                        }
                     }
                 }
             }

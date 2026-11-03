@@ -23,6 +23,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.WarningAmber
+import com.example.core.voice.VoiceUnparsedLog
+import com.example.core.voice.VoiceUnparsedPhrasesSheet
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -79,6 +82,8 @@ internal fun SettingsVoiceScreen(
     var status by remember { mutableStateOf<SpeechStatus?>(null) }
     var showVoicePickerSheet by remember { mutableStateOf(false) }
     var chosenVoiceName by remember { mutableStateOf(MosaribSpeaker.getChosenVoiceName(context)) }
+    var showUnparsedPhrasesSheet by remember { mutableStateOf(false) }
+    var unparsedEntriesCount by remember { mutableStateOf(VoiceUnparsedLog.getEntries(context).size) }
 
     LaunchedEffect(Unit) {
         status = MosaribSpeaker.prepare(context)
@@ -444,6 +449,22 @@ internal fun SettingsVoiceScreen(
                     }
                 }
             }
+            // -----------------------------------------------------------------
+            // 4. جمل لم تُفهم (لتطوير القواعد)
+            // -----------------------------------------------------------------
+            item {
+                Spacer(modifier = Modifier.height(14.dp))
+                SettingsSectionHeader(title = "سجل التعرف الصوتي")
+                SettingsCard {
+                    SettingsRow(
+                        title = "جمل لم تُفهم ($unparsedEntriesCount)",
+                        subtitle = "عرض الجمل غير المفهومة لنسخها أو مشاركتها وتطوير القواعد",
+                        icon = Icons.Default.WarningAmber,
+                        iconTint = MaterialTheme.mosarib.warning,
+                        onClick = { showUnparsedPhrasesSheet = true }
+                    )
+                }
+            }
         }
     }
 
@@ -551,4 +572,13 @@ internal fun SettingsVoiceScreen(
     }
 
 
+
+    if (showUnparsedPhrasesSheet) {
+        VoiceUnparsedPhrasesSheet(
+            onDismiss = {
+                showUnparsedPhrasesSheet = false
+                unparsedEntriesCount = VoiceUnparsedLog.getEntries(context).size
+            }
+        )
+    }
 }

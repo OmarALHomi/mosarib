@@ -387,16 +387,20 @@ object VoiceRecognitionHelper {
      * Evaluates speech recognition candidates in order and returns the first one that parses.
      * Logs candidate list in debug builds.
      */
-    fun parseFirstValidCommand(candidates: List<String>?): VoiceCommand? {
+    fun parseFirstValidCommand(
+        candidates: List<String>?,
+        knownNames: List<String> = emptyList(),
+        now: Long = System.currentTimeMillis()
+    ): VoiceCommand? {
         if (candidates.isNullOrEmpty()) return null
         logDebug("VoiceInput", "candidates: $candidates")
         for (cand in candidates) {
-            val cmd = VoiceCommandParser.parse(cand)
+            val cmd = VoiceCommandParser.parse(cand, knownNames, now)
             if (cmd.type != null) {
                 return cmd
             }
         }
         val first = candidates.first()
-        return VoiceCommandParser.parse(first)
+        return VoiceCommandParser.parse(first, knownNames, now)
     }
 }
