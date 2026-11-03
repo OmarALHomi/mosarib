@@ -45,11 +45,11 @@ class SpeechTextBuilderTest {
 
     @Test
     fun testSpeechNumberWordsRequiredAmounts() {
-        assertEquals("سبع مِئة وخمسون ريال", SpeechTextBuilder.amountToSpeechWords(750.0))
-        assertEquals("ثلاثة آلاف وخمس مِئة ريال", SpeechTextBuilder.amountToSpeechWords(3500.0))
+        assertEquals("سبع مِئَة وخمسون ريال", SpeechTextBuilder.amountToSpeechWords(750.0))
+        assertEquals("ثلاثة آلاف وخمس مِئَة ريال", SpeechTextBuilder.amountToSpeechWords(3500.0))
         assertEquals("أربعة عشر ألف ريال", SpeechTextBuilder.amountToSpeechWords(14000.0))
-        assertEquals("أربعة عشر ألف وخمس مِئة ريال", SpeechTextBuilder.amountToSpeechWords(14500.0))
-        assertEquals("مِئة وخمسة وعشرون ألف ريال", SpeechTextBuilder.amountToSpeechWords(125000.0))
+        assertEquals("أربعة عشر ألف وخمس مِئَة ريال", SpeechTextBuilder.amountToSpeechWords(14500.0))
+        assertEquals("مِئَة وخمسة وعشرون ألف ريال", SpeechTextBuilder.amountToSpeechWords(125000.0))
         assertEquals("مليونين ريال", SpeechTextBuilder.amountToSpeechWords(2000000.0))
     }
 
@@ -83,12 +83,12 @@ class SpeechTextBuilderTest {
         assertEquals("عَلَيْكَ", SpeechPronunciation.forSpeech("عليك"))
         // ة: "ه" in pause, "ت" in idafa before ألف / آلاف / مليون
         assertEquals("دَقِيقَهْ", SpeechPronunciation.forSpeech("دقيقة"))
-        assertEquals("مِئهْ وَخَمْسِينْ", SpeechPronunciation.forSpeech("مئة وخمسون"))
-        assertEquals("مِئتْ أَلْفْ", SpeechPronunciation.forSpeech("مئة ألف"))
+        assertEquals("مِئَهْ وَخَمْسِينْ", SpeechPronunciation.forSpeech("مئة وخمسون"))
+        assertEquals("مِئَتْ أَلْفْ", SpeechPronunciation.forSpeech("مئة ألف"))
         assertEquals("خمستْ آلَافْ", SpeechPronunciation.forSpeech("خمسة آلاف"))
         assertEquals("ثلاثتْ مِلْيُونْ", SpeechPronunciation.forSpeech("ثلاثة مليون"))
         assertEquals("ثلاثهْ وَعِشْرِينْ", SpeechPronunciation.forSpeech("ثلاثة وعشرون"))
-        assertEquals("ثلاثتْ آلَافْ وخمسْ مِئهْ رِيَالْ", SpeechPronunciation.forSpeech("ثلاثة آلاف وخمس مِئة ريال"))
+        assertEquals("ثلاثتْ آلَافْ وخمسْ مِئَهْ رِيَالْ", SpeechPronunciation.forSpeech("ثلاثة آلاف وخمس مِئة ريال"))
     }
 
     @Test
@@ -173,7 +173,7 @@ class SpeechTextBuilderTest {
         )
         val text = SpeechTextBuilder.buildSessionSentence(session, "أحمد", "ريال")
         assertTrue(text.contains("سقي لـأحمد"))
-        assertTrue(text.contains("ساعتان وثلاثون دقيقة"))
+        assertTrue(text.contains("ساعتان وثلاثون دقيقة من ألفان"))
         assertTrue(text.contains("المبلغ خمسة آلاف ريال"))
         assertTrue(text.contains("مسدد بالكامل."))
         assertFalse(text.contains("المدفوع"))
@@ -193,7 +193,7 @@ class SpeechTextBuilderTest {
         )
         val text = SpeechTextBuilder.buildSessionSentence(session, "علي", "ريال")
         assertTrue(text.contains("سقي لـعلي"))
-        assertTrue(text.contains("ساعة واحدة"))
+        assertTrue(text.contains("ساعة واحدة من خمسة آلاف"))
         assertTrue(text.contains("المبلغ خمسة آلاف ريال"))
         assertTrue(text.contains("المدفوع ألفان ريال"))
         assertTrue(text.contains("الباقي ثلاثة آلاف ريال"))
@@ -221,13 +221,13 @@ class SpeechTextBuilderTest {
     @Test
     fun testBuildDiscountSentence() {
         val text = SpeechTextBuilder.buildDiscountSentence("سعيد", 2500.0, "ريال")
-        assertEquals("خصم لـسعيد، ألفان وخمس مِئة ريال.", text)
+        assertEquals("خصم لـسعيد، ألفان وخمس مِئَة ريال.", text)
     }
 
     @Test
     fun testBuildPurchaseSentence() {
         val text = SpeechTextBuilder.buildPurchaseSentence("صالح", 150, 20000.0, "ريال")
-        assertEquals("شراء ساعات من صالح، ساعتان وثلاثون دقيقة، عشرون ألف ريال.", text)
+        assertEquals("شراء ساعات من صالح، ساعتان وثلاثون دقيقة من ثمانية آلاف، عشرون ألف ريال.", text)
     }
 
     @Test
@@ -373,5 +373,54 @@ class SpeechTextBuilderTest {
         assertFalse(caption.contains("له"))
         assertTrue(caption.contains("آخر 3 عمليات · بتاريخ 03/11/2026"))
         assertTrue(caption.contains("mosarib.tubbasoft.com"))
+    }
+
+    @Test
+    fun testTask029ExplicitHourlyRateInSession() {
+        val session = WaterSession(
+            customerId = 1L,
+            durationMinutes = 120,
+            pricePerHour = 10000.0,
+            totalAmount = 20000.0,
+            amountPaid = 20000.0,
+            remainingDebt = 0.0
+        )
+        val text = SpeechTextBuilder.buildSessionSentence(session, "أحمد", "ريال")
+        assertEquals("سقي لـأحمد، ساعتان من عشرة آلاف، المبلغ عشرون ألف ريال، مسدد بالكامل.", text)
+    }
+
+    @Test
+    fun testTask029DictionaryLookupIgnoresExistingMarks() {
+        // "المُسَرِّب" carries shaddah/marks but matches dictionary key "المسرب"
+        assertEquals("المُسَرِّبْ", SpeechPronunciation.forSpeech("المُسَرِّب"))
+        assertEquals("المُسَرِّبْ", SpeechPronunciation.forSpeech("المسرّب"))
+        assertEquals("المُسَرِّبْ", SpeechPronunciation.forSpeech("المسرب"))
+        assertEquals("مَرْحَبًا", SpeechPronunciation.forSpeech("مرحباً"))
+        assertEquals("مَرْحَبًا", SpeechPronunciation.forSpeech("مرحبا"))
+        assertEquals("هَذِهِ", SpeechPronunciation.forSpeech("هذه"))
+        assertEquals("هَذَا", SpeechPronunciation.forSpeech("هذا"))
+        assertEquals("تَطْبِيقْ", SpeechPronunciation.forSpeech("تطبيق"))
+        assertEquals("صَوْتْ", SpeechPronunciation.forSpeech("صوت"))
+        assertEquals("قِرَاءَهْ", SpeechPronunciation.forSpeech("قراءة"))
+        assertEquals("تَجْرِبَهْ", SpeechPronunciation.forSpeech("تجربة"))
+    }
+
+    @Test
+    fun testTask029PreviewSentenceInBothModes() {
+        val preview = "مَرْحَبًا، هَذَا صَوْت تَطْبِيق المُسَرِّب. رَصِيد أحمد عَلَيْه خمسة آلاف وخمس مِئَة رِيَال."
+
+        // Mode 1: Connected (قراءة متصلة - on): pause ending only on the last word of each phrase
+        val connectedText = SpeechPronunciation.forSpeech(preview, connected = true)
+        assertEquals(
+            "مَرْحَبًا، هَذَا صَوْت تَطْبِيق المُسَرِّبْ. رَصِيد أحمد عَلَيْه خمستْ آلَاف وخمس مِئَة رِيَالْ.",
+            connectedText
+        )
+
+        // Mode 2: Unconnected (قراءة متصلة - off): pause ending on every word
+        val unconnectedText = SpeechPronunciation.forSpeech(preview, connected = false)
+        assertEquals(
+            "مَرْحَبًا، هَذَا صَوْتْ تَطْبِيقْ المُسَرِّبْ. رَصِيدْ أحمدْ عَلَيْهْ خمستْ آلَافْ وخمسْ مِئَهْ رِيَالْ.",
+            unconnectedText
+        )
     }
 }

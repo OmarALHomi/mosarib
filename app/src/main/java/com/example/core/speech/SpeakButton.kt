@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -31,8 +30,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.core.license.LicenseDialog
-import com.example.core.license.LicenseManager
 import com.example.core.ui.DialogTone
 import com.example.core.ui.MosaribDialog
 import com.example.ui.theme.mosarib
@@ -58,10 +55,7 @@ fun SpeakButton(
     val activeUtteranceId by MosaribSpeaker.activeUtteranceId.collectAsStateWithLifecycle()
     val myUtteranceId = remember { UUID.randomUUID().toString() }
     val isMySpeaking = isSpeaking && (activeUtteranceId == myUtteranceId)
-    var isSubscribed by remember(context) { mutableStateOf(LicenseManager.isActivated(context)) }
     var isLoading by remember { mutableStateOf(false) }
-
-    var showLicenseDialog by remember { mutableStateOf(false) }
     var missingStatus by remember { mutableStateOf<SpeechStatus?>(null) }
     var speechError by remember { mutableStateOf<SpeechError?>(null) }
 
@@ -90,25 +84,17 @@ fun SpeakButton(
                 if (isMySpeaking) {
                     MosaribSpeaker.stop()
                 } else {
-                    if (!isSubscribed) {
-                        if (onRequireLicense != null) {
-                            onRequireLicense()
-                        } else {
-                            showLicenseDialog = true
-                        }
-                    } else {
-                        scope.launch {
-                            isLoading = true
-                            try {
-                                val status = MosaribSpeaker.prepare(context)
-                                if (status == SpeechStatus.Ready) {
-                                    MosaribSpeaker.speak(text(), utteranceId = myUtteranceId)
-                                } else {
-                                    missingStatus = status
-                                }
-                            } finally {
-                                isLoading = false
+                    scope.launch {
+                        isLoading = true
+                        try {
+                            val status = MosaribSpeaker.prepare(context)
+                            if (status == SpeechStatus.Ready) {
+                                MosaribSpeaker.speak(text(), utteranceId = myUtteranceId)
+                            } else {
+                                missingStatus = status
                             }
+                        } finally {
+                            isLoading = false
                         }
                     }
                 }
@@ -135,40 +121,10 @@ fun SpeakButton(
             }
         }
 
-        // Small lock badge for non-subscribers
-        if (!isSubscribed) {
-            val badgeSize = if (iconSize <= 18.dp) 12.dp else 14.dp
-            val badgeIconSize = if (iconSize <= 18.dp) 8.dp else 10.dp
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .offset(x = (-1).dp, y = (-1).dp)
-                    .size(badgeSize)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surface),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Lock,
-                    contentDescription = null,
-                    tint = MaterialTheme.mosarib.warning,
-                    modifier = Modifier.size(badgeIconSize)
-                )
-            }
-        }
+
     }
 
-    if (showLicenseDialog) {
-        LicenseDialog(
-            onDismiss = { showLicenseDialog = false },
-            onActivated = {
-                isSubscribed = LicenseManager.isActivated(context)
-                showLicenseDialog = false
-            },
-            isMandatory = false,
-            mandatoryReason = "القراءة الصوتية والكشف الصوتي متاحان للمشتركين."
-        )
-    }
+
 
     missingStatus?.let { status ->
         TtsMissingDataDialog(

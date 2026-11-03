@@ -1,4 +1,4 @@
-status: ready
+status: done
 <!-- Owner decision 2026-11-03. Runs AFTER 027 is merged: it touches CustomerDetailScreen.kt and
 SettingsGeneralSections.kt, which 027 changes. Small task. -->
 # Task 029: Voice reading free for everyone; say the hourly rate in the sentences
@@ -81,3 +81,4 @@ A sukun on **every** word (today) may make the engine pause between words. Add t
 ---
 ## Review notes (written by Claude)
 _(empty)_
+<!-- Claude 2026-11-03: code review + build/tests pass. Device check deferred to the final full test (owner). -->

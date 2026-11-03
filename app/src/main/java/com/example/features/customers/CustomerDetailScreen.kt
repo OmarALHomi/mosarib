@@ -48,7 +48,7 @@ import com.example.core.ui.MosaribLoadingDialog
 import com.example.core.ui.MosaribBottomSheet
 import com.example.core.ui.computeSessionPaymentsCount
 import com.example.core.license.LicenseDialog
-import com.example.core.license.LicenseManager
+import com.example.core.speech.SpeechAccess
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
@@ -254,7 +254,7 @@ fun CustomerDetailScreen(
     var voucherForDetails by remember { mutableStateOf<Voucher?>(null) }
     var purchaseForDetails by remember { mutableStateOf<WellOwnerPurchase?>(null) }
     var expandedSessionIds by remember { mutableStateOf(setOf<Long>()) }
-    var isSubscribed by remember(context) { mutableStateOf(LicenseManager.isActivated(context)) }
+    var canSendVoiceStatement by remember(context) { mutableStateOf(SpeechAccess.canSendVoiceStatement(context)) }
     var showSpeechLicenseDialog by remember { mutableStateOf(false) }
     var missingSpeechStatus by remember { mutableStateOf<SpeechStatus?>(null) }
     var isGeneratingVoiceStatement by remember { mutableStateOf(false) }
@@ -308,7 +308,7 @@ fun CustomerDetailScreen(
     }
 
     val handleSendVoiceStatement: () -> Unit = {
-        if (!isSubscribed) {
+        if (!canSendVoiceStatement) {
             showSpeechLicenseDialog = true
         } else {
             isGeneratingVoiceStatement = true
@@ -1321,7 +1321,8 @@ fun CustomerDetailScreen(
                                                 ownerName = customer.name,
                                                 durationMinutes = purchase.durationMinutes,
                                                 amount = payableAmount,
-                                                currency = config.currencySymbol
+                                                currency = config.currencySymbol,
+                                                ratePerHour = purchase.purchaseRatePerHour
                                             )
                                         },
                                         onClick = { purchaseForDetails = purchase },
@@ -1363,25 +1364,21 @@ fun CustomerDetailScreen(
                                                     MosaribMenuItem(
                                                         text = "قراءة العملية",
                                                         icon = Icons.AutoMirrored.Filled.VolumeUp,
-                                                        trailingIcon = if (isSubscribed) null else Icons.Default.Lock,
                                                         onClick = {
                                                             purchaseMenuExpanded = false
-                                                            if (!isSubscribed) {
-                                                                showSpeechLicenseDialog = true
-                                                            } else {
-                                                                scope.launch {
-                                                                    val status = MosaribSpeaker.prepare(context)
-                                                                    if (status == SpeechStatus.Ready) {
-                                                                        val speechText = SpeechTextBuilder.buildPurchaseSentence(
-                                                                            ownerName = customer.name,
-                                                                            durationMinutes = purchase.durationMinutes,
-                                                                            amount = WellOwnerPurchaseMath.payableAmount(purchase),
-                                                                            currency = config.currencySymbol
-                                                                        )
-                                                                        MosaribSpeaker.speak(speechText)
-                                                                    } else {
-                                                                        missingSpeechStatus = status
-                                                                    }
+                                                            scope.launch {
+                                                                val status = MosaribSpeaker.prepare(context)
+                                                                if (status == SpeechStatus.Ready) {
+                                                                    val speechText = SpeechTextBuilder.buildPurchaseSentence(
+                                                                        ownerName = customer.name,
+                                                                        durationMinutes = purchase.durationMinutes,
+                                                                        amount = WellOwnerPurchaseMath.payableAmount(purchase),
+                                                                        currency = config.currencySymbol,
+                                                                        ratePerHour = purchase.purchaseRatePerHour
+                                                                    )
+                                                                    MosaribSpeaker.speak(speechText)
+                                                                } else {
+                                                                    missingSpeechStatus = status
                                                                 }
                                                             }
                                                         }
@@ -1583,24 +1580,19 @@ fun CustomerDetailScreen(
                                                     MosaribMenuItem(
                                                         text = "قراءة العملية",
                                                         icon = Icons.AutoMirrored.Filled.VolumeUp,
-                                                        trailingIcon = if (isSubscribed) null else Icons.Default.Lock,
                                                         onClick = {
                                                             sessionMenuExpanded = false
-                                                            if (!isSubscribed) {
-                                                                showSpeechLicenseDialog = true
-                                                            } else {
-                                                                scope.launch {
-                                                                    val status = MosaribSpeaker.prepare(context)
-                                                                    if (status == SpeechStatus.Ready) {
-                                                                        val speechText = SpeechTextBuilder.buildSessionSentence(
-                                                                            session = session,
-                                                                            customerName = invoiceCustomer.name,
-                                                                            currency = config.currencySymbol
-                                                                        )
-                                                                        MosaribSpeaker.speak(speechText)
-                                                                    } else {
-                                                                        missingSpeechStatus = status
-                                                                    }
+                                                            scope.launch {
+                                                                val status = MosaribSpeaker.prepare(context)
+                                                                if (status == SpeechStatus.Ready) {
+                                                                    val speechText = SpeechTextBuilder.buildSessionSentence(
+                                                                        session = session,
+                                                                        customerName = invoiceCustomer.name,
+                                                                        currency = config.currencySymbol
+                                                                    )
+                                                                    MosaribSpeaker.speak(speechText)
+                                                                } else {
+                                                                    missingSpeechStatus = status
                                                                 }
                                                             }
                                                         }
@@ -1774,25 +1766,20 @@ fun CustomerDetailScreen(
                                                     MosaribMenuItem(
                                                         text = "قراءة العملية",
                                                         icon = Icons.AutoMirrored.Filled.VolumeUp,
-                                                        trailingIcon = if (isSubscribed) null else Icons.Default.Lock,
                                                         onClick = {
                                                             voucherMenuExpanded = false
-                                                            if (!isSubscribed) {
-                                                                showSpeechLicenseDialog = true
-                                                            } else {
-                                                                scope.launch {
-                                                                    val status = MosaribSpeaker.prepare(context)
-                                                                    if (status == SpeechStatus.Ready) {
-                                                                        val speechText = SpeechTextBuilder.buildReceiptSentence(
-                                                                            customerName = customer.name,
-                                                                            amount = voucher.amount,
-                                                                            date = voucher.date,
-                                                                            currency = config.currencySymbol
-                                                                        )
-                                                                        MosaribSpeaker.speak(speechText)
-                                                                    } else {
-                                                                        missingSpeechStatus = status
-                                                                    }
+                                                            scope.launch {
+                                                                val status = MosaribSpeaker.prepare(context)
+                                                                if (status == SpeechStatus.Ready) {
+                                                                    val speechText = SpeechTextBuilder.buildReceiptSentence(
+                                                                        customerName = customer.name,
+                                                                        amount = voucher.amount,
+                                                                        date = voucher.date,
+                                                                        currency = config.currencySymbol
+                                                                    )
+                                                                    MosaribSpeaker.speak(speechText)
+                                                                } else {
+                                                                    missingSpeechStatus = status
                                                                 }
                                                             }
                                                         }
@@ -1897,25 +1884,20 @@ fun CustomerDetailScreen(
                                                     MosaribMenuItem(
                                                         text = "قراءة العملية",
                                                         icon = Icons.AutoMirrored.Filled.VolumeUp,
-                                                        trailingIcon = if (isSubscribed) null else Icons.Default.Lock,
                                                         onClick = {
                                                             voucherMenuExpanded = false
-                                                            if (!isSubscribed) {
-                                                                showSpeechLicenseDialog = true
-                                                            } else {
-                                                                scope.launch {
-                                                                    val status = MosaribSpeaker.prepare(context)
-                                                                    if (status == SpeechStatus.Ready) {
-                                                                        val speechText = SpeechTextBuilder.buildExpenseSentence(
-                                                                            nameOrCategory = customer.name.ifBlank { voucher.category },
-                                                                            amount = voucher.amount,
-                                                                            date = voucher.date,
-                                                                            currency = config.currencySymbol
-                                                                        )
-                                                                        MosaribSpeaker.speak(speechText)
-                                                                    } else {
-                                                                        missingSpeechStatus = status
-                                                                    }
+                                                            scope.launch {
+                                                                val status = MosaribSpeaker.prepare(context)
+                                                                if (status == SpeechStatus.Ready) {
+                                                                    val speechText = SpeechTextBuilder.buildExpenseSentence(
+                                                                        nameOrCategory = customer.name.ifBlank { voucher.category },
+                                                                        amount = voucher.amount,
+                                                                        date = voucher.date,
+                                                                        currency = config.currencySymbol
+                                                                    )
+                                                                    MosaribSpeaker.speak(speechText)
+                                                                } else {
+                                                                    missingSpeechStatus = status
                                                                 }
                                                             }
                                                         }
@@ -2003,25 +1985,20 @@ fun CustomerDetailScreen(
                                                     MosaribMenuItem(
                                                         text = "قراءة العملية",
                                                         icon = Icons.AutoMirrored.Filled.VolumeUp,
-                                                        trailingIcon = if (isSubscribed) null else Icons.Default.Lock,
                                                         onClick = {
                                                             voucherMenuExpanded = false
-                                                            if (!isSubscribed) {
-                                                                showSpeechLicenseDialog = true
-                                                            } else {
-                                                                scope.launch {
-                                                                    val status = MosaribSpeaker.prepare(context)
-                                                                    if (status == SpeechStatus.Ready) {
-                                                                        val speechText = SpeechTextBuilder.buildDiscountSentence(
-                                                                            customerName = customer.name,
-                                                                            amount = voucher.amount,
-                                                                            date = voucher.date,
-                                                                            currency = config.currencySymbol
-                                                                        )
-                                                                        MosaribSpeaker.speak(speechText)
-                                                                    } else {
-                                                                        missingSpeechStatus = status
-                                                                    }
+                                                            scope.launch {
+                                                                val status = MosaribSpeaker.prepare(context)
+                                                                if (status == SpeechStatus.Ready) {
+                                                                    val speechText = SpeechTextBuilder.buildDiscountSentence(
+                                                                        customerName = customer.name,
+                                                                        amount = voucher.amount,
+                                                                        date = voucher.date,
+                                                                        currency = config.currencySymbol
+                                                                    )
+                                                                    MosaribSpeaker.speak(speechText)
+                                                                } else {
+                                                                    missingSpeechStatus = status
                                                                 }
                                                             }
                                                         }
@@ -2789,11 +2766,11 @@ fun CustomerDetailScreen(
         LicenseDialog(
             onDismiss = { showSpeechLicenseDialog = false },
             onActivated = {
-                isSubscribed = LicenseManager.isActivated(context)
+                canSendVoiceStatement = SpeechAccess.canSendVoiceStatement(context)
                 showSpeechLicenseDialog = false
             },
             isMandatory = false,
-            mandatoryReason = "القراءة الصوتية والكشف الصوتي متاحان للمشتركين."
+            mandatoryReason = "الكشف الصوتي متاح للمشتركين."
         )
     }
 
@@ -2954,7 +2931,7 @@ private fun CustomerActionsDropdownMenu(
     onOwnerWaste: () -> Unit
 ) {
     val context = LocalContext.current
-    var isSubscribed by remember(context) { mutableStateOf(LicenseManager.isActivated(context)) }
+    val canSendVoiceStatement = SpeechAccess.canSendVoiceStatement(context)
     MosaribMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest
@@ -3008,7 +2985,7 @@ private fun CustomerActionsDropdownMenu(
                     onClick = onVoiceStatement,
                     icon = Icons.AutoMirrored.Filled.VolumeUp,
                     tint = MaterialTheme.colorScheme.primary,
-                    trailingIcon = if (isSubscribed) null else Icons.Default.Lock
+                    trailingIcon = if (canSendVoiceStatement) null else Icons.Default.Lock
                 )
             }
         } else {
@@ -3030,7 +3007,7 @@ private fun CustomerActionsDropdownMenu(
                     onClick = onVoiceStatement,
                     icon = Icons.AutoMirrored.Filled.VolumeUp,
                     tint = MaterialTheme.colorScheme.primary,
-                    trailingIcon = if (isSubscribed) null else Icons.Default.Lock
+                    trailingIcon = if (canSendVoiceStatement) null else Icons.Default.Lock
                 )
             }
             MosaribMenuItem(

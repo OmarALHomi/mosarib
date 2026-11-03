@@ -24,7 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.rememberCoroutineScope
 import com.example.core.license.LicenseDialog
-import com.example.core.license.LicenseManager
+import com.example.core.speech.SpeechAccess
 import com.example.core.speech.SpeechStatus
 import com.example.core.speech.TtsMissingDataDialog
 import com.example.core.speech.VoiceStatementExporter
@@ -122,7 +122,7 @@ fun CustomerCardItem(
     val isDark = isAppDark()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var isSubscribed by remember(context) { mutableStateOf(LicenseManager.isActivated(context)) }
+    var canSendVoiceStatement by remember(context) { mutableStateOf(SpeechAccess.canSendVoiceStatement(context)) }
     var showSpeechLicenseDialog by remember { mutableStateOf(false) }
     var missingSpeechStatus by remember { mutableStateOf<SpeechStatus?>(null) }
     var isGeneratingVoiceStatement by remember { mutableStateOf(false) }
@@ -484,10 +484,10 @@ fun CustomerCardItem(
                             text = "إرسال كشف صوتي",
                             icon = Icons.AutoMirrored.Filled.VolumeUp,
                             tint = MaterialTheme.colorScheme.primary,
-                            trailingIcon = if (isSubscribed) null else Icons.Default.Lock,
+                            trailingIcon = if (canSendVoiceStatement) null else Icons.Default.Lock,
                             onClick = {
                                 menuExpanded = false
-                                if (!isSubscribed) {
+                                if (!canSendVoiceStatement) {
                                     showSpeechLicenseDialog = true
                                 } else {
                                     if (onVoiceStatementClick != null) {
@@ -582,11 +582,11 @@ fun CustomerCardItem(
         LicenseDialog(
             onDismiss = { showSpeechLicenseDialog = false },
             onActivated = {
-                isSubscribed = LicenseManager.isActivated(context)
+                canSendVoiceStatement = SpeechAccess.canSendVoiceStatement(context)
                 showSpeechLicenseDialog = false
             },
             isMandatory = false,
-            mandatoryReason = "القراءة الصوتية والكشف الصوتي متاحان للمشتركين."
+            mandatoryReason = "الكشف الصوتي متاح للمشتركين."
         )
     }
 
