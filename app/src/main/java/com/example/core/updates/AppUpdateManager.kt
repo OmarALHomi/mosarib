@@ -116,6 +116,8 @@ object AppUpdateManager {
         try {
             // Managed by the web dashboard (/app_broadcast)
             val resp = FirebaseRest.get("app_broadcast.json", timeoutMs = 4000)
+            // A server error must not skip a cached force update: fall back like a network error
+            if (!resp.isSuccess) throw java.io.IOException("HTTP ${resp.code}")
             if (resp.isSuccess) {
                 val text = resp.body?.trim()
                 val obj = resp.jsonObject()
