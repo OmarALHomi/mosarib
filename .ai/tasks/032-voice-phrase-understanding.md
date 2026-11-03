@@ -125,10 +125,28 @@ type chooser or the closest form with what was found. Show the dialog only when 
   (people record after the irrigation), then t2 is the first time after t1 within 12 hours.
   Crossing midnight is allowed ("من 9 بالليل لا 1" = 21:00 → 01:00, 240 min). The parser takes
   `now` as a parameter so the tests are fixed.
-- Add `startMinuteOfDay: Int?` and `endMinuteOfDay: Int?` to `VoiceCommand`; the session form opens
-  in its time-range mode with the start and end filled (the date stays today, or yesterday when the
-  range is in the past across midnight). `durationMinutes` is also set.
+- Add `startMillis: Long?` and `endMillis: Long?` (full date and time) to `VoiceCommand`; the
+  session form opens in its time-range mode with its existing `startDateMillis` / `endDateMillis`
+  and times filled from them. `durationMinutes` is also set.
 - No rate → leave the rate to the form's normal default (the customer's or the pump's price).
+
+**B2. Long irrigation with a day or date (owner, 2026-11-03, third message)**
+`مع {name} [{duration}] من {day} الساعه {t1} {الى | لا | لااا} [{day2}] الساعه {t2} [من {rate}] [ومسلم …] [{notes}]`
+- **Day words** (the start, and optionally the end):
+  - اليوم; امس / البارحه / البارح; قبل امس / اول امس / اول من امس;
+  - weekday names (السبت … الجمعه, with or without "يوم"): the most recent past one (today
+    counts only if the time is already past);
+  - "يوم 25" / "25 الشهر": the most recent past day 25; "25/10" or "25-10": that date this year
+    (last year if it would be in the future).
+- "لا" stretched in speech ("لاا"، "لااا") is the same as "لا". Normalize repeated letters.
+- **End**: with an end day, use it. Without one, the end is the first time after the start within
+  24 hours (day-part words respected), so "من امس الساعه 8 بالصبح لا الساعه 10 بالليل" is 14 hours
+  on the same day and "من امس الساعه 8 بالليل لا 6 بالصبح" ends today at 06:00.
+- **Hours said and a range said**: the range wins for start, end and duration. If the spoken hours
+  differ from the range by more than 15 minutes, keep the range and add a line to the voice banner:
+  "قلت {N} ساعات، والمدة بين الوقتين {M}، راجعها".
+- A day word counts as a date only right after "من" / "الى" / "لا" and before a time; elsewhere it
+  is normal text, so "باقي امس" in the notes stays notes.
 
 **C. Payment voucher (صرف) to a person**
 `مع {name} {amount} [{notes}]` or `{amount} مع {name} [{notes}]` with no duration → **EXPENSE** to
@@ -167,11 +185,23 @@ first description starter or amount; if neither exists, all the words are the na
 | 30 الف من حارث سعيد بن علي باقي حساب الشهر | RECEIPT | حارث سعيد بن علي | | | | | باقي حساب الشهر (amount 30000) |
 | 20 الف ريال حق الديزل من محطة صالح بن علي | EXPENSE | (none) | | | | | حق الديزل من محطة صالح بن علي (amount 20000, category ديزل) |
 
+**Day and date tests** (fixed `now` = Tuesday 2026-11-03 15:00):
+
+| Phrase | Min | Start → End | Rate | Paid |
+|---|---|---|---|---|
+| مع احمد علي من امس الساعه 8 بالليل لا الساعه 6 بالصبح من 10 الف | 600 | 2026-11-02 20:00 → 11-03 06:00 | 10000 | |
+| مع احمد علي 14 ساعه من قبل امس الساعه 6 بالصبح الى الساعه 8 بالليل ومسلم 50 الف | 840 | 11-01 06:00 → 11-01 20:00 | | 50000 |
+| مع احمد علي من يوم الخميس الساعه 10 بالليل الى يوم الجمعه الساعه 4 العصر من 10 الف | 1080 | 10-29 22:00 → 10-30 16:00 | 10000 | |
+| مع احمد علي من يوم 25 الساعه 7 بالصبح لااا يوم 26 الساعه 7 بالصبح | 1440 | 10-25 07:00 → 10-26 07:00 | | |
+| مع احمد علي من 25/10 الساعه 7 الصبح لا الساعه 11 الصبح | 240 | 10-25 07:00 → 10-25 11:00 | | |
+| مع احمد علي 10 ساعات من امس الساعه 8 بالصبح لا الساعه 10 بالليل | 840 (+ banner line: 10 vs 14) | 11-02 08:00 → 11-02 22:00 | | |
+
 ## Allowed files
 - `core/voice/VoiceCommandParser.kt`, `core/voice/SpokenNumberParser.kt`,
   `core/voice/SpokenDurationParser.kt`, `core/voice/VoicePhraseRules.kt` (new),
-  `core/voice/VoiceCommand.kt` (`paidFull`, `startMinuteOfDay`, `endMinuteOfDay`),
-  `core/voice/VoiceRecognitionHelper.kt` (pass `knownNames` / `now` through)
+  `core/voice/VoiceCommand.kt` (`paidFull`, `startMillis`, `endMillis`, a banner warning line),
+  `core/voice/VoiceRecognitionHelper.kt` (pass `knownNames` / `now` through),
+  `core/voice/VoiceUiComponents.kt` (only the banner warning line of B2)
 - `features/home/HomeScreen.kt` (section 5, and passing the customer names)
 - `features/sessions/SessionDialogs.kt` (prefill only: time-range mode with start/end, paidFull)
 - `features/vouchers/VouchersScreen.kt` (prefill only, if notes or "no customer" are not already
