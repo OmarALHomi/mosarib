@@ -92,12 +92,32 @@ never use the app.
    with Arabic text that says what happened and what to do. List each message before and after
    in the report.
 
+## D. The date line in text messages (owner, 2026-11-03)
+Every WhatsApp/SMS text from `core/util/MessageFormatHelper.kt` has "📅 التاريخ: …". The 📅 emoji
+is a fixed picture that most phones draw as **"17"** (July 17), whatever the date, so it looks
+wrong next to the real date.
+- Replace the emoji with the **day of the operation in keycap digits**, then the weekday and the
+  date:
+  - one digit: "5️⃣ الأربعاء · 05/11/2026";
+  - two digits: "2️⃣7️⃣ الثلاثاء · 27/10/2026".
+  - Build the keycaps from the day number (`digit + "️⃣"`).
+- **Which date:**
+  - sessions: the irrigation start day;
+  - vouchers: the voucher date;
+  - purchases: the purchase date;
+  - statements: the statement date ("حتى").
+  - Never the current time, except for the "today" summary (line ~282), which is today.
+- Western digits, weekday in Arabic.
+- One helper `MessageFormatHelper.dateLine(millis, label = "التاريخ")` used by every message.
+  Unit tests: days 1, 9, 10, 17, 31, and the weekday name.
+
 ## Allowed files
 - `features/about/AboutScreen.kt`
 - `core/license/LicenseDialog.kt` (styling, the back handling and the exit button only)
 - `core/updates/ForceUpdateScreen.kt`, `core/updates/BroadcastAnnouncementDialog.kt`,
   `core/updates/AppUpdateManager.kt` (only for the dismissed-id storage, if needed)
 - `MainScreen.kt` (the notice call sites only)
+- `core/util/MessageFormatHelper.kt` (part D only)
 - tests
 
 ## Done when
