@@ -53,6 +53,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -820,6 +821,7 @@ fun VoiceRecordSheet(
     onResult: (candidates: List<String>) -> Unit
 ) {
     val context = LocalContext.current
+    val currentOnResult by rememberUpdatedState(onResult)
     var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -954,6 +956,11 @@ fun VoiceRecordSheet(
         isStopping = false
         isHolding = false
         isTapMode = false
+        // A short phrase released before the final result arrives still has its live partial text.
+        if (partialText.isNotBlank()) {
+            accumulatedParts.add(partialText)
+            partialText = ""
+        }
         val full = accumulatedParts.joinToString(" ").trim()
         VoiceRecognitionHelper.logDebug("VoiceInput", "finalizeSession: full='$full'")
         if (full.isNotBlank()) {
@@ -967,7 +974,7 @@ fun VoiceRecordSheet(
                     candidates.add(joined)
                 }
             }
-            onResult(candidates)
+            currentOnResult(candidates)
         } else {
             errorMessage = "لم يتم سماع أي كلام، يرجى إعادة المحاولة"
         }
@@ -1017,7 +1024,7 @@ fun VoiceRecordSheet(
             if (isStopping) {
                 finalizeSession()
             }
-        }, 1200)
+        }, 3000)
     }
 
     DisposableEffect(context) {
@@ -1062,7 +1069,7 @@ fun VoiceRecordSheet(
                     partialText = ""
                     if (isHolding || isTapMode) {
                         restartSession()
-                    } else {
+                    } else if (isStopping) {
                         finalizeSession()
                     }
                 }
@@ -1222,7 +1229,9 @@ fun VoiceRecordSheet(
                             if (isRecording) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
                         )
-                        .pointerInput(isRecording, isTapMode) {
+                        // Keyed on Unit: restarting the gesture when the recording state changes would cancel
+                        // the press that is still held, so the release would never stop the recording.
+                        .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
                                     if (isTapMode) {
