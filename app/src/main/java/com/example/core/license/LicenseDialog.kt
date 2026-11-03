@@ -945,6 +945,11 @@ fun LicenseDialog(
                 .imePadding()
                 .navigationBarsPadding()
         ) {
+            if (isMandatory) {
+                BackHandler {
+                    (context as? android.app.Activity)?.finishAffinity()
+                }
+            }
             // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1916,6 +1921,27 @@ fun LicenseDialog(
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
+            }
+
+            if (isMandatory) {
+                Spacer(modifier = Modifier.height(12.dp))
+                TextButton(
+                    onClick = { (context as? android.app.Activity)?.finishAffinity() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                        contentDescription = null,
+                        tint = MaterialTheme.mosarib.debt,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "خروج من التطبيق",
+                        color = MaterialTheme.mosarib.debt,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))

@@ -99,12 +99,15 @@ import com.example.core.sync.AppSyncEngine
 import com.example.core.sync.StartupDialogType
 import com.example.core.ui.DeviceBlockedScreen
 import com.example.core.ui.BackupReminderDialog
+import com.example.core.ui.DialogTone
+import com.example.core.ui.MosaribDialog
 import com.example.core.updates.AppBroadcast
 import com.example.core.updates.AppUpdateManager
 import com.example.core.updates.BroadcastAnnouncementDialog
 import com.example.core.updates.ForceUpdateScreen
 import com.example.core.util.PeriodicBackupReminderManager
 import com.example.features.feedback.FeedbackDialog
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -231,6 +234,14 @@ fun MainApp(
             var showBackupReminderDialog by remember { mutableStateOf(false) }
             var specialDeviceWarning by remember { mutableStateOf<String?>(null) }
             var showSpecialWarningDialog by remember { mutableStateOf(false) }
+            var showExpiryWarningDialog by remember { mutableStateOf(false) }
+
+            val remainingDays = remember(isActivated) { if (isActivated) LicenseManager.getRemainingDays(context) else 0 }
+            LaunchedEffect(isActivated, remainingDays) {
+                if (isActivated && remainingDays in 1..5 && !AppUpdateManager.isExpiryNoticeDismissedToday(context)) {
+                    showExpiryWarningDialog = true
+                }
+            }
 
             // مزامنة موحدة ومنظمة مع السحابة بدون ضغط على الشبكة وطابور أولويات للنوافذ
             LaunchedEffect(Unit) {
@@ -602,8 +613,31 @@ fun MainApp(
                     },
                     isMandatory = isTrialLimitExceeded,
                     mandatoryReason = if (isTrialLimitExceeded) {
-                        "لقد تجاوزت الحد التجريبي المجاني (${LicenseManager.getFreeOperationsLimit(context)} عملية) أو قمت باستعادة نسخة تتجاوزه. تم حفظ بياناتك بأمان تام، ويرجى تفعيل الاشتراك لمتابعة العمل بالتطبيق."
+                        "بلغت الحد الأقصى للعمليات التجريبية المجانية (${LicenseManager.getFreeOperationsLimit(context)} عملية). تم حفظ كافة بياناتك بأمان، ويرجى تفعيل الاشتراك لمتابعة العمل بالتطبيق."
                     } else null
+                )
+            }
+
+            if (showExpiryWarningDialog) {
+                MosaribDialog(
+                    onDismissRequest = {
+                        AppUpdateManager.dismissExpiryNoticeForToday(context)
+                        showExpiryWarningDialog = false
+                    },
+                    title = "اقتراب انتهاء الاشتراك",
+                    icon = Icons.Default.WarningAmber,
+                    tone = DialogTone.Warning,
+                    message = "ينتهي اشتراكك الحالي خلال $remainingDays أيام. يرجى تجديد الاشتراك لضمان استمرار عمل كافة ميزات التطبيق دون انقطاع.",
+                    confirmText = "تجديد الآن",
+                    onConfirm = {
+                        showExpiryWarningDialog = false
+                        showLicenseDialog = true
+                    },
+                    dismissText = "لاحقاً",
+                    onDismiss = {
+                        AppUpdateManager.dismissExpiryNoticeForToday(context)
+                        showExpiryWarningDialog = false
+                    }
                 )
             }
 
@@ -618,7 +652,6 @@ fun MainApp(
                 BroadcastAnnouncementDialog(
                     broadcast = activeBroadcast!!,
                     onDismiss = {
-                        AppUpdateManager.markBroadcastSeen(context, activeBroadcast!!.id)
                         showAnnouncementDialog = false
                     }
                 )
@@ -644,10 +677,10 @@ fun MainApp(
                 BroadcastAnnouncementDialog(
                     broadcast = AppBroadcast(
                         id = "SPECIAL_DEVICE_WARN",
-                        title = "تنبيه وتوجيه فني خاص بهذا الجهاز",
+                        title = "توجيه فني خاص بهذا الجهاز",
                         message = specialDeviceWarning!!,
                         type = "WARNING",
-                        actionText = "حسناً، فهمت ذلك",
+                        actionText = "حسناً",
                         actionUrl = "",
                         publishedAt = System.currentTimeMillis()
                     ),

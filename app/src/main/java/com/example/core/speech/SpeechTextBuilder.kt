@@ -49,8 +49,8 @@ object SpeechTextBuilder {
     )
 
     private val HUNDREDS = arrayOf(
-        "", "مِئة", "مِئتان", "ثلاث مِئة", "أربع مِئة", "خمس مِئة",
-        "ست مِئة", "سبع مِئة", "ثمان مِئة", "تسع مِئة"
+        "", "مِئَة", "مِئتان", "ثلاث مِئَة", "أربع مِئَة", "خمس مِئَة",
+        "ست مِئَة", "سبع مِئَة", "ثمان مِئَة", "تسع مِئَة"
     )
 
     /**
@@ -347,13 +347,20 @@ object SpeechTextBuilder {
         val name = customerName.ifBlank { "عميل غير محدد" }
         val durationWords = formatDurationWords(session.durationMinutes)
         val amountWords = amountToSpeechWords(session.totalAmount, currency)
+        val rate = when {
+            session.pricePerHour > 0.0 -> session.pricePerHour
+            session.durationMinutes > 0 -> (session.totalAmount * 60.0) / session.durationMinutes
+            else -> 0.0
+        }
+        val rateWords = if (rate > 0.0) amountToSpeechWords(rate, "") else ""
+        val ratePart = if (rateWords.isNotBlank()) " من $rateWords" else ""
 
         return if (session.remainingDebt <= 0.001) {
-            "سقي لـ$name، $durationWords، المبلغ $amountWords، مسدد بالكامل."
+            "سقي لـ$name، $durationWords$ratePart، المبلغ $amountWords، مسدد بالكامل."
         } else {
             val paidWords = amountToSpeechWords(session.amountPaid, currency)
             val debtWords = amountToSpeechWords(session.remainingDebt, currency)
-            "سقي لـ$name، $durationWords، المبلغ $amountWords، المدفوع $paidWords، الباقي $debtWords."
+            "سقي لـ$name، $durationWords$ratePart، المبلغ $amountWords، المدفوع $paidWords، الباقي $debtWords."
         }
     }
 
@@ -435,12 +442,20 @@ object SpeechTextBuilder {
         ownerName: String,
         durationMinutes: Int,
         amount: Double,
-        currency: String = "ريال"
+        currency: String = "ريال",
+        ratePerHour: Double = 0.0
     ): String {
         val name = ownerName.ifBlank { "صاحب البئر" }
         val durationWords = formatDurationWords(durationMinutes)
         val words = amountToSpeechWords(amount, currency)
-        return "شراء ساعات من $name، $durationWords، $words."
+        val rate = when {
+            ratePerHour > 0.0 -> ratePerHour
+            durationMinutes > 0 -> (amount * 60.0) / durationMinutes
+            else -> 0.0
+        }
+        val rateWords = if (rate > 0.0) amountToSpeechWords(rate, "") else ""
+        val ratePart = if (rateWords.isNotBlank()) " من $rateWords" else ""
+        return "شراء ساعات من $name، $durationWords$ratePart، $words."
     }
 
     /**
@@ -487,12 +502,18 @@ object SpeechTextBuilder {
     fun buildStatementSessionLine(session: WaterSession, dateMillis: Long): String {
         val dayStr = formatDayMonthShort(dateMillis)
         val dur = formatDurationWordsShort(session.durationMinutes)
-        val total = amountToSpeechWordsApprox(session.totalAmount, includeCurrency = false)
+        val rate = when {
+            session.pricePerHour > 0.0 -> session.pricePerHour
+            session.durationMinutes > 0 -> (session.totalAmount * 60.0) / session.durationMinutes
+            else -> 0.0
+        }
+        val rateWords = if (rate > 0.0) amountToSpeechWordsApprox(rate, includeCurrency = false) else ""
+        val ratePart = if (rateWords.isNotBlank()) " من $rateWords" else ""
         return if (session.remainingDebt <= 0.001) {
-            "$dayStr: سقي $dur، $total، مسدد بالكامل."
+            "$dayStr: سقي $dur$ratePart، مسدد بالكامل."
         } else {
             val debt = amountToSpeechWordsApprox(session.remainingDebt, includeCurrency = false)
-            "$dayStr: سقي $dur، $total، الباقي $debt."
+            "$dayStr: سقي $dur$ratePart، الباقي $debt."
         }
     }
 

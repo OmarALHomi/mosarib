@@ -31,6 +31,55 @@ object MessageFormatHelper {
     }
 
     /**
+     * يحول رقم اليوم (1..31) إلى أرقام مربعة (Keycap digits).
+     * مثل: 5 -> 5️⃣ ، 27 -> 2️⃣7️⃣
+     */
+    fun keycapDigits(day: Int): String {
+        return day.toString().map { "$it\uFE0F\u20E3" }.joinToString("")
+    }
+
+    /**
+     * اسم يوم الأسبوع باللغة العربية بشكل قطعي ومستقل عن لغة النظام.
+     */
+    fun formatWeekdayArabic(timestamp: Long): String {
+        val cal = java.util.Calendar.getInstance()
+        cal.timeInMillis = timestamp
+        return when (cal.get(java.util.Calendar.DAY_OF_WEEK)) {
+            java.util.Calendar.SATURDAY -> "السبت"
+            java.util.Calendar.SUNDAY -> "الأحد"
+            java.util.Calendar.MONDAY -> "الإثنين"
+            java.util.Calendar.TUESDAY -> "الثلاثاء"
+            java.util.Calendar.WEDNESDAY -> "الأربعاء"
+            java.util.Calendar.THURSDAY -> "الخميس"
+            java.util.Calendar.FRIDAY -> "الجمعة"
+            else -> ""
+        }
+    }
+
+    /**
+     * سطر التاريخ الموحد بدون أيقونة التقويم الثابتة (📅):
+     * رقم اليوم في keycap digits + اسم يوم الأسبوع بالعربية + التاريخ بأرقام إنجليزية (dd/MM/yyyy).
+     * مثل: "5️⃣ الأربعاء · 05/11/2026" أو "2️⃣7️⃣ الثلاثاء · 27/10/2026".
+     * في حال تمرير تسمية مخصصة مثل "حتى": "5️⃣ حتى: الأربعاء · 05/11/2026".
+     */
+    fun dateLine(millis: Long, label: String = "التاريخ"): String {
+        val cal = java.util.Calendar.getInstance()
+        cal.timeInMillis = millis
+        val day = cal.get(java.util.Calendar.DAY_OF_MONTH)
+        val keycaps = keycapDigits(day)
+        val weekday = formatWeekdayArabic(millis)
+        val sdf = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.US)
+        sdf.timeZone = cal.timeZone
+        val dateStr = sdf.format(cal.time)
+
+        return if (label.isNotBlank() && label != "التاريخ") {
+            "$keycaps $label: $weekday · $dateStr"
+        } else {
+            "$keycaps $weekday · $dateStr"
+        }
+    }
+
+    /**
      * 1. فاتورة دورة السقي (جلسة ري)
      */
     fun buildSessionBill(
@@ -51,7 +100,6 @@ object MessageFormatHelper {
 
             if (isSms) {
                 val duration = Formatters.formatDurationCompact(session.durationMinutes)
-                val date = Formatters.formatDateShort(session.startTime)
                 val total = Formatters.formatNumber(session.totalAmount)
                 val msg = """
 💧 فاتورة ري #${session.id}
@@ -60,7 +108,7 @@ object MessageFormatHelper {
 ⏱️ المدة: $duration
 💵 المبلغ: $total
 ✅ مسدد مقاصة مع المالك
-📅 التاريخ: $date
+${dateLine(session.startTime)}
                 """.trimIndent()
                 FileSharingHelper.attachMessageFooter(msg)
             } else {
@@ -78,13 +126,12 @@ object MessageFormatHelper {
 ⏱️ الوقت: $timeRange (${Formatters.formatDurationArabic(session.durationMinutes)})
 💵 إجمالي المبلغ: ${Formatters.formatCurrency(session.totalAmount, config.currencySymbol)}
 📊 الحالة: مسدد بالكامل مقاصة على حساب صاحب البئر ✅
-📅 التاريخ: ${Formatters.formatDate(session.startTime)}
+${dateLine(session.startTime)}
                 """.trimIndent()
                 FileSharingHelper.attachMessageFooter(msg)
             }
         } else if (isSms) {
             val duration = Formatters.formatDurationCompact(session.durationMinutes)
-            val date = Formatters.formatDateShort(session.startTime)
             val total = Formatters.formatNumber(session.totalAmount)
             val paid = Formatters.formatNumber(session.amountPaid)
             val rem = Formatters.formatNumber(session.remainingDebt)
@@ -97,7 +144,7 @@ object MessageFormatHelper {
 💵 المبلغ: $total
 💰 المسدد: $paid
 $statusEmoji
-📅 التاريخ: $date
+${dateLine(session.startTime)}
             """.trimIndent()
             FileSharingHelper.attachMessageFooter(msg)
         } else {
@@ -115,7 +162,7 @@ $statusEmoji
 ⏱️ الوقت: $timeRange (${Formatters.formatDurationArabic(session.durationMinutes)})
 💵 المبلغ: ${Formatters.formatCurrency(session.totalAmount, config.currencySymbol)} | مسدد: ${Formatters.formatCurrency(session.amountPaid, config.currencySymbol)}
 📊 الحالة: $debtStatus
-📅 التاريخ: ${Formatters.formatDate(session.startTime)}
+${dateLine(session.startTime)}
             """.trimIndent()
             FileSharingHelper.attachMessageFooter(msg)
         }
@@ -132,7 +179,6 @@ $statusEmoji
         isSms: Boolean
     ): String {
         val vNum = voucher.voucherNumber.ifEmpty { voucher.id.toString() }
-        val date = if (isSms) Formatters.formatDateShort(voucher.date) else Formatters.formatDateTime(voucher.date)
         val amountNum = Formatters.formatNumber(voucher.amount)
         val curr = config.currencySymbol
 
@@ -142,7 +188,7 @@ $statusEmoji
 🧾 سند قبض #$vNum
 👤 استلمنا من: ${customer.name.take(18)}
 💵 مبلغ: $amountNum $curr
-${sessionPart}📅 التاريخ: $date
+${sessionPart}${dateLine(voucher.date)}
             """.trimIndent()
             FileSharingHelper.attachMessageFooter(msg)
         } else {
@@ -152,7 +198,7 @@ ${sessionPart}📅 التاريخ: $date
 ${sessionPart}استلمنا من الأخ: ${customer.name}
 المبلغ: ${Formatters.formatCurrency(voucher.amount, curr)} (${Formatters.amountToArabicWords(voucher.amount, curr)})
 طريقة الدفع: ${voucher.paymentMethod}
-التاريخ: $date
+${dateLine(voucher.date)}
             """.trimIndent()
             FileSharingHelper.attachMessageFooter(msg)
         }
@@ -168,7 +214,6 @@ ${sessionPart}استلمنا من الأخ: ${customer.name}
         isSms: Boolean
     ): String {
         val vNum = voucher.voucherNumber.ifEmpty { voucher.id.toString() }
-        val date = if (isSms) Formatters.formatDateShort(voucher.date) else Formatters.formatDateTime(voucher.date)
         val amountNum = Formatters.formatNumber(voucher.amount)
         val curr = config.currencySymbol
 
@@ -178,7 +223,7 @@ ${sessionPart}استلمنا من الأخ: ${customer.name}
 💸 سند صرف #$vNum
 👤 المستلم: ${customer.name.take(18)}
 💵 مبلغ: $amountNum $curr
-${notePart}📅 التاريخ: $date
+${notePart}${dateLine(voucher.date)}
             """.trimIndent()
             FileSharingHelper.attachMessageFooter(msg)
         } else {
@@ -189,7 +234,7 @@ ${notePart}📅 التاريخ: $date
 المبلغ: ${Formatters.formatCurrency(voucher.amount, curr)} (${Formatters.amountToArabicWords(voucher.amount, curr)})
 البيان: $reason
 طريقة الصرف: ${voucher.paymentMethod}
-التاريخ: $date
+${dateLine(voucher.date)}
             """.trimIndent()
             FileSharingHelper.attachMessageFooter(msg)
         }
@@ -229,7 +274,6 @@ ${notePart}📅 التاريخ: $date
         isSms: Boolean
     ): String {
         val curr = config.currencySymbol
-        val date = if (isSms) Formatters.formatDateShort(purchase.date) else Formatters.formatDateTime(purchase.date)
 
         return if (isSms) {
             val wastePart = if (wasteMinutes > 0) " (هدر ${Formatters.formatDurationCompact(wasteMinutes)})" else ""
@@ -241,7 +285,7 @@ ${notePart}📅 التاريخ: $date
 💵 الإجمالي: ${Formatters.formatNumber(totalAmount)}
 💸 المسلم: ${Formatters.formatNumber(paidAmount)}
 $remText
-📅 التاريخ: $date
+${dateLine(purchase.date)}
             """.trimIndent()
             FileSharingHelper.attachMessageFooter(msg)
         } else {
@@ -254,7 +298,7 @@ $remText
 الإجمالي: ${Formatters.formatCurrency(totalAmount, curr)}
 المصروف (المسلم نقداً): ${Formatters.formatCurrency(paidAmount, curr)}
 المتبقي (عليك): ${Formatters.formatCurrency(remainingDebt, curr)}
-التاريخ: $date
+${dateLine(purchase.date)}
             """.trimIndent()
             FileSharingHelper.attachMessageFooter(msg)
         }
@@ -279,7 +323,7 @@ $remText
 💵 المبلغ: ${Formatters.formatNumber(result.totalAmount)} $curr$discSms
 تم سداد:
 $lines
-📅 التاريخ: ${Formatters.formatDateShort(System.currentTimeMillis())}
+${dateLine(System.currentTimeMillis())}
             """.trimIndent()
             FileSharingHelper.attachMessageFooter(msg)
         } else {
@@ -304,7 +348,7 @@ $lines
             if (result.surplusAmount > 0.0) {
                 sb.append("• رصيد فائض لحسابكم: ${Formatters.formatCurrency(result.surplusAmount, curr)} 💰\n")
             }
-            sb.append("\nالتاريخ: ${Formatters.formatDate(System.currentTimeMillis())}")
+            sb.append("\n${dateLine(System.currentTimeMillis())}")
             FileSharingHelper.attachMessageFooter(sb.toString())
         }
     }
@@ -319,7 +363,6 @@ $lines
         isSms: Boolean
     ): String {
         val curr = config.currencySymbol
-        val date = if (isSms) Formatters.formatDateShort(System.currentTimeMillis()) else Formatters.formatDate(System.currentTimeMillis())
 
         return if (customer.isWellOwner) {
             if (isSms) {
@@ -334,7 +377,7 @@ $lines
 🛒 قيمة الشراء: ${Formatters.formatNumber(item.totalPurchaseAmount)}
 💸 المسدد لكم: ${Formatters.formatNumber(item.totalDisbursedAmount)}
 $status
-📅 حتى: $date
+${dateLine(System.currentTimeMillis(), label = "حتى")}
                 """.trimIndent()
                 FileSharingHelper.attachMessageFooter(msg)
             } else {
@@ -359,6 +402,7 @@ $status
 ------------------------
 $netStatus
 ------------------------
+${dateLine(System.currentTimeMillis(), label = "حتى")}
                 """.trimIndent()
                 FileSharingHelper.attachMessageFooter(msg)
             }
@@ -375,7 +419,7 @@ $netStatus
 💰 القيمة: ${Formatters.formatNumber(item.totalBilledAmount)}
 💵 المسدد: ${Formatters.formatNumber(item.totalPaidAmount)}
 $debtText
-📅 حتى: $date
+${dateLine(System.currentTimeMillis(), label = "حتى")}
                 """.trimIndent()
                 FileSharingHelper.attachMessageFooter(msg)
             } else {
@@ -397,6 +441,7 @@ $debtText
 ------------------------
 $debtStatus
 ------------------------
+${dateLine(System.currentTimeMillis(), label = "حتى")}
                 """.trimIndent()
                 FileSharingHelper.attachMessageFooter(msg)
             }

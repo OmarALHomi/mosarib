@@ -48,6 +48,10 @@ object MosaribSpeaker {
     private const val KEY_CHOSEN_ENGINE = "chosen_tts_engine"
     private const val KEY_CHOSEN_VOICE = "chosen_tts_voice"
     const val DEFAULT_SPEECH_RATE = 0.9f
+    private const val KEY_CONNECTED_READING = "connected_reading"
+    const val DEFAULT_PREVIEW_TEXT = "مَرْحَبًا، هَذَا صَوْت تَطْبِيق المُسَرِّب. رَصِيد أحمد عَلَيْه خمسة آلاف وخمس مِئَة رِيَال."
+
+    private var _connectedReading: Boolean = true
 
     private var tts: TextToSpeech? = null
     private var isInitialized = false
@@ -78,10 +82,27 @@ object MosaribSpeaker {
         val sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val rate = sp.getFloat(KEY_SPEECH_RATE, DEFAULT_SPEECH_RATE).coerceIn(0.7f, 1.3f)
         _speechRate.value = rate
+        _connectedReading = sp.getBoolean(KEY_CONNECTED_READING, true)
         val savedEngine = sp.getString(KEY_CHOSEN_ENGINE, null)
         if (savedEngine != null) {
             _currentEngineLabel.value = formatEngineName(savedEngine)
         }
+    }
+
+    fun isConnectedReadingEnabled(context: Context? = null): Boolean {
+        if (context != null) {
+            val sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            _connectedReading = sp.getBoolean(KEY_CONNECTED_READING, true)
+        }
+        return _connectedReading
+    }
+
+    fun setConnectedReadingEnabled(context: Context, enabled: Boolean) {
+        _connectedReading = enabled
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_CONNECTED_READING, enabled)
+            .apply()
     }
 
     fun getSpeechRate(context: Context): Float {
@@ -142,7 +163,7 @@ object MosaribSpeaker {
         }
     }
 
-    suspend fun previewVoice(context: Context, voice: Voice, sampleText: String = "مرحباً، هذه تجربة قراءة الصوت العربي في تطبيق المسرّب.") {
+    suspend fun previewVoice(context: Context, voice: Voice, sampleText: String = DEFAULT_PREVIEW_TEXT) {
         prepare(context)
         val currentTts = tts ?: return
         try {
@@ -427,7 +448,7 @@ object MosaribSpeaker {
             _errors.tryEmit(SpeechError(utteranceId = utteranceId, message = "محرك الصوت غير جاهز"))
             return false
         }
-        val vocalized = SpeechPronunciation.forSpeech(text)
+        val vocalized = SpeechPronunciation.forSpeech(text, connected = _connectedReading)
         return try {
             currentTts.setSpeechRate(_speechRate.value)
             val params = Bundle().apply {
@@ -477,7 +498,7 @@ object MosaribSpeaker {
             file.delete()
         }
 
-        val vocalized = SpeechPronunciation.forSpeech(text)
+        val vocalized = SpeechPronunciation.forSpeech(text, connected = _connectedReading)
 
         try {
             val params = Bundle().apply {

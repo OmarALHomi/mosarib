@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -35,6 +34,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -55,8 +55,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.core.license.LicenseDialog
-import com.example.core.license.LicenseManager
 import com.example.core.speech.MosaribSpeaker
 import com.example.core.speech.SpeechPronunciation
 import com.example.core.speech.SpeechStatus
@@ -75,8 +73,7 @@ internal fun SettingsVoiceScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val isSpeaking by MosaribSpeaker.isSpeaking.collectAsState()
-    var isSubscribed by remember(context) { mutableStateOf(LicenseManager.isActivated(context)) }
-    var showLicenseDialog by remember { mutableStateOf(false) }
+    var isConnectedReading by remember { mutableStateOf(MosaribSpeaker.isConnectedReadingEnabled(context)) }
 
     var currentRate by remember { mutableFloatStateOf(MosaribSpeaker.getSpeechRate(context)) }
     var status by remember { mutableStateOf<SpeechStatus?>(null) }
@@ -200,6 +197,37 @@ internal fun SettingsVoiceScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
+
+                    SettingsRowDivider()
+
+                    // قراءة متصلة
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "قراءة متصلة",
+                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                "وصل الكلمات داخل الجملة والوقف عند علامات الترقيم",
+                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.textMuted)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Switch(
+                            checked = isConnectedReading,
+                            onCheckedChange = { checked ->
+                                isConnectedReading = checked
+                                MosaribSpeaker.setConnectedReadingEnabled(context, checked)
+                            }
+                        )
+                    }
                 }
             }
 
@@ -218,16 +246,14 @@ internal fun SettingsVoiceScreen(
                     ) {
                         OutlinedButton(
                             onClick = {
-                                if (!isSubscribed) {
-                                    showLicenseDialog = true
-                                } else if (isSpeaking) {
+                                if (isSpeaking) {
                                     MosaribSpeaker.stop()
                                 } else {
                                     scope.launch {
                                         val s = MosaribSpeaker.prepare(context)
                                         status = s
                                         if (s == SpeechStatus.Ready) {
-                                            MosaribSpeaker.speak("هذا نموذج لتجربة سرعة القراءة الصوتية في تطبيق المسرّب.")
+                                            MosaribSpeaker.speak(MosaribSpeaker.DEFAULT_PREVIEW_TEXT)
                                         }
                                     }
                                 }
@@ -246,22 +272,11 @@ internal fun SettingsVoiceScreen(
                                 text = if (isSpeaking) "إيقاف" else "تجربة الصوت",
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                             )
-                            if (!isSubscribed) {
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Default.Lock,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.mosarib.textMuted,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                            }
                         }
 
                         OutlinedButton(
                             onClick = {
-                                if (!isSubscribed) {
-                                    showLicenseDialog = true
-                                } else if (isSpeaking) {
+                                if (isSpeaking) {
                                     MosaribSpeaker.stop()
                                 } else {
                                     scope.launch {
@@ -287,15 +302,6 @@ internal fun SettingsVoiceScreen(
                                 text = if (isSpeaking) "إيقاف" else "تجربة النطق",
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                             )
-                            if (!isSubscribed) {
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Default.Lock,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.mosarib.textMuted,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                            }
                         }
                     }
                 }
@@ -544,15 +550,5 @@ internal fun SettingsVoiceScreen(
         }
     }
 
-    if (showLicenseDialog) {
-        LicenseDialog(
-            onDismiss = { showLicenseDialog = false },
-            onActivated = {
-                isSubscribed = LicenseManager.isActivated(context)
-                showLicenseDialog = false
-            },
-            isMandatory = false,
-            mandatoryReason = "القراءة الصوتية والكشف الصوتي متاحان للمشتركين."
-        )
-    }
+
 }

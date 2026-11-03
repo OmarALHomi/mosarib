@@ -1,4 +1,4 @@
-status: ready
+status: done
 <!-- Owner request 2026-11-03. Runs after 027 in worktree D:\Kotlin\mosarib-t023 (no file overlap
 with 030). License LOGIC must not change: styling, texts and leaving the app only. -->
 # Task 031: About page, the mandatory subscription screen, update and announcement notices
@@ -132,3 +132,4 @@ wrong next to the real date.
 ---
 ## Review notes (written by Claude)
 _(empty)_
+Round 1 (2026-11-03): small changes. See `.ai/reviews/031-review-round1.md`.
