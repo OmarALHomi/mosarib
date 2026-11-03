@@ -54,11 +54,4 @@ offline/online logic as today.
 - The field dictation mics and the customers search mic use the same sheet, in a compact
   version.
 
-## 3. Small
-- About page (031): add the row "الإدخال الصوتي للعمليات" now that 030 exists. Fix the mixed
-  text "المحلي وGoogle Drive" (the و shows after "Drive"); write it as "النسخ الاحتياطي على
-  الهاتف وعلى Google Drive" with the Latin part isolated (`\u2068Google Drive\u2069`).
-  *(This is task 031's file. Do it in this round only if the owner agrees, or leave it for 031
-  round 2.)*
-
 After this round, the owner repeats the free-form phrases with the new button.
