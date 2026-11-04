@@ -79,12 +79,12 @@ The same happens for the other owners (عادل بن قاسم 92,853، سالم 
    space allows. Never start a page for one row plus a header when it fits.
 4. **Bidi of durations:**
    - "(23س و 45د)", "س 01:30" and "24:15 س" print in a mixed order;
-   - wrap each duration in RTL marks, or format it as "23 س 45 د" built with `‏` around the
+   - wrap each duration in RTL marks, or format it as "23 س 45 د" built with U+200F (RLM) around the
      parts, like the app does;
    - check page 1 and the owners table.
 5. **Footer:**
    - "1 صفحة" / "7 صفحة" shows reversed, so write "صفحة 1 من 7";
-   - Latin "wa.me/…" wrapped in `⁦…⁩`.
+   - Latin "wa.me/…" wrapped in U+2066 … U+2069 (LRI/PDI).
 
 Add before/after screenshots of pages 1, 6 and 7 to the report.
 
