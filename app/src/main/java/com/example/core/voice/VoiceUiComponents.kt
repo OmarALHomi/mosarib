@@ -409,6 +409,7 @@ fun VoiceWellOwnerActionChooserDialog(
     ownerName: String,
     onIrrigationOnAccount: () -> Unit,
     onPurchaseHours: () -> Unit,
+    onReSpeak: () -> Unit,
     onDismiss: () -> Unit
 ) {
     MosaribDialog(
@@ -417,8 +418,8 @@ fun VoiceWellOwnerActionChooserDialog(
         message = "صاحب البئر «$ownerName» - اختر نوع العملية:",
         icon = Icons.Default.Person,
         tone = DialogTone.Neutral,
-        confirmText = "",
-        onConfirm = {},
+        confirmText = "إعادة التحدث",
+        onConfirm = onReSpeak,
         dismissText = "إلغاء",
         onDismiss = onDismiss
     ) {
@@ -482,6 +483,7 @@ fun VoiceVoucherTypeChooserDialog(
     onReceipt: () -> Unit,
     onExpense: () -> Unit,
     onDiscount: () -> Unit,
+    onReSpeak: () -> Unit,
     onDismiss: () -> Unit
 ) {
     MosaribDialog(
@@ -490,8 +492,8 @@ fun VoiceVoucherTypeChooserDialog(
         message = if (spokenText.isNotBlank()) "سمعت: «$spokenText»\nاختر نوع السند المطلوب:" else "اختر نوع السند المطلوب:",
         icon = Icons.Default.Mic,
         tone = DialogTone.Neutral,
-        confirmText = "",
-        onConfirm = {},
+        confirmText = "إعادة التحدث",
+        onConfirm = onReSpeak,
         dismissText = "إلغاء",
         onDismiss = onDismiss
     ) {
@@ -835,11 +837,18 @@ fun VoiceRecordSheet(
     title: String = "الإدخال الصوتي السريع",
     subtitle: String = "اضغط مطولاً وتكلّم، ثم أفلت",
     compact: Boolean = false,
+    // Shown while idle so the user knows what to say.
+    examples: List<String> = emptyList(),
+    // When set, the sheet shows what was understood (with retry) before handing the result over.
+    describe: ((candidates: List<String>) -> String?)? = null,
     onDismiss: () -> Unit,
     onResult: (candidates: List<String>) -> Unit
 ) {
     val context = LocalContext.current
     val currentOnResult by rememberUpdatedState(onResult)
+    val currentDescribe by rememberUpdatedState(describe)
+    var pendingCandidates by remember { mutableStateOf<List<String>?>(null) }
+    var pendingSummary by remember { mutableStateOf<String?>(null) }
     var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -992,7 +1001,13 @@ fun VoiceRecordSheet(
                     candidates.add(joined)
                 }
             }
-            currentOnResult(candidates)
+            val describer = currentDescribe
+            if (describer != null) {
+                pendingSummary = try { describer(candidates) } catch (e: Exception) { null }
+                pendingCandidates = candidates
+            } else {
+                currentOnResult(candidates)
+            }
         } else {
             errorMessage = "لم يتم سماع أي كلام، يرجى إعادة المحاولة"
         }
@@ -1174,6 +1189,25 @@ fun VoiceRecordSheet(
                 .padding(vertical = if (compact) 8.dp else 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Result preview after recording: what was understood, then continue or retry
+            pendingCandidates?.let { cands ->
+                VoiceResultPreview(
+                    heard = cands.first(),
+                    summary = pendingSummary,
+                    onContinue = {
+                        pendingCandidates = null
+                        currentOnResult(cands)
+                    },
+                    onRetry = {
+                        pendingCandidates = null
+                        pendingSummary = null
+                        accumulatedParts.clear()
+                        partialText = ""
+                    }
+                )
+                return@Column
+            }
+
             // Live recognized text box
             Surface(
                 shape = RoundedCornerShape(16.dp),
@@ -1310,6 +1344,32 @@ fun VoiceRecordSheet(
                             text = "أو اضغط للبدء ثم اضغط للإنهاء",
                             style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted)
                         )
+                        if (examples.isNotEmpty() && liveText.isBlank()) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Text(
+                                text = "أمثلة تقدر تقولها:",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.mosarib.textMuted,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            examples.forEach { ex ->
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        text = ex,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1317,6 +1377,51 @@ fun VoiceRecordSheet(
     }
 }
 
+
+/** What the app understood from the recording, with continue and retry. */
+@Composable
+private fun VoiceResultPreview(
+    heard: String,
+    summary: String?,
+    onContinue: () -> Unit,
+    onRetry: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = if (summary != null) MaterialTheme.mosarib.successContainer.copy(alpha = 0.35f)
+            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = summary ?: "لم أفهم نوع العملية",
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "سمعت: «$heard»",
+                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+        MosaribPrimaryButton(
+            text = if (summary != null) "متابعة" else "متابعة على أي حال",
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        TextButton(onClick = onRetry) {
+            Text(
+                text = "إعادة المحاولة",
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
 
 /**
  * Bottom sheet displaying the last 50 unparsed voice phrases with copy, share and clear actions (Section 7.9).

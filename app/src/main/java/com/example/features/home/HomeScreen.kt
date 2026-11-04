@@ -869,7 +869,20 @@ fun HomeScreen(
     }
 
     if (showHomeVoiceRecordSheet) {
+        val previewNames = remember(customers) { customers.map { it.name } }
         VoiceRecordSheet(
+            examples = listOf(
+                "مع احمد علي ساعتين ونص من 10 الف ومسلم 5 الف",
+                "مع احمد علي من الساعه 8 بالليل لا الساعه 12 من 10 الف",
+                "20 الف من حارث سعيد",
+                "50 الف مع يوسف قاسم سلفه",
+                "15 الف ديزل"
+            ),
+            describe = { candidates ->
+                VoiceRecognitionHelper.parseFirstValidCommand(candidates, previewNames)
+                    ?.takeIf { it.type != null || it.amount != null || it.durationMinutes != null }
+                    ?.let { com.example.core.voice.buildVoiceCommandSummary(it) }
+            },
             onDismiss = { showHomeVoiceRecordSheet = false },
             onResult = { candidates ->
                 showHomeVoiceRecordSheet = false
@@ -888,6 +901,10 @@ fun HomeScreen(
             onPurchaseHours = {
                 wellOwnerActionCommand = null
                 openFormForVoiceCommand(cmd.copy(type = VoiceCommandType.PURCHASE, customerQuery = owner.name))
+            },
+            onReSpeak = {
+                wellOwnerActionCommand = null
+                showHomeVoiceRecordSheet = true
             },
             onDismiss = { wellOwnerActionCommand = null }
         )
@@ -910,6 +927,10 @@ fun HomeScreen(
                 voucherTypeChooserCommand = null
                 voucherInitialType = VoucherType.RECEIPT
                 openFormForVoiceCommand(cmd.copy(type = VoiceCommandType.DISCOUNT))
+            },
+            onReSpeak = {
+                voucherTypeChooserCommand = null
+                showHomeVoiceRecordSheet = true
             },
             onDismiss = { voucherTypeChooserCommand = null }
         )
