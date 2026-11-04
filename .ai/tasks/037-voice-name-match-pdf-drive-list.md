@@ -48,11 +48,51 @@ The backup page shows "آخر نسخة إلى Drive: 2026/11/04 - 05:03 ص", but
   list call instead of "لا توجد نسخ". Check that `DriveBackupWorker` uploads to the same folder
   (appDataFolder) and with the same name pattern that the list reads.
 
+## 4. Comprehensive report PDF (`core/util/PdfReportGenerator.kt`), checked by owner and Claude on the phone
+**4.1 Accounting (most important): well owners shown as debtors on page 1**
+Row "عمر بن سالم الأهدل" in the customers table on page 1:
+- billed 78,250 and paid 46,853, so his irrigation debt should be **31,397**;
+- the "المتبقي بذمته" column shows **102,853** in red;
+- 102,853 is his **payable balance** (what the distributor owes him for water bought), shown on page 6
+  under "متبقي له علينا".
+
+The same happens for the other owners (عادل بن قاسم 92,853، سالم بن سالم 87,022 …).
+- **Fix:**
+  - Page 1 "المتبقي بذمته" must be the **receivable** (irrigation debt) only.
+  - Owner payables appear only in the owners table.
+  - Never net the two or swap their signs (same rule as the separate owner ledger).
+- **Recheck the cards:**
+  - "ديون العملاء" (408,873) must sum receivables only;
+  - "مستحقات أصحاب الآبار" (1,371,718) must sum payables only.
+- **Add a unit test** with one farmer and one owner, checking the per-row value and both totals.
+
+**4.2 Layout**
+1. Page 1: the title "جدول كشف حسابات العملاء وساعات التوزيع:" touches the bottom row of summary
+   cards. Add at least 12 pt of space.
+2. Owners table, "شراء: مسجل / محتسب / هدر" column:
+   - values are cut with "…01" or "…00";
+   - names are cut too ("عادل بن قاسم ال…");
+   - fix: widen the column, or print the three values on a second line, and allow names up to about
+     26 characters.
+3. **Orphan page:** page 7 holds a full header and a single owner row. Keep-together rule: if fewer
+   than 3 rows would start a new page, move them, or fit the last row on the previous page when
+   space allows. Never start a page for one row plus a header when it fits.
+4. **Bidi of durations:**
+   - "(23س و 45د)", "س 01:30" and "24:15 س" print in a mixed order;
+   - wrap each duration in RTL marks, or format it as "23 س 45 د" built with `‏` around the
+     parts, like the app does;
+   - check page 1 and the owners table.
+5. **Footer:**
+   - "1 صفحة" / "7 صفحة" shows reversed, so write "صفحة 1 من 7";
+   - Latin "wa.me/…" wrapped in `⁦…⁩`.
+
+Add before/after screenshots of pages 1, 6 and 7 to the report.
+
 ## Allowed files
 - `core/voice/VoiceCommandParser.kt`, `core/voice/CustomerMatcher.kt`;
 - `features/home/HomeScreen.kt`, plus the `initialCustomerFromVoice` parts of `SessionDialogs.kt`,
   `VouchersScreen.kt` and `WellOwnerPurchaseBottomSheet.kt`;
-- the PDF statement generator file(s) (find with `grep -rn "المدة والسعر"`);
+- `core/util/PdfReportGenerator.kt` (statement and comprehensive report);
 - `core/backup/DriveBackupWorker.kt`, `core/util/GoogleDriveBackupHelper.kt`,
   `features/settings/SettingsBackupScreen.kt` / `SettingsBackupSection.kt`;
 - tests.
