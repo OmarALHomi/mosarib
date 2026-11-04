@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -104,27 +105,39 @@ internal fun BackupAndRestoreSection(
             )
         },
         driveTabContent = {
-            DriveBackupsTab(
-                isDark = isDark,
-                isCloudBackupAllowed = isCloudBackupAllowed,
-                googleAccount = googleAccount,
-                driveBackups = driveBackups,
-                isDriveLoading = isDriveLoading,
-                expandAllDriveBackups = state.expandAllDriveBackups,
-                onToggleExpandAllDriveBackups = { state.expandAllDriveBackups = !state.expandAllDriveBackups },
-                onConnectGoogleAccount = {
-                    state.pendingAutoBackupAfterSignIn = false
-                    state.showGoogleBackupAccountDialog = true
-                },
-                onUploadBackupNow = {
-                    state.pendingAutoBackupAfterSignIn = true
-                    state.showGoogleBackupAccountDialog = true
-                },
-                onSignOut = onGoogleSignOut,
-                onRefreshDriveBackups = onRefreshDriveBackups,
-                onRestoreDriveBackup = { state.driveBackupToRestore = it },
-                onDeleteDriveBackup = { state.driveBackupToDelete = it }
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                DriveAutoBackupSection(
+                    context = LocalContext.current,
+                    isDark = isDark,
+                    isCloudBackupAllowed = isCloudBackupAllowed,
+                    googleAccount = googleAccount,
+                    onConnectGoogleAccount = {
+                        state.pendingAutoBackupAfterSignIn = false
+                        state.showGoogleBackupAccountDialog = true
+                    }
+                )
+                DriveBackupsTab(
+                    isDark = isDark,
+                    isCloudBackupAllowed = isCloudBackupAllowed,
+                    googleAccount = googleAccount,
+                    driveBackups = driveBackups,
+                    isDriveLoading = isDriveLoading,
+                    expandAllDriveBackups = state.expandAllDriveBackups,
+                    onToggleExpandAllDriveBackups = { state.expandAllDriveBackups = !state.expandAllDriveBackups },
+                    onConnectGoogleAccount = {
+                        state.pendingAutoBackupAfterSignIn = false
+                        state.showGoogleBackupAccountDialog = true
+                    },
+                    onUploadBackupNow = {
+                        state.pendingAutoBackupAfterSignIn = true
+                        state.showGoogleBackupAccountDialog = true
+                    },
+                    onSignOut = onGoogleSignOut,
+                    onRefreshDriveBackups = onRefreshDriveBackups,
+                    onRestoreDriveBackup = { state.driveBackupToRestore = it },
+                    onDeleteDriveBackup = { state.driveBackupToDelete = it }
+                )
+            }
         }
     )
 }

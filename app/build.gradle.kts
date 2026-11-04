@@ -127,6 +127,7 @@ dependencies {
   implementation(libs.androidx.credentials)
   implementation(libs.androidx.credentials.play.services.auth)
   implementation(libs.googleid)
+  implementation(libs.androidx.work.runtime)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   testImplementation(libs.androidx.compose.ui.test.junit4)
@@ -143,4 +144,13 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
+}
+
+
+configurations.all {
+    resolutionStrategy {
+        force("androidx.lifecycle:lifecycle-service:2.7.0")
+        force("androidx.lifecycle:lifecycle-livedata:2.7.0")
+        force("androidx.lifecycle:lifecycle-livedata-core-ktx:2.7.0")
+    }
 }

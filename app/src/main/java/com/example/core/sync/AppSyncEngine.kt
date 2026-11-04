@@ -56,6 +56,13 @@ object AppSyncEngine {
         // 0. Trigger daily silent rolling backup (keeps last 7 days)
         AutoBackupEngine.performDailyAutoBackup(context, com.example.core.database.AppDatabase.getDatabase(context), operationsCount)
 
+        // 0b. Keep the periodic Drive backup scheduled and catch up when it is overdue (never blocks startup)
+        try {
+            com.example.core.backup.DriveBackupScheduler.checkStartupDriveBackup(context)
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Drive backup scheduling failed: ${e.message}")
+        }
+
         // Register smart connectivity listener so offline launches get registered as soon as internet appears
         registerNetworkListener(context, operationsCount)
 

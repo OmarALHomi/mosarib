@@ -1,4 +1,4 @@
-status: ready
+status: done
 <!-- Owner request 2026-11-04: periodic automatic backup to Google Drive. -->
 # Task 035: Real periodic automatic backup to Google Drive
 
