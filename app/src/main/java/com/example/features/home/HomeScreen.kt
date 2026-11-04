@@ -291,7 +291,7 @@ fun HomeScreen(
                     // the closest customers plus "إضافة عميل جديد باسم «...»"
                     VoiceRecognitionHelper.logDebug("VoiceInput", "branch: AMBIGUOUS_OR_LOW_CONFIDENCE, query='${parsedCmd.customerQuery}', count=${ranked.size}")
                     ambiguousVoiceCommand = parsedCmd
-                    ambiguousCandidates = if (ranked.isNotEmpty()) ranked.map { it.customer }.take(5) else customers.take(3)
+                    ambiguousCandidates = ranked.map { it.customer }.take(5) // empty when nothing is close: only "add new" / "other"
                     openFormForVoiceCommand(parsedCmd)
                     return@launch
                 }

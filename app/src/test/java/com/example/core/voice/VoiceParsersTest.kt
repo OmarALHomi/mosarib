@@ -669,4 +669,52 @@ class VoiceParsersTest {
         )
         assertTrue(CustomerMatcher.isHighConfidence(exactMatch))
     }
+
+    @Test
+    fun testTask039TrailingBarePaidMarkerIsPaidFullNotName() {
+        val cmd = VoiceCommandParser.parse("مع احمد علي 20 ساعه من 4000 مسلم")
+        assertEquals("احمد علي", cmd.customerQuery)
+        assertEquals(1200, cmd.durationMinutes)
+        assertEquals(4000.0, cmd.ratePerHour!!, 0.01)
+        assertTrue(cmd.paidFull)
+        assertEquals(null, cmd.paid)
+    }
+
+    @Test
+    fun testTask039PaidMarkerWithAmountIsNotPaidFull() {
+        val cmd = VoiceCommandParser.parse("مع احمد علي ساعتين من 10 الف ومسلم 5000")
+        assertEquals("احمد علي", cmd.customerQuery)
+        assertEquals(5000.0, cmd.paid!!, 0.01)
+        assertFalse(cmd.paidFull)
+    }
+
+    @Test
+    fun testTask039WordsAfterSlotsGoToNotesNotName() {
+        val cmd = VoiceCommandParser.parse("مع احمد علي ساعتين من 10 الف ومسلم 5000 باقي على الشهر")
+        assertEquals("احمد علي", cmd.customerQuery)
+        assertEquals("باقي على الشهر", cmd.notes)
+
+        val unknownTail = VoiceCommandParser.parse("مع احمد علي ساعتين من 10 الف تراكتور")
+        assertEquals("احمد علي", unknownTail.customerQuery)
+        assertEquals("تراكتور", unknownTail.notes)
+    }
+
+    @Test
+    fun testTask039NameWithoutJoiner() {
+        val cmd = VoiceCommandParser.parse("احمد علي 20 ساعه من 4000")
+        assertEquals("احمد علي", cmd.customerQuery)
+        assertEquals(1200, cmd.durationMinutes)
+    }
+
+    @Test
+    fun testTask039MisheardMaIsJoiner() {
+        val cmd = VoiceCommandParser.parse("ما احمد علي اربع ساعات من 4000")
+        assertEquals("احمد علي", cmd.customerQuery)
+        assertEquals(240, cmd.durationMinutes)
+
+        val settled = VoiceCommandParser.parse("مع احمد علي ساعتين من 4000 ما عليه شي")
+        assertTrue(settled.paidFull)
+        assertEquals("احمد علي", settled.customerQuery)
+    }
 }
+

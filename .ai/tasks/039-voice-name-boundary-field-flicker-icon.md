@@ -1,4 +1,4 @@
-status: ready
+status: done
 <!-- Owner on the phone, 2026-11-04. Logcat checked by Claude. Can run in parallel with 038 (different files). -->
 # Task 039: Voice name boundary, «مسلم» without an amount, customer field flicker, launcher icon
 
@@ -105,3 +105,9 @@ Change it to match the home logo:
   - no registered customer is selected when the name is new;
   - deleting the name works with no flicker;
   - the launcher icon looks like the home logo.
+
+## Done by Claude (owner asked), 2026-11-04
+- §1–3 in `VoiceCommandParser` (`nameRegionWords`, bare paid marker → paidFull, «ما» → «مع»), with 5 new tests in `VoiceParsersTest`.
+- §4 high-confidence rule in the session field mic / form command and the vouchers form; Home chooser no longer lists unrelated customers.
+- §5 `customerInputText` keyed on `formKey` only, plus a `LaunchedEffect(selectedCustomer?.id)`; checked on the phone: deleting letters works with no reset.
+- §6 adaptive icon = home logo; legacy webp regenerated. The splash is a custom Compose screen that already animates the drop, so no SplashScreen API work.

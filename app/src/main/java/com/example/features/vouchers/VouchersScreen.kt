@@ -2190,6 +2190,8 @@ fun AddVoucherBottomSheet(
     var isVoucherVoiceCompact by remember { mutableStateOf(false) }
     var voucherVoicePrompt by remember { mutableStateOf("تحدث بالعملية...") }
     var unrecognizedVoucherVoiceText by remember { mutableStateOf<String?>(null) }
+    var custSearchQuery by remember { mutableStateOf(if (voiceCustomer == null && voiceCommand?.customerQuery != null) voiceCommand.customerQuery ?: "" else "") }
+    var beneficiarySearchQuery by remember { mutableStateOf("") }
 
     fun launchVoiceFor(target: String) {
         pendingVoiceTarget = target
@@ -2225,13 +2227,18 @@ fun AddVoucherBottomSheet(
                     notes = if (notes.isBlank()) spoken else "$notes $spoken"
                 }
                 "customer" -> {
-                    val cust = CustomerMatcher.match(spoken, customers).firstOrNull()?.customer
+                    val ranked = CustomerMatcher.match(spoken, customers)
+                    val cust = if (CustomerMatcher.isHighConfidence(ranked)) ranked.first().customer else null
                     if (cust != null) {
                         if (type == VoucherType.RECEIPT) {
                             selectedCustomerId = cust.id
                         } else {
                             selectedBeneficiaryId = cust.id
                         }
+                    } else if (type == VoucherType.RECEIPT) {
+                        custSearchQuery = spoken
+                    } else {
+                        beneficiarySearchQuery = spoken
                     }
                 }
                 "form_command" -> {
@@ -2253,13 +2260,18 @@ fun AddVoucherBottomSheet(
                             }
                         }
                         if (!cmd.customerQuery.isNullOrBlank()) {
-                            val cust = CustomerMatcher.match(cmd.customerQuery, customers).firstOrNull()?.customer
+                            val ranked = CustomerMatcher.match(cmd.customerQuery, customers)
+                            val cust = if (CustomerMatcher.isHighConfidence(ranked)) ranked.first().customer else null
                             if (cust != null) {
                                 if (type == VoucherType.RECEIPT) {
                                     selectedCustomerId = cust.id
                                 } else {
                                     selectedBeneficiaryId = cust.id
                                 }
+                            } else if (type == VoucherType.RECEIPT) {
+                                custSearchQuery = cmd.customerQuery.trim()
+                            } else {
+                                beneficiarySearchQuery = cmd.customerQuery.trim()
                             }
                         }
                         if (!cmd.notes.isNullOrBlank()) {
@@ -2282,9 +2294,7 @@ fun AddVoucherBottomSheet(
     var voiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
 
     var custDropdownExpanded by remember { mutableStateOf(false) }
-    var custSearchQuery by remember { mutableStateOf(if (voiceCustomer == null && voiceCommand?.customerQuery != null) voiceCommand.customerQuery ?: "" else "") }
     var beneficiaryDropdownExpanded by remember { mutableStateOf(false) }
-    var beneficiarySearchQuery by remember { mutableStateOf("") }
 
     val selectedCustomer = customers.find { it.id == selectedCustomerId }
     val selectedBeneficiary = customers.find { it.id == selectedBeneficiaryId }

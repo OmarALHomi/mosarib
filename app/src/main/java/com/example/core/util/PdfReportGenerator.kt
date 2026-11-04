@@ -227,19 +227,19 @@ object PdfReportGenerator {
             val netAmount = if (payableBalance > 0) payableBalance else receivableBalance
             val netColor = if (payableBalance > 0) debtRed else paidGreen
 
-            drawSummaryBox(canvas, 25f, 210f, boxWidth, boxH, "قيمة الشراء بعد الهدر", Formatters.formatCurrency(totalPurchasePayable, config.currencySymbol), primaryColor)
-            drawSummaryBox(canvas, 25f + boxWidth + 10f, 210f, boxWidth, boxH, "المسدد له نقداً", Formatters.formatCurrency(totalExpenses, config.currencySymbol), debtRed)
-            drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 210f, boxWidth, boxH, "سقي / بيع على حسابه", Formatters.formatCurrency(totalWaterCost, config.currencySymbol), primaryColor)
-            drawSummaryBox(canvas, 25f, 268f, boxWidth, boxH, "ساعات الشراء المحتسبة", Formatters.formatDurationArabic(chargeablePurchasedMinutes), primaryColor)
-            drawSummaryBox(canvas, 25f + boxWidth + 10f, 268f, boxWidth, boxH, "خصم هدر صاحب البئر", Formatters.formatCurrency(totalOwnerWasteCredit, config.currencySymbol), debtRed)
-            drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 268f, boxWidth, boxH, netStatusLabel, Formatters.formatCurrency(netAmount, config.currencySymbol), netColor)
+            drawSummaryBox(canvas, 25f, 210f, boxWidth, boxH, "قيمة الشراء بعد الهدر", Formatters.formatCurrency(totalPurchasePayable, config.currencySymbol), primaryColor, fontBold, fontRegular)
+            drawSummaryBox(canvas, 25f + boxWidth + 10f, 210f, boxWidth, boxH, "المسدد له نقداً", Formatters.formatCurrency(totalExpenses, config.currencySymbol), debtRed, fontBold, fontRegular)
+            drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 210f, boxWidth, boxH, "سقي / بيع على حسابه", Formatters.formatCurrency(totalWaterCost, config.currencySymbol), primaryColor, fontBold, fontRegular)
+            drawSummaryBox(canvas, 25f, 268f, boxWidth, boxH, "ساعات الشراء المحتسبة", Formatters.formatDurationArabic(chargeablePurchasedMinutes), primaryColor, fontBold, fontRegular)
+            drawSummaryBox(canvas, 25f + boxWidth + 10f, 268f, boxWidth, boxH, "خصم هدر صاحب البئر", Formatters.formatCurrency(totalOwnerWasteCredit, config.currencySymbol), debtRed, fontBold, fontRegular)
+            drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 268f, boxWidth, boxH, netStatusLabel, Formatters.formatCurrency(netAmount, config.currencySymbol), netColor, fontBold, fontRegular)
         } else {
             val finalBalance = receivableBalance
-            drawSummaryBox(canvas, 25f, 210f, boxWidth, boxH, "السقي بعد هدر المسرب", "${Formatters.formatCurrency(totalWaterCost, config.currencySymbol)} (${Formatters.formatDurationArabic(totalMinutes)})", primaryColor)
-            drawSummaryBox(canvas, 25f + boxWidth + 10f, 210f, boxWidth, boxH, "إجمالي المسدد", Formatters.formatCurrency(totalPaidOverall, config.currencySymbol), paidGreen)
+            drawSummaryBox(canvas, 25f, 210f, boxWidth, boxH, "السقي بعد هدر المسرب", "${Formatters.formatCurrency(totalWaterCost, config.currencySymbol)} (${Formatters.formatDurationArabic(totalMinutes)})", primaryColor, fontBold, fontRegular)
+            drawSummaryBox(canvas, 25f + boxWidth + 10f, 210f, boxWidth, boxH, "إجمالي المسدد", Formatters.formatCurrency(totalPaidOverall, config.currencySymbol), paidGreen, fontBold, fontRegular)
             val balanceLabel = if (finalBalance > 0) "المبلغ المتبقي بذمته" else if (finalBalance < 0) "رصيد دائن للعميل" else "الحساب مسدد"
             val balanceColor = if (finalBalance > 0) debtRed else paidGreen
-            drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 210f, boxWidth, boxH, balanceLabel, Formatters.formatCurrency(kotlin.math.abs(finalBalance), config.currencySymbol), balanceColor)
+            drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 210f, boxWidth, boxH, balanceLabel, Formatters.formatCurrency(kotlin.math.abs(finalBalance), config.currencySymbol), balanceColor, fontBold, fontRegular)
         }
 
         // Statement Table Columns (giving المدة والسعر generous width taken from البيان and others)
@@ -266,7 +266,7 @@ object PdfReportGenerator {
         canvas.drawRect(25f, curY, pageWidth - 25f, curY + 25f, paint)
         paint.color = Color.WHITE
         paint.textSize = if (customer.isWellOwner) 8.5f else 9.5f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.typeface = fontSemiBold
 
         drawClippedCell(canvas, "التاريخ", stmtCol1Left, stmtCol1Right, curY + 16f, paint)
         drawClippedCell(canvas, "البيان والنشاط", stmtCol2Left, stmtCol2Right, curY + 16f, paint)
@@ -280,7 +280,7 @@ object PdfReportGenerator {
             drawClippedCell(canvas, "الرصيد المتبقي", stmtCol6NonOwnerLeft, stmtCol6NonOwnerRight, curY + 16f, paint)
         }
         curY += 25f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        paint.typeface = fontRegular
 
         data class StatementRow(
             val date: Long,
@@ -435,7 +435,7 @@ object PdfReportGenerator {
         paint.textAlign = Paint.Align.LEFT
         canvas.drawText("توقيع وختم المسرب / الموزع: ....................", 40f, pageHeight - 45f, paint)
 
-        drawDocumentFooter(canvas, pageWidth, pageHeight)
+        drawDocumentFooter(canvas, pageWidth, pageHeight, fontRegular = fontRegular)
 
         document.finishPage(page)
 
@@ -821,6 +821,10 @@ object PdfReportGenerator {
         val page = document.startPage(pageInfo)
         val canvas: Canvas = page.canvas
 
+        val fontBold = PdfThemeHelper.getCairoBold(context)
+        val fontRegular = PdfThemeHelper.getCairoRegular(context)
+        val fontSemiBold = PdfThemeHelper.getCairoSemiBold(context)
+
         val primaryColor = 0xFF007A87.toInt()
         val darkTextColor = 0xFF132228.toInt()
         val lightGray = 0xFFF5F9FA.toInt()
@@ -835,12 +839,12 @@ object PdfReportGenerator {
 
         paint.color = Color.WHITE
         paint.textSize = 22f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.typeface = fontBold
         paint.textAlign = Paint.Align.CENTER
         canvas.drawText(if (customer.isWellOwner) "تحصيل عن سقي صاحب البئر" else "سند قبض وتحصيل نقدي", pageWidth / 2f, 38f, paint)
 
         paint.textSize = 12f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        paint.typeface = fontRegular
         canvas.drawText("${config.distributorName} - جوال: ${config.distributorPhone}", pageWidth / 2f, 64f, paint)
 
         // Voucher metadata
@@ -861,10 +865,10 @@ object PdfReportGenerator {
 
         paint.color = darkTextColor
         paint.textAlign = Paint.Align.RIGHT
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.typeface = fontBold
         paint.textSize = 13f
         canvas.drawText("${if (customer.isWellOwner) "وصلنا من صاحب البئر عن السقي" else "وصلنا من العميل"}: ${customer.name}", pageWidth - 45f, 180f, paint)
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        paint.typeface = fontRegular
         paint.textSize = 11f
         canvas.drawText("المزرعة: ${customer.farmName.ifEmpty { "غير محدد" }}  |  الهاتف: ${customer.phone}", pageWidth - 45f, 202f, paint)
 
@@ -874,7 +878,7 @@ object PdfReportGenerator {
         canvas.drawRoundRect(amtRect, 10f, 10f, paint)
 
         paint.color = paidGreen
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.typeface = fontBold
         paint.textSize = 13f
         paint.textAlign = Paint.Align.RIGHT
         canvas.drawText("مبلغ وقدره:", pageWidth - 45f, 260f, paint)
@@ -884,7 +888,7 @@ object PdfReportGenerator {
 
         paint.color = darkTextColor
         paint.textSize = 12f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        paint.typeface = fontRegular
         val words = Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)
         canvas.drawText("فقط: $words", pageWidth - 45f, 298f, paint)
 
@@ -908,7 +912,7 @@ object PdfReportGenerator {
         paint.textAlign = Paint.Align.LEFT
         canvas.drawText("توقيع المسدد (العميل): ....................", 50f, pageHeight - 45f, paint)
 
-        drawDocumentFooter(canvas, pageWidth, pageHeight)
+        drawDocumentFooter(canvas, pageWidth, pageHeight, fontRegular = fontRegular)
 
         document.finishPage(page)
 
@@ -945,6 +949,10 @@ object PdfReportGenerator {
         val dividerGray = 0xFFD2DFE5.toInt()
         val expenseRed = 0xFFC62828.toInt()
 
+        val fontBold = PdfThemeHelper.getCairoBold(context)
+        val fontRegular = PdfThemeHelper.getCairoRegular(context)
+        val fontSemiBold = PdfThemeHelper.getCairoSemiBold(context)
+
         val paint = Paint().apply { isAntiAlias = true }
 
         // Header
@@ -953,12 +961,12 @@ object PdfReportGenerator {
 
         paint.color = Color.WHITE
         paint.textSize = 22f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.typeface = fontBold
         paint.textAlign = Paint.Align.CENTER
         canvas.drawText(if (customer?.isWellOwner == true) "سداد مستحقات صاحب البئر" else "سند صرف نقدي", pageWidth / 2f, 38f, paint)
 
         paint.textSize = 12f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        paint.typeface = fontRegular
         canvas.drawText("${config.distributorName} - جوال: ${config.distributorPhone}", pageWidth / 2f, 64f, paint)
 
         // Voucher metadata
@@ -979,11 +987,11 @@ object PdfReportGenerator {
 
         paint.color = darkTextColor
         paint.textAlign = Paint.Align.RIGHT
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.typeface = fontBold
         paint.textSize = 13f
         val beneficiaryName = customer?.name ?: "مصروف عام / جهة غير محددة"
         canvas.drawText("${if (customer?.isWellOwner == true) "يُسدد لصاحب البئر" else "يُصرف للمستفيد / السيد"}: $beneficiaryName", pageWidth - 45f, 180f, paint)
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        paint.typeface = fontRegular
         paint.textSize = 11f
         val farmOrDesc = if (customer != null) "المزرعة: ${customer.farmName.ifEmpty { "عام" }}  |  الهاتف: ${customer.phone}" else "بيان الصرف: ${voucher.notes.ifBlank { voucher.category }}"
         canvas.drawText(farmOrDesc, pageWidth - 45f, 202f, paint)
@@ -994,7 +1002,7 @@ object PdfReportGenerator {
         canvas.drawRoundRect(amtRect, 10f, 10f, paint)
 
         paint.color = expenseRed
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.typeface = fontBold
         paint.textSize = 13f
         paint.textAlign = Paint.Align.RIGHT
         canvas.drawText("مبلغ وقدره:", pageWidth - 45f, 260f, paint)
@@ -1004,7 +1012,7 @@ object PdfReportGenerator {
 
         paint.color = darkTextColor
         paint.textSize = 12f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        paint.typeface = fontRegular
         val words = Formatters.amountToArabicWords(voucher.amount, config.currencySymbol)
         canvas.drawText("فقط: $words", pageWidth - 45f, 298f, paint)
 
@@ -1029,7 +1037,7 @@ object PdfReportGenerator {
         paint.textAlign = Paint.Align.LEFT
         canvas.drawText("توقيع المستلم: ....................", 50f, pageHeight - 45f, paint)
 
-        drawDocumentFooter(canvas, pageWidth, pageHeight)
+        drawDocumentFooter(canvas, pageWidth, pageHeight, fontRegular = fontRegular)
 
         document.finishPage(page)
 
@@ -1071,6 +1079,10 @@ object PdfReportGenerator {
         val paidGreen = 0xFF2E7D32.toInt()
         val goldAccent = 0xFFB8860B.toInt()
 
+        val fontBold = PdfThemeHelper.getCairoBold(context)
+        val fontRegular = PdfThemeHelper.getCairoRegular(context)
+        val fontSemiBold = PdfThemeHelper.getCairoSemiBold(context)
+
         val paint = Paint().apply { isAntiAlias = true }
 
         var pageNumber = 1
@@ -1087,12 +1099,12 @@ object PdfReportGenerator {
 
             paint.color = Color.WHITE
             paint.textSize = 18f
-            paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            paint.typeface = fontBold
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("التقرير المحاسبي والإحصائي الشامل", pageWidth / 2f, 38f, paint)
 
             paint.textSize = 11f
-            paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            paint.typeface = fontRegular
             canvas.drawText(subtitle, pageWidth / 2f, 62f, paint)
         }
 
@@ -1112,16 +1124,19 @@ object PdfReportGenerator {
         val page1MaxRows = ((pageHeight - 90f - page1HeaderSpace) / rowHeight).toInt()
         val custPagesCount = if (customerRows.size <= page1MaxRows) 1 else 1 + Math.ceil((customerRows.size - page1MaxRows).toDouble() / 27.0).toInt()
         val ownerPagesCount = if (ownerRowsList.isEmpty()) 0 else {
+            val hasOwnerWasteLine = totals.ownerWasteMinutes > 0 || totals.ownerWasteCredit > 0.0
+            val ownerPage1Start = if (hasOwnerWasteLine) 230f else 210f
+            val ownerRowH = 24f
             var count = 1
-            var ySim = 155f
+            var ySim = ownerPage1Start
             ownerRowsList.forEachIndexed { idx, _ ->
                 val rem = ownerRowsList.size - idx
-                val canFitRemaining = (rem in 1..2 && ySim + (rem * 42f) <= pageHeight - 48f)
-                if (ySim + 42f > pageHeight - 90f && !canFitRemaining) {
+                val canFitRemaining = (rem in 1..2 && ySim + (rem * ownerRowH) + ownerRowH + 3f <= pageHeight - 48f)
+                if (ySim + ownerRowH > pageHeight - 90f && !canFitRemaining) {
                     count++
-                    ySim = 155f
+                    ySim = 150f
                 }
-                ySim += 42f
+                ySim += ownerRowH
             }
             count
         }
@@ -1135,21 +1150,21 @@ object PdfReportGenerator {
 
             paint.color = Color.WHITE
             paint.textSize = 9.5f
-            paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            paint.typeface = fontSemiBold
             paint.textAlign = Paint.Align.RIGHT
             canvas.drawText("العميل", 565f, curY + 16f, paint)
             canvas.drawText("المزرعة / الهاتف", 435f, curY + 16f, paint)
-            canvas.drawText("السقي / صافي المدة", 335f, curY + 16f, paint)
+            drawClippedCell(canvas, "السقي / صافي المدة", 252f, 339f, curY + 16f, paint, padding = 2f)
             canvas.drawText("المبلغ المطلوب", 250f, curY + 16f, paint)
             canvas.drawText("المدفوع", 175f, curY + 16f, paint)
             canvas.drawText("المتبقي بذمته", 95f, curY + 16f, paint)
 
             curY += 26f
-            paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            paint.typeface = fontRegular
         }
 
         fun finishCurrentPage() {
-            drawDocumentFooter(canvas, pageWidth, pageHeight, pageNumber = pageNumber, totalPages = totalPagesCount)
+            drawDocumentFooter(canvas, pageWidth, pageHeight, pageNumber = pageNumber, fontRegular = fontRegular, totalPages = totalPagesCount)
             document.finishPage(page)
         }
 
@@ -1183,34 +1198,34 @@ object PdfReportGenerator {
 
         // Row 1: Financial KPIs (y = 146f)
         var startX = 25f
-        drawSummaryBox(canvas, startX, 146f, cardWidth4, cardH, "صافي الأرباح", Formatters.formatCurrency(totals.netProfit, config.currencySymbol), if (totals.netProfit >= 0) paidGreen else debtRed)
+        drawSummaryBox(canvas, startX, 146f, cardWidth4, cardH, "صافي الأرباح", Formatters.formatCurrency(totals.netProfit, config.currencySymbol), if (totals.netProfit >= 0) paidGreen else debtRed, fontBold, fontRegular)
         startX += cardWidth4 + cardSpacing
-        drawSummaryBox(canvas, startX, 146f, cardWidth4, cardH, "إجمالي الإيرادات", Formatters.formatCurrency(totals.totalRevenue, config.currencySymbol), primaryColor)
+        drawSummaryBox(canvas, startX, 146f, cardWidth4, cardH, "إجمالي الإيرادات", Formatters.formatCurrency(totals.totalRevenue, config.currencySymbol), primaryColor, fontBold, fontRegular)
         startX += cardWidth4 + cardSpacing
-        drawSummaryBox(canvas, startX, 146f, cardWidth4, cardH, "المحصل الفعلي", Formatters.formatCurrency(totals.totalCollected, config.currencySymbol), paidGreen)
+        drawSummaryBox(canvas, startX, 146f, cardWidth4, cardH, "المحصل الفعلي", Formatters.formatCurrency(totals.totalCollected, config.currencySymbol), paidGreen, fontBold, fontRegular)
         startX += cardWidth4 + cardSpacing
-        drawSummaryBox(canvas, startX, 146f, cardWidth4, cardH, "ديون العملاء", Formatters.formatCurrency(totals.totalOutstandingDebt, config.currencySymbol), debtRed)
+        drawSummaryBox(canvas, startX, 146f, cardWidth4, cardH, "ديون العملاء", Formatters.formatCurrency(totals.totalOutstandingDebt, config.currencySymbol), debtRed, fontBold, fontRegular)
 
         // Row 2: Operational KPIs (y = 198f)
         startX = 25f
-        drawSummaryBox(canvas, startX, 198f, cardWidth4, cardH, "ساعات السقي المباعة", Formatters.formatDurationArabic(totals.waterMinutes), primaryColor)
+        drawSummaryBox(canvas, startX, 198f, cardWidth4, cardH, "ساعات السقي المباعة", Formatters.formatDurationArabic(totals.waterMinutes), primaryColor, fontBold, fontRegular)
         startX += cardWidth4 + cardSpacing
-        drawSummaryBox(canvas, startX, 198f, cardWidth4, cardH, "فاقد شبكة السقي", Formatters.formatDurationArabic(totals.distributorWasteMinutes), debtRed)
+        drawSummaryBox(canvas, startX, 198f, cardWidth4, cardH, "فاقد شبكة السقي", Formatters.formatDurationArabic(totals.distributorWasteMinutes), debtRed, fontBold, fontRegular)
         startX += cardWidth4 + cardSpacing
-        drawSummaryBox(canvas, startX, 198f, cardWidth4, cardH, "مصروفات التشغيل", Formatters.formatCurrency(totals.totalExpenses, config.currencySymbol), 0xFFE65100.toInt())
+        drawSummaryBox(canvas, startX, 198f, cardWidth4, cardH, "مصروفات التشغيل", Formatters.formatCurrency(totals.totalExpenses, config.currencySymbol), 0xFFE65100.toInt(), fontBold, fontRegular)
         startX += cardWidth4 + cardSpacing
-        drawSummaryBox(canvas, startX, 198f, cardWidth4, cardH, "دورات السقي", "${totals.sessionsCount} دورة", darkTextColor)
+        drawSummaryBox(canvas, startX, 198f, cardWidth4, cardH, "دورات السقي", "${totals.sessionsCount} دورة", darkTextColor, fontBold, fontRegular)
 
         // Row 3: Well Owner Purchases (Only if well owner purchases exist)
         if (hasOwnerPurchases) {
             startX = 25f
-            drawSummaryBox(canvas, startX, 250f, cardWidth4, cardH, "مشتريات الآبار", Formatters.formatCurrency(totals.ownerPurchaseAmount, config.currencySymbol), primaryColor)
+            drawSummaryBox(canvas, startX, 250f, cardWidth4, cardH, "مشتريات الآبار", Formatters.formatCurrency(totals.ownerPurchaseAmount, config.currencySymbol), primaryColor, fontBold, fontRegular)
             startX += cardWidth4 + cardSpacing
-            drawSummaryBox(canvas, startX, 250f, cardWidth4, cardH, "المسدد للمالكين", Formatters.formatCurrency(totals.ownerPayments, config.currencySymbol), paidGreen)
+            drawSummaryBox(canvas, startX, 250f, cardWidth4, cardH, "المسدد للمالكين", Formatters.formatCurrency(totals.ownerPayments, config.currencySymbol), paidGreen, fontBold, fontRegular)
             startX += cardWidth4 + cardSpacing
-            drawSummaryBox(canvas, startX, 250f, cardWidth4, cardH, "مستحقات أصحاب الآبار", Formatters.formatCurrency(totals.ownerPayable, config.currencySymbol), if (totals.ownerPayable > 0) debtRed else paidGreen)
+            drawSummaryBox(canvas, startX, 250f, cardWidth4, cardH, "مستحقات أصحاب الآبار", Formatters.formatCurrency(totals.ownerPayable, config.currencySymbol), if (totals.ownerPayable > 0) debtRed else paidGreen, fontBold, fontRegular)
             startX += cardWidth4 + cardSpacing
-            drawSummaryBox(canvas, startX, 250f, cardWidth4, cardH, "هدر صاحب البئر", Formatters.formatDurationArabic(totals.ownerWasteMinutes), debtRed)
+            drawSummaryBox(canvas, startX, 250f, cardWidth4, cardH, "هدر صاحب البئر", Formatters.formatDurationArabic(totals.ownerWasteMinutes), debtRed, fontBold, fontRegular)
             curY = 328f // Added 16 pt breathing space below cards (Task 037 4.2 §1)
         } else {
             curY = 276f // Added 16 pt breathing space below cards
@@ -1219,7 +1234,7 @@ object PdfReportGenerator {
         // Section header for Customer Ledger
         paint.color = darkTextColor
         paint.textSize = 11f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.typeface = fontBold
         paint.textAlign = Paint.Align.RIGHT
         canvas.drawText("جدول كشف حسابات العملاء وساعات التوزيع:", pageWidth - 25f, curY - 10f, paint)
 
@@ -1275,7 +1290,7 @@ object PdfReportGenerator {
             canvas.drawRect(20f, curY, pageWidth - 20f, curY + rowHeight + 3f, paint)
 
             paint.color = darkTextColor
-            paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            paint.typeface = fontBold
             paint.textSize = 10f
             paint.textAlign = Paint.Align.RIGHT
             canvas.drawText("الإجمالي العام", 565f, curY + 16f, paint)
@@ -1287,7 +1302,7 @@ object PdfReportGenerator {
             paint.color = if (totals.totalOutstandingDebt > 0.0) debtRed else paidGreen
             canvas.drawText(Formatters.formatNumber(totals.totalOutstandingDebt), 95f, curY + 16f, paint)
 
-            paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            paint.typeface = fontRegular
             curY += rowHeight + 3f
         }
 
@@ -1296,73 +1311,159 @@ object PdfReportGenerator {
         if (ownerRows.isNotEmpty()) {
             finishCurrentPage()
 
+            val ownerRowHeight = 24f
+            val hasOwnerWasteLine = totals.ownerWasteMinutes > 0 || totals.ownerWasteCredit > 0.0
+
             fun drawOwnerTableHeader() {
                 paint.color = primaryColor
-                canvas.drawRect(20f, curY, pageWidth - 20f, curY + 25f, paint)
+                canvas.drawRect(20f, curY, pageWidth - 20f, curY + 24f, paint)
                 paint.color = Color.WHITE
                 paint.textSize = 8.3f
-                paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                paint.typeface = fontSemiBold
                 paint.textAlign = Paint.Align.RIGHT
-                canvas.drawText("صاحب البئر", 565f, curY + 16f, paint)
-                canvas.drawText("شراء: مسجل / محتسب / هدر", 425f, curY + 16f, paint)
-                canvas.drawText("صافي الشراء", 295f, curY + 16f, paint)
-                canvas.drawText("المسدد له", 225f, curY + 16f, paint)
-                canvas.drawText("متبقي له علينا", 160f, curY + 16f, paint)
-                canvas.drawText("دين السقي عليه", 90f, curY + 16f, paint)
-                curY += 25f
+
+                // Columns: 575 down to 20: 140, 75, 75, 70, 70, 65, 60
+                drawClippedCell(canvas, "صاحب البئر", 435f, 575f, curY + 16f, paint, Paint.Align.RIGHT)
+                drawClippedCell(canvas, "ساعات الشراء", 360f, 435f, curY + 16f, paint, Paint.Align.CENTER)
+                drawClippedCell(canvas, "صافي الشراء", 285f, 360f, curY + 16f, paint, Paint.Align.CENTER)
+                drawClippedCell(canvas, "المسدد له", 215f, 285f, curY + 16f, paint, Paint.Align.CENTER)
+                drawClippedCell(canvas, "سقي له", 145f, 215f, curY + 16f, paint, Paint.Align.CENTER)
+                drawClippedCell(canvas, "المحصّل منه", 80f, 145f, curY + 16f, paint, Paint.Align.CENTER)
+                drawClippedCell(canvas, "الصافي", 20f, 80f, curY + 16f, paint, Paint.Align.CENTER)
+
+                curY += 24f
+                paint.typeface = fontRegular
             }
 
-            fun startOwnerPage(subtitle: String) {
+            fun startOwnerPage(isFirstOwnerPage: Boolean) {
                 pageNumber++
                 page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
                 canvas = page.canvas
-                drawHeader(subtitle)
-                curY = 130f
+                drawHeader("${config.distributorName} | $periodTitle | حسابات أصحاب الآبار")
+
+                if (isFirstOwnerPage) {
+                    var stripX = 25f
+                    val stripCardSpacing = 8f
+                    val stripCardW = (pageWidth - 50f - (3 * stripCardSpacing)) / 4f
+                    val stripCardH = 46f
+                    val stripY = 126f
+
+                    drawSummaryBox(canvas, stripX, stripY, stripCardW, stripCardH, "عدد أصحاب الآبار", "${ownerRows.size} مالك", primaryColor, fontBold, fontRegular)
+                    stripX += stripCardW + stripCardSpacing
+                    drawSummaryBox(canvas, stripX, stripY, stripCardW, stripCardH, "إجمالي الشراء", Formatters.formatCurrency(totals.ownerPurchaseAmount, config.currencySymbol), primaryColor, fontBold, fontRegular)
+                    stripX += stripCardW + stripCardSpacing
+                    drawSummaryBox(canvas, stripX, stripY, stripCardW, stripCardH, "المسدد للمالكين", Formatters.formatCurrency(totals.ownerPayments, config.currencySymbol), paidGreen, fontBold, fontRegular)
+                    stripX += stripCardW + stripCardSpacing
+                    drawSummaryBox(canvas, stripX, stripY, stripCardW, stripCardH, "صافي مستحقاتهم", Formatters.formatCurrency(totals.ownerPayable, config.currencySymbol), if (totals.ownerPayable > 0) debtRed else paidGreen, fontBold, fontRegular)
+
+                    if (hasOwnerWasteLine) {
+                        paint.color = darkTextColor
+                        paint.textSize = 9f
+                        paint.typeface = fontRegular
+                        paint.textAlign = Paint.Align.CENTER
+                        val wStr = formatBidiDuration(totals.ownerWasteMinutes)
+                        val wCreditStr = Formatters.formatNumber(totals.ownerWasteCredit)
+                        val wasteText = "هدر أصحاب الآبار: $wStr — خصم $wCreditStr ${config.currencySymbol}"
+                        canvas.drawText(wasteText, pageWidth / 2f, 192f, paint)
+                        curY = 206f
+                    } else {
+                        curY = 186f
+                    }
+                } else {
+                    curY = 126f
+                }
+
                 drawOwnerTableHeader()
             }
 
-            startOwnerPage("${config.distributorName} | $periodTitle | حسابا صاحب البئر مستقلان")
-            val ownerRowHeight = 42f
+            startOwnerPage(isFirstOwnerPage = true)
+
             ownerRows.forEachIndexed { index, row ->
                 val remainingRows = ownerRows.size - index
-                val canFitRemainingRows = (remainingRows in 1..2 && curY + (remainingRows * ownerRowHeight) <= pageHeight - 48f)
+                val canFitRemainingRows = (remainingRows in 1..2 && curY + (remainingRows * ownerRowHeight) + ownerRowHeight + 3f <= pageHeight - 48f)
                 if (curY + ownerRowHeight > pageHeight - 90f && !canFitRemainingRows) {
                     finishCurrentPage()
-                    startOwnerPage("${config.distributorName} | $periodTitle | متابعة أصحاب الآبار")
+                    startOwnerPage(isFirstOwnerPage = false)
                 }
+
                 paint.color = if (index % 2 == 0) Color.WHITE else lightGray
                 canvas.drawRect(20f, curY, pageWidth - 20f, curY + ownerRowHeight, paint)
+
                 paint.color = dividerGray
                 paint.strokeWidth = 0.5f
                 canvas.drawLine(20f, curY + ownerRowHeight, pageWidth - 20f, curY + ownerRowHeight, paint)
-                paint.textAlign = Paint.Align.RIGHT
-                paint.textSize = 8.2f
-                paint.color = darkTextColor
-                // Task 037 4.2 §2: Allow names up to 26 characters
-                canvas.drawText(truncate(row.customerName, 26), 565f, curY + 14f, paint)
-                // Task 037 4.2 §2 & §4: Widen column to 130 pt and BiDi format 3 duration values
-                val pStr = formatBidiDuration(row.purchasedMinutes)
-                val cStr = formatBidiDuration(row.chargeablePurchasedMinutes)
-                val wStr = formatBidiDuration(row.ownerWasteMinutes)
-                val hoursText = "$pStr / $cStr / $wStr"
-                drawClippedCell(canvas, hoursText, 295f, 425f, curY + 14f, paint)
-                canvas.drawText(Formatters.formatNumber(row.purchaseAmount), 295f, curY + 14f, paint)
-                paint.color = paidGreen
-                canvas.drawText(Formatters.formatNumber(row.ownerPayments), 225f, curY + 14f, paint)
-                paint.color = if (row.payableBalance > 0) debtRed else paidGreen
-                canvas.drawText(Formatters.formatNumber(row.payableBalance), 160f, curY + 14f, paint)
-                paint.color = if (row.receivableBalance > 0) debtRed else paidGreen
-                canvas.drawText(Formatters.formatNumber(row.receivableBalance), 90f, curY + 14f, paint)
 
+                paint.textSize = 8.5f
+                paint.typeface = fontRegular
                 paint.color = darkTextColor
-                paint.textSize = 8f
-                paint.textAlign = Paint.Align.RIGHT
-                val detail = "هدر صاحب البئر: $wStr / خصمه ${Formatters.formatNumber(row.ownerWasteCredit)}  •  سقي له بعد هدر المسرب: ${formatBidiDuration(row.waterMinutes)} / بيع ${Formatters.formatNumber(row.billed)} / تحصيل ${Formatters.formatNumber(row.paid)}"
-                canvas.drawText(truncate(detail, 100), 565f, curY + 32f, paint)
+
+                // Col 1: صاحب البئر (name, up to 26 chars)
+                drawClippedCell(canvas, truncate(row.customerName, 26), 435f, 575f, curY + 16f, paint, Paint.Align.RIGHT)
+
+                // Col 2: ساعات الشراء (chargeable purchased minutes)
+                drawClippedCell(canvas, formatBidiDuration(row.chargeablePurchasedMinutes), 360f, 435f, curY + 16f, paint, Paint.Align.CENTER)
+
+                // Col 3: صافي الشراء
+                drawClippedCell(canvas, Formatters.formatNumber(row.purchaseAmount), 285f, 360f, curY + 16f, paint, Paint.Align.CENTER)
+
+                // Col 4: المسدد له
+                paint.color = paidGreen
+                drawClippedCell(canvas, Formatters.formatNumber(row.ownerPayments), 215f, 285f, curY + 16f, paint, Paint.Align.CENTER)
+
+                // Col 5: سقي له
+                paint.color = darkTextColor
+                drawClippedCell(canvas, Formatters.formatNumber(row.billed), 145f, 215f, curY + 16f, paint, Paint.Align.CENTER)
+
+                // Col 6: المحصّل منه
+                paint.color = paidGreen
+                drawClippedCell(canvas, Formatters.formatNumber(row.paid), 80f, 145f, curY + 16f, paint, Paint.Align.CENTER)
+
+                // Col 7: الصافي
+                val netCell = ComprehensiveReportMath.ownerNetBalanceCell(row)
+                paint.color = when (netCell.type) {
+                    ComprehensiveReportMath.OwnerBalanceType.PAYABLE -> paidGreen
+                    ComprehensiveReportMath.OwnerBalanceType.RECEIVABLE -> debtRed
+                    ComprehensiveReportMath.OwnerBalanceType.SETTLED -> 0xFF78909C.toInt()
+                }
+                drawClippedCell(canvas, netCell.text, 20f, 80f, curY + 16f, paint, Paint.Align.CENTER)
+
                 curY += ownerRowHeight
             }
-        }
 
+            // Totals row at the end
+            if (curY + ownerRowHeight + 3f > pageHeight - 90f) {
+                finishCurrentPage()
+                startOwnerPage(isFirstOwnerPage = false)
+            }
+
+            paint.color = 0xFFE0F2F1.toInt()
+            canvas.drawRect(20f, curY, pageWidth - 20f, curY + ownerRowHeight + 3f, paint)
+
+            paint.color = darkTextColor
+            paint.typeface = fontBold
+            paint.textSize = 8.5f
+
+            drawClippedCell(canvas, "الإجمالي العام", 435f, 575f, curY + 16f, paint, Paint.Align.RIGHT)
+            drawClippedCell(canvas, formatBidiDuration(totals.chargeablePurchasedMinutes), 360f, 435f, curY + 16f, paint, Paint.Align.CENTER)
+            drawClippedCell(canvas, Formatters.formatNumber(totals.ownerPurchaseAmount), 285f, 360f, curY + 16f, paint, Paint.Align.CENTER)
+
+            paint.color = paidGreen
+            drawClippedCell(canvas, Formatters.formatNumber(totals.ownerPayments), 215f, 285f, curY + 16f, paint, Paint.Align.CENTER)
+
+            val totalOwnerBilled = ownerRows.sumOf { it.billed }
+            paint.color = darkTextColor
+            drawClippedCell(canvas, Formatters.formatNumber(totalOwnerBilled), 145f, 215f, curY + 16f, paint, Paint.Align.CENTER)
+
+            val totalOwnerPaid = ownerRows.sumOf { it.paid }
+            paint.color = paidGreen
+            drawClippedCell(canvas, Formatters.formatNumber(totalOwnerPaid), 80f, 145f, curY + 16f, paint, Paint.Align.CENTER)
+
+            paint.color = paidGreen
+            drawClippedCell(canvas, "له ${Formatters.formatNumber(totals.ownerPayable)}", 20f, 80f, curY + 16f, paint, Paint.Align.CENTER)
+
+            paint.typeface = fontRegular
+            curY += ownerRowHeight + 3f
+        }
         // ---------- Signatures ----------
         if (curY + 70f < pageHeight - 60f) {
             paint.color = dividerGray
@@ -1405,6 +1506,7 @@ object PdfReportGenerator {
 
         val fontBold = PdfThemeHelper.getCairoBold(context)
         val fontRegular = PdfThemeHelper.getCairoRegular(context)
+        val fontSemiBold = PdfThemeHelper.getCairoSemiBold(context)
 
         val primaryColor = PdfThemeHelper.COLOR_PRIMARY
         val darkTextColor = PdfThemeHelper.COLOR_DARK_TEXT
@@ -1448,7 +1550,7 @@ object PdfReportGenerator {
 
             paint.color = Color.WHITE
             paint.textSize = 9.5f
-            paint.typeface = fontBold
+            paint.typeface = fontSemiBold
             paint.textAlign = Paint.Align.RIGHT
             canvas.drawText("م", 565f, curY + 16f, paint)
             canvas.drawText("اسم العميل / المشترك", 540f, curY + 16f, paint)
@@ -1625,6 +1727,7 @@ object PdfReportGenerator {
 
         val fontBold = PdfThemeHelper.getCairoBold(context)
         val fontRegular = PdfThemeHelper.getCairoRegular(context)
+        val fontSemiBold = PdfThemeHelper.getCairoSemiBold(context)
 
         val primaryColor = PdfThemeHelper.COLOR_PRIMARY
         val darkTextColor = PdfThemeHelper.COLOR_DARK_TEXT
@@ -1668,7 +1771,7 @@ object PdfReportGenerator {
 
             paint.color = Color.WHITE
             paint.textSize = 9f
-            paint.typeface = fontBold
+            paint.typeface = fontSemiBold
             paint.textAlign = Paint.Align.RIGHT
             canvas.drawText("م", 815f, curY + 16f, paint)
             canvas.drawText("التاريخ والوقت", 785f, curY + 16f, paint)
@@ -1923,8 +2026,8 @@ object PdfReportGenerator {
         title: String,
         value: String,
         accentColor: Int,
-        fontBold: Typeface? = null,
-        fontRegular: Typeface? = null
+        fontBold: Typeface,
+        fontRegular: Typeface
     ) {
         val paint = Paint().apply { isAntiAlias = true }
         val rect = RectF(x, y, x + width, y + height)
@@ -1945,12 +2048,12 @@ object PdfReportGenerator {
 
         paint.color = PdfThemeHelper.COLOR_MUTED_TEXT
         paint.textSize = 9.5f
-        paint.typeface = fontRegular ?: Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        paint.typeface = fontRegular
         paint.textAlign = Paint.Align.CENTER
         canvas.drawText(title, x + (width / 2f), y + 22f, paint)
 
         paint.color = accentColor
-        paint.typeface = fontBold ?: Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.typeface = fontBold
         paint.textSize = 11.5f
         canvas.drawText(value, x + (width / 2f), y + 42f, paint)
     }
@@ -1963,13 +2066,13 @@ object PdfReportGenerator {
         pageWidth: Int,
         pageHeight: Int,
         pageNumber: Int? = null,
-        fontRegular: Typeface? = null,
+        fontRegular: Typeface,
         totalPages: Int? = null
     ) {
         val paint = Paint().apply {
             isAntiAlias = true
             textSize = 8.5f
-            typeface = fontRegular ?: Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            typeface = fontRegular
             textAlign = Paint.Align.CENTER
             color = PdfThemeHelper.COLOR_MUTED_TEXT
         }

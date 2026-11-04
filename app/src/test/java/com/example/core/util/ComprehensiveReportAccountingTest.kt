@@ -1,6 +1,8 @@
 package com.example.core.util
 
+import com.example.core.util.ComprehensiveReportMath.OwnerBalanceType
 import com.example.features.customers.Customer
+import com.example.features.customers.CustomerWithBalance
 import com.example.features.customers.calculateCustomerBalance
 import com.example.features.sessions.WaterSession
 import com.example.features.vouchers.Voucher
@@ -144,5 +146,87 @@ class ComprehensiveReportAccountingTest {
         // "مستحقات أصحاب الآبار" card
         val totalOwnerPayables = customerRows.filter { it.isWellOwner }.sumOf { it.payableBalance }
         assertEquals("Owner payables must be 102,853", 102853.0, totalOwnerPayables, 0.01)
+    }
+
+    @Test
+    fun testOwnerNetBalanceCell() {
+        // 1. Owner with net payable (payableBalance > 0) -> "له X", PAYABLE
+        val payableOwner = Customer(id = 11L, name = "مالك دائن", isWellOwner = true)
+        val payablePurchases = listOf(
+            WellOwnerPurchase(id = 101L, ownerCustomerId = payableOwner.id, durationMinutes = 60, purchaseRatePerHour = 100000.0)
+        )
+        val payableSessions = listOf(
+            WaterSession(id = 201L, customerId = payableOwner.id, durationMinutes = 60, totalAmount = 30000.0, amountPaid = 0.0)
+        )
+        val payableBalance = calculateCustomerBalance(
+            customer = payableOwner,
+            sessions = payableSessions,
+            vouchers = emptyList(),
+            purchases = payablePurchases
+        )
+        val payableRow = toRow(payableOwner, payableBalance)
+        val payableCell = ComprehensiveReportMath.ownerNetBalanceCell(payableRow)
+        assertEquals(OwnerBalanceType.PAYABLE, payableCell.type)
+        assertEquals("له ${Formatters.formatNumber(70000.0)}", payableCell.text)
+
+        // 2. Owner with net receivable (receivableBalance > 0, sales > purchases) -> "عليه X", RECEIVABLE
+        val receivableOwner = Customer(id = 12L, name = "مالك مدين", isWellOwner = true)
+        val receivablePurchases = listOf(
+            WellOwnerPurchase(id = 102L, ownerCustomerId = receivableOwner.id, durationMinutes = 60, purchaseRatePerHour = 30000.0)
+        )
+        val receivableSessions = listOf(
+            WaterSession(id = 202L, customerId = receivableOwner.id, durationMinutes = 60, totalAmount = 80000.0, amountPaid = 0.0)
+        )
+        val receivableBalance = calculateCustomerBalance(
+            customer = receivableOwner,
+            sessions = receivableSessions,
+            vouchers = emptyList(),
+            purchases = receivablePurchases
+        )
+        val receivableRow = toRow(receivableOwner, receivableBalance)
+        val receivableCell = ComprehensiveReportMath.ownerNetBalanceCell(receivableRow)
+        assertEquals(OwnerBalanceType.RECEIVABLE, receivableCell.type)
+        assertEquals("عليه ${Formatters.formatNumber(50000.0)}", receivableCell.text)
+
+        // 3. Settled owner (balance is 0) -> "مسدد", SETTLED
+        val settledOwner = Customer(id = 13L, name = "مالك مسدد", isWellOwner = true)
+        val settledPurchases = listOf(
+            WellOwnerPurchase(id = 103L, ownerCustomerId = settledOwner.id, durationMinutes = 60, purchaseRatePerHour = 50000.0)
+        )
+        val settledSessions = listOf(
+            WaterSession(id = 203L, customerId = settledOwner.id, durationMinutes = 60, totalAmount = 50000.0, amountPaid = 0.0)
+        )
+        val settledBalance = calculateCustomerBalance(
+            customer = settledOwner,
+            sessions = settledSessions,
+            vouchers = emptyList(),
+            purchases = settledPurchases
+        )
+        val settledRow = toRow(settledOwner, settledBalance)
+        val settledCell = ComprehensiveReportMath.ownerNetBalanceCell(settledRow)
+        assertEquals(OwnerBalanceType.SETTLED, settledCell.type)
+        assertEquals("مسدد", settledCell.text)
+    }
+
+    private fun toRow(customer: Customer, balance: CustomerWithBalance): ComprehensiveCustomerRow {
+        return ComprehensiveCustomerRow(
+            customerName = customer.name,
+            phone = customer.phone,
+            farmName = customer.farmName.ifEmpty { customer.location },
+            sessionsCount = balance.totalSessionsCount,
+            waterMinutes = balance.totalSoldMinutes,
+            billed = balance.totalBilledAmount,
+            paid = balance.totalPaidAmount,
+            balance = balance.balance,
+            isWellOwner = customer.isWellOwner,
+            purchasedMinutes = balance.totalPurchasedMinutes,
+            chargeablePurchasedMinutes = balance.totalChargeablePurchasedMinutes,
+            ownerWasteMinutes = (balance.totalPurchasedMinutes - balance.totalChargeablePurchasedMinutes).coerceAtLeast(0),
+            ownerWasteCredit = balance.totalOwnerWasteCredit,
+            purchaseAmount = balance.totalPurchaseAmount,
+            ownerPayments = balance.totalDisbursedAmount,
+            payableBalance = balance.payableBalance,
+            receivableBalance = balance.receivableBalance
+        )
     }
 }

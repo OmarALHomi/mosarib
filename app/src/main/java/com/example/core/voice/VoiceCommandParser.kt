@@ -144,6 +144,14 @@ object VoiceCommandParser {
             working = working.replaceFirst(Regex("^(سقي|سقيه|سقايه|سقيت|ري|قبض|قبضت|استلمت|سدد|سداد|وصل|وصلني|صرف|صرفت|دفعت\\s+لـ?|شراء|اشتريت|شريت|خصم|سامحت)\\s+"), "").trim()
         }
 
+        // «ما» at the start is usually a misheard «مع» («ما احمد علي اربع ساعات…»)
+        if (working.startsWith("ما ") && !working.startsWith("ما عليه")) {
+            working = "مع " + working.removePrefix("ما ")
+        }
+
+        // The customer name can only come from the words before the first slot (task 039)
+        val nameRegion = nameRegionWords(working)
+
         // 3. Time range check (Section 6 B & B2)
         val timeRangeResult = parseTimeRange(working, now)
         var startMillis: Long? = null
@@ -206,6 +214,17 @@ object VoiceCommandParser {
         )
         working = cleanAfterAmounts
 
+        // 7a. A paid marker with no amount after it means paid in full («… من 4000 مسلم»)
+        if (paidRaw == null && !isPaidFull &&
+            (durationMinutes != null || explicitType == VoiceCommandType.SESSION || explicitType == VoiceCommandType.PURCHASE)
+        ) {
+            val barePaidMarker = Regex("(?:^|\\s)(مسلم|وسلم|سلم|سلمه|مدفوع|واصل|دفع|ودفع|دفعه)(?=\\s|$)")
+            if (barePaidMarker.containsMatchIn(working)) {
+                isPaidFull = true
+                working = working.replace(barePaidMarker, " ").replace(Regex("\\s+"), " ").trim()
+            }
+        }
+
         val (amount, paid) = if (amountRaw == null && paidRaw != null && (explicitType == VoiceCommandType.RECEIPT || explicitType == VoiceCommandType.EXPENSE || (durationMinutes == null && explicitType != VoiceCommandType.SESSION))) {
             Pair(paidRaw, null)
         } else {
@@ -259,13 +278,25 @@ object VoiceCommandParser {
         }
 
         // 10. Extract customer query and notes
-        val (customerQuery, extraNotes) = separateCustomerAndNotes(
+        var (customerQuery, extraNotes) = separateCustomerAndNotes(
             text = working,
             rawSource = rawSource,
             knownNames = knownNames,
             hasCategory = (category != null),
             isExpense = (explicitType == VoiceCommandType.EXPENSE)
         )
+
+        // Words left over after the slots never join the name; they become notes.
+        if (customerQuery != null && nameRegion.isNotEmpty()) {
+            val regionNorm = nameRegion.map { SpokenNumberParser.normalizeToken(it) }.toSet()
+            val queryWords = customerQuery.split(" ").filter { it.isNotBlank() }
+            val kept = queryWords.takeWhile { SpokenNumberParser.normalizeToken(it) in regionNorm }
+            if (kept.isNotEmpty() && kept.size < queryWords.size) {
+                customerQuery = kept.joinToString(" ")
+                val tail = queryWords.drop(kept.size).joinToString(" ")
+                extraNotes = if (extraNotes != null) "$tail $extraNotes" else tail
+            }
+        }
 
         if (extraNotes != null && extraNotes != category && extraNotes != "ال$category") {
             notes = if (notes != null) "$extraNotes $notes" else extraNotes
@@ -317,6 +348,26 @@ object VoiceCommandParser {
         val paid: Double?,
         val remainingText: String
     )
+
+    private val NAME_SLOT_WORDS: Set<String> by lazy {
+        (VoicePhraseRules.PAID_MARKERS + listOf("من", "بسعر", "سعر"))
+            .filter { !it.contains(" ") }
+            .map { SpokenNumberParser.normalizeToken(it) }
+            .toSet()
+    }
+
+    /** Words before the first number, duration, rate or paid marker: the only place a name can be. */
+    private fun nameRegionWords(text: String): List<String> {
+        val durationStart = SpokenDurationParser.findDurationSpan(text)?.first ?: text.length
+        val words = text.substring(0, durationStart).split(" ").filter { it.isNotBlank() }
+        val region = mutableListOf<String>()
+        for ((i, w) in words.withIndex()) {
+            if (w.any { it.isDigit() }) break
+            if (i > 0 && w in NAME_SLOT_WORDS) break
+            region += w
+        }
+        return region
+    }
 
     private fun extractAmounts(text: String, hasDuration: Boolean, isSessionType: Boolean): AmountsExtraction {
         var working = text

@@ -1,4 +1,4 @@
-status: ready
+status: done
 <!-- Owner request 2026-11-04: "اجعل الخط كايرو" while checking the comprehensive report. -->
 # Task 038: Cairo font in every PDF, and a clean well-owners page
 
@@ -97,3 +97,6 @@ Reuse `ComprehensiveReportMath.page1BalanceCell` or add a sibling function for t
   - comprehensive report pages 1 and 6;
   - one customer statement;
   - one well-owner statement.
+
+## Review (Claude)
+Accepted. Checked on the phone: Cairo in the report, the owners page is clean (cards, 7 columns, «له» green, totals row). Claude fixed one overlap: page-1 header «السقي / صافي المدة» now uses `drawClippedCell`.

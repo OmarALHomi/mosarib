@@ -679,8 +679,13 @@ fun AddEditSessionBottomSheet(
         }
     }
 
-    var customerInputText by remember(selectedCustomer?.name, formKey) {
+    // Keyed on the form only: re-keying on the selected customer reset the text on every key press.
+    var customerInputText by remember(formKey) {
         mutableStateOf(selectedCustomer?.name ?: voiceCommand?.customerQuery ?: "")
+    }
+    // A customer chosen elsewhere (chooser, new customer, late-loaded list) shows its name once.
+    LaunchedEffect(selectedCustomer?.id) {
+        selectedCustomer?.let { if (customerInputText != it.name) customerInputText = it.name }
     }
 
     var pendingVoiceTarget by remember { mutableStateOf<String?>(null) }
@@ -724,7 +729,8 @@ fun AddEditSessionBottomSheet(
                     notes = if (notes.isBlank()) spoken else "$notes $spoken"
                 }
                 "customer" -> {
-                    val cust = CustomerMatcher.match(spoken, customers).firstOrNull()?.customer
+                    val ranked = CustomerMatcher.match(spoken, customers)
+                    val cust = if (CustomerMatcher.isHighConfidence(ranked)) ranked.first().customer else null
                     if (cust != null) {
                         selectedCustomerId = cust.id
                         customerInputText = cust.name
@@ -767,7 +773,8 @@ fun AddEditSessionBottomSheet(
                             amountPaidStr = Formatters.formatAmountInput(cmd.paid.toString())
                         }
                         if (!cmd.customerQuery.isNullOrBlank()) {
-                            val cust = CustomerMatcher.match(cmd.customerQuery, customers).firstOrNull()?.customer
+                            val ranked = CustomerMatcher.match(cmd.customerQuery, customers)
+                            val cust = if (CustomerMatcher.isHighConfidence(ranked)) ranked.first().customer else null
                             if (cust != null) {
                                 selectedCustomerId = cust.id
                                 customerInputText = cust.name
