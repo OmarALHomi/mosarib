@@ -1,4 +1,4 @@
-status: ready
+status: done
 <!-- Found by Claude on the phone, 2026-11-04, while taking promo screenshots. Three bugs. -->
 # Task 037: Wrong customer picked by voice, overlapping PDF columns, Drive list not refreshing
 
@@ -101,3 +101,9 @@ Add before/after screenshots of pages 1, 6 and 7 to the report.
 - Build and tests pass.
 - The report includes the PDF page before and after, and the backup page showing the Drive list
   after "انسخ الآن".
+
+## Review round 1 (Claude)
+§1, §2, §3 and §4.2 accepted. **Blocker in §4.1:** the app nets the well-owner account (`calculateCustomerBalance`), so `payableBalance` is already net of the irrigation debt; the round-1 code counts the 31,397 twice. Round 2: see `.ai/reviews/037-round1.md` (items 1–8).
+
+## Review round 2 (Claude)
+Items 1–8 accepted in code: `ComprehensiveReportMath.page1BalanceCell` (owner «له …» green), totals back to `totalOutstandingDebt`, owner table back to `receivableBalance`, real test via `calculateCustomerBalance`, keep-together for 1–2 rows with the page-count simulation in step, Drive refresh only on transition, clipped purchase column. Tests pass. Remaining: phone check of pages 1, 6, 7 by Claude; the report file was not updated for round 2.

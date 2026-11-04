@@ -152,7 +152,7 @@ object GoogleDriveBackupHelper {
         context: Context,
         account: GoogleSignInAccount
     ): Result<List<DriveBackupFile>> = withContext(Dispatchers.IO) {
-        runCatching {
+        val outcome = runCatching {
             val androidAccount = account.account ?: throw IllegalStateException("حساب Google غير متوفر")
             val token = getAccessToken(context, androidAccount)
 
@@ -212,6 +212,13 @@ object GoogleDriveBackupHelper {
                 throw Exception(extractErrorMessage(responseCode, errorStr))
             }
         }
+        outcome.onSuccess {
+            com.example.core.backup.DriveBackupPreferences.clearListError(context)
+        }.onFailure { e ->
+            val readable = getReadableErrorMessage(e)
+            com.example.core.backup.DriveBackupPreferences.recordListError(context, readable)
+        }
+        outcome
     }
 
     /**

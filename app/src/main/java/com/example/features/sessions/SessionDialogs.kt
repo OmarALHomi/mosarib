@@ -304,11 +304,16 @@ fun AddEditSessionBottomSheet(
     var currentVoiceCommand by remember(voiceCommand) { mutableStateOf(voiceCommand) }
     val initialCustomerFromVoice = remember(voiceCommand, customers) {
         voiceCommand?.customerQuery?.let { q ->
-            CustomerMatcher.match(q, customers).firstOrNull()?.customer
+            val ranked = CustomerMatcher.match(q, customers)
+            if (CustomerMatcher.isHighConfidence(ranked)) {
+                ranked.first().customer
+            } else {
+                null
+            }
         }
     }
     var selectedCustomerId by remember(initialSession?.customerId, defaultCustomerId, initialCustomerFromVoice) {
-        mutableLongStateOf(initialSession?.customerId ?: initialCustomerFromVoice?.id ?: defaultCustomerId ?: 0L)
+        mutableLongStateOf(initialSession?.customerId ?: initialCustomerFromVoice?.id ?: (if (voiceCommand?.customerQuery != null) 0L else defaultCustomerId ?: 0L))
     }
 
     var quickName by remember { mutableStateOf("") }

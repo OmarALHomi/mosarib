@@ -603,4 +603,70 @@ class VoiceParsersTest {
         assertEquals("احمد علي", cmd.customerQuery)
         assertTrue("Unparsed list should be empty: ${cmd.unparsed}", cmd.unparsed.isEmpty())
     }
+
+    // =========================================================================
+    // 8. Task 037 Tests (Voice Name Matching & Ambiguity Confidence)
+    // =========================================================================
+
+    @Test
+    fun testTask037VoiceNameMatchingExtractsFullQueryWithoutSwallowingIntoNotes() {
+        // When knownNames contains ["يوسف احمد", "احمد سعيد"] and phrase is "مع احمد علي ساعتين ونص من 10,000 ومسلم 5000",
+        // parser extracts customerQuery == "احمد علي" and does NOT swallow "علي" into notes (notes remains null / empty).
+        val cmd = VoiceCommandParser.parse(
+            "مع احمد علي ساعتين ونص من 10,000 ومسلم 5000",
+            knownNames = listOf("يوسف احمد", "احمد سعيد")
+        )
+        assertEquals(VoiceCommandType.SESSION, cmd.type)
+        assertEquals("احمد علي", cmd.customerQuery)
+        assertTrue("Notes should be null or empty, got: '${cmd.notes}'", cmd.notes.isNullOrBlank())
+        assertEquals(150, cmd.durationMinutes)
+        assertEquals(10000.0, cmd.ratePerHour!!, 0.01)
+        assertEquals(5000.0, cmd.paid!!, 0.01)
+
+        // Spoken name "مع يوسف احمد ساعتين من 10 الف" extracts customerQuery == "يوسف احمد".
+        val cmdExact = VoiceCommandParser.parse(
+            "مع يوسف احمد ساعتين من 10 الف",
+            knownNames = listOf("يوسف احمد", "احمد سعيد")
+        )
+        assertEquals(VoiceCommandType.SESSION, cmdExact.type)
+        assertEquals("يوسف احمد", cmdExact.customerQuery)
+        assertTrue("Notes should be null or empty, got: '${cmdExact.notes}'", cmdExact.notes.isNullOrBlank())
+        assertEquals(120, cmdExact.durationMinutes)
+        assertEquals(10000.0, cmdExact.ratePerHour!!, 0.01)
+    }
+
+    @Test
+    fun testTask037CustomerMatcherIsHighConfidence() {
+        val c1 = Customer(id = 1L, name = "محمد علي", phone = "")
+        val c2 = Customer(id = 2L, name = "محمد حسين", phone = "")
+
+        // Empty matches -> false
+        assertFalse(CustomerMatcher.isHighConfidence(emptyList()))
+
+        // Single match with confidence < 0.85 -> false
+        val lowConfidenceMatch = listOf(
+            CustomerMatcher.CustomerMatch(customer = c1, score = 0.80f, isExactOrLearned = false)
+        )
+        assertFalse(CustomerMatcher.isHighConfidence(lowConfidenceMatch))
+
+        // Two close matches (scores 0.90 and 0.80 -> diff 0.10 < 0.20) -> false
+        val closeMatches = listOf(
+            CustomerMatcher.CustomerMatch(customer = c1, score = 0.90f, isExactOrLearned = false),
+            CustomerMatcher.CustomerMatch(customer = c2, score = 0.80f, isExactOrLearned = false)
+        )
+        assertFalse(CustomerMatcher.isHighConfidence(closeMatches))
+
+        // Clear winner (score >= 0.85 and diff >= 0.20) -> true
+        val clearWinner = listOf(
+            CustomerMatcher.CustomerMatch(customer = c1, score = 0.90f, isExactOrLearned = false),
+            CustomerMatcher.CustomerMatch(customer = c2, score = 0.65f, isExactOrLearned = false)
+        )
+        assertTrue(CustomerMatcher.isHighConfidence(clearWinner))
+
+        // Exact match -> true
+        val exactMatch = listOf(
+            CustomerMatcher.CustomerMatch(customer = c1, score = 1.0f, isExactOrLearned = true)
+        )
+        assertTrue(CustomerMatcher.isHighConfidence(exactMatch))
+    }
 }

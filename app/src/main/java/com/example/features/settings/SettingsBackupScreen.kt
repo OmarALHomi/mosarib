@@ -99,6 +99,12 @@ internal fun SettingsBackupScreen(
     BackHandler { onBack() }
     val context = LocalContext.current
 
+    LaunchedEffect(googleAccount) {
+        if (googleAccount != null) {
+            onRefreshDriveBackups()
+        }
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -263,7 +269,8 @@ internal fun SettingsBackupScreen(
                             onConnectGoogleAccount = {
                                 state.pendingAutoBackupAfterSignIn = false
                                 state.showGoogleBackupAccountDialog = true
-                            }
+                            },
+                            onRefreshDriveBackups = onRefreshDriveBackups
                         )
                     }
                 }
@@ -281,6 +288,28 @@ internal fun SettingsBackupScreen(
                             .fillMaxWidth()
                             .padding(12.dp)
                     ) {
+                        val recordedDriveTime = DriveBackupPreferences.getLastBackupTime(context)
+                        val driveListError = DriveBackupPreferences.getListError(context) ?: DriveBackupPreferences.getLastError(context)
+                        if (driveBackups.isEmpty() && recordedDriveTime > 0L && !driveListError.isNullOrBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isDark) Color(0xFF3B1E1E) else Color(0xFFFEF2F2),
+                                border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "تعذر جلب قائمة النسخ السحابية: $driveListError",
+                                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
+                                    )
+                                }
+                            }
+                        }
                         DriveBackupsTab(
                             isDark = isDark,
                             isCloudBackupAllowed = isCloudBackupAllowed,
@@ -318,7 +347,8 @@ internal fun DriveAutoBackupSection(
     isDark: Boolean,
     isCloudBackupAllowed: Boolean,
     googleAccount: GoogleSignInAccount?,
-    onConnectGoogleAccount: () -> Unit
+    onConnectGoogleAccount: () -> Unit,
+    onRefreshDriveBackups: () -> Unit = {}
 ) {
     if (googleAccount == null) {
         Surface(
@@ -390,9 +420,30 @@ internal fun DriveAutoBackupSection(
         }
         val isRunning = isImmediateRunning || isPeriodicRunning
 
+        var prevImmediateStates by remember { mutableStateOf<Map<java.util.UUID, WorkInfo.State>>(emptyMap()) }
+        var prevPeriodicStates by remember { mutableStateOf<Map<java.util.UUID, WorkInfo.State>>(emptyMap()) }
+
         LaunchedEffect(workInfos, periodicWorkInfos) {
-            lastBackupTime = DriveBackupPreferences.getLastBackupTime(context)
+            val prevTime = lastBackupTime
+            val newTime = DriveBackupPreferences.getLastBackupTime(context)
+            lastBackupTime = newTime
             lastError = DriveBackupPreferences.getLastError(context)
+
+            val immediateMovedToSucceeded = workInfos.any { info ->
+                info.state == WorkInfo.State.SUCCEEDED &&
+                    prevImmediateStates[info.id]?.let { it == WorkInfo.State.RUNNING || it == WorkInfo.State.ENQUEUED } == true
+            }
+            val periodicMovedToSucceeded = periodicWorkInfos.any { info ->
+                info.state == WorkInfo.State.SUCCEEDED &&
+                    prevPeriodicStates[info.id]?.let { it == WorkInfo.State.RUNNING || it == WorkInfo.State.ENQUEUED } == true
+            }
+
+            prevImmediateStates = workInfos.associate { it.id to it.state }
+            prevPeriodicStates = periodicWorkInfos.associate { it.id to it.state }
+
+            if (immediateMovedToSucceeded || periodicMovedToSucceeded || (newTime > 0L && newTime != prevTime)) {
+                onRefreshDriveBackups()
+            }
         }
 
         Column(

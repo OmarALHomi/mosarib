@@ -81,6 +81,7 @@ object DriveBackupPreferences {
     private const val KEY_LAST_ERROR = "last_drive_error"
     private const val KEY_CONSECUTIVE_FAILURES = "consecutive_failures"
     private const val KEY_FIRST_FAILURE_TIME = "first_failure_time"
+    private const val KEY_LAST_LIST_ERROR = "last_drive_list_error"
 
     fun getFrequency(context: Context): BackupFrequency {
         val name = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
@@ -124,6 +125,25 @@ object DriveBackupPreferences {
     fun getLastError(context: Context): String? {
         return context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
             .getString(KEY_LAST_ERROR, null)
+    }
+
+    fun getListError(context: Context): String? {
+        return context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+            .getString(KEY_LAST_LIST_ERROR, null)
+    }
+
+    fun recordListError(context: Context, error: String) {
+        context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_LAST_LIST_ERROR, error)
+            .apply()
+    }
+
+    fun clearListError(context: Context) {
+        context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_LAST_LIST_ERROR)
+            .apply()
     }
 
     fun getConsecutiveFailures(context: Context): Int {

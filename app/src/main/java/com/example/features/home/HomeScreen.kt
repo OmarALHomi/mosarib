@@ -281,22 +281,17 @@ fun HomeScreen(
                 }
                 val aliases = VoiceAliasRepository.getAliases(context)
                 val ranked = CustomerMatcher.match(parsedCmd.customerQuery, list, aliases)
-                if (ranked.isNotEmpty()) {
-                    if (!CustomerMatcher.isHighConfidence(ranked) && ranked.size > 1) {
-                        VoiceRecognitionHelper.logDebug("VoiceInput", "branch: AMBIGUOUS_CUSTOMERS, query='${parsedCmd.customerQuery}'")
-                        ambiguousVoiceCommand = parsedCmd
-                        ambiguousCandidates = ranked.map { it.customer }
-                        return@launch
-                    }
+                if (CustomerMatcher.isHighConfidence(ranked)) {
+                    VoiceRecognitionHelper.logDebug("VoiceInput", "branch: CONFIDENT_CUSTOMER, query='${parsedCmd.customerQuery}', match='${ranked.first().customer.name}'")
+                    openFormForVoiceCommand(parsedCmd)
+                    return@launch
                 } else {
-                    // Spoken name not found in database!
-                    // Review Round 3:
-                    // "open the inferred form;
-                    //  put the spoken name in the customer field;
-                    //  show the chooser with the closest customers + 'إضافة عميل جديد باسم «احمد علي»'"
-                    VoiceRecognitionHelper.logDebug("VoiceInput", "branch: CUSTOMER_NOT_FOUND, query='${parsedCmd.customerQuery}'")
+                    // Not high confidence: either empty, single match < 0.85, or multiple ambiguous matches.
+                    // Open the form with the spoken name in the field and show the chooser:
+                    // the closest customers plus "إضافة عميل جديد باسم «...»"
+                    VoiceRecognitionHelper.logDebug("VoiceInput", "branch: AMBIGUOUS_OR_LOW_CONFIDENCE, query='${parsedCmd.customerQuery}', count=${ranked.size}")
                     ambiguousVoiceCommand = parsedCmd
-                    ambiguousCandidates = customers.take(3)
+                    ambiguousCandidates = if (ranked.isNotEmpty()) ranked.map { it.customer }.take(5) else customers.take(3)
                     openFormForVoiceCommand(parsedCmd)
                     return@launch
                 }

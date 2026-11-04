@@ -70,6 +70,57 @@ object PdfReportGenerator {
     /**
      * Generates a Customer Statement PDF and returns the file URI
      */
+    /**
+     * Formats duration in BiDi-safe Arabic with RTL marks (U+200F).
+     */
+    fun formatBidiDuration(totalMinutes: Int): String {
+        if (totalMinutes <= 0) return "\u200F0 \u200Fد\u200F"
+        val h = totalMinutes / 60
+        val m = totalMinutes % 60
+        return when {
+            h > 0 && m > 0 -> "\u200F$h \u200Fس \u200F$m \u200Fد\u200F"
+            h > 0 -> "\u200F$h \u200Fس\u200F"
+            else -> "\u200F$m \u200Fد\u200F"
+        }
+    }
+
+    /**
+     * Clips text inside a cell [left, right] and shrinks font down to minTextSize if needed,
+     * guaranteeing padding of at least 4 pt so text never overflows or overlaps neighboring columns.
+     */
+    private fun drawClippedCell(
+        canvas: Canvas,
+        text: String,
+        left: Float,
+        right: Float,
+        y: Float,
+        paint: Paint,
+        align: Paint.Align = Paint.Align.RIGHT,
+        padding: Float = 4f,
+        minTextSize: Float = 6.5f
+    ) {
+        canvas.save()
+        canvas.clipRect(left, y - 20f, right, y + 10f)
+        val availableWidth = (right - left) - (padding * 2f)
+        val originalSize = paint.textSize
+        var currentSize = originalSize
+        while (paint.measureText(text) > availableWidth && currentSize > minTextSize) {
+            currentSize -= 0.5f
+            paint.textSize = currentSize
+        }
+        val drawX = when (align) {
+            Paint.Align.RIGHT -> right - padding
+            Paint.Align.LEFT -> left + padding
+            Paint.Align.CENTER -> left + (right - left) / 2f
+        }
+        val oldAlign = paint.textAlign
+        paint.textAlign = align
+        canvas.drawText(text, drawX, y, paint)
+        paint.textAlign = oldAlign
+        paint.textSize = originalSize
+        canvas.restore()
+    }
+
     fun generateCustomerStatementPdf(
         context: Context,
         config: AppConfig,
@@ -191,24 +242,42 @@ object PdfReportGenerator {
             drawSummaryBox(canvas, 25f + (boxWidth + 10f) * 2, 210f, boxWidth, boxH, balanceLabel, Formatters.formatCurrency(kotlin.math.abs(finalBalance), config.currencySymbol), balanceColor)
         }
 
-        // Owner statements show the payable and receivable ledgers in separate columns.
+        // Statement Table Columns (giving المدة والسعر generous width taken from البيان and others)
+        val isOwnerStmt = customer.isWellOwner
+        val stmtCol1Left = if (isOwnerStmt) 510f else 505f
+        val stmtCol1Right = 570f // التاريخ
+        val stmtCol2Left = if (isOwnerStmt) 425f else 405f
+        val stmtCol2Right = stmtCol1Left // البيان
+        val stmtCol3Left = if (isOwnerStmt) 300f else 275f
+        val stmtCol3Right = stmtCol2Left // المدة والسعر (125-130 pt)
+        val stmtCol4Left = if (isOwnerStmt) 230f else 195f
+        val stmtCol4Right = stmtCol3Left // المبلغ
+        val stmtCol5Left = if (isOwnerStmt) 160f else 115f
+        val stmtCol5Right = stmtCol4Left // المدفوع / التسوية
+        val stmtCol6OwnerLeft = 90f
+        val stmtCol6OwnerRight = 160f // رصيد الشراء علينا
+        val stmtCol7OwnerLeft = 25f
+        val stmtCol7OwnerRight = 90f // رصيد السقي له
+        val stmtCol6NonOwnerLeft = 25f
+        val stmtCol6NonOwnerRight = 115f // الرصيد المتبقي
+
         var curY = if (customer.isWellOwner) 386f else 290f
         paint.color = primaryColor
         canvas.drawRect(25f, curY, pageWidth - 25f, curY + 25f, paint)
         paint.color = Color.WHITE
-        paint.textSize = if (customer.isWellOwner) 8.5f else 10f
+        paint.textSize = if (customer.isWellOwner) 8.5f else 9.5f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("التاريخ", pageWidth - 35f, curY + 16f, paint)
-        canvas.drawText("البيان والنشاط", pageWidth - 105f, curY + 16f, paint)
-        canvas.drawText("المدة والسعر", pageWidth - 205f, curY + 16f, paint)
-        canvas.drawText("المبلغ", pageWidth - 300f, curY + 16f, paint)
-        canvas.drawText("المدفوع / التسوية", pageWidth - 380f, curY + 16f, paint)
-        if (customer.isWellOwner) {
-            canvas.drawText("رصيد الشراء علينا", 145f, curY + 16f, paint)
-            canvas.drawText("رصيد السقي له", 55f, curY + 16f, paint)
+
+        drawClippedCell(canvas, "التاريخ", stmtCol1Left, stmtCol1Right, curY + 16f, paint)
+        drawClippedCell(canvas, "البيان والنشاط", stmtCol2Left, stmtCol2Right, curY + 16f, paint)
+        drawClippedCell(canvas, "المدة والسعر", stmtCol3Left, stmtCol3Right, curY + 16f, paint)
+        drawClippedCell(canvas, "المبلغ", stmtCol4Left, stmtCol4Right, curY + 16f, paint)
+        drawClippedCell(canvas, "المدفوع / التسوية", stmtCol5Left, stmtCol5Right, curY + 16f, paint)
+        if (isOwnerStmt) {
+            drawClippedCell(canvas, "رصيد الشراء علينا", stmtCol6OwnerLeft, stmtCol6OwnerRight, curY + 16f, paint)
+            drawClippedCell(canvas, "رصيد السقي له", stmtCol7OwnerLeft, stmtCol7OwnerRight, curY + 16f, paint)
         } else {
-            canvas.drawText("الرصيد المتبقي", 90f, curY + 16f, paint)
+            drawClippedCell(canvas, "الرصيد المتبقي", stmtCol6NonOwnerLeft, stmtCol6NonOwnerRight, curY + 16f, paint)
         }
         curY += 25f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
@@ -329,20 +398,20 @@ object PdfReportGenerator {
             paint.color = darkTextColor
             paint.textSize = if (customer.isWellOwner) 8f else 9f
             paint.textAlign = Paint.Align.RIGHT
-            canvas.drawText(Formatters.formatDate(row.date), pageWidth - 35f, curY + 15f, paint)
-            canvas.drawText(truncate(row.title, 24), pageWidth - 105f, curY + 15f, paint)
-            canvas.drawText(truncate(row.subtitle, 28), pageWidth - 205f, curY + 15f, paint)
-            canvas.drawText(if (row.amount > 0) Formatters.formatNumber(row.amount) else "-", pageWidth - 300f, curY + 15f, paint)
+            drawClippedCell(canvas, Formatters.formatDate(row.date), stmtCol1Left, stmtCol1Right, curY + 15f, paint)
+            drawClippedCell(canvas, row.title, stmtCol2Left, stmtCol2Right, curY + 15f, paint)
+            drawClippedCell(canvas, row.subtitle, stmtCol3Left, stmtCol3Right, curY + 15f, paint)
+            drawClippedCell(canvas, if (row.amount > 0) Formatters.formatNumber(row.amount) else "-", stmtCol4Left, stmtCol4Right, curY + 15f, paint)
             paint.color = if (row.paid > 0) paidGreen else darkTextColor
-            canvas.drawText(if (row.paid > 0) Formatters.formatNumber(row.paid) else "-", pageWidth - 380f, curY + 15f, paint)
-            if (customer.isWellOwner) {
+            drawClippedCell(canvas, if (row.paid > 0) Formatters.formatNumber(row.paid) else "-", stmtCol5Left, stmtCol5Right, curY + 15f, paint)
+            if (isOwnerStmt) {
                 paint.color = if (runningPayable > 0) debtRed else paidGreen
-                canvas.drawText(Formatters.formatNumber(runningPayable), 145f, curY + 15f, paint)
+                drawClippedCell(canvas, Formatters.formatNumber(runningPayable), stmtCol6OwnerLeft, stmtCol6OwnerRight, curY + 15f, paint)
                 paint.color = if (runningReceivable > 0) debtRed else paidGreen
-                canvas.drawText(Formatters.formatNumber(runningReceivable), 55f, curY + 15f, paint)
+                drawClippedCell(canvas, Formatters.formatNumber(runningReceivable), stmtCol7OwnerLeft, stmtCol7OwnerRight, curY + 15f, paint)
             } else {
                 paint.color = if (runningReceivable > 0) debtRed else paidGreen
-                canvas.drawText(Formatters.formatNumber(runningReceivable), 90f, curY + 15f, paint)
+                drawClippedCell(canvas, Formatters.formatNumber(runningReceivable), stmtCol6NonOwnerLeft, stmtCol6NonOwnerRight, curY + 15f, paint)
             }
             curY += rowHeight
         }
@@ -1028,7 +1097,37 @@ object PdfReportGenerator {
         }
 
         val rowHeight = 22f
-        var curY = 320f
+
+        val hasOwnerPurchases = totals.purchasedMinutes > 0 || totals.ownerPurchaseAmount > 0.0
+
+        val ownerRowsList = customerRows.filter {
+            it.isWellOwner && (
+                it.purchasedMinutes > 0 || it.sessionsCount > 0 || it.ownerPayments > 0.0 ||
+                    it.billed > 0.0 || it.paid > 0.0 || it.receivableBalance != 0.0
+                )
+        }
+
+        // Calculate total pages upfront for "صفحة X من Y" footer
+        val page1HeaderSpace = if (hasOwnerPurchases) 328f + 26f else 276f + 26f
+        val page1MaxRows = ((pageHeight - 90f - page1HeaderSpace) / rowHeight).toInt()
+        val custPagesCount = if (customerRows.size <= page1MaxRows) 1 else 1 + Math.ceil((customerRows.size - page1MaxRows).toDouble() / 27.0).toInt()
+        val ownerPagesCount = if (ownerRowsList.isEmpty()) 0 else {
+            var count = 1
+            var ySim = 155f
+            ownerRowsList.forEachIndexed { idx, _ ->
+                val rem = ownerRowsList.size - idx
+                val canFitRemaining = (rem in 1..2 && ySim + (rem * 42f) <= pageHeight - 48f)
+                if (ySim + 42f > pageHeight - 90f && !canFitRemaining) {
+                    count++
+                    ySim = 155f
+                }
+                ySim += 42f
+            }
+            count
+        }
+        val totalPagesCount = custPagesCount + ownerPagesCount
+
+        var curY = if (hasOwnerPurchases) 328f else 276f
 
         fun drawTableHeader() {
             paint.color = primaryColor
@@ -1050,7 +1149,7 @@ object PdfReportGenerator {
         }
 
         fun finishCurrentPage() {
-            drawDocumentFooter(canvas, pageWidth, pageHeight, pageNumber)
+            drawDocumentFooter(canvas, pageWidth, pageHeight, pageNumber = pageNumber, totalPages = totalPagesCount)
             document.finishPage(page)
         }
 
@@ -1082,8 +1181,6 @@ object PdfReportGenerator {
         val cardWidth4 = (pageWidth - 50f - (3 * cardSpacing)) / 4f
         val cardH = 46f
 
-        val hasOwnerPurchases = totals.purchasedMinutes > 0 || totals.ownerPurchaseAmount > 0.0
-
         // Row 1: Financial KPIs (y = 146f)
         var startX = 25f
         drawSummaryBox(canvas, startX, 146f, cardWidth4, cardH, "صافي الأرباح", Formatters.formatCurrency(totals.netProfit, config.currencySymbol), if (totals.netProfit >= 0) paidGreen else debtRed)
@@ -1114,9 +1211,9 @@ object PdfReportGenerator {
             drawSummaryBox(canvas, startX, 250f, cardWidth4, cardH, "مستحقات أصحاب الآبار", Formatters.formatCurrency(totals.ownerPayable, config.currencySymbol), if (totals.ownerPayable > 0) debtRed else paidGreen)
             startX += cardWidth4 + cardSpacing
             drawSummaryBox(canvas, startX, 250f, cardWidth4, cardH, "هدر صاحب البئر", Formatters.formatDurationArabic(totals.ownerWasteMinutes), debtRed)
-            curY = 312f
+            curY = 328f // Added 16 pt breathing space below cards (Task 037 4.2 §1)
         } else {
-            curY = 260f
+            curY = 276f // Added 16 pt breathing space below cards
         }
 
         // Section header for Customer Ledger
@@ -1124,7 +1221,7 @@ object PdfReportGenerator {
         paint.textSize = 11f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("جدول كشف حسابات العملاء وساعات التوزيع:", pageWidth - 25f, curY - 6f, paint)
+        canvas.drawText("جدول كشف حسابات العملاء وساعات التوزيع:", pageWidth - 25f, curY - 10f, paint)
 
         // ---------- Customers table (paginated)
         drawTableHeader()
@@ -1155,14 +1252,15 @@ object PdfReportGenerator {
                 paint.color = darkTextColor
                 canvas.drawText(truncate(row.customerName, 22), 565f, curY + 15f, paint)
                 canvas.drawText(truncate(row.farmName.ifEmpty { row.phone.ifEmpty { "-" } }, 18), 435f, curY + 15f, paint)
-                canvas.drawText("${row.sessionsCount} (${Formatters.formatDurationFriendly(row.waterMinutes)})", 335f, curY + 15f, paint)
+                canvas.drawText("${row.sessionsCount} (${formatBidiDuration(row.waterMinutes)})", 335f, curY + 15f, paint)
                 canvas.drawText(Formatters.formatNumber(row.billed), 250f, curY + 15f, paint)
 
                 paint.color = paidGreen
                 canvas.drawText(Formatters.formatNumber(row.paid), 175f, curY + 15f, paint)
 
-                paint.color = if (row.balance > 0.0) debtRed else paidGreen
-                canvas.drawText(Formatters.formatNumber(row.balance), 95f, curY + 15f, paint)
+                val (cellText, isDebt) = ComprehensiveReportMath.page1BalanceCell(row)
+                paint.color = if (isDebt) debtRed else paidGreen
+                canvas.drawText(cellText, 95f, curY + 15f, paint)
 
                 curY += rowHeight
             }
@@ -1194,12 +1292,7 @@ object PdfReportGenerator {
         }
 
         // Separate supplier-ledger table: owner purchases and owner irrigation are never netted.
-        val ownerRows = customerRows.filter {
-            it.isWellOwner && (
-                it.purchasedMinutes > 0 || it.sessionsCount > 0 || it.ownerPayments > 0.0 ||
-                    it.billed > 0.0 || it.paid > 0.0 || it.receivableBalance != 0.0
-                )
-        }
+        val ownerRows = ownerRowsList
         if (ownerRows.isNotEmpty()) {
             finishCurrentPage()
 
@@ -1211,9 +1304,9 @@ object PdfReportGenerator {
                 paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 paint.textAlign = Paint.Align.RIGHT
                 canvas.drawText("صاحب البئر", 565f, curY + 16f, paint)
-                canvas.drawText("شراء: مسجل / محتسب / هدر", 435f, curY + 16f, paint)
-                canvas.drawText("صافي الشراء", 305f, curY + 16f, paint)
-                canvas.drawText("المسدد له", 230f, curY + 16f, paint)
+                canvas.drawText("شراء: مسجل / محتسب / هدر", 425f, curY + 16f, paint)
+                canvas.drawText("صافي الشراء", 295f, curY + 16f, paint)
+                canvas.drawText("المسدد له", 225f, curY + 16f, paint)
                 canvas.drawText("متبقي له علينا", 160f, curY + 16f, paint)
                 canvas.drawText("دين السقي عليه", 90f, curY + 16f, paint)
                 curY += 25f
@@ -1231,7 +1324,9 @@ object PdfReportGenerator {
             startOwnerPage("${config.distributorName} | $periodTitle | حسابا صاحب البئر مستقلان")
             val ownerRowHeight = 42f
             ownerRows.forEachIndexed { index, row ->
-                if (curY + ownerRowHeight > pageHeight - 90f) {
+                val remainingRows = ownerRows.size - index
+                val canFitRemainingRows = (remainingRows in 1..2 && curY + (remainingRows * ownerRowHeight) <= pageHeight - 48f)
+                if (curY + ownerRowHeight > pageHeight - 90f && !canFitRemainingRows) {
                     finishCurrentPage()
                     startOwnerPage("${config.distributorName} | $periodTitle | متابعة أصحاب الآبار")
                 }
@@ -1243,12 +1338,17 @@ object PdfReportGenerator {
                 paint.textAlign = Paint.Align.RIGHT
                 paint.textSize = 8.2f
                 paint.color = darkTextColor
-                canvas.drawText(truncate(row.customerName, 18), 565f, curY + 14f, paint)
-                val hoursText = "${Formatters.formatDurationShort(row.purchasedMinutes)} / ${Formatters.formatDurationShort(row.chargeablePurchasedMinutes)} / ${Formatters.formatDurationShort(row.ownerWasteMinutes)}"
-                canvas.drawText(truncate(hoursText, 25), 435f, curY + 14f, paint)
-                canvas.drawText(Formatters.formatNumber(row.purchaseAmount), 305f, curY + 14f, paint)
+                // Task 037 4.2 §2: Allow names up to 26 characters
+                canvas.drawText(truncate(row.customerName, 26), 565f, curY + 14f, paint)
+                // Task 037 4.2 §2 & §4: Widen column to 130 pt and BiDi format 3 duration values
+                val pStr = formatBidiDuration(row.purchasedMinutes)
+                val cStr = formatBidiDuration(row.chargeablePurchasedMinutes)
+                val wStr = formatBidiDuration(row.ownerWasteMinutes)
+                val hoursText = "$pStr / $cStr / $wStr"
+                drawClippedCell(canvas, hoursText, 295f, 425f, curY + 14f, paint)
+                canvas.drawText(Formatters.formatNumber(row.purchaseAmount), 295f, curY + 14f, paint)
                 paint.color = paidGreen
-                canvas.drawText(Formatters.formatNumber(row.ownerPayments), 230f, curY + 14f, paint)
+                canvas.drawText(Formatters.formatNumber(row.ownerPayments), 225f, curY + 14f, paint)
                 paint.color = if (row.payableBalance > 0) debtRed else paidGreen
                 canvas.drawText(Formatters.formatNumber(row.payableBalance), 160f, curY + 14f, paint)
                 paint.color = if (row.receivableBalance > 0) debtRed else paidGreen
@@ -1257,7 +1357,7 @@ object PdfReportGenerator {
                 paint.color = darkTextColor
                 paint.textSize = 8f
                 paint.textAlign = Paint.Align.RIGHT
-                val detail = "هدر صاحب البئر: ${Formatters.formatDurationShort(row.ownerWasteMinutes)} / خصمه ${Formatters.formatNumber(row.ownerWasteCredit)}  •  سقي له بعد هدر المسرب: ${Formatters.formatDurationShort(row.waterMinutes)} / بيع ${Formatters.formatNumber(row.billed)} / تحصيل ${Formatters.formatNumber(row.paid)}"
+                val detail = "هدر صاحب البئر: $wStr / خصمه ${Formatters.formatNumber(row.ownerWasteCredit)}  •  سقي له بعد هدر المسرب: ${formatBidiDuration(row.waterMinutes)} / بيع ${Formatters.formatNumber(row.billed)} / تحصيل ${Formatters.formatNumber(row.paid)}"
                 canvas.drawText(truncate(detail, 100), 565f, curY + 32f, paint)
                 curY += ownerRowHeight
             }
@@ -1863,7 +1963,8 @@ object PdfReportGenerator {
         pageWidth: Int,
         pageHeight: Int,
         pageNumber: Int? = null,
-        fontRegular: Typeface? = null
+        fontRegular: Typeface? = null,
+        totalPages: Int? = null
     ) {
         val paint = Paint().apply {
             isAntiAlias = true
@@ -1872,8 +1973,12 @@ object PdfReportGenerator {
             textAlign = Paint.Align.CENTER
             color = PdfThemeHelper.COLOR_MUTED_TEXT
         }
-        val pageSuffix = if (pageNumber != null) "  |  صفحة $pageNumber" else ""
-        val text = "تطبيق المُسَرِّبْ  •  تطوير: م. عمر الحومي  •  واتساب: wa.me/967773712030$pageSuffix"
+        val pageSuffix = when {
+            pageNumber != null && totalPages != null -> "  |  صفحة $pageNumber من $totalPages"
+            pageNumber != null -> "  |  صفحة $pageNumber"
+            else -> ""
+        }
+        val text = "تطبيق المُسَرِّبْ  •  تطوير: م. عمر الحومي  •  واتساب: \u2066wa.me/967773712030\u2069$pageSuffix"
         canvas.drawText(text, pageWidth / 2f, pageHeight - 18f, paint)
     }
 }

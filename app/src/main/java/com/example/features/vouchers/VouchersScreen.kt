@@ -2124,10 +2124,15 @@ fun AddVoucherBottomSheet(
     val context = LocalContext.current
     val voiceCustomer = remember(voiceCommand, customers) {
         voiceCommand?.customerQuery?.let { q ->
-            CustomerMatcher.match(q, customers).firstOrNull()?.customer
+            val ranked = CustomerMatcher.match(q, customers)
+            if (CustomerMatcher.isHighConfidence(ranked)) {
+                ranked.first().customer
+            } else {
+                null
+            }
         }
     }
-    val initCustId = voiceCustomer?.id ?: initialVoucher?.customerId ?: customers.firstOrNull()?.id ?: 0L
+    val initCustId = voiceCustomer?.id ?: initialVoucher?.customerId ?: (if (voiceCommand?.customerQuery != null) 0L else customers.firstOrNull()?.id ?: 0L)
     var type by remember {
         mutableStateOf(
             when (voiceCommand?.type) {
@@ -2277,7 +2282,7 @@ fun AddVoucherBottomSheet(
     var voiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
 
     var custDropdownExpanded by remember { mutableStateOf(false) }
-    var custSearchQuery by remember { mutableStateOf("") }
+    var custSearchQuery by remember { mutableStateOf(if (voiceCustomer == null && voiceCommand?.customerQuery != null) voiceCommand.customerQuery ?: "" else "") }
     var beneficiaryDropdownExpanded by remember { mutableStateOf(false) }
     var beneficiarySearchQuery by remember { mutableStateOf("") }
 

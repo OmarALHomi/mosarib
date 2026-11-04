@@ -1,5 +1,7 @@
 package com.example.features.settings
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -74,6 +76,13 @@ internal fun BackupAndRestoreSection(
     onRefreshDriveBackups: () -> Unit,
     viewModel: SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
+    val context = LocalContext.current
+
+    LaunchedEffect(googleAccount) {
+        if (googleAccount != null) {
+            onRefreshDriveBackups()
+        }
+    }
     BackupSectionCard(
         isDark = isDark,
         isBackupAllowed = isBackupAllowed,
@@ -107,15 +116,38 @@ internal fun BackupAndRestoreSection(
         driveTabContent = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 DriveAutoBackupSection(
-                    context = LocalContext.current,
+                    context = context,
                     isDark = isDark,
                     isCloudBackupAllowed = isCloudBackupAllowed,
                     googleAccount = googleAccount,
                     onConnectGoogleAccount = {
                         state.pendingAutoBackupAfterSignIn = false
                         state.showGoogleBackupAccountDialog = true
-                    }
+                    },
+                    onRefreshDriveBackups = onRefreshDriveBackups
                 )
+                val recordedDriveTime = com.example.core.backup.DriveBackupPreferences.getLastBackupTime(context)
+                val driveListError = com.example.core.backup.DriveBackupPreferences.getListError(context) ?: com.example.core.backup.DriveBackupPreferences.getLastError(context)
+                if (driveBackups.isEmpty() && recordedDriveTime > 0L && !driveListError.isNullOrBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isDark) Color(0xFF3B1E1E) else Color(0xFFFEF2F2),
+                        border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "تعذر جلب قائمة النسخ السحابية: $driveListError",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+                }
                 DriveBackupsTab(
                     isDark = isDark,
                     isCloudBackupAllowed = isCloudBackupAllowed,

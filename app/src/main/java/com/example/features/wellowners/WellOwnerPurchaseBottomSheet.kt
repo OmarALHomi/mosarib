@@ -138,11 +138,16 @@ fun WellOwnerPurchaseBottomSheet(
     var currentVoiceCommand by remember(voiceCommand) { mutableStateOf(voiceCommand) }
     val voiceOwner = remember(voiceCommand, ownersList) {
         voiceCommand?.customerQuery?.let { q ->
-            CustomerMatcher.match(q, ownersList).firstOrNull()?.customer
+            val ranked = CustomerMatcher.match(q, ownersList)
+            if (CustomerMatcher.isHighConfidence(ranked)) {
+                ranked.first().customer
+            } else {
+                null
+            }
         }
     }
     var selectedOwner by remember(owner, ownersList, voiceOwner) {
-        mutableStateOf(owner ?: voiceOwner ?: ownersList.firstOrNull())
+        mutableStateOf(owner ?: voiceOwner ?: if (voiceCommand?.customerQuery != null) null else ownersList.firstOrNull())
     }
     var ownerDropdownExpanded by remember { mutableStateOf(false) }
 

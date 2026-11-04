@@ -500,11 +500,25 @@ object VoiceCommandParser {
 
         if (knownNames.isNotEmpty()) {
             for (len in minOf(5, words.size) downTo 1) {
+                // One shared word ("احمد") is never a match if there are subsequent name words
+                if (len == 1 && words.size > 1) {
+                    val nextWord = words.getOrNull(1).orEmpty()
+                    val isNextWordNotesStarter = VoicePhraseRules.DESCRIPTION_STARTERS.contains(nextWord) ||
+                        nextWord in listOf("باقي", "سلفه", "سلفة", "ملاحظه", "بيان")
+                    if (!isNextWordNotesStarter) {
+                        continue
+                    }
+                }
                 val candidateName = words.take(len).joinToString(" ")
                 val normCand = SpokenNumberParser.normalizeToken(candidateName)
+                val candTokens = CustomerMatcher.normalizeForMatching(candidateName)
+
                 val match = knownNames.firstOrNull { kn ->
                     val normKn = SpokenNumberParser.normalizeToken(kn)
-                    normKn == normCand || CustomerMatcher.normalizeForMatching(kn) == CustomerMatcher.normalizeForMatching(candidateName)
+                    if (normKn == normCand) return@firstOrNull true
+                    val knTokens = CustomerMatcher.normalizeForMatching(kn)
+                    // All its words match the spoken words in order
+                    knTokens.isNotEmpty() && knTokens == candTokens
                 }
                 if (match != null) {
                     matchedCustName = match
