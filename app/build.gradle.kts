@@ -151,6 +151,7 @@ configurations.all {
     resolutionStrategy {
         force("androidx.lifecycle:lifecycle-service:2.7.0")
         force("androidx.lifecycle:lifecycle-livedata:2.7.0")
-        force("androidx.lifecycle:lifecycle-livedata-core-ktx:2.7.0")
     }
+    // Since lifecycle 2.8 the ktx classes live in livedata-core; the old ktx module duplicates them.
+    exclude(group = "androidx.lifecycle", module = "lifecycle-livedata-core-ktx")
 }
