@@ -44,6 +44,8 @@ import com.example.BuildConfig
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.MosaribTheme
 import com.example.ui.theme.PrimaryTeal
+import com.example.ui.theme.PrimaryTealDark
+import com.example.ui.theme.PrimaryTealLight
 import com.example.ui.theme.SecondaryAqua
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -91,16 +93,15 @@ fun SplashScreen(
                         .clip(CircleShape)
                         .background(
                             Brush.linearGradient(
-                                listOf(PrimaryTeal, AccentEmerald)
+                                listOf(PrimaryTealDark, PrimaryTealLight)
                             )
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.WaterDrop,
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(com.example.R.drawable.ic_logo_mark),
                         contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(52.dp)
+                        modifier = Modifier.size(64.dp)
                     )
                 }
 
@@ -181,16 +182,15 @@ fun SplashScreenPreviewContent() {
                         .clip(CircleShape)
                         .background(
                             Brush.linearGradient(
-                                listOf(PrimaryTeal, AccentEmerald)
+                                listOf(PrimaryTealDark, PrimaryTealLight)
                             )
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.WaterDrop,
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(com.example.R.drawable.ic_logo_mark),
                         contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(52.dp)
+                        modifier = Modifier.size(64.dp)
                     )
                 }
 

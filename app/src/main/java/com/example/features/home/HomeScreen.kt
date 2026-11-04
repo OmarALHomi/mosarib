@@ -126,6 +126,7 @@ import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.PrimaryTealDark
+import com.example.ui.theme.PrimaryTealLight
 import com.example.ui.theme.SecondaryAqua
 import com.example.ui.theme.mosarib
 import java.util.Calendar
@@ -337,16 +338,15 @@ fun HomeScreen(
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(
                                     Brush.linearGradient(
-                                        listOf(PrimaryTeal, AccentEmerald)
+                                        listOf(PrimaryTealDark, PrimaryTealLight)
                                     )
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.WaterDrop,
+                            androidx.compose.foundation.Image(
+                                painter = androidx.compose.ui.res.painterResource(com.example.R.drawable.ic_logo_mark),
                                 contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(19.dp)
+                                modifier = Modifier.size(26.dp)
                             )
                         }
 

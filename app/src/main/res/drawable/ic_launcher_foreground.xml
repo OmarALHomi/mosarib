@@ -1,17 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- White Material WaterDrop, 44dp centred inside the 66dp safe zone (matches the home header logo). -->
+<!-- Same artwork as ic_logo_mark, 48dp centred inside the 66dp safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:translateX="32"
-        android:translateY="32"
-        android:scaleX="1.8333"
-        android:scaleY="1.8333">
+        android:translateX="30"
+        android:translateY="30"
+        android:scaleX="2"
+        android:scaleY="2">
         <path
             android:fillColor="#FFFFFF"
             android:pathData="M12,2c-5.33,4.55 -8,8.48 -8,11.8c0,4.98 3.8,8.2 8,8.2s8,-3.22 8,-8.2C20,10.48 17.33,6.55 12,2z" />
+        <path
+            android:fillColor="#004D56"
+            android:pathData="M6.8,14.2a5.2,5.2 0,1 0,10.4 0a5.2,5.2 0,1 0,-10.4 0z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M7.6,14.2a4.4,4.4 0,1 0,8.8 0a4.4,4.4 0,1 0,-8.8 0z" />
+        <path
+            android:strokeColor="#004D56"
+            android:strokeWidth="0.55"
+            android:strokeLineCap="round"
+            android:pathData="M12,10.5L12,11.2M15.7,14.2L15,14.2M12,17.9L12,17.2M8.3,14.2L9,14.2" />
+        <path
+            android:strokeColor="#FFC13B"
+            android:strokeWidth="0.9"
+            android:strokeLineCap="round"
+            android:pathData="M12,14.2L10.2,12.94" />
+        <path
+            android:strokeColor="#FFC13B"
+            android:strokeWidth="0.7"
+            android:strokeLineCap="round"
+            android:pathData="M12,14.2L14.77,12.6" />
+        <path
+            android:fillColor="#FFC13B"
+            android:pathData="M11.4,14.2a0.6,0.6 0,1 0,1.2 0a0.6,0.6 0,1 0,-1.2 0z" />
     </group>
 </vector>
