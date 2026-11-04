@@ -1,6 +1,6 @@
 status: ready
 <!-- Owner request 2026-11-04: "اجعل الخط كايرو" while checking the comprehensive report. -->
-# Task 038: Use the Cairo font in every PDF
+# Task 038: Cairo font in every PDF, and a clean well-owners page
 
 The app UI already uses Cairo (`ui/theme/Type.kt`). `core/util/PdfThemeHelper.kt` already loads it:
 - `getCairoRegular`;
@@ -29,10 +29,65 @@ But the PDFs still draw with the system font:
    - **Page counts.** The "صفحة X من Y" simulation must still match the real page breaks. Change the row-height constants in both places if needed.
 5. Keep every text, colour, column order and the accounting from 037 unchanged.
 
+## Redesign of the well-owners page (comprehensive report)
+The owner says this page is scattered, too detailed and not consistent. Today it has:
+- six columns;
+- a long grey detail line under every row (waste, credit, sold, collected), cut with «…»;
+- payable shown in red, although it is what we owe him.
+
+Replace it with one clean table, in the same style as the page-1 customers table.
+
+**1. Summary strip at the top.** Four small cards, the same card style as page 1:
+- عدد أصحاب الآبار;
+- إجمالي الشراء (`totals.ownerPurchaseAmount`);
+- المسدد للمالكين (`totals.ownerPayments`);
+- صافي مستحقاتهم (`totals.ownerPayable`).
+
+If the total owner waste is greater than 0, add one short line under the cards:
+- «هدر أصحاب الآبار: 10 ساعات — خصم 25,000».
+- The duration uses `formatBidiDuration`.
+
+**2. Table.** One row per owner:
+- row height 24 pt, zebra rows like page 1;
+- **no second detail line**;
+- every cell drawn with `drawClippedCell`.
+
+Columns, from right to left:
+
+| Column | Value | Width (about) |
+|---|---|---|
+| صاحب البئر | name, up to 26 chars | 140 |
+| ساعات الشراء | chargeable purchased minutes, `formatBidiDuration` | 75 |
+| صافي الشراء | `purchaseAmount` | 75 |
+| المسدد له | `ownerPayments` | 70 |
+| سقي له | `billed` (his own irrigation, deducted from what we owe) | 70 |
+| المحصّل منه | `paid` | 65 |
+| الصافي | see below | 60 to the left margin |
+
+The "الصافي" cell uses the same netting model as page 1 (`calculateCustomerBalance`; never `billed - paid`):
+- `payableBalance > 0`: «له X» in **green**;
+- `receivableBalance > 0`: «عليه X» in red;
+- otherwise: «مسدد» in grey.
+
+Reuse `ComprehensiveReportMath.page1BalanceCell` or add a sibling function for this.
+
+**3. Totals row** at the end, bold, on the primary-tint background like page 1. It sums every numeric column, and "الصافي" shows `totals.ownerPayable` as «له X».
+
+**4. Subtitle:**
+- remove «حسابا صاحب البئر مستقلان», which is wrong because the account is netted;
+- use «${distributorName} | ${periodTitle} | حسابات أصحاب الآبار».
+
+**5. Paging:**
+- keep the 037 keep-together rule (the last 1–2 rows may squeeze in);
+- keep the "صفحة X من Y" simulation in step with the new 24 pt row height and the summary strip.
+
+**6. Test:** add a unit test for the "الصافي" cell. One owner with a net payable, one with a net receivable (sales bigger than purchases), and one settled.
+
 ## Allowed files
 - `core/util/PdfReportGenerator.kt`;
 - `core/util/WellOwnerPdfStatementGenerator.kt`;
-- `core/util/PdfThemeHelper.kt` (only if a helper is needed).
+- `core/util/PdfThemeHelper.kt` (only if a helper is needed), `core/util/ComprehensiveReportMath.kt`;
+- tests.
 
 ## Done when
 - Build and tests pass.
