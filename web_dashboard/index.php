@@ -204,8 +204,8 @@ $canonicalUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https
   <meta name="twitter:description" content="<?= htmlspecialchars($ps['hero_subtitle']) ?>">
   <meta name="twitter:image" content="https://mosarib.tubbasoft.com/assets/images/og_share.png?v=140">
 
-  <link rel="icon" type="image/png" href="assets/images/app_screen_real.png">
-  <link rel="apple-touch-icon" href="assets/images/app_screen_real.png">
+  <link rel="icon" type="image/png" href="assets/images/app_icon.png?v=142">
+  <link rel="apple-touch-icon" href="assets/images/app_icon.png?v=142">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -226,6 +226,7 @@ $canonicalUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https
 
 <!-- SVG Icon Symbols -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-mark" viewBox="0 0 24 24"><path fill="#fff" d="M12 2c-5.33 4.55-8 8.48-8 11.8 0 4.98 3.8 8.2 8 8.2s8-3.22 8-8.2c0-3.32-2.67-7.25-8-11.8z"/><circle cx="12" cy="14.2" r="5.2" fill="#004D56"/><circle cx="12" cy="14.2" r="4.4" fill="#fff"/><path d="M12 10.5v.7M15.7 14.2H15M12 17.9v-.7M8.3 14.2H9" stroke="#004D56" stroke-width=".55" stroke-linecap="round"/><path d="M12 14.2 10.2 12.94" stroke="#FFC13B" stroke-width=".9" stroke-linecap="round"/><path d="M12 14.2l2.77-1.6" stroke="#FFC13B" stroke-width=".7" stroke-linecap="round"/><circle cx="12" cy="14.2" r=".6" fill="#FFC13B"/></symbol>
   <symbol id="i-drop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7 17.7 8.4a8 8 0 1 1-11.4 0Z"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
   <symbol id="i-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
@@ -266,7 +267,7 @@ $canonicalUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https
 <header class="site-header" id="siteHeader">
   <div class="container nav">
     <a href="#" class="brand" aria-label="مُسَرِّب — الصفحة الرئيسية">
-      <span class="brand__logo"><svg><use href="#i-drop"/></svg></span>
+      <span class="brand__logo"><svg><use href="#i-mark"/></svg></span>
       <span>مُسَرِّب<span class="brand__dot"></span></span>
     </a>
     
@@ -408,7 +409,7 @@ $canonicalUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https
             <div class="app-bar">
               <div class="app-bar__btn"><svg><use href="#i-moon"/></svg></div>
               <div class="app-bar__brand">
-                <span class="app-bar__logo"><svg><use href="#i-drop"/></svg></span>
+                <span class="app-bar__logo"><svg><use href="#i-mark"/></svg></span>
                 مُسَرِّب <small>• Mosarib</small>
               </div>
               <div class="app-bar__btn"><svg><use href="#i-help"/></svg></div>
@@ -878,7 +879,7 @@ $canonicalUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https
     <div class="footer__top">
       <div class="footer__brand">
         <a href="#" class="brand">
-          <span class="brand__logo"><svg><use href="#i-drop"/></svg></span>
+          <span class="brand__logo"><svg><use href="#i-mark"/></svg></span>
           <span>مُسَرِّب<span class="brand__dot"></span></span>
         </a>
         <p>المنظومة الرقمية المعتمدة لحوكمة مياه الآبار وساعات الري وحفظ حقوق الموزعين والمزارعين.</p>
