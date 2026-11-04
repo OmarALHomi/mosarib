@@ -195,12 +195,14 @@ $canonicalUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https
   <meta property="og:locale" content="ar_AR">
   <meta property="og:title" content="<?= htmlspecialchars($ps['hero_title']) ?> • البوابة الرسمية">
   <meta property="og:description" content="<?= htmlspecialchars($ps['hero_subtitle']) ?>">
-  <meta property="og:image" content="assets/images/app_screen_real.png">
+  <meta property="og:image" content="https://mosarib.tubbasoft.com/assets/images/og_share.png?v=140">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
 
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="<?= htmlspecialchars($ps['hero_title']) ?> • البوابة الرسمية">
   <meta name="twitter:description" content="<?= htmlspecialchars($ps['hero_subtitle']) ?>">
-  <meta name="twitter:image" content="assets/images/app_screen_real.png">
+  <meta name="twitter:image" content="https://mosarib.tubbasoft.com/assets/images/og_share.png?v=140">
 
   <link rel="icon" type="image/png" href="assets/images/app_screen_real.png">
   <link rel="apple-touch-icon" href="assets/images/app_screen_real.png">

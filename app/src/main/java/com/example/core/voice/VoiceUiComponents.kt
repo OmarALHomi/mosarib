@@ -50,6 +50,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -1353,6 +1356,13 @@ fun VoiceRecordSheet(
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Spacer(modifier = Modifier.height(6.dp))
+                            // Only the examples scroll; the mic button above stays in place.
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = if (compact) 160.dp else 240.dp)
+                                    .verticalScroll(rememberScrollState())
+                            ) {
                             examples.forEach { (group, phrases) ->
                               Text(
                                   text = group,
@@ -1376,6 +1386,7 @@ fun VoiceRecordSheet(
                                     )
                                 }
                               }
+                            }
                             }
                         }
                     }
@@ -1402,11 +1413,19 @@ private fun VoiceResultPreview(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
-                Text(
-                    text = summary ?: "لم أفهم نوع العملية",
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = summary ?: "لم أفهم نوع العملية",
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    // Read aloud what was understood
+                    com.example.core.speech.SpeakButton(
+                        text = { (summary ?: "لم أفهم نوع العملية").removePrefix("فهمت: ") },
+                        iconSize = 20.dp
+                    )
+                }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = "سمعت: «$heard»",
