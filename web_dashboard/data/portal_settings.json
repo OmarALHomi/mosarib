@@ -27,5 +27,8 @@
   "show_developer_section": true,
   "show_download_cta": true,
   "updated_at": 1776384000,
-  "water_status_text": "مستقر ومتاح في معظم المناطق الزراعية"
+  "water_status_text": "مستقر ومتاح في معظم المناطق الزراعية",
+  "stats_wells": "",
+  "stats_vouchers": "",
+  "testimonials": []
 }

@@ -21,6 +21,14 @@ if ($method === 'GET') {
     $releases = file_exists($releasesFile) ? json_decode(file_get_contents($releasesFile), true) : [];
     if (!is_array($releases)) $releases = [];
 
+    // Ensure file_size_mb is present on all releases for easy client display
+    foreach ($releases as &$rel) {
+        if (!isset($rel['file_size_mb']) && isset($rel['file_size'])) {
+            $rel['file_size_mb'] = number_format($rel['file_size'] / (1024 * 1024), 2, '.', '');
+        }
+    }
+    unset($rel);
+
     // Also get active broadcast / force-update state from Firebase
     $fbBroadcast = firebaseRequest('app_broadcast.json')['data'] ?? null;
 
@@ -33,6 +41,18 @@ if ($method === 'GET') {
 
 // 2. POST: Upload new APK release or update cloud force-update
 if ($method === 'POST') {
+    // CSRF verification on every admin write
+    $headers = function_exists('getallheaders') ? getallheaders() : [];
+    $csrf = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($headers['X-CSRF-Token'] ?? ($headers['x-csrf-token'] ?? ($_POST['csrf_token'] ?? '')));
+    if (!verifyCsrfToken($csrf)) {
+        jsonResponse(false, 'رمز أمان الجلسة غير صالح (CSRF)', null, 403);
+    }
+
+    $currentRole = $_SESSION['admin_user']['role'] ?? '';
+    if ($currentRole !== 'ADMIN' && $currentRole !== 'SUPER_ADMIN') {
+        jsonResponse(false, 'غير مصرح: رفع الإصدارات والتحديث الإجباري مقتصر على المدراء فقط (ADMIN / SUPER_ADMIN)', null, 403);
+    }
+
     $action = $_POST['action'] ?? 'upload';
 
     if ($action === 'upload') {
@@ -41,15 +61,33 @@ if ($method === 'POST') {
         }
 
         $file = $_FILES['apk_file'];
-        $versionName = trim($_POST['version_name'] ?? '1.0.0');
-        $versionCode = intval($_POST['version_code'] ?? 1);
-        $releaseNotes = trim($_POST['release_notes'] ?? '');
-        $isForceUpdate = isset($_POST['is_force_update']) && ($_POST['is_force_update'] === '1' || $_POST['is_force_update'] === 'true');
 
+        // Enforce MAX_UPLOAD_SIZE
+        if ($file['size'] > MAX_UPLOAD_SIZE || filesize($file['tmp_name']) > MAX_UPLOAD_SIZE) {
+            jsonResponse(false, 'حجم الملف يتجاوز الحد الأقصى المسموح به للرفع (150 ميجابايت)');
+        }
+
+        // Validate extension
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         if ($ext !== 'apk') {
             jsonResponse(false, 'الملف المرفوع يجب أن يكون بصيغة APK حصراً (.apk)');
         }
+
+        // Verify ZIP magic bytes (PK\x03\x04)
+        $magicHandle = @fopen($file['tmp_name'], 'rb');
+        if (!$magicHandle) {
+            jsonResponse(false, 'تعذر قراءة وفحص ملف الحزمة');
+        }
+        $magicBytes = fread($magicHandle, 4);
+        fclose($magicHandle);
+        if ($magicBytes !== "PK\x03\x04") {
+            jsonResponse(false, 'الملف المرفوع ليس ملف حزمة APK صالح (توقيع الحزمة غير صحيح)');
+        }
+
+        $versionName = trim($_POST['version_name'] ?? '1.0.0');
+        $versionCode = intval($_POST['version_code'] ?? 1);
+        $releaseNotes = trim($_POST['release_notes'] ?? '');
+        $isForceUpdate = isset($_POST['is_force_update']) && ($_POST['is_force_update'] === '1' || $_POST['is_force_update'] === 'true');
 
         // Generate clean file name
         $fileName = 'Mosarib_v' . preg_replace('/[^0-9.]/', '', $versionName) . '_code' . $versionCode . '_' . time() . '.apk';
@@ -68,13 +106,15 @@ if ($method === 'POST') {
         $releases = file_exists($releasesFile) ? json_decode(file_get_contents($releasesFile), true) : [];
         if (!is_array($releases)) $releases = [];
 
+        $fileSizeBytes = filesize($destPath);
         $newRelease = [
             'id' => 'REL_' . time(),
             'version_name' => $versionName,
             'version_code' => $versionCode,
             'release_notes' => $releaseNotes,
             'file_name' => $fileName,
-            'file_size' => filesize($destPath),
+            'file_size' => $fileSizeBytes,
+            'file_size_mb' => number_format($fileSizeBytes / (1024 * 1024), 2, '.', ''),
             'download_url' => $downloadUrl,
             'is_force_update' => $isForceUpdate,
             'uploaded_at' => time() * 1000
@@ -87,7 +127,7 @@ if ($method === 'POST') {
         if ($isForceUpdate) {
             $bcPayload = [
                 'id' => 'UPDATE_' . time(),
-                'title' => 'تحديث إجباري جديد متاح 🚀',
+                'title' => 'تحديث إجباري جديد متاح',
                 'message' => $releaseNotes ?: 'تم إصدار تحديث جديد وهام لإصلاح الأخطاء وتحديث الأنظمة.',
                 'actionUrl' => $downloadUrl,
                 'actionText' => 'تحميل التحديث الآن (v' . $versionName . ')',
@@ -102,24 +142,26 @@ if ($method === 'POST') {
             'release' => $newRelease,
             'download_url' => $downloadUrl
         ]);
-    }
-
-    if ($action === 'set_cloud_link') {
+    } elseif ($action === 'set_cloud_link') {
         $customUrl = trim($_POST['custom_url'] ?? '');
         $versionCode = intval($_POST['version_code'] ?? 1);
+        $versionName = trim($_POST['version_name'] ?? '');
+        if (empty($versionName)) {
+            $versionName = '1.' . $versionCode . '.0';
+        }
         $notes = trim($_POST['release_notes'] ?? '');
-        $isForce = isset($_POST['is_force_update']) && $_POST['is_force_update'] === '1';
+        $isForce = isset($_POST['is_force_update']) && ($_POST['is_force_update'] === '1' || $_POST['is_force_update'] === 'true');
 
-        if (empty($customUrl)) {
-            jsonResponse(false, 'يرجى كتابة رابط التحميل المباشر');
+        if (empty($customUrl) || !filter_var($customUrl, FILTER_VALIDATE_URL) || !str_starts_with(strtolower($customUrl), 'https://')) {
+            jsonResponse(false, 'رابط التحميل المباشر يجب أن يكون رابطاً صحيحاً ويبدأ بـ https:// حصراً');
         }
 
         $bcPayload = [
             'id' => 'UPDATE_' . time(),
-            'title' => $isForce ? 'تحديث إجباري جديد متاح 🚀' : 'تحديث متوفر لتطبيق مُسَرِّب',
+            'title' => $isForce ? 'تحديث إجباري جديد متاح' : 'تحديث متوفر لتطبيق مُسَرِّب',
             'message' => $notes ?: 'يتوفر إصدار جديد للتطبيق لتحسين الأداء وتجربة الاستخدام.',
             'actionUrl' => $customUrl,
-            'actionText' => 'تحميل التحديث الجديد',
+            'actionText' => 'تحميل التحديث الجديد (v' . $versionName . ')',
             'minRequiredVersionCode' => $versionCode,
             'isForceUpdate' => $isForce,
             'publishedAt' => round(microtime(true) * 1000)
@@ -131,11 +173,12 @@ if ($method === 'POST') {
         if (!is_array($releases)) $releases = [];
         $newExternalRelease = [
             'id' => 'REL_EXT_' . time(),
-            'version_name' => '1.' . $versionCode . '.0',
+            'version_name' => $versionName,
             'version_code' => $versionCode,
             'release_notes' => $notes ?: 'تحديث ورابط تحميل خارجي مباشر',
             'file_name' => 'external_link',
             'file_size' => 0,
+            'file_size_mb' => '0',
             'download_url' => $customUrl,
             'is_force_update' => $isForce,
             'is_external' => true,
@@ -148,5 +191,9 @@ if ($method === 'POST') {
             'broadcast' => $bcPayload,
             'release' => $newExternalRelease
         ]);
+    } else {
+        jsonResponse(false, 'إجراء غير معروف', null, 400);
     }
 }
+
+jsonResponse(false, 'طريقة غير مدعومة', null, 405);

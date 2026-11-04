@@ -14,7 +14,7 @@ if (session_status() === PHP_SESSION_NONE) {
     // Configure secure session parameters
     ini_set('session.cookie_httponly', 1);
     ini_set('session.use_only_cookies', 1);
-    ini_set('session.cookie_samesite', 'Lax');
+    ini_set('session.cookie_samesite', 'Strict');
     $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
         || (!empty($_SERVER['HTTP_CF_VISITOR']) && strpos($_SERVER['HTTP_CF_VISITOR'], 'https') !== false)
@@ -58,98 +58,104 @@ function getCsrfToken() {
 }
 
 function verifyCsrfToken($token) {
-    return !empty($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+    return !empty($_SESSION['csrf_token']) && !empty($token) && hash_equals($_SESSION['csrf_token'], $token);
 }
 
-// Rate Limiting helper to block brute force
-function checkRateLimit($ip) {
+// Rate Limiting helper to block brute force (throttles per IP and per email with flock)
+function checkRateLimit($ip, $email = '') {
     global $rateLimitFile;
     if (!file_exists($rateLimitFile)) return true;
-    $attempts = json_decode(file_get_contents($rateLimitFile), true) ?: [];
-    if (isset($attempts[$ip])) {
-        $data = $attempts[$ip];
-        if ($data['count'] >= 5 && (time() - $data['last_attempt']) < 900) {
-            $remaining = 15 - round((time() - $data['last_attempt']) / 60);
-            jsonResponse(false, "تم حظر محاولات الدخول مؤقتاً لحماية أمن اللوحة. يرجى الانتظار {$remaining} دقيقة.", null, 429);
-        }
-        if ((time() - $data['last_attempt']) >= 900) {
-            unset($attempts[$ip]);
-            file_put_contents($rateLimitFile, json_encode($attempts));
+    $fp = @fopen($rateLimitFile, 'c+');
+    if (!$fp) return true;
+    if (!flock($fp, LOCK_SH)) {
+        fclose($fp);
+        return true;
+    }
+    $content = stream_get_contents($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+    $attempts = json_decode($content, true) ?: [];
+    $keys = ['ip_' . $ip];
+    if (!empty($email)) {
+        $keys[] = 'email_' . strtolower(trim($email));
+    }
+
+    $now = time();
+    foreach ($keys as $k) {
+        if (isset($attempts[$k])) {
+            $data = $attempts[$k];
+            if ($data['count'] >= 5 && ($now - $data['last_attempt']) < 900) {
+                $remaining = 15 - round(($now - $data['last_attempt']) / 60);
+                jsonResponse(false, "تم حظر محاولات الدخول مؤقتاً لحماية أمن اللوحة. يرجى الانتظار {$remaining} دقيقة.", null, 429);
+            }
         }
     }
     return true;
 }
 
-function recordFailedAttempt($ip) {
+function recordFailedAttempt($ip, $email = '') {
     global $rateLimitFile;
-    $attempts = file_exists($rateLimitFile) ? json_decode(file_get_contents($rateLimitFile), true) : [];
-    if (!is_array($attempts)) $attempts = [];
-
-    if (!isset($attempts[$ip])) {
-        $attempts[$ip] = ['count' => 1, 'last_attempt' => time()];
-    } else {
-        $attempts[$ip]['count']++;
-        $attempts[$ip]['last_attempt'] = time();
+    $fp = @fopen($rateLimitFile, 'c+');
+    if (!$fp) return;
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        return;
     }
-    file_put_contents($rateLimitFile, json_encode($attempts));
+    $content = stream_get_contents($fp);
+    $attempts = json_decode($content, true) ?: [];
+    $now = time();
+
+    $keys = ['ip_' . $ip];
+    if (!empty($email)) {
+        $keys[] = 'email_' . strtolower(trim($email));
+    }
+
+    foreach ($keys as $k) {
+        if (!isset($attempts[$k]) || ($now - $attempts[$k]['last_attempt']) >= 900) {
+            $attempts[$k] = ['count' => 1, 'last_attempt' => $now];
+        } else {
+            $attempts[$k]['count']++;
+            $attempts[$k]['last_attempt'] = $now;
+        }
+    }
+
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($attempts, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
 }
 
-function clearRateLimit($ip) {
+function clearRateLimit($ip, $email = '') {
     global $rateLimitFile;
     if (!file_exists($rateLimitFile)) return;
-    $attempts = json_decode(file_get_contents($rateLimitFile), true) ?: [];
-    if (isset($attempts[$ip])) {
-        unset($attempts[$ip]);
-        file_put_contents($rateLimitFile, json_encode($attempts));
+    $fp = @fopen($rateLimitFile, 'c+');
+    if (!$fp) return;
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        return;
     }
+    $content = stream_get_contents($fp);
+    $attempts = json_decode($content, true) ?: [];
+    unset($attempts['ip_' . $ip]);
+    if (!empty($email)) {
+        unset($attempts['email_' . strtolower(trim($email))]);
+    }
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($attempts, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
 }
 
-function generateAdminSessionToken($adminId, $date = null) {
-    if (ADMIN_TOKEN_SECRET === '') return '';
-    return hash_hmac('sha256', $adminId . ':' . ($date ?? date('Y-m-d')), ADMIN_TOKEN_SECRET);
-}
-
-// Check if currently authenticated
+// Check if currently authenticated via HttpOnly PHP session
 function requireAuth() {
     if (!empty($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true && !empty($_SESSION['admin_user'])) {
         return;
     }
-
-    // Shared hosting & FastCGI fallback: check all header sources
-    $headers = function_exists('getallheaders') ? getallheaders() : [];
-    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? ($headers['Authorization'] ?? ($headers['authorization'] ?? ''));
-    $customToken = $_SERVER['HTTP_X_ADMIN_TOKEN'] ?? ($headers['X-Admin-Token'] ?? ($headers['x-admin-token'] ?? ''));
-
-    $token = '';
-    if (!empty($authHeader) && preg_match('/Bearer\s+(\S+)/i', $authHeader, $matches)) {
-        $token = $matches[1];
-    } elseif (!empty($customToken)) {
-        $token = trim($customToken);
-    } elseif (!empty($_COOKIE['mosarib_admin_token'])) {
-        $token = trim($_COOKIE['mosarib_admin_token']);
-    }
-
-    // Only a session token signed with the server-side ADMIN_TOKEN_SECRET is accepted.
-    if (!empty($token) && ADMIN_TOKEN_SECRET !== '') {
-        $adminsFile = __DIR__ . '/../data/admins.json';
-        $admins = json_decode(@file_get_contents($adminsFile), true) ?: [];
-        foreach ($admins as $admin) {
-            if (empty($admin['is_active'])) continue;
-            $todayToken = generateAdminSessionToken($admin['id']);
-            $yestToken  = generateAdminSessionToken($admin['id'], date('Y-m-d', strtotime('-1 day')));
-            if (hash_equals($todayToken, $token) || hash_equals($yestToken, $token)) {
-                $_SESSION['admin_logged_in'] = true;
-                $_SESSION['admin_user'] = [
-                    'id' => $admin['id'],
-                    'name' => $admin['name'],
-                    'email' => $admin['email'],
-                    'role' => $admin['role']
-                ];
-                return;
-            }
-        }
-    }
-
     jsonResponse(false, 'غير مصرح: يجب تسجيل الدخول بحساب مسؤول معتمد أولاً', null, 401);
 }
 
@@ -161,16 +167,10 @@ if ($action === 'get_csrf') {
 }
 
 if ($action === 'check_session') {
-    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
-    if (empty($_SESSION['admin_logged_in']) && !empty($authHeader)) {
-        requireAuth();
-    }
     if (!empty($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
-        $adminId = $_SESSION['admin_user']['id'] ?? '';
         jsonResponse(true, 'الجلسة نشطة ومصرحة', [
             'admin' => $_SESSION['admin_user'],
-            'csrf_token' => getCsrfToken(),
-            'session_token' => generateAdminSessionToken($adminId)
+            'csrf_token' => getCsrfToken()
         ]);
     } else {
         jsonResponse(false, 'لا توجد جلسة نشطة', ['csrf_token' => getCsrfToken()], 401);
@@ -180,12 +180,18 @@ if ($action === 'check_session') {
 // Handle Login
 if ($action === 'login') {
     $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-    checkRateLimit($ip);
-
     $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
     $email = strtolower(trim($input['email'] ?? ''));
     $password = trim($input['password'] ?? '');
     $csrf = $input['csrf_token'] ?? '';
+
+    // Rate limit check per IP and email
+    checkRateLimit($ip, $email);
+
+    // Strict CSRF verification on login
+    if (!verifyCsrfToken($csrf)) {
+        jsonResponse(false, 'رمز أمان الجلسة غير صالح (CSRF)', null, 403);
+    }
 
     if (empty($email) || empty($password)) {
         jsonResponse(false, 'يرجى إدخال البريد الإلكتروني وكلمة المرور');
@@ -204,7 +210,7 @@ if ($action === 'login') {
     }
 
     if (!$foundAdmin || !password_verify($password, $foundAdmin['password_hash'])) {
-        recordFailedAttempt($ip);
+        recordFailedAttempt($ip, $email);
         jsonResponse(false, 'البريد الإلكتروني أو كلمة المرور غير صحيحة!', null, 401);
     }
 
@@ -214,7 +220,7 @@ if ($action === 'login') {
 
     // Success: Regenerate session to prevent fixation
     session_regenerate_id(true);
-    clearRateLimit($ip);
+    clearRateLimit($ip, $email);
 
     // Update last login
     $admins[$adminIndex]['last_login'] = time() * 1000;
@@ -227,15 +233,13 @@ if ($action === 'login') {
         'role' => $foundAdmin['role']
     ];
 
-    $sessionToken = generateAdminSessionToken($foundAdmin['id']);
     $_SESSION['admin_logged_in'] = true;
     $_SESSION['admin_user'] = $userData;
     $_SESSION['login_time'] = time();
 
     jsonResponse(true, 'تم تسجيل الدخول بنجاح وترقية الجلسة لأعلى درجات الأمان', [
         'admin' => $userData,
-        'csrf_token' => getCsrfToken(),
-        'session_token' => $sessionToken
+        'csrf_token' => getCsrfToken()
     ]);
 }
 

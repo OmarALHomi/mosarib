@@ -28,11 +28,28 @@ if (substr($path, -5) !== '.json') {
     $path .= '.json';
 }
 
-$method = $_SERVER['REQUEST_METHOD'];
-if (!empty($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE'])) {
-    $method = strtoupper($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE']);
-} elseif (!empty($_GET['method'])) {
-    $method = strtoupper($_GET['method']);
+// Allow-list the top-level nodes used by the dashboard
+$allowedNodes = [
+    'portal_settings', 'subscription_pricing', 'payment_methods', 'fcm_tokens',
+    'app_broadcast', 'app_config', 'licenses', 'devices', 'device_overrides',
+    'subscription_requests', 'all_users', 'blocked_emails', 'feedbacks'
+];
+$cleanPath = ltrim($path, '/');
+$topNode = explode('/', $cleanPath)[0];
+$topNode = preg_replace('/\.json$/', '', $topNode);
+if (!in_array($topNode, $allowedNodes, true)) {
+    jsonResponse(false, 'مسار غير مصرح به في قاعدة البيانات', null, 403);
+}
+
+$requestMethod = $_SERVER['REQUEST_METHOD'];
+$method = $requestMethod;
+// Strict security: ignore method overrides on GET requests
+if ($requestMethod !== 'GET') {
+    if (!empty($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE'])) {
+        $method = strtoupper($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE']);
+    } elseif (!empty($_GET['method'])) {
+        $method = strtoupper($_GET['method']);
+    }
 }
 if (!in_array($method, ['GET', 'PUT', 'PATCH', 'POST', 'DELETE'], true)) {
     jsonResponse(false, 'طريقة غير مدعومة', null, 405);

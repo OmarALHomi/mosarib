@@ -5,61 +5,78 @@
  * Developed for Eng. Omar AL-Homi (TubbaSoft 2026)
  */
 
-// Prevent caching so admin modifications reflect instantly
-header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+// Prevent caching so admin modifications reflect instantly (no-store omitted for page caching rules)
+header('Cache-Control: no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
 header('Content-Type: text/html; charset=UTF-8');
 
 require_once __DIR__ . '/api/config.php';
 
-// Real Visitor Tracking (Daily unique visitor deduplication via cookie)
+// Real Visitor Tracking (Daily unique visitor deduplication via cookie with flock & bot-skipping)
 $today = date('Y-m-d');
 $analyticsFile = __DIR__ . '/data/portal_analytics.json';
-$cookieName = 'msrb_v_visit_' . str_replace('-', '', $today);
-$isNewVisitorToday = empty($_COOKIE[$cookieName]);
-
-if ($isNewVisitorToday) {
-    @setcookie($cookieName, '1', time() + 86400, '/');
+$userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+$isBot = false;
+if (!empty($userAgent) && preg_match('/bot|crawl|spider|slurp|facebookexternalhit|whatsapp|preview/i', $userAgent)) {
+    $isBot = true;
 }
 
-$analytics = [
-    'total_visitors' => 0,
-    'today_visitors' => 0,
-    'unique_visitors' => 0,
-    'last_visit_date' => $today,
-    'last_visit_at' => 0,
-    'total_downloads' => 0,
-    'today_downloads' => 0,
-    'last_download_date' => $today,
-    'last_download_at' => 0,
-    'daily_stats' => []
-];
+if (!$isBot) {
+    $cookieName = 'msrb_v_visit_' . str_replace('-', '', $today);
+    $isNewVisitorToday = empty($_COOKIE[$cookieName]);
+    if ($isNewVisitorToday) {
+        @setcookie($cookieName, '1', time() + 86400, '/');
+    }
 
-if (file_exists($analyticsFile)) {
-    $existingAnalytics = json_decode(@file_get_contents($analyticsFile), true);
-    if (is_array($existingAnalytics)) {
-        $analytics = array_merge($analytics, $existingAnalytics);
+    $fp = @fopen($analyticsFile, 'c+');
+    if ($fp && flock($fp, LOCK_EX)) {
+        $raw = '';
+        while (!feof($fp)) {
+            $raw .= fread($fp, 8192);
+        }
+        $analytics = [
+            'total_visitors' => 0,
+            'today_visitors' => 0,
+            'unique_visitors' => 0,
+            'last_visit_date' => $today,
+            'last_visit_at' => 0,
+            'total_downloads' => 0,
+            'today_downloads' => 0,
+            'last_download_date' => $today,
+            'last_download_at' => 0,
+            'daily_stats' => []
+        ];
+        if (!empty($raw)) {
+            $existingAnalytics = json_decode($raw, true);
+            if (is_array($existingAnalytics)) {
+                $analytics = array_merge($analytics, $existingAnalytics);
+            }
+        }
+        if (($analytics['last_visit_date'] ?? '') !== $today) {
+            $analytics['last_visit_date'] = $today;
+            $analytics['today_visitors'] = 0;
+        }
+        $analytics['total_visitors'] = ($analytics['total_visitors'] ?? 0) + 1;
+        $analytics['today_visitors'] = ($analytics['today_visitors'] ?? 0) + 1;
+        if ($isNewVisitorToday) {
+            $analytics['unique_visitors'] = ($analytics['unique_visitors'] ?? 0) + 1;
+        }
+        $analytics['last_visit_at'] = time();
+
+        if (!isset($analytics['daily_stats'][$today])) {
+            $analytics['daily_stats'][$today] = ['visitors' => 0, 'downloads' => 0];
+        }
+        $analytics['daily_stats'][$today]['visitors']++;
+
+        ftruncate($fp, 0);
+        rewind($fp);
+        fwrite($fp, json_encode($analytics, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        fflush($fp);
+        flock($fp, LOCK_UN);
+        fclose($fp);
     }
 }
-
-if (($analytics['last_visit_date'] ?? '') !== $today) {
-    $analytics['last_visit_date'] = $today;
-    $analytics['today_visitors'] = 0;
-}
-$analytics['total_visitors'] = ($analytics['total_visitors'] ?? 0) + 1;
-$analytics['today_visitors'] = ($analytics['today_visitors'] ?? 0) + 1;
-if ($isNewVisitorToday) {
-    $analytics['unique_visitors'] = ($analytics['unique_visitors'] ?? 0) + 1;
-}
-$analytics['last_visit_at'] = time();
-
-if (!isset($analytics['daily_stats'][$today])) {
-    $analytics['daily_stats'][$today] = ['visitors' => 0, 'downloads' => 0];
-}
-$analytics['daily_stats'][$today]['visitors']++;
-
-@file_put_contents($analyticsFile, json_encode($analytics, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
 // 1. Load Live Portal Settings (Sync with Firebase or fallback to local JSON)
 $settingsFile = __DIR__ . '/data/portal_settings.json';
@@ -88,7 +105,10 @@ $ps = [
     'show_news_section' => true,
     'show_faq_section' => true,
     'show_developer_section' => true,
-    'show_download_cta' => true
+    'show_download_cta' => true,
+    'stats_wells' => '',
+    'stats_vouchers' => '',
+    'testimonials' => []
 ];
 
 if (file_exists($settingsFile)) {
@@ -123,24 +143,42 @@ $latestRelease = !empty($releases[0]) ? $releases[0] : null;
 
 $directDownloadUrl = '';
 if (!empty($latestRelease['download_url'])) {
-    $directDownloadUrl = $latestRelease['download_url'];
-} elseif (!empty($latestRelease['file_name']) && file_exists(__DIR__ . '/uploads/' . $latestRelease['file_name'])) {
-    $directDownloadUrl = 'uploads/' . rawurlencode($latestRelease['file_name']);
-} elseif (file_exists(__DIR__ . '/uploads/Mosarib_Latest.apk')) {
-    $directDownloadUrl = 'uploads/Mosarib_Latest.apk';
-} else {
-    $apks = glob(__DIR__ . '/uploads/*.apk');
-    if (!empty($apks)) {
-        usort($apks, function($a, $b) { return filemtime($b) - filemtime($a); });
-        $directDownloadUrl = 'uploads/' . rawurlencode(basename($apks[0]));
+    if (preg_match('#^https?://#i', $latestRelease['download_url'])) {
+        $directDownloadUrl = $latestRelease['download_url'];
+    } else {
+        $relPath = ltrim($latestRelease['download_url'], '/');
+        if (file_exists(__DIR__ . '/' . $relPath)) {
+            $directDownloadUrl = $relPath;
+        }
     }
 }
+if (empty($directDownloadUrl) && !empty($latestRelease['file_name']) && file_exists(__DIR__ . '/uploads/' . $latestRelease['file_name'])) {
+    $directDownloadUrl = 'uploads/' . rawurlencode($latestRelease['file_name']);
+}
 if (empty($directDownloadUrl)) {
-    $directDownloadUrl = 'uploads/Mosarib_Latest.apk';
+    if (file_exists(__DIR__ . '/uploads/Mosarib_Latest.apk')) {
+        $directDownloadUrl = 'uploads/Mosarib_Latest.apk';
+    } else {
+        $apks = glob(__DIR__ . '/uploads/*.apk');
+        if (!empty($apks)) {
+            usort($apks, function($a, $b) { return filemtime($b) - filemtime($a); });
+            $directDownloadUrl = 'uploads/' . rawurlencode(basename($apks[0]));
+        }
+    }
 }
 
-$apkVersionName = $latestRelease['version_name'] ?? '1.2.0';
-$apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
+$apkVersionName = '';
+$apkSizeMb = '';
+if ($latestRelease) {
+    $apkVersionName = $latestRelease['version_name'] ?? '';
+    if (!empty($latestRelease['file_size'])) {
+        $apkSizeMb = number_format($latestRelease['file_size'] / (1024 * 1024), 2);
+    } elseif (!empty($latestRelease['file_size_mb'])) {
+        $apkSizeMb = (string)$latestRelease['file_size_mb'];
+    }
+}
+
+$canonicalUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . strtok($_SERVER['REQUEST_URI'] ?? '/', '?');
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" data-theme="light">
@@ -150,10 +188,22 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
   <title><?= htmlspecialchars($ps['hero_title']) ?> • البوابة الرسمية</title>
   <meta name="description" content="<?= htmlspecialchars($ps['hero_subtitle']) ?>">
   <meta name="theme-color" content="#FAFBFB">
-  <meta property="og:title" content="مُسَرِّب | Mosarib — حوكمة مياه وساعات ري الآبار">
-  <meta property="og:description" content="كل قطرة محسوبة، وكل حق محفوظ.">
 
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230D9488' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2.7 17.7 8.4a8 8 0 1 1-11.4 0Z'/%3E%3C/svg%3E">
+  <link rel="canonical" href="<?= htmlspecialchars($canonicalUrl) ?>">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="<?= htmlspecialchars($canonicalUrl) ?>">
+  <meta property="og:locale" content="ar_AR">
+  <meta property="og:title" content="<?= htmlspecialchars($ps['hero_title']) ?> • البوابة الرسمية">
+  <meta property="og:description" content="<?= htmlspecialchars($ps['hero_subtitle']) ?>">
+  <meta property="og:image" content="assets/images/app_screen_real.png">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<?= htmlspecialchars($ps['hero_title']) ?> • البوابة الرسمية">
+  <meta name="twitter:description" content="<?= htmlspecialchars($ps['hero_subtitle']) ?>">
+  <meta name="twitter:image" content="assets/images/app_screen_real.png">
+
+  <link rel="icon" type="image/png" href="assets/images/app_screen_real.png">
+  <link rel="apple-touch-icon" href="assets/images/app_screen_real.png">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -197,13 +247,14 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
   <symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8H5a2 2 0 0 1 0-4h13v4"/><path d="M20 8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M17 13h.01"/></symbol>
   <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></symbol>
   <symbol id="i-whatsapp" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
 </svg>
 
 <!-- Headline Ticker -->
 <?php if (!empty($ps['headline_alert']) && ($ps['show_top_ticker'] ?? true)): ?>
 <div class="top-ticker" id="topTickerBar">
   <div class="container" style="display:flex; align-items:center; justify-content:center; gap:8px;">
-    <span>📢</span>
     <span id="topTickerText"><?= htmlspecialchars($ps['headline_alert']) ?></span>
   </div>
 </div>
@@ -241,10 +292,12 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
         <svg class="i-moon"><use href="#i-moon"/></svg>
       </button>
 
+      <?php if (!empty($directDownloadUrl)): ?>
       <a href="<?= htmlspecialchars($directDownloadUrl) ?>" class="btn btn-primary" download onclick="trackDownload()" title="تحميل ملف APK المباشر">
         <svg class="btn__icon"><use href="#i-download"/></svg>
         <span>تحميل التطبيق</span>
       </a>
+      <?php endif; ?>
 
       <button class="icon-btn menu-btn" id="menuBtn" aria-label="القائمة" aria-expanded="false" aria-controls="mobileMenu">
         <svg><use href="#i-menu"/></svg>
@@ -270,11 +323,14 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
   <?php if (!empty($ps['show_faq_section'])): ?>
   <a href="#faq" data-menu-close>الأسئلة الشائعة</a>
   <?php endif; ?>
+
+  <?php if (!empty($directDownloadUrl)): ?>
   <a href="<?= htmlspecialchars($directDownloadUrl) ?>" class="btn btn-primary btn-block btn-lg" download onclick="trackDownload()" data-menu-close>
-    تحميل التطبيق مجاناً (APK v<?= htmlspecialchars($apkVersionName) ?>)
+    تحميل التطبيق مجاناً<?= !empty($apkVersionName) ? ' (APK v' . htmlspecialchars($apkVersionName) . ')' : ' (APK)' ?>
   </a>
+  <?php endif; ?>
   <button class="btn btn-secondary btn-block btn-lg" onclick="openModal('YEARLY')" data-menu-close>
-    طلب تفعيل الترخيص ⚡
+    طلب تفعيل الترخيص
   </button>
 </nav>
 
@@ -293,15 +349,17 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
         </p>
 
         <div class="hero__actions">
+          <?php if (!empty($directDownloadUrl)): ?>
           <a href="<?= htmlspecialchars($directDownloadUrl) ?>" class="btn btn-primary btn-lg" download onclick="trackDownload()">
             <svg class="btn__icon"><use href="#i-download"/></svg>
-            <span>تحميل التطبيق (APK)</span>
+            <span>تحميل التطبيق (APK<?= !empty($apkVersionName) ? ' v' . htmlspecialchars($apkVersionName) : '' ?><?= !empty($apkSizeMb) ? ' • ' . htmlspecialchars($apkSizeMb) . ' MB' : '' ?>)</span>
           </a>
+          <?php endif; ?>
           <button class="btn btn-secondary btn-lg" onclick="openModal('YEARLY')">
-            طلب تفعيل الترخيص ⚡
+            طلب تفعيل الترخيص
           </button>
           <?php if (!empty($ps['contact_whatsapp'])): ?>
-          <a class="btn btn-ghost btn-lg" href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>" target="_blank">
+          <a class="btn btn-ghost btn-lg" href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>" target="_blank" rel="noopener">
             <svg class="btn__icon" style="color:var(--success);"><use href="#i-whatsapp"/></svg>
             <span>واتساب</span>
           </a>
@@ -317,8 +375,8 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
             <svg><use href="#i-receipt"/></svg>
             سند قبض جديد
           </div>
-          <div class="float-card__value">١٠٬٠٠٠ ر.ي</div>
-          <div class="float-card__sub">✓ تم الإصدار والمشاركة عبر واتساب</div>
+          <div class="float-card__value">10,000 ر.ي</div>
+          <div class="float-card__sub">تم الإصدار والمشاركة عبر واتساب</div>
         </div>
 
         <!-- Floating Glassmorphism Card 2 -->
@@ -327,8 +385,8 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
             <svg><use href="#i-chart"/></svg>
             مستوى الضخ والتشغيل
           </div>
-          <div class="float-card__value">100% Offline</div>
-          <div class="float-card__sub" style="color:var(--success);">⚡ يعمل بكفاءة تامة بدون إنترنت</div>
+          <div class="float-card__value"><bdi>100% Offline</bdi></div>
+          <div class="float-card__sub" style="color:var(--success);">يعمل بكفاءة تامة بدون إنترنت</div>
         </div>
 
         <!-- Device -->
@@ -337,7 +395,7 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
           <div class="device__screen">
             <!-- Status bar -->
             <div class="app-status">
-              <span>٩:٤١</span>
+              <span>9:41</span>
               <span class="app-status__icons">
                 <svg><use href="#i-wifi"/></svg>
                 <svg><use href="#i-battery"/></svg>
@@ -402,8 +460,8 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
                     <span class="record__amount">10,000 ر.ي</span>
                   </div>
                   <div class="record__bottom">
-                    <span class="record__time">٤:٤٩ – ٦:١٩ ص</span>
-                    <span class="record__status status-paid"><svg><use href="#i-check-circle"/></svg> مسدد</span>
+                    <span class="record__time">4:49 – 6:19 ص</span>
+                    <span class="record__status status-paid">مسدد</span>
                   </div>
                 </div>
                 <div class="record">
@@ -415,7 +473,7 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
                     <span class="record__amount">8,750 ر.ي</span>
                   </div>
                   <div class="record__bottom">
-                    <span class="record__time">١٢:٤٩ – ٣:١٩ ص</span>
+                    <span class="record__time">12:49 – 3:19 ص</span>
                     <span class="record__status status-unpaid">متبقي أجل</span>
                   </div>
                 </div>
@@ -428,8 +486,8 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
                     <span class="record__amount">13,500 ر.ي</span>
                   </div>
                   <div class="record__bottom">
-                    <span class="record__time">١:٤٩ – ٤:٤٩ ص</span>
-                    <span class="record__status status-paid"><svg><use href="#i-check-circle"/></svg> مسدد</span>
+                    <span class="record__time">1:49 – 4:49 ص</span>
+                    <span class="record__status status-paid">مسدد</span>
                   </div>
                 </div>
               </div>
@@ -480,26 +538,38 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
             </div>
           </div>
         </div>
+
+        <noscript>
+          <picture>
+            <source srcset="assets/images/hero_phone_mockup.webp" type="image/webp">
+            <img src="assets/images/hero_phone_mockup.jpg" alt="واجهة تطبيق مُسَرِّب" width="360" height="640" style="max-width:100%; height:auto; border-radius:24px;">
+          </picture>
+        </noscript>
       </div>
     </div>
 
-    <!-- Stats Counters -->
+    <!-- Stats Counters (Hidden when values in portal_settings are empty) -->
+    <?php 
+    $hasStats = !empty($ps['stats_wells']) || !empty($ps['stats_vouchers']);
+    if ($hasStats): 
+    ?>
     <div class="container">
       <dl class="hero__stats reveal">
+        <?php if (!empty($ps['stats_wells'])): ?>
         <div>
-          <dt><span class="stat-num" data-target="1240">1,240</span><span class="stat__suffix">+</span></dt>
+          <dt><span class="stat-num" data-target="<?= (int)preg_replace('/[^0-9]/', '', $ps['stats_wells']) ?>"><?= htmlspecialchars($ps['stats_wells']) ?></span><span class="stat__suffix">+</span></dt>
           <dd>بئر يُدار عبر منظومة مُسَرِّب</dd>
         </div>
+        <?php endif; ?>
+        <?php if (!empty($ps['stats_vouchers'])): ?>
         <div>
-          <dt><span class="stat-num" data-target="38000">38,000</span><span class="stat__suffix">+</span></dt>
+          <dt><span class="stat-num" data-target="<?= (int)preg_replace('/[^0-9]/', '', $ps['stats_vouchers']) ?>"><?= htmlspecialchars($ps['stats_vouchers']) ?></span><span class="stat__suffix">+</span></dt>
           <dd>سند قبض مالي تم إصداره</dd>
         </div>
-        <div>
-          <dt><span class="stat-num" data-target="99.9" data-decimal="1">99.9</span><span class="stat__suffix">%</span></dt>
-          <dd>دقة حساب كسور الساعات بالثواني</dd>
-        </div>
+        <?php endif; ?>
       </dl>
     </div>
+    <?php endif; ?>
   </section>
 
   <!-- Live Water Rates & Hourly Prices Strip -->
@@ -531,13 +601,13 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
         <div>
           <div style="font-size: var(--step--2); color: var(--muted); font-weight: 600; margin-bottom: 6px;">حالة منسوب المياه والضخ:</div>
           <div class="rates-status-pill" id="waterStatusEl">
-            💧 <?= htmlspecialchars($ps['water_status_text'] ?? 'مستقر ومتاح في معظم المناطق الزراعية') ?>
+            <?= htmlspecialchars($ps['water_status_text'] ?? 'مستقر ومتاح في معظم المناطق الزراعية') ?>
           </div>
         </div>
       </div>
       <?php if (!empty($ps['rates_note'])): ?>
       <div style="margin-top: 12px; font-size: var(--step--1); color: var(--muted); text-align: center;" id="ratesNoteEl">
-        ℹ️ <?= htmlspecialchars($ps['rates_note']) ?>
+        <?= htmlspecialchars($ps['rates_note']) ?>
       </div>
       <?php endif; ?>
     </div>
@@ -555,18 +625,38 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
       <div class="features__grid">
         <article class="feature reveal" style="--i:0">
           <div class="feature__icon"><svg><use href="#i-chart"/></svg></div>
-          <h3 class="h3">حساب بالثواني والدقائق</h3>
+          <h3 class="h3">حساب دقيق بالدقيقة</h3>
           <p>تسجيل دورات الري بدقة متناهية. التطبيق يحسب حصة كل مزارع ويوزع التكلفة تلقائياً دون أي أخطاء حسابية يدوية.</p>
         </article>
         <article class="feature reveal" style="--i:1">
           <div class="feature__icon"><svg><use href="#i-cloud"/></svg></div>
           <h3 class="h3">يعمل 100% بدون إنترنت</h3>
-          <p>جميع العمليات والحسابات تُحفظ وتُدار محلياً على جهازك في أعمق المزارع والوديان، مع إمكانية المزامنة والنسخ السحابي على Google Drive.</p>
+          <p>جميع العمليات والحسابات تُحفظ وتُدار محلياً على جهازك في أعمق المزارع والوديان، مع إمكانية المزامنة والنسخ السحابي على <bdi>Google Drive</bdi>.</p>
         </article>
         <article class="feature reveal" style="--i:2">
           <div class="feature__icon"><svg><use href="#i-receipt"/></svg></div>
           <h3 class="h3">سندات قبض فورية عبر واتساب</h3>
-          <p>أصدر سند قبض معتمد لكل عملية تحصيل أو صرف، وشاركه مع المزارع عبر واتساب بضغطة واحدة مع رقم مرجعي وتاريخ لا يقبل التلاعب.</p>
+          <p>أصدر سند قبض معتمد لكل عملية تحصيل أو صرف، وشاركه مع المزارع عبر واتساب بضغطة واحدة برقم مرجعي وتوثيق فوري.</p>
+        </article>
+        <article class="feature reveal" style="--i:3">
+          <div class="feature__icon"><svg><use href="#i-volume"/></svg></div>
+          <h3 class="h3">القراءة الصوتية للمبالغ والعمليات (مجاناً)</h3>
+          <p>استمع لتفاصيل سندات القبض والدفعات بصوت واضح ومسموع في الميدان لتأكيد العمليات دون الحاجة للنظر للشاشة.</p>
+        </article>
+        <article class="feature reveal" style="--i:4">
+          <div class="feature__icon"><svg><use href="#i-mic"/></svg></div>
+          <h3 class="h3">الإدخال الصوتي: قل العملية ويعبّئها التطبيق (مجاناً)</h3>
+          <p>سجّل السقي والقبض بصوتك مباشرة؛ يتولى التطبيق تحويل كلامك إلى بيانات دقيقة في ثوانٍ معدودة.</p>
+        </article>
+        <article class="feature reveal" style="--i:5">
+          <div class="feature__icon"><svg><use href="#i-receipt"/></svg></div>
+          <h3 class="h3">كشوف حساب <bdi>PDF</bdi> وواتساب</h3>
+          <p>تصدير كشوفات حساب مفصلة لكل مزارع ومشاركتها مباشرة عبر واتساب بصيغة <bdi>PDF</bdi> جاهزة للمطابقة والطباعة.</p>
+        </article>
+        <article class="feature reveal" style="--i:6">
+          <div class="feature__icon"><svg><use href="#i-cloud"/></svg></div>
+          <h3 class="h3">نسخ احتياطي على الهاتف و <bdi>Google Drive</bdi></h3>
+          <p>حفظ تلقائي للنسخ الاحتياطية على ذاكرة الهاتف محلياً وسحابياً على حسابك في <bdi>Google Drive</bdi> لحماية السجلات دائماً.</p>
         </article>
       </div>
     </div>
@@ -583,27 +673,30 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
       </div>
       <div class="steps">
         <div class="step reveal" style="--i:0">
-          <div class="step__num">١</div>
+          <div class="step__num">1</div>
           <h3 class="h3">أضف مزارعيك وآبارك</h3>
           <p>سجّل أسماء العملاء وبيانات الآبار وسعر الساعة المتفق عليه في أقل من دقيقة.</p>
         </div>
         <div class="step reveal" style="--i:1">
-          <div class="step__num">٢</div>
+          <div class="step__num">2</div>
           <h3 class="h3">سجّل الري والدفعات</h3>
           <p>كل دورة سقي تُحسب بالوقت الفعلي. وسند القبض يصدر فوراً عند استلام أي دفعة نقدية.</p>
         </div>
         <div class="step reveal" style="--i:2">
-          <div class="step__num">٣</div>
+          <div class="step__num">3</div>
           <h3 class="h3">شارك الكشوفات والسندات</h3>
-          <p>أرسل تقريراً مفصلاً لكل مزارع عبر واتساب بصيغة PDF أو Excel توضح الساعات والمتبقي.</p>
+          <p>أرسل تقريراً مفصلاً لكل مزارع عبر واتساب بصيغة <bdi>PDF</bdi> أو <bdi>Excel</bdi> توضح الساعات والمتبقي.</p>
         </div>
       </div>
     </div>
   </section>
   <?php endif; ?>
 
-  <!-- Testimonials -->
-  <?php if (!empty($ps['show_testimonials_section'])): ?>
+  <!-- Testimonials (Hidden when list is empty) -->
+  <?php 
+  $testimonials = $ps['testimonials'] ?? [];
+  if (!empty($ps['show_testimonials_section']) && !empty($testimonials) && is_array($testimonials)): 
+  ?>
   <section class="section testimonials" id="testimonials">
     <div class="container">
       <div class="section-head reveal">
@@ -611,45 +704,21 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
         <p class="lead">من مزارع الحيمة وتعز إلى وادي حضرموت ولحج — مُسَرِّب رفيق العمل اليومي.</p>
       </div>
       <div class="testimonials__grid">
-        <article class="testimonial reveal" style="--i:0">
+        <?php foreach ($testimonials as $idx => $tm): ?>
+        <article class="testimonial reveal" style="--i:<?= (int)$idx ?>">
           <div class="testimonial__stars">
             <svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg>
           </div>
-          <p class="testimonial__quote">«كنت أضيّع ساعات طويلة في حساب كسور الساعات والدفاتر الورقية. الآن بضغطة زر يخرج السند والحساب الصافي.»</p>
+          <p class="testimonial__quote">«<?= htmlspecialchars($tm['quote'] ?? '') ?>»</p>
           <div class="testimonial__author">
-            <div class="testimonial__avatar">س</div>
+            <div class="testimonial__avatar"><?= mb_substr($tm['name'] ?? 'م', 0, 1, 'UTF-8') ?></div>
             <div>
-              <div class="testimonial__name">سعيد بن حسين الحميلي</div>
-              <div class="testimonial__role">مالك بئر وموزع ري — تعز</div>
+              <div class="testimonial__name"><?= htmlspecialchars($tm['name'] ?? '') ?></div>
+              <div class="testimonial__role"><?= htmlspecialchars($tm['place'] ?? ($tm['role'] ?? '')) ?></div>
             </div>
           </div>
         </article>
-        <article class="testimonial reveal" style="--i:1">
-          <div class="testimonial__stars">
-            <svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg>
-          </div>
-          <p class="testimonial__quote">«ميزة العمل بدون إنترنت هي الأساس عندنا في الوادي. البيانات محفوظة وسندات الواتساب وثقت حقوق الجميع دون أي خلاف.»</p>
-          <div class="testimonial__author">
-            <div class="testimonial__avatar">ص</div>
-            <div>
-              <div class="testimonial__name">صالح بن علي اليافعي</div>
-              <div class="testimonial__role">مشغل مضخة زراعية — لحج</div>
-            </div>
-          </div>
-        </article>
-        <article class="testimonial reveal" style="--i:2">
-          <div class="testimonial__stars">
-            <svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg>
-          </div>
-          <p class="testimonial__quote">«النسخ الاحتياطي على Google Drive أنقذ حساباتي تماماً عندما تعطل هاتفي واسترجعت كل بيانات المواسم خلال دقيقة.»</p>
-          <div class="testimonial__author">
-            <div class="testimonial__avatar">م</div>
-            <div>
-              <div class="testimonial__name">محمد بن ناصر الحميلي</div>
-              <div class="testimonial__role">مالك بئر ارتوازية — الحيمة</div>
-            </div>
-          </div>
-        </article>
+        <?php endforeach; ?>
       </div>
     </div>
   </section>
@@ -683,7 +752,7 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
         <!-- Annual Plan (Featured) -->
         <article class="plan plan--featured reveal" style="--i:1">
           <div class="plan__badge"><?= htmlspecialchars($yearlyDisc) ?></div>
-          <div class="plan__name">الاشتراك السنوي الشامل ⭐</div>
+          <div class="plan__name">الاشتراك السنوي الشامل</div>
           <div class="plan__price">
             <span id="yearlyPriceEl"><?= htmlspecialchars($yearlyPrice) ?><?= htmlspecialchars($yearlyCurrency) ?></span>
             <span>/ سنوياً</span>
@@ -693,12 +762,12 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
           </div>
           <ul class="plan__features">
             <li><svg><use href="#i-check"/></svg>عمليات ري وسندات وحسابات غير محدودة طوال الموسم</li>
-            <li><svg><use href="#i-check"/></svg>نسخ احتياطي سحابي تلقائي على Google Drive</li>
-            <li><svg><use href="#i-check"/></svg>تصدير كشوفات الحسابات الشاملة PDF و Excel</li>
+            <li><svg><use href="#i-check"/></svg>نسخ احتياطي سحابي تلقائي على <bdi>Google Drive</bdi></li>
+            <li><svg><use href="#i-check"/></svg>تصدير كشوفات الحسابات الشاملة <bdi>PDF</bdi> و <bdi>Excel</bdi></li>
             <li><svg><use href="#i-check"/></svg>إمكانية نقل الرخصة لهاتف بديل مجاناً</li>
             <li><svg><use href="#i-check"/></svg>أولوية الدعم الفني والتحديثات المباشرة</li>
           </ul>
-          <button class="btn btn-primary btn-block btn-lg" onclick="openModal('YEARLY')">طلب تفعيل الباقة السنوية ⚡</button>
+          <button class="btn btn-primary btn-block btn-lg" onclick="openModal('YEARLY')">طلب تفعيل الباقة السنوية</button>
         </article>
       </div>
     </div>
@@ -715,7 +784,20 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
       </div>
       <div class="features__grid">
         <?php foreach (array_slice($portalNews, 0, 3) as $idx => $nw): ?>
-        <article class="feature reveal" style="--i:<?= $idx ?>">
+        <article class="feature reveal" style="--i:<?= (int)$idx ?>">
+          <?php if (!empty($nw['image'])): 
+            $imgSrc = $nw['image'];
+            $webpSrc = preg_replace('/\.(jpe?g|png)$/i', '.webp', $imgSrc);
+          ?>
+          <div class="news-cover-wrap" style="margin-bottom:12px; border-radius:10px; overflow:hidden;">
+            <picture>
+              <?php if (file_exists(__DIR__ . '/' . $webpSrc)): ?>
+              <source srcset="<?= htmlspecialchars($webpSrc) ?>" type="image/webp">
+              <?php endif; ?>
+              <img src="<?= htmlspecialchars($imgSrc) ?>" alt="<?= htmlspecialchars($nw['title']) ?>" loading="lazy" width="400" height="225" style="width:100%; height:auto; display:block; object-fit:cover;">
+            </picture>
+          </div>
+          <?php endif; ?>
           <div style="font-size: var(--step--1); font-weight: 700; color: var(--teal-600); margin-bottom: 6px;">
             <?= htmlspecialchars($nw['category'] ?? 'تقارير الآبار') ?>
           </div>
@@ -739,11 +821,11 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
       <div class="faq__list">
         <details class="faq__item reveal" style="--i:0">
           <summary>هل يعمل التطبيق فعلاً 100% بدون إنترنت؟</summary>
-          <p>نعم، بكل تأكيد. تم تصميم التطبيق ليعمل بنظام Offline-First؛ فجميع العمليات من تسجيل دورات السقي وإصدار السندات وحساب ديون المزارعين تعمل محلياً على الهاتف. وعند توفر الإنترنت، يمكنك مزامنة البيانات سحابياً بضغطة زر واحدة.</p>
+          <p>نعم، بكل تأكيد. تم تصميم التطبيق ليعمل بدون إنترنت؛ فجميع العمليات من تسجيل دورات السقي وإصدار السندات وحساب ديون المزارعين تعمل محلياً على الهاتف. وعند توفر الإنترنت، يمكنك مزامنة البيانات سحابياً بضغطة زر واحدة.</p>
         </details>
         <details class="faq__item reveal" style="--i:1">
           <summary>ماذا يحدث إذا فُقد هاتفي أو تعرض للتلف؟</summary>
-          <p>بياناتك مؤمنة تماماً إذا قمت بتفعيل النسخ الاحتياطي على Google Drive. يمكنك تسجيل الدخول من أي هاتف أندرويد بديل واستعادة كافة حساباتك ومواسمك في ثوانٍ معدودة.</p>
+          <p>بياناتك مؤمنة تماماً إذا قمت بتفعيل النسخ الاحتياطي على <bdi>Google Drive</bdi>. يمكنك تسجيل الدخول من أي هاتف أندرويد بديل واستعادة كافة حساباتك ومواسمك في ثوانٍ معدودة.</p>
         </details>
         <details class="faq__item reveal" style="--i:2">
           <summary>هل يمكنني نقل رخصة التفعيل لجهاز آخر؟</summary>
@@ -771,12 +853,14 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
           <h2 class="cta__title">ابدأ اليوم — واحمِ حقوقك المائية والمالية</h2>
           <p class="cta__desc">انضم إلى مئات ملاك الآبار والموزعين الذين يعتمدون على مُسَرِّب كل يوم لإدارة دورات السقي وسندات القبض.</p>
           <div style="display:flex; justify-content:center; gap:14px; flex-wrap:wrap;">
+            <?php if (!empty($directDownloadUrl)): ?>
             <a href="<?= htmlspecialchars($directDownloadUrl) ?>" class="btn btn-primary btn-lg" download onclick="trackDownload()">
               <svg class="btn__icon"><use href="#i-download"/></svg>
-              <span>تحميل النسخة الأحدث (APK)</span>
+              <span>تحميل النسخة الأحدث (APK<?= !empty($apkVersionName) ? ' v' . htmlspecialchars($apkVersionName) : '' ?>)</span>
             </a>
+            <?php endif; ?>
             <button class="btn btn-secondary btn-lg" onclick="openModal('YEARLY')">
-              طلب تفعيل رخصة التطبيق ⚡
+              طلب تفعيل رخصة التطبيق
             </button>
           </div>
         </div>
@@ -818,7 +902,7 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
         <a href="#faq">الأسئلة الشائعة</a>
         <?php endif; ?>
         <?php if (!empty($ps['contact_whatsapp'])): ?>
-        <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>" target="_blank">محادثة واتساب</a>
+        <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $ps['contact_whatsapp']) ?>" target="_blank" rel="noopener">محادثة واتساب</a>
         <?php endif; ?>
         <?php if (!empty($ps['contact_phone'])): ?>
         <a href="tel:<?= htmlspecialchars($ps['contact_phone']) ?>">اتصال مباشر: <?= htmlspecialchars($ps['contact_phone']) ?></a>
@@ -854,7 +938,7 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
       <?php if (!empty($paymentMethods)): ?>
       <div class="method-toggle" id="payMethodToggle">
         <?php foreach ($paymentMethods as $idx => $pm): ?>
-        <label class="<?= $idx === 0 ? 'active' : '' ?>" data-idx="<?= $idx ?>" data-num="<?= htmlspecialchars($pm['account_number']) ?>" data-holder="<?= htmlspecialchars($pm['account_holder'] ?? 'عمر الحومي') ?>">
+        <label class="<?= $idx === 0 ? 'active' : '' ?>" data-idx="<?= $idx ?>" data-num="<?= htmlspecialchars($pm['account_number']) ?>" data-holder="<?= htmlspecialchars($pm['account_holder'] ?? '') ?>">
           <input type="radio" name="pay-method" value="<?= htmlspecialchars($pm['bank_name']) ?>" <?= $idx === 0 ? 'checked' : '' ?>>
           <?= htmlspecialchars($pm['bank_name']) ?>
         </label>
@@ -864,50 +948,38 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
       <div class="account-info">
         <div class="account-row">
           <span class="account-row__label">اسم المستفيد:</span>
-          <span style="font-weight:700;" id="accHolderVal"><?= htmlspecialchars($paymentMethods[0]['account_holder'] ?? 'عمر عبدالله علي أحمد ثابت') ?></span>
+          <span style="font-weight:700;" id="accHolderVal"><?= htmlspecialchars($paymentMethods[0]['account_holder'] ?? '') ?></span>
         </div>
         <div class="account-row">
           <span class="account-row__label">رقم الحساب / المحفظة:</span>
           <div style="display:flex; align-items:center; gap:10px;">
-            <span class="account-row__value" id="accVal"><?= htmlspecialchars($paymentMethods[0]['account_number'] ?? '3079300437') ?></span>
+            <span class="account-row__value" id="accVal"><?= htmlspecialchars($paymentMethods[0]['account_number'] ?? '') ?></span>
             <button type="button" class="copy-btn" id="copyBtn">نسخ</button>
           </div>
         </div>
       </div>
       <?php else: ?>
-      <div class="method-toggle">
-        <label class="active" data-num="3079300437" data-holder="عمر عبدالله علي أحمد ثابت">
-          <input type="radio" name="pay-method" value="kuraimi" checked>بنك الكريمي
-        </label>
-        <label data-num="773712030" data-holder="عمر عبدالله علي أحمد ثابت">
-          <input type="radio" name="pay-method" value="jawwal">محفظة جيب
-        </label>
-      </div>
-      <div class="account-info">
-        <div class="account-row">
-          <span class="account-row__label">اسم المستفيد:</span>
-          <span style="font-weight:700;" id="accHolderVal">عمر عبدالله علي أحمد ثابت</span>
-        </div>
-        <div class="account-row">
-          <span class="account-row__label">رقم الحساب:</span>
-          <div style="display:flex; align-items:center; gap:10px;">
-            <span class="account-row__value" id="accVal">3079300437</span>
-            <button type="button" class="copy-btn" id="copyBtn">نسخ</button>
-          </div>
-        </div>
-      </div>
+      <p style="text-align: center; color: var(--muted); padding: 16px 0; font-size: var(--step--1);">
+        يرجى التواصل عبر واتساب لمعرفة تفاصيل وطرق التحويل المتاحة.
+      </p>
       <?php endif; ?>
 
       <form id="orderForm" onsubmit="submitOrder(event)">
         <input type="hidden" id="selectedPlan" value="YEARLY">
         
+        <!-- Honeypot protection against automated spam -->
+        <div style="position: absolute; left: -9999px; top: -9999px;" aria-hidden="true">
+          <label for="subWebsiteHoneypot">الموقع الإلكتروني</label>
+          <input type="text" name="website" id="subWebsiteHoneypot" tabindex="-1" autocomplete="off">
+        </div>
+
         <div class="form-group">
           <label for="subName">الاسم الكامل لمالك البئر أو الموزع *</label>
-          <input type="text" id="subName" required placeholder="مثال: سعيد بن حسين الحميلي">
+          <input type="text" id="subName" required placeholder="مثال: سعيد بن حسين الحميلي" autocomplete="name">
         </div>
         <div class="form-group">
           <label for="subPhone">رقم الهاتف (واتساب) للتواصل والتفعيل *</label>
-          <input type="tel" id="subPhone" required placeholder="مثال: 773712030">
+          <input type="tel" id="subPhone" required placeholder="مثال: 773712030" autocomplete="tel" inputmode="numeric">
         </div>
         <div class="form-group">
           <label for="subRegion">المحافظة / المنطقة الزراعية</label>
@@ -915,7 +987,7 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
         </div>
         <div class="form-group">
           <label for="subReceipt">رقم سند الإيداع أو الحوالة (إن وُجد)</label>
-          <input type="text" id="subReceipt" placeholder="رقم المرجع أو إشعار التحويل">
+          <input type="text" id="subReceipt" placeholder="رقم المرجع أو إشعار التحويل" inputmode="numeric">
         </div>
         <div class="form-group">
           <label for="subDevice">كود جهازك من التطبيق (اختياري للتفعيل الفوري)</label>
@@ -923,13 +995,13 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
         </div>
 
         <button type="submit" id="btnSubmitOrder" class="btn btn-primary btn-block btn-lg" style="margin-top:10px;">
-          إرسال طلب التفعيل المباشر ⚡
+          إرسال طلب التفعيل المباشر
         </button>
       </form>
 
       <div style="text-align:center; margin-top:14px;">
         <button type="button" onclick="sendOrderWhatsApp()" class="btn btn-ghost btn-block" style="font-size:var(--step--1);">
-          أو إرسال الطلب والتواصل مباشرة عبر واتساب 💬
+          أو إرسال الطلب والتواصل مباشرة عبر واتساب
         </button>
       </div>
     </div>
@@ -1030,6 +1102,7 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
 
   function animateCounter(el) {
     const target = parseFloat(el.dataset.target);
+    if (isNaN(target) || target <= 0) return;
     const decimals = parseInt(el.dataset.decimal || '0', 10);
     const duration = 1600;
     const start = performance.now();
@@ -1061,13 +1134,18 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
 
   /* Modal Management */
   const modal = document.getElementById('payModal');
+  let lastFocusedElement = null;
+
   window.openModal = function (plan = 'YEARLY') {
+    lastFocusedElement = document.activeElement;
     const selPlan = document.getElementById('selectedPlan');
     if (selPlan) selPlan.value = plan;
     if (modal) {
       modal.hidden = false;
       requestAnimationFrame(() => modal.classList.add('open'));
       document.body.style.overflow = 'hidden';
+      const firstInput = modal.querySelector('input:not([type="hidden"]):not([tabindex="-1"])');
+      if (firstInput) firstInput.focus();
     }
   };
 
@@ -1075,7 +1153,12 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
     if (modal) {
       modal.classList.remove('open');
       document.body.style.overflow = '';
-      setTimeout(() => { modal.hidden = true; }, 350);
+      setTimeout(() => {
+        modal.hidden = true;
+        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+          lastFocusedElement.focus();
+        }
+      }, 350);
     }
   };
 
@@ -1100,8 +1183,8 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
       const holder = label.dataset.holder;
       const valEl = document.getElementById('accVal');
       const holderEl = document.getElementById('accHolderVal');
-      if (valEl && num) valEl.textContent = num;
-      if (holderEl && holder) holderEl.textContent = holder;
+      if (valEl && num !== undefined) valEl.textContent = num;
+      if (holderEl && holder !== undefined) holderEl.textContent = holder;
     });
   });
 
@@ -1114,7 +1197,7 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
       if (!val) return;
       try {
         await navigator.clipboard.writeText(val);
-        copyBtn.textContent = '✓ تم النسخ';
+        copyBtn.textContent = 'تم النسخ';
         copyBtn.classList.add('is-copied');
         setTimeout(() => {
           copyBtn.textContent = 'نسخ';
@@ -1127,7 +1210,7 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
         ta.select();
         document.execCommand('copy');
         document.body.removeChild(ta);
-        copyBtn.textContent = '✓ تم النسخ';
+        copyBtn.textContent = 'تم النسخ';
         setTimeout(() => { copyBtn.textContent = 'نسخ'; }, 1800);
       }
     });
@@ -1143,14 +1226,14 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
         const p = json.data.subscription_pricing || {};
 
         if (s.active_region_name && document.getElementById('regionNameEl')) document.getElementById('regionNameEl').textContent = s.active_region_name;
-        if (s.avg_hourly_price && document.getElementById('avgPriceEl')) document.getElementById('avgPriceEl').textContent = Number(s.avg_hourly_price).toLocaleString();
+        if (s.avg_hourly_price && document.getElementById('avgPriceEl')) document.getElementById('avgPriceEl').textContent = Number(s.avg_hourly_price).toLocaleString('en-US');
         if (s.min_hourly_price && s.max_hourly_price && document.getElementById('minPriceEl')) {
-          document.getElementById('minPriceEl').innerHTML = 'أعلى: ' + Number(s.max_hourly_price).toLocaleString() + ' • أقل: ' + Number(s.min_hourly_price).toLocaleString() + ' ريال';
+          document.getElementById('minPriceEl').textContent = 'أعلى: ' + Number(s.max_hourly_price).toLocaleString('en-US') + ' • أقل: ' + Number(s.min_hourly_price).toLocaleString('en-US') + ' ريال';
         }
         if (s.hero_badge && document.getElementById('heroBadgeText')) document.getElementById('heroBadgeText').textContent = s.hero_badge;
         if (s.headline_alert && document.getElementById('topTickerText')) document.getElementById('topTickerText').textContent = s.headline_alert;
-        if (s.water_status_text && document.getElementById('waterStatusEl')) document.getElementById('waterStatusEl').textContent = '💧 ' + s.water_status_text;
-        if (s.rates_note && document.getElementById('ratesNoteEl')) document.getElementById('ratesNoteEl').textContent = 'ℹ️ ' + s.rates_note;
+        if (s.water_status_text && document.getElementById('waterStatusEl')) document.getElementById('waterStatusEl').textContent = s.water_status_text;
+        if (s.rates_note && document.getElementById('ratesNoteEl')) document.getElementById('ratesNoteEl').textContent = s.rates_note;
 
         if (p.yearly && p.yearly.price && document.getElementById('yearlyPriceEl')) {
           document.getElementById('yearlyPriceEl').textContent = p.yearly.price + (p.yearly.currency || '$');
@@ -1169,15 +1252,17 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
     const btn = document.getElementById('btnSubmitOrder');
     const fb = document.getElementById('modalFeedback');
     btn.disabled = true;
-    btn.textContent = 'جاري إرسال الطلب... ⏳';
+    btn.textContent = 'جاري إرسال الطلب...';
 
     try {
       const activeMethod = document.querySelector('.method-toggle label.active input')?.value || 'حوالة بنكية';
+      const honeypotVal = document.getElementById('subWebsiteHoneypot')?.value || '';
       const res = await fetch('api/public_data.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'submit_subscription_request',
+          website: honeypotVal,
           subscriber_name: document.getElementById('subName').value.trim(),
           phone: document.getElementById('subPhone').value.trim(),
           region: document.getElementById('subRegion').value.trim(),
@@ -1192,21 +1277,21 @@ $apkSizeMb = $latestRelease['file_size_mb'] ?? '2.88';
       if (data.success) {
         fb.style.background = 'rgba(5, 150, 105, 0.12)';
         fb.style.color = 'var(--success)';
-        fb.innerHTML = `✅ ${data.message}`;
+        fb.textContent = data.message;
         document.getElementById('orderForm').reset();
       } else {
         fb.style.background = 'rgba(220, 38, 38, 0.12)';
         fb.style.color = 'var(--danger)';
-        fb.textContent = '❌ ' + (data.message || 'تعذر إرسال الطلب');
+        fb.textContent = data.message || 'تعذر إرسال الطلب';
       }
     } catch (err) {
       fb.style.display = 'block';
       fb.style.background = 'rgba(220, 38, 38, 0.12)';
       fb.style.color = 'var(--danger)';
-      fb.textContent = '❌ تعذر الاتصال بالسيرفر. يمكنك استخدام زر الإرسال عبر واتساب بالأسفل.';
+      fb.textContent = 'تعذر الاتصال بالسيرفر. يمكنك استخدام زر الإرسال عبر واتساب بالأسفل.';
     } finally {
       btn.disabled = false;
-      btn.textContent = 'إرسال طلب التفعيل المباشر ⚡';
+      btn.textContent = 'إرسال طلب التفعيل المباشر';
     }
   };
 

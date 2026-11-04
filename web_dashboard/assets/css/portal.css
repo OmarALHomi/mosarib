@@ -1,3 +1,4 @@
+html, body { overflow-x: clip; }
 /**
  * Mosarib Public Portal - Ultra Professional Teal & Pearl Design System
  * Developed for Eng. Omar AL-Homi (TubbaSoft 2026)
@@ -103,7 +104,7 @@ body {
   color: var(--ink);
   font-size: var(--step-0);
   line-height: 1.75;
-  overflow-x: hidden;
+  overflow-x: clip;
   direction: rtl;
   text-align: right;
   -webkit-font-smoothing: antialiased;
@@ -124,8 +125,8 @@ ul { list-style: none; }
 .display {
   font-family: var(--font-display);
   font-weight: 900;
-  font-size: var(--step-4);
-  line-height: 1.30;
+  font-size: clamp(1.9rem, 7vw, 3.5rem);
+  line-height: 1.25;
   color: var(--ink);
   text-wrap: balance;
 }
@@ -133,7 +134,9 @@ ul { list-style: none; }
   font-style: normal;
   color: var(--gold);
   position: relative;
-  white-space: nowrap;
+}
+@media (min-width: 641px) {
+  .display em { white-space: nowrap; }
 }
 .display em::after {
   content: '';
@@ -148,8 +151,8 @@ ul { list-style: none; }
 .h2 {
   font-family: var(--font-display);
   font-weight: 900;
-  font-size: var(--step-3);
-  line-height: 1.30;
+  font-size: clamp(1.5rem, 5.5vw, 2.5rem);
+  line-height: 1.25;
   color: var(--ink);
   text-wrap: balance;
 }
@@ -165,6 +168,8 @@ ul { list-style: none; }
   line-height: 1.85;
   color: var(--muted);
   max-width: 58ch;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 .eyebrow {
   display: inline-flex;
@@ -194,6 +199,9 @@ ul { list-style: none; }
 
 /* Layout */
 .container { max-width: 1200px; margin-inline: auto; padding-inline: 24px; }
+@media (max-width: 640px) {
+  .container { padding-inline: 16px; }
+}
 .section { padding-block: 88px; }
 section[id] { scroll-margin-top: calc(var(--nav-h) + 16px); }
 
@@ -263,13 +271,16 @@ section[id] { scroll-margin-top: calc(var(--nav-h) + 16px); }
   transform: translateY(-2px);
 }
 .btn-lg { padding: 15px 26px; font-size: var(--step-0); border-radius: var(--radius-lg); }
-.btn-block { width: 100%; }
+.btn-block { width: 100%; max-width: 100%; box-sizing: border-box; }
 .btn__icon { width: 18px; height: 18px; transition: transform .3s var(--ease); }
 .btn-primary:hover .btn__icon { transform: translateX(-3px); }
 
 /* Top Notification / Ticker */
 .top-ticker {
   background: linear-gradient(135deg, var(--teal-900), var(--teal-800));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: #fff;
   padding: 8px 16px;
   font-size: var(--step--1);
@@ -370,6 +381,9 @@ section[id] { scroll-margin-top: calc(var(--nav-h) + 16px); }
 .mobile-menu {
   position: fixed;
   top: var(--nav-h); left: 0; right: 0;
+  max-width: 100vw;
+  box-sizing: border-box;
+  overflow-x: hidden;
   z-index: 99;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
@@ -1457,3 +1471,9 @@ section[id] { scroll-margin-top: calc(var(--nav-h) + 16px); }
   }
   .reveal.is-in { opacity: 1; transform: none; }
 }
+
+@media (max-width: 400px) {
+  .top-ticker { display: none !important; }
+}
+
+.record__status svg { display: none !important; }

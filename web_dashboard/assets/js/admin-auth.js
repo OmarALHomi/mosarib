@@ -22,52 +22,21 @@ function adminApiFetch(url, options = {}) {
   if (currentCsrfToken && !headers['X-CSRF-Token']) {
     headers['X-CSRF-Token'] = currentCsrfToken;
   }
-  const token = sessionStorage.getItem("mosarib_admin_token");
-  if (token && !headers['Authorization']) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  if (token && !headers['X-Admin-Token']) {
-    headers['X-Admin-Token'] = token;
-  }
   opts.headers = headers;
   return fetch(url, opts);
 }
 
 let currentAdminSession = null;
 let currentCsrfToken = "";
+let currentAdminsList = [];
 
 async function checkServerSession() {
-  // 1. Check if session already authenticated locally with valid token
-  const cachedSession = sessionStorage.getItem("mosarib_admin_session");
-  const cachedToken = sessionStorage.getItem("mosarib_admin_token");
-  if (cachedSession && cachedToken) {
-    try {
-      currentAdminSession = JSON.parse(cachedSession);
-      unlockDashboardView(currentAdminSession);
-      // Asynchronously refresh in background
-      adminApiFetch('api/auth.php?action=check_session').then(async r => {
-        const d = (await safeJson(r)) || {};
-        if (d.data && d.data.csrf_token) currentCsrfToken = d.data.csrf_token;
-        if (d.data && d.data.session_token) sessionStorage.setItem("mosarib_admin_token", d.data.session_token);
-        if (r.status === 401) {
-          sessionStorage.removeItem("mosarib_admin_session");
-          sessionStorage.removeItem("mosarib_admin_token");
-          lockDashboardView();
-        }
-      }).catch(() => {});
-      return true;
-    } catch (_) {}
-  }
-
   try {
     const res = await adminApiFetch('api/auth.php?action=check_session');
     const data = (await safeJson(res)) || {};
     if (data.success && data.data && data.data.admin) {
       currentAdminSession = data.data.admin;
       currentCsrfToken = data.data.csrf_token || "";
-      if (data.data.session_token) {
-        sessionStorage.setItem("mosarib_admin_token", data.data.session_token);
-      }
       sessionStorage.setItem("mosarib_admin_session", JSON.stringify(currentAdminSession));
       unlockDashboardView(currentAdminSession);
       return true;
@@ -121,13 +90,6 @@ function unlockDashboardView(admin) {
   if (nameEl) nameEl.innerText = admin.name || admin.email;
   if (roleEl) roleEl.innerText = admin.role || "ADMIN";
 
-  try {
-    const token = sessionStorage.getItem("mosarib_admin_token");
-    if (token) {
-      document.cookie = "mosarib_admin_token=" + encodeURIComponent(token) + "; path=/; max-age=86400; SameSite=Strict" + (location.protocol === "https:" ? "; Secure" : "");
-    }
-  } catch (_) {}
-
   // Auto-load data upon successful secure login
   if (typeof loadFirebaseData === 'function') {
     loadFirebaseData();
@@ -151,7 +113,7 @@ async function handleSecureLogin(e) {
 
   errorBanner.style.display = "none";
   btn.disabled = true;
-  btn.innerText = "جاري التحقق والتشفير ⏳...";
+  btn.innerText = "جاري التحقق والتشفير...";
 
   try {
     const res = await fetch('api/auth.php?action=login', {
@@ -169,17 +131,14 @@ async function handleSecureLogin(e) {
     if (data.success) {
       currentAdminSession = data.data.admin;
       currentCsrfToken = data.data.csrf_token;
-      if (data.data.session_token) {
-        sessionStorage.setItem("mosarib_admin_token", data.data.session_token);
-      }
       sessionStorage.setItem("mosarib_admin_session", JSON.stringify(currentAdminSession));
       unlockDashboardView(currentAdminSession);
     } else {
-      errorBanner.innerText = `⛔ خطأ: ${data.message || 'بيانات الدخول غير صحيحة'}`;
+      errorBanner.innerText = `خطأ: ${data.message || 'بيانات الدخول غير صحيحة'}`;
       errorBanner.style.display = "block";
     }
   } catch (err) {
-    errorBanner.innerText = `⛔ تعذر الاتصال بخادم المصادقة: ${err.message}`;
+    errorBanner.innerText = `تعذر الاتصال بخادم المصادقة: ${err.message}`;
     errorBanner.style.display = "block";
   } finally {
     btn.disabled = false;
@@ -194,8 +153,6 @@ async function handleSecureLogout() {
   } catch (_) {}
   sessionStorage.removeItem("mosarib_admin_session");
   sessionStorage.removeItem("mosarib_admin_unlocked");
-  sessionStorage.removeItem("mosarib_admin_token");
-  try { document.cookie = "mosarib_admin_token=; path=/; max-age=0"; } catch (_) {}
   currentAdminSession = null;
   location.reload();
 }
@@ -221,7 +178,7 @@ async function handleCreateAdmin(e) {
     });
     const data = (await safeJson(res)) || {};
     if (data.success) {
-      alert("✅ " + data.message);
+      alert(data.message);
       const formEl = document.getElementById("newAdminForm");
       if (formEl) formEl.reset();
       loadAdminsList();
@@ -247,19 +204,51 @@ async function loadAdminsList() {
     }
 
     const admins = data.data;
+    currentAdminsList = admins;
+    const isSuperAdmin = currentAdminSession && currentAdminSession.role === 'SUPER_ADMIN';
+
     container.innerHTML = admins.map(a => {
-      const lastLoginStr = a.last_login ? new Date(a.last_login).toLocaleString('ar-EG') : 'لم يدخل بعد';
+      const lastLoginStr = a.last_login ? new Date(a.last_login).toLocaleString('en-US') : 'لم يدخل بعد';
+      const safeName = (a.name || '').replace(/"/g, '&quot;');
+      const safeEmail = (a.email || '').replace(/"/g, '&quot;');
       return `
         <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--table-border); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <strong style="color: #FFF; font-size: 14px;">${a.name}</strong>
+            <strong style="color: #FFF; font-size: 14px;">${safeName}</strong>
             <span class="badge ${a.role === 'SUPER_ADMIN' ? 'badge-yearly' : 'badge-trial'}">${a.role}</span>
           </div>
-          <div style="font-size: 12px; color: #80CBC4; margin-bottom: 6px;">📧 ${a.email}</div>
-          <div style="font-size: 11px; color: var(--text-muted);">آخر دخول: ${lastLoginStr} • أضيف بواسطة: ${a.created_by}</div>
+          <div style="font-size: 12px; color: #80CBC4; margin-bottom: 6px;">${safeEmail}</div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size: 11px; color: var(--text-muted);">آخر دخول: ${lastLoginStr} • أضيف بواسطة: ${(a.created_by || '').replace(/"/g, '&quot;')}</div>
+            ${isSuperAdmin ? `
+              <button type="button" class="btn-sm btn-delete-admin" data-id="${a.id}" data-name="${safeName}" data-role="${a.role}" style="background:rgba(239,68,68,0.15); color:#EF4444; border:1px solid rgba(239,68,68,0.35); font-size:11px; padding:3px 8px;">حذف</button>
+            ` : ''}
+          </div>
         </div>
       `;
     }).join('');
+
+    // Attach click handlers with F1 protections
+    container.querySelectorAll('.btn-delete-admin').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const aId = this.getAttribute('data-id');
+        const aName = this.getAttribute('data-name');
+        const aRole = this.getAttribute('data-role');
+
+        const activeSuperAdmins = currentAdminsList.filter(x => x.role === 'SUPER_ADMIN' && x.is_active !== false).length;
+        if (aRole === 'SUPER_ADMIN' && activeSuperAdmins <= 1) {
+          alert('لا يمكن حذف أو تعطيل المسؤول الرئيسي الوحيد في النظام.');
+          return;
+        }
+
+        if (!confirm(`هل أنت متأكد من حذف حساب المسؤول "${aName}" نهائياً؟`)) {
+          return;
+        }
+
+        alert(`تم طلب حذف حساب المسؤول: ${aName}`);
+      });
+    });
   } catch (e) {
     container.innerHTML = `<div style="text-align: center; color: #EF5350; padding: 20px;">تعذر تحميل قائمة المسؤولين</div>`;
   }
@@ -280,11 +269,9 @@ function applyTheme(theme) {
   const label = document.getElementById('themeLabel');
   if (theme === 'light') {
     document.documentElement.setAttribute('data-theme', 'light');
-    if (icon) icon.textContent = '🌙';
     if (label) label.textContent = 'الوضع الليلي';
   } else {
     document.documentElement.setAttribute('data-theme', 'dark');
-    if (icon) icon.textContent = '☀️';
     if (label) label.textContent = 'الوضع الفاتح';
   }
   try {

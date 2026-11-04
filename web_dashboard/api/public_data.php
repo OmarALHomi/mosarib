@@ -19,16 +19,19 @@ if (!file_exists(__DIR__ . '/../data')) {
 // Default portal settings if not configured
 if (!file_exists($settingsFile)) {
     $defaultSettings = [
-        'water_status' => 'GOOD', // ABUNDANT, GOOD, MODERATE, SCARCE
+        'water_status' => 'GOOD',
         'water_status_text' => 'مستقر وجيد في معظم المناطق الزراعية',
-        'water_index_percent' => 84, // 0 - 100%
-        'avg_hourly_price' => 7500, // YER average
-        'min_hourly_price' => 6000,
-        'max_hourly_price' => 9500,
+        'water_index_percent' => 84,
+        'avg_hourly_price' => 18000,
+        'min_hourly_price' => 1500,
+        'max_hourly_price' => 25000,
         'currency_symbol' => 'ريال',
         'active_regions_count' => 18,
         'total_pumped_hours' => 14200,
-        'headline_alert' => 'موسم ري متصاعد ومؤشرات إيجابية في توفر مياه الآبار الجوفية.'
+        'headline_alert' => 'موسم ري متصاعد ومؤشرات إيجابية في توفر مياه الآبار الجوفية.',
+        'stats_wells' => '',
+        'stats_vouchers' => '',
+        'testimonials' => []
     ];
     file_put_contents($settingsFile, json_encode($defaultSettings, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 }
@@ -67,9 +70,56 @@ if (!file_exists($newsFile)) {
     file_put_contents($newsFile, json_encode($defaultNews, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 }
 
+// Helper: Public rate limiting with flock (5 per hour per IP)
+function checkPublicRateLimit($key, $limit = 5, $windowSeconds = 3600) {
+    $throttleFile = __DIR__ . '/../data/public_throttles.json';
+    $fp = @fopen($throttleFile, 'c+');
+    if (!$fp) return true;
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        return true;
+    }
+    $content = stream_get_contents($fp);
+    $data = json_decode($content, true) ?: [];
+    $now = time();
+
+    // Clean expired entries
+    foreach ($data as $k => $item) {
+        if (($now - ($item['start_time'] ?? 0)) > $windowSeconds) {
+            unset($data[$k]);
+        }
+    }
+
+    if (!isset($data[$key])) {
+        $data[$key] = ['count' => 1, 'start_time' => $now];
+    } else {
+        if ($data[$key]['count'] >= $limit) {
+            flock($fp, LOCK_UN);
+            fclose($fp);
+            jsonResponse(false, 'تم تجاوز الحد المسموح به من الطلبات مؤقتاً، يرجى المحاولة بعد ساعة.', null, 429);
+        }
+        $data[$key]['count']++;
+    }
+
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($data, JSON_UNESCAPED_UNICODE));
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
+    return true;
+}
+
+// Helper: Skip obvious bots
+function isBotRequest() {
+    $ua = strtolower($_SERVER['HTTP_USER_AGENT'] ?? '');
+    if (empty($ua)) return true;
+    return (bool)preg_match('/bot|crawl|spider|slurp|facebookexternalhit|bingpreview/i', $ua);
+}
+
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-// Handle GET request (Publicly accessible with lightweight 5-minute cache to protect Firebase Read limits)
+// Handle GET request (Publicly accessible with lightweight 3-minute cache)
 if ($method === 'GET') {
     $settings = file_exists($settingsFile) ? (json_decode(file_get_contents($settingsFile), true) ?: []) : [];
     $newsList = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile), true) ?: []) : [];
@@ -98,62 +148,61 @@ if ($method === 'GET') {
             $settings = array_merge($settings, $fbSettings['data']);
             @file_put_contents($settingsFile, json_encode($settings, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
         }
+
         $fbPricing = firebaseRequest('subscription_pricing.json');
         if (!empty($fbPricing['data']) && is_array($fbPricing['data'])) {
             $pricing = array_merge($pricing, $fbPricing['data']);
             @file_put_contents($pricingFile, json_encode($pricing, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
         }
-        $fbPay = firebaseRequest('payment_methods.json');
-        if (!empty($fbPay['data']) && is_array($fbPay['data'])) {
-            $paymentMethods = $fbPay['data'];
+
+        $fbPayments = firebaseRequest('payment_methods.json');
+        if (!empty($fbPayments['data']) && is_array($fbPayments['data'])) {
+            $paymentMethods = $fbPayments['data'];
             @file_put_contents($paymentMethodsFile, json_encode($paymentMethods, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
         }
 
-        // Fetch live users and devices from Firebase only once every 3 minutes
-        $usersRes = firebaseRequest('all_users.json');
-        $allUsers = $usersRes['data'] ?: [];
+        // Fetch users from Firebase for operator count and statistics
+        $usersResponse = firebaseRequest('all_users.json');
+        $usersData = $usersResponse['data'] ?? [];
+
         $activeOperatorsCount = 0;
         $totalRegisteredCount = 0;
-        $oneDayAgo = (time() - 86400) * 1000;
-        $collectedRates = [];
+        $hourlyPrices = [];
 
-        if (is_array($allUsers)) {
-            $totalRegisteredCount = count($allUsers);
-            foreach ($allUsers as $u) {
-                $isOnline = (!empty($u['lastSeen']) && $u['lastSeen'] >= $oneDayAgo) ||
-                            (!empty($u['lastActiveAt']) && $u['lastActiveAt'] >= $oneDayAgo);
-                if ($isOnline && empty($u['isBlocked'])) {
+        if (is_array($usersData)) {
+            $totalRegisteredCount = count($usersData);
+            $thirtyDaysAgo = (time() - (30 * 86400)) * 1000;
+
+            foreach ($usersData as $user) {
+                if (empty($user) || !is_array($user)) continue;
+
+                $lastSeen = $user['lastActiveAt'] ?? ($user['lastSeen'] ?? ($user['createdAt'] ?? 0));
+                if ($lastSeen > $thirtyDaysAgo) {
                     $activeOperatorsCount++;
                 }
 
-                // Extract real hourly price submitted ONLY by genuine activated subscribers with the full version
-                $isActivatedSubscriber = !empty($u['isActivated']) && empty($u['isBlocked']);
-                if ($isActivatedSubscriber) {
-                    $rate = null;
-                    if (isset($u['pricePerHour']) && is_numeric($u['pricePerHour']) && $u['pricePerHour'] > 0) {
-                        $rate = floatval($u['pricePerHour']);
-                    } elseif (isset($u['hourlyRate']) && is_numeric($u['hourlyRate']) && $u['hourlyRate'] > 0) {
-                        $rate = floatval($u['hourlyRate']);
-                    }
-
-                    if ($rate !== null && $rate >= 500 && $rate <= 50000) {
-                        $collectedRates[] = $rate;
-                    }
+                $price = $user['pricePerHour'] ?? ($user['hourlyRate'] ?? 0);
+                if (is_numeric($price) && $price >= 500 && $price <= 50000) {
+                    $hourlyPrices[] = floatval($price);
                 }
             }
         }
 
-        $hasRealRates = count($collectedRates) > 0;
-        $calculatedAvg = $hasRealRates ? round(array_sum($collectedRates) / count($collectedRates)) : floatval($settings['avg_hourly_price'] ?? 0);
-        $calculatedMin = $hasRealRates ? round(min($collectedRates)) : floatval($settings['min_hourly_price'] ?? 0);
-        $calculatedMax = $hasRealRates ? round(max($collectedRates)) : floatval($settings['max_hourly_price'] ?? 0);
-        $samplesCount = count($collectedRates);
+        $samplesCount = count($hourlyPrices);
+        if ($samplesCount >= 3) {
+            $calculatedMin = min($hourlyPrices);
+            $calculatedMax = max($hourlyPrices);
+            $calculatedAvg = round(array_sum($hourlyPrices) / $samplesCount);
+            $hasRealRates = true;
+        } else {
+            $calculatedMin = $settings['min_hourly_price'] ?? 1500;
+            $calculatedMax = $settings['max_hourly_price'] ?? 25000;
+            $calculatedAvg = $settings['avg_hourly_price'] ?? 18000;
+            $hasRealRates = false;
+        }
 
-        // Real counts directly from database without any inflated numbers
-        // $activeOperatorsCount and $totalRegisteredCount reflect actual database state
-
-        // Save cache to disk
-        file_put_contents($cacheFile, json_encode([
+        // Cache results
+        $cachePayload = [
             'active_operators_count' => $activeOperatorsCount,
             'total_registered_count' => $totalRegisteredCount,
             'avg' => $calculatedAvg,
@@ -162,39 +211,51 @@ if ($method === 'GET') {
             'has_real_rates' => $hasRealRates,
             'samples_count' => $samplesCount,
             'cached_at' => time()
-        ]));
+        ];
+        @file_put_contents($cacheFile, json_encode($cachePayload));
     }
 
-    // Latest download release info
-    $releasesFile = __DIR__ . '/../uploads/releases_index.json';
-    $releases = file_exists($releasesFile) ? json_decode(file_get_contents($releasesFile), true) : [];
-    $latestRelease = !empty($releases) ? $releases[0] : null;
+    // Load APK Release Information
+    $releasesIndexFile = __DIR__ . '/../uploads/releases_index.json';
+    $releases = file_exists($releasesIndexFile) ? json_decode(file_get_contents($releasesIndexFile), true) : [];
+    $latestRelease = (is_array($releases) && !empty($releases)) ? $releases[0] : null;
 
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $serverUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $host;
-    $defaultDownloadUrl = 'uploads/Mosarib_Latest.apk';
-
-    // Direct static APK download URL (Bypasses download.php for 100% InfinityFree compatibility)
-    if (!empty($latestRelease['download_url'])) {
+    // Check Cloud Broadcast for live force-update or download url
+    $fbBroadcast = firebaseRequest('app_broadcast.json')['data'] ?? null;
+    $finalDownloadUrl = '';
+    if (!empty($fbBroadcast['actionUrl'])) {
+        $finalDownloadUrl = $fbBroadcast['actionUrl'];
+    } elseif (!empty($latestRelease['download_url'])) {
         $finalDownloadUrl = $latestRelease['download_url'];
-    } elseif (!empty($latestRelease['file_name']) && file_exists(__DIR__ . '/../uploads/' . $latestRelease['file_name'])) {
-        $finalDownloadUrl = 'uploads/' . rawurlencode($latestRelease['file_name']);
     } else {
-        $finalDownloadUrl = $defaultDownloadUrl;
+        $apks = glob(__DIR__ . '/../uploads/*.apk');
+        if (!empty($apks)) {
+            usort($apks, function($a, $b) { return filemtime($b) - filemtime($a); });
+            $serverUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'];
+            $finalDownloadUrl = $serverUrl . dirname(dirname($_SERVER['PHP_SELF'])) . '/uploads/' . basename($apks[0]);
+        }
     }
 
-    $apkLocalFile = __DIR__ . '/../uploads/Mosarib_Latest.apk';
-    $actualApkSizeMb = file_exists($apkLocalFile) ? round(filesize($apkLocalFile) / (1024 * 1024), 2) : 2.78;
+    $actualApkSizeMb = '2.88';
+    if (!empty($latestRelease['file_size_mb'])) {
+        $actualApkSizeMb = $latestRelease['file_size_mb'];
+    } elseif (!empty($latestRelease['file_size'])) {
+        $actualApkSizeMb = number_format($latestRelease['file_size'] / (1024 * 1024), 2, '.', '');
+    } else {
+        $latestApkFile = __DIR__ . '/../uploads/Mosarib_Latest.apk';
+        if (file_exists($latestApkFile)) {
+            $actualApkSizeMb = number_format(filesize($latestApkFile) / (1024 * 1024), 2, '.', '');
+        }
+    }
 
-    // Portal & Downloads Analytics
     $analyticsFile = __DIR__ . '/../data/portal_analytics.json';
     $analytics = file_exists($analyticsFile) ? json_decode(file_get_contents($analyticsFile), true) : [];
 
     $portalSettings = array_merge([
         'active_region_name' => 'الجمهورية اليمنية (صنعاء، مأرب، الجوف، عمران، ذمار)',
-        'avg_hourly_price' => floatval($calculatedAvg ?: 7500),
-        'min_hourly_price' => floatval($calculatedMin ?: 5500),
-        'max_hourly_price' => floatval($calculatedMax ?: 9500),
+        'avg_hourly_price' => floatval($settings['avg_hourly_price'] ?? 18000),
+        'min_hourly_price' => floatval($settings['min_hourly_price'] ?? 1500),
+        'max_hourly_price' => floatval($settings['max_hourly_price'] ?? 25000),
         'currency_symbol' => 'ريال',
         'rates_note' => 'الأسعار تختلف بحسب عمق البئر، حجم المضخة، ونوع الطاقة المستخدمة (شمسية / ديزل).',
         'water_status' => 'GOOD',
@@ -219,20 +280,14 @@ if ($method === 'GET') {
         'show_news_section' => true,
         'show_faq_section' => true,
         'show_developer_section' => true,
-        'show_download_cta' => true
+        'show_download_cta' => true,
+        'stats_wells' => '',
+        'stats_vouchers' => '',
+        'testimonials' => []
     ], $settings);
 
-    // If manual override was provided in settings, use it, otherwise fallback to calculated
     if (isset($settings['avg_hourly_price']) && floatval($settings['avg_hourly_price']) > 0) {
         $portalSettings['avg_hourly_price'] = floatval($settings['avg_hourly_price']);
-    } else {
-        $portalSettings['avg_hourly_price'] = floatval($calculatedAvg ?: 7500);
-    }
-    if (isset($settings['min_hourly_price']) && floatval($settings['min_hourly_price']) > 0) {
-        $portalSettings['min_hourly_price'] = floatval($settings['min_hourly_price']);
-    }
-    if (isset($settings['max_hourly_price']) && floatval($settings['max_hourly_price']) > 0) {
-        $portalSettings['max_hourly_price'] = floatval($settings['max_hourly_price']);
     }
 
     jsonResponse(true, 'بيانات المنصة العامة والتقرير المائي جاهز', [
@@ -291,104 +346,144 @@ if ($method === 'GET') {
     ]);
 }
 
-// Handle POST request (Requires Admin Authentication to update settings or publish news)
+// Handle POST request
 if ($method === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
     $action = $input['action'] ?? ($_GET['action'] ?? '');
 
-    // 0. Public Download Tracking (No Admin Auth Required)
+    // 0. Public Download Tracking (No Admin Auth Required, with flock and bot skip)
     if ($action === 'track_download') {
+        if (isBotRequest()) {
+            jsonResponse(true, 'تم تخطي روبوت البحث', ['total_downloads' => 0]);
+        }
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+        checkPublicRateLimit('dl_' . $ip, 20, 3600);
+
         $analyticsFile = __DIR__ . '/../data/portal_analytics.json';
         $today = date('Y-m-d');
-        $analytics = [
-            'total_visitors' => 0,
-            'today_visitors' => 0,
-            'unique_visitors' => 0,
-            'last_visit_date' => $today,
-            'last_visit_at' => 0,
-            'total_downloads' => 0,
-            'today_downloads' => 0,
-            'last_download_date' => $today,
-            'last_download_at' => 0,
-            'daily_stats' => []
-        ];
-        if (file_exists($analyticsFile)) {
-            $existing = json_decode(file_get_contents($analyticsFile), true);
-            if (is_array($existing)) {
-                $analytics = array_merge($analytics, $existing);
+        $fp = @fopen($analyticsFile, 'c+');
+        if ($fp && flock($fp, LOCK_EX)) {
+            $existing = json_decode(stream_get_contents($fp), true) ?: [];
+            $analytics = array_merge([
+                'total_visitors' => 0,
+                'today_visitors' => 0,
+                'unique_visitors' => 0,
+                'last_visit_date' => $today,
+                'last_visit_at' => 0,
+                'total_downloads' => 0,
+                'today_downloads' => 0,
+                'last_download_date' => $today,
+                'last_download_at' => 0,
+                'daily_stats' => []
+            ], $existing);
+
+            if (($analytics['last_download_date'] ?? '') !== $today) {
+                $analytics['last_download_date'] = $today;
+                $analytics['today_downloads'] = 0;
             }
+            $analytics['total_downloads']++;
+            $analytics['today_downloads']++;
+            $analytics['last_download_at'] = time();
+            if (!isset($analytics['daily_stats'][$today])) {
+                $analytics['daily_stats'][$today] = ['visitors' => 0, 'downloads' => 0];
+            }
+            $analytics['daily_stats'][$today]['downloads']++;
+
+            ftruncate($fp, 0);
+            rewind($fp);
+            fwrite($fp, json_encode($analytics, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            fflush($fp);
+            flock($fp, LOCK_UN);
+            fclose($fp);
+            jsonResponse(true, 'تم تسجيل تنزيل التطبيق بنجاح', ['total_downloads' => $analytics['total_downloads']]);
         }
-        if (($analytics['last_download_date'] ?? '') !== $today) {
-            $analytics['last_download_date'] = $today;
-            $analytics['today_downloads'] = 0;
-        }
-        $analytics['total_downloads']++;
-        $analytics['today_downloads']++;
-        $analytics['last_download_at'] = time();
-        if (!isset($analytics['daily_stats'][$today])) {
-            $analytics['daily_stats'][$today] = ['visitors' => 0, 'downloads' => 0];
-        }
-        $analytics['daily_stats'][$today]['downloads']++;
-        @file_put_contents($analyticsFile, json_encode($analytics, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-        jsonResponse(true, 'تم تسجيل تنزيل التطبيق بنجاح', ['total_downloads' => $analytics['total_downloads']]);
+        jsonResponse(false, 'تعذر تحديث إحصائيات التنزيل', null, 500);
     }
 
-    // 0.0 Public Visit Tracking (No Admin Auth Required)
+    // 0.0 Public Visit Tracking (No Admin Auth Required, ignore client is_unique, flock, bot skip)
     if ($action === 'track_visit') {
-        $analyticsFile = __DIR__ . '/../data/portal_analytics.json';
+        if (isBotRequest()) {
+            jsonResponse(true, 'تم تخطي روبوت البحث', ['total_visitors' => 0]);
+        }
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+        checkPublicRateLimit('vis_' . $ip, 30, 3600);
+
         $today = date('Y-m-d');
-        $analytics = [
-            'total_visitors' => 0,
-            'today_visitors' => 0,
-            'unique_visitors' => 0,
-            'last_visit_date' => $today,
-            'last_visit_at' => 0,
-            'total_downloads' => 0,
-            'today_downloads' => 0,
-            'last_download_date' => $today,
-            'last_download_at' => 0,
-            'daily_stats' => []
-        ];
-        if (file_exists($analyticsFile)) {
-            $existing = json_decode(@file_get_contents($analyticsFile), true);
-            if (is_array($existing)) {
-                $analytics = array_merge($analytics, $existing);
+        $cookieName = 'msrb_v_visit_' . str_replace('-', '', $today);
+        $isNewVisitorToday = empty($_COOKIE[$cookieName]);
+        if ($isNewVisitorToday) {
+            @setcookie($cookieName, '1', time() + 86400, '/');
+        }
+
+        $analyticsFile = __DIR__ . '/../data/portal_analytics.json';
+        $fp = @fopen($analyticsFile, 'c+');
+        if ($fp && flock($fp, LOCK_EX)) {
+            $existing = json_decode(stream_get_contents($fp), true) ?: [];
+            $analytics = array_merge([
+                'total_visitors' => 0,
+                'today_visitors' => 0,
+                'unique_visitors' => 0,
+                'last_visit_date' => $today,
+                'last_visit_at' => 0,
+                'total_downloads' => 0,
+                'today_downloads' => 0,
+                'last_download_date' => $today,
+                'last_download_at' => 0,
+                'daily_stats' => []
+            ], $existing);
+
+            if (($analytics['last_visit_date'] ?? '') !== $today) {
+                $analytics['last_visit_date'] = $today;
+                $analytics['today_visitors'] = 0;
             }
+            $analytics['total_visitors'] = ($analytics['total_visitors'] ?? 0) + 1;
+            $analytics['today_visitors'] = ($analytics['today_visitors'] ?? 0) + 1;
+            $analytics['last_visit_at'] = time();
+            if ($isNewVisitorToday) {
+                $analytics['unique_visitors'] = ($analytics['unique_visitors'] ?? 0) + 1;
+            }
+            if (!isset($analytics['daily_stats'][$today])) {
+                $analytics['daily_stats'][$today] = ['visitors' => 0, 'downloads' => 0];
+            }
+            $analytics['daily_stats'][$today]['visitors']++;
+
+            ftruncate($fp, 0);
+            rewind($fp);
+            fwrite($fp, json_encode($analytics, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            fflush($fp);
+            flock($fp, LOCK_UN);
+            fclose($fp);
+            jsonResponse(true, 'تم تسجيل الزيارة بنجاح', ['total_visitors' => $analytics['total_visitors']]);
         }
-        if (($analytics['last_visit_date'] ?? '') !== $today) {
-            $analytics['last_visit_date'] = $today;
-            $analytics['today_visitors'] = 0;
-        }
-        $analytics['total_visitors'] = ($analytics['total_visitors'] ?? 0) + 1;
-        $analytics['today_visitors'] = ($analytics['today_visitors'] ?? 0) + 1;
-        $analytics['last_visit_at'] = time();
-        if (!empty($input['is_unique'])) {
-            $analytics['unique_visitors'] = ($analytics['unique_visitors'] ?? 0) + 1;
-        }
-        if (!isset($analytics['daily_stats'][$today])) {
-            $analytics['daily_stats'][$today] = ['visitors' => 0, 'downloads' => 0];
-        }
-        $analytics['daily_stats'][$today]['visitors']++;
-        @file_put_contents($analyticsFile, json_encode($analytics, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-        jsonResponse(true, 'تم تسجيل الزيارة بنجاح', ['total_visitors' => $analytics['total_visitors']]);
+        jsonResponse(false, 'تعذر تحديث إحصائيات الزيارات', null, 500);
     }
 
-    // 0.1 Public Direct Subscription Request from Website (No Admin Auth Required)
+    // 0.1 Public Direct Subscription Request (No Admin Auth Required, throttled 5/hr, honeypot, sanitized)
     if ($action === 'submit_subscription_request') {
-        $name = trim($input['subscriber_name'] ?? ($input['subscriberName'] ?? ''));
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+        checkPublicRateLimit('sub_' . $ip, 5, 3600);
+
+        // Honeypot check: reject spam bots filling hidden field
+        if (!empty($input['website'])) {
+            jsonResponse(false, 'تعذر معالجة الطلب');
+        }
+
+        $name = mb_substr(trim($input['subscriber_name'] ?? ($input['subscriberName'] ?? '')), 0, 80);
         $phone = trim($input['phone'] ?? '');
-        $region = trim($input['region'] ?? '');
+        $region = mb_substr(trim($input['region'] ?? ''), 0, 80);
         $plan = strtoupper(trim($input['plan'] ?? 'YEARLY'));
-        if (!in_array($plan, ['YEARLY', 'MONTHLY'])) $plan = 'YEARLY';
-        $receipt = trim($input['receipt_number'] ?? ($input['receiptNumber'] ?? ''));
-        $paymentMethod = trim($input['payment_method'] ?? ($input['paymentMethod'] ?? ''));
-        $deviceCode = trim($input['device_code'] ?? ($input['deviceCode'] ?? ''));
+        if (!in_array($plan, ['YEARLY', 'MONTHLY'], true)) {
+            $plan = 'YEARLY';
+        }
+        $receipt = mb_substr(trim($input['receipt_number'] ?? ($input['receiptNumber'] ?? '')), 0, 80);
+        $paymentMethod = mb_substr(trim($input['payment_method'] ?? ($input['paymentMethod'] ?? '')), 0, 80);
+        $deviceCode = mb_substr(trim($input['device_code'] ?? ($input['deviceCode'] ?? '')), 0, 80);
 
         if (empty($name)) {
             jsonResponse(false, 'يرجى كتابة الاسم الكامل للمشترك');
         }
-        if (empty($phone)) {
-            jsonResponse(false, 'يرجى إدخال رقم الهاتف للتواصل');
+        if (empty($phone) || !preg_match('/^[0-9+ ]{7,15}$/', $phone)) {
+            jsonResponse(false, 'يرجى إدخال رقم هاتف صحيح للتواصل');
         }
 
         $timestamp = round(microtime(true) * 1000);
@@ -413,12 +508,19 @@ if ($method === 'POST') {
         // 1. Push to Firebase RTDB
         firebaseRequest("subscription_requests/{$reqId}.json", 'PUT', $requestData);
 
-        // 2. Local File Backup
+        // 2. Local File Backup under flock; never evict older real requests
         $webRequestsFile = __DIR__ . '/../data/web_subscription_requests.json';
-        $existingReqs = file_exists($webRequestsFile) ? (json_decode(file_get_contents($webRequestsFile), true) ?: []) : [];
-        array_unshift($existingReqs, $requestData);
-        if (count($existingReqs) > 500) $existingReqs = array_slice($existingReqs, 0, 500);
-        @file_put_contents($webRequestsFile, json_encode($existingReqs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $fp = @fopen($webRequestsFile, 'c+');
+        if ($fp && flock($fp, LOCK_EX)) {
+            $existingReqs = json_decode(stream_get_contents($fp), true) ?: [];
+            $existingReqs[] = $requestData;
+            ftruncate($fp, 0);
+            rewind($fp);
+            fwrite($fp, json_encode($existingReqs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            fflush($fp);
+            flock($fp, LOCK_UN);
+            fclose($fp);
+        }
 
         jsonResponse(true, 'تم إرسال طلب تفعيل الاشتراك بنجاح! سيتم مراجعة إيداعك وتفعيل حسابك والتواصل معك فوراً.', [
             'request_id' => $reqId,
@@ -426,8 +528,16 @@ if ($method === 'POST') {
         ]);
     }
 
+    // --- Strictly Protected Admin Actions Below ---
     require_once __DIR__ . '/auth.php';
     requireAuth();
+
+    // CSRF verification on every admin write (C2)
+    $headers = function_exists('getallheaders') ? getallheaders() : [];
+    $csrf = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($headers['X-CSRF-Token'] ?? ($headers['x-csrf-token'] ?? ($input['csrf_token'] ?? '')));
+    if (!verifyCsrfToken($csrf)) {
+        jsonResponse(false, 'رمز أمان الجلسة غير صالح (CSRF)', null, 403);
+    }
 
     // 1. Save / Update Payment Accounts (Admin Only)
     if ($action === 'save_payment_methods') {
@@ -462,15 +572,15 @@ if ($method === 'POST') {
         jsonResponse(true, 'تم حفظ وتحديث حسابات وطرق الدفع والتحويل البنكي بنجاح!', $cleanMethods);
     }
 
-    // 1. Update Water & Market Settings
+    // 2. Update Water & Market Settings (including stats_wells, stats_vouchers, testimonials)
     if ($action === 'update_settings') {
         $existingSettings = file_exists($settingsFile) ? (json_decode(file_get_contents($settingsFile), true) ?: []) : [];
 
         $settings = array_merge($existingSettings, [
             'active_region_name' => trim($input['active_region_name'] ?? ($existingSettings['active_region_name'] ?? 'الجمهورية اليمنية (صنعاء، مأرب، الجوف، عمران، ذمار)')),
-            'avg_hourly_price' => floatval($input['avg_hourly_price'] ?? ($existingSettings['avg_hourly_price'] ?? 7500)),
-            'min_hourly_price' => floatval($input['min_hourly_price'] ?? ($existingSettings['min_hourly_price'] ?? 5500)),
-            'max_hourly_price' => floatval($input['max_hourly_price'] ?? ($existingSettings['max_hourly_price'] ?? 9500)),
+            'avg_hourly_price' => floatval($input['avg_hourly_price'] ?? ($existingSettings['avg_hourly_price'] ?? 18000)),
+            'min_hourly_price' => floatval($input['min_hourly_price'] ?? ($existingSettings['min_hourly_price'] ?? 1500)),
+            'max_hourly_price' => floatval($input['max_hourly_price'] ?? ($existingSettings['max_hourly_price'] ?? 25000)),
             'currency_symbol' => trim($input['currency_symbol'] ?? ($existingSettings['currency_symbol'] ?? 'ريال')),
             'rates_note' => trim($input['rates_note'] ?? ($existingSettings['rates_note'] ?? 'الأسعار تختلف بحسب عمق البئر، حجم المضخة، ونوع الطاقة المستخدمة (شمسية / ديزل).')),
             
@@ -500,18 +610,21 @@ if ($method === 'POST') {
             'show_news_section' => isset($input['show_news_section']) ? filter_var($input['show_news_section'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_news_section'] ?? true),
             'show_faq_section' => isset($input['show_faq_section']) ? filter_var($input['show_faq_section'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_faq_section'] ?? true),
             'show_developer_section' => isset($input['show_developer_section']) ? filter_var($input['show_developer_section'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_developer_section'] ?? true),
-            'show_download_cta' => isset($input['show_download_cta']) ? filter_var($input['show_download_cta'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_download_cta'] ?? true)
+            'show_download_cta' => isset($input['show_download_cta']) ? filter_var($input['show_download_cta'], FILTER_VALIDATE_BOOLEAN) : ($existingSettings['show_download_cta'] ?? true),
+
+            'stats_wells' => trim($input['stats_wells'] ?? ($existingSettings['stats_wells'] ?? '')),
+            'stats_vouchers' => trim($input['stats_vouchers'] ?? ($existingSettings['stats_vouchers'] ?? '')),
+            'testimonials' => is_array($input['testimonials'] ?? null) ? $input['testimonials'] : ($existingSettings['testimonials'] ?? [])
         ]);
 
         file_put_contents($settingsFile, json_encode($settings, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-        // Clear cache so admin updates show instantly
         $cacheFile = __DIR__ . '/../data/market_cache.json';
         if (file_exists($cacheFile)) @unlink($cacheFile);
 
         jsonResponse(true, 'تم حفظ وتحديث إعدادات ومحتوى الموقع العام بنجاح!', $settings);
     }
 
-    // 2. Publish New Article / News
+    // 3. Publish New Article / News
     if ($action === 'add_news') {
         $title = trim($input['title'] ?? '');
         $summary = trim($input['summary'] ?? '');
@@ -537,7 +650,7 @@ if ($method === 'POST') {
         jsonResponse(true, 'تم نشر الخبر / المقال بنجاح في الواجهة العامة للزوار!', $newArticle);
     }
 
-    // 3. Delete Article
+    // 4. Delete Article
     if ($action === 'delete_news') {
         $id = $input['id'] ?? '';
         $newsList = json_decode(file_get_contents($newsFile), true) ?: [];
@@ -548,14 +661,14 @@ if ($method === 'POST') {
         jsonResponse(true, 'تم حذف الخبر بنجاح');
     }
 
-    // 3.5 Cancel / Delete Active Broadcast Ad & Force Update
+    // 5. Cancel / Delete Active Broadcast Ad & Force Update
     if ($action === 'cancel_broadcast' || $action === 'delete_broadcast') {
         firebaseRequest('app_broadcast.json', 'PUT', null);
         firebaseRequest('app_broadcast.json', 'DELETE');
         jsonResponse(true, 'تم حذف وإلغاء الإعلان والتحديث من السحابة بنجاح');
     }
 
-    // 4. Save Subscription Pricing & Discounts (Monthly & Yearly)
+    // 6. Save Subscription Pricing & Discounts
     if ($action === 'save_subscription_pricing') {
         $monthlyPrice = trim($input['monthly_price'] ?? '10');
         $monthlyOriginal = trim($input['monthly_original_price'] ?? '');
@@ -584,13 +697,12 @@ if ($method === 'POST') {
         ];
 
         file_put_contents($pricingFile, json_encode($pricingData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-        // Sync to Firebase Realtime Database
         firebaseRequest('subscription_pricing.json', 'PUT', $pricingData);
 
         jsonResponse(true, 'تم حفظ وتحديث أسعار وخصومات الاشتراكات في فايربيس والموقع والتطبيق بنجاح!', $pricingData);
     }
 
-    // 5. Delete Subscription Request
+    // 7. Delete Subscription Request (with Firebase key validation C10)
     if ($action === 'delete_subscription_request') {
         $reqId = $input['request_id'] ?? '';
         $keys = $input['keys'] ?? [];
@@ -600,42 +712,60 @@ if ($method === 'POST') {
 
         foreach ($keys as $k) {
             $cleanK = trim($k);
-            if (!empty($cleanK)) {
+            if (!empty($cleanK) && preg_match('/^[A-Za-z0-9_-]+$/', $cleanK)) {
                 firebaseRequest("subscription_requests/{$cleanK}.json", 'DELETE');
             }
         }
 
         $webRequestsFile = __DIR__ . '/../data/web_subscription_requests.json';
         if (file_exists($webRequestsFile)) {
-            $reqs = json_decode(file_get_contents($webRequestsFile), true) ?: [];
-            $reqs = array_values(array_filter($reqs, function($r) use ($keys) {
-                $rId = $r['id'] ?? ($r['requestId'] ?? '');
-                return !in_array($rId, $keys);
-            }));
-            file_put_contents($webRequestsFile, json_encode($reqs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $fp = @fopen($webRequestsFile, 'c+');
+            if ($fp && flock($fp, LOCK_EX)) {
+                $reqs = json_decode(stream_get_contents($fp), true) ?: [];
+                $reqs = array_values(array_filter($reqs, function($r) use ($keys) {
+                    $rId = $r['id'] ?? ($r['requestId'] ?? '');
+                    return !in_array($rId, $keys);
+                }));
+                ftruncate($fp, 0);
+                rewind($fp);
+                fwrite($fp, json_encode($reqs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                fflush($fp);
+                flock($fp, LOCK_UN);
+                fclose($fp);
+            }
         }
         jsonResponse(true, 'تم حذف الطلب نهائياً من السحابة وقاعدة البيانات بنجاح');
     }
 
-    // 6. Clear Completed Requests
+    // 8. Clear Completed Requests (with Firebase key validation C10)
     if ($action === 'clear_completed_requests') {
         $keys = $input['keys'] ?? [];
         if (is_array($keys)) {
             foreach ($keys as $k) {
                 $cleanK = trim($k);
-                if (!empty($cleanK)) {
+                if (!empty($cleanK) && preg_match('/^[A-Za-z0-9_-]+$/', $cleanK)) {
                     firebaseRequest("subscription_requests/{$cleanK}.json", 'DELETE');
                 }
             }
         }
         $webRequestsFile = __DIR__ . '/../data/web_subscription_requests.json';
         if (file_exists($webRequestsFile)) {
-            $reqs = json_decode(file_get_contents($webRequestsFile), true) ?: [];
-            $reqs = array_values(array_filter($reqs, function($r) {
-                return ($r['status'] ?? '') !== 'COMPLETED';
-            }));
-            file_put_contents($webRequestsFile, json_encode($reqs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $fp = @fopen($webRequestsFile, 'c+');
+            if ($fp && flock($fp, LOCK_EX)) {
+                $reqs = json_decode(stream_get_contents($fp), true) ?: [];
+                $reqs = array_values(array_filter($reqs, function($r) {
+                    return ($r['status'] ?? '') !== 'COMPLETED';
+                }));
+                ftruncate($fp, 0);
+                rewind($fp);
+                fwrite($fp, json_encode($reqs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                fflush($fp);
+                flock($fp, LOCK_UN);
+                fclose($fp);
+            }
         }
         jsonResponse(true, 'تم حذف كافة الطلبات المنفذة نهائياً من السحابة بنجاح');
     }
+
+    jsonResponse(false, 'إجراء غير معروف', null, 400);
 }

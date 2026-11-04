@@ -1,4 +1,4 @@
-status: ready
+status: done
 <!-- Owner request 2026-11-03: fix the visitors page (web_dashboard/index.php) and the admin before
 uploading 1.4.0. Keep the design; text and data fixes only. No secrets in PHP/JS files. -->
 # Task 033: Visitors page and admin ready for release 1.4.0

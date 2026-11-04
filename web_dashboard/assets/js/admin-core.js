@@ -5,11 +5,114 @@
   let adminPaymentMethods = [];
   const apiFetch = (url, opts) => (typeof adminApiFetch === 'function') ? adminApiFetch(url, opts) : fetch(url, { credentials: 'same-origin', ...opts });
 
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  let adminTestimonialsData = [];
+  function ensurePortalStatsAndTestimonialsCard() {
+    if (document.getElementById('cardPortalStatsAndTestimonials')) return;
+    const form = document.getElementById('portalSettingsForm');
+    if (!form) return;
+    const grid = form.querySelector('.grid-2');
+    if (!grid) return;
+
+    const card = document.createElement('div');
+    card.id = 'cardPortalStatsAndTestimonials';
+    card.className = 'card';
+    card.style.cssText = 'border: 1px solid rgba(0, 188, 212, 0.45); margin-top: 16px; grid-column: 1 / -1;';
+    card.innerHTML = `
+      <div class="card-title">إحصائيات المنظومة وآراء العملاء في الواجهة العامة</div>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+        <div class="form-group">
+          <label for="pStatsWells">عدد الآبار المدارة (اتركه فارغاً لإخفاء شريط الإحصائيات):</label>
+          <input type="text" id="pStatsWells" placeholder="مثال: 1240">
+        </div>
+        <div class="form-group">
+          <label for="pStatsVouchers">عدد سندات القبض (اتركه فارغاً لإخفاء شريط الإحصائيات):</label>
+          <input type="text" id="pStatsVouchers" placeholder="مثال: 38000">
+        </div>
+      </div>
+
+      <hr style="border: 0; border-top: 1px solid var(--border); margin: 16px 0;">
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <label style="font-weight: 700; color: var(--text-title); margin: 0;">قائمة آراء وتجارب العملاء (تختفي من الواجهة عند تفريغها):</label>
+        <button type="button" class="btn-sm btn-outline" id="btnAddTestimonialBtn" style="padding: 6px 14px;">إضافة رأي جديد</button>
+      </div>
+      <div id="adminTestimonialsContainer" style="display: flex; flex-direction: column; gap: 10px;"></div>
+    `;
+
+    const visCard = form.querySelector(".card[style*='rgba(0, 200, 83']");
+    if (visCard) {
+      form.insertBefore(card, visCard);
+    } else {
+      form.appendChild(card);
+    }
+
+    const addBtn = document.getElementById('btnAddTestimonialBtn');
+    if (addBtn) {
+      addBtn.addEventListener('click', () => {
+        adminTestimonialsData.push({ name: '', place: '', quote: '' });
+        renderAdminTestimonials(adminTestimonialsData);
+      });
+    }
+  }
+
+  function renderAdminTestimonials(list) {
+    adminTestimonialsData = Array.isArray(list) ? [...list] : [];
+    const container = document.getElementById('adminTestimonialsContainer');
+    if (!container) return;
+    if (adminTestimonialsData.length === 0) {
+      container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 12px; font-size: 13px;">لا توجد آراء عملاء حالياً (القسم مخفي في الواجهة العامة).</div>';
+      return;
+    }
+    container.innerHTML = adminTestimonialsData.map((t, idx) => `
+      <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: grid; grid-template-columns: 1fr 1fr 2fr auto; gap: 8px; align-items: center;">
+        <input type="text" class="t-name" placeholder="الاسم" value="${escapeHtml(t.name || '')}" style="font-size: 13px; padding: 6px 10px;">
+        <input type="text" class="t-place" placeholder="المنطقة / الصفة" value="${escapeHtml(t.place || '')}" style="font-size: 13px; padding: 6px 10px;">
+        <input type="text" class="t-quote" placeholder="نص الرأي / التجربة" value="${escapeHtml(t.quote || '')}" style="font-size: 13px; padding: 6px 10px;">
+        <button type="button" class="btn-sm btn-del-testimonial" data-idx="${idx}" style="background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.35); padding: 6px 10px;">حذف</button>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('.btn-del-testimonial').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const i = parseInt(this.getAttribute('data-idx'), 10);
+        adminTestimonialsData.splice(i, 1);
+        renderAdminTestimonials(adminTestimonialsData);
+      });
+    });
+  }
+
+  function getAdminTestimonialsList() {
+    const container = document.getElementById('adminTestimonialsContainer');
+    if (!container) return adminTestimonialsData;
+    const rows = container.querySelectorAll("div[style*='grid-template-columns']");
+    const result = [];
+    rows.forEach(r => {
+      const name = r.querySelector('.t-name')?.value.trim() || '';
+      const place = r.querySelector('.t-place')?.value.trim() || '';
+      const quote = r.querySelector('.t-quote')?.value.trim() || '';
+      if (name || quote) {
+        result.push({ name, place, quote });
+      }
+    });
+    return result;
+  }
+
   function toggleUpdateInputs() {
     const isUpdate = document.getElementById("bcType").value === "UPDATE";
     document.getElementById("versionGroup").style.display = isUpdate ? "block" : "none";
     if (isUpdate) {
-      document.getElementById("bcBtnText").value = "تحميل التحديث الجديد 📥";
+      document.getElementById("bcBtnText").value = "تحميل التحديث الجديد ";
     }
   }
 
@@ -63,6 +166,11 @@
       const json = (await safeJson(res)) || {};
       if (json.success && json.data) {
         const ps = json.data.portal_settings || {};
+        ensurePortalStatsAndTestimonialsCard();
+        if (document.getElementById("pStatsWells")) document.getElementById("pStatsWells").value = ps.stats_wells || '';
+        if (document.getElementById("pStatsVouchers")) document.getElementById("pStatsVouchers").value = ps.stats_vouchers || '';
+        renderAdminTestimonials(ps.testimonials || []);
+
         if (document.getElementById("pActiveRegionName")) {
           document.getElementById("pActiveRegionName").value = ps.active_region_name || 'الجمهورية اليمنية (صنعاء، مأرب، الجوف، عمران)';
           document.getElementById("pAvgPrice").value = ps.avg_hourly_price || 7500;
@@ -156,12 +264,18 @@
     cont.innerHTML = news.map(item => `
       <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
         <div>
-          <b style="font-size: 13.5px; color: #FFF;">${item.title}</b>
-          <div style="font-size: 11px; color: var(--text-muted);">${item.category} • ${new Date(item.published_at).toLocaleDateString('ar-EG')}</div>
+          <b style="font-size: 13.5px; color: #FFF;">${escapeHtml(item.title)}</b>
+          <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(item.category)} • ${new Date(item.published_at).toLocaleDateString('en-US')}</div>
         </div>
-        <button class="btn-sm" style="background: rgba(229,57,53,0.2); color: #EF5350; border: 1px solid #EF5350;" onclick="deletePortalNews('${item.id}')">حذف 🗑️</button>
+        <button class="btn-sm btn-del-news" style="background: rgba(229,57,53,0.2); color: #EF5350; border: 1px solid #EF5350;" data-id="${escapeHtml(item.id)}">حذف</button>
       </div>
     `).join('');
+
+    cont.querySelectorAll('.btn-del-news').forEach(btn => {
+      btn.addEventListener('click', function() {
+        deletePortalNews(this.getAttribute('data-id'));
+      });
+    });
   }
 
   async function handleSavePortalSettings(e) {
@@ -199,6 +313,9 @@
       show_faq_section: document.getElementById("pShowFaqSection") ? document.getElementById("pShowFaqSection").checked : true,
       show_developer_section: document.getElementById("pShowDeveloperSection") ? document.getElementById("pShowDeveloperSection").checked : true,
       show_download_cta: document.getElementById("pShowDownloadCta") ? document.getElementById("pShowDownloadCta").checked : true,
+      stats_wells: document.getElementById("pStatsWells") ? document.getElementById("pStatsWells").value.trim() : '',
+      stats_vouchers: document.getElementById("pStatsVouchers") ? document.getElementById("pStatsVouchers").value.trim() : '',
+      testimonials: getAdminTestimonialsList(),
       csrf_token: currentCsrfToken
     };
 
@@ -228,9 +345,9 @@
     } catch (_) {}
 
     if (fbSuccess) {
-      alert("✅ تم حفظ ونشر إعدادات ومحتوى البوابة بنجاح في سحابة فايربيس!");
+      alert("تم حفظ ونشر إعدادات ومحتوى البوابة بنجاح في سحابة فايربيس!");
     } else {
-      alert(`⚠️ تم تسجيل التعديل محلياً، ولكن حدث خطأ في سحابة فايربيس: (${fbError || 'تعذر الاتصال'}). تأكد من مفتاح السحابة.`);
+      alert(`تم تسجيل التعديل محلياً، ولكن حدث خطأ في سحابة فايربيس: (${fbError || 'تعذر الاتصال'}). تأكد من مفتاح السحابة.`);
     }
 
     if (btn) btn.disabled = false;
@@ -256,7 +373,7 @@
       });
       const data = (await safeJson(res)) || {};
       if (data.success) {
-        alert("✅ " + (data.message || 'تم النشر بنجاح'));
+        alert("" + (data.message || 'تم النشر بنجاح'));
         document.getElementById("portalNewsForm").reset();
         loadPortalSettingsForAdmin();
       } else {
@@ -281,7 +398,7 @@
       });
       const data = (await safeJson(res)) || {};
       if (data && data.success) {
-        alert("✅ تم حذف الخبر بنجاح.");
+        alert("تم حذف الخبر بنجاح.");
         loadPortalSettingsForAdmin();
       } else {
         alert("تعذر حذف الخبر: " + (data.message || 'خطأ غير معروف'));
@@ -348,16 +465,16 @@
       const data = (await safeJson(res)) || {};
       if (data.success) {
         statusDiv.style.color = "#10B981";
-        statusDiv.innerText = "✅ " + data.message;
+        statusDiv.innerText = "" + data.message;
         loadFcmEngineStatus();
         setTimeout(() => { toggleServiceAccountModal(); }, 2500);
       } else {
         statusDiv.style.color = "#EF4444";
-        statusDiv.innerText = "❌ " + (data.message || "فشل التحقق من المفتاح");
+        statusDiv.innerText = "" + (data.message || "فشل التحقق من المفتاح");
       }
     } catch (err) {
       statusDiv.style.color = "#EF4444";
-      statusDiv.innerText = "❌ حدث خطأ في الاتصال بالسيرفر";
+      statusDiv.innerText = "حدث خطأ في الاتصال بالسيرفر";
     }
   }
 
@@ -375,14 +492,14 @@
       const data = (await safeJson(res)) || {};
       if (data.success) {
         statusDiv.style.color = "#10B981";
-        statusDiv.innerText = "✅ " + data.message;
+        statusDiv.innerText = "" + data.message;
       } else {
         statusDiv.style.color = "#EF4444";
-        statusDiv.innerText = "❌ " + (data.message || "الاتصال غير جاهز");
+        statusDiv.innerText = "" + (data.message || "الاتصال غير جاهز");
       }
     } catch (_) {
       statusDiv.style.color = "#EF4444";
-      statusDiv.innerText = "❌ تعذر الاتصال بالخادم";
+      statusDiv.innerText = "تعذر الاتصال بالخادم";
     }
   }
 
@@ -420,14 +537,14 @@
       const resData = (await safeJson(res)) || {};
       if (resData.success) {
         statusDiv.style.color = "var(--success)";
-        statusDiv.innerHTML = `✅ ${resData.message}`;
+        statusDiv.innerHTML = `${resData.message}`;
         loadFcmEngineStatus();
       } else {
         throw new Error(resData.message || 'حدث خطأ في الإرسال');
       }
     } catch (e) {
       statusDiv.style.color = "#EF4444";
-      statusDiv.innerText = "❌ " + e.message;
+      statusDiv.innerText = "" + e.message;
       // Fallback directly to client-side RTDB broadcast
       sendCustomPushNotification();
     } finally {
@@ -506,12 +623,12 @@
     if (fbSuccess) {
       if (statusDiv) {
         statusDiv.style.color = "#10B981";
-        statusDiv.innerText = "✅ تم حفظ ونشر أسعار وخصومات الاشتراكات في فايربيس والموقع والتطبيق بنجاح!";
+        statusDiv.innerText = "تم حفظ ونشر أسعار وخصومات الاشتراكات في فايربيس والموقع والتطبيق بنجاح!";
       }
     } else {
       if (statusDiv) {
         statusDiv.style.color = "#EF4444";
-        statusDiv.innerText = `❌ خطأ في الحفظ السحابي: ${fbError || 'تعذر الاتصال'}. يرجى التحقق من مفتاح السحابة وقواعد الأمان.`;
+        statusDiv.innerText = `خطأ في الحفظ السحابي: ${fbError || 'تعذر الاتصال'}. يرجى التحقق من مفتاح السحابة وقواعد الأمان.`;
       }
     }
 
@@ -533,6 +650,7 @@
     formData.append('version_code', document.getElementById("apkVersionCode").value);
     formData.append('release_notes', document.getElementById("apkReleaseNotes").value.trim());
     formData.append('is_force_update', document.getElementById("apkForceUpdate").checked ? '1' : '0');
+    formData.append('csrf_token', currentCsrfToken);
 
     const progressDiv = document.getElementById("uploadProgress");
     const btn = document.getElementById("uploadApkBtn");
@@ -546,7 +664,7 @@
       });
       const data = (await safeJson(res)) || {};
       if (data.success) {
-        alert("✅ " + (data.message || 'تم رفع ملف التحديث بنجاح') + "\n\nرابط التحميل المباشر:\n" + (data.data ? data.data.download_url : ''));
+        alert("" + (data.message || 'تم رفع ملف التحديث بنجاح') + "\n\nرابط التحميل المباشر:\n" + (data.data ? data.data.download_url : ''));
         document.getElementById("apkUploadForm").reset();
         loadReleasesList();
         loadFirebaseData();
@@ -567,21 +685,24 @@
 
     const vCode = prompt("رقم الإصدار (VersionCode) الذي يتضمنه هذا الرابط (مثال: 2):", "2");
     if (!vCode) return;
-    const isForce = confirm("هل تريد تفعيل هذا الرابط كتحديث إجباري وقفل النسخ القديمة فوراً؟");
+    const vName = prompt("اسم الإصدار (Version Name) مثل 1.4.0:", "1.4.0");
+    let isForce = confirm("هل تريد تفعيل هذا الرابط كتحديث إجباري وقفل النسخ القديمة فوراً؟\n\nتحذير: لا تفعّله إلا بعد أن يحدّث أغلب المستخدمين؛ يمنع الإصدارات الأقدم من العمل.");
     const notes = prompt("ملاحظات ورسالة التحديث للمستخدمين:", "تحديث جديد متاح لتطبيق مُسَرِّب");
 
     const formData = new FormData();
     formData.append('action', 'set_cloud_link');
     formData.append('custom_url', url);
     formData.append('version_code', vCode);
+    formData.append('version_name', vName || ('1.' + vCode + '.0'));
     formData.append('is_force_update', isForce ? '1' : '0');
     formData.append('release_notes', notes || '');
+    formData.append('csrf_token', currentCsrfToken);
 
     try {
       const res = await apiFetch('api/release_manager.php', { method: 'POST', body: formData });
       const data = (await safeJson(res)) || {};
       if (data.success) {
-        alert("✅ تم ربط وبث الرابط لجميع المستخدمين في فايربيس بنجاح!");
+        alert("تم ربط وبث الرابط لجميع المستخدمين في فايربيس بنجاح!");
         loadFirebaseData();
       } else {
         alert("فشل: " + (data.message || 'تعذر حفظ الرابط'));
@@ -621,8 +742,8 @@
             </div>
             <div style="display: flex; gap: 8px;">
               <input type="text" value="${r.download_url}" readonly style="font-size: 12px; padding: 6px 10px; flex: 1;">
-              <button class="btn-sm btn-action" onclick="navigator.clipboard.writeText('${r.download_url}').then(()=>alert('تم نسخ رابط التحميل المباشر: ${r.download_url}'))">📋 نسخ الرابط</button>
-              <button class="btn-sm btn-action" onclick="window.open('${r.download_url}', '_blank')">📥 تنزيل</button>
+              <button class="btn-sm btn-action" onclick="navigator.clipboard.writeText('${r.download_url}').then(()=>alert('تم نسخ رابط التحميل المباشر: ${r.download_url}'))"> نسخ الرابط</button>
+              <button class="btn-sm btn-action" onclick="window.open('${r.download_url}', '_blank')"> تنزيل</button>
             </div>
           </div>
         `;
@@ -680,7 +801,7 @@
       }
 
       statusDiv.style.color = "var(--success)";
-      statusDiv.innerHTML = `✅ تم نشر الإشعار والبث بنجاح إلى قاعدة البيانات ومتاح لجميع الأجهزة فور فتح التطبيق! (الأجهزة المسجلة بالتوكن: <b>${tokens.length}</b>)`;
+      statusDiv.innerHTML = `تم نشر الإشعار والبث بنجاح إلى قاعدة البيانات ومتاح لجميع الأجهزة فور فتح التطبيق! (الأجهزة المسجلة بالتوكن: <b>${tokens.length}</b>)`;
       loadFirebaseData();
     } catch (e) {
       statusDiv.style.color = "var(--danger)";
@@ -730,7 +851,7 @@
   }
 
   async function cancelBroadcast() {
-    if (!confirm("هل تريد إلغاء وحذف الإعلان والتحديث الإجباري الحالي نهائياً؟")) return;
+    if (!confirm("هل تريد إلغاء وحذف الإعلان الحالي؟ سيُلغى التحديث الإجباري أيضاً.")) return;
     try {
       // 1. Immediately clear from memory and update UI so user sees it gone without delay
       currentBroadcast = null;
@@ -762,7 +883,7 @@
         await apiFetch('api/fcm_sender.php', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'cancel_broadcast' })
+          body: JSON.stringify({ action: 'cancel_broadcast', csrf_token: currentCsrfToken })
         });
       } catch (_) {}
 
@@ -770,11 +891,11 @@
         await apiFetch('api/public_data.php', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'cancel_broadcast' })
+          body: JSON.stringify({ action: 'cancel_broadcast', csrf_token: currentCsrfToken })
         });
       } catch (_) {}
 
-      alert("✅ تم حذف وإلغاء الإعلان والتحديث من جميع الهواتف والسحابة بنجاح!");
+      alert("تم حذف وإلغاء الإعلان والتحديث من جميع الهواتف والسحابة بنجاح!");
       loadFirebaseData();
     } catch (e) {
       alert("خطأ أثناء إلغاء الإعلان: " + e.message);
@@ -806,7 +927,7 @@
       });
       if (!res.ok) throw new Error("رفض السيرفر الحفظ (" + res.status + ")");
       appConfig = payload;
-      alert(`✅ تم حفظ السياسات بنجاح في السحابة!\n• الحد المجاني: ${freeLimit} عملية\n• النسخ للمجانيين: ${backupAllowed ? 'مسموح' : 'معطل'}\n• نسخ Drive: ${driveBackupAllowed ? 'مسموح' : 'معطل'}\nستطبق الهواتف هذه السياسات تلقائياً عند فتح التطبيق.`);
+      alert(`تم حفظ السياسات بنجاح في السحابة!\n• الحد المجاني: ${freeLimit} عملية\n• النسخ للمجانيين: ${backupAllowed ? 'مسموح' : 'معطل'}\n• نسخ Drive: ${driveBackupAllowed ? 'مسموح' : 'معطل'}\nستطبق الهواتف هذه السياسات تلقائياً عند فتح التطبيق.`);
       loadFirebaseData();
     } catch (e) {
       alert("فشل حفظ السياسات: " + e.message);
@@ -843,12 +964,12 @@
     const pubDate = currentBroadcast.publishedAt ? new Date(currentBroadcast.publishedAt).toLocaleString('ar-EG') : '';
     content.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-        <span style="font-weight:bold; font-size:15px; color:${isUpdate ? 'var(--danger)' : 'var(--accent)'};">${currentBroadcast.title}</span>
+        <span style="font-weight:bold; font-size:15px; color:${isUpdate ? 'var(--danger)' : 'var(--accent)'};">${escapeHtml(currentBroadcast.title)}</span>
         <span class="badge ${isUpdate ? 'badge-blocked' : 'badge-active'}">${isUpdate ? 'تحديث إجباري وقفل' : 'إعلان توجيهي'}</span>
       </div>
-      <div>${currentBroadcast.message || 'بدون تفاصيل'}</div>
+      <div>${escapeHtml(currentBroadcast.message || 'بدون تفاصيل')}</div>
       <div style="font-size:12px; color:var(--text-muted); margin-top:6px;">
-        ${currentBroadcast.minRequiredVersionCode ? `الحد الأدنى للإصدار المسموح: <b>vCode ${currentBroadcast.minRequiredVersionCode}</b> • ` : ''}
+        ${currentBroadcast.minRequiredVersionCode ? `الحد الأدنى للإصدار المسموح: <b>vCode ${escapeHtml(currentBroadcast.minRequiredVersionCode)}</b> • ` : ''}
         تاريخ النشر: ${pubDate}
       </div>
     `;
@@ -1234,52 +1355,69 @@
     requests.sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
 
     tbody.innerHTML = requests.map(r => {
-      const dateStr = r.timestamp ? new Date(r.timestamp).toLocaleString('ar-EG') : 'الآن';
+      const dateStr = r.timestamp ? new Date(r.timestamp).toLocaleString('en-US') : 'الآن';
       const cleanPhone = (r.phone || '').replace(/[^0-9]/g, '');
-      const phoneLink = cleanPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" style="color: var(--success); font-weight: bold;">${r.phone} 💬</a>` : '-';
-      const planBadge = r.plan === 'YEARLY' ? `<span class="badge badge-yearly">سنوي 80$ ⭐</span>` : `<span class="badge badge-monthly">شهري 10$</span>`;
+      const phoneLink = cleanPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" rel="noopener" style="color: var(--success); font-weight: bold;">${escapeHtml(r.phone)}</a>` : '-';
+      const planBadge = r.plan === 'YEARLY' ? `<span class="badge badge-yearly">سنوي 80$</span>` : `<span class="badge badge-monthly">شهري 10$</span>`;
       const isCompleted = r.status === 'COMPLETED';
-      const statusBadge = isCompleted ? `<span class="badge badge-active">تم التفعيل ✅</span>` : `<span class="badge badge-trial">جديد ⏳</span>`;
+      const statusBadge = isCompleted ? `<span class="badge badge-active">تم التفعيل</span>` : `<span class="badge badge-trial">جديد</span>`;
       const devCode = r.deviceCode || '-';
       const isWeb = r.requestType === 'WEB_DIRECT';
       const sourceBadge = isWeb 
-        ? `<span class="badge" style="background:rgba(2, 132, 199, 0.15); color:#0284C7; border:1px solid rgba(2, 132, 199, 0.3);">الموقع 🌐</span>` 
-        : `<span class="badge badge-active">التطبيق 📱</span>`;
+        ? `<span class="badge" style="background:rgba(2, 132, 199, 0.15); color:#0284C7; border:1px solid rgba(2, 132, 199, 0.3);">الموقع</span>` 
+        : `<span class="badge badge-active">التطبيق</span>`;
       
       const regionText = r.region || 'غير محدد';
       const receiptText = r.receiptNumber || r.receipt_number || r.receipt || 'قيد التحويل';
-      const cleanReceipt = String(receiptText).replace(/'/g, "\\'");
       const reqId = r.id || r.requestId || r.firebaseKey || r._key || '';
 
       return `
         <tr>
           <td><small>${dateStr}</small></td>
-          <td><b>${r.subscriberName || 'مشترك جديد'}</b></td>
+          <td><b>${escapeHtml(r.subscriberName || 'مشترك جديد')}</b></td>
           <td>${phoneLink}</td>
           <td>${planBadge}</td>
           <td>
-            <div style="font-weight: 700; font-size: 13px; color: #FFF;">${regionText}</div>
+            <div style="font-weight: 700; font-size: 13px; color: #FFF;">${escapeHtml(regionText)}</div>
             <div style="color: var(--accent); font-weight: 800; font-size: 11.5px; margin-top: 3px;">
-              سند: <span style="background: rgba(0, 180, 216, 0.15); padding: 2px 6px; border-radius: 4px; border: 1px dashed var(--accent);">${receiptText}</span>
+              سند: <span style="background: rgba(0, 180, 216, 0.15); padding: 2px 6px; border-radius: 4px; border: 1px dashed var(--accent);">${escapeHtml(receiptText)}</span>
             </div>
-            ${r.paymentMethod ? `<div style="color: #6EE7B7; font-weight: 700; font-size: 11px; margin-top: 3px;">عبر: <b>${r.paymentMethod}</b></div>` : ''}
+            ${r.paymentMethod ? `<div style="color: #6EE7B7; font-weight: 700; font-size: 11px; margin-top: 3px;">عبر: <b>${escapeHtml(r.paymentMethod)}</b></div>` : ''}
           </td>
-          <td><code style="color: var(--accent); font-weight: bold; font-size: 13px;">${devCode}</code></td>
+          <td><code style="color: var(--accent); font-weight: bold; font-size: 13px;">${escapeHtml(devCode)}</code></td>
           <td>${sourceBadge}</td>
           <td>${statusBadge}</td>
           <td>
             <div style="display: flex; gap: 6px; align-items: center;">
               ${!isCompleted 
-                ? `<button class="btn-sm btn-unblock" onclick="quickActivateRequest('${devCode}', '${(r.subscriberName || '').replace(/'/g, "\\'")}', '${r.plan || 'YEARLY'}', '${reqId}')" title="تفعيل الاشتراك وتوليد الرمز">⚡ تفعيل</button>`
-                : `<span style="font-size: 11.5px; color: var(--success); font-weight: bold; padding: 2px 6px;">منفّذ ✅</span>`
+                ? `<button class="btn-sm btn-unblock btn-act-req" data-code="${escapeHtml(devCode)}" data-name="${escapeHtml(r.subscriberName || '')}" data-plan="${escapeHtml(r.plan || 'YEARLY')}" data-id="${escapeHtml(reqId)}" title="تفعيل الاشتراك وتوليد الرمز">تفعيل</button>`
+                : `<span style="font-size: 11.5px; color: var(--success); font-weight: bold; padding: 2px 6px;">منفّذ</span>`
               }
-              ${cleanPhone ? `<button class="btn-sm btn-outline" onclick="notifySubscriberWhatsApp('${cleanPhone}', '${(r.subscriberName || '').replace(/'/g, "\\'")}', '${cleanReceipt}')" title="تأكيد استلام السند عبر واتساب">💬</button>` : ''}
-              <button class="btn-sm" style="background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.35); padding: 4px 8px; font-size: 12px;" onclick="deleteSubscriptionRequest('${reqId}')" title="حذف هذا الطلب">🗑️ حذف</button>
+              ${cleanPhone ? `<button class="btn-sm btn-outline btn-wa-notify" data-phone="${cleanPhone}" data-name="${escapeHtml(r.subscriberName || '')}" data-receipt="${escapeHtml(receiptText)}" title="تأكيد استلام السند عبر واتساب">واتساب</button>` : ''}
+              <button class="btn-sm btn-del-req" style="background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.35); padding: 4px 8px; font-size: 12px;" data-id="${escapeHtml(reqId)}" title="حذف هذا الطلب">حذف</button>
             </div>
           </td>
         </tr>
       `;
     }).join('');
+
+    tbody.querySelectorAll('.btn-act-req').forEach(btn => {
+      btn.addEventListener('click', function() {
+        quickActivateRequest(this.getAttribute('data-code'), this.getAttribute('data-name'), this.getAttribute('data-plan'), this.getAttribute('data-id'));
+      });
+    });
+
+    tbody.querySelectorAll('.btn-wa-notify').forEach(btn => {
+      btn.addEventListener('click', function() {
+        notifySubscriberWhatsApp(this.getAttribute('data-phone'), this.getAttribute('data-name'), this.getAttribute('data-receipt'));
+      });
+    });
+
+    tbody.querySelectorAll('.btn-del-req').forEach(btn => {
+      btn.addEventListener('click', function() {
+        deleteSubscriptionRequest(this.getAttribute('data-id'));
+      });
+    });
   }
 
   function notifySubscriberWhatsApp(phone, name, receipt) {
@@ -1309,7 +1447,7 @@
         </div>
         ${pm.notes ? `<div style="font-size: 11px; color: #80CBC4; margin-bottom: 8px;">${pm.notes}</div>` : ''}
         <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-          <button type="button" class="btn-sm btn-delete" onclick="deleteAdminPaymentMethod(${idx})">حذف 🗑️</button>
+          <button type="button" class="btn-sm btn-delete" onclick="deleteAdminPaymentMethod(${idx})">حذف </button>
         </div>
       </div>
     `).join('');
@@ -1346,7 +1484,7 @@
     document.getElementById("newPayLogoUrl").value = "";
     document.getElementById("newPayNotes").value = "";
 
-    alert("✅ تمت إضافة الحساب إلى القائمة. اضغط على زر 'حفظ ونشر الحسابات في فايربيس' لاعتماده ونشره في السحابة والموقع والتطبيق.");
+    alert("تمت إضافة الحساب إلى القائمة. اضغط على زر 'حفظ ونشر الحسابات في فايربيس' لاعتماده ونشره في السحابة والموقع والتطبيق.");
   }
 
   function deleteAdminPaymentMethod(idx) {
@@ -1356,6 +1494,7 @@
   }
 
   async function saveAllPaymentMethods() {
+    if (!confirm("هل أنت متأكد من حفظ وتحديث حسابات وطرق الدفع واستبدال البيانات السابقة؟")) return;
     let fbSuccess = false;
     let fbError = null;
 
@@ -1386,9 +1525,9 @@
     } catch (_) {}
 
     if (fbSuccess) {
-      alert("✅ تم حفظ ونشر حسابات الدفع والمحافظ بنجاح في سحابة فايربيس!\nتظهر للعملاء في التطبيق والموقع فوراً.");
+      alert("تم حفظ ونشر حسابات الدفع والمحافظ بنجاح في سحابة فايربيس!\nتظهر للعملاء في التطبيق والموقع فوراً.");
     } else {
-      alert(`⚠️ حدث خطأ أثناء الحفظ في فايربيس: (${fbError || 'تعذر الاتصال'}). يرجى التأكد من مفتاح السحابة.`);
+      alert(`حدث خطأ أثناء الحفظ في فايربيس: (${fbError || 'تعذر الاتصال'}). يرجى التأكد من مفتاح السحابة.`);
     }
   }
 
@@ -1494,7 +1633,7 @@
       updateStats();
       filterRequests();
 
-      alert("✅ تم حذف طلب الاشتراك نهائياً من السحابة وقاعدة البيانات بنجاح.");
+      alert("تم حذف طلب الاشتراك نهائياً من السحابة وقاعدة البيانات بنجاح.");
     } catch (err) {
       alert("خطأ أثناء الحذف: " + err.message);
     }
@@ -1534,7 +1673,7 @@
       allRequests = allRequests.filter(r => r.status !== 'COMPLETED');
       updateStats();
       filterRequests();
-      alert("✅ تم حذف كافة الطلبات المنفذة نهائياً من السحابة بنجاح.");
+      alert("تم حذف كافة الطلبات المنفذة نهائياً من السحابة بنجاح.");
     } catch (err) {
       alert("خطأ أثناء الحذف: " + err.message);
     }
@@ -1635,9 +1774,9 @@
 
       // Status Badge
       let statusBadge;
-      if (isBlocked) statusBadge = `<span class="badge badge-blocked">⛔ محظور</span>`;
-      else if (isAct) statusBadge = `<span class="badge badge-active">✅ مشترك مفعّل</span>`;
-      else if (isOverLimit) statusBadge = `<span class="badge badge-blocked">🔒 تجاوز الحد (مقفل)</span>`;
+      if (isBlocked) statusBadge = `<span class="badge badge-blocked">محظور</span>`;
+      else if (isAct) statusBadge = `<span class="badge badge-active">مشترك مفعّل</span>`;
+      else if (isOverLimit) statusBadge = `<span class="badge badge-blocked"> تجاوز الحد (مقفل)</span>`;
       else statusBadge = `<span class="badge badge-trial">⏳ تجريبي مجاني</span>`;
 
       // Plan Badge
@@ -1663,15 +1802,15 @@
       // Backup Status Badge
       let bkBadge;
       if (isDeviceBkLocked) bkBadge = `<span class="badge badge-blocked" title="تم قفل النسخ لهذا الجهاز بالاسم">🚫 مقفول للجهاز</span>`;
-      else if (!isAct && appConfig.isBackupAllowedForTrial === false) bkBadge = `<span class="badge badge-trial" title="معطل عالمياً للمجانيين">⚠️ معطل للكل</span>`;
-      else bkBadge = `<span class="badge badge-active">✅ متاح</span>`;
+      else if (!isAct && appConfig.isBackupAllowedForTrial === false) bkBadge = `<span class="badge badge-trial" title="معطل عالمياً للمجانيين">معطل للكل</span>`;
+      else bkBadge = `<span class="badge badge-active">متاح</span>`;
 
-      const lastSeen = u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleString('ar-EG') : 'غير محدد';
+      const lastSeen = u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleString('en-US') : 'غير محدد';
       const userName = u.subscriberName || u.googleDisplayName || 'مستخدم مسرّب';
-      const userPhone = u.phone ? `<br><small style="color:#4ADE80; font-weight:600;">📞 ${u.phone}</small>` : '';
+      const userPhone = u.phone ? `<br><small style="color:#4ADE80; font-weight:600;">${escapeHtml(u.phone)}</small>` : '';
       const googleInfo = u.googleEmail 
-        ? `<div><b>${userName}</b>${userPhone}<br><small style="color:#38BDF8;">${u.googleEmail}</small></div>`
-        : `<div><b>${userName}</b>${userPhone}<br><span style="color:#64748B; font-size:11px;">بدون بريد جوجل</span></div>`;
+        ? `<div><b>${escapeHtml(userName)}</b>${userPhone}<br><small style="color:#38BDF8;">${escapeHtml(u.googleEmail)}</small></div>`
+        : `<div><b>${escapeHtml(userName)}</b>${userPhone}<br><span style="color:#64748B; font-size:11px;">بدون بريد جوجل</span></div>`;
 
       // Action Buttons
       const blockBtn = isBlocked
@@ -1679,10 +1818,10 @@
         : `<button class="btn-sm btn-block" onclick="toggleBlockUser('${devKey}', '${u.googleEmail || ''}', true)">حظر ⛔</button>`;
 
       const bkLockBtn = isDeviceBkLocked
-        ? `<button class="btn-sm btn-unblock" onclick="toggleDeviceBackupLock('${devKey}', false)">فتح النسخ 🔓</button>`
-        : `<button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" onclick="toggleDeviceBackupLock('${devKey}', true)">قفل النسخ 🔒</button>`;
+        ? `<button class="btn-sm btn-unblock" onclick="toggleDeviceBackupLock('${devKey}', false)">فتح النسخ </button>`
+        : `<button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" onclick="toggleDeviceBackupLock('${devKey}', true)">قفل النسخ </button>`;
 
-      const customLimitBtn = `<button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" onclick="promptSetCustomLimit('${devKey}', ${limit})">تعديل الحد ⚙️</button>`;
+      const customLimitBtn = `<button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" onclick="promptSetCustomLimit('${devKey}', ${limit})">تعديل الحد </button>`;
       const warnBtn = `<button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" onclick="promptSendDeviceWarning('${devKey}')">رسالة ⚠️</button>`;
 
       const warningBadge = override.specialWarningMessage ? `<div style="margin-top:4px;"><small style="color:var(--accent); font-size:10px;">رسالة موجهة: ${override.specialWarningMessage}</small></div>` : '';
@@ -1980,9 +2119,9 @@
     document.getElementById("keyBox").style.display = "block";
 
     if (pushSuccess) {
-      alert(`✅ تم توليد وتفعيل الرمز بنجاح: ${key}\nتم رفعه وحفظه في سحابة فايربيس بنجاح وربطه بالجهاز (${devCode}).`);
+      alert(`تم توليد وتفعيل الرمز بنجاح: ${key}\nتم رفعه وحفظه في سحابة فايربيس بنجاح وربطه بالجهاز (${devCode}).`);
     } else {
-      alert(`⚠️ تم توليد الرمز محلياً: ${key}\nولكن حدث خطأ أثناء رفعه إلى فايربيس: (${pushError || 'تعذر الاتصال'}).\nيمكنك النقر على زر سحابة فايربيس بأعلى الصفحة للتأكد من الرابط وقواعد الأمان.`);
+      alert(`تم توليد الرمز محلياً: ${key}\nولكن حدث خطأ أثناء رفعه إلى فايربيس: (${pushError || 'تعذر الاتصال'}).\nيمكنك النقر على زر سحابة فايربيس بأعلى الصفحة للتأكد من الرابط وقواعد الأمان.`);
     }
 
     loadFirebaseData();
@@ -2011,25 +2150,32 @@
     feedbacks.sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
 
     tbody.innerHTML = feedbacks.map(f => {
-      const dateStr = new Date(f.timestamp || Date.now()).toLocaleString('ar-EG');
+      const dateStr = new Date(f.timestamp || Date.now()).toLocaleString('en-US');
       const stars = "★".repeat(f.rating || 5) + "☆".repeat(5 - (f.rating || 5));
-      const phoneLink = f.phone ? `<a href="https://wa.me/${f.phone.replace(/[^0-9]/g, '')}" target="_blank" style="color:var(--success); font-weight:bold;">${f.phone}</a>` : '-';
+      const cleanPhone = (f.phone || '').replace(/[^0-9]/g, '');
+      const phoneLink = cleanPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" rel="noopener" style="color:var(--success); font-weight:bold;">${escapeHtml(f.phone)}</a>` : '-';
 
       return `
         <tr>
           <td><small>${dateStr}</small></td>
-          <td><b>${f.subscriberName || 'مستخدم'}</b></td>
+          <td><b>${escapeHtml(f.subscriberName || 'مستخدم')}</b></td>
           <td>${phoneLink}</td>
           <td><span class="rating-stars">${stars}</span></td>
-          <td><span class="badge badge-monthly">${f.category || 'اقتراح'}</span></td>
-          <td style="max-width: 320px; line-height: 1.6;">${f.message}</td>
-          <td><small>${f.deviceModel || f.deviceCode || '-'}</small></td>
+          <td><span class="badge badge-monthly">${escapeHtml(f.category || 'اقتراح')}</span></td>
+          <td style="max-width: 320px; line-height: 1.6;">${escapeHtml(f.message)}</td>
+          <td><small>${escapeHtml(f.deviceModel || f.deviceCode || '-')}</small></td>
           <td>
-            ${f.phone ? `<button class="btn-sm btn-unblock" onclick="window.open('https://wa.me/${f.phone.replace(/[^0-9]/g, '')}', '_blank')">واتساب 💬</button>` : '-'}
+            ${cleanPhone ? `<button class="btn-sm btn-unblock btn-fb-wa" data-phone="${cleanPhone}">واتساب</button>` : '-'}
           </td>
         </tr>
       `;
     }).join('');
+
+    tbody.querySelectorAll('.btn-fb-wa').forEach(btn => {
+      btn.addEventListener('click', function() {
+        window.open('https://wa.me/' + this.getAttribute('data-phone'), '_blank', 'noopener');
+      });
+    });
   }
 
   function filterFeedbacks() {
@@ -2103,8 +2249,8 @@
     document.getElementById("modalUserAvatar").innerText = isBlocked ? '⛔' : (isAct ? '⭐' : '👤');
     
     let statusBadge = isBlocked
-      ? `<span class="badge badge-blocked">⛔ محظور</span>`
-      : (isAct ? `<span class="badge badge-active">✅ مشترك مفعّل</span>` : `<span class="badge badge-trial">⏳ تجريبي مجاني</span>`);
+      ? `<span class="badge badge-blocked">محظور</span>`
+      : (isAct ? `<span class="badge badge-active">مشترك مفعّل</span>` : `<span class="badge badge-trial">⏳ تجريبي مجاني</span>`);
     document.getElementById("modalUserStatusBadge").innerHTML = statusBadge;
 
     // Populate Info Pills
@@ -2125,7 +2271,7 @@
     document.getElementById("modalUserOps").innerText = isAct ? `${ops} عملية (غير محدود - مشترك)` : `${ops} / ${limit} عملية`;
     document.getElementById("modalUserBackupStatus").innerHTML = isDeviceBkLocked 
       ? `<span style="color:var(--danger); font-weight:bold;">🚫 مقفول للجهاز</span>`
-      : `<span style="color:var(--success); font-weight:bold;">✅ متاح</span>`;
+      : `<span style="color:var(--success); font-weight:bold;">متاح</span>`;
 
     // Action buttons in modal
     const waBtn = document.getElementById("modalBtnWhatsApp");
@@ -2139,14 +2285,14 @@
     }
 
     const blockBtn = document.getElementById("modalBtnToggleBlock");
-    blockBtn.innerText = isBlocked ? "فك الحظر 🔓" : "حظر المستخدم ⛔";
+    blockBtn.innerText = isBlocked ? "فك الحظر " : "حظر المستخدم ⛔";
     blockBtn.onclick = async () => {
       await toggleBlockUser(cleanKey, u.googleEmail || '', !isBlocked);
       openUserDetailModal(cleanKey);
     };
 
     const bkBtn = document.getElementById("modalBtnToggleBackup");
-    bkBtn.innerText = isDeviceBkLocked ? "فتح النسخ 🔓" : "قفل النسخ 🔒";
+    bkBtn.innerText = isDeviceBkLocked ? "فتح النسخ " : "قفل النسخ ";
     bkBtn.onclick = async () => {
       await toggleDeviceBackupLock(cleanKey, !isDeviceBkLocked);
       openUserDetailModal(cleanKey);
@@ -2223,7 +2369,7 @@
     const headingEl = document.getElementById("userMsgFormHeading");
     if (headingEl) headingEl.innerText = "تعديل نص وعنوان التنبيه الموجه لهذا الجهاز:";
     const iconEl = document.getElementById("userMsgFormIcon");
-    if (iconEl) iconEl.innerText = "✏️";
+    if (iconEl) iconEl.innerText = "";
     const cardEl = document.getElementById("userMsgFormCard");
     if (cardEl) {
       cardEl.style.borderColor = "var(--accent)";
@@ -2360,7 +2506,7 @@
     messages.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
     tbody.innerHTML = messages.map(m => {
-      const typeIcons = { warning: '⚠️ تحذيري', info: 'ℹ️ إخباري', important: '📢 هام' };
+      const typeIcons = { warning: 'تحذيري', info: 'ℹ️ إخباري', important: '📢 هام' };
       const typeBadge = typeIcons[m.type] || 'ℹ️ تنبيه';
       const dispText = m.displays == '1' ? 'مرة واحدة' : (m.displays == '3' ? '3 مرات' : 'دائم');
       const activeBadge = m.active !== false
@@ -2372,9 +2518,9 @@
         ? `<button class="btn-sm btn-outline" style="padding:3px 8px; font-size:10.5px;" onclick="toggleUserMessageState('${cleanDeviceKey}', '${m.id}', false)">تعطيل</button>`
         : `<button class="btn-sm btn-unblock" style="padding:3px 8px; font-size:10.5px;" onclick="toggleUserMessageState('${cleanDeviceKey}', '${m.id}', true)">تفعيل</button>`;
 
-      const editBtn = `<button class="btn-sm btn-outline" style="padding:3px 8px; font-size:10.5px; color:var(--primary); border-color:var(--primary);" onclick="startEditUserMessage('${cleanDeviceKey}', '${m.id}')" title="تعديل نص وعنوان التنبيه">تعديل ✏️</button>`;
+      const editBtn = `<button class="btn-sm btn-outline" style="padding:3px 8px; font-size:10.5px; color:var(--primary); border-color:var(--primary);" onclick="startEditUserMessage('${cleanDeviceKey}', '${m.id}')" title="تعديل نص وعنوان التنبيه">تعديل </button>`;
 
-      const deleteBtn = `<button class="btn-sm btn-block" style="padding:3px 8px; font-size:10.5px;" onclick="deleteUserMessage('${cleanDeviceKey}', '${m.id}')" title="حذف هذا التنبيه نهائياً">حذف 🗑️</button>`;
+      const deleteBtn = `<button class="btn-sm btn-block" style="padding:3px 8px; font-size:10.5px;" onclick="deleteUserMessage('${cleanDeviceKey}', '${m.id}')" title="حذف هذا التنبيه نهائياً">حذف </button>`;
 
       const safeText = m.text ? escapeHtml(m.text) : '<span style="color:var(--text-muted); font-style:italic;">(لا يوجد نص)</span>';
       const safeTitle = escapeHtml(m.title || 'تنبيه موجه');
@@ -2453,7 +2599,7 @@
 
       cancelEditUserMessage();
 
-      alert(isEdit ? "✅ تم تعديل وحفظ بيانات التنبيه وتحديثها على الهاتف بنجاح!" : "✅ تم حفظ وإرسال التنبيه الموجه بنجاح! سيظهر للمستخدم في هاتفه فوراً.");
+      alert(isEdit ? "تم تعديل وحفظ بيانات التنبيه وتحديثها على الهاتف بنجاح!" : "تم حفظ وإرسال التنبيه الموجه بنجاح! سيظهر للمستخدم في هاتفه فوراً.");
       loadUserMessagesList(activeModalUserKey, allOverrides[activeModalUserKey] || {});
       loadFirebaseData();
     } catch (e) {
@@ -2529,7 +2675,7 @@
         cancelEditUserMessage();
       }
 
-      alert("✅ تم حذف الرسالة والتنبيه نهائياً بنجاح.");
+      alert("تم حذف الرسالة والتنبيه نهائياً بنجاح.");
       loadFirebaseData();
       loadUserMessagesList(cleanDeviceKey, allOverrides[cleanDeviceKey] || {});
     } catch (e) {
@@ -2578,23 +2724,23 @@
       const data = (await safeJson(res)) || {};
       if (data && data.success) {
         statusEl.style.color = "var(--success)";
-        statusEl.innerText = `✅ ${data.message || 'تم إرسال الإشعار بنجاح!'}`;
-        alert("✅ " + (data.message || "تم إرسال الإشعار لستارة هاتف المستخدم بنجاح!"));
+        statusEl.innerText = `${data.message || 'تم إرسال الإشعار بنجاح!'}`;
+        alert("" + (data.message || "تم إرسال الإشعار لستارة هاتف المستخدم بنجاح!"));
         
         loadFirebaseData();
         loadUserMessagesList(activeModalUserKey, allOverrides[activeModalUserKey] || {});
       } else {
         statusEl.style.color = "var(--danger)";
-        statusEl.innerText = `❌ ${data.message || 'تعذر الإرسال'}`;
+        statusEl.innerText = `${data.message || 'تعذر الإرسال'}`;
         alert("تعذر إرسال الإشعار: " + (data.message || 'خطأ غير معروف'));
       }
     } catch (e) {
       statusEl.style.color = "var(--danger)";
-      statusEl.innerText = `❌ خطأ في الاتصال: ${e.message}`;
+      statusEl.innerText = `خطأ في الاتصال: ${e.message}`;
       alert("خطأ في الاتصال بالسيرفر: " + e.message);
     } finally {
       sendBtn.disabled = false;
-      sendBtn.innerText = "🚀 إرسال الإشعار فوراً للهاتف";
+      sendBtn.innerText = "إرسال الإشعار فوراً للهاتف";
     }
   }
 
@@ -2607,3 +2753,23 @@
       switchTab(savedTab);
     }
   } catch (_) {}
+
+  // Force Update warning and default unchecked setup (B2)
+  const forceEl = document.getElementById("apkForceUpdate");
+  if (forceEl) {
+    forceEl.checked = false;
+    let warnDiv = document.getElementById("apkForceWarnLabel");
+    if (!warnDiv) {
+      warnDiv = document.createElement("div");
+      warnDiv.id = "apkForceWarnLabel";
+      warnDiv.style.cssText = "font-size: 12px; color: var(--danger); margin-top: 4px; display: none; font-weight: 600;";
+      warnDiv.textContent = "لا تفعّله إلا بعد أن يحدّث أغلب المستخدمين؛ يمنع الإصدارات الأقدم من العمل";
+      forceEl.parentElement.parentElement.appendChild(warnDiv);
+    }
+    forceEl.addEventListener("change", function() {
+      warnDiv.style.display = this.checked ? "block" : "none";
+      if (this.checked) {
+        alert("تنبيه: لا تفعّله إلا بعد أن يحدّث أغلب المستخدمين؛ يمنع الإصدارات الأقدم من العمل");
+      }
+    });
+  }
