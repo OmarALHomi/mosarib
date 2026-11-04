@@ -838,7 +838,7 @@ fun VoiceRecordSheet(
     subtitle: String = "اضغط مطولاً وتكلّم، ثم أفلت",
     compact: Boolean = false,
     // Shown while idle so the user knows what to say.
-    examples: List<String> = emptyList(),
+    examples: List<Pair<String, List<String>>> = emptyList(),
     // When set, the sheet shows what was understood (with retry) before handing the result over.
     describe: ((candidates: List<String>) -> String?)? = null,
     onDismiss: () -> Unit,
@@ -1353,7 +1353,14 @@ fun VoiceRecordSheet(
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Spacer(modifier = Modifier.height(6.dp))
-                            examples.forEach { ex ->
+                            examples.forEach { (group, phrases) ->
+                              Text(
+                                  text = group,
+                                  style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                  color = MaterialTheme.colorScheme.primary,
+                                  modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp)
+                              )
+                              phrases.forEach { ex ->
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
                                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
@@ -1368,6 +1375,7 @@ fun VoiceRecordSheet(
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                                     )
                                 }
+                              }
                             }
                         }
                     }
