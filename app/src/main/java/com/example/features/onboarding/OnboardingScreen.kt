@@ -1,18 +1,19 @@
 package com.example.features.onboarding
 
+import android.content.res.Configuration
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,25 +23,35 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,33 +65,74 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.widget.Toast
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.WarningAmber
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.OutlinedButton
 import com.example.core.license.FirebaseLicenseService
 import com.example.core.license.LicenseManager
 import com.example.core.license.UserDeviceTracker
+import com.example.core.ui.GoogleBackupAccountDialog
 import com.example.core.util.GoogleDriveBackupHelper
 import com.example.ui.theme.AccentEmerald
 import com.example.ui.theme.AccentGold
+import com.example.ui.theme.MosaribTheme
 import com.example.ui.theme.PrimaryTeal
+import com.example.ui.theme.SecondaryAqua
 import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.common.api.ApiException
 import kotlinx.coroutines.launch
 
-private data class OnboardingPage(
+data class OnboardingPageData(
     val title: String,
     val subtitle: String,
     val icon: ImageVector,
     val gradientColors: List<Color>,
-    val pills: List<String>
+    val pills: List<String>,
+    val voiceExample: String? = null
+)
+
+val DefaultOnboardingPages = listOf(
+    OnboardingPageData(
+        title = "سقي محسوب بالدقيقة",
+        subtitle = "تسجيل دقيق لدورات السقي واحتساب التكلفة تلقائياً لكل مزارع.",
+        icon = Icons.Default.WaterDrop,
+        gradientColors = listOf(PrimaryTeal, SecondaryAqua),
+        pills = listOf("عداد دقيق", "سعر الساعة", "من/إلى")
+    ),
+    OnboardingPageData(
+        title = "سندات وحسابات واضحة",
+        subtitle = "تحصيل فوري بمستندات مالية موثقة وقيد النفقات ومتابعة الديون.",
+        icon = Icons.Default.Payments,
+        gradientColors = listOf(AccentEmerald, Color(0xFF059669)),
+        pills = listOf("قبض", "صرف", "خصم")
+    ),
+    OnboardingPageData(
+        title = "قل العملية بصوتك",
+        subtitle = "تحدث بطبيعتك دون ترتيب محدد وسيتولى التطبيق ملء العملية بالكامل.",
+        icon = Icons.Default.Mic,
+        gradientColors = listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9)),
+        pills = listOf("إدخال صوتي", "قراءة بالصوت", "مجاني"),
+        voiceExample = "«مع احمد علي ساعتين من 10 الف ومسلم 5 الف»"
+    ),
+    OnboardingPageData(
+        title = "كشوف \u2068PDF\u2069 وواتساب",
+        subtitle = "استخرج كشوفات حساب تفصيلية وإجمالية بصيغة \u2068PDF\u2069 جاهزة للطباعة والمشاركة.",
+        icon = Icons.Default.Assessment,
+        gradientColors = listOf(AccentGold, Color(0xFFD97706)),
+        pills = listOf("كشف حساب", "سند", "تقارير")
+    ),
+    OnboardingPageData(
+        title = "بياناتك وحساباتك محفوظة",
+        subtitle = "يعمل في أعمق الحقول بدون شبكة مع نسخ احتياطي محلي وسحابي.",
+        icon = Icons.Default.CloudDone,
+        gradientColors = listOf(Color(0xFF16A34A), Color(0xFF0D9488)),
+        pills = listOf("بدون إنترنت", "نسخ على الهاتف", "\u2068Google Drive\u2069")
+    )
 )
 
 @Composable
@@ -123,11 +175,10 @@ fun OnboardingScreen(
                                 UserDeviceTracker.saveUserRegistrationInfo(context, checkRes.subscriberName, checkRes.phone)
                                 UserDeviceTracker.setGoogleAccountAuthenticatedForApp(context, true)
                                 signedInGoogleAccount = account
-                                Toast.makeText(context, "أهلاً بك مجدداً ${checkRes.subscriberName}! تم استعادة حسابك بنجاح.", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "أهلاً بك مجدداً ${checkRes.subscriberName}. تم استعادة حسابك بنجاح.", Toast.LENGTH_LONG).show()
                                 completeOnboarding()
                             }
                             is FirebaseLicenseService.ExistingUserResult.NotFound -> {
-                                // CRITICAL ANTI-TAMPERING: Sign out Google, do NOT save email to Firebase
                                 val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
                                 client.signOut()
                                 UserDeviceTracker.setGoogleAccountAuthenticatedForApp(context, false)
@@ -141,7 +192,6 @@ fun OnboardingScreen(
                         }
                     }
                 } else {
-                    // Registration Flow
                     signedInGoogleAccount = account
                     UserDeviceTracker.setGoogleAccountAuthenticatedForApp(context, true)
                     scope.launch {
@@ -154,417 +204,577 @@ fun OnboardingScreen(
         }
     }
 
-    val pages = remember {
-        listOf(
-            OnboardingPage(
-                title = "إدارة دورات السقي والري بدقة",
-                subtitle = "سجّل جلسات السقي للمزارعين بالدقائق والساعات، مع احتساب المبالغ تلقائياً وإمكانية إيقاف واستئناف العداد بمرونة.",
-                icon = Icons.Default.WaterDrop,
-                gradientColors = listOf(PrimaryTeal, Color(0xFF0284C7)),
-                pills = listOf("عداد دقيق", "حساب تلقائي", "إيقاف واستئناف")
-            ),
-            OnboardingPage(
-                title = "دفتر حسابات وسندات مالية متكامل",
-                subtitle = "تحصيل فوري لمستحقات الري بسندات قبض، وقيد النفقات التشغيلية وشراء ساعات الماء من الآبار المجاورة.",
-                icon = Icons.Default.Payments,
-                gradientColors = listOf(AccentEmerald, Color(0xFF059669)),
-                pills = listOf("سندات قبض", "سندات صرف", "حسابات الآبار")
-            ),
-            OnboardingPage(
-                title = "تقارير احترافية ومشاركة واتساب",
-                subtitle = "استخرج كشوفات حساب تفصيلية وإجمالية بصيغة PDF أنيقة قابلة للطباعة والإرسال الفوري للمزارعين عبر الواتساب.",
-                icon = Icons.Default.Assessment,
-                gradientColors = listOf(AccentGold, Color(0xFFD97706)),
-                pills = listOf("كشوفات PDF", "مشاركة واتساب", "إحصائيات فورية")
-            ),
-            OnboardingPage(
-                title = "نسخ احتياطي سحابي مع Google Drive",
-                subtitle = "بياناتك بأمان دائم! اربط حساب Google لحفظ واستعادة نسخك الاحتياطية سحابياً في أي وقت ومن أي هاتف.",
-                icon = Icons.Default.CloudDone,
-                gradientColors = listOf(Color(0xFF16A34A), Color(0xFF0D9488)),
-                pills = listOf("سحابة آمنة", "حفظ تلقائي", "استعادة سريعة")
-            )
+    val pagerState = rememberPagerState(initialPage = 0) { DefaultOnboardingPages.size }
+
+    OnboardingContent(
+        pagerState = pagerState,
+        pages = DefaultOnboardingPages,
+        signedInGoogleAccount = signedInGoogleAccount,
+        isCheckingGoogleLogin = isCheckingGoogleLogin,
+        onSkip = { completeOnboarding() },
+        onNext = {
+            scope.launch {
+                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+            }
+        },
+        onStart = { completeOnboarding() },
+        onGoogleSignIn = {
+            isLoginFlow = true
+            val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
+            googleSignInLauncher.launch(client.signInIntent)
+        },
+        onNewRegistration = {
+            isLoginFlow = false
+            showGoogleBackupDialog = true
+        }
+    )
+
+    if (showGoogleBackupDialog) {
+        val initialName = UserDeviceTracker.getRegisteredName(context).takeIf { it.isNotBlank() }
+            ?: LicenseManager.getActivationRecord(context)?.subscriberName
+            ?: ""
+
+        val initialPhone = UserDeviceTracker.getRegisteredPhone(context).takeIf { it.isNotBlank() }
+            ?: ""
+
+        GoogleBackupAccountDialog(
+            initialName = initialName,
+            initialPhone = initialPhone,
+            currentGoogleAccount = signedInGoogleAccount,
+            onDismiss = { showGoogleBackupDialog = false },
+            onProceed = { name, phone, _ ->
+                showGoogleBackupDialog = false
+                UserDeviceTracker.saveUserRegistrationInfo(context, name, phone)
+                val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
+                googleSignInLauncher.launch(client.signInIntent)
+            }
         )
     }
 
-    val pagerState = rememberPagerState(initialPage = 0) { pages.size }
+    if (showNotRegisteredDialog) {
+        AlertDialog(
+            onDismissRequest = { showNotRegisteredDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.WarningAmber,
+                    contentDescription = null,
+                    tint = AccentGold,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "لا يوجد حساب مسجل مسبقاً",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Text(
+                    text = "لا يوجد حساب أو اشتراك مرتبط بهذا البريد الإلكتروني:\n($unregisteredEmailAttempt)\n\nيمكنك تسجيل حساب جديد ببياناتك الآن، أو المتابعة باستخدام النسخة المجانية.",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        lineHeight = 22.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    textAlign = TextAlign.Center
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showNotRegisteredDialog = false
+                        isLoginFlow = false
+                        showGoogleBackupDialog = true
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("تسجيل حساب جديد", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showNotRegisteredDialog = false
+                        completeOnboarding()
+                    }
+                ) {
+                    Text("المتابعة مجاناً", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        )
+    }
+}
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        Column(
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun OnboardingContent(
+    pagerState: PagerState,
+    pages: List<OnboardingPageData>,
+    signedInGoogleAccount: GoogleSignInAccount? = null,
+    isCheckingGoogleLogin: Boolean = false,
+    onSkip: () -> Unit = {},
+    onNext: () -> Unit = {},
+    onStart: () -> Unit = {},
+    onGoogleSignIn: () -> Unit = {},
+    onNewRegistration: () -> Unit = {}
+) {
+    val isDark = isSystemInDarkTheme()
+
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            // Top Bar: Skip button
-            Row(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // App Logo text
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
+                // Top Bar: Brand Logo & Skip button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(PrimaryTeal.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.WaterDrop,
+                                contentDescription = null,
+                                tint = PrimaryTeal,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "المُسَرِّب",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = PrimaryTeal
+                            )
+                        )
+                    }
+
+                    if (pagerState.currentPage < pages.size - 1) {
+                        TextButton(
+                            onClick = onSkip,
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(
+                                text = "تخطي",
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.width(1.dp))
+                    }
+                }
+
+                // Pager Content
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) { pageIdx ->
+                    val page = pages[pageIdx]
+                    Column(
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(PrimaryTeal.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
+                        // Feature Icon with glowing circular frame
+                        Box(
+                            modifier = Modifier
+                                .size(104.dp)
+                                .shadow(20.dp, CircleShape, spotColor = page.gradientColors.first().copy(alpha = 0.45f))
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(page.gradientColors)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = page.icon,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(54.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Title (3–6 words, no exclamation mark)
+                        Text(
+                            text = page.title,
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 30.sp
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Optional Voice Example Card (Page 3)
+                        if (page.voiceExample != null) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Mic,
+                                        contentDescription = null,
+                                        tint = PrimaryTeal,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = page.voiceExample,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontSize = 13.5.sp
+                                        ),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+
+                        // Subtitle (up to 2 lines, no exclamation mark)
+                        Text(
+                            text = page.subtitle,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 21.sp,
+                                fontSize = 14.sp
+                            ),
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // 3 Feature Pills using FlowRow to adapt cleanly to small screens & large fonts
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            page.pills.forEach { pill ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .background(page.gradientColors.first().copy(alpha = 0.12f))
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = pill,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = page.gradientColors.first(),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                }
+                            }
+                        }
+
+                        // Google Drive Connection Card on Page 5
+                        if (pageIdx == 4) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (signedInGoogleAccount != null) {
+                                        AccentEmerald.copy(alpha = 0.12f)
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    }
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    if (signedInGoogleAccount != null) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = AccentEmerald,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "تم ربط الحساب: ${signedInGoogleAccount.email}",
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isDark) Color(0xFF4ADE80) else Color(0xFF166534)
+                                                )
+                                            )
+                                        }
+                                    } else if (isCheckingGoogleLogin) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(20.dp),
+                                                strokeWidth = 2.dp,
+                                                color = PrimaryTeal
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "جاري التحقق من وجود الحساب...",
+                                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                                            )
+                                        }
+                                    } else {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Button(
+                                                onClick = onGoogleSignIn,
+                                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                                                shape = RoundedCornerShape(10.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.CloudDone,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = Color.White
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = "دخول بحساب Google",
+                                                    style = MaterialTheme.typography.labelLarge.copy(
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color.White
+                                                    )
+                                                )
+                                            }
+
+                                            OutlinedButton(
+                                                onClick = onNewRegistration,
+                                                shape = RoundedCornerShape(10.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Person,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = AccentEmerald
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = "تسجيل حساب جديد",
+                                                    style = MaterialTheme.typography.labelLarge.copy(
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = AccentEmerald
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Bottom Navigation: Indicator Dots and Next/Start Button
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Page Indicator Dots
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        repeat(pages.size) { idx ->
+                            val isSelected = pagerState.currentPage == idx
+                            val dotWidth by animateDpAsState(
+                                targetValue = if (isSelected) 26.dp else 8.dp,
+                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                label = "dot_width"
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 4.dp)
+                                    .height(8.dp)
+                                    .width(dotWidth)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(
+                                        if (isSelected) PrimaryTeal else MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // Action Button (التالي / ابدأ الآن)
+                    val isLastPage = pagerState.currentPage == pages.size - 1
+                    Button(
+                        onClick = {
+                            if (isLastPage) onStart() else onNext()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isLastPage) AccentEmerald else PrimaryTeal
+                        )
+                    ) {
+                        Text(
+                            text = if (isLastPage) "ابدأ الآن" else "التالي",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 16.sp,
+                                color = Color.White
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Icon(
-                            imageVector = Icons.Default.WaterDrop,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = null,
-                            tint = PrimaryTeal,
+                            tint = Color.White,
                             modifier = Modifier.size(18.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "المُسَرِّبْ",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = PrimaryTeal
-                        )
-                    )
-                }
-
-                if (pagerState.currentPage < pages.size - 1) {
-                    TextButton(
-                        onClick = { completeOnboarding() },
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text(
-                            text = "تخطي",
-                            style = MaterialTheme.typography.labelLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        )
-                    }
-                } else {
-                    Spacer(modifier = Modifier.width(1.dp))
-                }
-            }
-
-            // Pager content
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) { pageIdx ->
-                val page = pages[pageIdx]
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    // Feature Icon Box with glowing shadow
-                    Box(
-                        modifier = Modifier
-                            .size(130.dp)
-                            .shadow(24.dp, CircleShape, spotColor = page.gradientColors.first().copy(alpha = 0.45f))
-                            .clip(CircleShape)
-                            .background(
-                                Brush.linearGradient(page.gradientColors)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = page.icon,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(68.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(36.dp))
-
-                    // Title
-                    Text(
-                        text = page.title,
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 32.sp
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Subtitle
-                    Text(
-                        text = page.subtitle,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 22.sp,
-                            fontSize = 14.5.sp
-                        ),
-                        modifier = Modifier.padding(horizontal = 12.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Feature Pills
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        page.pills.forEach { pill ->
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(page.gradientColors.first().copy(alpha = 0.12f))
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = pill,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = page.gradientColors.first(),
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                )
-                            }
-                        }
-                    }
-
-                    // Special for Google Drive slide (Page 3)
-                    if (pageIdx == 3) {
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (signedInGoogleAccount != null) Color(0xFFF0FDF4) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            )
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                if (signedInGoogleAccount != null) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(18.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "تم ربط الحساب: ${signedInGoogleAccount?.email}",
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF166534)
-                                            )
-                                        )
-                                    }
-                                } else if (isCheckingGoogleLogin) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = PrimaryTeal)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("جاري التحقق من وجود الحساب...", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                } else {
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        // Path 1: Sign in with existing Google Account
-                                        Button(
-                                            onClick = {
-                                                isLoginFlow = true
-                                                val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
-                                                googleSignInLauncher.launch(client.signInIntent)
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
-                                            shape = RoundedCornerShape(10.dp),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Icon(Icons.Default.CloudDone, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text("دخول بحساب Google", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                        }
-
-                                        // Path 2: New Registration
-                                        OutlinedButton(
-                                            onClick = {
-                                                isLoginFlow = false
-                                                showGoogleBackupDialog = true
-                                            },
-                                            shape = RoundedCornerShape(10.dp),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp), tint = AccentEmerald)
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text("تسجيل حساب جديد", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Bottom Navigation Strip
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Page Indicator Dots
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    repeat(pages.size) { idx ->
-                        val isSelected = pagerState.currentPage == idx
-                        val width by animateDpAsState(
-                            targetValue = if (isSelected) 28.dp else 8.dp,
-                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                            label = "dot_width"
-                        )
-                        Box(
-                            modifier = Modifier
-                                .padding(horizontal = 4.dp)
-                                .height(8.dp)
-                                .width(width)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(
-                                    if (isSelected) PrimaryTeal else MaterialTheme.colorScheme.surfaceVariant
-                                )
-                                .clickable {
-                                    scope.launch { pagerState.animateScrollToPage(idx) }
-                                }
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Action Button
-                val isLastPage = pagerState.currentPage == pages.size - 1
-                Button(
-                    onClick = {
-                        if (isLastPage) {
-                            completeOnboarding()
-                        } else {
-                            scope.launch {
-                                pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isLastPage) AccentEmerald else PrimaryTeal
-                    )
-                ) {
-                    Text(
-                        text = if (isLastPage) "ابدأ استخدام المُسَرِّب ✨" else "التالي",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 16.sp,
-                            color = Color.White
-                        )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
                 }
             }
         }
+    }
+}
 
-        if (showGoogleBackupDialog) {
-            val initialName = com.example.core.license.UserDeviceTracker.getRegisteredName(context).takeIf { it.isNotBlank() }
-                ?: com.example.core.license.LicenseManager.getActivationRecord(context)?.subscriberName
-                ?: ""
+// ─── Previews (360dp width, Light and Dark themes for each page) ───
 
-            val initialPhone = com.example.core.license.UserDeviceTracker.getRegisteredPhone(context).takeIf { it.isNotBlank() }
-                ?: ""
+@Preview(name = "Page 1 - Light 360dp", widthDp = 360, heightDp = 640, showBackground = true)
+@Composable
+fun OnboardingPage1LightPreview() {
+    MosaribTheme(darkTheme = false) {
+        val pagerState = rememberPagerState(initialPage = 0) { DefaultOnboardingPages.size }
+        OnboardingContent(pagerState = pagerState, pages = DefaultOnboardingPages)
+    }
+}
 
-            com.example.core.ui.GoogleBackupAccountDialog(
-                initialName = initialName,
-                initialPhone = initialPhone,
-                currentGoogleAccount = signedInGoogleAccount,
-                onDismiss = { showGoogleBackupDialog = false },
-                onProceed = { name, phone, _ ->
-                    showGoogleBackupDialog = false
-                    com.example.core.license.UserDeviceTracker.saveUserRegistrationInfo(context, name, phone)
-                    val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
-                    googleSignInLauncher.launch(client.signInIntent)
-                }
-            )
-        }
+@Preview(name = "Page 1 - Dark 360dp", widthDp = 360, heightDp = 640, showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun OnboardingPage1DarkPreview() {
+    MosaribTheme(darkTheme = true) {
+        val pagerState = rememberPagerState(initialPage = 0) { DefaultOnboardingPages.size }
+        OnboardingContent(pagerState = pagerState, pages = DefaultOnboardingPages)
+    }
+}
 
-        if (showNotRegisteredDialog) {
-            AlertDialog(
-                onDismissRequest = { showNotRegisteredDialog = false },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.WarningAmber,
-                        contentDescription = null,
-                        tint = AccentGold,
-                        modifier = Modifier.size(32.dp)
-                    )
-                },
-                title = {
-                    Text(
-                        text = "لا يوجد حساب مسجل مسبقاً",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        textAlign = TextAlign.Center
-                    )
-                },
-                text = {
-                    Text(
-                        text = "لا يوجد حساب أو اشتراك مرتبط بهذا البريد الإلكتروني:\n($unregisteredEmailAttempt)\n\nيمكنك تسجيل حساب جديد ببياناتك الآن، أو المتابعة باستخدام النسخة المجانية.",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            lineHeight = 22.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        textAlign = TextAlign.Center
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            showNotRegisteredDialog = false
-                            isLoginFlow = false
-                            showGoogleBackupDialog = true
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("تسجيل حساب جديد", fontWeight = FontWeight.Bold)
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = {
-                            showNotRegisteredDialog = false
-                            completeOnboarding()
-                        }
-                    ) {
-                        Text("المتابعة مجاناً", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            )
-        }
+@Preview(name = "Page 2 - Light 360dp", widthDp = 360, heightDp = 640, showBackground = true)
+@Composable
+fun OnboardingPage2LightPreview() {
+    MosaribTheme(darkTheme = false) {
+        val pagerState = rememberPagerState(initialPage = 1) { DefaultOnboardingPages.size }
+        OnboardingContent(pagerState = pagerState, pages = DefaultOnboardingPages)
+    }
+}
+
+@Preview(name = "Page 2 - Dark 360dp", widthDp = 360, heightDp = 640, showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun OnboardingPage2DarkPreview() {
+    MosaribTheme(darkTheme = true) {
+        val pagerState = rememberPagerState(initialPage = 1) { DefaultOnboardingPages.size }
+        OnboardingContent(pagerState = pagerState, pages = DefaultOnboardingPages)
+    }
+}
+
+@Preview(name = "Page 3 - Light 360dp", widthDp = 360, heightDp = 640, showBackground = true)
+@Composable
+fun OnboardingPage3LightPreview() {
+    MosaribTheme(darkTheme = false) {
+        val pagerState = rememberPagerState(initialPage = 2) { DefaultOnboardingPages.size }
+        OnboardingContent(pagerState = pagerState, pages = DefaultOnboardingPages)
+    }
+}
+
+@Preview(name = "Page 3 - Dark 360dp", widthDp = 360, heightDp = 640, showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun OnboardingPage3DarkPreview() {
+    MosaribTheme(darkTheme = true) {
+        val pagerState = rememberPagerState(initialPage = 2) { DefaultOnboardingPages.size }
+        OnboardingContent(pagerState = pagerState, pages = DefaultOnboardingPages)
+    }
+}
+
+@Preview(name = "Page 4 - Light 360dp", widthDp = 360, heightDp = 640, showBackground = true)
+@Composable
+fun OnboardingPage4LightPreview() {
+    MosaribTheme(darkTheme = false) {
+        val pagerState = rememberPagerState(initialPage = 3) { DefaultOnboardingPages.size }
+        OnboardingContent(pagerState = pagerState, pages = DefaultOnboardingPages)
+    }
+}
+
+@Preview(name = "Page 4 - Dark 360dp", widthDp = 360, heightDp = 640, showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun OnboardingPage4DarkPreview() {
+    MosaribTheme(darkTheme = true) {
+        val pagerState = rememberPagerState(initialPage = 3) { DefaultOnboardingPages.size }
+        OnboardingContent(pagerState = pagerState, pages = DefaultOnboardingPages)
+    }
+}
+
+@Preview(name = "Page 5 - Light 360dp", widthDp = 360, heightDp = 640, showBackground = true)
+@Composable
+fun OnboardingPage5LightPreview() {
+    MosaribTheme(darkTheme = false) {
+        val pagerState = rememberPagerState(initialPage = 4) { DefaultOnboardingPages.size }
+        OnboardingContent(pagerState = pagerState, pages = DefaultOnboardingPages)
+    }
+}
+
+@Preview(name = "Page 5 - Dark 360dp", widthDp = 360, heightDp = 640, showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun OnboardingPage5DarkPreview() {
+    MosaribTheme(darkTheme = true) {
+        val pagerState = rememberPagerState(initialPage = 4) { DefaultOnboardingPages.size }
+        OnboardingContent(pagerState = pagerState, pages = DefaultOnboardingPages)
     }
 }

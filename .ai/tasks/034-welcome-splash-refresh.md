@@ -1,4 +1,4 @@
-status: ready
+status: done
 <!-- Owner request 2026-11-04: refresh the welcome (onboarding) and splash screens for 1.4.0. Keep the
 Google sign-in / account-check logic exactly as it is; texts, order and styling only. -->
 # Task 034: Welcome and splash screens for 1.4.0
