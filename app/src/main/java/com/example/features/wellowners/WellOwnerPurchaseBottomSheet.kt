@@ -1,5 +1,13 @@
 package com.example.features.wellowners
 
+import com.example.core.ui.guide.GuideHelpButton
+import com.example.core.ui.guide.GuidePreferences
+import com.example.core.ui.guide.GuideTexts
+import com.example.core.ui.guide.SpotlightTour
+import com.example.core.ui.guide.guideTarget
+import kotlinx.coroutines.delay
+
+
 import com.example.core.voice.VoiceCommand
 import com.example.core.voice.VoiceFieldMic
 import com.example.core.voice.VoiceSummaryBanner
@@ -262,6 +270,14 @@ fun WellOwnerPurchaseBottomSheet(
         mutableStateOf(initialPurchase?.let { if (it.wastedMinutesOnOwner > 0) (it.wastedMinutesOnOwner % 60).toString() else "" } ?: "")
     }
     val context = LocalContext.current
+    var activeTour by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        delay(500)
+        if (!GuidePreferences.isTourDone(context, GuidePreferences.TOUR_PURCHASE_FORM)) {
+            activeTour = GuidePreferences.TOUR_PURCHASE_FORM
+        }
+    }
+
     var amountPaidText by remember(initialPurchase, voiceCommand) {
         mutableStateOf(
             voiceCommand?.paid?.let { Formatters.formatAmountInput(it.toString()) } ?: ""
@@ -398,17 +414,36 @@ fun WellOwnerPurchaseBottomSheet(
         icon = Icons.Default.WaterDrop,
         hasUnsavedChanges = hasUnsavedChanges,
         headerActions = {
-            VoiceFieldMic(
-                onClick = {
-                    if (onReSpeak != null) {
-                        onReSpeak()
-                    } else {
-                        launchVoiceFor("form_command")
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                GuideHelpButton(onClick = { activeTour = GuidePreferences.TOUR_PURCHASE_FORM })
+                VoiceFieldMic(
+                    onClick = {
+                        if (onReSpeak != null) {
+                            onReSpeak()
+                        } else {
+                            launchVoiceFor("form_command")
+                        }
                     }
-                }
-            )
+                )
+            }
         },
         footer = {
+            // The tour popup must be created from inside the sheet window to be drawn above it.
+            if (activeTour != null) {
+                // A new tour id must start a fresh step counter.
+                key(activeTour) {
+                    SpotlightTour(
+                        steps = GuideTexts.getTour(activeTour!!),
+                        onFinish = {
+                            val finished = activeTour
+                            activeTour = null
+                            if (finished != null) {
+                                GuidePreferences.markTourDone(context, finished, true)
+                            }
+                        }
+                    )
+                }
+            }
             MosaribPrimaryButton(
                 text = if (initialPurchase != null) "حفظ التعديل" else "حفظ الشراء",
                 onClick = {
@@ -422,7 +457,7 @@ fun WellOwnerPurchaseBottomSheet(
                     }
                 },
                 enabled = canSave,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).guideTarget("purchase_save")
             )
             MosaribSecondaryButton(
                 text = "إلغاء",
@@ -446,7 +481,7 @@ fun WellOwnerPurchaseBottomSheet(
             // اختيار صاحب البئر إذا كان هناك أكثر من خيار ولم يتم تمريره ثابتاً
             if (owner == null && ownersList.size > 1) {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().guideTarget("purchase_owner"),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
@@ -500,7 +535,7 @@ fun WellOwnerPurchaseBottomSheet(
             // بطاقة تحديد وقت الشراء بنظام التبويبين (بدء وانتهاء / من + المدة)
             // ============================================================
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().guideTarget("purchase_hours"),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
@@ -898,7 +933,7 @@ fun WellOwnerPurchaseBottomSheet(
                 label = "سعر الساعة ($currencySymbol) *",
                 trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("rate") }) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().guideTarget("purchase_price"),
                 singleLine = true
             )
 
@@ -1066,4 +1101,5 @@ fun WellOwnerPurchaseBottomSheet(
         dialogType = voiceDialogType,
         onDismiss = { voiceDialogType = VoiceDialogType.NONE }
     )
+
 }

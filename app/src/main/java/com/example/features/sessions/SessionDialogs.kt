@@ -1,5 +1,14 @@
 package com.example.features.sessions
 
+import com.example.core.ui.guide.FirstTimeHint
+import com.example.core.ui.guide.GuideHelpButton
+import com.example.core.ui.guide.GuidePreferences
+import com.example.core.ui.guide.GuideTexts
+import com.example.core.ui.guide.SpotlightTour
+import com.example.core.ui.guide.guideTarget
+import kotlinx.coroutines.delay
+
+
 import com.example.core.voice.VoiceCommand
 import com.example.core.voice.VoiceFieldMic
 import com.example.core.voice.VoiceSummaryBanner
@@ -117,6 +126,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -300,6 +310,13 @@ fun AddEditSessionBottomSheet(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val isDark = isAppDark()
+    var activeTour by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        delay(500)
+        if (!GuidePreferences.isTourDone(context, GuidePreferences.TOUR_SESSION_FORM)) {
+            activeTour = GuidePreferences.TOUR_SESSION_FORM
+        }
+    }
 
     var currentVoiceCommand by remember(voiceCommand) { mutableStateOf(voiceCommand) }
     val initialCustomerFromVoice = remember(voiceCommand, customers) {
@@ -835,17 +852,37 @@ fun AddEditSessionBottomSheet(
         icon = Icons.Default.WaterDrop,
         hasUnsavedChanges = hasUnsavedChanges,
         headerActions = {
-            VoiceFieldMic(
-                onClick = {
-                    if (onReSpeak != null) {
-                        onReSpeak()
-                    } else {
-                        launchVoiceFor("form_command")
-                    }
-                }
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                GuideHelpButton(onClick = { activeTour = GuidePreferences.TOUR_SESSION_FORM })
+                VoiceFieldMic(
+                    onClick = {
+                        if (onReSpeak != null) {
+                            onReSpeak()
+                        } else {
+                            launchVoiceFor("form_command")
+                        }
+                    },
+                    modifier = Modifier.guideTarget("session_mic")
+                )
+            }
         },
         footer = {
+            // The tour popup must be created from inside the sheet window to be drawn above it.
+            if (activeTour != null) {
+                // A new tour id must start a fresh step counter.
+                key(activeTour) {
+                    SpotlightTour(
+                        steps = GuideTexts.getTour(activeTour!!),
+                        onFinish = {
+                            val finished = activeTour
+                            activeTour = null
+                            if (finished != null) {
+                                GuidePreferences.markTourDone(context, finished, true)
+                            }
+                        }
+                    )
+                }
+            }
             MosaribPrimaryButton(
                 text = if (initialSession == null) "حفظ السقي" else "حفظ التعديل",
                 onClick = {
@@ -881,7 +918,7 @@ fun AddEditSessionBottomSheet(
                     }
                 },
                 enabled = canSaveSession,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).guideTarget("session_save")
             )
             MosaribSecondaryButton(
                 text = "إلغاء",
@@ -903,7 +940,7 @@ fun AddEditSessionBottomSheet(
             }
 
             // اختيار العميل مع إمكانية الكتابة المباشرة وظهور الاقتراحات فوراً عبر الحقل الموحد
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.guideTarget("session_customer")) {
                 MosaribAutoCompleteTextField(
                     value = customerInputText,
                     onValueChange = {
@@ -951,6 +988,14 @@ fun AddEditSessionBottomSheet(
                 ) {
                     Icon(Icons.Default.PersonAdd, contentDescription = "إضافة عميل", tint = PrimaryTeal)
                 }
+            }
+
+            // إرشاد احتساب السقي على صاحب بئر (يظهر فقط مع خيار صاحب البئر)
+            if (selectedCustomer?.isWellOwner == true) {
+                FirstTimeHint(
+                    id = GuideTexts.HINT_SESSION_WELL_OWNER,
+                    text = GuideTexts.HINT_SESSION_WELL_OWNER_TEXT
+                )
             }
 
             // خيار احتساب السقي على صاحب بئر (مقاصة من مستحقاته)
@@ -1099,6 +1144,7 @@ fun AddEditSessionBottomSheet(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .guideTarget("session_time_choice")
                             .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.surface)
                             .padding(4.dp),
@@ -1526,7 +1572,7 @@ fun AddEditSessionBottomSheet(
             Spacer(modifier = Modifier.height(8.dp))
 
             // سعر الساعة (مباشرة تحت تحديد الساعات بتصميم أخف وأصغر وبحواشي مقللة)
-            Column {
+            Column(modifier = Modifier.guideTarget("session_price")) {
                 MosaribTextField(
                     value = pricePerHourStr,
                     onValueChange = { pricePerHourStr = Formatters.formatAmountInput(it) },
@@ -2488,6 +2534,7 @@ fun AddEditSessionBottomSheet(
         dialogType = voiceDialogType,
         onDismiss = { voiceDialogType = VoiceDialogType.NONE }
     )
+
 }
 
 @Composable

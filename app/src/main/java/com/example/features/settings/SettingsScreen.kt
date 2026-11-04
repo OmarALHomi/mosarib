@@ -1,4 +1,6 @@
 package com.example.features.settings
+import android.widget.Toast
+import com.example.ui.theme.PrimaryTeal
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
@@ -96,7 +98,8 @@ import com.example.features.customers.CustomersViewModel
 import com.example.features.customers.ManageGroupsDialog
 import com.example.features.customers.RecycleBinDialog
 import com.example.features.feedback.FeedbackDialog
-import com.example.features.home.HomeShowcaseTourDialog
+import com.example.core.ui.guide.GuidePreferences
+import androidx.compose.material.icons.filled.RestartAlt
 import com.example.ui.theme.mosarib
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.ApiException
@@ -111,6 +114,7 @@ enum class SettingsSubPage {
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onNavigateToAbout: () -> Unit = {},
+    onNavigateToHelp: () -> Unit = {},
     onSubPageOpenChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -142,7 +146,6 @@ fun SettingsScreen(
 
     // Backup tabs, pending restore/delete confirmations and Google sign-in flags
     val backupState = remember { SettingsBackupUiState() }
-    var showTourDialog by remember { mutableStateOf(false) }
 
     var showPriceSheet by remember { mutableStateOf(false) }
     var showDistributorSheet by remember { mutableStateOf(false) }
@@ -485,13 +488,27 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(14.dp))
                 SettingsSectionHeader(title = "المساعدة")
                 SettingsCard {
-                    // دليل الاستخدام
+                    // مركز المساعدة
                     SettingsRow(
-                        title = "دليل الاستخدام والتعليمات",
-                        subtitle = "شرح تفاعلي لكافة وظائف وأزرار التطبيق",
+                        title = "مركز المساعدة والتعليمات",
+                        subtitle = "إجابات سريعة، نصائح، وشروحات توجيهية",
                         icon = Icons.AutoMirrored.Filled.HelpOutline,
                         iconTint = MaterialTheme.mosarib.warning,
-                        onClick = { showTourDialog = true }
+                        onClick = onNavigateToHelp
+                    )
+
+                    SettingsRowDivider()
+
+                    // إعادة عرض التعليمات
+                    SettingsRow(
+                        title = "إعادة عرض التعليمات",
+                        subtitle = "إعادة تفعيل الجولات التوضيحية والإرشادات التفاعلية",
+                        icon = Icons.Default.RestartAlt,
+                        iconTint = PrimaryTeal,
+                        onClick = {
+                            GuidePreferences.resetAll(context)
+                            Toast.makeText(context, "تمت إعادة تفعيل جميع التعليمات التوضيحية", Toast.LENGTH_SHORT).show()
+                        }
                     )
 
                     SettingsRowDivider()
@@ -657,12 +674,7 @@ fun SettingsScreen(
             )
         }
 
-        // Showcase Tour Dialog
-        if (showTourDialog) {
-            HomeShowcaseTourDialog(
-                onDismiss = { showTourDialog = false }
-            )
-        }
+
 
         if (backupState.showGoogleBackupAccountDialog) {
             DriveBackupAccountDialog(

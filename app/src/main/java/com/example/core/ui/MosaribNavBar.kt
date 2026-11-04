@@ -50,6 +50,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.example.core.ui.guide.guideTarget
 
 data class MosaribNavItemData(
     val id: Int,
@@ -141,9 +142,18 @@ fun MosaribNavBar(
                         else -> Icons.Outlined.Settings to Icons.Rounded.Settings
                     }
 
+                    val navGuideTarget = when (item.id) {
+                        0 -> "nav_reports"
+                        1 -> "nav_customers"
+                        3 -> "nav_vouchers"
+                        4 -> "nav_settings"
+                        else -> null
+                    }
+
                     Box(
                         modifier = Modifier
                             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                            .then(if (navGuideTarget != null) Modifier.guideTarget(navGuideTarget) else Modifier)
                             .selectable(
                                 selected = isSelected,
                                 role = Role.Tab,

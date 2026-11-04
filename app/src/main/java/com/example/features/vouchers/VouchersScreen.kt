@@ -1,5 +1,13 @@
 package com.example.features.vouchers
 
+import com.example.core.ui.guide.GuideHelpButton
+import com.example.core.ui.guide.GuidePreferences
+import com.example.core.ui.guide.GuideTexts
+import com.example.core.ui.guide.SpotlightTour
+import com.example.core.ui.guide.guideTarget
+import kotlinx.coroutines.delay
+
+
 import com.example.core.voice.VoiceCommand
 import com.example.core.voice.VoiceCommandType
 import com.example.core.voice.VoiceFieldMic
@@ -147,6 +155,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -2120,8 +2129,14 @@ fun AddVoucherBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isDark = isAppDark()
-
     val context = LocalContext.current
+    var activeTour by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        delay(500)
+        if (!GuidePreferences.isTourDone(context, GuidePreferences.TOUR_VOUCHER_FORM)) {
+            activeTour = GuidePreferences.TOUR_VOUCHER_FORM
+        }
+    }
     val voiceCustomer = remember(voiceCommand, customers) {
         voiceCommand?.customerQuery?.let { q ->
             val ranked = CustomerMatcher.match(q, customers)
@@ -2360,17 +2375,36 @@ fun AddVoucherBottomSheet(
         icon = if (type == VoucherType.RECEIPT) Icons.AutoMirrored.Filled.ReceiptLong else Icons.Default.Payments,
         hasUnsavedChanges = hasUnsavedChanges,
         headerActions = {
-            VoiceFieldMic(
-                onClick = {
-                    if (onReSpeak != null) {
-                        onReSpeak()
-                    } else {
-                        launchVoiceFor("form_command")
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                GuideHelpButton(onClick = { activeTour = GuidePreferences.TOUR_VOUCHER_FORM })
+                VoiceFieldMic(
+                    onClick = {
+                        if (onReSpeak != null) {
+                            onReSpeak()
+                        } else {
+                            launchVoiceFor("form_command")
+                        }
                     }
-                }
-            )
+                )
+            }
         },
         footer = {
+            // The tour popup must be created from inside the sheet window to be drawn above it.
+            if (activeTour != null) {
+                // A new tour id must start a fresh step counter.
+                key(activeTour) {
+                    SpotlightTour(
+                        steps = GuideTexts.getTour(activeTour!!),
+                        onFinish = {
+                            val finished = activeTour
+                            activeTour = null
+                            if (finished != null) {
+                                GuidePreferences.markTourDone(context, finished, true)
+                            }
+                        }
+                    )
+                }
+            }
             MosaribPrimaryButton(
                 text = if (initialVoucher != null) "حفظ التعديلات" else "حفظ وترحيل السند",
                 onClick = {
@@ -2385,7 +2419,7 @@ fun AddVoucherBottomSheet(
                     }
                 },
                 enabled = canSave,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).guideTarget("voucher_save")
             )
             MosaribSecondaryButton(
                 text = "إلغاء",
@@ -2408,7 +2442,7 @@ fun AddVoucherBottomSheet(
 
             // Type Toggle: له | عليه
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().guideTarget("voucher_type"),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 MosaribButton(
@@ -2473,7 +2507,7 @@ fun AddVoucherBottomSheet(
                         custSearchQuery = c.name
                         amountStr = ""
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().guideTarget("voucher_customer")
                 )
 
                 // قسم الجلسات غير المسددة المتوفرة على العميل
@@ -2797,6 +2831,7 @@ fun AddVoucherBottomSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("voucher_amount_input")
+                    .guideTarget("voucher_amount")
             )
 
             val parsedAmt = Formatters.parseAmountInput(amountStr)
@@ -2949,6 +2984,7 @@ fun AddVoucherBottomSheet(
         dialogType = voiceDialogType,
         onDismiss = { voiceDialogType = VoiceDialogType.NONE }
     )
+
 }
 
 @Composable

@@ -51,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -675,13 +676,7 @@ fun MosaribBottomSheet(
                                 Spacer(modifier = Modifier.width(12.dp))
                             }
                             Column(modifier = Modifier.weight(1f, fill = false)) {
-                                Text(
-                                    text = title,
-                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                SheetTitleText(title)
                                 if (!subtitle.isNullOrBlank()) {
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
@@ -952,13 +947,7 @@ fun MosaribBottomSheetLazy(
                                 Spacer(modifier = Modifier.width(12.dp))
                             }
                             Column(modifier = Modifier.weight(1f, fill = false)) {
-                                Text(
-                                    text = title,
-                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                SheetTitleText(title)
                                 if (!subtitle.isNullOrBlank()) {
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
@@ -1061,3 +1050,22 @@ fun MosaribBottomSheetLazy(
         }
     }
 }
+
+/** Sheet title on one line: shrinks a little (down to 80%) before it would wrap or cut. */
+@Composable
+private fun SheetTitleText(title: String) {
+    val baseStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+    var scale by remember(title) { mutableFloatStateOf(1f) }
+    Text(
+        text = title,
+        style = baseStyle.copy(fontSize = baseStyle.fontSize * scale),
+        color = MaterialTheme.colorScheme.onSurface,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis,
+        onTextLayout = { result ->
+            if (result.hasVisualOverflow && scale > 0.8f) scale -= 0.05f
+        }
+    )
+}
+

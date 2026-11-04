@@ -1,5 +1,12 @@
 package com.example.features.home
 
+import com.example.core.ui.guide.GuidePreferences
+import com.example.core.ui.guide.GuideTexts
+import com.example.core.ui.guide.SpotlightTour
+import com.example.core.ui.guide.guideTarget
+import kotlinx.coroutines.delay
+
+
 import androidx.compose.material.icons.filled.Mic
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -79,6 +86,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -171,7 +179,6 @@ fun HomeScreen(
     var showActivationDialog by remember { mutableStateOf(false) }
 
 
-    var showHomeTour by remember { mutableStateOf(!LicenseManager.isHomeTourCompleted(context)) }
     var showAddManualSheet by remember { mutableStateOf(false) }
     var showAddVoucherSheet by remember { mutableStateOf(false) }
     var voucherInitialType by remember { mutableStateOf(VoucherType.RECEIPT) }
@@ -188,6 +195,17 @@ fun HomeScreen(
     var wellOwnerActionCommand by remember { mutableStateOf<Pair<VoiceCommand, Customer>?>(null) }
     var voucherTypeChooserCommand by remember { mutableStateOf<VoiceCommand?>(null) }
     var unrecognizedSpokenText by remember { mutableStateOf<String?>(null) }
+
+    var activeTour by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        delay(600)
+        if (!GuidePreferences.isTourDone(context, GuidePreferences.TOUR_HOME)
+            && !showAddManualSheet && !showAddVoucherSheet && !showAddCustomerSheet
+            && !showAddPurchaseSheet && !showHomeVoiceRecordSheet && !showVoiceHintSheet
+        ) {
+            activeTour = GuidePreferences.TOUR_HOME
+        }
+    }
 
     fun openFormForVoiceCommand(cmd: VoiceCommand) {
         activeVoiceCommand = cmd
@@ -381,7 +399,7 @@ fun HomeScreen(
                     ) {
                         // Help / Interactive Tour Trigger Button
                         IconButton(
-                            onClick = { showHomeTour = true },
+                            onClick = { activeTour = GuidePreferences.TOUR_HOME },
                             modifier = Modifier
                                 .size(34.dp)
                                 .clip(CircleShape)
@@ -449,7 +467,7 @@ fun HomeScreen(
                                     showAddManualSheet = true
                                 }
                             },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).guideTarget("home_session_new")
                         )
 
                         QuickActionCard(
@@ -464,7 +482,7 @@ fun HomeScreen(
                                     showAddVoucherSheet = true
                                 }
                             },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).guideTarget("home_vouchers")
                         )
                     }
 
@@ -546,7 +564,7 @@ fun HomeScreen(
                                     showHomeVoiceRecordSheet = true
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().guideTarget("home_voice")
                         )
                     }
                 }
@@ -561,6 +579,7 @@ fun HomeScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .guideTarget("home_last_sessions")
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -656,7 +675,8 @@ fun HomeScreen(
                         )
                     )
                     TextButton(
-                        onClick = onOpenReports
+                        onClick = onOpenReports,
+                        modifier = Modifier.guideTarget("home_comprehensive_report")
                     ) {
                         Text(
                             text = "التقرير الكامل ←",
@@ -845,11 +865,24 @@ fun HomeScreen(
         )
     }
 
-    // Interactive Showcase Tour Dialog for First-Time Users
-    if (showHomeTour) {
-        HomeShowcaseTourDialog(
-            onDismiss = { showHomeTour = false }
-        )
+    // Interactive Spotlight Tour
+    if (activeTour != null) {
+        // A new tour id must start a fresh step counter.
+        key(activeTour) {
+            SpotlightTour(
+                steps = GuideTexts.getTour(activeTour!!),
+                onFinish = {
+                    val finished = activeTour
+                    activeTour = null
+                    if (finished != null) {
+                        GuidePreferences.markTourDone(context, finished, true)
+                        if (finished == GuidePreferences.TOUR_HOME && !GuidePreferences.isTourDone(context, GuidePreferences.TOUR_NAV)) {
+                            activeTour = GuidePreferences.TOUR_NAV
+                        }
+                    }
+                }
+            )
+        }
     }
 
     // Voice Hint Sheet, Support Dialogs, and Ambiguous Customer Chooser

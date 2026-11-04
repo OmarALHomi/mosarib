@@ -1,5 +1,9 @@
 package com.example
 
+import com.example.features.help.HelpScreen
+import com.example.core.ui.guide.GuidePreferences
+
+
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.HorizontalDivider
@@ -200,6 +204,7 @@ fun MainApp(
             var isBiometricUnlocked by remember { mutableStateOf(false) }
             var selectedCustomerId by remember { mutableLongStateOf(0L) }
             var showAboutScreen by remember { mutableStateOf(false) }
+            var showHelpScreen by remember { mutableStateOf(false) }
             var isSettingsSubPageOpen by remember { mutableStateOf(false) }
             var showLicenseDialog by remember { mutableStateOf(false) }
             var showFeedbackDialog by remember { mutableStateOf(false) }
@@ -280,7 +285,7 @@ fun MainApp(
             val currentTab = tabs[selectedTab]
 
             // اعتراض زر التراجع: التبديل للرئيسية أولاً إن كان في شاشة فرعية، وتأكيد الخروج إن كان في الرئيسية
-            val shouldInterceptExit = !showSplashScreen && !showOnboarding && !showAboutScreen && selectedCustomerId == 0L
+            val shouldInterceptExit = !showSplashScreen && !showOnboarding && !showAboutScreen && !showHelpScreen && selectedCustomerId == 0L
             BackHandler(enabled = shouldInterceptExit) {
                 if (currentTab != AppTab.HOME) {
                     selectedTab = 2
@@ -301,6 +306,34 @@ fun MainApp(
                 BiometricLockScreen(onUnlock = { isBiometricUnlocked = true })
             } else if (showAboutScreen) {
                 AboutScreen(onBack = { showAboutScreen = false })
+            } else if (showHelpScreen) {
+                HelpScreen(
+                    onBack = { showHelpScreen = false },
+                    onNavigateToTour = { tourTarget ->
+                        showHelpScreen = false
+                        when (tourTarget) {
+                            GuidePreferences.TOUR_HOME -> {
+                                selectedTab = 2
+                            }
+                            GuidePreferences.TOUR_VOUCHER_FORM -> {
+                                selectedTab = 3
+                            }
+                            GuidePreferences.TOUR_NAV -> {
+                                selectedTab = 2
+                            }
+                            "customers" -> {
+                                selectedTab = 1
+                            }
+                            "reports" -> {
+                                selectedTab = 0
+                            }
+                            "backup" -> {
+                                selectedTab = 4
+                                settingsViewModel.selectDriveBackupTab()
+                            }
+                        }
+                    }
+                )
             } else {
                 AnimatedContent(
                     targetState = selectedCustomerId,
@@ -589,6 +622,7 @@ fun MainApp(
                                     SettingsScreen(
                                         viewModel = settingsViewModel,
                                         onNavigateToAbout = { showAboutScreen = true },
+                                        onNavigateToHelp = { showHelpScreen = true },
                                         onSubPageOpenChange = { isSettingsSubPageOpen = it }
                                     )
                                 }

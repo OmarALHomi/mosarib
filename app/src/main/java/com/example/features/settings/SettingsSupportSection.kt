@@ -1,5 +1,7 @@
 package com.example.features.settings
 
+import androidx.compose.material.icons.filled.RestartAlt
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,19 +41,32 @@ import com.example.ui.theme.SecondaryAqua
 
 // Help tour, feedback and about cards shown after the license section
 internal fun LazyListScope.supportSectionItems(
-    onOpenTour: () -> Unit,
+    onNavigateToHelp: () -> Unit,
+    onResetGuides: () -> Unit,
     onOpenFeedback: () -> Unit,
     onNavigateToAbout: () -> Unit
 ) {
-    // Section: دليل الاستخدام والتعليمات التفاعلية
+    // Section: مركز المساعدة
     item {
         SettingsNavigationCard(
-            onClick = onOpenTour,
+            onClick = onNavigateToHelp,
             icon = Icons.AutoMirrored.Filled.HelpOutline,
             iconTint = AccentGold,
             iconBackground = AccentGold.copy(alpha = 0.15f),
-            title = "دليل الاستخدام والتعليمات",
-            subtitle = "شرح تفاعلي لكافة وظائف وأزرار التطبيق"
+            title = "مركز المساعدة والتعليمات",
+            subtitle = "إجابات سريعة، نصائح، وشروحات تفاعلية"
+        )
+    }
+
+    // Section: إعادة عرض التعليمات
+    item {
+        SettingsNavigationCard(
+            onClick = onResetGuides,
+            icon = Icons.Default.RestartAlt,
+            iconTint = PrimaryTeal,
+            iconBackground = PrimaryTeal.copy(alpha = 0.15f),
+            title = "إعادة عرض التعليمات",
+            subtitle = "إعادة تفعيل الجولات التوضيحية والإرشادات من البداية"
         )
     }
 

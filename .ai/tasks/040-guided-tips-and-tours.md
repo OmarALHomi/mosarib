@@ -1,4 +1,4 @@
-status: ready
+status: done
 <!-- Owner request 2026-11-05: professional in-app guidance (tooltips and first-time tours) like the big apps. -->
 # Task 040: Spotlight tours and first-time tips in every screen
 
@@ -140,3 +140,15 @@ Unit tests for:
   - one hint;
   - the help page.
 - Phase 2 may be a separate round. Say in the report what is left.
+
+## Review round 1 (Claude)
+Home tour works. Blockers: form tours are drawn under the bottom sheet (invisible), the nav tour is skipped because the overlay lives inside HomeScreen, and a duplicate hint. See `.ai/reviews/040-round1.md`.
+
+## Round 2 done by Claude (owner asked), checked on the phone
+- `SpotlightTour` now runs in a focusable full-window `Popup`; target bounds use screen coordinates (`localToScreen`), so it works across the main window and bottom sheets.
+- Form tours are composed from inside the sheet (footer slot), so the popup is a child of the sheet window and draws above it.
+- `key(activeTour)` around each tour: the step counter restarts for the nav tour (it was finished instantly before).
+- Targets scroll into view with `BringIntoViewRequester` before each step.
+- Duplicate well-owner hint removed; it shows only for a well-owner customer.
+- `GuideHelpButton` is a 30 dp box; sheet titles stay on one line and shrink up to 20% (`SheetTitleText` in `MosaribSheets.kt`).
+- Verified: home 5 steps, nav 4, session form 5, voucher form 4, purchase form 4.
