@@ -129,6 +129,10 @@ object VoiceCommandParser {
             working = working.substring(0, notesMatch.range.first).trim()
         }
 
+        // 1b. "سجل / اكتب / قيد مع احمد ..." or "سجل سقي ...": the verb carries no type here.
+        // Alone ("سجل 20 الف لحساب حارث") it still means a receipt, so it is kept.
+        working = working.replace(Regex("^(سجل|سجلي|سجله|اكتب|اكتبي|قيد|قيدي|ضيف|اضف|حط)\\s+(?=(مع|ما|سقي|سقيه|ري)\\s)"), "").trim()
+
         // 2. Prefix command type matching (highest priority for verbs at the start)
         var explicitType: VoiceCommandType? = when {
             working.startsWith("سقي ") || working.startsWith("سقيه ") || working.startsWith("سقايه ") || working.startsWith("سقيت ") || working.startsWith("ري ") -> VoiceCommandType.SESSION
@@ -718,10 +722,13 @@ object VoiceCommandParser {
     )
 
     private fun parseTimeRange(text: String, now: Long): TimeRangeResult? {
+        // "امس من 5 ..." -> "من امس 5 ..." and "للساعه 12" -> "الى الساعه 12"
         val norm = text
+            .replace(Regex("(^|\\s)(قبل امس|اول من امس|اول امس|اليوم|امس|البارحه|البارح)\\s+من\\s+"), "$1من $2 ")
+            .replace(Regex("(^|\\s)للساعه\\s+"), "$1الى الساعه ")
 
         val dayWordPattern = "قبل امس|اول من امس|اول امس|اليوم|امس|البارحه|البارح|يوم\\s+\\d+|\\d{1,2}[/-]\\d{1,2}|يوم\\s+[\\p{L}]+"
-        val dayPartPattern = "بالصبح|الصبح|صباحا|صباحاً|بالليل|الليل|مساء|مساءً|الظهر|الظهريه|العصر|بعد العصر|المغرب|العشاء|الفجر|الضحى|الضحي"
+        val dayPartPattern = "بعد العصر|بالصبح|الصبح|الصباح|صباحا|صباحاً|صباح|بالليل|في الليل|الليل|ليلا|ليلاً|مساءا|مساءً|مساء|بالظهر|الظهريه|الظهر|ظهرا|ظهراً|بالعصر|العصر|عصرا|عصراً|بالمغرب|المغرب|مغربا|بالعشاء|العشاء|عشاء|بالفجر|الفجر|فجرا|فجراً|الضحى|الضحي|ضحى"
         val timePattern = "نص الليل|نصف الليل|\\d{1,2}:\\d{2}|\\d{1,2}(?:\\s+(?:و\\s*(?:نص|نصف|ربع|ثلث|تلت|عشر(?:\\s*دقايق)?|20)|(?:الا|إلا)\\s*(?:ربع|ثلث|تلت)))?"
         val joinerPattern = "الى|إلى|الي|لا|لاا|لااا|لين|حتى|حتي|لما|لعند"
 
@@ -769,7 +776,7 @@ object VoiceCommandParser {
         }
 
         val durMin = ((eMillis - sMillis) / 60000L).toInt()
-        val remaining = (text.substring(0, match.range.first) + " " + text.substring(match.range.last + 1)).replace(Regex("\\s+"), " ").trim()
+        val remaining = (norm.substring(0, match.range.first) + " " + norm.substring(match.range.last + 1)).replace(Regex("\\s+"), " ").trim()
 
         return TimeRangeResult(
             startMillis = sMillis,
@@ -875,15 +882,18 @@ object VoiceCommandParser {
             return Pair(0, 0)
         }
 
-        val dig = Regex("(\\d{1,2}):(\\d{2})").find(norm)
-        if (dig != null) {
-            val h = dig.groupValues[1].toInt()
-            val m = dig.groupValues[2].toInt()
-            return Pair(h, m)
-        }
-
         var baseHour = 0
         var extraMin = 0
+
+        // The speech engine writes spoken times as "10:00"; the day part must still apply to them
+        val dig = Regex("(\\d{1,2}):(\\d{2})").find(norm)
+        if (dig != null) {
+            baseHour = dig.groupValues[1].toInt()
+            extraMin = dig.groupValues[2].toInt()
+            if (baseHour !in 0..23 || extraMin !in 0..59) return null
+            if (baseHour > 12 || baseHour == 0) return Pair(baseHour, extraMin) // already 24-hour
+            return applyDayPart(baseHour, extraMin, dayPart)
+        }
 
         val mHour = Regex("^(\\d+|واحد|واحده|اثنين|اثنان|اتنين|ثنتين|ثلاث|ثلاثه|تلات|تلاته|اربع|اربعه|خمس|خمسه|ست|سته|سبع|سبعه|ثمان|ثمانيه|تمان|تمانيه|تسع|تسعه|عشر|عشره|حداعش|طناعش)").find(norm)
         if (mHour != null) {
@@ -925,6 +935,13 @@ object VoiceCommandParser {
             extraMin = 20
         }
 
+        return applyDayPart(baseHour, extraMin, dayPart)
+    }
+
+    /** Turns a 1..12 hour plus a spoken day part ("بالليل", "ظهرا", "الفجر" ...) into a 24-hour time. */
+    private fun applyDayPart(hour: Int, minute: Int, dayPart: String?): Pair<Int, Int> {
+        var baseHour = hour
+        val extraMin = minute
         if (dayPart != null) {
             val normDp = SpokenNumberParser.normalizeToken(dayPart)
             val normPmList = VoicePhraseRules.DAY_PARTS_PM.map { SpokenNumberParser.normalizeToken(it) }
@@ -934,10 +951,12 @@ object VoiceCommandParser {
 
             // Rule: بالليل / الليل with hour 1–4 means 01:00–04:00 (after midnight), not PM.
             // "نص الليل" and "12 بالليل" are 00:00. Hours 5–11 with بالليل are PM.
-            val isNight = normDp in listOf("بالليل", "الليل")
+            val isNight = normDp in listOf("بالليل", "الليل", "ليلا", "في الليل")
             val isNightAfterMidnight = isNight && (baseHour in 1..4)
+            // "10 الظهر" / "11 ظهرا" means late morning, not 22:00 / 23:00
+            val isNoonLateMorning = normDp.contains("ظهر") && baseHour in 6..11
 
-            if (isNightAfterMidnight) {
+            if (isNightAfterMidnight || isNoonLateMorning) {
                 // Keep baseHour as 1..4 (01:00 - 04:00 AM after midnight)
             } else if (isNight && baseHour == 12) {
                 baseHour = 0

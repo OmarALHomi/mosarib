@@ -231,12 +231,16 @@ fun <T> MosaribAutoCompleteTextField(
             label = label,
             isDense = isDense,
             leadingIcon = leadingIcon,
-            trailingIcon = trailingIcon ?: {
-                IconButton(onClick = { expanded = !expanded }) {
-                    Icon(
-                        if (expanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
-                        contentDescription = null
-                    )
+            // The list arrow is always shown; a caller's icon (e.g. the field mic) sits next to it
+            trailingIcon = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    trailingIcon?.invoke()
+                    IconButton(onClick = { expanded = !expanded }) {
+                        Icon(
+                            if (expanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                            contentDescription = "عرض القائمة"
+                        )
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth()
@@ -245,6 +249,7 @@ fun <T> MosaribAutoCompleteTextField(
         MosaribMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
+            focusable = false,
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .heightIn(max = 300.dp)

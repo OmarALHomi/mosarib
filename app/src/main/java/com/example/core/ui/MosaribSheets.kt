@@ -57,6 +57,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -348,6 +349,8 @@ fun MosaribMenu(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset.Zero,
+    // false for suggestion lists under a text field: a focusable popup takes the focus and closes the keyboard
+    focusable: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val isDark = isAppDark()
@@ -356,6 +359,7 @@ fun MosaribMenu(
         onDismissRequest = onDismissRequest,
         modifier = modifier.widthIn(min = 200.dp),
         offset = offset,
+        properties = androidx.compose.ui.window.PopupProperties(focusable = focusable),
         shape = RoundedCornerShape(16.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         tonalElevation = 0.dp,
@@ -542,18 +546,22 @@ fun MosaribBottomSheet(
         }
     }
 
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true,
-        confirmValueChange = { targetValue ->
+    // The sheet state is remembered with confirmValueChange as a key, so this lambda must be the
+    // same instance on every recomposition; otherwise a changed title, subtitle or unsaved flag
+    // rebuilds the state and the whole sheet hides and shows again (and the keyboard closes).
+    val requestDismissRef = remember { java.util.concurrent.atomic.AtomicReference<() -> Unit>({}) }
+    val latestLastDragTime = rememberUpdatedState(getLastDragTime)
+    val confirmSheetChange: (SheetValue) -> Boolean = remember {
+        { targetValue ->
             if (targetValue == SheetValue.Hidden) {
                 if (isDismissingAllowed) {
                     true
                 } else {
                     val now = SystemClock.uptimeMillis()
-                    val timeSinceLastDrag = now - getLastDragTime()
+                    val timeSinceLastDrag = now - latestLastDragTime.value()
                     if (timeSinceLastDrag > 400L) {
                         coroutineScope.launch {
-                            requestDismiss()
+                            requestDismissRef.get().invoke()
                         }
                     }
                     false
@@ -562,6 +570,10 @@ fun MosaribBottomSheet(
                 true
             }
         }
+    }
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = confirmSheetChange
     )
 
     val executeDismiss: () -> Unit = {
@@ -586,6 +598,7 @@ fun MosaribBottomSheet(
             executeDismiss()
         }
     }
+    requestDismissRef.set(requestDismiss)
 
     val isDark = isAppDark()
     val containerColor = if (isDark) {
@@ -813,18 +826,22 @@ fun MosaribBottomSheetLazy(
         }
     }
 
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true,
-        confirmValueChange = { targetValue ->
+    // The sheet state is remembered with confirmValueChange as a key, so this lambda must be the
+    // same instance on every recomposition; otherwise a changed title, subtitle or unsaved flag
+    // rebuilds the state and the whole sheet hides and shows again (and the keyboard closes).
+    val requestDismissRef = remember { java.util.concurrent.atomic.AtomicReference<() -> Unit>({}) }
+    val latestLastDragTime = rememberUpdatedState(getLastDragTime)
+    val confirmSheetChange: (SheetValue) -> Boolean = remember {
+        { targetValue ->
             if (targetValue == SheetValue.Hidden) {
                 if (isDismissingAllowed) {
                     true
                 } else {
                     val now = SystemClock.uptimeMillis()
-                    val timeSinceLastDrag = now - getLastDragTime()
+                    val timeSinceLastDrag = now - latestLastDragTime.value()
                     if (timeSinceLastDrag > 400L) {
                         coroutineScope.launch {
-                            requestDismiss()
+                            requestDismissRef.get().invoke()
                         }
                     }
                     false
@@ -833,6 +850,10 @@ fun MosaribBottomSheetLazy(
                 true
             }
         }
+    }
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = confirmSheetChange
     )
 
     val executeDismiss: () -> Unit = {
@@ -857,6 +878,7 @@ fun MosaribBottomSheetLazy(
             executeDismiss()
         }
     }
+    requestDismissRef.set(requestDismiss)
 
     val isDark = isAppDark()
     val containerColor = if (isDark) {
