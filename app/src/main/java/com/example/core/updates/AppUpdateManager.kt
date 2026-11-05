@@ -28,7 +28,13 @@ data class AppBroadcast(
     val isForceUpdate: Boolean = false,
     val publishedAt: Long = 0L,
     val requiredVersionName: String = "",
-    val releaseNotes: List<String> = emptyList()
+    val releaseNotes: List<String> = emptyList(),
+    val imageUrl: String = "",
+    // Optional audience: show the announcement only to builds in [min, max] (task 036)
+    val targetMinVersionCode: Int? = null,
+    val targetMaxVersionCode: Int? = null,
+    // Builds that must update even when they are >= minRequiredVersionCode (e.g. a buggy build)
+    val forceVersionCodes: List<Int> = emptyList()
 )
 
 object AppUpdateManager {
@@ -39,6 +45,7 @@ object AppUpdateManager {
     private const val KEY_CACHED_REQUIRED_VERSION_NAME = "cached_required_version_name"
     private const val KEY_CACHED_FORCE_ACTION_URL = "cached_force_action_url"
     private const val KEY_CACHED_FORCE_MESSAGE = "cached_force_message"
+    private const val KEY_CACHED_FORCE_VERSION_CODES = "cached_force_version_codes"
     private const val KEY_DISMISSED_TODAY_PREFIX = "dismissed_broadcast_day_"
     private const val KEY_DISMISSED_EXPIRY_DAY = "dismissed_expiry_day"
 
@@ -47,11 +54,13 @@ object AppUpdateManager {
         minVersionCode: Int,
         requiredVersionName: String = "",
         actionUrl: String = "",
-        message: String = ""
+        message: String = "",
+        forceVersionCodes: List<Int> = emptyList()
     ) {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         sp.edit()
             .putInt(KEY_CACHED_MIN_VERSION_CODE, minVersionCode)
+            .putString(KEY_CACHED_FORCE_VERSION_CODES, forceVersionCodes.joinToString(","))
             .putString(KEY_CACHED_REQUIRED_VERSION_NAME, requiredVersionName)
             .putString(KEY_CACHED_FORCE_ACTION_URL, actionUrl)
             .putString(KEY_CACHED_FORCE_MESSAGE, message)
@@ -65,6 +74,7 @@ object AppUpdateManager {
             .remove(KEY_CACHED_REQUIRED_VERSION_NAME)
             .remove(KEY_CACHED_FORCE_ACTION_URL)
             .remove(KEY_CACHED_FORCE_MESSAGE)
+            .remove(KEY_CACHED_FORCE_VERSION_CODES)
             .apply()
     }
 
@@ -73,13 +83,33 @@ object AppUpdateManager {
         return sp.getInt(KEY_CACHED_MIN_VERSION_CODE, 1)
     }
 
+    fun getCachedForceVersionCodes(context: Context): List<Int> {
+        val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        return parseVersionCodes(sp.getString(KEY_CACHED_FORCE_VERSION_CODES, "") ?: "")
+    }
+
+    /** "4, 5" or "4,5" -> [4, 5]; anything that is not a positive number is ignored. */
+    fun parseVersionCodes(raw: String): List<Int> =
+        raw.split(Regex("[,\\s]+")).mapNotNull { it.trim().toIntOrNull() }.filter { it > 0 }.distinct()
+
     /**
      * Pure decision function for force update.
-     * Force only when currentCode < minCode.
-     * When currentCode >= minCode, force update is never required.
+     * Force when currentCode < minCode, or when currentCode is one of [forceVersionCodes].
      */
-    fun shouldForceUpdate(currentCode: Int, minCode: Int, isForceUpdateFlag: Boolean = false): Boolean {
-        return currentCode < minCode
+    fun shouldForceUpdate(
+        currentCode: Int,
+        minCode: Int,
+        isForceUpdateFlag: Boolean = false,
+        forceVersionCodes: List<Int> = emptyList()
+    ): Boolean {
+        return currentCode < minCode || currentCode in forceVersionCodes
+    }
+
+    /** Pure audience check for announcements: null bounds are open. */
+    fun isInTargetRange(currentCode: Int, minCode: Int?, maxCode: Int?): Boolean {
+        if (minCode != null && minCode > 0 && currentCode < minCode) return false
+        if (maxCode != null && maxCode > 0 && currentCode > maxCode) return false
+        return true
     }
 
     private fun getTodayDateString(): String {
@@ -94,7 +124,7 @@ object AppUpdateManager {
             // Offline fallback: use cached minimum version code so an old version
             // cannot skip a force update by turning off the internet.
             val cachedMinVersion = getCachedMinVersionCode(context)
-            if (shouldForceUpdate(BuildConfig.VERSION_CODE, cachedMinVersion)) {
+            if (shouldForceUpdate(BuildConfig.VERSION_CODE, cachedMinVersion, forceVersionCodes = getCachedForceVersionCodes(context))) {
                 val cachedReqName = sp.getString(KEY_CACHED_REQUIRED_VERSION_NAME, "") ?: ""
                 val cachedActionUrl = sp.getString(KEY_CACHED_FORCE_ACTION_URL, "") ?: ""
                 val cachedMessage = sp.getString(KEY_CACHED_FORCE_MESSAGE, "") ?: ""
@@ -133,9 +163,16 @@ object AppUpdateManager {
                 val actionUrl = obj.optString("actionUrl", "")
                 val message = obj.optString("message", "")
                 val isForceUpdateFlag = obj.optBoolean("isForceUpdate", false)
+                val forceCodes = mutableListOf<Int>()
+                obj.optJSONArray("forceVersionCodes")?.let { arr ->
+                    for (i in 0 until arr.length()) arr.optInt(i, 0).takeIf { it > 0 }?.let { forceCodes.add(it) }
+                } ?: forceCodes.addAll(parseVersionCodes(obj.optString("forceVersionCodes", "")))
+                val imageUrl = obj.optString("imageUrl", "").takeIf { it.startsWith("https://") }.orEmpty()
+                val targetMin = obj.optInt("targetMinVersionCode", 0).takeIf { it > 0 }
+                val targetMax = obj.optInt("targetMaxVersionCode", 0).takeIf { it > 0 }
 
                 // Write the value that was read every time a broadcast is fetched (including 1)
-                updateCachedForceUpdate(context, minVersion, reqVersionName, actionUrl, message)
+                updateCachedForceUpdate(context, minVersion, reqVersionName, actionUrl, message, forceCodes)
 
                 // Parse optional release notes
                 val notesList = mutableListOf<String>()
@@ -152,7 +189,7 @@ object AppUpdateManager {
                     }
                 }
 
-                val requiresForceUpdate = shouldForceUpdate(BuildConfig.VERSION_CODE, minVersion, isForceUpdateFlag)
+                val requiresForceUpdate = shouldForceUpdate(BuildConfig.VERSION_CODE, minVersion, isForceUpdateFlag, forceCodes)
 
                 if (requiresForceUpdate) {
                     return@withContext AppBroadcast(
@@ -166,8 +203,15 @@ object AppUpdateManager {
                         isForceUpdate = true,
                         publishedAt = obj.optLong("publishedAt", 0L),
                         requiredVersionName = reqVersionName,
-                        releaseNotes = notesList
+                        releaseNotes = notesList,
+                        imageUrl = imageUrl,
+                        forceVersionCodes = forceCodes
                     )
+                }
+
+                // An announcement aimed at other builds is not shown here
+                if (!isInTargetRange(BuildConfig.VERSION_CODE, targetMin, targetMax)) {
+                    return@withContext null
                 }
 
                 // When the flag is true and the app is already at or above the minimum,
@@ -188,7 +232,10 @@ object AppUpdateManager {
                     isForceUpdate = false,
                     publishedAt = obj.optLong("publishedAt", 0L),
                     requiredVersionName = reqVersionName,
-                    releaseNotes = notesList
+                    releaseNotes = notesList,
+                    imageUrl = imageUrl,
+                    targetMinVersionCode = targetMin,
+                    targetMaxVersionCode = targetMax
                 )
             }
 
@@ -197,7 +244,7 @@ object AppUpdateManager {
             Log.e(TAG, "Failed to fetch updates/broadcasts: ${e.message}")
             // Fallback to cached force update if network error occurs
             val cachedMin = getCachedMinVersionCode(context)
-            if (shouldForceUpdate(BuildConfig.VERSION_CODE, cachedMin)) {
+            if (shouldForceUpdate(BuildConfig.VERSION_CODE, cachedMin, forceVersionCodes = getCachedForceVersionCodes(context))) {
                 val cachedReqName = sp.getString(KEY_CACHED_REQUIRED_VERSION_NAME, "") ?: ""
                 val cachedActionUrl = sp.getString(KEY_CACHED_FORCE_ACTION_URL, "") ?: ""
                 val cachedMessage = sp.getString(KEY_CACHED_FORCE_MESSAGE, "") ?: ""

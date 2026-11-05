@@ -27,6 +27,17 @@
               تفعيل كتحديث إجباري وقفل كافة النسخ الأقدم فوراً في فايربيس
             </label>
           </div>
+          <div class="form-group" id="apkForceOptions" style="display:none; padding:12px; border:1px dashed var(--danger); border-radius:10px;">
+            <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+              <input type="radio" name="apkForceMode" value="OLDER" checked style="width:auto;" onchange="refreshApkForceImpact()"> كل الإصدارات الأقدم من الإصدار الجديد
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer; margin-top:8px;">
+              <input type="radio" name="apkForceMode" value="SPECIFIC" style="width:auto;" onchange="refreshApkForceImpact()"> إصدارات محددة فقط:
+            </label>
+            <input type="text" id="apkForceCodes" placeholder="أرقام البناء مفصولة بفاصلة، مثل: 4, 5" oninput="refreshApkForceImpact()">
+            <small style="color: var(--text-muted); font-size: 11px;">«إصدارات محددة» يعمل على الإصدار 1.4.3 (بناء 8) فما بعده فقط.</small>
+            <div id="apkForceImpact" style="font-size:12.5px; color:var(--danger); font-weight:700; margin-top:8px;"></div>
+          </div>
           <button type="submit" class="btn" id="uploadApkBtn" style="width: auto; padding: 10px 24px; font-weight: 700;">📤 رفع التحديث</button>
           <div id="uploadProgress" style="display: none; margin-top: 14px; text-align: center;">
             <div style="font-size: 13px; color: var(--accent);">جاري رفع ملف الـ APK وتثبيته على السيرفر...</div>

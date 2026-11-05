@@ -1,4 +1,4 @@
-status: ready
+status: done
 <!-- Owner request 2026-11-04. App + dashboard. Never add secrets to the app or the dashboard JS. Never let
 the app write license/device/block/config data to Firebase. Keep database.rules.json deny-by-default;
 if a rule must change, list it in the report and Claude deploys it. -->
@@ -104,3 +104,9 @@ Do **not** hard-delete by default. In the dashboard users list:
 - The report has screenshots of the dashboard: version targeting, force-update choice, deleted tab,
   expiring subscriptions.
 - No secrets added. Every admin write keeps the CSRF check from task 033.
+
+## Done by Claude (owner asked), 2026-11-05
+- App 1.4.3 (8): `forceVersionCodes` + cached offline; announcement `targetMin/MaxVersionCode`; `imageUrl` in announcements and pushes (`RemoteImageLoader`, BigPictureStyle); push tap opens https in the browser, `mosarib://` opens a screen (`DeepLinks`, MainActivity singleTop + onNewIntent); «فتح الرابط» action. Tests in `AppUpdateManagerTest`.
+- Token `versionCode` not added: `fcm_sender.php` joins `all_users/{key}/versionCode`, so no rules change.
+- Dashboard: pushes are data-only (fixes taps opening only the app); ALL no longer double-sends (topic then per-token); version targeting with server-side count (`dry_run`); image upload to `uploads/notices/`; CSRF check added to `fcm_sender.php`; force-update choice (older / specific builds) in releases, external link and announcements with a locked-users count; `api/admin_users.php` soft delete / restore / hard delete (SUPER_ADMIN) with `data/admin_audit.json`; subscription start/end/days left, expiring list 7/15/30/ended with reminder and WhatsApp, count card on the overview.
+- Not tested end to end: a real push with a picture and link, the dashboard pages (they need the live server and Firebase).

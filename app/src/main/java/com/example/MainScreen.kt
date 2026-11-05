@@ -74,6 +74,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -283,6 +284,27 @@ fun MainApp(
             val tabs = remember { listOf(AppTab.REPORTS, AppTab.CUSTOMERS, AppTab.HOME, AppTab.VOUCHERS, AppTab.SETTINGS) }
             var selectedTab by rememberSaveable { mutableIntStateOf(2) }
             val currentTab = tabs[selectedTab]
+
+            // mosarib:// links from notifications (task 036)
+            val pendingDeepLink by com.example.core.notifications.DeepLinks.pending.collectAsState()
+            LaunchedEffect(pendingDeepLink) {
+                val target = pendingDeepLink ?: return@LaunchedEffect
+                showAboutScreen = false
+                showHelpScreen = false
+                selectedCustomerId = 0L
+                selectedTab = when (target) {
+                    com.example.core.notifications.DeepLinkTarget.REPORTS -> 0
+                    com.example.core.notifications.DeepLinkTarget.CUSTOMERS -> 1
+                    com.example.core.notifications.DeepLinkTarget.HOME -> 2
+                    com.example.core.notifications.DeepLinkTarget.OPERATIONS -> 3
+                    com.example.core.notifications.DeepLinkTarget.SETTINGS,
+                    com.example.core.notifications.DeepLinkTarget.SETTINGS_BACKUP -> 4
+                }
+                if (target == com.example.core.notifications.DeepLinkTarget.SETTINGS_BACKUP) {
+                    settingsViewModel.selectDriveBackupTab()
+                }
+                com.example.core.notifications.DeepLinks.consume()
+            }
 
             // اعتراض زر التراجع: التبديل للرئيسية أولاً إن كان في شاشة فرعية، وتأكيد الخروج إن كان في الرئيسية
             val shouldInterceptExit = !showSplashScreen && !showOnboarding && !showAboutScreen && !showHelpScreen && selectedCustomerId == 0L

@@ -33,13 +33,27 @@ class MosaribFirebaseMessagingService : FirebaseMessagingService() {
         val data = remoteMessage.data
         val title = remoteMessage.notification?.title ?: data["title"] ?: "مُسَرِّب"
         val body = remoteMessage.notification?.body ?: data["message"] ?: data["body"] ?: ""
-        val actionUrl = data["actionUrl"] ?: ""
+        val actionUrl = (data["actionUrl"] ?: "").trim()
         val type = data["type"] ?: "GENERAL"
+        val imageUrl = (data["imageUrl"] ?: remoteMessage.notification?.imageUrl?.toString() ?: "").trim()
+        val openInApp = data["openInApp"] == "true"
 
-        showNotification(title, body, actionUrl, type)
+        // Runs on FCM's worker thread, so a short blocking image download is fine (5 s timeout)
+        val picture = if (RemoteImageLoader.isAllowedUrl(imageUrl)) {
+            kotlinx.coroutines.runBlocking { RemoteImageLoader.load(imageUrl) }
+        } else null
+
+        showNotification(title, body, actionUrl, type, picture, openInApp)
     }
 
-    private fun showNotification(title: String, body: String, actionUrl: String, type: String) {
+    private fun showNotification(
+        title: String,
+        body: String,
+        actionUrl: String,
+        type: String,
+        picture: android.graphics.Bitmap? = null,
+        openInApp: Boolean = false
+    ) {
         val channelId = "mosarib_notifications_channel"
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -55,17 +69,18 @@ class MosaribFirebaseMessagingService : FirebaseMessagingService() {
             notificationManager.createNotificationChannel(channel)
         }
 
-        val intent = if (actionUrl.isNotBlank()) {
-            Intent(Intent.ACTION_VIEW, Uri.parse(actionUrl))
+        val requestCode = System.currentTimeMillis().toInt()
+        val webLink = actionUrl.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+        // https link -> browser (unless the admin chose "open in app"); mosarib:// -> that screen; else the app
+        val intent = if (webLink != null && !openInApp) {
+            Intent(Intent.ACTION_VIEW, Uri.parse(webLink)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         } else {
-            Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
+            DeepLinks.appIntent(this, actionUrl)
         }
 
         val pendingIntent = PendingIntent.getActivity(
             this,
-            System.currentTimeMillis().toInt(),
+            requestCode,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -74,14 +89,31 @@ class MosaribFirebaseMessagingService : FirebaseMessagingService() {
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setStyle(
+                if (picture != null) {
+                    NotificationCompat.BigPictureStyle().bigPicture(picture).setSummaryText(body)
+                } else {
+                    NotificationCompat.BigTextStyle().bigText(body)
+                }
+            )
+            .apply { if (picture != null) setLargeIcon(picture) }
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(pendingIntent)
 
-        notificationManager.notify(System.currentTimeMillis().toInt(), notificationBuilder.build())
+        if (webLink != null) {
+            val linkIntent = PendingIntent.getActivity(
+                this,
+                requestCode + 1,
+                Intent(Intent.ACTION_VIEW, Uri.parse(webLink)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            notificationBuilder.addAction(0, "فتح الرابط", linkIntent)
+        }
+
+        notificationManager.notify(requestCode, notificationBuilder.build())
     }
 
     companion object {

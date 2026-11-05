@@ -57,7 +57,21 @@
             <option value="ALL">جميع الهواتف والمستخدمين المسجلين</option>
             <option value="TRIAL">مستخدمو النسخة التجريبية فقط</option>
             <option value="SUBSCRIBERS">المشتركون المفعّلون فقط</option>
+            <option value="VERSION">مستخدمو إصدار محدد من التطبيق</option>
           </select>
+        </div>
+        <div class="form-group" id="pushVersionBlock" style="display:none; padding:12px; border:1px dashed var(--border); border-radius:10px;">
+          <label for="pushVersionMode">الإصدار المستهدف (رقم البناء VersionCode):</label>
+          <select id="pushVersionMode" onchange="refreshPushAudience()">
+            <option value="EQ">إصدار محدد</option>
+            <option value="LT">أقدم من</option>
+            <option value="RANGE">من … إلى</option>
+          </select>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <input type="number" id="pushVersionFrom" min="1" placeholder="رقم البناء، مثل 6" oninput="refreshPushAudience()">
+            <input type="number" id="pushVersionTo" min="1" placeholder="إلى (للمدى فقط)" oninput="refreshPushAudience()">
+          </div>
+          <div id="pushVersionUsage" style="font-size:12px; color:var(--text-muted); margin-top:8px; line-height:1.8;"></div>
         </div>
         <div class="form-group">
           <label for="pushTitle">عنوان الإشعار:</label>
@@ -69,8 +83,24 @@
         </div>
         <div class="form-group">
           <label for="pushUrl">رابط يفتح عند الضغط على الإشعار (اختياري):</label>
-          <input type="url" id="pushUrl" placeholder="مثال: رابط تحديث أو واتساب">
+          <input type="text" id="pushUrl" placeholder="https://... يفتح في المتصفح، أو mosarib://settings/backup يفتح شاشة في التطبيق" oninput="renderPushPreview()">
+          <label style="display:flex; align-items:center; gap:8px; margin-top:8px; font-weight:normal; cursor:pointer;">
+            <input type="checkbox" id="pushOpenInApp" style="width:auto;"> فتح التطبيق عند الضغط بدلاً من الرابط (يبقى زر «فتح الرابط» في الإشعار)
+          </label>
+          <small style="color: var(--text-muted); font-size: 11px;">شاشات التطبيق: mosarib://home، operations، customers، reports، settings، settings/backup</small>
         </div>
+        <div class="form-group">
+          <label for="pushImageUrl">صورة مع الإشعار (اختياري):</label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <input type="url" id="pushImageUrl" placeholder="https://... أو ارفع صورة" style="flex:1; min-width:200px;" oninput="previewNoticeImage('push')">
+            <input type="file" id="pushImageFile" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="uploadNoticeImage('push')">
+            <button type="button" class="btn btn-outline" style="width:auto; padding:8px 14px;" onclick="document.getElementById('pushImageFile').click()">🖼️ رفع صورة</button>
+          </div>
+          <small style="color: var(--text-muted); font-size: 11px;">JPG أو PNG أو WEBP، حتى 1 ميجابايت.</small>
+          <img id="pushImagePreview" alt="" style="display:none; margin-top:8px; max-width:100%; max-height:160px; border-radius:12px; object-fit:cover;">
+        </div>
+        <div id="pushPreview" style="margin-bottom:12px;"></div>
+        <div id="pushAudience" style="font-size:13px; font-weight:700; color:var(--accent); margin-bottom:10px;"></div>
         <button class="btn" id="btnSendPush" style="width: auto; padding: 10px 24px; font-weight: 700;" onclick="sendRealFcmPushNotification()">🚀 إرسال الإشعار</button>
         <div id="pushStatus" style="margin-top: 12px; font-size: 13px; text-align: center; display: none;"></div>
       </div>

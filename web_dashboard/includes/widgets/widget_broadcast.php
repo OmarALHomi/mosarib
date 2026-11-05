@@ -24,10 +24,34 @@
           </select>
         </div>
         <div class="form-group" id="versionGroup" style="display: none;">
-          <label for="bcMinVersion">الحد الأدنى لرقم الإصدار المسموح به (VersionCode):</label>
-          <input type="number" id="bcMinVersion" value="2" min="1">
+          <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+            <input type="radio" name="bcForceMode" value="OLDER" checked style="width:auto;" onchange="refreshBroadcastAudience()"> كل الإصدارات الأقدم من:
+          </label>
+          <input type="number" id="bcMinVersion" value="2" min="1" oninput="refreshBroadcastAudience()">
           <small style="color: var(--text-muted); font-size: 11px;">أي هاتف لديه VersionCode أقل من هذا الرقم سيُقفل عليه التطبيق فوراً ويطالبه بالتحديث.</small>
+          <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer; margin-top:10px;">
+            <input type="radio" name="bcForceMode" value="SPECIFIC" style="width:auto;" onchange="refreshBroadcastAudience()"> إصدارات محددة فقط (مثلاً نسخة فيها خلل):
+          </label>
+          <input type="text" id="bcForceCodes" placeholder="أرقام البناء مفصولة بفاصلة، مثل: 4, 5" oninput="refreshBroadcastAudience()">
+          <small style="color: var(--text-muted); font-size: 11px;">يعمل خيار «إصدارات محددة» على الإصدار 1.4.3 (بناء 8) فما بعده فقط.</small>
+          <div id="bcForceImpact" style="font-size:12.5px; color:var(--danger); font-weight:700; margin-top:8px;"></div>
         </div>
+        <div class="form-group" id="bcAudienceGroup">
+          <label for="bcAudienceMode">الفئة المستهدفة للإعلان:</label>
+          <select id="bcAudienceMode" onchange="refreshBroadcastAudience()">
+            <option value="ALL">كل الإصدارات</option>
+            <option value="EQ">إصدار محدد</option>
+            <option value="LT">أقدم من</option>
+            <option value="RANGE">من … إلى</option>
+          </select>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <input type="number" id="bcAudienceFrom" min="1" placeholder="رقم البناء" oninput="refreshBroadcastAudience()">
+            <input type="number" id="bcAudienceTo" min="1" placeholder="إلى (للمدى فقط)" oninput="refreshBroadcastAudience()">
+          </div>
+          <div id="bcAudienceCount" style="font-size:12.5px; color:var(--accent); font-weight:700; margin-top:8px;"></div>
+          <small style="color: var(--text-muted); font-size: 11px;">الاستهداف حسب الإصدار يعمل على الإصدار 1.4.3 (بناء 8) فما بعده؛ الإصدارات الأقدم ترى الإعلان دائماً.</small>
+        </div>
+        <div id="bcVersionUsage" style="font-size:12px; color:var(--text-muted); margin:-6px 0 14px; line-height:1.8;"></div>
         <div class="form-group">
           <label for="bcMessage">نص الإشعار / رسالة التحديث:</label>
           <textarea id="bcMessage" rows="3" placeholder="اكتب التفاصيل والميزات الجديدة أو التوجيهات..."></textarea>
@@ -36,6 +60,17 @@
           <label for="bcUrl">رابط التحديث أو التحميل (اختياري):</label>
           <input type="url" id="bcUrl" placeholder="مثال: https://mosarib.com/download أو رابط واتساب">
         </div>
+        <div class="form-group">
+          <label for="bcImageUrl">صورة مع الإعلان (اختياري):</label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <input type="url" id="bcImageUrl" placeholder="https://... أو ارفع صورة" style="flex:1; min-width:200px;" oninput="previewNoticeImage('bc')">
+            <input type="file" id="bcImageFile" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="uploadNoticeImage('bc')">
+            <button type="button" class="btn btn-outline" style="width:auto; padding:8px 14px;" onclick="document.getElementById('bcImageFile').click()">🖼️ رفع صورة</button>
+          </div>
+          <small style="color: var(--text-muted); font-size: 11px;">JPG أو PNG أو WEBP، حتى 1 ميجابايت.</small>
+          <img id="bcImagePreview" alt="" style="display:none; margin-top:8px; max-width:100%; max-height:160px; border-radius:12px; object-fit:cover;">
+        </div>
+
         <div class="form-group">
           <label for="bcBtnText">نص الزر:</label>
           <input type="text" id="bcBtnText" value="تحديث التطبيق الآن">

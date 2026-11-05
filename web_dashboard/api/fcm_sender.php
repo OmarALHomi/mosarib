@@ -129,6 +129,42 @@ $rawInput = file_get_contents('php://input');
 $input = json_decode($rawInput, true) ?: $_POST;
 $action = $input['action'] ?? $_GET['action'] ?? 'send';
 
+// Every admin write carries the session CSRF token (header from adminApiFetch, or the body field)
+$csrfHeaders = function_exists('getallheaders') ? getallheaders() : [];
+$csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($csrfHeaders['X-CSRF-Token'] ?? ($csrfHeaders['x-csrf-token'] ?? ($input['csrf_token'] ?? '')));
+if (!verifyCsrfToken($csrfToken)) {
+    jsonResponse(false, 'رمز أمان الجلسة غير صالح (CSRF)، أعد تحميل الصفحة', null, 403);
+}
+
+// 1.5 Action: Upload a picture for a notification or announcement (task 036)
+if ($action === 'upload_image') {
+    if (!isset($_FILES['image_file']) || $_FILES['image_file']['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(false, 'لم يتم استلام صورة صالحة');
+    }
+    $img = $_FILES['image_file'];
+    if ($img['size'] > 1024 * 1024 || filesize($img['tmp_name']) > 1024 * 1024) {
+        jsonResponse(false, 'حجم الصورة يجب ألا يتجاوز 1 ميجابايت');
+    }
+    $fh = @fopen($img['tmp_name'], 'rb');
+    $head = $fh ? fread($fh, 12) : '';
+    if ($fh) fclose($fh);
+    $ext = null;
+    if (substr($head, 0, 3) === "\xFF\xD8\xFF") $ext = 'jpg';
+    elseif (substr($head, 0, 8) === "\x89PNG\r\n\x1A\n") $ext = 'png';
+    elseif (substr($head, 0, 4) === 'RIFF' && substr($head, 8, 4) === 'WEBP') $ext = 'webp';
+    if ($ext === null) {
+        jsonResponse(false, 'الصيغ المسموحة: JPG أو PNG أو WEBP فقط');
+    }
+    $dir = UPLOAD_DIR . 'notices/';
+    if (!is_dir($dir)) @mkdir($dir, 0755, true);
+    $name = 'notice_' . bin2hex(random_bytes(12)) . '.' . $ext;
+    if (!move_uploaded_file($img['tmp_name'], $dir . $name)) {
+        jsonResponse(false, 'تعذر حفظ الصورة على الخادم');
+    }
+    $base = 'https://' . $_SERVER['HTTP_HOST'] . rtrim(str_replace('\\', '/', dirname(dirname($_SERVER['PHP_SELF']))), '/');
+    jsonResponse(true, 'تم رفع الصورة', ['url' => $base . '/uploads/notices/' . $name]);
+}
+
 // 1. Action: Save Service Account JSON
 if ($action === 'save_service_account') {
     $saContent = trim($input['service_account_json'] ?? '');
@@ -208,33 +244,64 @@ if ($action === 'cancel_broadcast' || $action === 'delete_broadcast') {
 // 3. Action: Send Notification to Devices
 $title = trim($input['title'] ?? '');
 $body = trim($input['body'] ?? '');
-$target = trim($input['target'] ?? 'ALL'); // ALL, TRIAL, SUBSCRIBERS, SINGLE
+$target = trim($input['target'] ?? 'ALL'); // ALL, TRIAL, SUBSCRIBERS, VERSION, DEVICE, SINGLE
 $targetToken = trim($input['target_token'] ?? '');
 $actionUrl = trim($input['action_url'] ?? '');
+$imageUrl = trim($input['image_url'] ?? '');
+$openInApp = !empty($input['open_in_app']);
+$dryRun = !empty($input['dry_run']);
 
-if (empty($title) || empty($body)) {
+if (!$dryRun && (empty($title) || empty($body))) {
     jsonResponse(false, 'يرجى كتابة عنوان الإشعار ونصه');
+}
+// Links: https:// opens the browser, mosarib:// opens a screen in the app
+if ($actionUrl !== '' && !preg_match('#^(https://|mosarib://)#i', $actionUrl)) {
+    jsonResponse(false, 'الرابط يجب أن يبدأ بـ https:// أو mosarib://');
+}
+if ($imageUrl !== '' && stripos($imageUrl, 'https://') !== 0) {
+    jsonResponse(false, 'رابط الصورة يجب أن يبدأ بـ https://');
+}
+
+// Version filter (task 036): EQ = exact build, LT = older than, RANGE = from..to
+$versionMode = strtoupper(trim($input['version_mode'] ?? ''));
+$versionFrom = intval($input['version_from'] ?? 0);
+$versionTo = intval($input['version_to'] ?? 0);
+$versionRange = null; // [min, max] build numbers, 0 = open
+if ($target === 'VERSION') {
+    if ($versionMode === 'EQ' && $versionFrom > 0) $versionRange = [$versionFrom, $versionFrom];
+    elseif ($versionMode === 'LT' && $versionFrom > 1) $versionRange = [0, $versionFrom - 1];
+    elseif ($versionMode === 'RANGE' && $versionFrom > 0 && $versionTo >= $versionFrom) $versionRange = [$versionFrom, $versionTo];
+    else jsonResponse(false, 'حدد رقم الإصدار (رقم البناء) بشكل صحيح');
+}
+
+function versionInRange($code, $range) {
+    if ($range === null) return true;
+    $code = intval($code);
+    if ($code <= 0) return false; // unknown build: not targeted
+    if ($range[0] > 0 && $code < $range[0]) return false;
+    if ($range[1] > 0 && $code > $range[1]) return false;
+    return true;
 }
 
 // Fetch Registered Tokens from Firebase RTDB
 $tokensRes = firebaseRequest('fcm_tokens.json');
 $rawTokens = ($tokensRes['error'] === false && is_array($tokensRes['data'])) ? $tokensRes['data'] : [];
 
-// Filter tokens if targeting TRIAL or SUBSCRIBERS
-$targetDeviceCodes = null;
-if ($target === 'TRIAL' || $target === 'SUBSCRIBERS') {
+// Audience filter by plan or by app build (the build number comes from all_users/{key}/versionCode)
+$targetDeviceKeys = null;
+if ($target === 'TRIAL' || $target === 'SUBSCRIBERS' || $target === 'VERSION') {
     $usersRes = firebaseRequest('all_users.json');
     $allUsers = ($usersRes['error'] === false && is_array($usersRes['data'])) ? $usersRes['data'] : [];
-    $targetDeviceCodes = [];
-    foreach ($allUsers as $u) {
-        $devCode = $u['deviceCode'] ?? '';
-        if (empty($devCode)) continue;
+    $targetDeviceKeys = [];
+    foreach ($allUsers as $key => $u) {
+        if (!is_array($u)) continue;
+        $devKey = strtoupper(str_replace('-', '', $u['cleanDeviceKey'] ?? ($u['deviceCode'] ?? $key)));
+        if ($devKey === '') continue;
         $isActivated = !empty($u['isActivated']);
-        if ($target === 'SUBSCRIBERS' && $isActivated) {
-            $targetDeviceCodes[$devCode] = true;
-        } elseif ($target === 'TRIAL' && !$isActivated) {
-            $targetDeviceCodes[$devCode] = true;
-        }
+        $ok = ($target === 'SUBSCRIBERS' && $isActivated)
+            || ($target === 'TRIAL' && !$isActivated)
+            || ($target === 'VERSION' && versionInRange($u['versionCode'] ?? 0, $versionRange));
+        if ($ok) $targetDeviceKeys[$devKey] = true;
     }
 }
 
@@ -242,7 +309,8 @@ $tokenList = [];
 foreach ($rawTokens as $key => $item) {
     if (empty($item['fcmToken'])) continue;
     $devCode = !empty($item['deviceCode']) ? $item['deviceCode'] : $key;
-    if ($targetDeviceCodes !== null && !empty($devCode) && !isset($targetDeviceCodes[$devCode])) {
+    $devKey = strtoupper(str_replace('-', '', $devCode));
+    if ($targetDeviceKeys !== null && !isset($targetDeviceKeys[$devKey])) {
         continue;
     }
     $tokenList[] = [
@@ -273,6 +341,26 @@ if ($target === 'DEVICE' && !empty($targetDeviceCode)) {
     }
 }
 
+// "سيصل إلى n مستخدم" preview before sending
+if ($dryRun) {
+    $audience = ($target === 'ALL') ? count($rawTokens) : count($tokenList);
+    jsonResponse(true, 'عدد الأجهزة المستهدفة', ['audience' => $audience]);
+}
+
+// Data-only message: the app always builds the notification itself, so a tap opens the link
+// (browser for https, a screen for mosarib://) and the picture is shown. A "notification" block
+// lets Android show it alone while the app is closed, and then a tap only opens the app.
+$dataPayload = [
+    'title' => $title,
+    'body' => $body,
+    'message' => $body,
+    'actionUrl' => $actionUrl,
+    'imageUrl' => $imageUrl,
+    'openInApp' => $openInApp ? 'true' : 'false',
+    'type' => 'BROADCAST',
+    'timestamp' => strval(round(microtime(true) * 1000))
+];
+
 $auth = getGoogleFcmAccessToken($serviceAccountFile);
 $serverKeyFile = __DIR__ . '/../data/fcm_server_key.txt';
 $serverKey = (file_exists($serverKeyFile) && filesize($serverKeyFile) > 10) ? trim(file_get_contents($serverKeyFile)) : '';
@@ -282,151 +370,80 @@ $sentFailed = 0;
 $fcmV1Used = false;
 $errorDetails = [];
 
+function fcmV1Post($fcmUrl, $bearerToken, $message) {
+    $ch = curl_init($fcmUrl);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer ' . $bearerToken,
+        'Content-Type: application/json; UTF-8'
+    ]);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['message' => $message], JSON_UNESCAPED_UNICODE));
+    $res = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    return [$httpCode, $res];
+}
+
 // Method A: Google FCM HTTP v1 (OAuth2)
 if ($auth) {
     $fcmV1Used = true;
     $fcmUrl = "https://fcm.googleapis.com/v1/projects/{$auth['project_id']}/messages:send";
     $bearerToken = $auth['token'];
 
-    // If Target is ALL, broadcast directly to topic 'all' (wakes 100% of devices in 1 call)
+    // ALL goes to the 'all' topic in one call; per-token sending is only its fallback,
+    // so no phone gets the same notification twice.
+    $topicSent = false;
     if ($target === 'ALL') {
-        $topicPayload = [
-            'message' => [
-                'topic' => 'all',
-                'notification' => [
-                    'title' => $title,
-                    'body' => $body
-                ],
-                'data' => [
-                    'title' => $title,
-                    'body' => $body,
-                    'message' => $body,
-                    'actionUrl' => $actionUrl,
-                    'type' => 'BROADCAST',
-                    'timestamp' => strval(round(microtime(true) * 1000))
-                ],
-                'android' => [
-                    'priority' => 'HIGH',
-                    'notification' => [
-                        'channel_id' => 'mosarib_notifications_channel',
-                        'notification_priority' => 'PRIORITY_MAX',
-                        'default_sound' => true,
-                        'default_vibrate_timings' => true,
-                        'visibility' => 'PUBLIC',
-                        'icon' => 'ic_launcher'
-                    ]
-                ]
-            ]
-        ];
-
-        $ch = curl_init($fcmUrl);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Authorization: Bearer ' . $bearerToken,
-            'Content-Type: application/json; UTF-8'
+        [$httpCode, $res] = fcmV1Post($fcmUrl, $bearerToken, [
+            'topic' => 'all',
+            'data' => $dataPayload,
+            'android' => ['priority' => 'HIGH']
         ]);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($topicPayload, JSON_UNESCAPED_UNICODE));
-        $res = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
         if ($httpCode === 200) {
             $sentSuccess++;
+            $topicSent = true;
         }
     }
 
-    foreach ($tokenList as $tItem) {
-        $token = $tItem['token'];
-        $messagePayload = [
-            'message' => [
-                'token' => $token,
-                'notification' => [
-                    'title' => $title,
-                    'body' => $body
-                ],
-                'data' => [
-                    'title' => $title,
-                    'body' => $body,
-                    'message' => $body,
-                    'actionUrl' => $actionUrl,
-                    'type' => 'BROADCAST',
-                    'timestamp' => strval(round(microtime(true) * 1000))
-                ],
-                'android' => [
-                    'priority' => 'HIGH',
-                    'notification' => [
-                        'channel_id' => 'mosarib_notifications_channel',
-                        'notification_priority' => 'PRIORITY_MAX',
-                        'default_sound' => true,
-                        'default_vibrate_timings' => true,
-                        'visibility' => 'PUBLIC',
-                        'icon' => 'ic_launcher'
-                    ]
-                ]
-            ]
-        ];
-
-        $ch = curl_init($fcmUrl);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Authorization: Bearer ' . $bearerToken,
-            'Content-Type: application/json; UTF-8'
-        ]);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($messagePayload, JSON_UNESCAPED_UNICODE));
-        $res = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($httpCode === 200) {
-            $sentSuccess++;
-        } else {
-            $sentFailed++;
-            $resJson = json_decode($res, true);
-            $errCode = $resJson['error']['details'][0]['errorCode'] ?? $resJson['error']['message'] ?? "HTTP $httpCode";
-            $errorDetails[] = $errCode;
-
-            // If token is unregistered or invalid, clean it up from RTDB
-            if (in_array($errCode, ['UNREGISTERED', 'INVALID_ARGUMENT']) && !empty($tItem['deviceCode'])) {
-                $cleanKey = str_replace('-', '', trim($tItem['deviceCode']));
-                firebaseRequest("fcm_tokens/$cleanKey.json", 'DELETE');
+    if (!$topicSent) {
+        foreach ($tokenList as $tItem) {
+            [$httpCode, $res] = fcmV1Post($fcmUrl, $bearerToken, [
+                'token' => $tItem['token'],
+                'data' => $dataPayload,
+                'android' => ['priority' => 'HIGH']
+            ]);
+            if ($httpCode === 200) {
+                $sentSuccess++;
+            } else {
+                $sentFailed++;
+                $resJson = json_decode($res, true);
+                $errCode = $resJson['error']['details'][0]['errorCode'] ?? $resJson['error']['message'] ?? "HTTP $httpCode";
+                $errorDetails[] = $errCode;
+                // If token is unregistered or invalid, clean it up from RTDB
+                if (in_array($errCode, ['UNREGISTERED', 'INVALID_ARGUMENT']) && !empty($tItem['deviceCode'])) {
+                    $cleanKey = str_replace('-', '', trim($tItem['deviceCode']));
+                    firebaseRequest("fcm_tokens/$cleanKey.json", 'DELETE');
+                }
             }
         }
     }
 }
 // Method B: FCM Legacy Server Key Fallback
 elseif (!empty($serverKey)) {
-    $legacyUrl = 'https://fcm.googleapis.com/fcm/send';
     $legacyPayload = [
-        'notification' => [
-            'title' => $title,
-            'body' => $body,
-            'sound' => 'default',
-            'channel_id' => 'mosarib_notifications_channel'
-        ],
-        'data' => [
-            'title' => $title,
-            'body' => $body,
-            'message' => $body,
-            'actionUrl' => $actionUrl,
-            'type' => 'BROADCAST',
-            'timestamp' => strval(round(microtime(true) * 1000))
-        ],
+        'data' => $dataPayload,
         'priority' => 'high'
     ];
-
     if ($target === 'ALL') {
         $legacyPayload['to'] = '/topics/all';
     } elseif (!empty($tokenList)) {
-        $registrationIds = array_column($tokenList, 'token');
-        $legacyPayload['registration_ids'] = $registrationIds;
+        $legacyPayload['registration_ids'] = array_column($tokenList, 'token');
     }
 
-    $ch = curl_init($legacyUrl);
+    $ch = curl_init('https://fcm.googleapis.com/fcm/send');
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 10);
@@ -444,9 +461,8 @@ elseif (!empty($serverKey)) {
     }
 }
 
-// Sync delivery
-if ($target === 'ALL' || $target === 'BROADCAST') {
-    // Only broadcast globally if target is ALL or BROADCAST
+// Sync delivery: the same message as an in-app announcement for ALL / BROADCAST / VERSION
+if ($target === 'ALL' || $target === 'BROADCAST' || $target === 'VERSION') {
     $broadcastPayload = [
         'id' => 'PUSH_' . round(microtime(true) * 1000),
         'title' => $title,
@@ -456,6 +472,11 @@ if ($target === 'ALL' || $target === 'BROADCAST') {
         'type' => 'INFO',
         'publishedAt' => round(microtime(true) * 1000)
     ];
+    if ($imageUrl !== '') $broadcastPayload['imageUrl'] = $imageUrl;
+    if ($versionRange !== null) {
+        if ($versionRange[0] > 0) $broadcastPayload['targetMinVersionCode'] = $versionRange[0];
+        if ($versionRange[1] > 0) $broadcastPayload['targetMaxVersionCode'] = $versionRange[1];
+    }
     firebaseRequest('app_broadcast.json', 'PUT', $broadcastPayload);
 } elseif ($target === 'DEVICE' && !empty($targetDeviceCodeClean)) {
     // Targeted directly to this device: store in device_overrides & all_users so it shows in app
@@ -481,7 +502,9 @@ $logPayload = [
     'title' => $title,
     'body' => $body,
     'target' => $target,
+    'versionRange' => $versionRange,
     'actionUrl' => $actionUrl,
+    'imageUrl' => $imageUrl,
     'sentAt' => round(microtime(true) * 1000),
     'sentSuccess' => $sentSuccess,
     'sentFailed' => $sentFailed,
@@ -489,9 +512,10 @@ $logPayload = [
 ];
 firebaseRequest("notifications_log/$logId.json", 'PUT', $logPayload);
 
+$audienceCount = ($target === 'ALL') ? count($rawTokens) : count($tokenList);
 $msg = "تمت معالجة الإشعار بنجاح!";
 if ($fcmV1Used) {
-    $msg = "تم إرسال الإشعار بنجاح عبر Google FCM HTTP v1 إلى {$sentSuccess} هاتف وسيرن والتطبيق مغلق!";
+    $msg = "تم إرسال الإشعار بنجاح عبر Google FCM إلى {$audienceCount} جهاز وسيرن والتطبيق مغلق!";
     if ($sentFailed > 0) {
         $msg .= " (فشل {$sentFailed} توكن قديم أو غير نشط وتم تنظيفها).";
     }
@@ -501,7 +525,7 @@ if ($fcmV1Used) {
 
 jsonResponse(true, $msg, [
     'fcm_v1_used' => $fcmV1Used,
-    'registered_tokens_count' => count($tokenList),
+    'registered_tokens_count' => $audienceCount,
     'fcm_sent_success' => $sentSuccess,
     'fcm_failed' => $sentFailed,
     'broadcast_synced' => true,

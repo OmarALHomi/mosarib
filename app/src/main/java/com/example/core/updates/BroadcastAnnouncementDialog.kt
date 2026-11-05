@@ -22,6 +22,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -106,6 +110,23 @@ fun BroadcastAnnouncementDialog(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Optional picture at the top (task 036): hidden while loading or if it fails
+            val picture by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, broadcast.imageUrl) {
+                value = com.example.core.notifications.RemoteImageLoader.load(broadcast.imageUrl, maxSide = 900)?.asImageBitmap()
+            }
+            picture?.let { bmp ->
+                androidx.compose.foundation.Image(
+                    bitmap = bmp,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 180.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)

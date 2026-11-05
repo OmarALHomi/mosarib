@@ -50,6 +50,18 @@
         </svg>
       </div>
     </div>
+    <div class="stat-card" style="border: 1px solid rgba(239, 68, 68, 0.35); cursor: pointer;" onclick="switchTab('users'); document.getElementById('expiringCard')?.scrollIntoView({behavior:'smooth'})">
+      <div class="stat-info">
+        <h3>اشتراكات تنتهي خلال 7 أيام</h3>
+        <div class="num" id="statExpiringSoon" style="color: var(--danger);">0</div>
+      </div>
+      <div class="stat-icon" style="color: var(--danger)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      </div>
+    </div>
     <div class="stat-card">
       <div class="stat-info">
         <h3>المحظورون</h3>

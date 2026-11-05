@@ -21,6 +21,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        com.example.core.notifications.DeepLinks.handleIntent(intent)
+
         val isDeviceAuthorized = DeviceLockManager.verifyOrRegister(this)
         setContent {
             if (!isDeviceAuthorized) {
@@ -29,5 +31,11 @@ class MainActivity : ComponentActivity() {
                 MainApp()
             }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        com.example.core.notifications.DeepLinks.handleIntent(intent)
     }
 }

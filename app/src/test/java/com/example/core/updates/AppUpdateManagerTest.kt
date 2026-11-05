@@ -126,4 +126,37 @@ class AppUpdateManagerTest {
         AppUpdateManager.markBroadcastSeen(context, permId)
         assertTrue(AppUpdateManager.isBroadcastSeen(context, permId))
     }
+
+    @Test
+    fun testForceUpdateForSpecificVersions_task036() {
+        assertTrue(AppUpdateManager.shouldForceUpdate(currentCode = 4, minCode = 1, forceVersionCodes = listOf(4)))
+        assertFalse(AppUpdateManager.shouldForceUpdate(currentCode = 5, minCode = 1, forceVersionCodes = listOf(4)))
+        assertTrue(AppUpdateManager.shouldForceUpdate(currentCode = 3, minCode = 4, forceVersionCodes = emptyList()))
+        assertEquals(listOf(4, 6), AppUpdateManager.parseVersionCodes("4, 6,x 0 4"))
+    }
+
+    @Test
+    fun testCachedForceVersionCodesSurviveOffline_task036() {
+        AppUpdateManager.updateCachedForceUpdate(context, 1, forceVersionCodes = listOf(4))
+        assertEquals(listOf(4), AppUpdateManager.getCachedForceVersionCodes(context))
+        AppUpdateManager.clearForceUpdateCache(context)
+        assertTrue(AppUpdateManager.getCachedForceVersionCodes(context).isEmpty())
+    }
+
+    @Test
+    fun testAnnouncementTargetRange_task036() {
+        assertTrue(AppUpdateManager.isInTargetRange(7, null, null))
+        assertTrue(AppUpdateManager.isInTargetRange(7, 5, 7))
+        assertFalse(AppUpdateManager.isInTargetRange(7, 8, null))
+        assertFalse(AppUpdateManager.isInTargetRange(7, null, 6))
+    }
+
+    @Test
+    fun testDeepLinkParsing_task036() {
+        val p = com.example.core.notifications.DeepLinks
+        assertEquals(com.example.core.notifications.DeepLinkTarget.SETTINGS_BACKUP, p.parse("mosarib://settings/backup"))
+        assertEquals(com.example.core.notifications.DeepLinkTarget.REPORTS, p.parse("MOSARIB://reports/"))
+        assertEquals(null, p.parse("mosarib://unknown"))
+        assertEquals(null, p.parse("https://mosarib.tubbasoft.com"))
+    }
 }

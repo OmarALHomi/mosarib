@@ -1,3 +1,6 @@
+  // Task 036: newest license per device (read only) and the users selected for bulk actions
+  let subscriptionByDevice = {};
+  let selectedUserKeys = new Set();
   let allUsers = [];
   let allFeedbacks = [];
   let allRequests = [];
@@ -515,6 +518,8 @@
       alert("يرجى كتابة عنوان الإشعار ونصه أولاً");
       return;
     }
+    const audienceText = document.getElementById("pushAudience")?.innerText || "";
+    if (!confirm(`إرسال الإشعار الآن؟\n${audienceText}`)) return;
 
     statusDiv.style.display = "block";
     statusDiv.style.color = "var(--accent)";
@@ -530,7 +535,12 @@
           title: title,
           body: body,
           action_url: url,
-          target: target
+          target: target,
+          image_url: (document.getElementById("pushImageUrl")?.value || "").trim(),
+          open_in_app: !!document.getElementById("pushOpenInApp")?.checked,
+          version_mode: document.getElementById("pushVersionMode")?.value || "",
+          version_from: document.getElementById("pushVersionFrom")?.value || "",
+          version_to: document.getElementById("pushVersionTo")?.value || ""
         })
       });
 
@@ -545,8 +555,8 @@
     } catch (e) {
       statusDiv.style.color = "#EF4444";
       statusDiv.innerText = "" + e.message;
-      // Fallback directly to client-side RTDB broadcast
-      sendCustomPushNotification();
+      // Fallback directly to client-side RTDB broadcast (only for "all users": it cannot filter)
+      if (target === "ALL") sendCustomPushNotification();
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -649,7 +659,18 @@
     formData.append('version_name', document.getElementById("apkVersionName").value.trim());
     formData.append('version_code', document.getElementById("apkVersionCode").value);
     formData.append('release_notes', document.getElementById("apkReleaseNotes").value.trim());
-    formData.append('is_force_update', document.getElementById("apkForceUpdate").checked ? '1' : '0');
+    const isForce = document.getElementById("apkForceUpdate").checked;
+    formData.append('is_force_update', isForce ? '1' : '0');
+    if (isForce) {
+      const mode = (document.querySelector('input[name="apkForceMode"]:checked') || {}).value || 'OLDER';
+      const codes = parseVersionCodes(document.getElementById("apkForceCodes")?.value || "");
+      if (mode === 'SPECIFIC' && !codes.length) return alert("اكتب أرقام الإصدارات المطلوب إجبارها، مثل: 4, 5");
+      const newCode = parseInt(document.getElementById("apkVersionCode").value) || 1;
+      const locked = countForceLocked(mode, newCode, codes);
+      if (!confirm(`سيتم قفل التطبيق على ${locked} مستخدم حتى يحدّثوا.\n\nتنبيه: لا تفعّله إلا بعد أن يحدّث أغلب المستخدمين؛ يمنع الإصدارات الأقدم من العمل.\n\nمتابعة؟`)) return;
+      formData.append('force_mode', mode);
+      formData.append('force_codes', codes.join(','));
+    }
     formData.append('csrf_token', currentCsrfToken);
 
     const progressDiv = document.getElementById("uploadProgress");
@@ -687,6 +708,15 @@
     if (!vCode) return;
     const vName = prompt("اسم الإصدار (Version Name) مثل 1.4.0:", "1.4.0");
     let isForce = confirm("هل تريد تفعيل هذا الرابط كتحديث إجباري وقفل النسخ القديمة فوراً؟\n\nتحذير: لا تفعّله إلا بعد أن يحدّث أغلب المستخدمين؛ يمنع الإصدارات الأقدم من العمل.");
+    let forceMode = 'OLDER', forceCodes = [];
+    if (isForce) {
+      const raw = prompt("اترك الخانة فارغة لقفل كل الإصدارات الأقدم،\nأو اكتب أرقام إصدارات محددة فقط (مثل: 4, 5):", "");
+      if (raw === null) return;
+      forceCodes = parseVersionCodes(raw);
+      if (forceCodes.length) forceMode = 'SPECIFIC';
+      const locked = countForceLocked(forceMode, parseInt(vCode) || 1, forceCodes);
+      if (!confirm(`سيتم قفل التطبيق على ${locked} مستخدم حتى يحدّثوا. متابعة؟`)) return;
+    }
     const notes = prompt("ملاحظات ورسالة التحديث للمستخدمين:", "تحديث جديد متاح لتطبيق مُسَرِّب");
 
     const formData = new FormData();
@@ -695,6 +725,8 @@
     formData.append('version_code', vCode);
     formData.append('version_name', vName || ('1.' + vCode + '.0'));
     formData.append('is_force_update', isForce ? '1' : '0');
+    formData.append('force_mode', forceMode);
+    formData.append('force_codes', forceCodes.join(','));
     formData.append('release_notes', notes || '');
     formData.append('csrf_token', currentCsrfToken);
 
@@ -833,6 +865,31 @@
       isForceUpdate: type === "UPDATE",
       publishedAt: Date.now()
     };
+    const imageUrl = (document.getElementById("bcImageUrl")?.value || "").trim();
+    if (imageUrl) {
+      if (!imageUrl.startsWith("https://")) return alert("رابط الصورة يجب أن يبدأ بـ https://");
+      payload.imageUrl = imageUrl;
+    }
+
+    if (type === "UPDATE") {
+      const force = readBroadcastForceAudience();
+      if (force.mode === "SPECIFIC") {
+        if (!force.codes.length) return alert("اكتب أرقام الإصدارات المطلوب إجبارها، مثل: 4, 5");
+        payload.minRequiredVersionCode = 1;
+        payload.forceVersionCodes = force.codes;
+      }
+      const locked = countForceLocked(force.mode, minVer, force.codes);
+      if (!confirm(`سيتم قفل التطبيق على ${locked} مستخدم حتى يحدّثوا.\n\nتنبيه: لا تفعّله إلا بعد أن يحدّث أغلب المستخدمين؛ يمنع الإصدارات الأقدم من العمل.\n\nمتابعة؟`)) return;
+    } else {
+      const range = readVersionRange("bcAudience");
+      if (range === false) return alert("حدد رقم الإصدار المستهدف بشكل صحيح");
+      if (range) {
+        if (range.min > 0) payload.targetMinVersionCode = range.min;
+        if (range.max > 0) payload.targetMaxVersionCode = range.max;
+      }
+      const reach = range ? countUsersInRange(range.min, range.max) : allUsers.length;
+      if (!confirm(`سيصل الإعلان إلى ${reach} مستخدم. متابعة؟`)) return;
+    }
 
     try {
       const res = await firebaseFetch('app_broadcast.json', {
@@ -970,8 +1027,11 @@
       <div>${escapeHtml(currentBroadcast.message || 'بدون تفاصيل')}</div>
       <div style="font-size:12px; color:var(--text-muted); margin-top:6px;">
         ${currentBroadcast.minRequiredVersionCode ? `الحد الأدنى للإصدار المسموح: <b>vCode ${escapeHtml(currentBroadcast.minRequiredVersionCode)}</b> • ` : ''}
+        ${Array.isArray(currentBroadcast.forceVersionCodes) && currentBroadcast.forceVersionCodes.length ? `إجبار الإصدارات: <b>${escapeHtml(currentBroadcast.forceVersionCodes.join(', '))}</b> • ` : ''}
+        ${(currentBroadcast.targetMinVersionCode || currentBroadcast.targetMaxVersionCode) ? `مستهدف للإصدارات: <b>${escapeHtml(currentBroadcast.targetMinVersionCode || '…')} – ${escapeHtml(currentBroadcast.targetMaxVersionCode || '…')}</b> • ` : ''}
         تاريخ النشر: ${pubDate}
       </div>
+      ${currentBroadcast.imageUrl && String(currentBroadcast.imageUrl).startsWith('https://') ? `<img src="${escapeHtml(currentBroadcast.imageUrl)}" alt="" style="margin-top:8px; max-width:100%; max-height:140px; border-radius:10px;">` : ''}
     `;
     card.style.display = "block";
   }
@@ -986,6 +1046,7 @@
 
       // Cross-reference with licenses to ensure isActivated is 100% accurate even if user node lagged
       let activeLicenseMap = {};
+      subscriptionByDevice = {};
       try {
         const licRes = await firebaseFetch('licenses.json');
         if (licRes && licRes.ok) {
@@ -993,6 +1054,7 @@
           const licObj = (licData && licData.data !== undefined) ? licData.data : licData;
           if (licObj && typeof licObj === 'object') {
             Object.values(licObj).forEach(lic => {
+              rememberSubscription(lic && lic.deviceCode, lic);
               if (lic && lic.deviceCode && !lic.isRevoked && (lic.expiresAt > Date.now())) {
                 const cleanCode = lic.deviceCode.replace(/-/g, "").trim();
                 activeLicenseMap[cleanCode] = lic;
@@ -1010,6 +1072,7 @@
           const devObj = (devData && devData.data !== undefined) ? devData.data : devData;
           if (devObj && typeof devObj === 'object') {
             Object.entries(devObj).forEach(([dCode, dVal]) => {
+              rememberSubscription(dCode, dVal);
               if (dVal && !dVal.isRevoked && (dVal.expiresAt > Date.now())) {
                 const cleanCode = dCode.replace(/-/g, "").trim();
                 activeLicenseMap[cleanCode] = dVal;
@@ -1076,6 +1139,7 @@
       filterRequests();
       renderUsersTable(allUsers);
       renderFeedbacksTable(allFeedbacks);
+      if (typeof refreshTask036Panels === 'function') refreshTask036Panels();
     }
   }
 
@@ -1324,6 +1388,8 @@
     document.getElementById("statTrialUsers").innerText = trial;
     document.getElementById("statBlockedUsers").innerText = blocked;
     document.getElementById("statPendingRequests").innerText = pendingReqs;
+    const expEl = document.getElementById("statExpiringSoon");
+    if (expEl && typeof expiringSubscriptions === 'function') expEl.innerText = expiringSubscriptions(7).length;
 
     const badge = document.getElementById("badgeReqCount");
     if (badge) {
@@ -1690,7 +1756,7 @@
   function renderUsersTable(users) {
     const tbody = document.getElementById("usersTableBody");
     if (!users || users.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted);">لا يوجد مستخدمون مسجلون بعد (سيظهر كل من يفتح التطبيق هنا تلقائياً)</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-muted);">لا يوجد مستخدمون مسجلون بعد (سيظهر كل من يفتح التطبيق هنا تلقائياً)</td></tr>`;
       return;
     }
 
@@ -1758,7 +1824,7 @@
     filteredList.sort((a,b) => (b.lastActiveAt || 0) - (a.lastActiveAt || 0));
 
     if (filteredList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 20px;">لا توجد نتائج مطابقة للفلتر المختار</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 20px;">لا توجد نتائج مطابقة للفلتر المختار</td></tr>`;
       return;
     }
 
@@ -1832,11 +1898,12 @@
 
       return `
         <tr onclick="openUserDetailModal('${devKey}')" title="انقر لعرض الملف الشامل، الرسائل الموجهة، وإرسال إشعار">
+          <td onclick="event.stopPropagation()"><input type="checkbox" class="user-select" style="width:auto;" value="${escapeHtml(devKey)}" ${selectedUserKeys.has(devKey) ? 'checked' : ''} onchange="toggleUserSelection('${devKey}', this.checked)"></td>
           <td>${googleInfo}</td>
           <td><code>${u.deviceCode || devKey}</code><br><small style="color:var(--text-muted);">${u.deviceModel || '-'}</small></td>
           <td>${priceTag}</td>
           <td>${statusBadge}${warningBadge}</td>
-          <td>${planBadge}</td>
+          <td>${planBadge}${subscriptionHtml(devKey)}</td>
           <td>${opsHtml}</td>
           <td>${bkBadge}</td>
           <td><small>${lastSeen}</small></td>
@@ -1847,6 +1914,7 @@
               ${bkLockBtn}
               ${customLimitBtn}
               ${warnBtn}
+              <button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px; color:var(--danger); border-color:var(--danger);" onclick="softDeleteUsers(['${devKey}'])">حذف 🗑️</button>
             </div>
           </td>
         </tr>
@@ -2005,6 +2073,15 @@
   }
 
   function filterUsers() {
+    const showDeleted = currentUserFilter === 'DELETED';
+    const panel = document.getElementById('deletedUsersPanel');
+    const table = document.getElementById('usersTableContainer');
+    if (panel) panel.style.display = showDeleted ? 'block' : 'none';
+    if (table) table.style.display = showDeleted ? 'none' : '';
+    if (showDeleted) {
+      loadDeletedUsers();
+      return;
+    }
     renderUsersTable(allUsers);
   }
 
@@ -2266,7 +2343,7 @@
     
     const price = (u.pricePerHour || u.hourlyRate);
     document.getElementById("modalUserPrice").innerText = price ? `${Number(price).toLocaleString('ar-EG')} ريال/س` : 'الافتراضي (5000 ريال/س)';
-    document.getElementById("modalUserPlan").innerText = u.plan === "YEARLY" ? "سنوي ⭐" : (u.plan === "MONTHLY" ? "شهري" : "تجربة مجانية");
+    document.getElementById("modalUserPlan").innerHTML = escapeHtml(u.plan === "YEARLY" ? "سنوي ⭐" : (u.plan === "MONTHLY" ? "شهري" : "تجربة مجانية")) + subscriptionHtml(cleanKey);
     document.getElementById("modalUserLastActive").innerText = u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleString('ar-EG') : (u.lastSeen ? new Date(u.lastSeen).toLocaleString('ar-EG') : 'غير محدد');
     document.getElementById("modalUserOps").innerText = isAct ? `${ops} عملية (غير محدود - مشترك)` : `${ops} / ${limit} عملية`;
     document.getElementById("modalUserBackupStatus").innerHTML = isDeviceBkLocked 
@@ -2768,8 +2845,492 @@
     }
     forceEl.addEventListener("change", function() {
       warnDiv.style.display = this.checked ? "block" : "none";
+      const opts = document.getElementById("apkForceOptions");
+      if (opts) opts.style.display = this.checked ? "block" : "none";
+      refreshApkForceImpact();
       if (this.checked) {
         alert("تنبيه: لا تفعّله إلا بعد أن يحدّث أغلب المستخدمين؛ يمنع الإصدارات الأقدم من العمل");
       }
     });
   }
+
+
+  // ===== Task 036: audience by app build, notification pictures, force update for specific builds =====
+
+  function parseVersionCodes(raw) {
+    const seen = new Set();
+    String(raw || '').split(/[\s,،]+/).forEach(p => {
+      const n = parseInt(p, 10);
+      if (n > 0) seen.add(n);
+    });
+    return Array.from(seen);
+  }
+
+  function userVersionCode(u) {
+    const n = parseInt(u && u.versionCode, 10);
+    return n > 0 ? n : 0;
+  }
+
+  /** {versionCode: users} from all_users (users without a build number are counted as 0). */
+  function versionUsageMap() {
+    const map = {};
+    (allUsers || []).forEach(u => {
+      const c = userVersionCode(u);
+      map[c] = (map[c] || 0) + 1;
+    });
+    return map;
+  }
+
+  function versionUsageHtml() {
+    const map = versionUsageMap();
+    const codes = Object.keys(map).map(Number).sort((a, b) => b - a);
+    if (!codes.length) return '';
+    const names = {};
+    (allUsers || []).forEach(u => { const c = userVersionCode(u); if (c && u.appVersion) names[c] = u.appVersion; });
+    return 'الإصدارات المستخدمة الآن: ' + codes.map(c =>
+      c ? `<b>${c}</b>${names[c] ? ' (' + escapeHtml(names[c]) + ')' : ''}: ${map[c]}` : `غير معروف: ${map[c]}`
+    ).join(' • ');
+  }
+
+  function countUsersInRange(min, max) {
+    return (allUsers || []).filter(u => {
+      const c = userVersionCode(u);
+      if (!c) return false;
+      if (min > 0 && c < min) return false;
+      if (max > 0 && c > max) return false;
+      return true;
+    }).length;
+  }
+
+  /** Reads EQ / LT / RANGE inputs with the given prefix. null = everyone, false = invalid. */
+  function readVersionRange(prefix) {
+    const mode = document.getElementById(prefix + 'Mode')?.value || 'ALL';
+    const from = parseInt(document.getElementById(prefix + 'From')?.value, 10) || 0;
+    const to = parseInt(document.getElementById(prefix + 'To')?.value, 10) || 0;
+    if (mode === 'ALL') return null;
+    if (mode === 'EQ') return from > 0 ? { min: from, max: from } : false;
+    if (mode === 'LT') return from > 1 ? { min: 0, max: from - 1 } : false;
+    if (mode === 'RANGE') return (from > 0 && to >= from) ? { min: from, max: to } : false;
+    return null;
+  }
+
+  function countForceLocked(mode, minCode, codes) {
+    return (allUsers || []).filter(u => {
+      const c = userVersionCode(u);
+      if (!c) return false;
+      return mode === 'SPECIFIC' ? codes.includes(c) : c < minCode;
+    }).length;
+  }
+
+  function readBroadcastForceAudience() {
+    const mode = (document.querySelector('input[name="bcForceMode"]:checked') || {}).value || 'OLDER';
+    return { mode, codes: parseVersionCodes(document.getElementById('bcForceCodes')?.value || '') };
+  }
+
+  function refreshBroadcastAudience() {
+    const isUpdate = document.getElementById('bcType')?.value === 'UPDATE';
+    const group = document.getElementById('bcAudienceGroup');
+    if (group) group.style.display = isUpdate ? 'none' : 'block';
+    const usage = document.getElementById('bcVersionUsage');
+    if (usage) usage.innerHTML = versionUsageHtml();
+
+    const countEl = document.getElementById('bcAudienceCount');
+    if (countEl && !isUpdate) {
+      const range = readVersionRange('bcAudience');
+      countEl.innerText = range === false ? 'حدد رقم الإصدار بشكل صحيح'
+        : `سيصل إلى ${range ? countUsersInRange(range.min, range.max) : (allUsers || []).length} مستخدم`;
+    }
+    const impact = document.getElementById('bcForceImpact');
+    if (impact && isUpdate) {
+      const f = readBroadcastForceAudience();
+      const minVer = parseInt(document.getElementById('bcMinVersion')?.value, 10) || 1;
+      impact.innerText = `سيتم قفل التطبيق على ${countForceLocked(f.mode, minVer, f.codes)} مستخدم حتى يحدّثوا`;
+    }
+  }
+
+  function refreshApkForceImpact() {
+    const el = document.getElementById('apkForceImpact');
+    if (!el) return;
+    const mode = (document.querySelector('input[name="apkForceMode"]:checked') || {}).value || 'OLDER';
+    const codes = parseVersionCodes(document.getElementById('apkForceCodes')?.value || '');
+    const newCode = parseInt(document.getElementById('apkVersionCode')?.value, 10) || 1;
+    el.innerHTML = `سيتم قفل التطبيق على ${countForceLocked(mode, newCode, codes)} مستخدم حتى يحدّثوا<br><span style="font-weight:normal; color:var(--text-muted);">${versionUsageHtml()}</span>`;
+  }
+
+  // ---- Push: audience preview (server counts the real tokens) and notification preview
+  let pushAudienceTimer = null;
+  function refreshPushAudience() {
+    const target = document.getElementById('pushTarget')?.value || 'ALL';
+    const block = document.getElementById('pushVersionBlock');
+    if (block) block.style.display = target === 'VERSION' ? 'block' : 'none';
+    const usage = document.getElementById('pushVersionUsage');
+    if (usage) usage.innerHTML = versionUsageHtml();
+    const out = document.getElementById('pushAudience');
+    if (!out) return;
+    if (target === 'VERSION' && readVersionRange('pushVersion') === false) {
+      out.innerText = 'حدد رقم الإصدار بشكل صحيح';
+      return;
+    }
+    clearTimeout(pushAudienceTimer);
+    pushAudienceTimer = setTimeout(async () => {
+      try {
+        const res = await apiFetch('api/fcm_sender.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'send', dry_run: true, target,
+            version_mode: document.getElementById('pushVersionMode')?.value || '',
+            version_from: document.getElementById('pushVersionFrom')?.value || '',
+            version_to: document.getElementById('pushVersionTo')?.value || ''
+          })
+        });
+        const data = (await safeJson(res)) || {};
+        out.innerText = data.success ? `سيصل إلى ${data.data.audience} جهاز` : (data.message || '');
+      } catch (_) {
+        out.innerText = '';
+      }
+    }, 350);
+  }
+
+  function renderPushPreview() {
+    const box = document.getElementById('pushPreview');
+    if (!box) return;
+    const title = document.getElementById('pushTitle')?.value.trim() || '';
+    const body = document.getElementById('pushBody')?.value.trim() || '';
+    const url = document.getElementById('pushUrl')?.value.trim() || '';
+    const img = document.getElementById('pushImageUrl')?.value.trim() || '';
+    if (!title && !body) { box.innerHTML = ''; return; }
+    box.innerHTML = `
+      <div style="border:1px solid var(--border); border-radius:14px; padding:10px 12px; background:var(--surface-alt);">
+        <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">معاينة الإشعار</div>
+        <div style="font-weight:800;">${escapeHtml(title)}</div>
+        <div style="font-size:13px; color:var(--text-body); margin-top:2px;">${escapeHtml(body)}</div>
+        ${img.startsWith('https://') ? `<img src="${escapeHtml(img)}" alt="" style="margin-top:8px; width:100%; max-height:150px; object-fit:cover; border-radius:10px;">` : ''}
+        ${url ? `<div style="margin-top:6px; font-size:12px; color:var(--primary); font-weight:700;">${url.toLowerCase().startsWith('mosarib://') ? 'يفتح شاشة في التطبيق' : 'يفتح الرابط في المتصفح'} • زر «فتح الرابط»</div>` : ''}
+      </div>`;
+  }
+
+  // ---- Pictures for notifications / announcements
+  function previewNoticeImage(prefix) {
+    const url = (document.getElementById(prefix + 'ImageUrl')?.value || '').trim();
+    const img = document.getElementById(prefix + 'ImagePreview');
+    if (img) {
+      if (url.startsWith('https://')) { img.src = url; img.style.display = 'block'; }
+      else { img.removeAttribute('src'); img.style.display = 'none'; }
+    }
+    if (prefix === 'push') renderPushPreview();
+  }
+
+  async function uploadNoticeImage(prefix) {
+    const input = document.getElementById(prefix + 'ImageFile');
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 1024 * 1024) { alert('حجم الصورة يجب ألا يتجاوز 1 ميجابايت'); input.value = ''; return; }
+    const fd = new FormData();
+    fd.append('action', 'upload_image');
+    fd.append('image_file', file);
+    fd.append('csrf_token', currentCsrfToken);
+    try {
+      const res = await apiFetch('api/fcm_sender.php', { method: 'POST', body: fd });
+      const data = (await safeJson(res)) || {};
+      if (!data.success) throw new Error(data.message || 'تعذر رفع الصورة');
+      document.getElementById(prefix + 'ImageUrl').value = data.data.url;
+      previewNoticeImage(prefix);
+    } catch (e) {
+      alert('فشل رفع الصورة: ' + e.message);
+    } finally {
+      input.value = '';
+    }
+  }
+
+  (function initTask036Inputs() {
+    const target = document.getElementById('pushTarget');
+    if (target) target.addEventListener('change', refreshPushAudience);
+    ['pushTitle', 'pushBody'].forEach(id => document.getElementById(id)?.addEventListener('input', renderPushPreview));
+    document.getElementById('bcType')?.addEventListener('change', refreshBroadcastAudience);
+    document.getElementById('apkVersionCode')?.addEventListener('input', refreshApkForceImpact);
+  })();
+
+  function refreshTask036Panels() {
+    refreshBroadcastAudience();
+    refreshApkForceImpact();
+    refreshPushAudience();
+  }
+
+
+  // ===== Task 036: subscription dates, expiring subscriptions, user removal =====
+
+  let expiringDays = 7;
+  const DAY_MS = 24 * 3600 * 1000;
+
+  /** Keeps the newest license per device (by expiresAt). Read only: licenses are never changed here. */
+  function rememberSubscription(deviceCode, lic) {
+    if (!deviceCode || !lic || typeof lic !== 'object') return;
+    const key = String(deviceCode).replace(/-/g, '').trim().toUpperCase();
+    const expiresAt = Number(lic.expiresAt) || 0;
+    if (!key || !expiresAt) return;
+    const prev = subscriptionByDevice[key];
+    if (!prev || expiresAt > prev.expiresAt) {
+      subscriptionByDevice[key] = {
+        activatedAt: Number(lic.activatedAt) || 0,
+        expiresAt: expiresAt,
+        plan: lic.plan || '',
+        isRevoked: lic.isRevoked === true
+      };
+    }
+  }
+
+  function formatDateDMY(ms) {
+    if (!ms) return '-';
+    const d = new Date(ms);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  }
+
+  function daysLeft(expiresAt) {
+    return Math.ceil((expiresAt - Date.now()) / DAY_MS);
+  }
+
+  function planLabel(plan) {
+    if (plan === 'YEARLY') return 'سنوي';
+    if (plan === 'MONTHLY') return 'شهري';
+    return plan || '-';
+  }
+
+  function subscriptionHtml(devKey) {
+    const sub = subscriptionByDevice[String(devKey || '').toUpperCase()];
+    if (!sub) return '';
+    const left = daysLeft(sub.expiresAt);
+    const color = sub.isRevoked || left < 0 ? 'var(--danger)' : (left <= 7 ? 'var(--accent)' : 'var(--success)');
+    const leftText = sub.isRevoked ? 'ملغى' : (left < 0 ? `منتهي منذ ${Math.abs(left)} يوم` : `المتبقي: ${left} يوم`);
+    return `<div style="font-size:11px; line-height:1.7; margin-top:4px; color:var(--text-muted);">
+      بداية الاشتراك: <b>${formatDateDMY(sub.activatedAt)}</b><br>
+      نهاية الاشتراك: <b>${formatDateDMY(sub.expiresAt)}</b><br>
+      <b style="color:${color};">${leftText}</b></div>`;
+  }
+
+  function userByKey(devKey) {
+    const k = String(devKey || '').toUpperCase();
+    return (allUsers || []).find(u => (u.cleanDeviceKey || String(u.deviceCode || '').replace(/-/g, '')).toUpperCase() === k);
+  }
+
+  /** days > 0: ends within that many days; days < 0: already ended. Sorted by nearest end. */
+  function expiringSubscriptions(days) {
+    const now = Date.now();
+    return Object.entries(subscriptionByDevice)
+      .filter(([, s]) => !s.isRevoked && (days < 0 ? s.expiresAt <= now : (s.expiresAt > now && s.expiresAt - now <= days * DAY_MS)))
+      .map(([key, s]) => ({ key, sub: s, user: userByKey(key) }))
+      .sort((a, b) => days < 0 ? b.sub.expiresAt - a.sub.expiresAt : a.sub.expiresAt - b.sub.expiresAt);
+  }
+
+  function setExpiringFilter(days) {
+    expiringDays = days;
+    document.querySelectorAll('.exp-pill').forEach(b => b.classList.toggle('active', Number(b.dataset.days) === days));
+    renderExpiringSubscriptions();
+  }
+
+  function whatsappNumber(phone) {
+    let p = String(phone || '').replace(/[^0-9]/g, '');
+    if (p.startsWith('00')) p = p.slice(2);
+    if (p.startsWith('0')) p = p.slice(1);
+    if (p.length === 9) p = '967' + p;
+    return p;
+  }
+
+  function renderExpiringSubscriptions() {
+    const body = document.getElementById('expiringTableBody');
+    const badge = document.getElementById('expiringCountBadge');
+    const list = expiringSubscriptions(expiringDays);
+    if (badge) badge.innerText = expiringSubscriptions(7).length;
+    if (!body) return;
+    if (!list.length) {
+      body.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">لا توجد اشتراكات ${expiringDays < 0 ? 'منتهية' : 'تنتهي خلال ' + expiringDays + ' يوماً'}</td></tr>`;
+      return;
+    }
+    body.innerHTML = list.map(({ key, sub, user }) => {
+      const name = (user && (user.subscriberName || user.googleDisplayName)) || 'مشترك';
+      const phone = (user && user.phone) || '';
+      const left = daysLeft(sub.expiresAt);
+      const msg = left < 0
+        ? `مرحباً ${name}، انتهى اشتراكك في تطبيق المُسَرِّب بتاريخ ${formatDateDMY(sub.expiresAt)}. للتجديد تواصل معنا.`
+        : `مرحباً ${name}، اشتراكك في تطبيق المُسَرِّب ينتهي بتاريخ ${formatDateDMY(sub.expiresAt)} (بعد ${left} يوم). للتجديد تواصل معنا.`;
+      const wa = phone ? `<a class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" target="_blank" rel="noopener" href="https://wa.me/${whatsappNumber(phone)}?text=${encodeURIComponent(msg)}">واتساب</a>` : '';
+      return `<tr>
+        <td><b>${escapeHtml(name)}</b><br><code style="font-size:11px;">${escapeHtml(key)}</code></td>
+        <td>${escapeHtml(phone || '-')}</td>
+        <td>${escapeHtml(planLabel(sub.plan))}</td>
+        <td>${formatDateDMY(sub.expiresAt)}</td>
+        <td><b style="color:${left < 0 ? 'var(--danger)' : (left <= 7 ? 'var(--accent)' : 'var(--success)')};">${left < 0 ? 'منتهي' : left + ' يوم'}</b></td>
+        <td><div class="btn-action-group">
+          <button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" onclick="sendRenewalReminder('${escapeHtml(key)}', ${left})">تذكير 🔔</button>
+          ${wa}
+        </div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function sendRenewalReminder(devKey, left) {
+    const title = 'تذكير بتجديد الاشتراك';
+    const body = left < 0 ? 'انتهى اشتراكك في المُسَرِّب. جدّده للاستمرار دون توقف.' : `اشتراكك في المُسَرِّب ينتهي بعد ${left} يوم. جدّده للاستمرار دون توقف.`;
+    if (!confirm(`إرسال إشعار تذكير لهذا المشترك فقط؟\n\n${body}`)) return;
+    try {
+      const res = await apiFetch('api/fcm_sender.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send', target: 'DEVICE', target_device_code: devKey, title, body })
+      });
+      const data = (await safeJson(res)) || {};
+      alert(data.success ? 'تم إرسال التذكير' : ('تعذر الإرسال: ' + (data.message || '')));
+    } catch (e) {
+      alert('تعذر الإرسال: ' + e.message);
+    }
+  }
+
+  // ---- selection and bulk actions
+  function updateBulkBar() {
+    const bar = document.getElementById('usersBulkBar');
+    const count = document.getElementById('usersSelectedCount');
+    if (count) count.innerText = selectedUserKeys.size;
+    if (bar) bar.style.display = selectedUserKeys.size ? 'flex' : 'none';
+  }
+
+  function toggleUserSelection(devKey, checked) {
+    if (checked) selectedUserKeys.add(devKey); else selectedUserKeys.delete(devKey);
+    updateBulkBar();
+  }
+
+  function toggleSelectAllUsers(checked) {
+    document.querySelectorAll('#usersTableBody .user-select').forEach(cb => {
+      cb.checked = checked;
+      toggleUserSelection(cb.value, checked);
+    });
+  }
+
+  function clearUserSelection() {
+    selectedUserKeys.clear();
+    const all = document.getElementById('usersSelectAll');
+    if (all) all.checked = false;
+    document.querySelectorAll('#usersTableBody .user-select').forEach(cb => { cb.checked = false; });
+    updateBulkBar();
+  }
+
+  async function bulkDisableUsers() {
+    const keys = Array.from(selectedUserKeys);
+    if (!keys.length) return;
+    if (!confirm(`تعطيل (حظر) ${keys.length} مستخدم؟ يمكن فك الحظر لاحقاً.`)) return;
+    for (const key of keys) {
+      const u = userByKey(key);
+      // toggleBlockUser asks for a reason and confirms each time; run it per user
+      await toggleBlockUser(key, (u && u.googleEmail) || '', true);
+    }
+    clearUserSelection();
+  }
+
+  async function bulkSoftDeleteUsers() {
+    const keys = Array.from(selectedUserKeys);
+    if (keys.length) await softDeleteUsers(keys);
+  }
+
+  async function softDeleteUsers(keys) {
+    const reason = prompt(`حذف ${keys.length} مستخدم من القائمة؟\nيمكن استرجاعهم من «المحذوفون» خلال 30 يوماً، والترخيص لا يُحذف.\n\nسبب الحذف (اختياري):`, '');
+    if (reason === null) return;
+    try {
+      const res = await apiFetch('api/admin_users.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'soft_delete', keys, reason })
+      });
+      const data = (await safeJson(res)) || {};
+      alert(data.message || (data.success ? 'تم' : 'تعذر الحذف'));
+      clearUserSelection();
+      loadFirebaseData();
+      refreshDeletedCount();
+    } catch (e) {
+      alert('تعذر الحذف: ' + e.message);
+    }
+  }
+
+  // ---- deleted users list
+  async function fetchDeletedUsers() {
+    const res = await apiFetch('api/admin_users.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'list_deleted' })
+    });
+    const data = (await safeJson(res)) || {};
+    if (!data.success) throw new Error(data.message || 'تعذر جلب المحذوفين');
+    return data.data;
+  }
+
+  async function refreshDeletedCount() {
+    try {
+      const d = await fetchDeletedUsers();
+      const el = document.getElementById('countFilterDeleted');
+      if (el) el.innerText = d.users.length;
+    } catch (_) {}
+  }
+
+  async function loadDeletedUsers() {
+    const body = document.getElementById('deletedUsersBody');
+    if (!body) return;
+    try {
+      const d = await fetchDeletedUsers();
+      const el = document.getElementById('countFilterDeleted');
+      if (el) el.innerText = d.users.length;
+      if (!d.users.length) {
+        body.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">لا يوجد مستخدمون محذوفون</td></tr>`;
+        return;
+      }
+      body.innerHTML = d.users.map(u => `<tr>
+        <td><b>${escapeHtml(u.name || 'مستخدم')}</b>${u.email ? `<br><small style="color:#38BDF8;">${escapeHtml(u.email)}</small>` : ''}${u.phone ? `<br><small>${escapeHtml(u.phone)}</small>` : ''}</td>
+        <td><code>${escapeHtml(u.key)}</code></td>
+        <td>${formatDateDMY(u.deletedAt)}</td>
+        <td><small>${escapeHtml(u.deletedBy || '')}${u.reason ? '<br>' + escapeHtml(u.reason) : ''}</small></td>
+        <td>${formatDateDMY(u.purgeAt)}</td>
+        <td><div class="btn-action-group">
+          <button class="btn-sm btn-unblock" onclick="restoreDeletedUser('${escapeHtml(u.key)}')">استرجاع ↩️</button>
+          ${d.can_hard_delete ? `<button class="btn-sm btn-block" onclick="hardDeleteUser('${escapeHtml(u.key)}')">حذف نهائي</button>` : ''}
+        </div></td>
+      </tr>`).join('');
+    } catch (e) {
+      body.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--danger);">${escapeHtml(e.message)}</td></tr>`;
+    }
+  }
+
+  async function restoreDeletedUser(key) {
+    if (!confirm('استرجاع هذا المستخدم إلى القائمة؟')) return;
+    const res = await apiFetch('api/admin_users.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'restore', key })
+    });
+    const data = (await safeJson(res)) || {};
+    alert(data.message || '');
+    loadDeletedUsers();
+    loadFirebaseData();
+  }
+
+  async function hardDeleteUser(key) {
+    const typed = prompt('الحذف النهائي لا يمكن التراجع عنه (الترخيص لا يُحذف).\nاكتب اسم المستخدم أو بريده أو كود جهازه للتأكيد:', '');
+    if (!typed) return;
+    const res = await apiFetch('api/admin_users.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'hard_delete', key, confirm: typed })
+    });
+    const data = (await safeJson(res)) || {};
+    alert(data.message || '');
+    loadDeletedUsers();
+  }
+
+  (function initTask036Users() {
+    const prevRefresh = typeof refreshTask036Panels === 'function' ? refreshTask036Panels : null;
+    refreshTask036Panels = function () {
+      if (prevRefresh) prevRefresh();
+      renderExpiringSubscriptions();
+      updateStats();
+      updateBulkBar();
+      refreshDeletedCount();
+    };
+  })();

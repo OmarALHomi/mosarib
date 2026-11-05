@@ -39,6 +39,31 @@ if ($method === 'GET') {
     ]);
 }
 
+
+// Force-update audience (task 036): OLDER = every build below the new one (today's rule),
+// SPECIFIC = only the listed builds (e.g. a buggy build 4); other builds keep working.
+function readForceAudience() {
+    $mode = strtoupper(trim($_POST['force_mode'] ?? 'OLDER'));
+    $codes = [];
+    foreach (preg_split('/[\s,]+/', (string)($_POST['force_codes'] ?? '')) as $part) {
+        $n = intval($part);
+        if ($n > 0) $codes[$n] = $n;
+    }
+    $codes = array_values($codes);
+    if ($mode === 'SPECIFIC' && empty($codes)) {
+        jsonResponse(false, 'اكتب أرقام الإصدارات (أرقام البناء) المطلوب إجبارها على التحديث، مثل: 4, 5');
+    }
+    return [$mode === 'SPECIFIC' ? 'SPECIFIC' : 'OLDER', $codes];
+}
+
+function applyForceAudience(array $payload, $mode, array $codes) {
+    if ($mode === 'SPECIFIC') {
+        $payload['minRequiredVersionCode'] = 1;
+        $payload['forceVersionCodes'] = $codes;
+    }
+    return $payload;
+}
+
 // 2. POST: Upload new APK release or update cloud force-update
 if ($method === 'POST') {
     // CSRF verification on every admin write
@@ -88,6 +113,7 @@ if ($method === 'POST') {
         $versionCode = intval($_POST['version_code'] ?? 1);
         $releaseNotes = trim($_POST['release_notes'] ?? '');
         $isForceUpdate = isset($_POST['is_force_update']) && ($_POST['is_force_update'] === '1' || $_POST['is_force_update'] === 'true');
+        [$forceMode, $forceCodes] = $isForceUpdate ? readForceAudience() : ['OLDER', []];
 
         // Generate clean file name
         $fileName = 'Mosarib_v' . preg_replace('/[^0-9.]/', '', $versionName) . '_code' . $versionCode . '_' . time() . '.apk';
@@ -117,6 +143,8 @@ if ($method === 'POST') {
             'file_size_mb' => number_format($fileSizeBytes / (1024 * 1024), 2, '.', ''),
             'download_url' => $downloadUrl,
             'is_force_update' => $isForceUpdate,
+            'force_mode' => $forceMode,
+            'force_codes' => $forceCodes,
             'uploaded_at' => time() * 1000
         ];
 
@@ -135,6 +163,7 @@ if ($method === 'POST') {
                 'isForceUpdate' => true,
                 'publishedAt' => round(microtime(true) * 1000)
             ];
+            $bcPayload = applyForceAudience($bcPayload, $forceMode, $forceCodes);
             firebaseRequest('app_broadcast.json', 'PUT', $bcPayload);
         }
 
@@ -151,6 +180,7 @@ if ($method === 'POST') {
         }
         $notes = trim($_POST['release_notes'] ?? '');
         $isForce = isset($_POST['is_force_update']) && ($_POST['is_force_update'] === '1' || $_POST['is_force_update'] === 'true');
+        [$forceMode, $forceCodes] = $isForce ? readForceAudience() : ['OLDER', []];
 
         if (empty($customUrl) || !filter_var($customUrl, FILTER_VALIDATE_URL) || !str_starts_with(strtolower($customUrl), 'https://')) {
             jsonResponse(false, 'رابط التحميل المباشر يجب أن يكون رابطاً صحيحاً ويبدأ بـ https:// حصراً');
@@ -166,6 +196,7 @@ if ($method === 'POST') {
             'isForceUpdate' => $isForce,
             'publishedAt' => round(microtime(true) * 1000)
         ];
+        if ($isForce) $bcPayload = applyForceAudience($bcPayload, $forceMode, $forceCodes);
         firebaseRequest('app_broadcast.json', 'PUT', $bcPayload);
 
         // Also add external release to releases_index.json so public portal download button uses it
