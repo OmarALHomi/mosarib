@@ -35,6 +35,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -283,11 +287,28 @@ private fun DriveAccountHeader(
             }
         }
 
+        var confirmSignOut by remember { mutableStateOf(false) }
         TextButton(
-            onClick = onSignOut,
+            onClick = { confirmSignOut = true },
             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
         ) {
             Text("قطع الاتصال", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFDC2626), fontWeight = FontWeight.Bold))
+        }
+        if (confirmSignOut) {
+            com.example.core.ui.MosaribDialog(
+                onDismissRequest = { confirmSignOut = false },
+                title = "قطع الاتصال بحساب Google؟",
+                icon = Icons.Default.AccountCircle,
+                tone = com.example.core.ui.DialogTone.Danger,
+                message = "سيتوقف النسخ التلقائي إلى Google Drive حتى تربط الحساب من جديد. النسخ المحفوظة في Drive لا تُحذف.",
+                confirmText = "قطع الاتصال",
+                onConfirm = {
+                    confirmSignOut = false
+                    onSignOut()
+                },
+                dismissText = "إلغاء",
+                onDismiss = { confirmSignOut = false }
+            )
         }
     }
 }

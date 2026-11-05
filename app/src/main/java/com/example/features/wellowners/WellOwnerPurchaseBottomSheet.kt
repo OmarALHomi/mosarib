@@ -423,7 +423,8 @@ fun WellOwnerPurchaseBottomSheet(
                         } else {
                             launchVoiceFor("form_command")
                         }
-                    }
+                    },
+                    modifier = Modifier.guideTarget("purchase_voice_command")
                 )
             }
         },
@@ -944,7 +945,7 @@ fun WellOwnerPurchaseBottomSheet(
                 leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald) },
                 trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("paid") }) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().guideTarget("purchase_paid"),
                 singleLine = true
             )
 
@@ -1012,7 +1013,7 @@ fun WellOwnerPurchaseBottomSheet(
                 label = "ملاحظات / البيان (اختياري)",
                 leadingIcon = { Icon(Icons.Default.WaterDrop, contentDescription = null, tint = PrimaryTeal) },
                 trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("notes") }) },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().guideTarget("purchase_notes")
             )
         }
     }

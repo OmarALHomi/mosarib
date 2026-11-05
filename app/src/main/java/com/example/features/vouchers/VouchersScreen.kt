@@ -2384,7 +2384,8 @@ fun AddVoucherBottomSheet(
                         } else {
                             launchVoiceFor("form_command")
                         }
-                    }
+                    },
+                    modifier = Modifier.guideTarget("voucher_voice_command")
                 )
             }
         },
@@ -2857,6 +2858,7 @@ fun AddVoucherBottomSheet(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .guideTarget("voucher_discount")
                         .testTag("voucher_discount_input")
                 )
 
@@ -2918,7 +2920,7 @@ fun AddVoucherBottomSheet(
                 value = paymentMethod,
                 onValueChange = { paymentMethod = it },
                 label = "طريقة الدفع",
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().guideTarget("voucher_payment_method")
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -2929,7 +2931,7 @@ fun AddVoucherBottomSheet(
                 label = if (type == VoucherType.RECEIPT) "البيان والملاحظات" else "بيان المصروف *",
                 placeholder = if (type == VoucherType.RECEIPT) "مثال: دفعة ري أو سداد حساب" else "اكتب بيان المصروف...",
                 trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("notes") }) },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().guideTarget("voucher_notes")
             )
 
             // مقترحات البيان التلقائية لسندات الصرف

@@ -862,7 +862,7 @@ fun AddEditSessionBottomSheet(
                             launchVoiceFor("form_command")
                         }
                     },
-                    modifier = Modifier.guideTarget("session_mic")
+                    modifier = Modifier.guideTarget("session_voice_command")
                 )
             }
         },
@@ -973,7 +973,7 @@ fun AddEditSessionBottomSheet(
                         showQuickCustomerDialog = true
                     },
                     addNewPrompt = "العميل غير مسجل: \"$customerInputText\"",
-                    trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("customer") }) },
+                    trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("customer") }, modifier = Modifier.guideTarget("session_mic")) },
                     modifier = Modifier
                         .weight(1f)
                         .testTag("session_customer_picker")
@@ -1606,6 +1606,7 @@ fun AddEditSessionBottomSheet(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .guideTarget("session_extra")
                     .clip(RoundedCornerShape(12.dp)),
                 color = when {
                     wastedTotalMinutes > 0 || discountAmount > 0 -> MaterialTheme.colorScheme.surfaceVariant
@@ -1962,6 +1963,7 @@ fun AddEditSessionBottomSheet(
                         Surface(
                             modifier = Modifier
                                 .height(52.dp)
+                                .guideTarget("session_full_paid")
                                 .clip(RoundedCornerShape(12.dp))
                                 .clickable {
                                     amountPaidStr = if (isFullPaid) "" else Formatters.formatAmountInput(finalFarmerCharge.toString())
@@ -2014,6 +2016,7 @@ fun AddEditSessionBottomSheet(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier
                             .weight(1f)
+                            .guideTarget("session_paid")
                             .testTag("session_paid_input")
                     )
                 }
@@ -2177,7 +2180,7 @@ fun AddEditSessionBottomSheet(
                 }
             }
 
-            TextButton(onClick = { showNotes = !showNotes }) {
+            TextButton(onClick = { showNotes = !showNotes }, modifier = Modifier.guideTarget("session_notes")) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)

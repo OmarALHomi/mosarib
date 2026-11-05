@@ -152,6 +152,13 @@ fun SettingsScreen(
     var showCurrencySheet by remember { mutableStateOf(false) }
     var showThemeSheet by remember { mutableStateOf(false) }
     var currentSubPage by rememberSaveable { mutableStateOf<SettingsSubPage?>(null) }
+    val openBackupPageRequest by viewModel.openBackupPageRequest.collectAsStateWithLifecycle()
+    LaunchedEffect(openBackupPageRequest) {
+        if (openBackupPageRequest) {
+            currentSubPage = SettingsSubPage.BACKUP
+            viewModel.consumeOpenBackupPageRequest()
+        }
+    }
     val listState = rememberLazyListState()
 
     LaunchedEffect(currentSubPage) {

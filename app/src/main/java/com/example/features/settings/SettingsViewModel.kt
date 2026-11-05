@@ -191,8 +191,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _targetBackupSourceTab = MutableStateFlow(0)
     val targetBackupSourceTab: StateFlow<Int> = _targetBackupSourceTab.asStateFlow()
 
+    // One-shot request to open the backup page itself (home shortcut, mosarib://settings/backup, help)
+    private val _openBackupPageRequest = MutableStateFlow(false)
+    val openBackupPageRequest: StateFlow<Boolean> = _openBackupPageRequest.asStateFlow()
+
     fun selectDriveBackupTab() {
         _targetBackupSourceTab.value = 1
+        _openBackupPageRequest.value = true
+    }
+
+    fun consumeOpenBackupPageRequest() {
+        _openBackupPageRequest.value = false
     }
 
     fun selectLocalBackupTab() {

@@ -217,7 +217,8 @@ object DriveBackupScheduler {
         )
     }
 
-    fun enqueueImmediateBackup(context: Context) {
+    /** [manual] = the user pressed "انسخ الآن": always runs. Automatic runs re-check the schedule. */
+    fun enqueueImmediateBackup(context: Context, manual: Boolean = true) {
         val wifiOnly = DriveBackupPreferences.isWifiOnly(context)
         val networkType = if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED
         val constraints = Constraints.Builder()
@@ -228,12 +229,13 @@ object DriveBackupScheduler {
         val oneTimeRequest = OneTimeWorkRequestBuilder<DriveBackupWorker>()
             .setConstraints(constraints)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
-            .setInputData(workDataOf("is_manual" to true))
+            .setInputData(workDataOf("is_manual" to manual))
             .build()
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             IMMEDIATE_WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
+            // An automatic run must not replace a pending "انسخ الآن"
+            if (manual) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
             oneTimeRequest
         )
     }
@@ -260,7 +262,7 @@ object DriveBackupScheduler {
                 force = false
             )
         ) {
-            enqueueImmediateBackup(context)
+            enqueueImmediateBackup(context, manual = false)
         }
     }
 
@@ -307,8 +309,17 @@ class DriveBackupWorker(
         val lastDbModified = DriveBackupPreferences.getLastBackupDbModified(context)
         val lastBackupTime = DriveBackupPreferences.getLastBackupTime(context)
 
-        // Skip when nothing changed since last successful backup (periodic only)
-        if (!isManual && lastBackupTime > 0L && currentDbModified > 0L && currentDbModified <= lastDbModified) {
+        // Automatic runs (periodic or app start) back up only when the period has passed and data
+        // changed, so the two triggers never make two copies on the same day
+        if (!isManual && !DriveBackupDecision.shouldRunBackup(
+                frequency = frequency,
+                lastBackupTimeMillis = lastBackupTime,
+                currentDbModifiedMillis = currentDbModified,
+                lastBackupDbModifiedMillis = lastDbModified,
+                nowMillis = System.currentTimeMillis(),
+                hasGoogleAccount = true
+            )
+        ) {
             return@withContext Result.success()
         }
 
@@ -321,9 +332,8 @@ class DriveBackupWorker(
             val todayDateStr = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
             val autoDir = File(context.filesDir, "auto_backups").apply { if (!exists()) mkdirs() }
             val dailyFile = File(autoDir, "mosarib_auto_daily_$todayDateStr.back")
-            if (!dailyFile.exists()) {
-                tempBackupFile.copyTo(dailyFile, overwrite = true)
-            }
+            // Always the current data: a second backup on the same day must not upload the morning copy
+            tempBackupFile.copyTo(dailyFile, overwrite = true)
 
             val fileToUpload = if (dailyFile.exists()) dailyFile else tempBackupFile
             val uploadResult = GoogleDriveBackupHelper.uploadBackupToAppData(context, account, fileToUpload)
@@ -350,11 +360,12 @@ class DriveBackupWorker(
     private suspend fun pruneDriveBackups(context: Context, account: GoogleSignInAccount) {
         try {
             val list = GoogleDriveBackupHelper.listAppDataBackups(context, account).getOrNull() ?: return
+            // The list is newest first: keep one copy per file name (one per day), then at most 10
             val appBackups = list.filter { it.name.startsWith("mosarib_") && it.name.endsWith(".back") }
-            if (appBackups.size > 10) {
-                appBackups.drop(10).forEach { file ->
-                    GoogleDriveBackupHelper.deleteAppDataBackup(context, account, file.id)
-                }
+            val seenNames = HashSet<String>()
+            val (kept, sameDayOlder) = appBackups.partition { seenNames.add(it.name) }
+            (sameDayOlder + kept.drop(10)).forEach { file ->
+                GoogleDriveBackupHelper.deleteAppDataBackup(context, account, file.id)
             }
         } catch (_: Exception) {}
     }
