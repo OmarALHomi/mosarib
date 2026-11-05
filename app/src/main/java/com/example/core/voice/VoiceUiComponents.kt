@@ -1016,9 +1016,29 @@ fun VoiceRecordSheet(
         }
     }
 
+    // Listening restarts after every pause, and each start plays the engine's beep. Only the first
+    // start should be heard, so restarts briefly mute the streams the beep plays on.
+    val audioManager = remember(context) { context.getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager }
+    val beepStreams = intArrayOf(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.STREAM_NOTIFICATION, android.media.AudioManager.STREAM_SYSTEM)
+    var beepMuted by remember { mutableStateOf(false) }
+    fun setBeepMuted(muted: Boolean) {
+        if (beepMuted == muted) return
+        val am = audioManager ?: return
+        beepStreams.forEach { stream ->
+            try {
+                am.adjustStreamVolume(stream, if (muted) android.media.AudioManager.ADJUST_MUTE else android.media.AudioManager.ADJUST_UNMUTE, 0)
+            } catch (_: Throwable) {
+                // Do Not Disturb can refuse volume changes; the beep is then just heard
+            }
+        }
+        beepMuted = muted
+    }
+
     fun restartSession() {
         if (!isHolding && !isTapMode) return
         try {
+            setBeepMuted(true)
+            mainHandler.postDelayed({ setBeepMuted(false) }, 900)
             recognizer?.cancel()
             recognizer?.startListening(buildIntent())
             isRecording = true
@@ -1124,6 +1144,7 @@ fun VoiceRecordSheet(
 
         onDispose {
             mainHandler.removeCallbacksAndMessages(null)
+            setBeepMuted(false)
             try {
                 recognizer?.cancel()
                 recognizer?.destroy()

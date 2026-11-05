@@ -2385,6 +2385,7 @@ fun CustomerDetailScreen(
             ),
             initialType = editingVoucher?.type ?: VoucherType.RECEIPT,
             customers = if (activeCustomers.isNotEmpty()) activeCustomers else listOf(customer),
+            lockedCustomerId = customer.id,
             allSessions = sessions,
             currencySymbol = config.currencySymbol,
             onDismiss = {
@@ -2435,6 +2436,7 @@ fun CustomerDetailScreen(
             ),
             initialType = VoucherType.EXPENSE,
             customers = if (activeCustomers.isNotEmpty()) activeCustomers else listOf(customer),
+            lockedCustomerId = customer.id,
             allSessions = sessions,
             currencySymbol = config.currencySymbol,
             onDismiss = { showAddDisbursementSheet = false },
@@ -2574,6 +2576,7 @@ fun CustomerDetailScreen(
             initialSession = editingSession,
             customers = activeCustomers,
             defaultCustomerId = editingSession?.customerId ?: customer.id,
+            lockCustomer = true,
             defaultPricePerHour = config.defaultPricePerHour,
             currencySymbol = config.currencySymbol,
             onCreateCustomer = { viewModel.insertCustomerDirect(it) },

@@ -302,6 +302,14 @@ object VoiceCommandParser {
             }
         }
 
+        // Irrigation notes are said at the end: leftover words spoken before the last number
+        // (filler at the start, misheard words) are dropped instead of becoming the notes.
+        val looksLikeSession = durationMinutes != null || startMillis != null ||
+            explicitType == VoiceCommandType.SESSION
+        if (extraNotes != null && looksLikeSession) {
+            extraNotes = trailingWordsOnly(extraNotes, rawSource)
+        }
+
         if (extraNotes != null && extraNotes != category && extraNotes != "ال$category") {
             notes = if (notes != null) "$extraNotes $notes" else extraNotes
         }
@@ -352,6 +360,18 @@ object VoiceCommandParser {
         val paid: Double?,
         val remainingText: String
     )
+
+    /** Keeps only the words of [candidate] that appear after the last digit in [rawSource]. */
+    private fun trailingWordsOnly(candidate: String, rawSource: String): String? {
+        val lastDigit = rawSource.indexOfLast { it.isDigit() }
+        if (lastDigit < 0) return candidate
+        val tail = SpokenNumberParser.normalizeToken(rawSource.substring(lastDigit + 1))
+        val tailWords = tail.split(' ').filter { it.isNotBlank() }.toSet()
+        val kept = candidate.split(' ').filter { w ->
+            w.isNotBlank() && SpokenNumberParser.normalizeToken(w) in tailWords
+        }
+        return kept.joinToString(" ").ifBlank { null }
+    }
 
     private val NAME_SLOT_WORDS: Set<String> by lazy {
         (VoicePhraseRules.PAID_MARKERS + listOf("من", "بسعر", "سعر"))

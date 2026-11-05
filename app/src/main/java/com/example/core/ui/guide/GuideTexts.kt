@@ -22,8 +22,8 @@ object GuideTexts {
         ),
         GuideStep(
             targetId = "home_vouchers",
-            title = "قبض وصرف",
-            description = "سندات القبض من العملاء، والصرف للمصروفات."
+            title = "سند جديد",
+            description = "سند قبض من عميل أو صرف لمصروف، تختار النوع داخل النموذج."
         ),
         GuideStep(
             targetId = "home_last_sessions",

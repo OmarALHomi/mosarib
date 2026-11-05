@@ -93,6 +93,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Checkbox
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccessTime
@@ -2115,6 +2117,8 @@ fun AddVoucherBottomSheet(
     onDismiss: () -> Unit,
     voiceCommand: VoiceCommand? = null,
     onReSpeak: (() -> Unit)? = null,
+    // Opened from a customer's own screen: the customer is fixed and the picker is hidden
+    lockedCustomerId: Long? = null,
     onSave: (
         type: VoucherType,
         customerId: Long?,
@@ -2476,42 +2480,47 @@ fun AddVoucherBottomSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (type == VoucherType.RECEIPT) {
-                Text("العميل (له) *", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                Spacer(modifier = Modifier.height(6.dp))
-                MosaribAutoCompleteTextField(
-                    value = custSearchQuery.ifEmpty { selectedCustomer?.name ?: "" },
-                    onValueChange = {
-                        custSearchQuery = it
-                        val exact = customers.find { c -> c.name.trim().equals(it.trim(), ignoreCase = true) }
-                        if (exact != null) {
-                            selectedCustomerId = exact.id
-                        } else {
-                            selectedCustomerId = 0L
-                            selectedSessionIds = emptySet()
-                        }
-                    },
-                    items = customers,
-                    itemText = { it.name },
-                    itemDetail = { listOf(it.farmName, it.phone).filter { s -> s.isNotBlank() }.joinToString(" • ") },
-                    isItemSecondary = { it.isWellOwner },
-                    isItemSelected = { it.id == selectedCustomerId },
-                    placeholder = "اكتب او اختر الاسم",
-                    leadingIcon = {
-                        Icon(
-                            imageVector = if (selectedCustomer?.isWellOwner == true) Icons.Default.WaterDrop else Icons.Default.Park,
-                            contentDescription = null,
-                            tint = if (selectedCustomer?.isWellOwner == true) Color(0xFF0288D1) else Color(0xFF2E7D32)
-                        )
-                    },
-                    onItemSelected = { c ->
-                        selectedCustomerId = c.id
-                        custSearchQuery = c.name
-                        amountStr = ""
-                    },
-                    modifier = Modifier.fillMaxWidth().guideTarget("voucher_customer")
-                )
+                if (lockedCustomerId != null) {
+                    LockedVoucherCustomer(name = selectedCustomer?.name ?: "", label = "العميل (له)")
+                } else {
+                    Text("العميل (له) *", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                    Spacer(modifier = Modifier.height(6.dp))
+                    MosaribAutoCompleteTextField(
+                        value = custSearchQuery.ifEmpty { selectedCustomer?.name ?: "" },
+                        onValueChange = {
+                            custSearchQuery = it
+                            val exact = customers.find { c -> c.name.trim().equals(it.trim(), ignoreCase = true) }
+                            if (exact != null) {
+                                selectedCustomerId = exact.id
+                            } else {
+                                selectedCustomerId = 0L
+                                selectedSessionIds = emptySet()
+                            }
+                        },
+                        items = customers,
+                        itemText = { it.name },
+                        itemDetail = { listOf(it.farmName, it.phone).filter { s -> s.isNotBlank() }.joinToString(" • ") },
+                        isItemSecondary = { it.isWellOwner },
+                        isItemSelected = { it.id == selectedCustomerId },
+                        placeholder = "اكتب او اختر الاسم",
+                        leadingIcon = {
+                            Icon(
+                                imageVector = if (selectedCustomer?.isWellOwner == true) Icons.Default.WaterDrop else Icons.Default.Park,
+                                contentDescription = null,
+                                tint = if (selectedCustomer?.isWellOwner == true) Color(0xFF0288D1) else Color(0xFF2E7D32)
+                            )
+                        },
+                        onItemSelected = { c ->
+                            selectedCustomerId = c.id
+                            custSearchQuery = c.name
+                            amountStr = ""
+                        },
+                        modifier = Modifier.fillMaxWidth().guideTarget("voucher_customer")
+                    )
+                }
 
                 // قسم الجلسات غير المسددة المتوفرة على العميل
+                var showUnsettledList by remember { mutableStateOf(false) }
                 if (unsettledSessions.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(14.dp))
                     Card(
@@ -2523,12 +2532,16 @@ fun AddVoucherBottomSheet(
                         border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0))
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
+                            // Collapsed by default: a tap opens the list; "تحديد الكل" works without opening it
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { showUnsettledList = !showUnsettledList },
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column {
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = "جلسات سقي غير مسددة (${unsettledSessions.size})",
                                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal)
@@ -2561,9 +2574,22 @@ fun AddVoucherBottomSheet(
                                             Text("إلغاء", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                                         }
                                     }
+                                    Icon(
+                                        imageVector = if (showUnsettledList) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                        contentDescription = if (showUnsettledList) "إخفاء السقيات" else "عرض السقيات",
+                                        tint = PrimaryTeal,
+                                        modifier = Modifier.align(Alignment.CenterVertically)
+                                    )
                                 }
                             }
+                            if (selectedSessionIds.isNotEmpty() && !showUnsettledList) {
+                                Text(
+                                    text = "محدد ${selectedSessionIds.size} من ${unsettledSessions.size}، اضغط لعرضها",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                                )
+                            }
 
+                            if (showUnsettledList) {
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = "اختر ما تريد سداده (يوزع المبلغ بالأقدمية أولاً):",
@@ -2716,6 +2742,7 @@ fun AddVoucherBottomSheet(
                                     }
                                 }
                             }
+                            }
                         }
                     }
                 } else {
@@ -2738,84 +2765,88 @@ fun AddVoucherBottomSheet(
                 }
             } else {
                 // سند صرف: تحديد العميل اختياري (مصروف عام أو مقيد على عميل)
-                Text("المستفيد (عليه):", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                Spacer(modifier = Modifier.height(6.dp))
-                Box {
-                    MosaribTextField(
-                        value = selectedBeneficiary?.name ?: "مصروف عام",
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable {
-                                beneficiarySearchQuery = ""
-                                beneficiaryDropdownExpanded = true
-                            }
-                    )
-                    MosaribMenu(
-                        expanded = beneficiaryDropdownExpanded,
-                        onDismissRequest = {
-                            beneficiaryDropdownExpanded = false
-                            beneficiarySearchQuery = ""
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth(0.9f)
-                            .heightIn(max = 320.dp)
-                    ) {
+                if (lockedCustomerId != null) {
+                    LockedVoucherCustomer(name = selectedBeneficiary?.name ?: "", label = "المستفيد (عليه)")
+                } else {
+                    Text("المستفيد (عليه):", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Box {
                         MosaribTextField(
-                            value = beneficiarySearchQuery,
-                            onValueChange = { beneficiarySearchQuery = it },
-                            placeholder = "بحث بالاسم أو الهاتف...",
-                            isDense = true,
-                            leadingIcon = {
-                                Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                            },
-                            trailingIcon = if (beneficiarySearchQuery.isNotEmpty()) {
-                                {
-                                    IconButton(onClick = { beneficiarySearchQuery = "" }) {
-                                        Icon(Icons.Default.Close, contentDescription = "مسح", modifier = Modifier.size(14.dp))
-                                    }
-                                }
-                            } else null,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            singleLine = true
+                            value = selectedBeneficiary?.name ?: "مصروف عام",
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
+                            modifier = Modifier.fillMaxWidth()
                         )
-                        MosaribMenuDivider()
-
-                        MosaribMenuItem(
-                            text = "مصروف عام",
-                            icon = Icons.Default.Payments,
-                            tint = MaterialTheme.colorScheme.primary,
-                            onClick = {
-                                selectedBeneficiaryId = null
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable {
+                                    beneficiarySearchQuery = ""
+                                    beneficiaryDropdownExpanded = true
+                                }
+                        )
+                        MosaribMenu(
+                            expanded = beneficiaryDropdownExpanded,
+                            onDismissRequest = {
                                 beneficiaryDropdownExpanded = false
                                 beneficiarySearchQuery = ""
-                            }
-                        )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth(0.9f)
+                                .heightIn(max = 320.dp)
+                        ) {
+                            MosaribTextField(
+                                value = beneficiarySearchQuery,
+                                onValueChange = { beneficiarySearchQuery = it },
+                                placeholder = "بحث بالاسم أو الهاتف...",
+                                isDense = true,
+                                leadingIcon = {
+                                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                                },
+                                trailingIcon = if (beneficiarySearchQuery.isNotEmpty()) {
+                                    {
+                                        IconButton(onClick = { beneficiarySearchQuery = "" }) {
+                                            Icon(Icons.Default.Close, contentDescription = "مسح", modifier = Modifier.size(14.dp))
+                                        }
+                                    }
+                                } else null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                singleLine = true
+                            )
+                            MosaribMenuDivider()
 
-                        val filteredBeneficiaries = if (beneficiarySearchQuery.isBlank()) customers
-                        else customers.filter {
-                            it.name.contains(beneficiarySearchQuery, ignoreCase = true) ||
-                            it.phone.contains(beneficiarySearchQuery) ||
-                            it.farmName.contains(beneficiarySearchQuery, ignoreCase = true)
-                        }
-
-                        filteredBeneficiaries.forEach { c ->
                             MosaribMenuItem(
-                                text = c.name,
-                                icon = if (c.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Park,
+                                text = "مصروف عام",
+                                icon = Icons.Default.Payments,
+                                tint = MaterialTheme.colorScheme.primary,
                                 onClick = {
-                                    selectedBeneficiaryId = c.id
+                                    selectedBeneficiaryId = null
                                     beneficiaryDropdownExpanded = false
                                     beneficiarySearchQuery = ""
                                 }
                             )
+
+                            val filteredBeneficiaries = if (beneficiarySearchQuery.isBlank()) customers
+                            else customers.filter {
+                                it.name.contains(beneficiarySearchQuery, ignoreCase = true) ||
+                                it.phone.contains(beneficiarySearchQuery) ||
+                                it.farmName.contains(beneficiarySearchQuery, ignoreCase = true)
+                            }
+
+                            filteredBeneficiaries.forEach { c ->
+                                MosaribMenuItem(
+                                    text = c.name,
+                                    icon = if (c.isWellOwner) Icons.Default.WaterDrop else Icons.Default.Park,
+                                    onClick = {
+                                        selectedBeneficiaryId = c.id
+                                        beneficiaryDropdownExpanded = false
+                                        beneficiarySearchQuery = ""
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -3398,6 +3429,24 @@ fun OperationsFilterChipsRow(
             item(key = "clear_all") {
                 FilterClearAllChip(onClearAll = onClearAll)
             }
+        }
+    }
+}
+
+/** Read-only customer line used when the voucher form is opened from that customer's screen. */
+@Composable
+private fun LockedVoucherCustomer(name: String, label: String) {
+    Text(label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+    Spacer(modifier = Modifier.height(6.dp))
+    Surface(
+        modifier = Modifier.fillMaxWidth().guideTarget("voucher_customer"),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    ) {
+        Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold))
         }
     }
 }

@@ -470,9 +470,10 @@ fun HomeScreen(
                             modifier = Modifier.weight(1f).guideTarget("home_session_new")
                         )
 
+                        // One button for both vouchers; the type (قبض / صرف) is chosen inside the form
                         QuickActionCard(
-                            title = "قبض",
-                            subtitle = "سند تحصيل كاش",
+                            title = "سند جديد",
+                            subtitle = "قبض أو صرف",
                             icon = Icons.Default.Payments,
                             iconBgColor = MaterialTheme.mosarib.successContainer,
                             iconTint = MaterialTheme.mosarib.success,
@@ -491,18 +492,13 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         QuickActionCard(
-                            title = "صرف",
-                            subtitle = "صيانة ونفقات",
+                            title = "حسابات العملاء",
+                            subtitle = "الأرصدة وكشوف الحساب",
                             icon = Icons.AutoMirrored.Filled.ReceiptLong,
                             iconBgColor = MaterialTheme.mosarib.debt.copy(alpha = 0.12f),
                             iconTint = MaterialTheme.mosarib.debt,
-                            onClick = {
-                                checkOperationAllowed {
-                                    voucherInitialType = VoucherType.EXPENSE
-                                    showAddVoucherSheet = true
-                                }
-                            },
-                            modifier = Modifier.weight(1f)
+                            onClick = { onNavigateToTab(AppTab.CUSTOMERS) },
+                            modifier = Modifier.weight(1f).guideTarget("home_accounts")
                         )
 
                         QuickActionCard(

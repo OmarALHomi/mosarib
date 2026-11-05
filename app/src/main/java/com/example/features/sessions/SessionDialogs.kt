@@ -278,6 +278,8 @@ fun AddEditSessionBottomSheet(
     initialSession: WaterSession? = null,
     customers: List<Customer>,
     defaultCustomerId: Long? = null,
+    // true when opened from a customer's screen: the customer is fixed and the picker hidden
+    lockCustomer: Boolean = false,
     defaultPricePerHour: Double,
     currencySymbol: String,
     onCreateCustomer: suspend (Customer) -> Long,
@@ -1057,26 +1059,41 @@ fun AddEditSessionBottomSheet(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.WaterDrop,
-                                        contentDescription = null,
-                                        tint = if (billedToCustomerId != null) {
-                                            MaterialTheme.mosarib.info
-                                        } else MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "احتساب السقي على صاحب بئر",
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (billedToCustomerId != null) {
+                                if (lockCustomer && selectedCustomer != null) {
+                // Opened from the customer's own screen: no picker needed
+                Surface(
+                    modifier = Modifier.fillMaxWidth().guideTarget("session_customer"),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(selectedCustomer.name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold))
+                    }
+                }
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Default.WaterDrop,
+                                            contentDescription = null,
+                                            tint = if (billedToCustomerId != null) {
                                                 MaterialTheme.mosarib.info
-                                            } else MaterialTheme.colorScheme.onSurface
+                                            } else MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
                                         )
-                                    )
-                                }
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "احتساب السقي على صاحب بئر",
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (billedToCustomerId != null) {
+                                                    MaterialTheme.mosarib.info
+                                                } else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        )
+                                    }
+            }
                                 Text(
                                     text = "تُخصم القيمة كتسديد من مستحقات صاحب البئر لدى المسرب",
                                     style = MaterialTheme.typography.bodySmall.copy(

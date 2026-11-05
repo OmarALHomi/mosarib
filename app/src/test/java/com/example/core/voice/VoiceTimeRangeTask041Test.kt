@@ -64,4 +64,12 @@ class VoiceTimeRangeTask041Test {
     fun leadingRecordVerbIsNotPartOfTheName() {
         assertEquals("احمد علي", parse("سجل مع احمد علي ساعتين من 4000 ريال مسلم").customerQuery)
     }
+
+    @Test
+    fun notesComeFromTheEndOnly() {
+        val c = parse("مع احمد علي ساعتين من 10 الف ومسلم 5000 باقي على الشهر")
+        assertEquals("باقي على الشهر", c.notes)
+        val noise = parse("يا اخي مع احمد علي ساعتين من 10 الف")
+        assertNull(noise.notes)
+    }
 }
