@@ -240,7 +240,7 @@ fun HelpScreen(
                 Spacer(modifier = Modifier.height(6.dp))
             }
 
-            itemsIndexed(helpItems) { index, item ->
+            itemsIndexed(helpItems, key = { _, item -> item.title }) { index, item ->
                 val isExpanded = expandedIndex == index
 
                 Card(
@@ -248,10 +248,10 @@ fun HelpScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surface
                     ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(1.5.dp, RoundedCornerShape(16.dp))
-                        .animateContentSize(animationSpec = tween(220))
+                    // One animation only (AnimatedVisibility below); a second size animation and an
+                    // outer shadow made the card jump and clip while opening and closing.
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
                         modifier = Modifier
@@ -332,7 +332,7 @@ fun HelpScreen(
                                         onClick = {
                                             if (item.tourTarget == "support") {
                                                 try {
-                                                    val url = "https://wa.me/967770000000?text=${Uri.encode("مرحباً، أحتاج مساعدة في تطبيق المسرب")}"
+                                                    val url = "https://wa.me/${com.example.core.license.LicenseManager.DEVELOPER_PHONE}?text=${Uri.encode("مرحباً، أحتاج مساعدة في تطبيق المسرب")}"
                                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                                                     context.startActivity(intent)
                                                 } catch (_: Exception) {
