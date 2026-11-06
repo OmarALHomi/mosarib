@@ -844,6 +844,9 @@ fun VoiceRecordSheet(
     examples: List<Pair<String, List<String>>> = emptyList(),
     // When set, the sheet shows what was understood (with retry) before handing the result over.
     describe: ((candidates: List<String>) -> String?)? = null,
+    // When set and a command is understood, the editable "فهمت" card is shown instead of the summary.
+    understand: ((candidates: List<String>) -> VoiceCommand?)? = null,
+    onCommand: ((command: VoiceCommand, candidates: List<String>) -> Unit)? = null,
     onDismiss: () -> Unit,
     onResult: (candidates: List<String>) -> Unit
 ) {
@@ -852,6 +855,9 @@ fun VoiceRecordSheet(
     val currentDescribe by rememberUpdatedState(describe)
     var pendingCandidates by remember { mutableStateOf<List<String>?>(null) }
     var pendingSummary by remember { mutableStateOf<String?>(null) }
+    val currentUnderstand by rememberUpdatedState(understand)
+    val currentOnCommand by rememberUpdatedState(onCommand)
+    var pendingCommand by remember { mutableStateOf<VoiceCommand?>(null) }
     var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -1005,7 +1011,13 @@ fun VoiceRecordSheet(
                 }
             }
             val describer = currentDescribe
-            if (describer != null) {
+            val understander = currentUnderstand
+            pendingCommand = if (understander != null && currentOnCommand != null) {
+                try { understander(candidates) } catch (e: Exception) { null }
+            } else null
+            if (pendingCommand != null) {
+                pendingCandidates = candidates
+            } else if (describer != null) {
                 pendingSummary = try { describer(candidates) } catch (e: Exception) { null }
                 pendingCandidates = candidates
             } else {
@@ -1214,6 +1226,27 @@ fun VoiceRecordSheet(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Result preview after recording: what was understood, then continue or retry
+            val understood = pendingCommand
+            val cands0 = pendingCandidates
+            if (understood != null && cands0 != null) {
+                VoiceUnderstoodCard(
+                    command = understood,
+                    heard = cands0.first(),
+                    onContinue = { edited ->
+                        pendingCandidates = null
+                        pendingCommand = null
+                        currentOnCommand?.invoke(edited, cands0)
+                    },
+                    onRetry = {
+                        pendingCandidates = null
+                        pendingCommand = null
+                        pendingSummary = null
+                        accumulatedParts.clear()
+                        partialText = ""
+                    }
+                )
+                return@Column
+            }
             pendingCandidates?.let { cands ->
                 VoiceResultPreview(
                     heard = cands.first(),

@@ -238,7 +238,7 @@ fun HomeScreen(
         }
     }
 
-    fun handleVoiceCandidates(matches: List<String>) {
+    fun handleVoiceCandidates(matches: List<String>, edited: VoiceCommand? = null) {
         if (matches.isEmpty()) {
             unrecognizedSpokenText = ""
             return
@@ -246,7 +246,7 @@ fun HomeScreen(
         coroutineScope.launch {
             val aliases = VoiceAliasRepository.getAliases(context)
             val knownCustomerNames = customers.map { it.name } + aliases.keys
-            val parsedCmd = VoiceRecognitionHelper.parseFirstValidCommand(
+            val parsedCmd = edited ?: VoiceRecognitionHelper.parseFirstValidCommand(
                 candidates = matches,
                 knownNames = knownCustomerNames,
                 now = System.currentTimeMillis()
@@ -930,6 +930,14 @@ fun HomeScreen(
                 VoiceRecognitionHelper.parseFirstValidCommand(candidates, previewNames)
                     ?.takeIf { it.type != null || it.amount != null || it.durationMinutes != null }
                     ?.let { com.example.core.voice.buildVoiceCommandSummary(it) }
+            },
+            understand = { candidates ->
+                VoiceRecognitionHelper.parseFirstValidCommand(candidates, previewNames)
+                    ?.takeIf { it.type != null && (it.amount != null || it.durationMinutes != null || it.customerQuery != null) }
+            },
+            onCommand = { cmd, candidates ->
+                showHomeVoiceRecordSheet = false
+                handleVoiceCandidates(candidates, cmd)
             },
             onDismiss = { showHomeVoiceRecordSheet = false },
             onResult = { candidates ->
