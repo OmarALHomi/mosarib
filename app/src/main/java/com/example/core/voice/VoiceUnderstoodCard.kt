@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -104,7 +105,11 @@ fun VoiceUnderstoodCard(
     command: VoiceCommand,
     heard: String,
     onContinue: (VoiceCommand) -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    // Returns why the command cannot be saved directly, or null when it can.
+    saveBlockReason: ((VoiceCommand) -> String?)? = null,
+    onDirectSave: ((VoiceCommand) -> Unit)? = null,
+    onSpeakMore: (() -> Unit)? = null
 ) {
     var cmd by remember(command) { mutableStateOf(command) }
     var editing by remember { mutableStateOf<UField?>(null) }
@@ -115,7 +120,14 @@ fun VoiceUnderstoodCard(
     val total = if (isTimed && cmd.durationMinutes != null && cmd.ratePerHour != null) {
         Formatters.roundMoney(cmd.durationMinutes!! / 60.0 * cmd.ratePerHour!!)
     } else null
-    val timeFmt = remember { SimpleDateFormat("hh:mm a", Locale("ar")) }
+    val timeFmt = remember { SimpleDateFormat("h:mm", Locale.US) }
+    val hourFmt = remember { SimpleDateFormat("H", Locale.US) }
+    // Each time is isolated (U+2067…U+2069) so digits and ص/م keep right-to-left order.
+    fun clock(ms: Long): String {
+        val d = Date(ms)
+        val pm = hourFmt.format(d).toInt() >= 12
+        return "⁧${timeFmt.format(d)} ${if (pm) "م" else "ص"}⁩"
+    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Surface(
@@ -174,7 +186,7 @@ fun VoiceUnderstoodCard(
                     cmd = cmd.copy(customerQuery = v.ifBlank { null })
                 }
                 if (cmd.startMillis != null && cmd.endMillis != null) {
-                    ValueRow("الوقت", "${timeFmt.format(Date(cmd.startMillis!!))} ← ${timeFmt.format(Date(cmd.endMillis!!))}")
+                    ValueRow("الوقت", "من ${clock(cmd.startMillis!!)} إلى ${clock(cmd.endMillis!!)}")
                 }
                 if (isTimed) {
                     FieldRow("المدة", cmd.durationMinutes?.let { durationText(it) }, UField.DURATION, editing, { editing = it },
@@ -213,15 +225,52 @@ fun VoiceUnderstoodCard(
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = "سمعت: «$heard»  •  اضغط أي سطر لتعديله",
-            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted),
-            modifier = Modifier.padding(horizontal = 4.dp)
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = MaterialTheme.mosarib.textMuted,
+                textDirection = androidx.compose.ui.text.style.TextDirection.Rtl
+            ),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
         )
         Spacer(modifier = Modifier.height(12.dp))
-        MosaribPrimaryButton(
-            text = "متابعة",
-            onClick = { editing = null; onContinue(cmd) },
-            modifier = Modifier.fillMaxWidth()
-        )
+        if (onSpeakMore != null) {
+            androidx.compose.material3.TextButton(onClick = { editing = null; onSpeakMore() }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("أكمل بالصوت (أضف ما نسيته)")
+            }
+        }
+        if (onDirectSave != null) {
+            val blocked = saveBlockReason?.invoke(cmd)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MosaribPrimaryButton(
+                    text = "حفظ مباشر",
+                    onClick = { editing = null; onDirectSave(cmd) },
+                    enabled = blocked == null,
+                    modifier = Modifier.weight(1f)
+                )
+                com.example.core.ui.MosaribSecondaryButton(
+                    text = "فتح النموذج",
+                    onClick = { editing = null; onContinue(cmd) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            if (blocked != null) {
+                Text(
+                    text = blocked,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = MaterialTheme.mosarib.warning,
+                        textDirection = androidx.compose.ui.text.style.TextDirection.Rtl
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp, start = 4.dp, end = 4.dp)
+                )
+            }
+        } else {
+            MosaribPrimaryButton(
+                text = "متابعة",
+                onClick = { editing = null; onContinue(cmd) },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -232,7 +281,10 @@ private fun ValueRow(label: String, value: String, bold: Boolean = false, color:
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.mosarib.textMuted, modifier = Modifier.weight(1f))
         Text(
             value,
-            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (bold) FontWeight.ExtraBold else FontWeight.Bold),
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontWeight = if (bold) FontWeight.ExtraBold else FontWeight.Bold,
+                textDirection = androidx.compose.ui.text.style.TextDirection.Rtl
+            ),
             color = color ?: MaterialTheme.colorScheme.onSurface
         )
     }

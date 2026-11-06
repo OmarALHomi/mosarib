@@ -321,6 +321,77 @@ fun HomeScreen(
             openFormForVoiceCommand(parsedCmd)
         }
     }
+    // Direct save from the "فهمت" card: only when nothing needs the form's extra choices.
+    val voiceAliases by androidx.compose.runtime.produceState(emptyMap<String, Long>()) { value = VoiceAliasRepository.getAliases(context) }
+    fun directSaveCustomer(cmd: VoiceCommand): Customer? {
+        val q = cmd.customerQuery?.takeIf { it.isNotBlank() } ?: return null
+        val ranked = CustomerMatcher.match(q, customers, voiceAliases)
+        return if (CustomerMatcher.isHighConfidence(ranked)) ranked.first().customer else null
+    }
+    fun directSaveBlockReason(cmd: VoiceCommand): String? {
+        if (!LicenseManager.canPerformOperation(context, operationsCount)) return "وصلت لحد العمليات، فعّل التطبيق"
+        if (cmd.warningBanner != null) return "راجع التنبيه في النموذج قبل الحفظ"
+        val customer = directSaveCustomer(cmd)
+        return when (cmd.type) {
+            VoiceCommandType.SESSION -> when {
+                customer == null -> "العميل غير مؤكد، أكمل من النموذج"
+                customer.isWellOwner -> "صاحب بئر: أكمل من النموذج"
+                (cmd.durationMinutes ?: 0) <= 0 -> "المدة غير محددة"
+                (cmd.durationMinutes ?: 0) > 10 * 24 * 60 -> "المدة أكبر من المسموح"
+                else -> null
+            }
+            VoiceCommandType.RECEIPT -> when {
+                customer == null -> "العميل غير مؤكد، أكمل من النموذج"
+                (cmd.amount ?: 0.0) <= 0.0 -> "المبلغ غير محدد"
+                else -> null
+            }
+            VoiceCommandType.EXPENSE -> when {
+                !cmd.customerQuery.isNullOrBlank() && customer == null -> "الاسم غير مؤكد، أكمل من النموذج"
+                (cmd.amount ?: 0.0) <= 0.0 -> "المبلغ غير محدد"
+                cmd.category.isNullOrBlank() && cmd.notes.isNullOrBlank() -> "حدد البند (مثل ديزل أو سلفة) من النموذج"
+                else -> null
+            }
+            else -> "هذه العملية تُكمل من النموذج"
+        }
+    }
+    fun directSaveVoiceCommand(cmd: VoiceCommand) {
+        if (directSaveBlockReason(cmd) != null) { openFormForVoiceCommand(cmd); return }
+        val customer = directSaveCustomer(cmd)
+        when (cmd.type) {
+            VoiceCommandType.SESSION -> {
+                val c = customer ?: return
+                val mins = cmd.durationMinutes ?: return
+                val rate = cmd.ratePerHour?.takeIf { it > 0 }
+                    ?: c.customPricePerHour?.takeIf { it > 0 } ?: config.defaultPricePerHour
+                val total = com.example.core.util.Formatters.calculateWaterCost(mins, rate)
+                val end = cmd.endMillis ?: System.currentTimeMillis()
+                val start = cmd.startMillis ?: (end - mins * 60_000L)
+                sessionsViewModel.saveManualSession(
+                    customerId = c.id, startTime = start, endTime = end,
+                    hours = mins / 60, minutes = mins % 60, pricePerHour = rate,
+                    amountPaid = if (cmd.paidFull) total else (cmd.paid ?: 0.0),
+                    notes = cmd.notes.orEmpty()
+                )
+            }
+            VoiceCommandType.RECEIPT -> {
+                val c = customer ?: return
+                // Oldest unpaid sessions first, like the receipt form.
+                val unpaid = allSessions.filter { it.customerId == c.id && it.remainingDebt > 0.0 }
+                    .sortedBy { it.startTime }.map { it.id }
+                vouchersViewModel.addVoucher(
+                    type = VoucherType.RECEIPT, customerId = c.id, amount = cmd.amount ?: return,
+                    category = "سداد سقي", paymentMethod = "نقداً", notes = cmd.notes.orEmpty(),
+                    selectedSessionIds = unpaid
+                )
+            }
+            VoiceCommandType.EXPENSE -> vouchersViewModel.addVoucher(
+                type = VoucherType.EXPENSE, customerId = customer?.id, amount = cmd.amount ?: return,
+                category = cmd.category ?: cmd.notes.orEmpty(), paymentMethod = "نقداً",
+                notes = if (cmd.category != null) cmd.notes.orEmpty() else ""
+            )
+            else -> openFormForVoiceCommand(cmd)
+        }
+    }
     var homePurchaseTarget by remember { mutableStateOf<Triple<Customer, String, String>?>(null) }
 
     LaunchedEffect(Unit) {
@@ -938,6 +1009,11 @@ fun HomeScreen(
             onCommand = { cmd, candidates ->
                 showHomeVoiceRecordSheet = false
                 handleVoiceCandidates(candidates, cmd)
+            },
+            saveBlockReason = { cmd -> directSaveBlockReason(cmd) },
+            onDirectSave = { cmd ->
+                showHomeVoiceRecordSheet = false
+                directSaveVoiceCommand(cmd)
             },
             onDismiss = { showHomeVoiceRecordSheet = false },
             onResult = { candidates ->

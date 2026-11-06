@@ -847,6 +847,8 @@ fun VoiceRecordSheet(
     // When set and a command is understood, the editable "فهمت" card is shown instead of the summary.
     understand: ((candidates: List<String>) -> VoiceCommand?)? = null,
     onCommand: ((command: VoiceCommand, candidates: List<String>) -> Unit)? = null,
+    saveBlockReason: ((VoiceCommand) -> String?)? = null,
+    onDirectSave: ((VoiceCommand) -> Unit)? = null,
     onDismiss: () -> Unit,
     onResult: (candidates: List<String>) -> Unit
 ) {
@@ -858,6 +860,8 @@ fun VoiceRecordSheet(
     val currentUnderstand by rememberUpdatedState(understand)
     val currentOnCommand by rememberUpdatedState(onCommand)
     var pendingCommand by remember { mutableStateOf<VoiceCommand?>(null) }
+    // "أكمل بالصوت": what was said before, prepended to the next recording.
+    var speakMorePrefix by remember { mutableStateOf("") }
     var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -1009,6 +1013,11 @@ fun VoiceRecordSheet(
                 if (joined.isNotBlank() && !candidates.contains(joined)) {
                     candidates.add(joined)
                 }
+            }
+            if (speakMorePrefix.isNotBlank()) {
+                val prefixed = candidates.map { "$speakMorePrefix $it" }
+                candidates.clear(); candidates.addAll(prefixed)
+                speakMorePrefix = ""
             }
             val describer = currentDescribe
             val understander = currentUnderstand
@@ -1236,6 +1245,20 @@ fun VoiceRecordSheet(
                         pendingCandidates = null
                         pendingCommand = null
                         currentOnCommand?.invoke(edited, cands0)
+                    },
+                    saveBlockReason = saveBlockReason,
+                    onDirectSave = onDirectSave?.let { save -> { edited: VoiceCommand ->
+                        pendingCandidates = null
+                        pendingCommand = null
+                        save(edited)
+                    } },
+                    onSpeakMore = {
+                        speakMorePrefix = cands0.first()
+                        pendingCandidates = null
+                        pendingCommand = null
+                        pendingSummary = null
+                        accumulatedParts.clear()
+                        partialText = ""
                     },
                     onRetry = {
                         pendingCandidates = null
@@ -1483,7 +1506,11 @@ private fun VoiceResultPreview(
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = "سمعت: «$heard»",
-                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted)
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = MaterialTheme.mosarib.textMuted,
+                        textDirection = androidx.compose.ui.text.style.TextDirection.Rtl
+                    ),
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
