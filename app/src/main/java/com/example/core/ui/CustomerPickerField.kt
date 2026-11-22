@@ -32,7 +32,7 @@ fun CustomerPickerField(
     customers: List<Customer>,
     selected: Customer?,
     onSelect: (Customer) -> Unit,
-    onAddNew: () -> Unit,
+    onAddNew: (() -> Unit)?,
     modifier: Modifier = Modifier,
     label: String? = null,
     trailingIcon: @Composable (() -> Unit)? = null
@@ -79,7 +79,7 @@ fun CustomerPickerField(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)
             )
             MosaribMenuDivider()
-            MosaribMenuItem(
+            if (onAddNew != null) MosaribMenuItem(
                 text = "+ عميل جديد",
                 icon = Icons.Default.PersonAdd,
                 tint = MaterialTheme.colorScheme.primary,

@@ -838,6 +838,7 @@ fun HomeScreen(
             customers = customers,
             allSessions = allSessions,
             currencySymbol = config.currencySymbol,
+            onCreateCustomer = { customer -> sessionsViewModel.createCustomer(customer) },
             onDismiss = {
                 showAddVoucherSheet = false
                 activeVoiceCommand = null
