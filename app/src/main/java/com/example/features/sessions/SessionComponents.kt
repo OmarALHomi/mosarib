@@ -120,7 +120,6 @@ fun SessionCardItem(
     onDeleteClick: () -> Unit,
     onPdfClick: () -> Unit,
     onMessageClick: () -> Unit,
-    onSettleClick: (() -> Unit)? = null,
     onShareVoucher: ((Voucher) -> Unit)? = null,
     onCardClick: (() -> Unit)? = null
 ) {
@@ -514,20 +513,6 @@ fun SessionCardItem(
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                             modifier = Modifier.padding(start = 4.dp)
                         ) {
-                            if (debtToShow > 0.001 && onSettleClick != null) {
-                                Button(
-                                    onClick = onSettleClick,
-                                    colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                    modifier = Modifier.height(26.dp)
-                                ) {
-                                    Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(12.dp))
-                                    Spacer(modifier = Modifier.width(2.dp))
-                                    Text("سداد", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                }
-                            }
-
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowDown,
                                 contentDescription = "توسيع",
@@ -853,27 +838,6 @@ fun SessionCardItem(
                         )
                     }
 
-                    // زر السداد في العرض المفصل
-                    if (debtToShow > 0.001 && onSettleClick != null) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Button(
-                            onClick = onSettleClick,
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(34.dp)
-                        ) {
-                            Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                "سداد (${Formatters.formatCurrency(debtToShow, currencySymbol)})",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
 
                     // زر طي التفاصيل أسفل الكرت
                     Spacer(modifier = Modifier.height(6.dp))
@@ -955,7 +919,6 @@ fun SessionPaymentHistoryExpander(
     linkedVouchers: List<Voucher>,
     debtToShow: Double,
     currencySymbol: String,
-    onSettleClick: (() -> Unit)? = null,
     onShareVoucher: ((Voucher) -> Unit)? = null
 ) {
     var isExpanded by remember(session.id) { mutableStateOf(false) }
@@ -990,19 +953,6 @@ fun SessionPaymentHistoryExpander(
                     )
                 }
 
-                if (debtToShow > 0.001 && onSettleClick != null) {
-                    Button(
-                        onClick = onSettleClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                        modifier = Modifier.height(28.dp)
-                    ) {
-                        Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(13.dp))
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Text("سداد", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                    }
-                }
             }
         } else {
             Column(
@@ -1089,27 +1039,6 @@ fun SessionPaymentHistoryExpander(
                     )
                 }
 
-                // زر السداد في العرض المفصل
-                if (debtToShow > 0.001 && onSettleClick != null) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Button(
-                        onClick = onSettleClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(34.dp)
-                    ) {
-                        Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(15.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            "سداد (${Formatters.formatCurrency(debtToShow, currencySymbol)})",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
 
                 // زر طي التفاصيل أسفل الكرت
                 Spacer(modifier = Modifier.height(4.dp))

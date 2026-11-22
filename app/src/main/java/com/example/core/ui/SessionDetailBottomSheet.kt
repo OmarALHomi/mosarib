@@ -55,7 +55,6 @@ fun SessionDetailBottomSheet(
     onDelete: (() -> Unit)? = null,
     onPdf: (() -> Unit)? = null,
     onMessage: (() -> Unit)? = null,
-    onSettle: (() -> Unit)? = null,
     onShareVoucher: ((Voucher) -> Unit)? = null,
     onCustomerClick: ((Long) -> Unit)? = null
 ) {
@@ -103,21 +102,6 @@ fun SessionDetailBottomSheet(
             )
         },
         footer = {
-            if (session.remainingDebt > 0 && onSettle != null) {
-                MosaribPrimaryButton(
-                    text = "سداد (${Formatters.formatCurrency(session.remainingDebt, currencySymbol)})",
-                    onClick = onSettle,
-                    tone = DialogTone.Success,
-                    modifier = Modifier.weight(1f)
-                )
-                if (onMessage != null) {
-                    MosaribSecondaryButton(
-                        text = "إرسال",
-                        onClick = onMessage,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            } else {
                 if (onMessage != null) {
                     MosaribPrimaryButton(
                         text = "إرسال",
@@ -133,7 +117,6 @@ fun SessionDetailBottomSheet(
                         modifier = Modifier.weight(1f)
                     )
                 }
-            }
 
             if (onEdit != null) {
                 OutlinedButton(
