@@ -149,7 +149,7 @@ fun LicenseDialog(
     var selectedPaymentMethod by remember { mutableStateOf("") }
     var isPaymentDropdownExpanded by remember { mutableStateOf(false) }
     var paymentAccounts by remember { mutableStateOf<List<FirebaseLicenseService.PaymentAccount>>(emptyList()) }
-    var isPaymentAccountsExpanded by remember { mutableStateOf(false) }
+    var isPaymentAccountsExpanded by remember { mutableStateOf(true) }
     var pricing by remember { mutableStateOf(FirebaseLicenseService.SubscriptionPricing()) }
     var isSyncingConfig by remember { mutableStateOf(false) }
     var enteredKey by remember { mutableStateOf("") }
@@ -1118,91 +1118,6 @@ fun LicenseDialog(
             }
             Spacer(modifier = Modifier.height(10.dp))
             if (step == 2) {
-            Box(modifier = Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = selectedPaymentMethod.ifBlank { if (isSyncingConfig) "جاري جلب طرق الدفع..." else "اختر طريقة الدفع / المحفظة" },
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("طريقة التحويل / المحفظة البنكية *") },
-                    leadingIcon = {
-                        Icon(Icons.Default.AccountBalance, contentDescription = null, tint = AccentGold, modifier = Modifier.size(18.dp))
-                    },
-                    trailingIcon = {
-                        Icon(
-                            imageVector = if (isPaymentDropdownExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = textFieldColors,
-                    singleLine = true
-                )
-
-                // Transparent clickable overlay so tapping anywhere opens the dropdown menu
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { isPaymentDropdownExpanded = !isPaymentDropdownExpanded }
-                )
-
-                MosaribMenu(
-                    expanded = isPaymentDropdownExpanded,
-                    onDismissRequest = { isPaymentDropdownExpanded = false },
-                    modifier = Modifier.fillMaxWidth(0.9f)
-                ) {
-                    if (paymentAccounts.isNotEmpty()) {
-                        paymentAccounts.forEach { acc ->
-                            DropdownMenuItem(
-                                text = {
-                                    Column {
-                                        Text(acc.bankName, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                                        Text("${acc.accountNumber} (${acc.accountCurrency})", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary))
-                                    }
-                                },
-                                onClick = {
-                                    selectedPaymentMethod = "${acc.bankName} (${acc.accountCurrency})"
-                                    isPaymentDropdownExpanded = false
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.AccountBalance, contentDescription = null, tint = AccentGold, modifier = Modifier.size(16.dp))
-                                }
-                            )
-                        }
-                    } else {
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    if (isOnline) "جاري جلب طرق الدفع من الخادم..." else "يلزم توفر إنترنت لجلب الحسابات (إضغط للتحديث)",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            },
-                            onClick = {
-                                coroutineScope.launch { refreshConfig() }
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                            }
-                        )
-                    }
-
-                    DropdownMenuItem(
-                        text = {
-                            Text("حوالة عبر صراف آخر / شبكة صرافة", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
-                        },
-                        onClick = {
-                            selectedPaymentMethod = "حوالة صرافة / شبكة أخرى"
-                            isPaymentDropdownExpanded = false
-                        },
-                        leadingIcon = {
-                            Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                        }
-                    )
-                }
-            }
                 Spacer(modifier = Modifier.height(8.dp))
                 Card(
                     modifier = Modifier

@@ -613,11 +613,19 @@ object LicenseManager {
         }
     }
 
+    /** Admin-set device limit decides alone; the consumed-trial flag is not consulted. */
+    internal fun isWithinCustomLimit(storedOps: Int, currentOps: Int, customLimit: Int): Boolean =
+            maxOf(storedOps, currentOps) < customLimit
+
     fun canPerformOperation(context: Context, currentOperationsCount: Int): Boolean {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         if (com.example.BuildConfig.DEBUG && sp.getBoolean("debug_unlimited_ops", false))
                 return true
         if (isActivated(context)) return true
+        val customLimit = RemoteConfigManager.getCustomDeviceLimit(context)
+        if (customLimit > 0) {
+            return isWithinCustomLimit(getCumulativeOperations(context), currentOperationsCount, customLimit)
+        }
         if (isTrialConsumed(context)) return false
         val storedOps = getCumulativeOperations(context)
         val effectiveCount = maxOf(storedOps, currentOperationsCount)

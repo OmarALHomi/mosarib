@@ -557,7 +557,7 @@ fun HomeScreen(
                             if (!VoiceRecognitionHelper.isRecognitionAvailable(context)) {
                                 voiceDialogType = VoiceDialogType.MISSING_ENGINE
                             } else {
-                                showHomeVoiceRecordSheet = true
+                                checkOperationAllowed { showHomeVoiceRecordSheet = true }
                             }
                         },
                         modifier = Modifier.weight(1f).guideTarget("home_voice")
@@ -609,7 +609,7 @@ fun HomeScreen(
                             if (!VoiceRecognitionHelper.isRecognitionAvailable(context)) {
                                 voiceDialogType = VoiceDialogType.MISSING_ENGINE
                             } else {
-                                showHomeVoiceRecordSheet = true
+                                checkOperationAllowed { showHomeVoiceRecordSheet = true }
                             }
                         },
                         modifier = mod.guideTarget("home_voice")
@@ -1070,7 +1070,7 @@ fun HomeScreen(
             saveBlockReason = { cmd -> directSaveBlockReason(cmd) },
             onDirectSave = { cmd ->
                 showHomeVoiceRecordSheet = false
-                directSaveVoiceCommand(cmd)
+                checkOperationAllowed { directSaveVoiceCommand(cmd) }
             },
             onDismiss = { showHomeVoiceRecordSheet = false },
             onResult = { candidates ->

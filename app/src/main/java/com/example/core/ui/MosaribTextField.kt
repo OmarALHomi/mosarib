@@ -97,7 +97,7 @@ fun MosaribTextField(
                 text = label,
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    fontSize = if (isDense) 12.sp else 13.sp,
+                    fontSize = if (isDense) 11.sp else 12.sp,
                     color = labelColor
                 ),
                 modifier = Modifier.padding(bottom = if (isDense) 4.dp else 6.dp, start = 2.dp)
@@ -122,9 +122,9 @@ fun MosaribTextField(
                 {
                     Text(
                         text = placeholder,
-                        style = MaterialTheme.typography.bodyMedium.copy(
+                        style = MaterialTheme.typography.bodySmall.copy(
                             color = placeholderColor,
-                            fontSize = if (isDense) 12.5.sp else 14.sp
+                            fontSize = if (isDense) 11.5.sp else 12.5.sp
                         )
                     )
                 }

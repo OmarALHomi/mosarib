@@ -597,7 +597,7 @@ fun MainApp(
                             MosaribNavBar(
                                 selectedIndex = selectedTab,
                                 onItemSelected = { selectedTab = it },
-                                visibleIds = if (simpleMode) setOf(2, 3, 4) else null
+                                visibleIds = if (simpleMode) linkedSetOf(3, 2, 4) else null
                             )
                         }
                     }

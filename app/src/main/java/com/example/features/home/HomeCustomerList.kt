@@ -47,10 +47,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.core.ui.AmountTooltip
-import com.example.core.ui.AnimatedAmount
+import com.example.core.ui.AmountWithWords
 import com.example.core.util.FileSharingHelper
-import com.example.core.util.Formatters
 import com.example.features.customers.AddEditCustomerBottomSheet
 import com.example.features.customers.ArchiveCustomerDialog
 import com.example.features.customers.Customer
@@ -274,19 +272,18 @@ private fun TotalColumn(
     color: Color,
     modifier: Modifier
 ) {
-    AmountTooltip(words = Formatters.amountToArabicWordsApprox(amount, currency), modifier = modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("$label: ", style = MaterialTheme.typography.labelLarge.copy(color = color, fontWeight = FontWeight.Bold))
-            AnimatedAmount(
-                value = amount,
-                currencySymbol = currency,
-                style = MaterialTheme.typography.titleMedium.copy(color = color, fontWeight = FontWeight.ExtraBold)
-            )
-        }
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("$label: ", style = MaterialTheme.typography.labelLarge.copy(color = color, fontWeight = FontWeight.Bold))
+        AmountWithWords(
+            amount = amount,
+            currency = currency,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+            color = color
+        )
     }
 }
 

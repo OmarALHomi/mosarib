@@ -74,7 +74,7 @@ fun MosaribNavBar(
     selectedIndex: Int,
     onItemSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    /** Item ids to show (simple mode hides some); null shows all. */
+    /** Item ids to show, in this order (simple mode hides some); null shows all. */
     visibleIds: Set<Int>? = null
 ) {
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
@@ -112,7 +112,7 @@ fun MosaribNavBar(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                mosaribNavItems.filter { visibleIds == null || it.id in visibleIds }.forEach { item ->
+                (if (visibleIds == null) mosaribNavItems else visibleIds.mapNotNull { id -> mosaribNavItems.find { it.id == id } }).forEach { item ->
                     val index = item.id
                     val isSelected = selectedIndex == index
 

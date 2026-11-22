@@ -214,7 +214,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import com.example.core.util.Formatters
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.core.ui.AmountTooltip
+import com.example.core.ui.AmountWithWords
 import com.example.features.customers.CustomersViewModel
 import com.example.features.customers.ledgerTotalsFor
 import com.example.features.customers.Customer
@@ -528,18 +528,22 @@ fun VouchersScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            AmountTooltip(Formatters.amountToArabicWordsApprox(owedToUs, currencySymbol), Modifier.weight(1f)) {
-                                Text(
-                                    text = "لك عند العملاء: " + Formatters.formatCurrency(owedToUs, currencySymbol),
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.mosarib.credit)
-                                )
-                            }
-                            AmountTooltip(Formatters.amountToArabicWordsApprox(owedByUs, currencySymbol), Modifier.weight(1f)) {
-                                Text(
-                                    text = "عليك: " + Formatters.formatCurrency(owedByUs, currencySymbol),
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.mosarib.debt)
-                                )
-                            }
+                            AmountWithWords(
+                                amount = owedToUs,
+                                currency = currencySymbol,
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.mosarib.credit,
+                                modifier = Modifier.weight(1f),
+                                prefix = "لك عند العملاء: "
+                            )
+                            AmountWithWords(
+                                amount = owedByUs,
+                                currency = currencySymbol,
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.mosarib.debt,
+                                modifier = Modifier.weight(1f),
+                                prefix = "عليك: "
+                            )
                         }
                         Text(
                             text = "أرصدة حالية لا تتأثر بالفترة",
@@ -2071,6 +2075,7 @@ fun AddVoucherBottomSheet(
                         custSearchQuery = spoken
                     } else {
                         beneficiarySearchQuery = spoken
+                        custSearchQuery = spoken
                     }
                 }
                 "form_command" -> {
@@ -2104,6 +2109,7 @@ fun AddVoucherBottomSheet(
                                 custSearchQuery = cmd.customerQuery.trim()
                             } else {
                                 beneficiarySearchQuery = cmd.customerQuery.trim()
+                                custSearchQuery = cmd.customerQuery.trim()
                             }
                         }
                         if (!cmd.notes.isNullOrBlank()) {
@@ -2182,8 +2188,8 @@ fun AddVoucherBottomSheet(
     val headerTitle = when {
         initialVoucher != null && type == VoucherType.RECEIPT -> "تعديل سند (له) #${initialVoucher.voucherNumber.ifEmpty { initialVoucher.id.toString() }}"
         initialVoucher != null -> "تعديل سند (عليه) #${initialVoucher.voucherNumber.ifEmpty { initialVoucher.id.toString() }}"
-        type == VoucherType.RECEIPT -> "تسجيل سند (له)"
-        else -> "تسجيل سند (عليه)"
+        type == VoucherType.RECEIPT -> "تسجيل قبض"
+        else -> "تسجيل صرف"
     }
 
     var pendingSave by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -2238,7 +2244,7 @@ fun AddVoucherBottomSheet(
                 }
             }
             MosaribPrimaryButton(
-                text = if (initialVoucher != null) "حفظ التعديلات" else "حفظ وترحيل السند",
+                text = if (initialVoucher != null) "حفظ التعديلات" else "حفظ",
                 onClick = {
                     val amt = Formatters.parseAmountInput(amountStr)
                     val disc = Formatters.parseAmountInput(discountAmountStr)
@@ -2357,14 +2363,22 @@ fun AddVoucherBottomSheet(
             } else {
                 // سند صرف: تحديد العميل اختياري (مصروف عام أو مقيد على عميل)
                 if (lockedCustomerId != null) {
-                    LockedVoucherCustomer(name = selectedBeneficiary?.name ?: "", label = "المستفيد (عليه)")
+                    LockedVoucherCustomer(name = selectedBeneficiary?.name ?: "", label = "المستفيد")
                 } else {
-                    Text("المستفيد (عليه):", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                    Text("المستفيد", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                     Spacer(modifier = Modifier.height(6.dp))
+                    if (selectedBeneficiaryId == null && custSearchQuery.isNotBlank()) {
+                        Text(
+                            text = "لم أتعرّف على: ${custSearchQuery.trim()} — اختر من القائمة أو أضفه",
+                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.warning),
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
                     Box {
                         MosaribTextField(
-                            value = selectedBeneficiary?.name ?: "مصروف عام",
+                            value = selectedBeneficiary?.name ?: if (custSearchQuery.isNotBlank()) "" else "مصروف عام",
                             onValueChange = {},
+                            placeholder = "اختر المستفيد",
                             readOnly = true,
                             trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
                             modifier = Modifier.fillMaxWidth()
@@ -2428,6 +2442,7 @@ fun AddVoucherBottomSheet(
                                 tint = MaterialTheme.colorScheme.primary,
                                 onClick = {
                                     selectedBeneficiaryId = null
+                                    custSearchQuery = ""
                                     beneficiaryDropdownExpanded = false
                                     beneficiarySearchQuery = ""
                                 }
@@ -2933,12 +2948,12 @@ private fun SummaryTile(label: String, amount: Double, currency: String, color: 
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Text(label, style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted))
-            AmountTooltip(Formatters.amountToArabicWordsApprox(amount, currency)) {
-                Text(
-                    text = Formatters.formatCurrency(amount, currency),
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold, color = color)
-                )
-            }
+            AmountWithWords(
+                amount = amount,
+                currency = currency,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
+                color = color
+            )
         }
     }
 }
