@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.core.ui.AmountTooltip
 import com.example.core.ui.AnimatedAmount
 import com.example.core.util.FileSharingHelper
 import com.example.core.util.Formatters
@@ -59,7 +60,9 @@ import com.example.features.customers.CustomerSort
 import com.example.features.customers.CustomerStatementMessageDialog
 import com.example.features.customers.CustomerWithBalance
 import com.example.features.customers.CustomersImportExportDialogs
+import com.example.features.customers.CustomerGroupEditorDialog
 import com.example.features.customers.CustomersViewModel
+import com.example.features.customers.ManageGroupsDialog
 import com.example.features.customers.ledgerTotalsFor
 import com.example.ui.theme.mosarib
 
@@ -86,6 +89,11 @@ fun HomeCustomerList(
 
     var searchOpen by remember { mutableStateOf(false) }
     var groupMenuOpen by remember { mutableStateOf(false) }
+    val rawCustomers by customersViewModel.rawCustomersWithBalance.collectAsStateWithLifecycle()
+    var showManageGroups by remember { mutableStateOf(false) }
+    var showGroupEditor by remember { mutableStateOf(false) }
+    var groupToEdit by remember { mutableStateOf<String?>(null) }
+    var groupEditIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var messageChoice by remember { mutableStateOf<CustomerWithBalance?>(null) }
     var customerToEdit by remember { mutableStateOf<Customer?>(null) }
     var customerToDelete by remember { mutableStateOf<Customer?>(null) }
@@ -142,6 +150,10 @@ fun HomeCustomerList(
                                 onClick = { customersViewModel.setSelectedGroup(g); groupMenuOpen = false }
                             )
                         }
+                        DropdownMenuItem(
+                            text = { Text("إدارة المجموعات…") },
+                            onClick = { groupMenuOpen = false; showManageGroups = true }
+                        )
                     }
                 }
                 Box(modifier = Modifier.weight(1f))
@@ -207,6 +219,30 @@ fun HomeCustomerList(
     }
 
     CustomersImportExportDialogs(viewModel = customersViewModel)
+    if (showManageGroups) {
+        ManageGroupsDialog(
+            groups = groups,
+            allCustomers = rawCustomers,
+            onDismiss = { showManageGroups = false },
+            onEditGroup = { grp, ids -> showManageGroups = false; groupToEdit = grp; groupEditIds = ids; showGroupEditor = true },
+            onRenameGroup = { old, new -> customersViewModel.renameGroup(old, new) },
+            onDeleteGroup = { customersViewModel.deleteGroup(it) },
+            onAddNewGroup = { showManageGroups = false; groupToEdit = null; groupEditIds = emptySet(); showGroupEditor = true }
+        )
+    }
+    if (showGroupEditor) {
+        CustomerGroupEditorDialog(
+            groupToEdit = groupToEdit,
+            initialMemberIdsForEdit = groupEditIds,
+            rawCustomers = rawCustomers,
+            onDismiss = { showGroupEditor = false; groupToEdit = null },
+            onSave = { name, ids ->
+                customersViewModel.saveGroup(name, ids, groupToEdit)
+                showGroupEditor = false
+                groupToEdit = null
+            }
+        )
+    }
     messageChoice?.let {
         CustomerStatementMessageDialog(item = it, viewModel = customersViewModel, onDismiss = { messageChoice = null })
     }
@@ -238,18 +274,19 @@ private fun TotalColumn(
     color: Color,
     modifier: Modifier
 ) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, style = MaterialTheme.typography.labelSmall.copy(color = color, fontWeight = FontWeight.Bold))
-        AnimatedAmount(
-            value = amount,
-            currencySymbol = currency,
-            style = MaterialTheme.typography.titleMedium.copy(color = color, fontWeight = FontWeight.ExtraBold)
-        )
-        Text(
-            text = Formatters.amountToArabicWordsApprox(amount, currency),
-            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted),
-            maxLines = 2
-        )
+    AmountTooltip(words = Formatters.amountToArabicWordsApprox(amount, currency), modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("$label: ", style = MaterialTheme.typography.labelLarge.copy(color = color, fontWeight = FontWeight.Bold))
+            AnimatedAmount(
+                value = amount,
+                currencySymbol = currency,
+                style = MaterialTheme.typography.titleMedium.copy(color = color, fontWeight = FontWeight.ExtraBold)
+            )
+        }
     }
 }
 
