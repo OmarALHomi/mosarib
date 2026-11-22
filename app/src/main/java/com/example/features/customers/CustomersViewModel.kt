@@ -43,8 +43,12 @@ enum class CustomerSort {
     HIGHEST_DEBT,       // الأعلى رصيداً
     LOWEST_DEBT,        // الأقل رصيداً
     NEWEST,             // الأحدث إضافة
-    MOST_WATER_HOURS    // الأكثر ساعات سقي
+    MOST_WATER_HOURS,   // الأكثر ساعات سقي
+    LAST_ACTIVITY       // آخر عملية (الأحدث أولاً، بلا عمليات في الآخر بالاسم)
 }
+
+fun List<CustomerWithBalance>.sortedByLastActivity(): List<CustomerWithBalance> =
+    sortedWith(compareByDescending<CustomerWithBalance> { it.lastActivityAt }.thenBy { it.customer.name })
 
 enum class AccountFilter {
     ALL, FARMERS, WELL_OWNERS
@@ -177,6 +181,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 CustomerSort.LOWEST_DEBT -> filtered.sortedBy { it.balance }
                 CustomerSort.NEWEST -> filtered.sortedByDescending { it.customer.createdAt }
                 CustomerSort.MOST_WATER_HOURS -> filtered.sortedByDescending { it.totalMinutes }
+                CustomerSort.LAST_ACTIVITY -> filtered.sortedByLastActivity()
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 

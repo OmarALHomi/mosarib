@@ -73,7 +73,9 @@ val mosaribNavItems = listOf(
 fun MosaribNavBar(
     selectedIndex: Int,
     onItemSelected: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Item ids to show (simple mode hides some); null shows all. */
+    visibleIds: Set<Int>? = null
 ) {
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val haptic = LocalHapticFeedback.current
@@ -110,7 +112,8 @@ fun MosaribNavBar(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                mosaribNavItems.forEachIndexed { index, item ->
+                mosaribNavItems.filter { visibleIds == null || it.id in visibleIds }.forEach { item ->
+                    val index = item.id
                     val isSelected = selectedIndex == index
 
                     val targetIndicatorColor = if (isSelected) {

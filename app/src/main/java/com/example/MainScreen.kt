@@ -285,6 +285,13 @@ fun MainApp(
 
             val tabs = remember { listOf(AppTab.REPORTS, AppTab.CUSTOMERS, AppTab.HOME, AppTab.VOUCHERS, AppTab.SETTINGS) }
             var selectedTab by rememberSaveable { mutableIntStateOf(2) }
+            val simpleMode = appConfig.simpleMode
+            // Simple mode shows only HOME / VOUCHERS / SETTINGS; stray CUSTOMERS / REPORTS go home.
+            LaunchedEffect(simpleMode, selectedTab) {
+                if (simpleMode && (tabs[selectedTab] == AppTab.CUSTOMERS || tabs[selectedTab] == AppTab.REPORTS)) {
+                    selectedTab = tabs.indexOf(AppTab.HOME)
+                }
+            }
             val currentTab = tabs[selectedTab]
 
             // mosarib:// links from notifications (task 036)
@@ -574,7 +581,8 @@ fun MainApp(
                         if (!(currentTab == AppTab.SETTINGS && isSettingsSubPageOpen)) {
                             MosaribNavBar(
                                 selectedIndex = selectedTab,
-                                onItemSelected = { selectedTab = it }
+                                onItemSelected = { selectedTab = it },
+                                visibleIds = if (simpleMode) setOf(2, 3, 4) else null
                             )
                         }
                     }

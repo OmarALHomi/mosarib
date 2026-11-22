@@ -38,7 +38,9 @@ data class CustomerWithBalance(
     val totalChargeablePurchasedMinutes: Int = 0,
     val totalPurchaseGrossAmount: Double = 0.0,
     val totalPurchaseAmount: Double = 0.0,
-    val totalOwnerWasteCredit: Double = 0.0
+    val totalOwnerWasteCredit: Double = 0.0,
+    /** Latest session / voucher / owner-purchase date of this account; 0 when it has no operations. */
+    val lastActivityAt: Long = 0L
 )
 
 /** Shared, pure balance calculation so account lists, statements, and reports use the same rules. */
@@ -123,7 +125,12 @@ fun calculateCustomerBalance(
         totalChargeablePurchasedMinutes = chargeablePurchasedMinutes,
         totalPurchaseGrossAmount = grossPurchaseAmount,
         totalPurchaseAmount = netPurchaseAmount,
-        totalOwnerWasteCredit = ownerWasteCredit
+        totalOwnerWasteCredit = ownerWasteCredit,
+        lastActivityAt = maxOf(
+            customerSessions.maxOfOrNull { it.startTime } ?: 0L,
+            customerVouchers.maxOfOrNull { it.date } ?: 0L,
+            ownerPurchases.maxOfOrNull { it.date } ?: 0L
+        )
     )
 }
 
