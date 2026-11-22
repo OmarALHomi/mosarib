@@ -70,7 +70,7 @@ object GuideTexts {
         ),
         GuideStep(
             targetId = "session_paid",
-            title = "المبلغ المدفوع",
+            title = "الواصل",
             description = "اكتب ما استلمته الآن، والباقي يُسجَّل ديناً على العميل."
         ),
         GuideStep(
