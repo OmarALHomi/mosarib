@@ -407,95 +407,160 @@ fun HomeScreen(
         }
     }
 
+    val homeHeader: @Composable () -> Unit = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(PrimaryTealDark, PrimaryTealLight)
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(com.example.R.drawable.ic_logo_mark),
+                            contentDescription = null,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "المُسَرِّبْ",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 20.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    letterSpacing = 0.5.sp
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "• Mosarib",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = AccentGold,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Help / Interactive Tour Trigger Button
+                    IconButton(
+                        onClick = { activeTour = GuidePreferences.TOUR_HOME },
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                            contentDescription = "دليل الاستخدام السريع",
+                            tint = PrimaryTeal,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
+
+                    // Living Breathing Theme Toggle Button
+                    LivingThemeToggleButton(
+                        isDarkTheme = isDarkTheme,
+                        onToggle = {
+                            val nextMode = if (isDarkTheme) "LIGHT" else "DARK"
+                            settingsViewModel.updateThemeMode(nextMode)
+                        }
+                    )
+                }
+            }
+    }
+
+    val simpleHome = LocalSimpleMode.current
     Box(modifier = modifier.fillMaxSize()) {
-        LazyColumn(
+        if (simpleHome) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                homeHeader()
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    HomeCompactActionButton(
+                        title = "سقي",
+                        icon = Icons.Default.WaterDrop,
+                        bg = MaterialTheme.mosarib.infoContainer,
+                        tint = MaterialTheme.mosarib.info,
+                        onClick = { checkOperationAllowed { showAddManualSheet = true } },
+                        modifier = Modifier.weight(1f).guideTarget("home_session_new")
+                    )
+                    HomeCompactActionButton(
+                        title = "قبض",
+                        icon = Icons.Default.Payments,
+                        bg = MaterialTheme.mosarib.successContainer,
+                        tint = MaterialTheme.mosarib.success,
+                        onClick = {
+                            checkOperationAllowed {
+                                voucherInitialType = VoucherType.RECEIPT
+                                showAddVoucherSheet = true
+                            }
+                        },
+                        modifier = Modifier.weight(1f).guideTarget("home_vouchers")
+                    )
+                    HomeCompactActionButton(
+                        title = "صرف",
+                        icon = Icons.Default.Payments,
+                        bg = MaterialTheme.mosarib.debt.copy(alpha = 0.12f),
+                        tint = MaterialTheme.mosarib.debt,
+                        onClick = {
+                            checkOperationAllowed {
+                                voucherInitialType = VoucherType.EXPENSE
+                                showAddVoucherSheet = true
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    HomeCompactActionButton(
+                        title = "صوت",
+                        icon = Icons.Default.Mic,
+                        bg = PrimaryTeal.copy(alpha = 0.15f),
+                        tint = PrimaryTeal,
+                        onClick = {
+                            if (!VoiceRecognitionHelper.isRecognitionAvailable(context)) {
+                                voiceDialogType = VoiceDialogType.MISSING_ENGINE
+                            } else {
+                                showHomeVoiceRecordSheet = true
+                            }
+                        },
+                        modifier = Modifier.weight(1f).guideTarget("home_voice")
+                    )
+                }
+                HomeCustomerList(
+                    customersViewModel = customersViewModel,
+                    onNavigateToCustomer = onNavigateToCustomer,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        } else LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             // 1. Header Branding & Animated Living Theme Toggle Button
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(PrimaryTealDark, PrimaryTealLight)
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            androidx.compose.foundation.Image(
-                                painter = androidx.compose.ui.res.painterResource(com.example.R.drawable.ic_logo_mark),
-                                contentDescription = null,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(10.dp))
-
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "المُسَرِّبْ",
-                                    style = MaterialTheme.typography.titleLarge.copy(
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 20.sp,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        letterSpacing = 0.5.sp
-                                    )
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "• Mosarib",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = AccentGold,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                )
-                            }
-                        }
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // Help / Interactive Tour Trigger Button
-                        IconButton(
-                            onClick = { activeTour = GuidePreferences.TOUR_HOME },
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.HelpOutline,
-                                contentDescription = "دليل الاستخدام السريع",
-                                tint = PrimaryTeal,
-                                modifier = Modifier.size(19.dp)
-                            )
-                        }
-
-                        // Living Breathing Theme Toggle Button
-                        LivingThemeToggleButton(
-                            isDarkTheme = isDarkTheme,
-                            onToggle = {
-                                val nextMode = if (isDarkTheme) "LIGHT" else "DARK"
-                                settingsViewModel.updateThemeMode(nextMode)
-                            }
-                        )
-                    }
-                }
-            }
+            item { homeHeader() }
 
 
 
