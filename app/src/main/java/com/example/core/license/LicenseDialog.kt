@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -1003,39 +1004,46 @@ fun LicenseDialog(
                 }
             }
 
-            if (isMandatory) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                    border = BorderStroke(1.dp, MaterialTheme.mosarib.debt.copy(alpha = 0.5f))
+            Spacer(modifier = Modifier.height(10.dp))
+            val dialogLimit = LicenseManager.getFreeOperationsLimit(context)
+            val trialRemaining = (dialogLimit - LicenseManager.getCumulativeOperations(context)).coerceAtLeast(0)
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (isMandatory) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                border = BorderStroke(1.dp, (if (isMandatory) MaterialTheme.mosarib.debt else MaterialTheme.colorScheme.primary).copy(alpha = 0.4f))
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            tint = MaterialTheme.mosarib.debt,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
+                    Icon(
+                        imageVector = if (isMandatory) Icons.Default.Lock else Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = if (isMandatory) MaterialTheme.mosarib.debt else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
                         Text(
-                            text = mandatoryReason ?: "لقد تجاوزت الحد التجريبي المجاني (${LicenseManager.FREE_OPERATIONS_LIMIT} عملية) أو قمت باستعادة نسخة تتجاوزه. تم حفظ كافة بياناتك بأمان تام، ويرجى تفعيل الاشتراك لمتابعة العمل بالتطبيق.",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onErrorContainer
+                            text = if (isMandatory) "انتهت الفترة التجريبية. بياناتك محفوظة، ويمكنك التصفح، لكن إضافة العمليات تحتاج اشتراكاً"
+                            else "أنت في الفترة التجريبية: بقي لك $trialRemaining عملية مجانية",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (isMandatory) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface
                             )
                         )
+                        if (isMandatory && !mandatoryReason.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = mandatoryReason,
+                                style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onErrorContainer)
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
+            Spacer(modifier = Modifier.height(8.dp))
             // 1. Internet Connection Status Indicator
             Box(
                 modifier = Modifier
@@ -1088,108 +1096,94 @@ fun LicenseDialog(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-
-            // 2. Active Registration Summary (if already activated)
-            if (isCurrentlyActivated && existingRecord != null) {
-                Card(
+            StepCard(number = "١", title = "اختر الباقة") {
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.mosarib.success, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "بيانات الترخيص النشط:",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            )
+                    val monthlyPriceText = if (pricing.monthly.price.isNotBlank()) {
+                        "${pricing.monthly.price}${pricing.monthly.currency} شهرياً"
+                    } else if (isSyncingConfig) {
+                        "—"
+                    } else {
+                        "—"
+                    }
+
+                    Button(
+                        onClick = { selectedPlan = LicenseManager.SubscriptionPlan.MONTHLY },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedPlan == LicenseManager.SubscriptionPlan.MONTHLY) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (selectedPlan == LicenseManager.SubscriptionPlan.MONTHLY) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("اشتراك شهري", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                            Text(monthlyPriceText, style = MaterialTheme.typography.labelSmall)
+                            if (pricing.monthly.discountText.isNotBlank()) {
+                                Text(pricing.monthly.discountText, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold))
+                            }
                         }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "المشترك: ${existingRecord.subscriberName}",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            text = "الجهاز: ${existingRecord.deviceModel} (${existingRecord.androidVersion})",
-                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        )
-                        Text(
-                            text = "الباقة: ${existingRecord.plan.titleArabic} • المتبقي: ${LicenseManager.getRemainingDays(context)} يوماً",
-                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.success, fontWeight = FontWeight.Bold)
-                        )
+                    }
+
+                    val yearlyPriceText = if (pricing.yearly.price.isNotBlank()) {
+                        if (pricing.yearly.originalPrice.isNotBlank()) {
+                            "${pricing.yearly.price}${pricing.yearly.currency} (بدلاً من ${pricing.yearly.originalPrice}${pricing.yearly.currency})"
+                        } else {
+                            "${pricing.yearly.price}${pricing.yearly.currency} سنوياً"
+                        }
+                    } else if (isSyncingConfig) {
+                        "—"
+                    } else {
+                        "—"
+                    }
+
+                    Button(
+                        onClick = { selectedPlan = LicenseManager.SubscriptionPlan.YEARLY },
+                        modifier = Modifier.weight(1.2f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedPlan == LicenseManager.SubscriptionPlan.YEARLY) AccentGold else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (selectedPlan == LicenseManager.SubscriptionPlan.YEARLY) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("اشتراك سنوي", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                            Text(yearlyPriceText, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold))
+                            if (pricing.yearly.discountText.isNotBlank()) {
+                                Text(pricing.yearly.discountText, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+                            }
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                if (!pricing.isConfigured) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = if (isOnline) "تعذر عرض الأسعار حالياً" else "الأسعار تتطلب اتصالاً بالإنترنت لأول مرة",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedButton(
+                            onClick = { coroutineScope.launch { refreshConfig() } },
+                            enabled = !isSyncingConfig,
+                            modifier = Modifier.height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("إعادة المحاولة", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
             }
-
-            // 3. Explanation Text
-            val dialogLimit = LicenseManager.getFreeOperationsLimit(context)
-            Text(
-                text = when {
-                    isMandatory -> "لقد استنفدت العمليات المجانية بالكامل ($dialogLimit عملية) في النسخة التجريبية. يرجى إدخال اسمك وطلب كود التفعيل للاستمرار."
-                    isRegistered -> "بيانات اشتراكك مسجلة في النظام. يمكنك إرسال طلب تجديد اشتراكك أو ترقية الباقة مباشرة."
-                    else -> "لتفعيل التطبيق، اكتب اسمك، واختر الباقة، ثم انسخ الكود وأرسله عبر الواتساب للمطور لاستلام رمز التفعيل وتأكيده مع توفر الإنترنت."
-                },
-                style = MaterialTheme.typography.labelSmall.copy(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 18.sp
-                )
-            )
-
             Spacer(modifier = Modifier.height(10.dp))
-
-            // 4. Subscriber Name Input
-            OutlinedTextField(
-                value = subscriberName,
-                onValueChange = { subscriberName = it },
-                label = { Text("اسم المشترك / الموزع (مطلوب للتوثيق)") },
-                placeholder = { Text("مثال: عبدالملك الحومي") },
-                leadingIcon = {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = textFieldColors,
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Phone Input
-            OutlinedTextField(
-                value = phone,
-                onValueChange = { phone = it },
-                label = { Text("رقم الهاتف (للتواصل واستلام الرمز)") },
-                placeholder = { Text("مثال: 773712030") },
-                leadingIcon = {
-                    Icon(Icons.Default.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = textFieldColors,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Region Input
-            OutlinedTextField(
-                value = region,
-                onValueChange = { region = it },
-                label = { Text("المنطقة / المحافظة") },
-                placeholder = { Text("مثال: صنعاء / ذمار / إب / الحديدة") },
-                leadingIcon = {
-                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = textFieldColors,
-                singleLine = true
-            )
-
-            // Payment Method Selector (Combobox / Dropdown)
+            StepCard(number = "٢", title = "ادفع") {
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = selectedPaymentMethod.ifBlank { if (isSyncingConfig) "جاري جلب طرق الدفع..." else "اختر طريقة الدفع / المحفظة" },
@@ -1275,221 +1269,7 @@ fun LicenseDialog(
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Receipt / Transfer Number Input
-            OutlinedTextField(
-                value = receiptNumber,
-                onValueChange = { receiptNumber = it },
-                label = { Text("رقم سند التحويل أو الإيداع (إن وجد)") },
-                placeholder = { Text("مثال: 94827103") },
-                leadingIcon = {
-                    Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = textFieldColors,
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 5. Detected Device Info Badge
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.Smartphone, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "جهازك المسجل: $deviceModel • $androidVersion",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = MaterialTheme.mosarib.textMuted
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // If not registered: Show Plan Toggle Chips & Google Restore
-            if (!isRegistered) {
-                // Plan Toggle Chips
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    val monthlyPriceText = if (pricing.monthly.price.isNotBlank()) {
-                        "${pricing.monthly.price}${pricing.monthly.currency} شهرياً"
-                    } else if (isSyncingConfig) {
-                        "جاري التحميل..."
-                    } else {
-                        "باقة 30 يوماً"
-                    }
-
-                    Button(
-                        onClick = { selectedPlan = LicenseManager.SubscriptionPlan.MONTHLY },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (selectedPlan == LicenseManager.SubscriptionPlan.MONTHLY) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = if (selectedPlan == LicenseManager.SubscriptionPlan.MONTHLY) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("اشتراك شهري", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                            Text(monthlyPriceText, style = MaterialTheme.typography.labelSmall)
-                            if (pricing.monthly.discountText.isNotBlank()) {
-                                Text(pricing.monthly.discountText, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold))
-                            }
-                        }
-                    }
-
-                    val yearlyPriceText = if (pricing.yearly.price.isNotBlank()) {
-                        if (pricing.yearly.originalPrice.isNotBlank()) {
-                            "${pricing.yearly.price}${pricing.yearly.currency} (بدلاً من ${pricing.yearly.originalPrice}${pricing.yearly.currency})"
-                        } else {
-                            "${pricing.yearly.price}${pricing.yearly.currency} سنوياً"
-                        }
-                    } else if (isSyncingConfig) {
-                        "جاري التحميل..."
-                    } else {
-                        "باقة 365 يوماً"
-                    }
-
-                    Button(
-                        onClick = { selectedPlan = LicenseManager.SubscriptionPlan.YEARLY },
-                        modifier = Modifier.weight(1.2f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (selectedPlan == LicenseManager.SubscriptionPlan.YEARLY) AccentGold else MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = if (selectedPlan == LicenseManager.SubscriptionPlan.YEARLY) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("اشتراك سنوي", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                            Text(yearlyPriceText, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold))
-                            if (pricing.yearly.discountText.isNotBlank()) {
-                                Text(pricing.yearly.discountText, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
-                            }
-                        }
-                    }
-                }
-
-                if (!pricing.isConfigured) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = if (isOnline) "جاري تحديث الأسعار من السيرفر..." else "الأسعار تتطلب اتصالاً بالإنترنت لأول مرة",
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                            IconButton(
-                                onClick = { coroutineScope.launch { refreshConfig() } },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(Icons.Default.Refresh, contentDescription = "تحديث الأسعار", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Perks / Features Card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.mosarib.successContainer
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.mosarib.success.copy(alpha = 0.3f))
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "مميزات الاشتراك في تطبيق المُسَرِّب:",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.mosarib.onSuccessContainer
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.SupportAgent, contentDescription = null, tint = MaterialTheme.mosarib.success, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("دعم فني مخصص عند الحاجة", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Sync, contentDescription = null, tint = MaterialTheme.mosarib.success, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("تحديثات متواصلة وحل المشاكل بشكل فوري", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Smartphone, contentDescription = null, tint = MaterialTheme.mosarib.success, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("إمكانية تغيير الهاتف ونقل الاشتراك بأي وقت", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Google Account Restore Button
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "مسجل مسبقاً ولديك اشتراك؟",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = {
-                                val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
-                                googleSignInLauncher.launch(client.signInIntent)
-                            },
-                            enabled = !isCheckingGoogleLogin,
-                            modifier = Modifier.fillMaxWidth().height(42.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
-                        ) {
-                            if (isCheckingGoogleLogin) {
-                                MosaribInlineLoading(size = 18.dp, primaryColor = Color.White, accentColor = Color.White.copy(alpha = 0.5f))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("جاري فحص الحساب في السحابة...", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                            } else {
-                                Icon(Icons.Default.CloudDone, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("تسجيل الدخول واستعادة الحساب عبر Google", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                            }
-                        }
-                    }
-                }
-
-                // 💳 Payment Accounts Card (Collapsible)
+                Spacer(modifier = Modifier.height(8.dp))
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1642,236 +1422,88 @@ fun LicenseDialog(
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(10.dp))
-            }
-
-            // Device Code Card
-            Card(
+                Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = receiptNumber,
+                onValueChange = { receiptNumber = it },
+                label = { Text("رقم سند التحويل أو الإيداع (إن وجد)") },
+                placeholder = { Text("مثال: 94827103") },
+                leadingIcon = {
+                    Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                shape = RoundedCornerShape(12.dp),
+                colors = textFieldColors,
+                singleLine = true
+            )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            StepCard(number = "٣", title = "أرسل الطلب") {
+            OutlinedTextField(
+                value = subscriberName,
+                onValueChange = { subscriberName = it },
+                label = { Text("اسم المشترك / الموزع (مطلوب للتوثيق)") },
+                placeholder = { Text("مثال: عبدالملك الحومي") },
+                leadingIcon = {
+                    Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = textFieldColors,
+                singleLine = true
+            )
+                Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = phone,
+                onValueChange = { phone = it },
+                label = { Text("رقم الهاتف (للتواصل واستلام الرمز)") },
+                placeholder = { Text("مثال: 773712030") },
+                leadingIcon = {
+                    Icon(Icons.Default.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = textFieldColors,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                singleLine = true
+            )
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = { openWhatsApp() },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.success)
                 ) {
-                    Text(
-                        text = "كود جهازك الفريد (Device Token):",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = deviceCode,
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            letterSpacing = 2.sp
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    if (!isRegistered) {
-                        // User not registered: Standard copy + WhatsApp activation + Online subscription request
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = { copyDeviceCode() },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("نسخ الكود", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
-                            }
-
-                            Button(
-                                onClick = { openWhatsApp() },
-                                modifier = Modifier.weight(1.4f),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.success)
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("طلب تفعيل عبر واتساب", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Button(
-                            onClick = { submitOnlineSubscriptionRequest() },
-                            enabled = !isRequestingOnline,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = Color.White
-                            )
-                        ) {
-                            if (isRequestingOnline) {
-                                MosaribInlineLoading(size = 18.dp, primaryColor = Color.White, accentColor = Color.White.copy(alpha = 0.5f))
-                            } else {
-                                Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("إرسال طلب اشتراك", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                            }
-                        }
-                    } else if (isYearlySubscriber) {
-                        // Yearly subscriber: ONLY Renewal option
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = { copyDeviceCode() },
-                                modifier = Modifier.weight(0.9f),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("نسخ الكود", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
-                            }
-
-                            Button(
-                                onClick = { openWhatsApp(LicenseManager.SubscriptionPlan.YEARLY, overrideIsUpgrade = false) },
-                                modifier = Modifier.weight(1.1f),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.success)
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("تجديد عبر واتساب", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Button(
-                            onClick = { submitOnlineSubscriptionRequest(LicenseManager.SubscriptionPlan.YEARLY, overrideIsUpgrade = false) },
-                            enabled = !isRequestingOnline,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = Color.White
-                            )
-                        ) {
-                            if (isRequestingOnline) {
-                                MosaribInlineLoading(size = 18.dp, primaryColor = Color.White, accentColor = Color.White.copy(alpha = 0.5f))
-                            } else {
-                                Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("طلب تجديد الاشتراك", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                            }
-                        }
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("إرسال الطلب عبر واتساب", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                TextButton(
+                    onClick = { submitOnlineSubscriptionRequest() },
+                    enabled = !isRequestingOnline,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isRequestingOnline) {
+                        MosaribInlineLoading(size = 18.dp, primaryColor = MaterialTheme.colorScheme.primary, accentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
                     } else {
-                        // Monthly / non-yearly subscriber: Show TWO options: Renew OR Upgrade!
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = { copyDeviceCode() },
-                                modifier = Modifier.weight(0.9f),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("نسخ الكود", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
-                            }
-
-                            Button(
-                                onClick = { openWhatsApp(LicenseManager.SubscriptionPlan.MONTHLY, overrideIsUpgrade = false) },
-                                modifier = Modifier.weight(1.1f),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.mosarib.success)
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("تجديد عبر واتساب", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Button 1: طلب تجديد الاشتراك (الشهري)
-                        Button(
-                            onClick = { submitOnlineSubscriptionRequest(LicenseManager.SubscriptionPlan.MONTHLY, overrideIsUpgrade = false) },
-                            enabled = !isRequestingOnline,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = Color.White
-                            )
-                        ) {
-                            if (isRequestingOnline) {
-                                MosaribInlineLoading(size = 18.dp, primaryColor = Color.White, accentColor = Color.White.copy(alpha = 0.5f))
-                            } else {
-                                Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("طلب تجديد الاشتراك", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Button 2: طلب ترقية الاشتراك إلى سنوي
-                        Button(
-                            onClick = { submitOnlineSubscriptionRequest(LicenseManager.SubscriptionPlan.YEARLY, overrideIsUpgrade = true) },
-                            enabled = !isRequestingOnline,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = AccentGold,
-                                contentColor = Color.Black
-                            )
-                        ) {
-                            Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Black)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            val yearlyUpgradeSuffix = if (pricing.yearly.price.isNotBlank()) " (${pricing.yearly.price}${pricing.yearly.currency})" else ""
-                            Text("طلب ترقية الاشتراك إلى سنوي$yearlyUpgradeSuffix", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                        }
-                    }
-
-                    if (requestSuccessMessage != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = requestSuccessMessage!!,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = MaterialTheme.mosarib.success,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            textAlign = TextAlign.Center
-                        )
+                        Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("أو أرسل الطلب إلى الإدارة من داخل التطبيق", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                     }
                 }
+                if (requestSuccessMessage != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = requestSuccessMessage!!,
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.success, fontWeight = FontWeight.Bold),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Activation Key Input
+            Spacer(modifier = Modifier.height(10.dp))
+            StepCard(number = "٤", title = "أدخل رمز التفعيل") {
             OutlinedTextField(
                 value = enteredKey,
                 onValueChange = { enteredKey = it.uppercase() },
@@ -1881,21 +1513,14 @@ fun LicenseDialog(
                 colors = textFieldColors,
                 singleLine = true
             )
-
-            if (errorMessage != null) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = errorMessage!!,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = MaterialTheme.mosarib.debt,
-                        fontWeight = FontWeight.Bold
+                if (errorMessage != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = errorMessage!!,
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.debt, fontWeight = FontWeight.Bold)
                     )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Submit Button (only enabled if entered key matches format)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
             Button(
                 onClick = { submitActivation() },
                 enabled = isKeyFormatValid,
@@ -1922,7 +1547,143 @@ fun LicenseDialog(
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
             }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "مسجل مسبقاً ولديك اشتراك؟",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                val client = GoogleDriveBackupHelper.getGoogleSignInClient(context)
+                                googleSignInLauncher.launch(client.signInIntent)
+                            },
+                            enabled = !isCheckingGoogleLogin,
+                            modifier = Modifier.fillMaxWidth().height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
+                        ) {
+                            if (isCheckingGoogleLogin) {
+                                MosaribInlineLoading(size = 18.dp, primaryColor = Color.White, accentColor = Color.White.copy(alpha = 0.5f))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("جاري فحص الحساب في السحابة...", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                            } else {
+                                Icon(Icons.Default.CloudDone, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("تسجيل الدخول واستعادة الحساب عبر Google", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                            }
+                        }
+                    }
+                }
+            Spacer(modifier = Modifier.height(10.dp))
+            var showExtraDetails by remember { mutableStateOf(false) }
+            CollapsibleHeader("تفاصيل إضافية", showExtraDetails) { showExtraDetails = !showExtraDetails }
+            if (showExtraDetails) {
+                Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = region,
+                onValueChange = { region = it },
+                label = { Text("المنطقة / المحافظة") },
+                placeholder = { Text("مثال: صنعاء / ذمار / إب / الحديدة") },
+                leadingIcon = {
+                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = textFieldColors,
+                singleLine = true
+            )
+                Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Smartphone, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "جهازك المسجل: $deviceModel • $androidVersion",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = MaterialTheme.mosarib.textMuted
+                    )
+                )
+            }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { copyDeviceCode() }
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "كود الجهاز: $deviceCode",
+                        style = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    )
+                    Icon(Icons.Default.ContentCopy, contentDescription = "نسخ الكود", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                }
+            }
 
+            Spacer(modifier = Modifier.height(8.dp))
+            var showFeatures by remember { mutableStateOf(false) }
+            CollapsibleHeader("مميزات الاشتراك", showFeatures) { showFeatures = !showFeatures }
+            if (showFeatures) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.mosarib.successContainer
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.mosarib.success.copy(alpha = 0.3f))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "مميزات الاشتراك في تطبيق المُسَرِّب:",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.mosarib.onSuccessContainer
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.SupportAgent, contentDescription = null, tint = MaterialTheme.mosarib.success, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("دعم فني مخصص عند الحاجة", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Sync, contentDescription = null, tint = MaterialTheme.mosarib.success, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("تحديثات متواصلة وحل المشاكل بشكل فوري", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Smartphone, contentDescription = null, tint = MaterialTheme.mosarib.success, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("إمكانية تغيير الهاتف ونقل الاشتراك بأي وقت", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
+                        }
+                    }
+                }
+            }
             if (isMandatory) {
                 Spacer(modifier = Modifier.height(12.dp))
                 TextButton(
@@ -1965,6 +1726,51 @@ fun LicenseDialog(
                     onDismiss()
                 }
             } else null
+        )
+    }
+}
+
+@Composable
+private fun StepCard(number: String, title: String, content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(32.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(number, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Color.White))
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold))
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            content()
+        }
+    }
+}
+
+@Composable
+private fun CollapsibleHeader(title: String, expanded: Boolean, onToggle: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant))
+        Icon(
+            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
