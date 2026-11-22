@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -73,6 +75,8 @@ fun HomeCustomerList(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
+    var totalsBoxHeight by remember { mutableStateOf(110.dp) }
     val config by customersViewModel.appConfig.collectAsStateWithLifecycle()
     val customers by customersViewModel.customersWithBalance.collectAsStateWithLifecycle()
     val balanceFilter by customersViewModel.balanceFilter.collectAsStateWithLifecycle()
@@ -167,8 +171,8 @@ fun HomeCustomerList(
 
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                // room so the last card scrolls clear of the fixed totals box
-                contentPadding = PaddingValues(bottom = 110.dp)
+                // room (= measured totals box height) so the last card scrolls clear of the box
+                contentPadding = PaddingValues(bottom = totalsBoxHeight)
             ) {
                 items(customers, key = { it.customer.id }) { item ->
                     CustomerCardItem(
@@ -188,6 +192,7 @@ fun HomeCustomerList(
         Card(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .onSizeChanged { totalsBoxHeight = with(density) { it.height.toDp() } }
                 .padding(horizontal = 14.dp, vertical = 8.dp)
                 .fillMaxWidth()
                 .shadow(8.dp, RoundedCornerShape(20.dp)),

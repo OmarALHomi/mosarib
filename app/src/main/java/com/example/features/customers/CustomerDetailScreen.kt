@@ -2498,16 +2498,6 @@ fun CustomerDetailScreen(
                         endTime = endTime
                     )
                     showOwnerPurchaseSheet = false
-                    messagePurchaseTarget = editing.copy(
-                        date = date,
-                        durationMinutes = durationMinutes,
-                        wastedMinutesOnOwner = wastedMinutes,
-                        purchaseRatePerHour = purchaseRate,
-                        notes = notes,
-                        amountPaid = amountPaid,
-                        startTime = startTime,
-                        endTime = endTime
-                    )
                     purchaseToEdit = null
                 } else {
                     viewModel.addOwnerPurchase(
@@ -2519,10 +2509,7 @@ fun CustomerDetailScreen(
                         notes = notes,
                         amountPaid = amountPaid,
                         startTime = startTime,
-                        endTime = endTime,
-                        onCreated = { createdPurchase ->
-                            messagePurchaseTarget = createdPurchase
-                        }
+                        endTime = endTime
                     )
                     showOwnerPurchaseSheet = false
                 }

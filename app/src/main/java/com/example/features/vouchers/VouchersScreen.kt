@@ -149,7 +149,9 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import com.example.core.ui.MosaribButton
 import com.example.core.ui.MosaribFilterChip
 import com.example.core.ui.MosaribTextField
+import com.example.core.ui.OperationConfirmSheet
 import com.example.core.ui.SendMessageChoiceDialog
+import com.example.core.util.OperationStatement
 import com.example.core.util.PdfReportGenerator
 import java.io.File
 import androidx.compose.runtime.Composable
@@ -257,7 +259,6 @@ fun VouchersScreen(
     val operationsCount by viewModel.operationsCount.collectAsStateWithLifecycle()
     var searchVoiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
     var showSearchVoiceSheet by remember { mutableStateOf(false) }
-    val settlementResult by viewModel.settlementResult.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val isDark = isAppDark()
@@ -1686,13 +1687,6 @@ fun VouchersScreen(
         )
     }
 
-    settlementResult?.let { res ->
-        SettlementResultDialog(
-            result = res,
-            onDismiss = { viewModel.clearSettlementResult() }
-        )
-    }
-
     // حوار اختيار قناة الإرسال (واتساب أو SMS)
     voucherMessageTarget?.let { (cust, waMsg, smsMsg) ->
         SendMessageChoiceDialog(
@@ -1813,15 +1807,7 @@ fun VouchersScreen(
                     notes = notes,
                     amountPaid = paid,
                     startTime = startTime,
-                    endTime = endTime,
-                    onCreated = { savedPurchase ->
-                        val targetOwner = customers.find { it.id == ownerId }
-                        if (targetOwner != null && targetOwner.phone.isNotBlank()) {
-                            val waMsg = MessageFormatHelper.buildPurchaseBill(savedPurchase, targetOwner, config, isSms = false)
-                            val smsMsg = MessageFormatHelper.buildPurchaseBill(savedPurchase, targetOwner, config, isSms = true)
-                            voucherMessageTarget = Triple(targetOwner, waMsg, smsMsg)
-                        }
-                    }
+                    endTime = endTime
                 )
                 showAddPurchaseSheet = false
             }
@@ -2339,6 +2325,19 @@ fun AddVoucherBottomSheet(
         else -> "تسجيل سند (عليه)"
     }
 
+    var pendingSave by remember { mutableStateOf<(() -> Unit)?>(null) }
+    pendingSave?.let { save ->
+        val isReceipt = type == VoucherType.RECEIPT
+        val who = (if (isReceipt) selectedCustomer?.name else selectedBeneficiary?.name) ?: "مصروف عام"
+        val amount = Formatters.parseAmountInput(amountStr)
+        OperationConfirmSheet(
+            statement = OperationStatement.voucher(isReceipt, who, amount, notes, currencySymbol),
+            spoken = OperationStatement.voucherSpoken(isReceipt, who, amount, notes, currencySymbol),
+            onConfirm = { pendingSave = null; save() },
+            onEdit = { pendingSave = null }
+        )
+    }
+
     MosaribBottomSheet(
         onDismissRequest = onDismiss,
         title = headerTitle,
@@ -2386,8 +2385,11 @@ fun AddVoucherBottomSheet(
                         val custId = if (type == VoucherType.RECEIPT) selectedCustomerId else selectedBeneficiaryId
                         val cat = if (type == VoucherType.RECEIPT) "سداد حساب" else notes.ifBlank { "مصروف" }
                         val selList = if (type == VoucherType.RECEIPT) selectedSessionIds.toList() else emptyList()
-                        onSave(type, custId, amt, cat, paymentMethod, notes, null, selList, disc)
-                        onDismiss()
+                        val performSave: () -> Unit = {
+                            onSave(type, custId, amt, cat, paymentMethod, notes, null, selList, disc)
+                            onDismiss()
+                        }
+                        if ((initialVoucher?.id ?: 0L) == 0L) pendingSave = performSave else performSave()
                     }
                 },
                 enabled = canSave,
@@ -2839,220 +2841,6 @@ fun AddVoucherBottomSheet(
         onDismiss = { voiceDialogType = VoiceDialogType.NONE }
     )
 
-}
-
-@Composable
-fun SettlementResultDialog(
-    result: SettlementResult,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-
-    MosaribDialog(
-        onDismissRequest = onDismiss,
-        title = "تفاصيل تسديد السند",
-        message = "تم التوزيع حسب الأقدمية (الأول فالأول)",
-        icon = Icons.Default.Receipt,
-        tone = DialogTone.Success,
-        confirmText = "واتساب",
-        onConfirm = {
-            val waMsg = MessageFormatHelper.buildSettlementMessage(result, isSms = false)
-            FileSharingHelper.sendWhatsAppMessage(context, result.customerPhone, waMsg)
-            onDismiss()
-        },
-        dismissText = "إغلاق",
-        onDismiss = onDismiss
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 380.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Customer & Total Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("العميل:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(result.customerName, fontWeight = FontWeight.Bold)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("المبلغ المقبوض:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            Formatters.formatCurrency(result.totalAmount, result.currencySymbol),
-                            fontWeight = FontWeight.Bold,
-                            color = AccentEmerald
-                        )
-                    }
-                    if (result.discountAmount > 0.0) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("خصم تسوية ومسامحة:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                Formatters.formatCurrency(result.discountAmount, result.currencySymbol),
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.mosarib.warning
-                            )
-                        }
-                    }
-                }
-            }
-
-            Text(
-                text = "توزيع السداد على الجلسات:",
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-            )
-
-            result.items.forEach { item ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = when {
-                            item.isFullyPaid -> MaterialTheme.mosarib.credit.copy(alpha = 0.12f)
-                            item.allocatedAmount > 0 -> MaterialTheme.mosarib.warning.copy(alpha = 0.12f)
-                            else -> MaterialTheme.mosarib.debt.copy(alpha = 0.12f)
-                        }
-                    ),
-                    border = BorderStroke(
-                        1.dp,
-                        when {
-                            item.isFullyPaid -> MaterialTheme.mosarib.credit.copy(alpha = 0.4f)
-                            item.allocatedAmount > 0 -> MaterialTheme.mosarib.warning.copy(alpha = 0.4f)
-                            else -> MaterialTheme.mosarib.debt.copy(alpha = 0.4f)
-                        }
-                    ),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "دورة سقي #${item.sessionId}",
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                text = Formatters.formatDate(item.date),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            val paidDesc = buildString {
-                                append("المسدد: ${Formatters.formatCurrency(item.allocatedAmount, result.currencySymbol)}")
-                                if (item.allocatedDiscount > 0.0) {
-                                    append(" + خصم: ${Formatters.formatCurrency(item.allocatedDiscount, result.currencySymbol)}")
-                                }
-                            }
-                            Text(
-                                text = paidDesc,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (item.allocatedAmount > 0 || item.allocatedDiscount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.mosarib.debt
-                            )
-                            if (item.isFullyPaid) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.mosarib.credit,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Text(
-                                        text = "مسدد",
-                                        fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.mosarib.credit
-                                    )
-                                }
-                            } else {
-                                Text(
-                                    text = when {
-                                        item.allocatedAmount > 0 -> "متبقي: ${Formatters.formatCurrency(item.remainingDebtAfter, result.currencySymbol)}"
-                                        else -> "لم يشملها المبلغ"
-                                    },
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = when {
-                                        item.allocatedAmount > 0 -> MaterialTheme.mosarib.warning
-                                        else -> MaterialTheme.mosarib.debt
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (result.surplusAmount > 0.0) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.Default.Payments, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Column {
-                            Text(
-                                "فائض رصيد للعميل",
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                "تم قيد ${Formatters.formatCurrency(result.surplusAmount, result.currencySymbol)} كرصيد دائن لصالح العميل",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (result.customerPhone.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                MosaribSecondaryButton(
-                    text = "إرسال SMS",
-                    onClick = {
-                        val smsMsg = MessageFormatHelper.buildSettlementMessage(result, isSms = true)
-                        FileSharingHelper.sendSms(context, result.customerPhone, smsMsg)
-                        onDismiss()
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-    }
 }
 
 @Composable

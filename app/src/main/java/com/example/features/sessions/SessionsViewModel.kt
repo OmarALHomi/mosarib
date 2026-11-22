@@ -18,6 +18,7 @@ import com.example.features.vouchers.Voucher
 import com.example.features.vouchers.VoucherRepository
 import com.example.features.vouchers.VoucherType
 import com.example.core.license.LicenseManager
+import com.example.core.ui.PostSaveMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -350,6 +351,12 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                     showToast("تم تسجيل دورة السقي وحساب التكلفة بنجاح", ToastType.SUCCESS)
                 } else {
                     showToast("تم تحديث بيانات دورة السقي بنجاح", ToastType.SUCCESS)
+                }
+            }
+            if (id == 0L) {
+                db.customerDao().getCustomerByIdDirect(customerId)?.let { c ->
+                    val sponsor = billedToCustomerId?.let { db.customerDao().getCustomerByIdDirect(it) }
+                    PostSaveMessages.postSession(session.copy(id = savedSessionId), c, sponsor, appConfig.value)
                 }
             }
         }

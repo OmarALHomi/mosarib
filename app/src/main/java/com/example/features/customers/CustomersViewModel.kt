@@ -17,6 +17,7 @@ import com.example.core.util.Formatters
 import com.example.core.util.PdfReportGenerator
 import com.example.features.sessions.WaterSession
 import com.example.features.sessions.WaterSessionRepository
+import com.example.core.ui.PostSaveMessages
 import com.example.features.settings.AppConfig
 import com.example.features.settings.AppSetting
 import com.example.features.settings.SettingsRepository
@@ -747,6 +748,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 amountPaid = com.example.core.util.Formatters.roundMoney(amountPaid),
                 notes = notes.trim()
             )
+            PostSaveMessages.postPurchase(createdPurchase, owner, appConfig.value)
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                 onCreated?.invoke(createdPurchase)
             }
@@ -930,6 +932,10 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 showToast("تم تسجيل السقي وتوزيع الفائض (${com.example.core.util.Formatters.formatCurrency(excessPaid, "")}) وتسوية الحساب", ToastType.SUCCESS)
             } else {
                 showToast("تم تسجيل دورة السقي بنجاح وتحديث كشف الحساب", ToastType.SUCCESS)
+            }
+            customerRepo.getCustomerByIdDirect(customerId)?.let { c ->
+                val sponsor = billedToCustomerId?.let { customerRepo.getCustomerByIdDirect(it) }
+                PostSaveMessages.postSession(session.copy(id = newSessionId), c, sponsor, appConfig.value)
             }
         }
     }
@@ -1185,6 +1191,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             voucherRepo.insertVoucher(voucher)
             LicenseManager.recordOperationPerformed(getApplication(), totalOps)
             showToast("تم تسجيل سند القبض وتحديث رصيد العميل", ToastType.SUCCESS)
+            customerRepo.getCustomerByIdDirect(customerId)?.let { PostSaveMessages.postVoucher(voucher, it, appConfig.value) }
         }
     }
 
@@ -1216,6 +1223,7 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             voucherRepo.insertVoucher(voucher)
             LicenseManager.recordOperationPerformed(getApplication(), totalOps)
             showToast("تم قيد سند الصرف وتحديث رصيد العميل", ToastType.SUCCESS)
+            customerRepo.getCustomerByIdDirect(customerId)?.let { PostSaveMessages.postVoucher(voucher, it, appConfig.value) }
         }
     }
 
