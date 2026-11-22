@@ -63,6 +63,9 @@ import android.os.SystemClock
 import com.example.core.ui.DialogTone
 import com.example.core.ui.MosaribDialog
 import com.example.core.ui.MosaribMenu
+import com.example.core.ui.MosaribPrimaryButton
+import com.example.core.ui.MosaribSecondaryButton
+import androidx.compose.foundation.layout.heightIn
 import com.example.ui.theme.mosarib
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -173,50 +176,6 @@ fun LicenseDialog(
     LaunchedEffect(Unit) {
         refreshConfig()
     }
-    var lastDragAtMillis by remember { mutableLongStateOf(0L) }
-    var isDismissingAllowed by remember { mutableStateOf(false) }
-
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y != 0f) {
-                    lastDragAtMillis = SystemClock.uptimeMillis()
-                }
-                return Offset.Zero
-            }
-
-            override suspend fun onPreFling(available: Velocity): Velocity {
-                lastDragAtMillis = SystemClock.uptimeMillis()
-                return Velocity.Zero
-            }
-        }
-    }
-
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true,
-        confirmValueChange = { sheetValue ->
-            if (isMandatory) {
-                sheetValue != androidx.compose.material3.SheetValue.Hidden
-            } else if (sheetValue == androidx.compose.material3.SheetValue.Hidden) {
-                if (isDismissingAllowed) {
-                    true
-                } else {
-                    val now = SystemClock.uptimeMillis()
-                    val timeSinceLastDrag = now - lastDragAtMillis
-                    if (timeSinceLastDrag > 400L) {
-                        coroutineScope.launch {
-                            isDismissingAllowed = true
-                            onDismiss()
-                        }
-                    }
-                    false
-                }
-            } else {
-                true
-            }
-        }
-    )
-
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -930,120 +889,95 @@ fun LicenseDialog(
             }
         }
     } else {
-        ModalBottomSheet(
-        onDismissRequest = {
-            if (!isMandatory) onDismiss()
-        },
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .nestedScroll(nestedScrollConnection)
-                .verticalScroll(sheetScrollState)
-                .padding(horizontal = 22.dp, vertical = 12.dp)
-                .imePadding()
-                .navigationBarsPadding()
+        var step by remember { mutableStateOf(0) }
+        val maxDialogHeight = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.8f).dp
+        val stepTitles = listOf("الباقة", "الدفع", "بياناتك", "رمز التفعيل")
+        val dialogLimit = LicenseManager.getFreeOperationsLimit(context)
+        val trialRemaining = (dialogLimit - LicenseManager.getCumulativeOperations(context)).coerceAtLeast(0)
+        // Back is handled here (never closes the app): step -> previous step -> card -> dismiss.
+        Dialog(
+            onDismissRequest = onDismiss,
+            properties = DialogProperties(dismissOnBackPress = false, usePlatformDefaultWidth = false)
         ) {
-            if (isMandatory) {
-                BackHandler {
-                    (context as? android.app.Activity)?.finishAffinity()
-                }
-            }
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            BackHandler { if (step > 0) step-- else onDismiss() }
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Rtl
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(0.9f).heightIn(max = maxDialogHeight).imePadding(),
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 12.dp
+            ) {
+            if (step == 0) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(AccentGold.copy(alpha = 0.16f)),
+                        modifier = Modifier.size(76.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Key,
+                            imageVector = if (isMandatory) Icons.Default.Lock else Icons.Default.Key,
                             contentDescription = null,
-                            tint = AccentGold,
-                            modifier = Modifier.size(20.dp)
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(36.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
                     Text(
-                        text = "الاشتراكات والتفعيل",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        text = if (isMandatory) "انتهت الفترة التجريبية" else "اشترك في المسرّب",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                        textAlign = TextAlign.Center
                     )
-                }
-
-                if (!isMandatory) {
-                    IconButton(onClick = {
-                        isDismissingAllowed = true
-                        onDismiss()
-                    }) {
-                        Icon(Icons.Default.Close, contentDescription = "إغلاق")
-                    }
-                } else {
-                    TextButton(
-                        onClick = { (context as? android.app.Activity)?.finishAffinity() },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.mosarib.debt)
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "خروج", modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (isMandatory) "بياناتك محفوظة ويمكنك تصفح حساباتك. لإضافة عمليات جديدة اشترك."
+                        else "بقي لك $trialRemaining عملية مجانية",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.mosarib.textMuted),
+                        textAlign = TextAlign.Center
+                    )
+                    if (isMandatory && !mandatoryReason.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "خروج",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            text = mandatoryReason,
+                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted),
+                            textAlign = TextAlign.Center
                         )
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-            val dialogLimit = LicenseManager.getFreeOperationsLimit(context)
-            val trialRemaining = (dialogLimit - LicenseManager.getCumulativeOperations(context)).coerceAtLeast(0)
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = if (isMandatory) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                border = BorderStroke(1.dp, (if (isMandatory) MaterialTheme.mosarib.debt else MaterialTheme.colorScheme.primary).copy(alpha = 0.4f))
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = if (isMandatory) Icons.Default.Lock else Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = if (isMandatory) MaterialTheme.mosarib.debt else MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = if (isMandatory) "انتهت الفترة التجريبية. بياناتك محفوظة، ويمكنك التصفح، لكن إضافة العمليات تحتاج اشتراكاً"
-                            else "أنت في الفترة التجريبية: بقي لك $trialRemaining عملية مجانية",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = if (isMandatory) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface
-                            )
-                        )
-                        if (isMandatory && !mandatoryReason.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = mandatoryReason,
-                                style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onErrorContainer)
-                            )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    MosaribPrimaryButton(text = "طلب اشتراك", onClick = { step = 1 }, modifier = Modifier.fillMaxWidth())
+                    Spacer(modifier = Modifier.height(10.dp))
+                    MosaribSecondaryButton(text = "إغلاق", onClick = onDismiss, modifier = Modifier.fillMaxWidth())
+                    Spacer(modifier = Modifier.height(6.dp))
+                    TextButton(onClick = { step = 4 }) {
+                        Text("لديّ رمز تفعيل", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                    }
+                    if (isMandatory) {
+                        TextButton(
+                            onClick = { (context as? android.app.Activity)?.finishAffinity() },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.mosarib.debt)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("خروج من التطبيق", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                         }
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
+            } else {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                StepperProgress(
+                    current = step,
+                    titles = stepTitles,
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 14.dp)
+                )
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(sheetScrollState)
+                        .padding(horizontal = 20.dp, vertical = 4.dp)
+                ) {
             // 1. Internet Connection Status Indicator
             Box(
                 modifier = Modifier
@@ -1096,7 +1030,7 @@ fun LicenseDialog(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            StepCard(number = "١", title = "اختر الباقة") {
+            if (step == 1) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1183,7 +1117,7 @@ fun LicenseDialog(
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
-            StepCard(number = "٢", title = "ادفع") {
+            if (step == 2) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = selectedPaymentMethod.ifBlank { if (isSyncingConfig) "جاري جلب طرق الدفع..." else "اختر طريقة الدفع / المحفظة" },
@@ -1438,7 +1372,7 @@ fun LicenseDialog(
             )
             }
             Spacer(modifier = Modifier.height(10.dp))
-            StepCard(number = "٣", title = "أرسل الطلب") {
+            if (step == 3) {
             OutlinedTextField(
                 value = subscriberName,
                 onValueChange = { subscriberName = it },
@@ -1501,54 +1435,11 @@ fun LicenseDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            StepCard(number = "٤", title = "أدخل رمز التفعيل") {
-            OutlinedTextField(
-                value = enteredKey,
-                onValueChange = { enteredKey = it.uppercase() },
-                label = { Text(if (isRegistered) "أدخل رمز التجديد / الترقية المستلم (اختياري)" else "أدخل رمز التفعيل (ACTV-X-XXXX-XXXX-XXXX)") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = textFieldColors,
-                singleLine = true
-            )
-                if (errorMessage != null) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = errorMessage!!,
-                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.debt, fontWeight = FontWeight.Bold)
-                    )
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = { submitActivation() },
-                enabled = isKeyFormatValid,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = Color.White,
-                    disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                    disabledContentColor = Color.White.copy(alpha = 0.5f)
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Verified,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (isRegistered) "تأكيد رمز التجديد / الترقية" else "تفعيل التطبيق الآن",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                )
-            }
-            }
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            var showExtraDetails by remember { mutableStateOf(false) }
+            CollapsibleHeader("تفاصيل إضافية", showExtraDetails) { showExtraDetails = !showExtraDetails }
+            if (showExtraDetails) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -1587,10 +1478,7 @@ fun LicenseDialog(
                         }
                     }
                 }
-            Spacer(modifier = Modifier.height(10.dp))
-            var showExtraDetails by remember { mutableStateOf(false) }
-            CollapsibleHeader("تفاصيل إضافية", showExtraDetails) { showExtraDetails = !showExtraDetails }
-            if (showExtraDetails) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = region,
@@ -1641,7 +1529,6 @@ fun LicenseDialog(
                     Icon(Icons.Default.ContentCopy, contentDescription = "نسخ الكود", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                 }
             }
-
             Spacer(modifier = Modifier.height(8.dp))
             var showFeatures by remember { mutableStateOf(false) }
             CollapsibleHeader("مميزات الاشتراك", showFeatures) { showFeatures = !showFeatures }
@@ -1684,30 +1571,46 @@ fun LicenseDialog(
                     }
                 }
             }
-            if (isMandatory) {
-                Spacer(modifier = Modifier.height(12.dp))
-                TextButton(
-                    onClick = { (context as? android.app.Activity)?.finishAffinity() },
-                    modifier = Modifier.fillMaxWidth()
+            }
+            if (step == 4) {
+                Text("ستصلك الرسالة بالرمز بعد تأكيد الدفع", style = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.mosarib.textMuted))
+                Spacer(modifier = Modifier.height(10.dp))
+            OutlinedTextField(
+                value = enteredKey,
+                onValueChange = { enteredKey = it.uppercase() },
+                label = { Text(if (isRegistered) "أدخل رمز التجديد / الترقية المستلم (اختياري)" else "أدخل رمز التفعيل (ACTV-X-XXXX-XXXX-XXXX)") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = textFieldColors,
+                singleLine = true
+            )
+            }
+            if (errorMessage != null && step >= 3) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = errorMessage!!,
+                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.debt, fontWeight = FontWeight.Bold)
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                        contentDescription = null,
-                        tint = MaterialTheme.mosarib.debt,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "خروج من التطبيق",
-                        color = MaterialTheme.mosarib.debt,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                    MosaribSecondaryButton(text = "السابق", onClick = { step-- }, modifier = Modifier.weight(1f))
+                    MosaribPrimaryButton(
+                        text = if (step == 4) "تفعيل" else "التالي",
+                        onClick = { if (step == 4) submitActivation() else step++ },
+                        modifier = Modifier.weight(1f),
+                        enabled = step != 4 || isKeyFormatValid
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(32.dp))
+            }
+            }
+            }
         }
-    }
     }
 
     if (showNotRegisteredDialog) {
@@ -1727,6 +1630,44 @@ fun LicenseDialog(
                 }
             } else null
         )
+    }
+}
+
+@Composable
+private fun StepperProgress(current: Int, titles: List<String>, modifier: Modifier = Modifier) {
+    val digits = listOf("١", "٢", "٣", "٤")
+    val primary = MaterialTheme.colorScheme.primary
+    Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            titles.indices.forEach { i ->
+                val active = i + 1 <= current
+                if (i > 0) {
+                    Box(
+                        modifier = Modifier
+                            .width(28.dp)
+                            .height(2.dp)
+                            .background(if (active) primary else MaterialTheme.colorScheme.outlineVariant)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(if (active) primary else MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        digits[i],
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (active) Color.White else MaterialTheme.mosarib.textMuted
+                        )
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(titles[current - 1], style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold))
     }
 }
 
