@@ -48,6 +48,7 @@ import com.example.core.ui.MosaribLoadingDialog
 import com.example.core.ui.MosaribBottomSheet
 import com.example.core.ui.computeSessionPaymentsCount
 import com.example.core.license.LicenseDialog
+import com.example.core.ui.LocalOperationGate
 import com.example.core.speech.SpeechAccess
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AccessTime
@@ -232,6 +233,7 @@ fun CustomerDetailScreen(
     val customGroups by viewModel.customGroups.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val gate = LocalOperationGate.current
     val scope = rememberCoroutineScope()
 
     var selectedFilter by remember { mutableStateOf(CustomerOpFilter.ALL) }
@@ -541,9 +543,9 @@ fun CustomerDetailScreen(
                 ExtendedFloatingActionButton(
                     onClick = {
                         if (isOwner) {
-                            showOwnerPurchaseSheet = true
+                            gate { showOwnerPurchaseSheet = true }
                         } else {
-                            showAddSessionSheet = true
+                            gate { showAddSessionSheet = true }
                         }
                     },
                     icon = {
@@ -1084,7 +1086,7 @@ fun CustomerDetailScreen(
                         if (customer.isWellOwner) {
                             val purchaseInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                             Button(
-                                onClick = { showOwnerPurchaseSheet = true },
+                                onClick = { gate { showOwnerPurchaseSheet = true } },
                                 interactionSource = purchaseInteraction,
                                 modifier = Modifier
                                     .pressScale(targetScale = 0.97f, interactionSource = purchaseInteraction)
@@ -1105,7 +1107,7 @@ fun CustomerDetailScreen(
 
                             val voucherInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                             Button(
-                                onClick = { showOwnerVoucherChoiceSheet = true },
+                                onClick = { gate { showOwnerVoucherChoiceSheet = true } },
                                 interactionSource = voucherInteraction,
                                 modifier = Modifier
                                     .pressScale(targetScale = 0.97f, interactionSource = voucherInteraction)
@@ -1126,7 +1128,7 @@ fun CustomerDetailScreen(
                         } else {
                             val receiptInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                             Button(
-                                onClick = { showAddReceiptSheet = true },
+                                onClick = { gate { showAddReceiptSheet = true } },
                                 interactionSource = receiptInteraction,
                                 modifier = Modifier
                                     .pressScale(targetScale = 0.97f, interactionSource = receiptInteraction)
@@ -1147,7 +1149,7 @@ fun CustomerDetailScreen(
 
                             val disburseCustInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                             Button(
-                                onClick = { showAddDisbursementSheet = true },
+                                onClick = { gate { showAddDisbursementSheet = true } },
                                 interactionSource = disburseCustInteraction,
                                 modifier = Modifier
                                     .pressScale(targetScale = 0.97f, interactionSource = disburseCustInteraction)
@@ -2138,19 +2140,19 @@ fun CustomerDetailScreen(
                                 },
                                 onAddSession = {
                                     moreMenuExpanded = false
-                                    showAddSessionSheet = true
+                                    gate { showAddSessionSheet = true }
                                 },
                                 onAddReceipt = {
                                     moreMenuExpanded = false
-                                    showAddReceiptSheet = true
+                                    gate { showAddReceiptSheet = true }
                                 },
                                 onAddDisbursement = {
                                     moreMenuExpanded = false
-                                    showAddDisbursementSheet = true
+                                    gate { showAddDisbursementSheet = true }
                                 },
                                 onOwnerPurchase = {
                                     moreMenuExpanded = false
-                                    showOwnerPurchaseSheet = true
+                                    gate { showOwnerPurchaseSheet = true }
                                 },
                                 onOwnerWaste = {
                                     moreMenuExpanded = false

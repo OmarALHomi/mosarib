@@ -401,6 +401,13 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
         }
 
         viewModelScope.launch {
+            val totalOps = db.waterSessionDao().getSessionsCountDirect() +
+                db.voucherDao().getVouchersCountDirect() +
+                db.wellOwnerPurchaseDao().getPurchasesCountDirect()
+            if (!LicenseManager.canPerformOperation(getApplication(), totalOps)) {
+                showToast(LicenseManager.getLimitReachedToastMessage(getApplication()), ToastType.ERROR)
+                return@launch
+            }
             _isSavingImport.value = true
             _importProgress.value = Pair(0, selected.size)
             try {

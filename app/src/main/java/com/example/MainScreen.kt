@@ -99,6 +99,10 @@ import com.example.core.ui.areAnimationsEnabled
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import com.example.core.license.LicenseDialog
+import com.example.core.ui.LocalOpenSubscription
+import com.example.core.ui.LocalOperationGate
+import com.example.core.ui.OperationGate
+import com.example.core.ui.shouldAutoShowLicenseSheet
 import com.example.core.license.LicenseManager
 import com.example.core.license.UserDeviceTracker
 import com.example.core.sync.AppSyncEngine
@@ -182,6 +186,14 @@ fun MainApp(
         else -> isSystemDark
     }
 
+    val appContext = LocalContext.current
+    var showLicenseDialog by remember { mutableStateOf(false) }
+    var licenseSheetShownOnStart by rememberSaveable { mutableStateOf(false) }
+    val operationsCount by settingsViewModel.operationsCount.collectAsStateWithLifecycle()
+    val operationGate: OperationGate = { action ->
+        if (LicenseManager.canPerformOperation(appContext, operationsCount)) action() else showLicenseDialog = true
+    }
+
     MosaribTheme(darkTheme = darkTheme) {
       CompositionLocalProvider(LocalSimpleMode provides appConfig.simpleMode) {
         val view = LocalView.current
@@ -201,7 +213,11 @@ fun MainApp(
         }
 
         // Arabic RTL layout provider
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        CompositionLocalProvider(
+            LocalLayoutDirection provides LayoutDirection.Rtl,
+            LocalOperationGate provides operationGate,
+            LocalOpenSubscription provides { showLicenseDialog = true }
+        ) {
             val context = LocalContext.current
             var showSplashScreen by remember { mutableStateOf(true) }
             var showOnboarding by remember { mutableStateOf(!LicenseManager.isOnboardingCompleted(context)) }
@@ -210,7 +226,6 @@ fun MainApp(
             var showAboutScreen by remember { mutableStateOf(false) }
             var showHelpScreen by remember { mutableStateOf(false) }
             var isSettingsSubPageOpen by remember { mutableStateOf(false) }
-            var showLicenseDialog by remember { mutableStateOf(false) }
             var showFeedbackDialog by remember { mutableStateOf(false) }
             var showCustomerMenu by remember { mutableStateOf(false) }
     var showManageGroupsDialog by remember { mutableStateOf(false) }
@@ -232,7 +247,6 @@ fun MainApp(
             }
 
             val isActivated by settingsViewModel.isActivated.collectAsStateWithLifecycle()
-            val operationsCount by settingsViewModel.operationsCount.collectAsStateWithLifecycle()
 
             var isDeviceBlocked by remember { mutableStateOf(UserDeviceTracker.isDeviceBlockedLocally(context)) }
             var blockReason by remember { mutableStateOf(UserDeviceTracker.getBlockReason(context)) }
@@ -672,18 +686,25 @@ fun MainApp(
 
             val isTrialLimitExceeded = LicenseManager.isTrialLimitExceeded(context, operationsCount)
 
-            if (showLicenseDialog || isTrialLimitExceeded) {
+            LaunchedEffect(isTrialLimitExceeded, showSplashScreen, showOnboarding) {
+                if (!showSplashScreen && !showOnboarding &&
+                    shouldAutoShowLicenseSheet(isTrialLimitExceeded, licenseSheetShownOnStart)
+                ) {
+                    licenseSheetShownOnStart = true
+                    showLicenseDialog = true
+                }
+            }
+
+            if (showLicenseDialog) {
                 LicenseDialog(
-                    onDismiss = {
-                        if (!isTrialLimitExceeded) showLicenseDialog = false
-                    },
+                    onDismiss = { showLicenseDialog = false },
                     onActivated = {
                         settingsViewModel.refreshActivationStatus()
                         showLicenseDialog = false
                     },
-                    isMandatory = isTrialLimitExceeded,
+                    isMandatory = false,
                     mandatoryReason = if (isTrialLimitExceeded) {
-                        "بلغت الحد الأقصى للعمليات التجريبية المجانية (${LicenseManager.getFreeOperationsLimit(context)} عملية). تم حفظ كافة بياناتك بأمان، ويرجى تفعيل الاشتراك لمتابعة العمل بالتطبيق."
+                        "بلغت الحد الأقصى للعمليات التجريبية المجانية (${LicenseManager.getFreeOperationsLimit(context)} عملية). تم حفظ كافة بياناتك بأمان، ويمكنك تصفح التطبيق، ويرجى تفعيل الاشتراك لإضافة عمليات جديدة."
                     } else null
                 )
             }

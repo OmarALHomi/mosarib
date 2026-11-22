@@ -105,6 +105,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -122,7 +123,8 @@ import com.example.features.vouchers.AddVoucherBottomSheet
 import com.example.features.vouchers.VoucherType
 import com.example.features.vouchers.VouchersViewModel
 import com.example.features.wellowners.WellOwnerPurchaseBottomSheet
-import com.example.core.license.LicenseDialog
+import com.example.core.ui.LocalOpenSubscription
+import com.example.core.ui.LocalOperationGate
 import com.example.core.license.LicenseManager
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Key
@@ -175,7 +177,6 @@ fun HomeScreen(
     }
 
     val context = LocalContext.current
-    var showActivationDialog by remember { mutableStateOf(false) }
 
 
     var showAddManualSheet by remember { mutableStateOf(false) }
@@ -396,15 +397,11 @@ fun HomeScreen(
         VoiceRecognitionHelper.checkArabicSupport(context) { _ -> }
     }
 
-    fun checkOperationAllowed(action: () -> Unit) {
-        if (LicenseManager.canPerformOperation(context, operationsCount)) {
-            action()
-        } else {
-            showActivationDialog = true
-        }
-    }
+    val checkOperationAllowed = LocalOperationGate.current
+    val openSubscription = LocalOpenSubscription.current
+    val trialEnded = LicenseManager.isTrialLimitExceeded(context, operationsCount)
 
-    val homeHeader: @Composable () -> Unit = {
+    val homeHeaderRow: @Composable () -> Unit = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -486,6 +483,26 @@ fun HomeScreen(
                     )
                 }
             }
+    }
+
+    val homeHeader: @Composable () -> Unit = {
+        Column {
+            if (trialEnded) {
+                Text(
+                    text = "انتهت الفترة التجريبية — اضغط للاشتراك",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.error)
+                        .clickable { openSubscription() }
+                        .padding(vertical = 6.dp)
+                )
+            }
+            homeHeaderRow()
+        }
     }
 
     val simpleHome = LocalSimpleMode.current
@@ -969,18 +986,6 @@ fun HomeScreen(
             onSave = { id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner, customGroup ->
                 customersViewModel.saveCustomer(id, name, phone, farm, loc, notes, customPrice, isBeneficiary, isWellOwner, customGroup)
             }
-        )
-    }
-
-    // License Activation Dialog
-    if (showActivationDialog) {
-        LicenseDialog(
-            onDismiss = { showActivationDialog = false },
-            onActivated = {
-                settingsViewModel.refreshActivationStatus()
-                showActivationDialog = false
-            },
-            isMandatory = LicenseManager.isTrialLimitExceeded(context, operationsCount)
         )
     }
 

@@ -193,7 +193,7 @@ import com.example.core.ui.CardChip
 import com.example.features.sessions.SessionPaymentHistoryExpander
 import com.example.core.ui.OperationRow
 import com.example.ui.theme.mosarib
-import com.example.core.license.LicenseDialog
+import com.example.core.ui.LocalOperationGate
 import com.example.core.license.LicenseManager
 import com.example.core.ui.StatBoxCard
 import com.example.core.util.FileSharingHelper
@@ -267,7 +267,7 @@ fun VouchersScreen(
     val scope = rememberCoroutineScope()
     val isDark = isAppDark()
 
-    var showActivationDialog by remember { mutableStateOf(false) }
+    val gate = LocalOperationGate.current
 
     var missingSpeechStatus by remember { mutableStateOf<SpeechStatus?>(null) }
     var speechError by remember { mutableStateOf<SpeechError?>(null) }
@@ -1220,11 +1220,7 @@ fun VouchersScreen(
                     icon = Icons.Default.WaterDrop,
                     onClick = {
                         speedDialOpen = false
-                        if (LicenseManager.canPerformOperation(context, operationsCount)) {
-                            showAddManualSheet = true
-                        } else {
-                            showActivationDialog = true
-                        }
+                        gate { showAddManualSheet = true }
                     }
                 )
                 MosaribMenuItem(
@@ -1232,11 +1228,7 @@ fun VouchersScreen(
                     icon = Icons.AutoMirrored.Filled.ReceiptLong,
                     onClick = {
                         speedDialOpen = false
-                        if (LicenseManager.canPerformOperation(context, operationsCount)) {
-                            showAddSheet = true
-                        } else {
-                            showActivationDialog = true
-                        }
+                        gate { showAddSheet = true }
                     }
                 )
                 MosaribMenuItem(
@@ -1244,11 +1236,7 @@ fun VouchersScreen(
                     icon = Icons.Default.WaterDrop,
                     onClick = {
                         speedDialOpen = false
-                        if (LicenseManager.canPerformOperation(context, operationsCount)) {
-                            showAddPurchaseSheet = true
-                        } else {
-                            showActivationDialog = true
-                        }
+                        gate { showAddPurchaseSheet = true }
                     }
                 )
             }
@@ -1853,15 +1841,6 @@ fun VouchersScreen(
                 showCustomerPickerDialog = false
             },
             onDismiss = { showCustomerPickerDialog = false }
-        )
-    }
-
-    // License Activation Dialog
-    if (showActivationDialog) {
-        LicenseDialog(
-            onDismiss = { showActivationDialog = false },
-            onActivated = { showActivationDialog = false },
-            isMandatory = LicenseManager.isTrialLimitExceeded(context, operationsCount)
         )
     }
 

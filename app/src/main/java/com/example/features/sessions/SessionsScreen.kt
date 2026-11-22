@@ -97,7 +97,7 @@ import com.example.core.ui.StatBoxCard
 import com.example.core.util.FileSharingHelper
 import com.example.core.util.Formatters
 import com.example.core.util.MessageFormatHelper
-import com.example.core.license.LicenseDialog
+import com.example.core.ui.LocalOperationGate
 import com.example.core.license.LicenseManager
 import com.example.core.ui.SessionDetailBottomSheet
 import com.example.features.customers.Customer
@@ -129,7 +129,7 @@ fun SessionsScreen(
 
     var showPeriodMenu by remember { mutableStateOf(false) }
     var showPaymentMenu by remember { mutableStateOf(false) }
-    var showActivationDialog by remember { mutableStateOf(false) }
+    val gate = LocalOperationGate.current
     var showAddManualSheet by remember { mutableStateOf(false) }
     var sessionToEdit by remember { mutableStateOf<WaterSession?>(null) }
     var sessionToDelete by remember { mutableStateOf<WaterSession?>(null) }
@@ -366,11 +366,7 @@ fun SessionsScreen(
         // Floating Action Button (Consolidated Single Action)
         ExtendedFloatingActionButton(
             onClick = {
-                if (LicenseManager.canPerformOperation(context, operationsCount)) {
-                    showAddManualSheet = true
-                } else {
-                    showActivationDialog = true
-                }
+                gate { showAddManualSheet = true }
             },
             containerColor = PrimaryTeal,
             contentColor = Color.White,
@@ -554,13 +550,5 @@ fun SessionsScreen(
         )
     }
 
-    // License Activation Dialog
-    if (showActivationDialog) {
-        LicenseDialog(
-            onDismiss = { showActivationDialog = false },
-            onActivated = { showActivationDialog = false },
-            isMandatory = LicenseManager.isTrialLimitExceeded(context, operationsCount)
-        )
-    }
 }
 
