@@ -46,6 +46,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -309,29 +310,17 @@ fun AddEditCustomerBottomSheet(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // 1. شريط اختيار نوع الحساب (مزارع vs صاحب بئر)
+            // 1. هل هذا مورد (صاحب بئر)؟
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                PersonaTypeCard(
-                    title = "مزارع (عميل)",
-                    subtitle = "سقي ومستحقات",
-                    icon = Icons.Default.Park,
-                    isSelected = !isWellOwner,
-                    activeColor = farmerColor,
-                    modifier = Modifier.weight(1f),
-                    onClick = { isWellOwner = false }
+                Text(
+                    text = "هل هذا مورد (صاحب بئر)؟",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                 )
-                PersonaTypeCard(
-                    title = "صاحب بئر (مورد)",
-                    subtitle = "شراء ومقاصة",
-                    icon = Icons.Default.WaterDrop,
-                    isSelected = isWellOwner,
-                    activeColor = wellOwnerColor,
-                    modifier = Modifier.weight(1f),
-                    onClick = { isWellOwner = true }
-                )
+                Switch(checked = isWellOwner, onCheckedChange = { isWellOwner = it })
             }
 
             // 2. البطاقة الأولى: البيانات الأساسية
@@ -511,91 +500,6 @@ fun AddEditCustomerBottomSheet(
                     isDense = true,
                     leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null, tint = activeColor) },
                     modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-    }
-}
-
-/**
- * كرت نمط الحساب المجزأ (Persona Type Switcher Card).
- */
-@Composable
-private fun PersonaTypeCard(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    isSelected: Boolean,
-    activeColor: Color,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    val bgColor by animateColorAsState(
-        targetValue = if (isSelected) {
-            activeColor.copy(alpha = 0.16f)
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-        },
-        animationSpec = tween(250),
-        label = "persona_bg"
-    )
-    val borderColor by animateColorAsState(
-        targetValue = if (isSelected) activeColor else MaterialTheme.colorScheme.outlineVariant,
-        animationSpec = tween(250),
-        label = "persona_border"
-    )
-
-    Card(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = bgColor),
-        border = BorderStroke(if (isSelected) 1.5.dp else 1.dp, borderColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(if (isSelected) activeColor else MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(17.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                        color = if (isSelected) activeColor else MaterialTheme.colorScheme.onSurface
-                    )
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = MaterialTheme.mosarib.textMuted
-                    ),
-                    maxLines = 1
-                )
-            }
-            if (isSelected) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    tint = activeColor,
-                    modifier = Modifier.size(15.dp)
                 )
             }
         }

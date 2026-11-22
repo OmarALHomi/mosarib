@@ -36,7 +36,8 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import com.example.core.ui.MosaribAutoCompleteTextField
+import com.example.core.ui.CustomerPickerField
+import com.example.core.ui.LocalSimpleMode
 import com.example.core.ui.MosaribButton
 import com.example.core.ui.MosaribDatePickerDialog
 import com.example.core.ui.MosaribFilterChip
@@ -819,7 +820,6 @@ fun AddEditSessionBottomSheet(
     var customerSaveError by remember { mutableStateOf<String?>(null) }
     var showWastedDetails by remember { mutableStateOf(wastedTotalMinutes > 0) }
     var showDiscountDetails by remember { mutableStateOf(discountAmount > 0) }
-    var showNotes by remember { mutableStateOf(!notes.isNullOrBlank()) }
 
     val currentSnapshot = SessionFormSnapshot.from(
         customerId = selectedCustomerId,
@@ -845,7 +845,7 @@ fun AddEditSessionBottomSheet(
     val trimmedInput = customerInputText.trim()
     val matchedCust = customers.find { it.name.trim().equals(trimmedInput, ignoreCase = true) }
     val finalCustId = if (selectedCustomerId > 0) selectedCustomerId else (matchedCust?.id ?: 0L)
-    val canSaveSession = (selectedCustomerId > 0 || customerInputText.isNotBlank()) && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes
+    val canSaveSession = finalCustId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes
 
     MosaribBottomSheet(
         onDismissRequest = onDismiss,
@@ -941,125 +941,8 @@ fun AddEditSessionBottomSheet(
                 )
             }
 
-            // اختيار العميل مع إمكانية الكتابة المباشرة وظهور الاقتراحات فوراً عبر الحقل الموحد
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.guideTarget("session_customer")) {
-                MosaribAutoCompleteTextField(
-                    value = customerInputText,
-                    onValueChange = {
-                        customerInputText = it
-                        val exact = customers.find { c -> c.name.trim().equals(it.trim(), ignoreCase = true) }
-                        if (exact != null) {
-                            selectedCustomerId = exact.id
-                            val customerPrice = if (exact.isWellOwner) null else exact.customPricePerHour
-                            pricePerHourStr = Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
-                        } else {
-                            selectedCustomerId = 0L
-                        }
-                    },
-                    items = customers,
-                    itemText = { it.name },
-                    itemDetail = { listOf(it.farmName, it.phone).filter { s -> s.isNotBlank() }.joinToString(" • ") },
-                    isItemSecondary = { it.isWellOwner },
-                    isItemSelected = { it.id == selectedCustomerId },
-                    placeholder = "اكتب او اختر الاسم",
-                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal) },
-                    onItemSelected = { c ->
-                        selectedCustomerId = c.id
-                        customerInputText = c.name
-                        val customerPrice = if (c.isWellOwner) null else c.customPricePerHour
-                        pricePerHourStr = Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
-                    },
-                    onAddNewClicked = {
-                        customerSaveError = null
-                        quickName = customerInputText.trim()
-                        showQuickCustomerDialog = true
-                    },
-                    addNewPrompt = "العميل غير مسجل: \"$customerInputText\"",
-                    trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("customer") }, modifier = Modifier.guideTarget("session_mic")) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("session_customer_picker")
-                )
-                IconButton(
-                    onClick = {
-                        customerSaveError = null
-                        quickName = customerInputText.trim()
-                        showQuickCustomerDialog = true
-                    },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(Icons.Default.PersonAdd, contentDescription = "إضافة عميل", tint = PrimaryTeal)
-                }
-            }
-
-            // إرشاد احتساب السقي على صاحب بئر (يظهر فقط مع خيار صاحب البئر)
-            if (selectedCustomer?.isWellOwner == true) {
-                FirstTimeHint(
-                    id = GuideTexts.HINT_SESSION_WELL_OWNER,
-                    text = GuideTexts.HINT_SESSION_WELL_OWNER_TEXT
-                )
-            }
-
-            // خيار احتساب السقي على صاحب بئر (مقاصة من مستحقاته)
-            if (selectedCustomer?.isWellOwner == true) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp)),
-                    color = MaterialTheme.mosarib.info.copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, MaterialTheme.mosarib.info.copy(alpha = 0.4f)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.WaterDrop,
-                            contentDescription = null,
-                            tint = MaterialTheme.mosarib.info,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "حساب صاحب بئر: يُحتسب هذا السقي مقاصة تلقائية وتُخصم قيمته من مستحقات مشتريات الساعات لديه.",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.mosarib.info,
-                                
-                            )
-                        )
-                    }
-                }
-            } else if (wellOwners.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp)),
-                    color = if (billedToCustomerId != null) {
-                        MaterialTheme.mosarib.info.copy(alpha = 0.12f)
-                    } else {
-                        if (isDark) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                    },
-                    border = BorderStroke(1.dp, if (billedToCustomerId != null) {
-                        MaterialTheme.mosarib.info.copy(alpha = 0.4f)
-                    } else {
-                        MaterialTheme.colorScheme.outlineVariant
-                    }),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                if (lockCustomer && selectedCustomer != null) {
+            // اختيار العميل من القائمة فقط (لا كتابة في الحقل)
+            if (lockCustomer && selectedCustomer != null) {
                 // Opened from the customer's own screen: no picker needed
                 Surface(
                     modifier = Modifier.fillMaxWidth().guideTarget("session_customer"),
@@ -1072,78 +955,43 @@ fun AddEditSessionBottomSheet(
                         Text(selectedCustomer.name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold))
                     }
                 }
+            
             } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            Icons.Default.WaterDrop,
-                                            contentDescription = null,
-                                            tint = if (billedToCustomerId != null) {
-                                                MaterialTheme.mosarib.info
-                                            } else MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "احتساب السقي على صاحب بئر",
-                                            style = MaterialTheme.typography.bodyMedium.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (billedToCustomerId != null) {
-                                                    MaterialTheme.mosarib.info
-                                                } else MaterialTheme.colorScheme.onSurface
-                                            )
-                                        )
-                                    }
-            }
-                                Text(
-                                    text = "تُخصم القيمة كتسديد من مستحقات صاحب البئر لدى المسرب",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                )
-                            }
-                            Switch(
-                                checked = billedToCustomerId != null,
-                                onCheckedChange = { checked ->
-                                    billedToCustomerId = if (checked) wellOwners.firstOrNull()?.id else null
-                                }
-                            )
-                        }
-                        if (billedToCustomerId != null) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Box(modifier = Modifier.fillMaxWidth()) {
-                                val currentOwner = wellOwners.find { it.id == billedToCustomerId }
-                                MosaribTextField(
-                                    value = currentOwner?.name ?: "اختر صاحب البئر...",
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                                    label = "صاحب البئر المحتسب عليه السقي",
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .matchParentSize()
-                                        .clickable { billedToOwnerDropdownExpanded = true }
-                                )
-                                MosaribMenu(
-                                    expanded = billedToOwnerDropdownExpanded,
-                                    onDismissRequest = { billedToOwnerDropdownExpanded = false }
-                                ) {
-                                    wellOwners.forEach { owner ->
-                                        MosaribMenuItem(
-                                            text = owner.name,
-                                            icon = Icons.Default.Person,
-                                            onClick = {
-                                                billedToCustomerId = owner.id
-                                                billedToOwnerDropdownExpanded = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
+                CustomerPickerField(
+                    customers = customers,
+                    selected = selectedCustomer,
+                    onSelect = { c ->
+                        selectedCustomerId = c.id
+                        customerInputText = c.name
+                        val customerPrice = if (c.isWellOwner) null else c.customPricePerHour
+                        pricePerHourStr = Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
+                    },
+                    onAddNew = {
+                        customerSaveError = null
+                        quickName = if (selectedCustomerId > 0L) "" else customerInputText.trim()
+                        showQuickCustomerDialog = true
+                    },
+                    trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("customer") }, modifier = Modifier.guideTarget("session_mic")) },
+                    modifier = Modifier
+                        .guideTarget("session_customer")
+                        .testTag("session_customer_picker")
+                )
+                if (selectedCustomerId <= 0L && customerInputText.isNotBlank()) {
+                    Text(
+                        text = "لم أتعرّف على: ${customerInputText.trim()} — اختر من القائمة أو أضفه",
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.mosarib.warning),
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
                 }
+            }
+
+
+            // إرشاد احتساب السقي على صاحب بئر (يظهر فقط مع خيار صاحب البئر)
+            if (selectedCustomer?.isWellOwner == true) {
+                FirstTimeHint(
+                    id = GuideTexts.HINT_SESSION_WELL_OWNER,
+                    text = GuideTexts.HINT_SESSION_WELL_OWNER_TEXT
+                )
             }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -1157,88 +1005,89 @@ fun AddEditSessionBottomSheet(
                 )
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
-                    // شريط التبويبين (اختيار / يدوي)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .guideTarget("session_time_choice")
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surface)
-                            .padding(4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        // تبويب اختيار (بدء وانتهاء) أولاً
-                        Surface(
+                    if (!LocalSimpleMode.current) {
+                        // شريط التبويبين (اختيار / يدوي)
+                        Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .clickable {
-                                    timeMode = SessionTimeMode.PICKER
-                                },
-                            color = if (timeMode == SessionTimeMode.PICKER) PrimaryTeal else Color.Transparent,
-                            shape = RoundedCornerShape(10.dp)
+                                .fillMaxWidth()
+                                .guideTarget("session_time_choice")
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .padding(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 10.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
+                            // تبويب اختيار (بدء وانتهاء) أولاً
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        timeMode = SessionTimeMode.PICKER
+                                    },
+                                color = if (timeMode == SessionTimeMode.PICKER) PrimaryTeal else Color.Transparent,
+                                shape = RoundedCornerShape(10.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.AccessTime,
-                                    contentDescription = null,
-                                    tint = if (timeMode == SessionTimeMode.PICKER) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "اختيار (بدء وانتهاء)",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (timeMode == SessionTimeMode.PICKER) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                Row(
+                                    modifier = Modifier.padding(vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AccessTime,
+                                        contentDescription = null,
+                                        tint = if (timeMode == SessionTimeMode.PICKER) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp)
                                     )
-                                )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "اختيار (بدء وانتهاء)",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (timeMode == SessionTimeMode.PICKER) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    )
+                                }
                             }
-                        }
 
-                        // تبويب يدوي (عدد الساعات) ثانياً
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .clickable {
-                                    timeMode = SessionTimeMode.MANUAL
-                                    manualHoursStr = (grossMinutes / 60).toString()
-                                    manualMinutesStr = if (grossMinutes % 60 > 0) (grossMinutes % 60).toString() else ""
-                                },
-                            color = if (timeMode == SessionTimeMode.MANUAL) PrimaryTeal else Color.Transparent,
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 10.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
+                            // تبويب يدوي (عدد الساعات) ثانياً
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        timeMode = SessionTimeMode.MANUAL
+                                        manualHoursStr = (grossMinutes / 60).toString()
+                                        manualMinutesStr = if (grossMinutes % 60 > 0) (grossMinutes % 60).toString() else ""
+                                    },
+                                color = if (timeMode == SessionTimeMode.MANUAL) PrimaryTeal else Color.Transparent,
+                                shape = RoundedCornerShape(10.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = null,
-                                    tint = if (timeMode == SessionTimeMode.MANUAL) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "يدوي (عدد الساعات)",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (timeMode == SessionTimeMode.MANUAL) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                Row(
+                                    modifier = Modifier.padding(vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = null,
+                                        tint = if (timeMode == SessionTimeMode.MANUAL) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp)
                                     )
-                                )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "يدوي (عدد الساعات)",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (timeMode == SessionTimeMode.MANUAL) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    )
+                                }
                             }
                         }
+                    Spacer(modifier = Modifier.height(12.dp))
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    if (timeMode == SessionTimeMode.PICKER) {
+                    if (timeMode == SessionTimeMode.PICKER || LocalSimpleMode.current) {
                         // ─── التبويب الأول: اختيار (وقت البدء ووقت الانتهاء) ───
                         Column {
                             Text(
@@ -1617,7 +1466,7 @@ fun AddEditSessionBottomSheet(
 
             // بطاقة منسدلة في الأخير: خيارات إضافية (الوقت المهدور والخصم)
             var showExtraOptions by remember {
-                mutableStateOf(wastedTotalMinutes > 0 || discountAmount > 0)
+                mutableStateOf(wastedTotalMinutes > 0 || discountAmount > 0 || billedToCustomerId != null || notes.isNotBlank())
             }
 
             Surface(
@@ -1660,7 +1509,7 @@ fun AddEditSessionBottomSheet(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "خيارات إضافية (الوقت المهدور والخصم)",
+                                text = "خيارات إضافية",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -1713,6 +1562,141 @@ fun AddEditSessionBottomSheet(
 
                     if (showExtraOptions) {
                         Spacer(modifier = Modifier.height(10.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                        Spacer(modifier = Modifier.height(10.dp))
+
+            // خيار احتساب السقي على صاحب بئر (مقاصة من مستحقاته)
+            if (selectedCustomer?.isWellOwner == true) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp)),
+                    color = MaterialTheme.mosarib.info.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, MaterialTheme.mosarib.info.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.WaterDrop,
+                            contentDescription = null,
+                            tint = MaterialTheme.mosarib.info,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "حساب صاحب بئر: يُحتسب هذا السقي مقاصة تلقائية وتُخصم قيمته من مستحقات مشتريات الساعات لديه.",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.mosarib.info,
+                                
+                            )
+                        )
+                    }
+                }
+            } else if (wellOwners.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp)),
+                    color = if (billedToCustomerId != null) {
+                        MaterialTheme.mosarib.info.copy(alpha = 0.12f)
+                    } else {
+                        if (isDark) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    },
+                    border = BorderStroke(1.dp, if (billedToCustomerId != null) {
+                        MaterialTheme.mosarib.info.copy(alpha = 0.4f)
+                    } else {
+                        MaterialTheme.colorScheme.outlineVariant
+                    }),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Default.WaterDrop,
+                                            contentDescription = null,
+                                            tint = if (billedToCustomerId != null) {
+                                                MaterialTheme.mosarib.info
+                                            } else MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "احتساب السقي على صاحب بئر",
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (billedToCustomerId != null) {
+                                                    MaterialTheme.mosarib.info
+                                                } else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        )
+                                    }
+                                Text(
+                                    text = "تُخصم القيمة كتسديد من مستحقات صاحب البئر لدى المسرب",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
+                            }
+                            Switch(
+                                checked = billedToCustomerId != null,
+                                onCheckedChange = { checked ->
+                                    billedToCustomerId = if (checked) wellOwners.firstOrNull()?.id else null
+                                }
+                            )
+                        }
+                        if (billedToCustomerId != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                val currentOwner = wellOwners.find { it.id == billedToCustomerId }
+                                MosaribTextField(
+                                    value = currentOwner?.name ?: "اختر صاحب البئر...",
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
+                                    label = "صاحب البئر المحتسب عليه السقي",
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .clickable { billedToOwnerDropdownExpanded = true }
+                                )
+                                MosaribMenu(
+                                    expanded = billedToOwnerDropdownExpanded,
+                                    onDismissRequest = { billedToOwnerDropdownExpanded = false }
+                                ) {
+                                    wellOwners.forEach { owner ->
+                                        MosaribMenuItem(
+                                            text = owner.name,
+                                            icon = Icons.Default.Person,
+                                            onClick = {
+                                                billedToCustomerId = owner.id
+                                                billedToOwnerDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+                        Spacer(modifier = Modifier.height(12.dp))
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                         Spacer(modifier = Modifier.height(10.dp))
 
@@ -1824,6 +1808,14 @@ fun AddEditSessionBottomSheet(
                                 modifier = Modifier.padding(horizontal = 4.dp)
                             )
                         }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        MosaribTextField(
+                            value = notes,
+                            onValueChange = { notes = it },
+                            label = "ملاحظات",
+                            trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("notes") }) },
+                            modifier = Modifier.fillMaxWidth().guideTarget("session_notes")
+                        )
                     }
                 }
             }
@@ -2197,29 +2189,6 @@ fun AddEditSessionBottomSheet(
                 }
             }
 
-            TextButton(onClick = { showNotes = !showNotes }, modifier = Modifier.guideTarget("session_notes")) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        imageVector = if (showNotes) Icons.Default.Close else Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(if (showNotes) "إخفاء الملاحظات" else "ملاحظة")
-                }
-            }
-            if (showNotes) {
-                MosaribTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = "ملاحظات",
-                    trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("notes") }) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
             Spacer(modifier = Modifier.height(16.dp))
 
         }
@@ -2422,57 +2391,16 @@ fun AddEditSessionBottomSheet(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    Text(
-                        text = "نوع التسجيل:",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .clickable { quickIsWellOwner = false },
-                            color = if (!quickIsWellOwner) PrimaryTeal.copy(alpha = 0.15f) else (MaterialTheme.colorScheme.surfaceVariant),
-                            border = BorderStroke(1.dp, if (!quickIsWellOwner) PrimaryTeal else Color.Gray.copy(alpha = 0.3f)),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text(
-                                text = "مزارع",
-                                modifier = Modifier.padding(vertical = 10.dp),
-                                textAlign = TextAlign.Center,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontWeight = if (!quickIsWellOwner) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (!quickIsWellOwner) PrimaryTeal else MaterialTheme.colorScheme.onSurface
-                                )
-                            )
-                        }
-
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .clickable { quickIsWellOwner = true },
-                            color = if (quickIsWellOwner) MaterialTheme.mosarib.info.copy(alpha = 0.15f) else (MaterialTheme.colorScheme.surfaceVariant),
-                            border = BorderStroke(1.dp, if (quickIsWellOwner) MaterialTheme.mosarib.info else Color.Gray.copy(alpha = 0.3f)),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text(
-                                text = "صاحب بئر",
-                                modifier = Modifier.padding(vertical = 10.dp),
-                                textAlign = TextAlign.Center,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontWeight = if (quickIsWellOwner) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (quickIsWellOwner) MaterialTheme.mosarib.info else MaterialTheme.colorScheme.onSurface
-                                )
-                            )
-                        }
+                        Text(
+                            text = "هل هذا مورد (صاحب بئر)؟",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Switch(checked = quickIsWellOwner, onCheckedChange = { quickIsWellOwner = it })
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
@@ -2555,328 +2483,6 @@ fun AddEditSessionBottomSheet(
         onDismiss = { voiceDialogType = VoiceDialogType.NONE }
     )
 
-}
-
-@Composable
-fun SettleSessionDialog(
-    session: WaterSession,
-    customerName: String,
-    currencySymbol: String,
-    effectiveDebt: Double = session.remainingDebt,
-    onDismiss: () -> Unit,
-    onConfirmSettle: (amount: Double, discount: Double, paymentMethod: String, notes: String) -> Unit
-) {
-    val debtToSettle = effectiveDebt.coerceAtMost(session.remainingDebt)
-    var amountStr by remember { mutableStateOf(Formatters.formatAmountInput(debtToSettle.toString())) }
-    var discountStr by remember { mutableStateOf("") }
-    var paymentMethod by remember { mutableStateOf("نقداً") }
-    var notes by remember { mutableStateOf("سداد سقي #${session.id}") }
-    var showConfirmDialog by remember { mutableStateOf(false) }
-
-    val parsedAmount = Formatters.parseAmountInput(amountStr)
-    val parsedDiscount = Formatters.parseAmountInput(discountStr)
-    val totalSettled = parsedAmount + parsedDiscount
-    val remainingAfter = (debtToSettle - totalSettled).coerceAtLeast(0.0)
-
-    MosaribDialog(
-        onDismissRequest = onDismiss,
-        title = "سداد سقي",
-        message = "#${session.id} • $customerName",
-        icon = Icons.Default.Payments,
-        tone = DialogTone.Neutral,
-        confirmText = "تأكيد السداد",
-        onConfirm = {
-            if (totalSettled > 0.0) {
-                showConfirmDialog = true
-            }
-        },
-        dismissText = "إلغاء",
-        onDismiss = onDismiss
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // بطاقة ملخص الحساب بتنسيق نظيف متوافق مع هوية التطبيق
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "المبلغ المطلوب سداده:",
-                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        )
-                        Text(
-                            text = Formatters.formatCurrency(debtToSettle, currencySymbol),
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                    }
-
-                    if (effectiveDebt < session.remainingDebt) {
-                        Text(
-                            text = "(محدد حسب المبلغ المتبقي من الدفعة)",
-                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary)
-                        )
-                    }
-
-                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "إجمالي السداد + الخصم:",
-                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        )
-                        Text(
-                            text = Formatters.formatCurrency(totalSettled, currencySymbol),
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.mosarib.credit
-                            )
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "المتبقي بعد هذه الدفعة:",
-                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        )
-                        Text(
-                            text = Formatters.formatCurrency(remainingAfter, currencySymbol),
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = if (remainingAfter <= 0.0) MaterialTheme.mosarib.credit else MaterialTheme.mosarib.debt
-                            )
-                        )
-                    }
-                }
-            }
-
-            // حقل إدخال المبلغ المدفوع
-            MosaribTextField(
-                value = amountStr,
-                onValueChange = { amountStr = Formatters.formatAmountInput(it) },
-                label = "المبلغ المدفوع ($currencySymbol)",
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Payments,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            // حقل إدخال خصم المسامحة
-            MosaribTextField(
-                value = discountStr,
-                onValueChange = { discountStr = Formatters.formatAmountInput(it) },
-                label = "خصم تسوية / مسامحة ($currencySymbol) - اختياري",
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.LocalOffer,
-                        contentDescription = null,
-                        tint = MaterialTheme.mosarib.warning,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            // خيارات طريقة الدفع
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "طريقة الدفع:",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val methods = listOf("نقداً", "تحويل بنكي", "كريمي", "شبكة")
-                    methods.forEach { method ->
-                        val isSelected = paymentMethod == method
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface,
-                            border = BorderStroke(
-                                1.dp,
-                                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-                            ),
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { paymentMethod = method }
-                        ) {
-                            Text(
-                                text = method,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                ),
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // حقل الملاحظات
-            MosaribTextField(
-                value = notes,
-                onValueChange = { notes = it },
-                label = "البيان / ملاحظات السداد",
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-
-    // نافذة تأكيد السداد مع التفقيط والبيانات الكاملة
-    if (showConfirmDialog) {
-        val tafqeetCash = if (parsedAmount > 0.0) Formatters.amountToArabicWords(parsedAmount, currencySymbol) else ""
-        val tafqeetDisc = if (parsedDiscount > 0.0) Formatters.amountToArabicWords(parsedDiscount, currencySymbol) else ""
-
-        MosaribDialog(
-            onDismissRequest = { showConfirmDialog = false },
-            title = "تأكيد السداد",
-            message = "العميل: $customerName",
-            icon = Icons.Default.CheckCircle,
-            tone = DialogTone.Success,
-            confirmText = "تأكيد وترحيل",
-            onConfirm = {
-                showConfirmDialog = false
-                onConfirmSettle(parsedAmount, parsedDiscount, paymentMethod, notes)
-                onDismiss()
-            },
-            dismissText = "تراجع",
-            onDismiss = { showConfirmDialog = false }
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // المبلغ والبيان
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "المبلغ المدفوع:",
-                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            )
-                            Text(
-                                text = Formatters.formatCurrency(parsedAmount, currencySymbol),
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.mosarib.credit
-                                )
-                            )
-                        }
-
-                        if (tafqeetCash.isNotBlank()) {
-                            Text(
-                                text = tafqeetCash,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = MaterialTheme.mosarib.credit,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            )
-                        }
-
-                        if (parsedDiscount > 0.0) {
-                            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "خصم مسامحة:",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                )
-                                Text(
-                                    text = Formatters.formatCurrency(parsedDiscount, currencySymbol),
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.mosarib.warning
-                                    )
-                                )
-                            }
-                            if (tafqeetDisc.isNotBlank()) {
-                                Text(
-                                    text = tafqeetDisc,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = MaterialTheme.mosarib.warning,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "طريقة الدفع:",
-                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    )
-                    Text(
-                        text = paymentMethod,
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
-                    )
-                }
-            }
-        }
-    }
 }
 @Composable
 private fun TimePickerBox(
