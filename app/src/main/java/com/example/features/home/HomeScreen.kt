@@ -119,7 +119,6 @@ import com.example.features.sessions.SessionsViewModel
 import com.example.features.sessions.WaterSessionWithCustomer
 import com.example.features.settings.SettingsViewModel
 import com.example.features.vouchers.AddVoucherBottomSheet
-import com.example.features.vouchers.SettlementResultDialog
 import com.example.features.vouchers.VoucherType
 import com.example.features.vouchers.VouchersViewModel
 import com.example.features.wellowners.WellOwnerPurchaseBottomSheet
@@ -166,7 +165,6 @@ fun HomeScreen(
     val operationsCount by settingsViewModel.operationsCount.collectAsStateWithLifecycle()
     val isActivated by settingsViewModel.isActivated.collectAsStateWithLifecycle()
     val allSessions by vouchersViewModel.allSessions.collectAsStateWithLifecycle()
-    val settlementResult by vouchersViewModel.settlementResult.collectAsStateWithLifecycle()
     val customGroups by customersViewModel.customGroups.collectAsStateWithLifecycle()
 
     val isSystemDark = isSystemInDarkTheme()
@@ -393,7 +391,6 @@ fun HomeScreen(
             else -> openFormForVoiceCommand(cmd)
         }
     }
-    var homePurchaseTarget by remember { mutableStateOf<Triple<Customer, String, String>?>(null) }
 
     LaunchedEffect(Unit) {
         VoiceRecognitionHelper.checkArabicSupport(context) { _ -> }
@@ -955,43 +952,10 @@ fun HomeScreen(
                     notes = notes,
                     amountPaid = paid,
                     startTime = startTime,
-                    endTime = endTime,
-                    onCreated = { savedPurchase ->
-                        val targetOwner = customers.find { it.id == ownerId }
-                        if (targetOwner != null && targetOwner.phone.isNotBlank()) {
-                            val waMsg = MessageFormatHelper.buildPurchaseBill(savedPurchase, targetOwner, config, isSms = false)
-                            val smsMsg = MessageFormatHelper.buildPurchaseBill(savedPurchase, targetOwner, config, isSms = true)
-                            homePurchaseTarget = Triple(targetOwner, waMsg, smsMsg)
-                        }
-                    }
+                    endTime = endTime
                 )
                 showAddPurchaseSheet = false
             }
-        )
-    }
-
-    homePurchaseTarget?.let { (owner, waMsg, smsMsg) ->
-        SendMessageChoiceDialog(
-            recipientName = owner.name,
-            recipientPhone = owner.phone,
-            messageText = waMsg,
-            smsMessageText = smsMsg,
-            onDismiss = { homePurchaseTarget = null },
-            onSendWhatsApp = {
-                homePurchaseTarget = null
-                FileSharingHelper.sendWhatsAppMessage(context, owner.phone, waMsg)
-            },
-            onSendSms = {
-                homePurchaseTarget = null
-                FileSharingHelper.sendSms(context, owner.phone, smsMsg)
-            }
-        )
-    }
-
-    settlementResult?.let { res ->
-        SettlementResultDialog(
-            result = res,
-            onDismiss = { vouchersViewModel.clearSettlementResult() }
         )
     }
 

@@ -140,6 +140,7 @@ import com.example.features.onboarding.OnboardingScreen
 import com.example.features.reports.ReportsScreen
 import com.example.features.splash.SplashScreen
 import com.example.features.reports.ReportsViewModel
+import com.example.core.ui.PostSaveMessageHost
 import com.example.features.sessions.SessionsViewModel
 import com.example.features.settings.SettingsScreen
 import com.example.features.settings.SettingsViewModel
@@ -821,6 +822,9 @@ fun MainApp(
                 onDismiss = { showRecycleBinDialog = false }
             )
         }
+
+        // Send / copy offer after any new operation is saved (set by the view models)
+        PostSaveMessageHost()
         }
       }
     }

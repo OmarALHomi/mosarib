@@ -1,5 +1,7 @@
 package com.example.features.wellowners
 
+import com.example.core.ui.OperationConfirmSheet
+import com.example.core.util.OperationStatement
 import com.example.core.ui.guide.GuideHelpButton
 import com.example.core.ui.guide.GuidePreferences
 import com.example.core.ui.guide.GuideTexts
@@ -407,6 +409,17 @@ fun WellOwnerPurchaseBottomSheet(
     val curOwner = selectedOwner
     val canSave = valid && curOwner != null
 
+    var pendingSave by remember { mutableStateOf<(() -> Unit)?>(null) }
+    pendingSave?.let { save ->
+        val who = curOwner?.name.orEmpty()
+        OperationConfirmSheet(
+            statement = OperationStatement.purchase(who, durationMinutes, payableAmount, amountPaid, currencySymbol),
+            spoken = OperationStatement.purchaseSpoken(who, durationMinutes, payableAmount, amountPaid, currencySymbol),
+            onConfirm = { pendingSave = null; save() },
+            onEdit = { pendingSave = null }
+        )
+    }
+
     MosaribBottomSheet(
         onDismissRequest = onDismiss,
         title = if (initialPurchase != null) "تعديل شراء ساعات" else "شراء ساعات من بئر",
@@ -450,11 +463,14 @@ fun WellOwnerPurchaseBottomSheet(
                 onClick = {
                     if (canSave) {
                         val purchaseDate = computedStartTime
-                        if (onSaveWithOwner != null) {
-                            onSaveWithOwner.invoke(curOwner!!.id, purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
-                        } else {
-                            onSave?.invoke(purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
+                        val performSave: () -> Unit = {
+                            if (onSaveWithOwner != null) {
+                                onSaveWithOwner.invoke(curOwner!!.id, purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
+                            } else {
+                                onSave?.invoke(purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
+                            }
                         }
+                        if ((initialPurchase?.id ?: 0L) == 0L) pendingSave = performSave else performSave()
                     }
                 },
                 enabled = canSave,

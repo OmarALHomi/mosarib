@@ -11,6 +11,8 @@ import com.example.features.customers.CustomerWithBalance
 import com.example.features.customers.CustomerRepository
 import com.example.features.sessions.WaterSessionRepository
 import com.example.features.sessions.WaterSessionWithCustomer
+import com.example.core.ui.PostSaveMessages
+import com.example.core.util.MessageFormatHelper
 import com.example.features.settings.AppConfig
 import com.example.features.settings.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -284,13 +286,6 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    private val _settlementResult = MutableStateFlow<SettlementResult?>(null)
-    val settlementResult: StateFlow<SettlementResult?> = _settlementResult.asStateFlow()
-
-    fun clearSettlementResult() {
-        _settlementResult.value = null
-    }
-
     fun settleSessionDebt(
         session: WaterSession,
         amountToPay: Double,
@@ -430,16 +425,23 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                     voucherRepo.insertVoucher(surplusVoucher)
                 }
 
-                val cust = customers.value.find { it.id == customerId }
-                _settlementResult.value = SettlementResult(
-                    customerName = cust?.name ?: "عميل غير محدد",
-                    customerPhone = cust?.phone ?: "",
-                    totalAmount = roundedAmount,
-                    discountAmount = roundedDiscount,
-                    items = summaries,
-                    surplusAmount = fifoResult.surplus,
-                    currencySymbol = appConfig.value.currencySymbol
-                )
+                val cust = customerId?.let { customerRepo.getCustomerByIdDirect(it) }
+                if (cust != null) {
+                    val result = SettlementResult(
+                        customerName = cust.name,
+                        customerPhone = cust.phone,
+                        totalAmount = roundedAmount,
+                        discountAmount = roundedDiscount,
+                        items = summaries,
+                        surplusAmount = fifoResult.surplus,
+                        currencySymbol = appConfig.value.currencySymbol
+                    )
+                    PostSaveMessages.post(
+                        cust,
+                        MessageFormatHelper.buildSettlementMessage(result, isSms = false),
+                        MessageFormatHelper.buildSettlementMessage(result, isSms = true)
+                    )
+                }
 
                 LicenseManager.recordOperationPerformed(getApplication(), totalOps)
                 showToast("تم سداد السند وتوزيع المبلغ بنجاح", ToastType.SUCCESS)
@@ -480,6 +482,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
 
                 val title = if (type == VoucherType.RECEIPT) "سند القبض" else "سند الصرف"
                 showToast("تم حفظ $title بنجاح", ToastType.SUCCESS)
+                customerId?.let { customerRepo.getCustomerByIdDirect(it) }?.let { PostSaveMessages.postVoucher(voucher, it, appConfig.value) }
             }
         }
     }
@@ -728,6 +731,7 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                 amountPaid = Formatters.roundMoney(amountPaid),
                 notes = notes.trim()
             )
+            PostSaveMessages.postPurchase(createdPurchase, owner, appConfig.value)
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                 onCreated?.invoke(createdPurchase)
             }

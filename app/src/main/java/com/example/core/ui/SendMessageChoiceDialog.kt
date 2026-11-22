@@ -73,7 +73,7 @@ fun SendMessageChoiceDialog(
     MosaribBottomSheet(
         onDismissRequest = onDismiss,
         title = "إرسال الإشعار والتفاصيل",
-        subtitle = "إلى: $recipientName ($recipientPhone)",
+        subtitle = if (recipientPhone.isBlank()) "إلى: $recipientName (بدون رقم، اختر جهة الاتصال عند الإرسال)" else "إلى: $recipientName ($recipientPhone)",
         icon = Icons.AutoMirrored.Filled.Send,
         iconTint = PrimaryTeal
     ) {
