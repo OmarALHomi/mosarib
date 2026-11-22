@@ -250,6 +250,48 @@ fun SettingsScreen(
             contentPadding = PaddingValues(top = 10.dp, bottom = 24.dp)
         ) {
             // -----------------------------------------------------------------
+            // 0. طريقة الاستخدام
+            // -----------------------------------------------------------------
+            item {
+                SettingsSectionHeader(title = "طريقة الاستخدام")
+                SettingsCard {
+                    SettingsRow(
+                        title = "طريقة الاستخدام",
+                        subtitle = "المبسّطة تُظهر الحقول الأساسية فقط، والباقي تحت «خيارات إضافية»",
+                        icon = Icons.Default.Palette,
+                        showChevron = false
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(true to "مبسّطة", false to "كاملة").forEach { (simple, label) ->
+                            val isSelected = config.simpleMode == simple
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { viewModel.updateSimpleMode(simple) },
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = label,
+                                    modifier = Modifier.padding(vertical = 12.dp),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // -----------------------------------------------------------------
             // 1. الحساب والاشتراك
             // -----------------------------------------------------------------
             item {

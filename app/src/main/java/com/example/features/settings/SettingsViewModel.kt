@@ -119,6 +119,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun updateSimpleMode(enabled: Boolean) {
+        viewModelScope.launch { settingsRepo.updateSimpleMode(enabled) }
+    }
+
     fun updateBiometricEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepo.updateBiometricEnabled(enabled)

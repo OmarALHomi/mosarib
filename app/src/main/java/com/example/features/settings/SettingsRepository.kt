@@ -9,7 +9,8 @@ data class AppConfig(
     val defaultPricePerHour: Double = 5000.0,
     val currencySymbol: String = "ر.ي",
     val themeMode: String = "SYSTEM", // LIGHT, DARK, SYSTEM
-    val biometricEnabled: Boolean = false
+    val biometricEnabled: Boolean = false,
+    val simpleMode: Boolean = false
 )
 
 class SettingsRepository(
@@ -23,7 +24,8 @@ class SettingsRepository(
             defaultPricePerHour = map["default_price_per_hour"]?.toDoubleOrNull() ?: 5000.0,
             currencySymbol = map["currency_symbol"] ?: "ر.ي",
             themeMode = map["theme_mode"] ?: "SYSTEM",
-            biometricEnabled = map["biometric_enabled"]?.toBooleanStrictOrNull() ?: false
+            biometricEnabled = map["biometric_enabled"]?.toBooleanStrictOrNull() ?: false,
+            simpleMode = map["ui_simple_mode"]?.toBooleanStrictOrNull() ?: false
         )
     }
 
@@ -45,6 +47,10 @@ class SettingsRepository(
 
     suspend fun updateThemeMode(mode: String) {
         settingDao.saveSetting(AppSetting("theme_mode", mode))
+    }
+
+    suspend fun updateSimpleMode(enabled: Boolean) {
+        settingDao.saveSetting(AppSetting("ui_simple_mode", enabled.toString()))
     }
 
     suspend fun updateBiometricEnabled(enabled: Boolean) {

@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.WaterDrop
+import com.example.core.ui.LocalSimpleMode
 import com.example.core.ui.MosaribMenu
 import com.example.core.ui.MosaribMenuItem
 import com.example.core.ui.MosaribMenuDivider
@@ -181,6 +182,7 @@ fun MainApp(
     }
 
     MosaribTheme(darkTheme = darkTheme) {
+      CompositionLocalProvider(LocalSimpleMode provides appConfig.simpleMode) {
         val view = LocalView.current
         if (!view.isInEditMode) {
             SideEffect {
@@ -323,7 +325,10 @@ fun MainApp(
             } else if (activeBroadcast?.isForceUpdate == true) {
                 ForceUpdateScreen(broadcast = activeBroadcast!!)
             } else if (showOnboarding) {
-                OnboardingScreen(onFinish = { showOnboarding = false })
+                OnboardingScreen(onFinish = {
+                    settingsViewModel.updateSimpleMode(true)
+                    showOnboarding = false
+                })
             } else if (appConfig.biometricEnabled && !isBiometricUnlocked) {
                 BiometricLockScreen(onUnlock = { isBiometricUnlocked = true })
             } else if (showAboutScreen) {
@@ -809,5 +814,6 @@ fun MainApp(
             )
         }
         }
+      }
     }
 }

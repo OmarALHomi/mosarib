@@ -19,6 +19,7 @@ import com.example.core.voice.VoiceSupportDialogs
 import com.example.core.voice.VoiceCustomerChooserDialog
 import com.example.core.voice.VoiceRecordSheet
 import com.example.core.voice.VoiceWellOwnerActionChooserDialog
+import com.example.core.ui.LocalSimpleMode
 import com.example.core.voice.VoiceVoucherTypeChooserDialog
 import com.example.core.voice.VoiceUnrecognizedDialog
 import com.example.core.voice.VoiceUnparsedLog
@@ -517,6 +518,24 @@ fun HomeScreen(
             }
 
             item {
+                val simpleMode = LocalSimpleMode.current
+                val VoiceCard: @Composable (Modifier) -> Unit = { mod ->
+                    QuickActionCard(
+                        title = "إدخال صوتي",
+                        subtitle = "تسجيل دورة، سند، أو مصروف بالصوت",
+                        icon = Icons.Default.Mic,
+                        iconBgColor = PrimaryTeal.copy(alpha = 0.15f),
+                        iconTint = PrimaryTeal,
+                        onClick = {
+                            if (!VoiceRecognitionHelper.isRecognitionAvailable(context)) {
+                                voiceDialogType = VoiceDialogType.MISSING_ENGINE
+                            } else {
+                                showHomeVoiceRecordSheet = true
+                            }
+                        },
+                        modifier = mod.guideTarget("home_voice")
+                    )
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -541,10 +560,9 @@ fun HomeScreen(
                             modifier = Modifier.weight(1f).guideTarget("home_session_new")
                         )
 
-                        // One button for both vouchers; the type (قبض / صرف) is chosen inside the form
                         QuickActionCard(
-                            title = "سند جديد",
-                            subtitle = "قبض أو صرف",
+                            title = "قبض",
+                            subtitle = "استلمت مبلغاً",
                             icon = Icons.Default.Payments,
                             iconBgColor = MaterialTheme.mosarib.successContainer,
                             iconTint = MaterialTheme.mosarib.success,
@@ -563,6 +581,21 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         QuickActionCard(
+                            title = "صرف",
+                            subtitle = "دفعت مبلغاً",
+                            icon = Icons.Default.Payments,
+                            iconBgColor = MaterialTheme.mosarib.debt.copy(alpha = 0.12f),
+                            iconTint = MaterialTheme.mosarib.debt,
+                            onClick = {
+                                checkOperationAllowed {
+                                    voucherInitialType = VoucherType.EXPENSE
+                                    showAddVoucherSheet = true
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (simpleMode) VoiceCard(Modifier.weight(1f))
+                        else QuickActionCard(
                             title = "حسابات العملاء",
                             subtitle = "الأرصدة وكشوف الحساب",
                             icon = Icons.AutoMirrored.Filled.ReceiptLong,
@@ -571,68 +604,57 @@ fun HomeScreen(
                             onClick = { onNavigateToTab(AppTab.CUSTOMERS) },
                             modifier = Modifier.weight(1f).guideTarget("home_accounts")
                         )
-
-                        QuickActionCard(
-                            title = "شراء ساعات",
-                            subtitle = "شراء ماء من بئر",
-                            icon = Icons.Default.AccessTime,
-                            iconBgColor = MaterialTheme.mosarib.infoContainer,
-                            iconTint = MaterialTheme.mosarib.info,
-                            onClick = {
-                                checkOperationAllowed {
-                                    showAddPurchaseSheet = true
-                                }
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        QuickActionCard(
-                            title = "عميل جديد",
-                            subtitle = "إضافة مزارع أو بئر",
-                            icon = Icons.Default.PersonAdd,
-                            iconBgColor = MaterialTheme.mosarib.infoContainer,
-                            iconTint = MaterialTheme.mosarib.info,
-                            onClick = { showAddCustomerSheet = true },
-                            modifier = Modifier.weight(1f)
-                        )
+                    if (!simpleMode) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            QuickActionCard(
+                                title = "شراء ساعات",
+                                subtitle = "شراء ماء من بئر",
+                                icon = Icons.Default.AccessTime,
+                                iconBgColor = MaterialTheme.mosarib.infoContainer,
+                                iconTint = MaterialTheme.mosarib.info,
+                                onClick = {
+                                    checkOperationAllowed {
+                                        showAddPurchaseSheet = true
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            QuickActionCard(
+                                title = "عميل جديد",
+                                subtitle = "إضافة مزارع أو بئر",
+                                icon = Icons.Default.PersonAdd,
+                                iconBgColor = MaterialTheme.mosarib.infoContainer,
+                                iconTint = MaterialTheme.mosarib.info,
+                                onClick = { showAddCustomerSheet = true },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
 
-                        QuickActionCard(
-                            title = "النسخ الاحتياطي",
-                            subtitle = "حفظ واستعادة سحابية ومحلية",
-                            icon = Icons.Default.CloudSync,
-                            iconBgColor = MaterialTheme.mosarib.successContainer,
-                            iconTint = MaterialTheme.mosarib.success,
-                            onClick = {
-                                settingsViewModel.selectDriveBackupTab()
-                                onNavigateToTab(AppTab.SETTINGS)
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            QuickActionCard(
+                                title = "النسخ الاحتياطي",
+                                subtitle = "حفظ واستعادة سحابية ومحلية",
+                                icon = Icons.Default.CloudSync,
+                                iconBgColor = MaterialTheme.mosarib.successContainer,
+                                iconTint = MaterialTheme.mosarib.success,
+                                onClick = {
+                                    settingsViewModel.selectDriveBackupTab()
+                                    onNavigateToTab(AppTab.SETTINGS)
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        QuickActionCard(
-                            title = "إدخال صوتي",
-                            subtitle = "تسجيل دورة، سند، أو مصروف بالصوت",
-                            icon = Icons.Default.Mic,
-                            iconBgColor = PrimaryTeal.copy(alpha = 0.15f),
-                            iconTint = PrimaryTeal,
-                            onClick = {
-                                if (!VoiceRecognitionHelper.isRecognitionAvailable(context)) {
-                                    voiceDialogType = VoiceDialogType.MISSING_ENGINE
-                                } else {
-                                    showHomeVoiceRecordSheet = true
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth().guideTarget("home_voice")
-                        )
+                        VoiceCard(Modifier.fillMaxWidth())
                     }
                 }
             }
