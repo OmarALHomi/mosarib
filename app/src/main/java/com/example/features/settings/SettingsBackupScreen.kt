@@ -1,6 +1,10 @@
 package com.example.features.settings
 
 import android.content.Context
+import android.widget.Toast
+import com.example.core.database.AppDatabase
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -21,6 +25,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudUpload
@@ -30,6 +37,8 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -98,6 +107,9 @@ internal fun SettingsBackupScreen(
 ) {
     BackHandler { onBack() }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var showAdvanced by remember { mutableStateOf(false) }
+    var showList by remember { mutableStateOf<BackupListMode?>(null) }
 
     LaunchedEffect(googleAccount) {
         if (googleAccount != null) {
@@ -147,195 +159,290 @@ internal fun SettingsBackupScreen(
                 }
             }
 
-            // -----------------------------------------------------------------
-            // 1. إجراءات النسخ السريع
-            // -----------------------------------------------------------------
+            // 1. بطاقة الحالة + انسخ الآن
             item {
-                SettingsSectionHeader(title = "إجراءات النسخ السريع")
+                val workInfos by WorkManager.getInstance(context)
+                    .getWorkInfosForUniqueWorkFlow(DriveBackupScheduler.IMMEDIATE_WORK_NAME)
+                    .collectAsState(initial = emptyList())
+                val driveTime = remember(workInfos, googleAccount) { DriveBackupPreferences.getLastBackupTime(context) }
+                val localTime = maxOf(
+                    savedBackups.maxOfOrNull { it.file.lastModified() } ?: 0L,
+                    autoBackups.maxOfOrNull { it.file.lastModified() } ?: 0L
+                )
+                SettingsSectionHeader(title = "حالة النسخ الاحتياطي")
                 SettingsCard {
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp)
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        BackupStatusLine("آخر نسخة على الهاتف", localTime, "لا توجد نسخة بعد")
+                        BackupStatusLine(
+                            "آخر نسخة على Drive",
+                            if (googleAccount != null) driveTime else 0L,
+                            if (googleAccount != null) "لم تتم أي نسخة بعد" else "غير مفعّل"
+                        )
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    val file = AutoBackupEngine.createSafetyCheckpoint(
+                                        context, AppDatabase.getDatabase(context), "manual"
+                                    )
+                                    onRefreshBackups()
+                                    if (file == null) {
+                                        Toast.makeText(context, "تعذّر حفظ النسخة", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        if (googleAccount != null && isCloudBackupAllowed) {
+                                            DriveBackupScheduler.enqueueImmediateBackup(context)
+                                        }
+                                        Toast.makeText(context, "تم حفظ النسخة", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            enabled = isBackupAllowed,
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(52.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("انسخ الآن", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            // 2. النسخ التلقائي
+            item {
+                var frequency by remember { mutableStateOf(DriveBackupPreferences.getFrequency(context)) }
+                var wifiOnly by remember { mutableStateOf(DriveBackupPreferences.isWifiOnly(context)) }
+                var showOther by remember { mutableStateOf(false) }
+                val lastError = DriveBackupPreferences.getLastError(context)
+                val driveListError = DriveBackupPreferences.getListError(context)
+                Spacer(modifier = Modifier.height(14.dp))
+                SettingsSectionHeader(title = "النسخ التلقائي")
+                SettingsCard {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Button(
-                                onClick = onCreateBackup,
-                                enabled = isBackupAllowed,
-                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(vertical = 10.dp)
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("نسخة جديدة", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-
-                            OutlinedButton(
-                                onClick = onImportBackup,
-                                enabled = isBackupAllowed,
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(vertical = 10.dp)
-                            ) {
-                                Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(16.dp), tint = AccentGold)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("استيراد ملف", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-
-                            OutlinedButton(
-                                onClick = onShareNewBackup,
-                                enabled = isBackupAllowed,
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(vertical = 10.dp)
-                            ) {
-                                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp), tint = PrimaryTeal)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("مشاركة", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
+                            Text("نسخ تلقائي", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Switch(
+                                checked = isAutoBackupEnabled,
+                                onCheckedChange = { on ->
+                                    onAutoBackupEnabledChange(on)
+                                    if (googleAccount != null) {
+                                        frequency = if (!on) BackupFrequency.OFF
+                                        else if (frequency == BackupFrequency.OFF) BackupFrequency.DAILY else frequency
+                                        DriveBackupPreferences.setFrequency(context, frequency)
+                                        DriveBackupScheduler.schedulePeriodicWork(context)
+                                    }
+                                }
+                            )
                         }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        OutlinedButton(
-                            onClick = onCheckDuplicates,
-                            enabled = isBackupAllowed,
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                            contentPadding = PaddingValues(vertical = 10.dp)
-                        ) {
-                            Icon(Icons.Default.CleaningServices, contentDescription = null, modifier = Modifier.size(16.dp), tint = PrimaryTeal)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("فحص العمليات المستوردة المكررة", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-
-            // -----------------------------------------------------------------
-            // 2. النسخ الاحتياطي المحلي (على الهاتف)
-            // -----------------------------------------------------------------
-            item {
-                Spacer(modifier = Modifier.height(14.dp))
-                SettingsSectionHeader(title = "النسخ الاحتياطي المحلي (على الهاتف)")
-                SettingsCard {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp)
-                    ) {
-                        LocalBackupsTab(
-                            isDark = isDark,
-                            isAutoBackupEnabled = isAutoBackupEnabled,
-                            onAutoBackupEnabledChange = onAutoBackupEnabledChange,
-                            autoBackups = autoBackups,
-                            savedBackups = savedBackups,
-                            expandAllLocalBackups = state.expandAllLocalBackups,
-                            onToggleExpandAllLocalBackups = { state.expandAllLocalBackups = !state.expandAllLocalBackups },
-                            onRestoreAutoBackup = { state.autoBackupToRestore = it },
-                            onDeleteAutoBackup = { state.autoBackupToDelete = it },
-                            onCleanOldBackups = { state.showCleanOldBackupsConfirm = true },
-                            onRefreshBackups = onRefreshBackups,
-                            onRestoreBackup = { state.backupToRestore = it },
-                            onShareBackup = { onShareBackupFile(it.file) },
-                            onDeleteBackup = { state.backupToDelete = it }
-                        )
-                    }
-                }
-            }
-
-            // -----------------------------------------------------------------
-            // 3. النسخ التلقائي إلى Google Drive
-            // -----------------------------------------------------------------
-            item {
-                Spacer(modifier = Modifier.height(14.dp))
-                SettingsSectionHeader(title = "النسخ التلقائي إلى Google Drive")
-                SettingsCard {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp)
-                    ) {
-                        DriveAutoBackupSection(
-                            context = context,
-                            isDark = isDark,
-                            isCloudBackupAllowed = isCloudBackupAllowed,
-                            googleAccount = googleAccount,
-                            onConnectGoogleAccount = {
-                                state.pendingAutoBackupAfterSignIn = false
-                                state.showGoogleBackupAccountDialog = true
-                            },
-                            onRefreshDriveBackups = onRefreshDriveBackups
-                        )
-                    }
-                }
-            }
-
-            // -----------------------------------------------------------------
-            // 4. سحابة Google Drive (الملفات السحابية)
-            // -----------------------------------------------------------------
-            item {
-                Spacer(modifier = Modifier.height(14.dp))
-                SettingsSectionHeader(title = "سحابة Google Drive (الملفات المحفوظة)")
-                SettingsCard {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp)
-                    ) {
-                        val recordedDriveTime = DriveBackupPreferences.getLastBackupTime(context)
-                        val driveListError = DriveBackupPreferences.getListError(context) ?: DriveBackupPreferences.getLastError(context)
-                        if (driveBackups.isEmpty() && recordedDriveTime > 0L && !driveListError.isNullOrBlank()) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (isDark) Color(0xFF3B1E1E) else Color(0xFFFEF2F2),
-                                border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "تعذر جلب قائمة النسخ السحابية: $driveListError",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
+                        if (isAutoBackupEnabled) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                for ((freq, label) in listOfNotNull(BackupFrequency.DAILY to "يومي", (BackupFrequency.THREE_DAYS to "كل 3 أيام").takeIf { frequency == BackupFrequency.THREE_DAYS }, BackupFrequency.WEEKLY to "أسبوعي")) {
+                                    FilterChip(
+                                        selected = frequency == freq,
+                                        onClick = {
+                                            frequency = freq
+                                            DriveBackupPreferences.setFrequency(context, freq)
+                                            DriveBackupScheduler.schedulePeriodicWork(context)
+                                        },
+                                        label = { Text(label) }
                                     )
                                 }
                             }
+                            if (googleAccount == null) {
+                                OutlinedButton(
+                                    onClick = {
+                                        state.pendingAutoBackupAfterSignIn = false
+                                        state.showGoogleBackupAccountDialog = true
+                                    },
+                                    enabled = isCloudBackupAllowed,
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.CloudDone, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("ربط بحساب Google", fontWeight = FontWeight.Bold)
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "مرتبط بـ ${googleAccount.email ?: ""}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    TextButton(onClick = onGoogleSignOut) { Text("فصل الحساب") }
+                                }
+                            }
                         }
-                        DriveBackupsTab(
-                            isDark = isDark,
-                            isCloudBackupAllowed = isCloudBackupAllowed,
-                            googleAccount = googleAccount,
-                            driveBackups = driveBackups,
-                            isDriveLoading = isDriveLoading,
-                            expandAllDriveBackups = state.expandAllDriveBackups,
-                            onToggleExpandAllDriveBackups = { state.expandAllDriveBackups = !state.expandAllDriveBackups },
-                            onConnectGoogleAccount = {
-                                state.pendingAutoBackupAfterSignIn = false
-                                state.showGoogleBackupAccountDialog = true
+                        TextButton(onClick = { showOther = !showOther }) {
+                            Text("إعدادات أخرى ${if (showOther) "▲" else "▼"}", fontSize = 12.sp)
+                        }
+                        if (showOther) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("على الواي فاي فقط", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                                Switch(
+                                    checked = wifiOnly,
+                                    onCheckedChange = {
+                                        wifiOnly = it
+                                        DriveBackupPreferences.setWifiOnly(context, it)
+                                        DriveBackupScheduler.schedulePeriodicWork(context)
+                                    }
+                                )
+                            }
+                            listOfNotNull(lastError, driveListError).filter { it.isNotBlank() }.forEach {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(it, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFDC2626)))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. استعادة
+            item {
+                Spacer(modifier = Modifier.height(14.dp))
+                SettingsSectionHeader(title = "استعادة")
+                SettingsCard {
+                    Box(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                onRefreshBackups()
+                                if (googleAccount != null) onRefreshDriveBackups()
+                                showList = BackupListMode.RESTORE
                             },
-                            onUploadBackupNow = {
-                                state.pendingAutoBackupAfterSignIn = true
-                                state.showGoogleBackupAccountDialog = true
-                            },
-                            onSignOut = onGoogleSignOut,
-                            onRefreshDriveBackups = onRefreshDriveBackups,
-                            onRestoreDriveBackup = { state.driveBackupToRestore = it },
-                            onDeleteDriveBackup = { state.driveBackupToDelete = it }
-                        )
+                            enabled = isBackupAllowed,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                        ) {
+                            Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("استعادة نسخة", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            // 4. متقدم (مطوي)
+            item {
+                Spacer(modifier = Modifier.height(14.dp))
+                TextButton(
+                    onClick = { showAdvanced = !showAdvanced },
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                ) { Text("متقدم ${if (showAdvanced) "▲" else "▼"}", fontWeight = FontWeight.Bold) }
+                if (showAdvanced) {
+                    SettingsCard {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            AdvancedButton("حفظ نسخة كملف", Icons.Default.Folder, isBackupAllowed, onCreateBackup)
+                            AdvancedButton("استيراد ملف", Icons.Default.Folder, isBackupAllowed, onImportBackup)
+                            AdvancedButton("مشاركة ملف النسخة", Icons.Default.Share, isBackupAllowed, onShareNewBackup)
+                            AdvancedButton("تنظيف النسخ القديمة", Icons.Default.CleaningServices, isBackupAllowed) {
+                                state.showCleanOldBackupsConfirm = true
+                            }
+                            AdvancedButton("فحص العمليات المكررة", Icons.Default.CleaningServices, isBackupAllowed, onCheckDuplicates)
+                            AdvancedButton("حذف نسخ", Icons.Default.Delete, isBackupAllowed) {
+                                onRefreshBackups()
+                                if (googleAccount != null) onRefreshDriveBackups()
+                                showList = BackupListMode.MANAGE
+                            }
+                        }
                     }
                 }
             }
         }
     }
+
+    showList?.let { mode ->
+        BackupListDialog(
+            manage = mode == BackupListMode.MANAGE,
+            entries = buildBackupEntries(state, autoBackups, savedBackups, driveBackups, onShareBackupFile),
+            isLoading = isDriveLoading,
+            onDismiss = { showList = null }
+        )
+    }
+}
+
+@Composable
+private fun BackupStatusLine(label: String, time: Long, emptyText: String) {
+    val days = if (time > 0L) (System.currentTimeMillis() - time) / 86_400_000L else -1L
+    val color = when {
+        time <= 0L -> MaterialTheme.colorScheme.onSurfaceVariant
+        days <= 0L -> Color(0xFF16A34A)
+        days > 7L -> Color(0xFFD97706)
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val text = when {
+        time <= 0L -> emptyText
+        days <= 0L -> "اليوم"
+        days == 1L -> "أمس"
+        else -> "قبل $days يوم"
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (time > 0L && days <= 0L) {
+            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+        }
+        Text("$label: $text", style = MaterialTheme.typography.bodyMedium.copy(color = color, fontWeight = FontWeight.SemiBold))
+    }
+}
+
+@Composable
+private fun AdvancedButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, enabled: Boolean, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        shape = RoundedCornerShape(10.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = PrimaryTeal)
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+// Local (manual + safety) and Drive copies merged, newest first
+private fun buildBackupEntries(
+    state: SettingsBackupUiState,
+    autoBackups: List<AutoBackupEngine.AutoBackupItem>,
+    savedBackups: List<BackupManager.BackupFileInfo>,
+    driveBackups: List<GoogleDriveBackupHelper.DriveBackupFile>,
+    onShare: (File) -> Unit
+): List<BackupListEntry> {
+    val iso = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
+        .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+    return (savedBackups.map {
+        BackupListEntry(false, it.file.lastModified(), it.formattedDate, it.sizeText,
+            { state.backupToRestore = it }, { onShare(it.file) }, { state.backupToDelete = it })
+    } + autoBackups.map {
+        BackupListEntry(false, it.file.lastModified(), it.formattedDate, it.sizeText,
+            { state.autoBackupToRestore = it }, { onShare(it.file) }, { state.autoBackupToDelete = it })
+    } + driveBackups.map {
+        val t = runCatching { iso.parse(it.createdTime.take(19))?.time }.getOrNull() ?: 0L
+        BackupListEntry(true, t, it.formattedDate, it.sizeText,
+            { state.driveBackupToRestore = it }, null, { state.driveBackupToDelete = it })
+    }).sortedByDescending { it.time }
 }
 
 /**

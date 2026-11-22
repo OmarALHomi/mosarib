@@ -3,6 +3,7 @@ package com.example.features.settings
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,10 +21,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -424,6 +429,82 @@ private fun DuplicateCandidateRow(item: SettingsViewModel.DuplicateCandidateDisp
                 text = Formatters.formatDate(candidate.date),
                 style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted)
             )
+        }
+    }
+}
+
+internal enum class BackupListMode { RESTORE, MANAGE }
+
+internal class BackupListEntry(
+    val isDrive: Boolean,
+    val time: Long,
+    val date: String,
+    val size: String,
+    val onRestore: () -> Unit,
+    val onShare: (() -> Unit)?,
+    val onDelete: () -> Unit
+)
+
+// One list for phone + Drive copies: tap restores (restore mode) or share/delete icons (manage mode)
+@Composable
+internal fun BackupListDialog(
+    manage: Boolean,
+    entries: List<BackupListEntry>,
+    isLoading: Boolean,
+    onDismiss: () -> Unit
+) {
+    MosaribDialog(
+        onDismissRequest = onDismiss,
+        title = if (manage) "حذف نسخ" else "استعادة نسخة",
+        confirmText = "إغلاق",
+        onConfirm = onDismiss,
+        dismissText = null
+    ) {
+        if (entries.isEmpty()) {
+            Text(
+                text = if (isLoading) "جارٍ التحميل..." else "لا توجد نسخ احتياطية",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(vertical = 12.dp)
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(entries) { e ->
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth().let {
+                            if (manage) it else it.clickable { onDismiss(); e.onRestore() }
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                if (e.isDrive) Icons.Default.Cloud else Icons.Default.PhoneAndroid,
+                                contentDescription = if (e.isDrive) "Drive" else "الهاتف",
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(e.date, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+                                Text(e.size, style = MaterialTheme.typography.labelSmall)
+                            }
+                            if (manage) {
+                                e.onShare?.let {
+                                    IconButton(onClick = it) { Icon(Icons.Default.Share, contentDescription = "مشاركة") }
+                                }
+                                IconButton(onClick = { onDismiss(); e.onDelete() }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "حذف")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
