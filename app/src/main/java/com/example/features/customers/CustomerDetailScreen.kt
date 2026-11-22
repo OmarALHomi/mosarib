@@ -135,7 +135,6 @@ import com.example.core.util.FileSharingHelper
 import com.example.core.util.Formatters
 import com.example.core.util.MessageFormatHelper
 import com.example.core.util.PdfReportGenerator
-import com.example.features.sessions.SettleSessionDialog
 import com.example.features.sessions.WaterSession
 import com.example.features.vouchers.Voucher
 import com.example.features.vouchers.VoucherType
@@ -243,7 +242,6 @@ fun CustomerDetailScreen(
     var showAddSessionSheet by remember { mutableStateOf(false) }
     var showOwnerWasteDialog by remember { mutableStateOf(false) }
     var showEditCustomerSheet by remember { mutableStateOf(false) }
-    var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
     var sessionToEdit by remember { mutableStateOf<WaterSession?>(null) }
     var sessionToDelete by remember { mutableStateOf<WaterSession?>(null) }
     var purchaseToEdit by remember { mutableStateOf<WellOwnerPurchase?>(null) }
@@ -1486,23 +1484,6 @@ fun CustomerDetailScreen(
                                         },
                                         onClick = { sessionForDetails = session },
                                         actions = {
-                                            if (sessionDebt > 0.001 && !customer.isWellOwner && ledgerItem.sponsorOwner == null) {
-                                                FilledTonalButton(
-                                                    onClick = { sessionToSettle = session },
-                                                    modifier = Modifier.height(28.dp),
-                                                    contentPadding = PaddingValues(horizontal = 10.dp),
-                                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                                        containerColor = MaterialTheme.mosarib.successContainer,
-                                                        contentColor = MaterialTheme.mosarib.success
-                                                    ),
-                                                    shape = RoundedCornerShape(8.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "سداد",
-                                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                                                    )
-                                                }
-                                            }
                                             if (hasLinkedPayments) {
                                                 Row(
                                                     verticalAlignment = Alignment.CenterVertically,
@@ -2234,12 +2215,6 @@ fun CustomerDetailScreen(
                 sessionForDetails = null
                 messageSessionTarget = s
             },
-            onSettle = if (s.remainingDebt > 0 && !customer.isWellOwner && s.billedToCustomerId == null) {
-                {
-                    sessionForDetails = null
-                    sessionToSettle = s
-                }
-            } else null,
             onShareVoucher = { v ->
                 messageCustomTarget = "سند قبض سداد #${v.voucherNumber.ifEmpty { v.id.toString() }}\nالعميل: ${customer.name}\nالمبلغ: ${Formatters.formatCurrency(v.amount, config.currencySymbol)} (${Formatters.amountToArabicWords(v.amount, config.currencySymbol)})\nطريقة الدفع: ${v.paymentMethod}\nالتاريخ: ${Formatters.formatDateTime(v.date)}"
             }
@@ -2310,20 +2285,6 @@ fun CustomerDetailScreen(
             onShare = {
                 purchaseForDetails = null
                 messagePurchaseTarget = p
-            }
-        )
-    }
-
-    // Settle Session Dialog
-    sessionToSettle?.let { s ->
-        SettleSessionDialog(
-            session = s,
-            customerName = customer.name,
-            currencySymbol = config.currencySymbol,
-            effectiveDebt = getEffectiveSessionDebt(s),
-            onDismiss = { sessionToSettle = null },
-            onConfirmSettle = { amount, discount, method, notes ->
-                viewModel.settleSessionDebt(s, amount, method, notes, discount)
             }
         )
     }

@@ -216,7 +216,6 @@ import com.example.features.customers.Customer
 import com.example.features.sessions.AddEditSessionBottomSheet
 import com.example.features.sessions.SessionCardItem
 import com.example.features.sessions.SessionsViewModel
-import com.example.features.sessions.SettleSessionDialog
 import com.example.features.sessions.WaterSession
 import com.example.features.sessions.WaterSessionWithCustomer
 import com.example.core.ui.SessionDetailBottomSheet
@@ -281,7 +280,6 @@ fun VouchersScreen(
     var sessionToDelete by remember { mutableStateOf<WaterSession?>(null) }
     var purchaseToDelete by remember { mutableStateOf<WellOwnerPurchase?>(null) }
     var purchaseToEdit by remember { mutableStateOf<WellOwnerPurchase?>(null) }
-    var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
     var voucherMessageTarget by remember { mutableStateOf<Triple<Customer, String, String>?>(null) }
     var voucherPdfReady by remember { mutableStateOf<Pair<File, String>?>(null) }
     var selectedLinkedSession by remember { mutableStateOf<WaterSession?>(null) }
@@ -815,23 +813,6 @@ fun VouchersScreen(
                                     },
                                     onClick = { sessionForDetails = op.sessionWithCustomer },
                                     actions = {
-                                        if (session.remainingDebt > 0.001) {
-                                            FilledTonalButton(
-                                                onClick = { sessionToSettle = session },
-                                                modifier = Modifier.height(28.dp),
-                                                contentPadding = PaddingValues(horizontal = 10.dp),
-                                                colors = ButtonDefaults.filledTonalButtonColors(
-                                                    containerColor = MaterialTheme.mosarib.successContainer,
-                                                    contentColor = MaterialTheme.mosarib.success
-                                                ),
-                                                shape = RoundedCornerShape(8.dp)
-                                            ) {
-                                                Text(
-                                                    text = "سداد",
-                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                                                )
-                                            }
-                                        }
                                         if (hasLinkedPayments) {
                                             IconButton(
                                                 onClick = { isExpanded = !isExpanded },
@@ -963,7 +944,6 @@ fun VouchersScreen(
                                                 linkedVouchers = op.linkedVouchers,
                                                 debtToShow = session.remainingDebt,
                                                 currencySymbol = config.currencySymbol,
-                                                onSettleClick = { sessionToSettle = session },
                                                 onShareVoucher = { v ->
                                                     val f = PdfReportGenerator.generateReceiptVoucherPdf(context, config, customer ?: Customer(name = "عميل نقدي"), v)
                                                     voucherPdfReady = Pair(f, "سند قبض #${v.voucherNumber}")
@@ -1459,12 +1439,6 @@ fun VouchersScreen(
                     voucherMessageTarget = Triple(c, waMsg, smsMsg)
                 }
             },
-            onSettle = if (s.remainingDebt > 0) {
-                {
-                    sessionForDetails = null
-                    sessionToSettle = s
-                }
-            } else null,
             onShareVoucher = { v ->
                 if (c != null) {
                     val waMsg = MessageFormatHelper.buildReceiptVoucher(v, c, s.id, config, isSms = false)
@@ -1564,20 +1538,6 @@ fun VouchersScreen(
                     val shareText = MessageFormatHelper.buildPurchaseBill(p, fallbackOwner, config, isSms = false)
                     FileSharingHelper.shareText(context, shareText, "مشاركة فاتورة شراء الساعات")
                 }
-            }
-        )
-    }
-
-    // Settle Session Dialog
-    sessionToSettle?.let { s ->
-        val cust = customers.find { it.id == s.customerId }
-        SettleSessionDialog(
-            session = s,
-            customerName = cust?.name ?: "عميل غير محدد",
-            currencySymbol = config.currencySymbol,
-            onDismiss = { sessionToSettle = null },
-            onConfirmSettle = { amt, discount, method, notes ->
-                viewModel.settleSessionDebt(s, amt, method, notes, discount)
             }
         )
     }
@@ -2519,233 +2479,8 @@ fun AddVoucherBottomSheet(
                     )
                 }
 
-                // قسم الجلسات غير المسددة المتوفرة على العميل
-                var showUnsettledList by remember { mutableStateOf(false) }
-                if (unsettledSessions.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isDark) Color(0xFF141F25) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                        ),
-                        border = BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color(0xFFE2E8F0))
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            // Collapsed by default: a tap opens the list; "تحديد الكل" works without opening it
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { showUnsettledList = !showUnsettledList },
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "جلسات سقي غير مسددة (${unsettledSessions.size})",
-                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal)
-                                    )
-                                    val totalUnsettledDebt = unsettledSessions.sumOf { it.remainingDebt }
-                                    Text(
-                                        text = "إجمالي المتأخرات: ${Formatters.formatCurrency(totalUnsettledDebt, currencySymbol)}",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = if (isDark) Color(0xFFF87171) else Color(0xFFC62828), fontWeight = FontWeight.Bold)
-                                    )
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    TextButton(
-                                        onClick = {
-                                            val allIds = unsettledSessions.map { it.id }.toSet()
-                                            selectedSessionIds = allIds
-                                            val totalSelected = unsettledSessions.sumOf { it.remainingDebt }
-                                            amountStr = Formatters.formatAmountInput(totalSelected.toString())
-                                        },
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                                    ) {
-                                        Text("تحديد الكل", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PrimaryTeal)
-                                    }
-                                    if (selectedSessionIds.isNotEmpty()) {
-                                        TextButton(
-                                            onClick = {
-                                                selectedSessionIds = emptySet()
-                                            },
-                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                                        ) {
-                                            Text("إلغاء", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                                        }
-                                    }
-                                    Icon(
-                                        imageVector = if (showUnsettledList) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                        contentDescription = if (showUnsettledList) "إخفاء السقيات" else "عرض السقيات",
-                                        tint = PrimaryTeal,
-                                        modifier = Modifier.align(Alignment.CenterVertically)
-                                    )
-                                }
-                            }
-                            if (selectedSessionIds.isNotEmpty() && !showUnsettledList) {
-                                Text(
-                                    text = "محدد ${selectedSessionIds.size} من ${unsettledSessions.size}، اضغط لعرضها",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
-                                )
-                            }
-
-                            if (showUnsettledList) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "اختر ما تريد سداده (يوزع المبلغ بالأقدمية أولاً):",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            val parsedAmt = Formatters.parseAmountInput(amountStr)
-                            val parsedDisc = Formatters.parseAmountInput(discountAmountStr)
-                            val sortedSelected = unsettledSessions.filter { selectedSessionIds.contains(it.id) }.sortedBy { it.startTime }
-
-                            val fifoPreview = calculateFifoAllocation(sortedSelected, parsedAmt, parsedDisc)
-                            val allocations = fifoPreview.steps.associate { it.session.id to Triple(it.allocatedAmount, it.allocatedDiscount, it.newDebt) }
-
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                unsettledSessions.forEach { session ->
-                                    val isSelected = selectedSessionIds.contains(session.id)
-                                    val allocInfo = allocations[session.id]
-
-                                    Card(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                val newSet = if (isSelected) {
-                                                    selectedSessionIds - session.id
-                                                } else {
-                                                    selectedSessionIds + session.id
-                                                }
-                                                selectedSessionIds = newSet
-                                                if (newSet.isNotEmpty() && amountStr.isBlank()) {
-                                                    val sumSel = unsettledSessions.filter { newSet.contains(it.id) }.sumOf { it.remainingDebt }
-                                                    amountStr = Formatters.formatAmountInput(sumSel.toString())
-                                                }
-                                            },
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = if (isSelected) {
-                                                if (isDark) Color(0xFF10282E) else PrimaryTeal.copy(alpha = 0.08f)
-                                            } else {
-                                                if (isDark) Color(0xFF182329) else Color.White
-                                            }
-                                        ),
-                                        border = if (isSelected) {
-                                            BorderStroke(1.5.dp, PrimaryTeal)
-                                        } else {
-                                            BorderStroke(1.dp, if (isDark) Color(0xFF2A3C45) else Color.LightGray.copy(alpha = 0.4f))
-                                        }
-                                    ) {
-                                        Column(modifier = Modifier.padding(10.dp)) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.SpaceBetween
-                                            ) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                                ) {
-                                                    Checkbox(
-                                                        checked = isSelected,
-                                                        onCheckedChange = { checked ->
-                                                            val newSet = if (checked) {
-                                                                selectedSessionIds + session.id
-                                                            } else {
-                                                                selectedSessionIds - session.id
-                                                            }
-                                                            selectedSessionIds = newSet
-                                                            if (newSet.isNotEmpty() && amountStr.isBlank()) {
-                                                                val sumSel = unsettledSessions.filter { newSet.contains(it.id) }.sumOf { it.remainingDebt }
-                                                                amountStr = Formatters.formatAmountInput(sumSel.toString())
-                                                            }
-                                                        },
-                                                        modifier = Modifier.size(24.dp)
-                                                    )
-                                                    Column {
-                                                        Text(
-                                                            text = "دورة سقي #${session.id}",
-                                                            fontWeight = FontWeight.Bold,
-                                                            fontSize = 13.sp
-                                                        )
-                                                        Text(
-                                                            text = Formatters.formatDate(session.startTime),
-                                                            fontSize = 11.sp,
-                                                            color = Color.Gray
-                                                        )
-                                                    }
-                                                }
-                                                Column(horizontalAlignment = Alignment.End) {
-                                                    Text(
-                                                        text = Formatters.formatCurrency(session.remainingDebt, currencySymbol),
-                                                        fontWeight = FontWeight.Bold,
-                                                        fontSize = 13.sp,
-                                                        color = if (isDark) Color(0xFFF87171) else Color(0xFFC62828)
-                                                    )
-                                                    Text(
-                                                        text = "المتبقي",
-                                                        fontSize = 10.sp,
-                                                        color = Color.Gray
-                                                    )
-                                                }
-                                            }
-
-                                            // شارة المعاينة الحية للسداد في حال اختيار الجلسة
-                                            if (isSelected && allocInfo != null) {
-                                                Spacer(modifier = Modifier.height(6.dp))
-                                                val (allocatedCash, allocatedDisc, remAfter) = allocInfo
-                                                val (badgeBg, badgeTextColor, badgeText) = when {
-                                                    parsedAmt <= 0.0 && parsedDisc <= 0.0 -> Triple(
-                                                        if (isDark) Color(0xFF202A30) else Color(0xFFEEEEEE),
-                                                        if (isDark) Color(0xFF94A3B8) else Color.DarkGray,
-                                                        "أدخل المبلغ لمعاينة التوزيع"
-                                                    )
-                                                    remAfter == 0.0 -> Triple(
-                                                        if (isDark) Color(0xFF11261B) else Color(0xFFE8F5E9),
-                                                        if (isDark) Color(0xFF4ADE80) else Color(0xFF2E7D32),
-                                                        if (allocatedDisc > 0.0) {
-                                                            "ستُسدد بالكامل (${Formatters.formatCurrency(allocatedCash, currencySymbol)} نقد + ${Formatters.formatCurrency(allocatedDisc, currencySymbol)} خصم)"
-                                                        } else {
-                                                            "ستُسدد بالكامل (${Formatters.formatCurrency(allocatedCash, currencySymbol)})"
-                                                        }
-                                                    )
-                                                    allocatedCash > 0.0 || allocatedDisc > 0.0 -> Triple(
-                                                        if (isDark) Color(0xFF2A2010) else Color(0xFFFFF8E1),
-                                                        if (isDark) Color(0xFFFBBF24) else Color(0xFFF57F17),
-                                                        "سداد جزئي: ${Formatters.formatCurrency(allocatedCash, currencySymbol)}${if (allocatedDisc > 0.0) " + خصم ${Formatters.formatCurrency(allocatedDisc, currencySymbol)}" else ""} (متبقي: ${Formatters.formatCurrency(remAfter, currencySymbol)})"
-                                                    )
-                                                    else -> Triple(
-                                                        if (isDark) Color(0xFF2B1313) else Color(0xFFFFEBEE),
-                                                        if (isDark) Color(0xFFF87171) else Color(0xFFC62828),
-                                                        "لم يشملها المبلغ (المبلغ غير كافٍ)"
-                                                    )
-                                                }
-
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(badgeBg)
-                                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                                ) {
-                                                    Text(
-                                                        text = badgeText,
-                                                        fontSize = 11.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = badgeTextColor
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            }
-                        }
-                    }
-                } else {
+                // الجلسات غير المسددة تُسدد تلقائياً بالأقدمية عند الحفظ؛ هنا تنبيه فقط
+                if (unsettledSessions.isEmpty()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Box(
                         modifier = Modifier

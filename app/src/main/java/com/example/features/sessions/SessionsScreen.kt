@@ -133,7 +133,6 @@ fun SessionsScreen(
     var showAddManualSheet by remember { mutableStateOf(false) }
     var sessionToEdit by remember { mutableStateOf<WaterSession?>(null) }
     var sessionToDelete by remember { mutableStateOf<WaterSession?>(null) }
-    var sessionToSettle by remember { mutableStateOf<WaterSession?>(null) }
     var defaultCustomerIdForForm by remember { mutableStateOf<Long?>(null) }
     var messageTargetSession by remember { mutableStateOf<Triple<WaterSession, Customer, Customer?>?>(null) }
     var messageTargetCustom by remember { mutableStateOf<Triple<Customer, String, String>?>(null) }
@@ -352,9 +351,6 @@ fun SessionsScreen(
                                 messageTargetSession = Triple(item.session, c, item.billedToCustomer)
                             }
                         },
-                        onSettleClick = {
-                            sessionToSettle = item.session
-                        },
                         onShareVoucher = { voucher ->
                             item.customer?.let { c ->
                                 val waMsg = MessageFormatHelper.buildReceiptVoucher(voucher, c, item.session.id, config, isSms = false)
@@ -486,32 +482,12 @@ fun SessionsScreen(
                     messageTargetSession = Triple(s, c, item.billedToCustomer)
                 }
             },
-            onSettle = if (s.remainingDebt > 0) {
-                {
-                    sessionForDetails = null
-                    sessionToSettle = s
-                }
-            } else null,
             onShareVoucher = { v ->
                 if (c != null) {
                     val waMsg = MessageFormatHelper.buildReceiptVoucher(v, c, s.id, config, isSms = false)
                     val smsMsg = MessageFormatHelper.buildReceiptVoucher(v, c, s.id, config, isSms = true)
                     messageTargetCustom = Triple(c, waMsg, smsMsg)
                 }
-            }
-        )
-    }
-
-    // Settle Session Debt Dialog
-    sessionToSettle?.let { session ->
-        val cust = customers.find { it.id == session.customerId }
-        SettleSessionDialog(
-            session = session,
-            customerName = cust?.name ?: "عميل غير محدد",
-            currencySymbol = config.currencySymbol,
-            onDismiss = { sessionToSettle = null },
-            onConfirmSettle = { amt, discount, method, notes ->
-                viewModel.settleSessionDebt(session, amt, method, notes, discount)
             }
         )
     }
