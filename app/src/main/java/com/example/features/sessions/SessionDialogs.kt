@@ -616,11 +616,19 @@ fun AddEditSessionBottomSheet(
             } else {
                 overnightNotice = null
             }
+        } else {
+            // duration cleared: times the duration filled go back to unset; times the user picked stay
+            if (startAuto) { startPicked = false; startAuto = false }
+            if (endAuto) { endPicked = false; endAuto = false }
+            if (!startPicked || !endPicked) overnightNotice = null
         }
     }
 
     // من / إلى changed (or voice): show the new duration unless the fields already say the same total
-    LaunchedEffect(startCal.timeInMillis, endCal.timeInMillis) {
+    LaunchedEffect(startCal.timeInMillis, endCal.timeInMillis, startPicked, endPicked) {
+        // a new form's hidden default times, and times the duration itself filled (تلقائي), must not rewrite the typed duration
+        if (isNewEmpty && !(startPicked && endPicked)) return@LaunchedEffect
+        if (startAuto && endAuto) return@LaunchedEffect
         val shown = (manualHoursStr.toIntOrNull() ?: 0) * 60 + (manualMinutesStr.toIntOrNull() ?: 0)
         val gross = ((endCal.timeInMillis - startCal.timeInMillis) / 60000L).toInt()
         if (gross > 0 && gross != shown) {

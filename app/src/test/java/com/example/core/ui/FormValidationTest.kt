@@ -36,4 +36,13 @@ class FormValidationTest {
         assertEquals(F.END, r)
         assertNull(firstMissingField(F.END to hasTimeInput(false, false, 120)))
     }
+
+    @Test
+    fun clearedDurationWithUnpickedTimesIsNoTime() {
+        // after the duration is cleared the auto times are reset to unpicked
+        assertEquals(false, hasTimeInput(false, false, 0))
+        assertEquals(F.END, firstMissingField(F.END to hasTimeInput(false, false, 0)))
+        // user-picked times keep the duration alive
+        assertEquals(true, hasTimeInput(true, true, 90))
+    }
 }

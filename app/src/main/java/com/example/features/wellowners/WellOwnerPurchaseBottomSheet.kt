@@ -473,7 +473,11 @@ fun WellOwnerPurchaseBottomSheet(
     }
     val scope = rememberCoroutineScope()
     fun fillStartFromDuration(totalMinutes: Int) {
-        if ((startPicked && !startAuto) || totalMinutes <= 0) return
+        if (startPicked && !startAuto) return
+        if (totalMinutes <= 0) { // duration cleared: the time it filled goes back to unset
+            if (startAuto) { startPicked = false; startAuto = false }
+            return
+        }
         val c = Calendar.getInstance().apply {
             timeInMillis = sessionStartFromDuration(System.currentTimeMillis(), totalMinutes)
         }
