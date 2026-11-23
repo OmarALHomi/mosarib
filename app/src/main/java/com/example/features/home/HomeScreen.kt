@@ -950,6 +950,7 @@ fun HomeScreen(
             owner = null,
             availableOwners = wellOwners,
             currencySymbol = config.currencySymbol,
+            onCreateCustomer = { customer -> sessionsViewModel.createCustomer(customer) },
             onDismiss = {
                 showAddPurchaseSheet = false
                 activeVoiceCommand = null

@@ -27,6 +27,14 @@ import com.example.core.ui.MosaribMenu
 import com.example.core.ui.MosaribMenuItem
 import com.example.core.ui.MosaribMenuDivider
 import com.example.core.ui.MosaribPrimaryButton
+import com.example.core.ui.REQUIRED_FIELD_TEXT
+import com.example.core.ui.RequiredFieldText
+import com.example.core.ui.firstMissingField
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import com.example.core.ui.MosaribSecondaryButton
 import com.example.core.ui.DialogTone
 import com.example.ui.theme.mosarib
@@ -272,7 +280,9 @@ data class SessionFormSnapshot(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+private enum class SessionField { CUSTOMER, START, END, DURATION, PRICE, WASTE }
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun AddEditSessionBottomSheet(
     initialSession: WaterSession? = null,
@@ -394,15 +404,21 @@ fun AddEditSessionBottomSheet(
     val legacyPumpName = initialSession?.pumpName.orEmpty()
 
     val selectedCustomer = customers.find { it.id == selectedCustomerId }
+    // A brand-new form (no edit, no voice prefill) opens empty: price, من, إلى and the duration are required.
+    val isNewEmpty = initialSession == null && voiceCommand == null
     val initialPrice = voiceCommand?.ratePerHour
         ?: initialSession?.pricePerHour
         ?: selectedCustomer?.takeUnless { it.isWellOwner }?.customPricePerHour
-        ?: defaultPricePerHour
+        ?: (if (isNewEmpty) null else defaultPricePerHour)
 
-    var pricePerHourStr by remember(initialPrice) { mutableStateOf(Formatters.formatAmountInput(initialPrice.toString())) }
-    val pricePerHour by remember {
-        derivedStateOf { Formatters.parseAmountInput(pricePerHourStr).takeIf { it > 0 } ?: defaultPricePerHour }
+    var pricePerHourStr by remember(initialPrice) {
+        mutableStateOf(initialPrice?.let { Formatters.formatAmountInput(it.toString()) } ?: "")
     }
+    val pricePerHour by remember { derivedStateOf { Formatters.parseAmountInput(pricePerHourStr) } }
+    // Picking a customer fills his saved price; without one a new form keeps what is typed, edit/voice keep the old default.
+    fun priceTextFor(customerPrice: Double?): String =
+        if (customerPrice == null && isNewEmpty) pricePerHourStr
+        else Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
 
     // Purchases from well owners are recorded independently in the owner account.
     val historicalCostPricePerHour = initialSession?.costPricePerHour ?: 0.0
@@ -433,6 +449,12 @@ fun AddEditSessionBottomSheet(
     var endMinute by remember(initialSession?.id, formKey) { mutableIntStateOf((defaultEndCal.get(Calendar.MINUTE) / 5) * 5) }
 
     val initialVoiceDuration = voiceCommand?.durationMinutes
+    // false until the user (or a duration) sets the time; a new form starts with both unset
+    var startPicked by remember(initialSession?.id, formKey) { mutableStateOf(!isNewEmpty) }
+    var endPicked by remember(initialSession?.id, formKey) { mutableStateOf(!isNewEmpty) }
+    // set by the duration fields, not by the user: the next duration edit may move it again
+    var startAuto by remember { mutableStateOf(false) }
+    var endAuto by remember { mutableStateOf(false) }
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
@@ -446,6 +468,8 @@ fun AddEditSessionBottomSheet(
         mutableStateOf(
             if (initialVoiceDuration != null) {
                 (initialVoiceDuration / 60).toString()
+            } else if (isNewEmpty) {
+                ""
             } else {
                 (initialDurationMins / 60).let { if (it > 0) it.toString() else "1" }
             }
@@ -455,6 +479,8 @@ fun AddEditSessionBottomSheet(
         mutableStateOf(
             if (initialVoiceDuration != null) {
                 (initialVoiceDuration % 60).let { if (it > 0) it.toString() else "" }
+            } else if (isNewEmpty) {
+                ""
             } else {
                 (initialDurationMins % 60).let { if (it > 0) it.toString() else "" }
             }
@@ -468,7 +494,7 @@ fun AddEditSessionBottomSheet(
     }
     var overnightNotice by remember {
         mutableStateOf<String?>(
-            if (isInitiallyOvernight && isEndDayAfterStartDay(startDateMillis, endDateMillis)) {
+            if (!isNewEmpty && isInitiallyOvernight && isEndDayAfterStartDay(startDateMillis, endDateMillis)) {
                 "ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
             } else null
         )
@@ -553,7 +579,29 @@ fun AddEditSessionBottomSheet(
         val m = mStr.toIntOrNull() ?: 0
         val totalM = (h * 60) + m
         if (totalM > 0) {
-            val newEndCal = Calendar.getInstance().apply { timeInMillis = sessionEndMillis(startCal.timeInMillis, totalM) }
+            val startExplicit = startPicked && !startAuto
+            val endExplicit = endPicked && !endAuto
+            var startMs = startCal.timeInMillis
+            if (!startExplicit) {
+                // only the end was chosen: start = end - duration; nothing chosen: the session ended just now
+                startMs = (if (endExplicit) endCal.timeInMillis else System.currentTimeMillis()) - totalM * 60000L
+                val sc = Calendar.getInstance().apply { timeInMillis = startMs; set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }
+                startMs = sc.timeInMillis
+                startDateMillis = startMs
+                startHour = sc.get(Calendar.HOUR_OF_DAY)
+                startMinute = sc.get(Calendar.MINUTE)
+                startPicked = true
+                startAuto = true
+                if (endExplicit) {
+                    overnightNotice = if (isEndDayAfterStartDay(startDateMillis, endDateMillis)) {
+                        "ينتهي السقي في اليوم التالي (${Formatters.formatDate(endDateMillis)})"
+                    } else null
+                    return
+                }
+            }
+            endPicked = true
+            endAuto = true
+            val newEndCal = Calendar.getInstance().apply { timeInMillis = sessionEndMillis(startMs, totalM) }
             endDateMillis = newEndCal.timeInMillis
             endHour = newEndCal.get(Calendar.HOUR_OF_DAY)
             endMinute = newEndCal.get(Calendar.MINUTE)
@@ -584,9 +632,11 @@ fun AddEditSessionBottomSheet(
     fun onStartTimeChanged(newHour: Int, newMinute: Int) {
         startHour = newHour
         startMinute = newMinute
+        startPicked = true
+        startAuto = false
         val startTotal = newHour * 60 + newMinute
         val endTotal = endHour * 60 + endMinute
-        if (endTotal < startTotal) {
+        if (endPicked && endTotal < startTotal) {
             val nextDayCal = Calendar.getInstance().apply {
                 timeInMillis = startDateMillis
                 add(Calendar.DAY_OF_YEAR, 1)
@@ -604,9 +654,11 @@ fun AddEditSessionBottomSheet(
     fun onEndTimeChanged(newHour: Int, newMinute: Int) {
         endHour = newHour
         endMinute = newMinute
+        endPicked = true
+        endAuto = false
         val startTotal = startHour * 60 + startMinute
         val endTotal = newHour * 60 + newMinute
-        if (endTotal < startTotal) {
+        if (startPicked && endTotal < startTotal) {
             val nextDayCal = Calendar.getInstance().apply {
                 timeInMillis = startDateMillis
                 add(Calendar.DAY_OF_YEAR, 1)
@@ -625,8 +677,9 @@ fun AddEditSessionBottomSheet(
 
     // حساب المدة الإجمالية بالدقائق بين تاريخين ووقتين (الحد الأقصى المسموح به 10 أيام = 240 ساعة)
     val MAX_SESSION_MINUTES = 10 * 24 * 60
-    val grossMinutes by remember(startCal.timeInMillis, endCal.timeInMillis) {
+    val grossMinutes by remember(startCal.timeInMillis, endCal.timeInMillis, startPicked, endPicked) {
         derivedStateOf {
+            if (!startPicked || !endPicked) return@derivedStateOf 0
             val diffMs = endCal.timeInMillis - startCal.timeInMillis
             if (diffMs > 0) (diffMs / 60000L).toInt() else 60
         }
@@ -813,6 +866,9 @@ fun AddEditSessionBottomSheet(
     var showAddCustomerSheet by remember { mutableStateOf(false) }
     var customerSaveError by remember { mutableStateOf<String?>(null) }
     var showWastedDetails by remember { mutableStateOf(wastedTotalMinutes > 0) }
+    var showExtraOptions by remember {
+        mutableStateOf(wastedTotalMinutes > 0 || discountAmount > 0 || billedToCustomerId != null || notes.isNotBlank())
+    }
     var showDiscountDetails by remember { mutableStateOf(discountAmount > 0) }
 
     val currentSnapshot = SessionFormSnapshot.from(
@@ -839,7 +895,42 @@ fun AddEditSessionBottomSheet(
     val trimmedInput = customerInputText.trim()
     val matchedCust = customers.find { it.name.trim().equals(trimmedInput, ignoreCase = true) }
     val finalCustId = if (selectedCustomerId > 0) selectedCustomerId else (matchedCust?.id ?: 0L)
-    val canSaveSession = finalCustId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes
+
+    // Save is always enabled: the first missing field (screen order) is scrolled to, shown in red and focused.
+    var errorField by remember { mutableStateOf<SessionField?>(null) }
+    var errorTick by remember { mutableIntStateOf(0) }
+    var customerOpenSignal by remember { mutableIntStateOf(0) }
+    val customerReq = remember { BringIntoViewRequester() }
+    val startReq = remember { BringIntoViewRequester() }
+    val endReq = remember { BringIntoViewRequester() }
+    val durationReq = remember { BringIntoViewRequester() }
+    val priceReq = remember { BringIntoViewRequester() }
+    val wasteReq = remember { BringIntoViewRequester() }
+    val priceFocus = remember { FocusRequester() }
+    val customerErr = errorField == SessionField.CUSTOMER && finalCustId <= 0L
+    val startErr = errorField == SessionField.START && !startPicked
+    val endErr = errorField == SessionField.END && !endPicked
+    val priceErr = errorField == SessionField.PRICE && pricePerHour <= 0
+    fun firstMissing(): SessionField? = firstMissingField(
+        SessionField.CUSTOMER to (finalCustId > 0L),
+        SessionField.START to startPicked,
+        SessionField.END to endPicked,
+        SessionField.DURATION to (grossMinutes in 1..MAX_SESSION_MINUTES),
+        SessionField.PRICE to (pricePerHour > 0),
+        SessionField.WASTE to (wastedTotalMinutes <= grossMinutes)
+    )
+    LaunchedEffect(errorTick) {
+        if (errorTick == 0) return@LaunchedEffect
+        when (errorField) {
+            SessionField.CUSTOMER -> { customerReq.bringIntoView(); customerOpenSignal++ }
+            SessionField.START -> { startReq.bringIntoView(); showStartTimePicker = true }
+            SessionField.END -> { endReq.bringIntoView(); showEndTimePicker = true }
+            SessionField.DURATION -> durationReq.bringIntoView()
+            SessionField.PRICE -> { priceReq.bringIntoView(); priceFocus.requestFocus() }
+            SessionField.WASTE -> { showExtraOptions = true; delay(150); wasteReq.bringIntoView() }
+            null -> Unit
+        }
+    }
 
     var showSaveConfirm by remember { mutableStateOf(false) }
     val performSave = {
@@ -920,15 +1011,18 @@ fun AddEditSessionBottomSheet(
                         return@MosaribPrimaryButton
                     }
 
-                    if (finalCustId > 0 && grossMinutes in 1..MAX_SESSION_MINUTES && wastedTotalMinutes <= grossMinutes) {
-                        if (endCal.timeInMillis < startCal.timeInMillis) {
-                            Toast.makeText(context, "لا يمكن اختيار تاريخ أو وقت انتهاء قبل تاريخ ووقت البدء", Toast.LENGTH_SHORT).show()
-                            return@MosaribPrimaryButton
-                        }
-                        if ((initialSession?.id ?: 0L) == 0L) showSaveConfirm = true else performSave()
+                    val missing = firstMissing()
+                    if (missing != null) {
+                        errorField = missing
+                        errorTick++
+                        return@MosaribPrimaryButton
                     }
+                    if (endCal.timeInMillis < startCal.timeInMillis) {
+                        Toast.makeText(context, "لا يمكن اختيار تاريخ أو وقت انتهاء قبل تاريخ ووقت البدء", Toast.LENGTH_SHORT).show()
+                        return@MosaribPrimaryButton
+                    }
+                    if ((initialSession?.id ?: 0L) == 0L) showSaveConfirm = true else performSave()
                 },
-                enabled = canSaveSession,
                 modifier = Modifier.weight(1f).guideTarget("session_save")
             )
             MosaribSecondaryButton(
@@ -973,7 +1067,7 @@ fun AddEditSessionBottomSheet(
                         selectedCustomerId = c.id
                         customerInputText = c.name
                         val customerPrice = if (c.isWellOwner) null else c.customPricePerHour
-                        pricePerHourStr = Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
+                        pricePerHourStr = priceTextFor(customerPrice)
                     },
                     onAddNew = {
                         customerSaveError = null
@@ -981,7 +1075,10 @@ fun AddEditSessionBottomSheet(
                         showQuickCustomerDialog = true
                     },
                     trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("customer") }, modifier = Modifier.guideTarget("session_mic")) },
+                    errorText = if (customerErr) REQUIRED_FIELD_TEXT else null,
+                    openSignal = customerOpenSignal,
                     modifier = Modifier
+                        .bringIntoViewRequester(customerReq)
                         .guideTarget("session_customer")
                         .testTag("session_customer_picker")
                 )
@@ -1026,9 +1123,10 @@ fun AddEditSessionBottomSheet(
                                 Surface(
                                     modifier = Modifier
                                         .weight(1f)
+                                        .bringIntoViewRequester(startReq)
                                         .clip(RoundedCornerShape(12.dp)),
                                     color = MaterialTheme.colorScheme.surface,
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                    border = if (startErr) BorderStroke(1.5.dp, Color(0xFFE53935)) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Column(modifier = Modifier.padding(8.dp)) {
@@ -1047,8 +1145,9 @@ fun AddEditSessionBottomSheet(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
-                                                text = Formatters.formatClockTimeArabic(startHour, startMinute),
-                                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                                                text = if (startPicked) Formatters.formatClockTimeArabic(startHour, startMinute) else "اختر الوقت",
+                                                style = if (startPicked) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                                                else MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color.Gray)
                                             )
                                         }
                                         Spacer(modifier = Modifier.height(2.dp))
@@ -1068,6 +1167,7 @@ fun AddEditSessionBottomSheet(
                                                 style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
                                             )
                                         }
+                                        RequiredFieldText(startErr)
                                     }
                                 }
 
@@ -1082,9 +1182,10 @@ fun AddEditSessionBottomSheet(
                                 Surface(
                                     modifier = Modifier
                                         .weight(1f)
+                                        .bringIntoViewRequester(endReq)
                                         .clip(RoundedCornerShape(12.dp)),
                                     color = MaterialTheme.colorScheme.surface,
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                    border = if (endErr) BorderStroke(1.5.dp, Color(0xFFE53935)) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Column(modifier = Modifier.padding(8.dp)) {
@@ -1103,8 +1204,9 @@ fun AddEditSessionBottomSheet(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
-                                                text = Formatters.formatClockTimeArabic(endHour, endMinute),
-                                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                                                text = if (endPicked) Formatters.formatClockTimeArabic(endHour, endMinute) else "اختر الوقت",
+                                                style = if (endPicked) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                                                else MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color.Gray)
                                             )
                                         }
                                         Spacer(modifier = Modifier.height(2.dp))
@@ -1132,6 +1234,7 @@ fun AddEditSessionBottomSheet(
                                                 )
                                             )
                                         }
+                                        RequiredFieldText(endErr)
                                     }
                                 }
                             }
@@ -1176,7 +1279,7 @@ fun AddEditSessionBottomSheet(
                     Spacer(modifier = Modifier.height(8.dp))
                     // المدة قابلة للتعديل: تغييرها يحرّك «إلى» = «من» + المدة
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().bringIntoViewRequester(durationReq),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1241,6 +1344,7 @@ fun AddEditSessionBottomSheet(
             }
 
 
+            val summaryReady = grossMinutes > 0 && pricePerHour > 0
             // الواصل (المدفوع الآن)
             val isFullPaid = finalFarmerCharge > 0 && amountPaid >= finalFarmerCharge
             val excessAmount = if (!isBilledToWellOwner && amountPaid > finalFarmerCharge && finalFarmerCharge > 0) {
@@ -1253,11 +1357,14 @@ fun AddEditSessionBottomSheet(
                 verticalAlignment = Alignment.Top
             ) {
             // سعر الساعة (مباشرة تحت تحديد الساعات بتصميم أخف وأصغر وبحواشي مقللة)
-            Column(modifier = Modifier.weight(1f).guideTarget("session_price")) {
+            Column(modifier = Modifier.weight(1f).bringIntoViewRequester(priceReq).guideTarget("session_price")) {
                 MosaribTextField(
                     value = pricePerHourStr,
                     onValueChange = { pricePerHourStr = Formatters.formatAmountInput(it) },
                     label = "سعر الساعة *",
+                    placeholder = "مثلاً ${Formatters.formatAmountInput(defaultPricePerHour.toString())}",
+                    errorText = if (priceErr) REQUIRED_FIELD_TEXT else null,
+                    focusRequester = priceFocus,
                     trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("price") }) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     isDense = true,
@@ -1448,7 +1555,7 @@ fun AddEditSessionBottomSheet(
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("المطلوب", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
-                                Text(Formatters.formatCurrency(finalFarmerCharge, currencySymbol), style = MaterialTheme.typography.titleMedium.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold))
+                                Text(if (summaryReady) Formatters.formatCurrency(finalFarmerCharge, currencySymbol) else "—", style = MaterialTheme.typography.titleMedium.copy(color = PrimaryTeal, fontWeight = FontWeight.ExtraBold))
                                 if (finalFarmerCharge > 0) {
                                     Text(
                                         Formatters.amountToArabicWords(finalFarmerCharge, currencySymbol),
@@ -1465,7 +1572,7 @@ fun AddEditSessionBottomSheet(
                                     )
                                 )
                                 Text(
-                                    if (remainingDebt > 0) Formatters.formatCurrency(remainingDebt, currencySymbol) else "خالص",
+                                    if (!summaryReady) "—" else if (remainingDebt > 0) Formatters.formatCurrency(remainingDebt, currencySymbol) else "خالص",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         color = if (remainingDebt > 0) MaterialTheme.mosarib.debt else AccentEmerald,
                                         fontWeight = FontWeight.ExtraBold
@@ -1543,10 +1650,6 @@ fun AddEditSessionBottomSheet(
             }
 
             // بطاقة منسدلة في الأخير: خيارات إضافية (الوقت المهدور والخصم)
-            var showExtraOptions by remember {
-                mutableStateOf(wastedTotalMinutes > 0 || discountAmount > 0 || billedToCustomerId != null || notes.isNotBlank())
-            }
-
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1829,6 +1932,7 @@ fun AddEditSessionBottomSheet(
                         if (wastedTotalMinutes > grossMinutes && grossMinutes > 0) {
                             Spacer(modifier = Modifier.height(6.dp))
                             Surface(
+                                modifier = Modifier.bringIntoViewRequester(wasteReq),
                                 shape = RoundedCornerShape(8.dp),
                                 color = MaterialTheme.mosarib.debt.copy(alpha = 0.12f),
                                 border = BorderStroke(1.dp, MaterialTheme.mosarib.debt.copy(alpha = 0.4f))
@@ -2051,9 +2155,7 @@ fun AddEditSessionBottomSheet(
                     }.onSuccess { customerId ->
                         selectedCustomerId = customerId
                         val salePrice = if (isWellOwner) null else customPrice
-                        pricePerHourStr = Formatters.formatAmountInput(
-                            (salePrice ?: defaultPricePerHour).toString()
-                        )
+                        pricePerHourStr = priceTextFor(salePrice)
                         customerSaveError = null
                     }.onFailure { error ->
                         customerSaveError = error.localizedMessage ?: "تعذرت إضافة العميل"
@@ -2188,7 +2290,7 @@ fun AddEditSessionBottomSheet(
                                         selectedCustomerId = newId
                                         customerInputText = quickName.trim()
                                         val customerPrice = if (quickIsWellOwner) null else newCustomer.customPricePerHour
-                                        pricePerHourStr = Formatters.formatAmountInput((customerPrice ?: defaultPricePerHour).toString())
+                                        pricePerHourStr = priceTextFor(customerPrice)
                                         showQuickCustomerDialog = false
                                         Toast.makeText(context, "تم حفظ وتحديد: ${quickName.trim()}", Toast.LENGTH_SHORT).show()
                                     } catch (e: Exception) {
