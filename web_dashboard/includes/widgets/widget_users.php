@@ -1,42 +1,24 @@
-  <div id="tab-users">
-    <div class="card" id="expiringCard" style="margin-bottom: 20px;">
-      <div class="toolbar">
-        <div class="card-title" style="margin-bottom: 0;">اشتراكات تنتهي قريباً <span class="badge badge-blocked" id="expiringCountBadge" style="margin-right:6px;">0</span></div>
-        <div class="pill-filter" style="margin: 0;">
-          <button class="pill-filter-btn exp-pill active" data-days="7" onclick="setExpiringFilter(7)">7 أيام</button>
-          <button class="pill-filter-btn exp-pill" data-days="15" onclick="setExpiringFilter(15)">15 يوماً</button>
-          <button class="pill-filter-btn exp-pill" data-days="30" onclick="setExpiringFilter(30)">30 يوماً</button>
-          <button class="pill-filter-btn exp-pill" data-days="-1" onclick="setExpiringFilter(-1)">منتهية</button>
-        </div>
-      </div>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr><th>المشترك</th><th>الهاتف</th><th>الباقة</th><th>نهاية الاشتراك</th><th>المتبقي</th><th>تواصل</th></tr>
-          </thead>
-          <tbody id="expiringTableBody"><tr><td colspan="6" style="text-align:center; color:var(--text-muted);">جاري التحميل...</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-
+  <div id="tab-users" style="display: none;">
     <div class="card">
       <div class="toolbar">
-        <div class="card-title" style="margin-bottom: 0;">قائمة مستخدمي التطبيق ومراقبة الأجهزة</div>
-        <div style="display: flex; gap: 10px;">
-          <input type="text" class="search-input" id="userSearch" placeholder="بحث بحساب جوجل، الكود، الموديل..." oninput="filterUsers()">
-          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="loadFirebaseData()">تحديث</button>
-          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="exportUsersCSV()">تصدير CSV</button>
+        <div class="card-title" style="margin-bottom: 0;">المستخدمون</div>
+        <div class="toolbar-actions">
+          <input type="search" class="search-input" id="userSearch" placeholder="بحث بالاسم، البريد، الهاتف، الكود، الموديل..." oninput="filterUsers()">
+          <button class="btn btn-outline btn-compact" onclick="loadFirebaseData()">تحديث</button>
+          <button class="btn btn-outline btn-compact" onclick="exportUsersCSV()">تصدير CSV</button>
         </div>
       </div>
 
       <!-- Quick Filter Pills -->
-      <div class="pill-filter">
+      <div class="pill-filter" id="userFilterChips">
         <button class="pill-filter-btn active" id="filterAll" onclick="setUserFilter('ALL')">الكل (<span id="countFilterAll">0</span>)</button>
-        <button class="pill-filter-btn" id="filterActive" onclick="setUserFilter('ACTIVE')">المشتركون النشطون (<span id="countFilterActive">0</span>)</button>
-        <button class="pill-filter-btn" id="filterTrial" onclick="setUserFilter('TRIAL')">النسخ التجريبية (<span id="countFilterTrial">0</span>)</button>
+        <button class="pill-filter-btn" id="filterActive" onclick="setUserFilter('ACTIVE')">مشتركون (<span id="countFilterActive">0</span>)</button>
+        <button class="pill-filter-btn" id="filterTrial" onclick="setUserFilter('TRIAL')">تجريبي (<span id="countFilterTrial">0</span>)</button>
+        <button class="pill-filter-btn" id="filterExpired" onclick="setUserFilter('EXPIRED')">منتهٍ (<span id="countFilterExpired">0</span>)</button>
+        <button class="pill-filter-btn" id="filterBlocked" onclick="setUserFilter('BLOCKED')">محظور (<span id="countFilterBlocked">0</span>)</button>
+        <button class="pill-filter-btn" id="filterToday" onclick="setUserFilter('TODAY')">نشطون اليوم (<span id="countFilterToday">0</span>)</button>
         <button class="pill-filter-btn" id="filterLocked" onclick="setUserFilter('LOCKED')">تجاوزوا الحد (<span id="countFilterLocked">0</span>)</button>
-        <button class="pill-filter-btn" id="filterBackupLocked" onclick="setUserFilter('BACKUP_LOCKED')">معطل نسخهم الاحتياطي (<span id="countFilterBackupLocked">0</span>)</button>
-        <button class="pill-filter-btn" id="filterBlocked" onclick="setUserFilter('BLOCKED')">المحظورون (<span id="countFilterBlocked">0</span>)</button>
+        <button class="pill-filter-btn" id="filterBackupLocked" onclick="setUserFilter('BACKUP_LOCKED')">النسخ معطّل (<span id="countFilterBackupLocked">0</span>)</button>
         <button class="pill-filter-btn" id="filterDeleted" onclick="setUserFilter('DELETED')">المحذوفون (<span id="countFilterDeleted">0</span>)</button>
       </div>
 
@@ -59,24 +41,23 @@
         </div>
       </div>
 
-      <div class="table-container" id="usersTableContainer">
-        <table>
+      <div class="table-container sticky-head" id="usersTableContainer">
+        <table class="rtable">
           <thead>
             <tr>
               <th style="width:28px;"><input type="checkbox" id="usersSelectAll" style="width:auto;" onclick="event.stopPropagation(); toggleSelectAllUsers(this.checked)"></th>
-              <th>حساب Google / الاسم</th>
-              <th>كود الجهاز والموديل</th>
-              <th>سعر الساعة للمسرب</th>
+              <th>المستخدم</th>
+              <th>الجهاز</th>
               <th>الحالة</th>
-              <th>الباقة والاشتراك</th>
-              <th>رصيد العمليات والحد</th>
-              <th>النسخ الاحتياطي</th>
+              <th>العمليات المتبقية</th>
               <th>آخر ظهور</th>
-              <th>إجراءات التحكم</th>
+              <th class="col-actions">إجراءات</th>
             </tr>
           </thead>
           <tbody id="usersTableBody">
-            <tr><td colspan="10" style="text-align: center; color: var(--text-muted);">جاري تحميل قائمة المستخدمين من السحابة...</td></tr>
+            <tr class="skeleton-row"><td colspan="7"><div class="skeleton"></div></td></tr>
+            <tr class="skeleton-row"><td colspan="7"><div class="skeleton"></div></td></tr>
+            <tr class="skeleton-row"><td colspan="7"><div class="skeleton"></div></td></tr>
           </tbody>
         </table>
       </div>

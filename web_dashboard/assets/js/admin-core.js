@@ -131,24 +131,43 @@
   let currentUserFilter = 'ALL';
   let currentRequestFilter = 'PENDING';
 
+  // Navigation: 5 sections. Every old tab id still works; tabs that are not Home/Requests/Users/Subs live under Settings.
+  const ALL_TABS = ['analytics', 'requests', 'users', 'subs', 'releases', 'policies', 'push', 'broadcast', 'generator', 'feedbacks', 'admins', 'publicPortal'];
+  const TAB_SECTION = { analytics: 'home', requests: 'requests', users: 'users', subs: 'subs' };
+
   function switchTab(tabId) {
+    if (!ALL_TABS.includes(tabId)) tabId = 'analytics';
     try {
       sessionStorage.setItem('mosarib_active_tab', tabId);
+      localStorage.setItem('mosarib_admin_tab', tabId);
       if (window.history && window.history.replaceState) {
         window.history.replaceState(null, null, `#${tabId}`);
       }
     } catch (_) {}
 
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    ['analytics', 'requests', 'users', 'releases', 'policies', 'push', 'broadcast', 'generator', 'feedbacks', 'admins', 'publicPortal'].forEach(id => {
+    const section = TAB_SECTION[tabId] || 'settings';
+    document.querySelectorAll('[data-section]').forEach(b => {
+      const on = b.dataset.section === section;
+      b.classList.toggle('active', on);
+      if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
+    document.querySelectorAll('#settingsSubtabs [data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === (tabId === 'broadcast' ? 'push' : tabId)));
+    const sub = document.getElementById('settingsSubtabs');
+    if (sub) sub.style.display = section === 'settings' ? 'flex' : 'none';
+    const homeTop = document.getElementById('homeTop');
+    if (homeTop) homeTop.style.display = section === 'home' ? 'block' : 'none';
+
+    ALL_TABS.forEach(id => {
       const el = document.getElementById(`tab-${id}`);
       if (el) el.style.display = 'none';
     });
-
-    const targetEl = document.getElementById(`tab-${tabId}`);
-    if (targetEl) targetEl.style.display = 'block';
-    const activeBtn = document.getElementById(`tabBtn${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
-    if (activeBtn) activeBtn.classList.add('active');
+    // Notifications and in-app broadcast share one sub-tab
+    const shown = (tabId === 'push' || tabId === 'broadcast') ? ['push', 'broadcast'] : [tabId];
+    shown.forEach(id => {
+      const el = document.getElementById(`tab-${id}`);
+      if (el) el.style.display = 'block';
+    });
+    closeRowMenu();
 
     if (tabId === 'releases') {
       loadReleasesList();
@@ -158,8 +177,10 @@
       loadAdminsList();
     } else if (tabId === 'publicPortal') {
       loadPortalSettingsForAdmin();
-    } else if (tabId === 'push') {
+    } else if (tabId === 'push' || tabId === 'broadcast') {
       loadFcmEngineStatus();
+    } else if (tabId === 'subs') {
+      renderSubscriptionsList();
     }
   }
 
@@ -1391,6 +1412,13 @@
     const expEl = document.getElementById("statExpiringSoon");
     if (expEl && typeof expiringSubscriptions === 'function') expEl.innerText = expiringSubscriptions(7).length;
 
+    // Home KPI cards (task 067), computed from the lists already loaded
+    const setKpi = (id, n) => { const el = document.getElementById(id); if (el) el.innerText = n; };
+    setKpi('kpiHomePending', pendingReqs);
+    setKpi('kpiHomeActive', activeLic);
+    setKpi('kpiHomeExpiring', typeof expiringSubscriptions === 'function' ? expiringSubscriptions(7).length : 0);
+    setKpi('kpiHomeToday', allUsers.filter(isActiveToday).length);
+
     const badge = document.getElementById("badgeReqCount");
     if (badge) {
       if (pendingReqs > 0) {
@@ -1758,7 +1786,7 @@
 
   function setUserFilter(filter) {
     currentUserFilter = filter;
-    document.querySelectorAll('.pill-filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#userFilterChips .pill-filter-btn').forEach(b => b.classList.remove('active'));
     const btn = document.getElementById(`filter${filter.charAt(0) + filter.slice(1).toLowerCase().replace(/_([a-z])/g, (_, l) => l.toUpperCase())}`);
     if (btn) btn.classList.add('active');
     filterUsers();
@@ -1767,14 +1795,14 @@
   function renderUsersTable(users) {
     const tbody = document.getElementById("usersTableBody");
     if (!users || users.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-muted);">لا يوجد مستخدمون مسجلون بعد (سيظهر كل من يفتح التطبيق هنا تلقائياً)</td></tr>`;
+      tbody.innerHTML = emptyRow(7, 'لا يوجد مستخدمون مسجلون بعد', 'سيظهر هنا كل من يفتح التطبيق تلقائياً');
       return;
     }
 
     const globalLimit = appConfig.freeOperationsLimit || 200;
 
     // Counters for pill filters
-    let countActive = 0, countTrial = 0, countLocked = 0, countBackupLocked = 0, countBlocked = 0;
+    let countActive = 0, countTrial = 0, countLocked = 0, countBackupLocked = 0, countBlocked = 0, countExpired = 0, countToday = 0;
     users.forEach(u => {
       const isBlocked = u.isBlocked === true;
       const isAct = u.isActivated === true && !isBlocked;
@@ -1785,9 +1813,12 @@
       const isLocked = !isAct && (ops >= limit || u.isLocked);
       const isBkLocked = override.isBackupLocked === true || (!isAct && appConfig.isBackupAllowedForTrial === false);
 
-      if (isBlocked) countBlocked++;
-      else if (isAct) countActive++;
+      const st = userStatus(u, devKey).kind;
+      if (st === 'blocked') countBlocked++;
+      else if (st === 'active') countActive++;
+      else if (st === 'expired') countExpired++;
       else countTrial++;
+      if (isActiveToday(u)) countToday++;
 
       if (isLocked) countLocked++;
       if (isBkLocked) countBackupLocked++;
@@ -1799,6 +1830,8 @@
     if (document.getElementById("countFilterLocked")) document.getElementById("countFilterLocked").innerText = countLocked;
     if (document.getElementById("countFilterBackupLocked")) document.getElementById("countFilterBackupLocked").innerText = countBackupLocked;
     if (document.getElementById("countFilterBlocked")) document.getElementById("countFilterBlocked").innerText = countBlocked;
+    if (document.getElementById("countFilterExpired")) document.getElementById("countFilterExpired").innerText = countExpired;
+    if (document.getElementById("countFilterToday")) document.getElementById("countFilterToday").innerText = countToday;
 
     // Apply filter
     let filteredList = users.filter(u => {
@@ -1811,8 +1844,11 @@
       const isLocked = !isAct && (ops >= limit || u.isLocked);
       const isBkLocked = override.isBackupLocked === true || (!isAct && appConfig.isBackupAllowedForTrial === false);
 
-      if (currentUserFilter === 'ACTIVE') return isAct;
-      if (currentUserFilter === 'TRIAL') return !isAct && !isBlocked;
+      const stKind = userStatus(u, devKey).kind;
+      if (currentUserFilter === 'ACTIVE') return stKind === 'active';
+      if (currentUserFilter === 'TRIAL') return stKind === 'trial';
+      if (currentUserFilter === 'EXPIRED') return stKind === 'expired';
+      if (currentUserFilter === 'TODAY') return isActiveToday(u);
       if (currentUserFilter === 'LOCKED') return isLocked;
       if (currentUserFilter === 'BACKUP_LOCKED') return isBkLocked;
       if (currentUserFilter === 'BLOCKED') return isBlocked;
@@ -1835,7 +1871,7 @@
     filteredList.sort((a,b) => (b.lastActiveAt || 0) - (a.lastActiveAt || 0));
 
     if (filteredList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 20px;">لا توجد نتائج مطابقة للفلتر المختار</td></tr>`;
+      tbody.innerHTML = emptyRow(7, 'لا توجد نتائج مطابقة', 'غيّر الفلتر أو عبارة البحث');
       return;
     }
 
@@ -1849,90 +1885,59 @@
       const isOverLimit = !isAct && ops >= limit;
       const isDeviceBkLocked = override.isBackupLocked === true;
 
-      // Status Badge
-      let statusBadge;
-      if (isBlocked) statusBadge = `<span class="badge badge-blocked">محظور</span>`;
-      else if (isAct) statusBadge = `<span class="badge badge-active">مشترك مفعّل</span>`;
-      else if (isOverLimit) statusBadge = `<span class="badge badge-blocked"> تجاوز الحد (مقفل)</span>`;
-      else statusBadge = `<span class="badge badge-trial">⏳ تجريبي مجاني</span>`;
+      const st = userStatus(u, devKey);
+      const statusBadge = `<span class="chip chip-${st.kind}">${escapeHtml(st.label)}</span>`;
 
-      // Plan Badge
-      const planBadge = u.plan === "YEARLY" 
-        ? `<span class="badge badge-yearly">سنوي ⭐</span>` 
-        : (u.plan === "MONTHLY" ? `<span class="badge badge-monthly">شهري</span>` : `<span class="badge" style="background:#334155;color:#94a3b8;">تجربة</span>`);
+      // Remaining free operations
+      const remaining = Math.max(0, limit - ops);
+      const pct = Math.min(100, Math.round((ops / limit) * 100));
+      const barColor = ops >= limit ? "var(--danger)" : (pct >= 75 ? "var(--accent)" : "var(--primary-light)");
+      const customLimitNote = override.customOperationsLimit ? `<small class="cell-sub" style="color:var(--accent-text);">حد خاص: ${override.customOperationsLimit}</small>` : '';
+      const opsHtml = isAct
+        ? `<div><b>غير محدود</b><small class="cell-sub">${ops} عملية منفّذة</small></div>`
+        : `<div><b style="color:${remaining === 0 ? 'var(--danger-text)' : 'inherit'};">${remaining === 0 ? 'مقفل' : remaining}</b> <small class="cell-sub" style="display:inline;">من ${limit}</small>
+            <div class="ops-bar-container"><div class="ops-bar-fill" style="width: ${pct}%; background: ${barColor};"></div></div>${customLimitNote}</div>`;
 
-      // Operations Progress Bar
-      let pct = Math.min(100, Math.round((ops / limit) * 100));
-      let barColor = isAct ? "var(--success)" : (ops >= limit ? "var(--danger)" : (pct >= 75 ? "var(--accent)" : "var(--primary-light)"));
-      const customLimitNote = override.customOperationsLimit ? `<br><small style="color:var(--accent); font-weight:bold;">(حد خاص: ${override.customOperationsLimit})</small>` : '';
-      const opsHtml = isAct 
-        ? `<div><b>${ops}</b> عملية<br><small style="color:var(--success);">غير محدود (مشترك)</small></div>`
-        : `
-          <div>
-            <b>${ops}</b> / ${limit} عملية (${pct}%)${customLimitNote}
-            <div class="ops-bar-container">
-              <div class="ops-bar-fill" style="width: ${pct}%; background: ${barColor};"></div>
-            </div>
-          </div>
-        `;
-
-      // Backup Status Badge
-      let bkBadge;
-      if (isDeviceBkLocked) bkBadge = `<span class="badge badge-blocked" title="تم قفل النسخ لهذا الجهاز بالاسم">🚫 مقفول للجهاز</span>`;
-      else if (!isAct && appConfig.isBackupAllowedForTrial === false) bkBadge = `<span class="badge badge-trial" title="معطل عالمياً للمجانيين">معطل للكل</span>`;
-      else bkBadge = `<span class="badge badge-active">متاح</span>`;
-
-      const lastSeen = u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleString('en-US') : 'غير محدد';
+      const lastSeen = relativeTime(u.lastActiveAt);
+      const lastSeenFull = u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleString('en-US') : '';
       const userName = u.subscriberName || u.googleDisplayName || 'مستخدم مسرّب';
-      const userPhone = u.phone ? `<br><small style="color:#4ADE80; font-weight:600;">${escapeHtml(u.phone)}</small>` : '';
-      const googleInfo = u.googleEmail 
-        ? `<div><b>${escapeHtml(userName)}</b>${userPhone}<br><small style="color:#38BDF8;">${escapeHtml(u.googleEmail)}</small></div>`
-        : `<div><b>${escapeHtml(userName)}</b>${userPhone}<br><span style="color:#64748B; font-size:11px;">بدون بريد جوجل</span></div>`;
+      const userPhone = u.phone ? `<small class="cell-sub" style="color:var(--success-text);">${escapeHtml(u.phone)}</small>` : '';
+      const userMail = u.googleEmail ? `<small class="cell-sub">${escapeHtml(u.googleEmail)}</small>` : '';
+      const googleInfo = `<div><b>${escapeHtml(userName)}</b>${userPhone}${userMail}</div>`;
+      const bkNote = isDeviceBkLocked ? `<small class="cell-sub" style="color:var(--danger-text);" title="تم قفل النسخ لهذا الجهاز بالاسم">النسخ مقفول</small>` : '';
+      const priceNote = (u.pricePerHour || u.hourlyRate) ? `<small class="cell-sub">${Number(u.pricePerHour || u.hourlyRate).toLocaleString('ar-EG')} ريال/س</small>` : '';
+      const warningBadge = override.specialWarningMessage ? `<small class="cell-sub" style="color:var(--accent-text);">رسالة موجهة: ${escapeHtml(override.specialWarningMessage)}</small>` : '';
 
-      // Action Buttons
-      const blockBtn = isBlocked
-        ? `<button class="btn-sm btn-unblock" onclick="toggleBlockUser('${devKey}', '${u.googleEmail || ''}', false)">فك الحظر</button>`
-        : `<button class="btn-sm btn-block" onclick="toggleBlockUser('${devKey}', '${u.googleEmail || ''}', true)">حظر ⛔</button>`;
-
-      const bkLockBtn = isDeviceBkLocked
-        ? `<button class="btn-sm btn-unblock" onclick="toggleDeviceBackupLock('${devKey}', false)">فتح النسخ </button>`
-        : `<button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" onclick="toggleDeviceBackupLock('${devKey}', true)">قفل النسخ </button>`;
-
-      const customLimitBtn = `<button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" onclick="promptSetCustomLimit('${devKey}', ${limit})">تعديل الحد </button>`;
-      const warnBtn = `<button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" onclick="promptSendDeviceWarning('${devKey}')">رسالة ⚠️</button>`;
-
-      const subBtns = isAct
-        ? `<button class="btn-sm btn-unblock" onclick="openExtendModal('${devKey}')">تمديد</button><button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px; color:var(--danger); border-color:var(--danger);" onclick="revokeSubscription('${devKey}')">إلغاء التفعيل</button>`
-        : `<button class="btn-sm btn-unblock" onclick="openActivateModal('${devKey}')">تفعيل</button>`;
-
-      const warningBadge = override.specialWarningMessage ? `<div style="margin-top:4px;"><small style="color:var(--accent); font-size:10px;">رسالة موجهة: ${override.specialWarningMessage}</small></div>` : '';
-
-      const priceTag = (u.pricePerHour || u.hourlyRate) 
-        ? `<b style="color:var(--gold); font-size:13px;">${Number(u.pricePerHour || u.hourlyRate).toLocaleString('ar-EG')}</b> <small style="color:var(--text-muted);">ريال/س</small>`
-        : `<span style="color:var(--text-muted); font-size:11.5px;">افتراضي (5000)</span>`;
+      // One menu: the existing row actions plus activate / extend / revoke (task 065)
+      const mi = (label, handler, danger) => `<button type="button" class="menu-item${danger ? ' danger' : ''}" role="menuitem" onclick="${handler}">${label}</button>`;
+      const subItems = isAct
+        ? mi('تمديد الاشتراك', `openExtendModal('${devKey}')`) + mi('إلغاء التفعيل', `revokeSubscription('${devKey}')`, true)
+        : mi('تفعيل اشتراك', `openActivateModal('${devKey}')`);
+      const menuHtml = `
+        <div class="kebab" onclick="event.stopPropagation()">
+          <button type="button" class="kebab-btn" aria-label="إجراءات المستخدم" aria-haspopup="menu" onclick="toggleRowMenu(this)">&#8942;</button>
+          <div class="kebab-menu" role="menu">
+            ${mi('تفاصيل المستخدم', `openUserDetailModal('${devKey}')`)}
+            ${subItems}
+            <div class="menu-sep"></div>
+            ${isBlocked ? mi('فك الحظر', `toggleBlockUser('${devKey}', '${u.googleEmail || ''}', false)`) : mi('حظر', `toggleBlockUser('${devKey}', '${u.googleEmail || ''}', true)`, true)}
+            ${isDeviceBkLocked ? mi('فتح النسخ الاحتياطي', `toggleDeviceBackupLock('${devKey}', false)`) : mi('قفل النسخ الاحتياطي', `toggleDeviceBackupLock('${devKey}', true)`)}
+            ${mi('تعديل حد العمليات', `promptSetCustomLimit('${devKey}', ${limit})`)}
+            ${mi('إرسال رسالة للمستخدم', `promptSendDeviceWarning('${devKey}')`)}
+            <div class="menu-sep"></div>
+            ${mi('حذف من القائمة', `softDeleteUsers(['${devKey}'])`, true)}
+          </div>
+        </div>`;
 
       return `
-        <tr onclick="openUserDetailModal('${devKey}')" title="انقر لعرض الملف الشامل، الرسائل الموجهة، وإرسال إشعار">
-          <td onclick="event.stopPropagation()"><input type="checkbox" class="user-select" style="width:auto;" value="${escapeHtml(devKey)}" ${selectedUserKeys.has(devKey) ? 'checked' : ''} onchange="toggleUserSelection('${devKey}', this.checked)"></td>
-          <td>${googleInfo}</td>
-          <td><code>${u.deviceCode || devKey}</code><br><small style="color:var(--text-muted);">${u.deviceModel || '-'}</small></td>
-          <td>${priceTag}</td>
-          <td>${statusBadge}${warningBadge}</td>
-          <td>${planBadge}${subscriptionHtml(devKey)}</td>
-          <td>${opsHtml}</td>
-          <td>${bkBadge}</td>
-          <td><small>${lastSeen}</small></td>
-          <td>
-            <div class="btn-action-group" onclick="event.stopPropagation()">
-              <button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px; background: rgba(0, 131, 143, 0.12); color: var(--primary);" onclick="event.stopPropagation(); openUserDetailModal('${devKey}')">تفاصيل 👤</button>
-              ${subBtns}
-              ${blockBtn}
-              ${bkLockBtn}
-              ${customLimitBtn}
-              ${warnBtn}
-              <button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px; color:var(--danger); border-color:var(--danger);" onclick="softDeleteUsers(['${devKey}'])">حذف 🗑️</button>
-            </div>
-          </td>
+        <tr onclick="openUserDetailModal('${devKey}')" title="انقر لعرض الملف الشامل">
+          <td class="cell-select" onclick="event.stopPropagation()"><input type="checkbox" class="user-select" style="width:auto;" aria-label="تحديد" value="${escapeHtml(devKey)}" ${selectedUserKeys.has(devKey) ? 'checked' : ''} onchange="toggleUserSelection('${devKey}', this.checked)"></td>
+          <td data-label="المستخدم">${googleInfo}</td>
+          <td data-label="الجهاز"><code>${escapeHtml(u.deviceCode || devKey)}</code><small class="cell-sub">${escapeHtml(u.deviceModel || '-')}</small>${priceNote}${bkNote}</td>
+          <td data-label="الحالة">${statusBadge}${warningBadge}</td>
+          <td data-label="العمليات المتبقية">${opsHtml}</td>
+          <td data-label="آخر ظهور"><small title="${escapeHtml(lastSeenFull)}">${lastSeen}</small></td>
+          <td class="col-actions">${menuHtml}</td>
         </tr>
       `;
     }).join('');
@@ -2956,10 +2961,8 @@
   initTheme();
   checkServerSession();
   try {
-    const savedTab = (location.hash ? location.hash.replace('#', '') : '') || sessionStorage.getItem('mosarib_active_tab');
-    if (savedTab && ['analytics', 'requests', 'users', 'releases', 'policies', 'push', 'broadcast', 'generator', 'feedbacks', 'admins', 'publicPortal'].includes(savedTab)) {
-      switchTab(savedTab);
-    }
+    const savedTab = (location.hash ? location.hash.replace('#', '') : '') || localStorage.getItem('mosarib_admin_tab') || sessionStorage.getItem('mosarib_active_tab');
+    switchTab(ALL_TABS.includes(savedTab) ? savedTab : 'analytics');
   } catch (_) {}
 
   // Force Update warning and default unchecked setup (B2)
@@ -3230,6 +3233,128 @@
     return plan || '-';
   }
 
+
+  // ===== Task 067: presentation helpers (status chip, relative time, row menu, subscriptions list) =====
+
+  function relativeTime(ms) {
+    if (!ms) return 'غير محدد';
+    const m = Math.floor((Date.now() - ms) / 60000);
+    if (m < 1) return 'الآن';
+    if (m < 60) return `منذ ${m} دقيقة`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `منذ ${h} ساعة`;
+    const d = Math.floor(h / 24);
+    return d < 30 ? `منذ ${d} يوم` : formatDateDMY(ms);
+  }
+
+  function isActiveToday(u) {
+    const t = new Date();
+    t.setHours(0, 0, 0, 0);
+    return (u.lastActiveAt || 0) >= t.getTime();
+  }
+
+  /** One status per user: blocked / active (subscribed until date) / expired / trial. */
+  function userStatus(u, devKey) {
+    const sub = subscriptionByDevice[String(devKey || '').toUpperCase()];
+    if (u.isBlocked === true) return { kind: 'blocked', label: 'محظور' };
+    if (u.isActivated === true) return { kind: 'active', label: sub ? `مشترك حتى ${formatDateDMY(sub.expiresAt)}` : 'مشترك' };
+    if (sub) return { kind: 'expired', label: sub.isRevoked ? 'ملغى' : 'منتهٍ' };
+    return { kind: 'trial', label: 'تجريبي' };
+  }
+
+  function emptyRow(cols, title, hint) {
+    return `<tr class="empty-row"><td colspan="${cols}"><div class="empty-state"><div class="empty-title">${title}</div><div class="empty-hint">${hint || ''}</div></div></td></tr>`;
+  }
+
+  // Row actions menu (fixed position, so the scrolling table never clips it)
+  let openMenuEl = null;
+  function closeRowMenu() {
+    if (!openMenuEl) return;
+    openMenuEl.classList.remove('open');
+    openMenuEl.style.top = '';
+    openMenuEl.style.left = '';
+    openMenuEl = null;
+  }
+  function toggleRowMenu(btn) {
+    const menu = btn.nextElementSibling;
+    const wasOpen = openMenuEl === menu;
+    closeRowMenu();
+    if (wasOpen || !menu) return;
+    menu.classList.add('open');
+    const r = btn.getBoundingClientRect();
+    const w = menu.offsetWidth, h = menu.offsetHeight;
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+    let top = r.bottom + 4;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 4);
+    menu.style.top = top + 'px';
+    menu.style.left = left + 'px';
+    openMenuEl = menu;
+  }
+  document.addEventListener('click', e => {
+    if (openMenuEl && !e.target.closest('.kebab-btn') && (!openMenuEl.contains(e.target) || e.target.closest('.menu-item'))) closeRowMenu();
+  });
+  window.addEventListener('scroll', closeRowMenu, true);
+  window.addEventListener('resize', closeRowMenu);
+
+  // Subscriptions section: read-only, one row per device (newest licence, from subscriptionByDevice)
+  let subsFilter = 'ALL';
+
+  function subStatus(sub) {
+    const left = daysLeft(sub.expiresAt);
+    if (sub.isRevoked) return { kind: 'revoked', label: 'ملغى', left };
+    if (sub.expiresAt <= Date.now()) return { kind: 'expired', label: 'منتهٍ', left };
+    if (left <= 7) return { kind: 'soon', label: 'ينتهي قريباً', left };
+    return { kind: 'active', label: 'فعّال', left };
+  }
+
+  function setSubsFilter(f) {
+    subsFilter = f;
+    document.querySelectorAll('#subsFilterChips .pill-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.subs === f));
+    renderSubscriptionsList();
+  }
+
+  function renderSubscriptionsList() {
+    const body = document.getElementById('subsTableBody');
+    if (!body) return;
+    const all = Object.entries(subscriptionByDevice)
+      .map(([key, sub]) => ({ key, sub, user: userByKey(key), st: subStatus(sub) }));
+    const count = k => all.filter(x => x.st.kind === k).length;
+    const setCount = (id, n) => { const el = document.getElementById(id); if (el) el.innerText = n; };
+    setCount('countSubsAll', all.length);
+    setCount('countSubsSoon', count('soon'));
+    setCount('countSubsExpired', count('expired'));
+    setCount('countSubsRevoked', count('revoked'));
+
+    const q = (document.getElementById('subsSearch')?.value || '').trim().toLowerCase();
+    let list = all.filter(x => subsFilter === 'ALL' || x.st.kind === subsFilter);
+    if (q) {
+      list = list.filter(x => {
+        const name = ((x.user && (x.user.subscriberName || x.user.googleDisplayName)) || '').toLowerCase();
+        return name.includes(q) || x.key.toLowerCase().includes(q);
+      });
+    }
+    // nearest end first for upcoming, most recent first for ended ones
+    list.sort((a, b) => a.sub.expiresAt - b.sub.expiresAt);
+    if (!list.length) {
+      body.innerHTML = emptyRow(6, 'لا توجد اشتراكات مطابقة', 'غيّر الفلتر أو عبارة البحث');
+      return;
+    }
+    body.innerHTML = list.map(({ key, sub, user, st }) => {
+      const name = (user && (user.subscriberName || user.googleDisplayName)) || 'مشترك';
+      const phone = (user && user.phone) || '';
+      const leftText = st.kind === 'revoked' ? '' : (st.left < 0 ? `منذ ${Math.abs(st.left)} يوم` : `بعد ${st.left} يوم`);
+      const chipKind = st.kind === 'soon' ? 'trial' : (st.kind === 'revoked' ? 'blocked' : (st.kind === 'expired' ? 'expired' : 'active'));
+      return `<tr>
+        <td data-label="المشترك"><div><b>${escapeHtml(name)}</b>${phone ? `<small class="cell-sub">${escapeHtml(phone)}</small>` : ''}</div></td>
+        <td data-label="كود الجهاز"><code>${escapeHtml(key)}</code></td>
+        <td data-label="الباقة">${escapeHtml(planLabel(sub.plan))}</td>
+        <td data-label="ينتهي في"><div>${formatDateDMY(sub.expiresAt)}${leftText ? `<small class="cell-sub">${leftText}</small>` : ''}</div></td>
+        <td data-label="الحالة"><span class="chip chip-${chipKind}">${st.kind === 'soon' ? `ينتهي خلال ${Math.max(st.left, 0)} يوم` : st.label}</span></td>
+        <td class="col-actions"><button type="button" class="btn-sm btn-unblock" onclick="openExtendModal('${escapeHtml(key)}')">تمديد</button></td>
+      </tr>`;
+    }).join('');
+  }
+
   function subscriptionHtml(devKey) {
     const sub = subscriptionByDevice[String(devKey || '').toUpperCase()];
     if (!sub) return '';
@@ -3461,6 +3586,7 @@
     refreshTask036Panels = function () {
       if (prevRefresh) prevRefresh();
       renderExpiringSubscriptions();
+      renderSubscriptionsList();
       updateStats();
       updateBulkBar();
       refreshDeletedCount();
