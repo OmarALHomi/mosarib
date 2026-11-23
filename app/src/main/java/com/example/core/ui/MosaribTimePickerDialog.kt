@@ -48,7 +48,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -137,7 +136,7 @@ fun MosaribTimePickerDialog(
 
                     Spacer(modifier = Modifier.height(if (isSmallScreen) 12.dp else 18.dp))
 
-                    // الشاشة الكبيرة: دائماً 08:55 من اليسار لليمين، والفترة بجانبها
+                    // عرض الوقت المختار بخط عريض وفخم (صباح/مساء على اليمين، ثم الساعة، ثم الدقائق على اليسار)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
@@ -158,85 +157,117 @@ fun MosaribTimePickerDialog(
                         }
                         Spacer(modifier = Modifier.width(if (isSmallScreen) 8.dp else 14.dp))
                         Text(
-                            text = if (isPm) "مساءً" else "صباحاً",
+                            text = if (isPm) "مساءً (م)" else "صباحاً (ص)",
                             fontSize = if (isSmallScreen) 14.sp else 17.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(if (isSmallScreen) 10.dp else 14.dp))
+                    Spacer(modifier = Modifier.height(if (isSmallScreen) 12.dp else 18.dp))
 
-                    // شبكة الساعات 1..12 (لمسة واحدة)
-                    for (rowStart in listOf(1, 7)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            for (h in rowStart until rowStart + 6) {
-                                PickerChip(
-                                    text = h.toString(),
-                                    selected = selectedHour12 == h,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { selectedHour12 = h }
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // الدقائق: شرائح سريعة + −/+ للدقيقة الدقيقة
+                    // عناصر اختيار الوقت التفاعلية مرتبة من اليمين للشمال:
+                    // (1) اختيار صباح أو مساء على اليمين، (2) الساعة في الوسط، (3) الدقائق على اليسار
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(if (isSmallScreen) 6.dp else 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 1. اختيار صباح أو مساء (على اليمين في RTL)
+                        Column(
+                            modifier = Modifier.weight(1.1f),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(if (isSmallScreen) 4.dp else 6.dp)
+                        ) {
+                            Text(
+                                text = "الفترة",
+                                fontSize = if (isSmallScreen) 11.sp else 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.mosarib.textMuted
+                            )
+                            AmPmToggleCard(
+                                text = "صباحاً (ص)",
+                                isSelected = !isPm,
+                                activeColor = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.fillMaxWidth().height(if (isSmallScreen) 44.dp else 56.dp),
+                                isSmall = isSmallScreen,
+                                onClick = { isPm = false }
+                            )
+                            AmPmToggleCard(
+                                text = "مساءً (م)",
+                                isSelected = isPm,
+                                activeColor = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.fillMaxWidth().height(if (isSmallScreen) 44.dp else 56.dp),
+                                isSmall = isSmallScreen,
+                                onClick = { isPm = true }
+                            )
+                        }
+
+                        // 2. الساعة (في الوسط في RTL)
+                        TimeCounterColumn(
+                            modifier = Modifier.weight(1f),
+                            label = "الساعة",
+                            value = selectedHour12,
+                            minValue = 1,
+                            maxValue = 12,
+                            isSmall = isSmallScreen,
+                            onIncrement = {
+                                selectedHour12 = if (selectedHour12 >= 12) 1 else selectedHour12 + 1
+                            },
+                            onDecrement = {
+                                selectedHour12 = if (selectedHour12 <= 1) 12 else selectedHour12 - 1
+                            }
+                        )
+
+                        // 3. الدقيقة (على اليسار في RTL)
+                        TimeCounterColumn(
+                            modifier = Modifier.weight(1f),
+                            label = "الدقيقة",
+                            value = selectedMinute,
+                            minValue = 0,
+                            maxValue = 59,
+                            isSmall = isSmallScreen,
+                            onIncrement = {
+                                selectedMinute = if (selectedMinute >= 59) 0 else selectedMinute + 1
+                            },
+                            onDecrement = {
+                                selectedMinute = if (selectedMinute <= 0) 59 else selectedMinute - 1
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(if (isSmallScreen) 10.dp else 14.dp))
+
+                    // أزرار سريعة للدقائق الشائعة
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(if (isSmallScreen) 4.dp else 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         listOf(0, 15, 30, 45).forEach { min ->
-                            PickerChip(
-                                text = ":${String.format(Locale.US, "%02d", min)}",
-                                selected = selectedMinute == min,
-                                modifier = Modifier.weight(1f),
-                                onClick = { selectedMinute = min }
-                            )
+                            val isSelected = selectedMinute == min
+                            val chipBg = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                            val chipText = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                            val chipBorder = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(chipBg)
+                                    .border(1.dp, chipBorder, RoundedCornerShape(8.dp))
+                                    .clickable { selectedMinute = min }
+                                    .padding(vertical = if (isSmallScreen) 5.dp else 7.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = ":${String.format(Locale.US, "%02d", min)}",
+                                    fontSize = if (isSmallScreen) 11.5.sp else 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = chipText
+                                )
+                            }
                         }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        PickerChip(
-                            text = "−",
-                            selected = false,
-                            modifier = Modifier.weight(1f),
-                            onClick = { selectedMinute = if (selectedMinute <= 0) 59 else selectedMinute - 1 }
-                        )
-                        Text(
-                            text = "الدقيقة ${String.format(Locale.US, "%02d", selectedMinute)}",
-                            modifier = Modifier.weight(2f),
-                            textAlign = TextAlign.Center,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.mosarib.textMuted
-                        )
-                        PickerChip(
-                            text = "+",
-                            selected = false,
-                            modifier = Modifier.weight(1f),
-                            onClick = { selectedMinute = if (selectedMinute >= 59) 0 else selectedMinute + 1 }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // ص / م
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        PickerChip(text = "صباحاً (ص)", selected = !isPm, modifier = Modifier.weight(1f), onClick = { isPm = false })
-                        PickerChip(text = "مساءً (م)", selected = isPm, modifier = Modifier.weight(1f), onClick = { isPm = true })
                     }
 
                     Spacer(modifier = Modifier.height(if (isSmallScreen) 14.dp else 20.dp))
@@ -271,6 +302,44 @@ fun MosaribTimePickerDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AmPmToggleCard(
+    text: String,
+    isSelected: Boolean,
+    activeColor: Color,
+    modifier: Modifier = Modifier,
+    isSmall: Boolean = false,
+    onClick: () -> Unit
+) {
+    val bgColor by animateColorAsState(
+        targetValue = if (isSelected) activeColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
+        label = "ampm_bg"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected) activeColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+        label = "ampm_border"
+    )
+    val textColor = if (isSelected) activeColor else MaterialTheme.mosarib.textMuted
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(bgColor)
+            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+            .clickable { onClick() }
+            .padding(vertical = if (isSmall) 6.dp else 10.dp, horizontal = 2.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+            fontSize = if (isSmall) 11.5.sp else 13.5.sp,
+            color = textColor,
+            maxLines = 1
+        )
     }
 }
 
@@ -604,26 +673,5 @@ fun MosaribDatePickerDialog(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun PickerChip(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(8.dp)
-    Box(
-        modifier = modifier
-            .clip(shape)
-            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), shape)
-            .clickable(onClick = onClick)
-            .padding(vertical = 9.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            fontSize = 14.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-        )
     }
 }
