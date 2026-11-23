@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.Person
@@ -43,7 +45,7 @@ import androidx.compose.material.icons.filled.Yard
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -113,6 +115,7 @@ data class CustomerFormSnapshot(
 fun AddEditCustomerBottomSheet(
     initialCustomer: Customer? = null,
     initialName: String = "",
+    initialIsWellOwner: Boolean = false,
     existingGroups: List<String> = emptyList(),
     currencySymbol: String,
     onDismiss: () -> Unit,
@@ -137,10 +140,17 @@ fun AddEditCustomerBottomSheet(
     var location by remember { mutableStateOf(initialCustomer?.location ?: "") }
     var notes by remember { mutableStateOf(initialCustomer?.notes ?: "") }
     var customGroup by remember { mutableStateOf(initialCustomer?.customGroup ?: "") }
-    var isWellOwner by remember { mutableStateOf(initialCustomer?.isWellOwner ?: false) }
+    var isWellOwner by remember { mutableStateOf(initialCustomer?.isWellOwner ?: initialIsWellOwner) }
     var isBeneficiary by remember { mutableStateOf(initialCustomer?.isBeneficiary ?: false) }
     var customPriceStr by remember {
         mutableStateOf(initialCustomer?.customPricePerHour?.let { it.toString() } ?: "")
+    }
+
+    // «المزيد» opens by itself when the customer already has any of those values
+    var showMore by remember {
+        mutableStateOf(
+            listOf(farmName, location, customGroup, notes, customPriceStr).any { it.isNotBlank() }
+        )
     }
 
     val farmerColor = MaterialTheme.mosarib.success
@@ -311,6 +321,18 @@ fun AddEditCustomerBottomSheet(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            FilledTonalButton(
+                onClick = {
+                    val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
+                    contactPickerLauncher.launch(intent)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Contacts, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("استيراد من جهات الاتصال", fontWeight = FontWeight.Bold)
+            }
+
             // 1. هل هذا مورد (صاحب بئر)؟
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -349,19 +371,6 @@ fun AddEditCustomerBottomSheet(
                     placeholder = "مثال: 777123456",
                     isDense = true,
                     leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = activeColor) },
-                    trailingIcon = {
-                        IconButton(onClick = {
-                            val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
-                            contactPickerLauncher.launch(intent)
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.Contacts,
-                                contentDescription = "جهات الاتصال",
-                                tint = activeColor,
-                                modifier = Modifier.size(19.dp)
-                            )
-                        }
-                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -369,6 +378,24 @@ fun AddEditCustomerBottomSheet(
                 )
             }
 
+            // «المزيد»: everything that is not name / phone / مورد
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { showMore = !showMore }
+                    .padding(vertical = 6.dp, horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("المزيد", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                Icon(
+                    if (showMore) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (showMore) {
             // 3. البطاقة الثانية: بيانات الأرض / البئر والموقع
             FormSectionCard(
                 title = if (isWellOwner) "بيانات البئر والموقع" else "بيانات المزرعة والموقع",
@@ -502,6 +529,7 @@ fun AddEditCustomerBottomSheet(
                     leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null, tint = activeColor) },
                     modifier = Modifier.fillMaxWidth()
                 )
+            }
             }
         }
     }

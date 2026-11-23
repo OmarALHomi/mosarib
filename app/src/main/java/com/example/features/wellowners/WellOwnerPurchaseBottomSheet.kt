@@ -166,7 +166,7 @@ fun WellOwnerPurchaseBottomSheet(
         }
     }
     var selectedOwner by remember(owner, ownersList, voiceOwner) {
-        mutableStateOf(owner ?: voiceOwner ?: if (voiceCommand?.customerQuery != null) null else ownersList.firstOrNull())
+        mutableStateOf(owner ?: voiceOwner)
     }
     var ownerDropdownExpanded by remember { mutableStateOf(false) }
 
@@ -886,6 +886,8 @@ fun WellOwnerPurchaseBottomSheet(
     if (showAddOwnerSheet && onCreateCustomer != null) {
         AddEditCustomerBottomSheet(
             initialCustomer = null,
+            initialName = currentVoiceCommand?.customerQuery.orEmpty(),
+            initialIsWellOwner = true,
             currencySymbol = currencySymbol,
             onDismiss = { showAddOwnerSheet = false },
             onSave = { _, name, phone, farmName, location, customerNotes, customPrice, isBeneficiary, _, customGroup ->
