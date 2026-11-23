@@ -2321,7 +2321,7 @@ private fun formatClockTimeArabic(hour: Int, minute: Int): String {
 
 /** ~44dp numeric field for the duration row; empty shows «0». */
 @Composable
-private fun CompactDurationField(
+internal fun CompactDurationField(
     value: String,
     unit: String,
     onValueChange: (String) -> Unit,

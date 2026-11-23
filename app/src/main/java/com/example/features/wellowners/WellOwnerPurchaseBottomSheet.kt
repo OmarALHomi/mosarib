@@ -31,15 +31,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -50,11 +45,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.core.ui.CustomerPickerField
+import com.example.features.sessions.CompactDurationField
 import com.example.core.ui.MosaribBottomSheet
-import com.example.core.ui.MosaribButton
 import com.example.core.ui.MosaribDatePickerDialog
-import com.example.core.ui.MosaribMenu
-import com.example.core.ui.MosaribMenuItem
 import com.example.core.ui.MosaribPrimaryButton
 import com.example.core.ui.MosaribSecondaryButton
 import com.example.core.ui.MosaribTextField
@@ -63,7 +57,6 @@ import com.example.core.ui.isAppDark
 import com.example.core.util.Formatters
 import com.example.features.customers.Customer
 import com.example.ui.theme.AccentEmerald
-import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.mosarib
 import java.util.Calendar
 
@@ -243,6 +236,8 @@ fun WellOwnerPurchaseBottomSheet(
             }
         }
     }
+
+    val shownEndCal = remember(computedEndTime) { Calendar.getInstance().apply { timeInMillis = computedEndTime } }
 
     val durationMinutes by remember(timeMode, computedStartTime, computedEndTime, hoursText, minutesText) {
         derivedStateOf {
@@ -485,7 +480,7 @@ fun WellOwnerPurchaseBottomSheet(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             if (currentVoiceCommand != null) {
                 VoiceSummaryBanner(
@@ -495,542 +490,224 @@ fun WellOwnerPurchaseBottomSheet(
                 )
             }
 
-            // اختيار صاحب البئر إذا كان هناك أكثر من خيار ولم يتم تمريره ثابتاً
-            if (owner == null && ownersList.size > 1) {
-                Card(
-                    modifier = Modifier.fillMaxWidth().guideTarget("purchase_owner"),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { ownerDropdownExpanded = true }
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text(
-                                text = "صاحب البئر",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = selectedOwner?.name ?: "اختر صاحب البئر...",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    MosaribMenu(
-                        expanded = ownerDropdownExpanded,
-                        onDismissRequest = { ownerDropdownExpanded = false }
-                    ) {
-                        ownersList.forEach { o ->
-                            MosaribMenuItem(
-                                text = o.name,
-                                icon = Icons.Default.Person,
-                                onClick = {
-                                    selectedOwner = o
-                                    ownerDropdownExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
+            // 1) صاحب البئر
+            CustomerPickerField(
+                customers = ownersList,
+                selected = selectedOwner,
+                onSelect = { selectedOwner = it },
+                onAddNew = null, // shortcut: this sheet has no add-owner callback; add one in the caller to enable the new-customer entry
+                label = "صاحب البئر",
+                modifier = Modifier.fillMaxWidth().guideTarget("purchase_owner")
+            )
 
-            // ============================================================
-            // بطاقة تحديد وقت الشراء بنظام التبويبين (بدء وانتهاء / من + المدة)
-            // ============================================================
-            Card(
+            // 2) الوقت: من / إلى + المدة (تغيير المدة يحرّك «إلى»)
+            Row(
                 modifier = Modifier.fillMaxWidth().guideTarget("purchase_hours"),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                )
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    // أزرار التبديل بين النمطين
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(MaterialTheme.colorScheme.surface)
-                            .padding(3.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        // تبويب: اختيار (بدء وانتهاء)
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { timeMode = PurchaseTimeMode.PICKER },
-                            color = if (timeMode == PurchaseTimeMode.PICKER) MaterialTheme.colorScheme.primary else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 8.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.AccessTime,
-                                    contentDescription = null,
-                                    tint = if (timeMode == PurchaseTimeMode.PICKER) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Spacer(modifier = Modifier.width(5.dp))
-                                Text(
-                                    text = "اختيار (بدء وانتهاء)",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (timeMode == PurchaseTimeMode.PICKER) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                )
-                            }
-                        }
-
-                        // تبويب: يدوي (من + المدة)
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    timeMode = PurchaseTimeMode.MANUAL
-                                    hoursText = (durationMinutes / 60).toString()
-                                    minutesText = if (durationMinutes % 60 > 0) (durationMinutes % 60).toString() else ""
-                                },
-                            color = if (timeMode == PurchaseTimeMode.MANUAL) MaterialTheme.colorScheme.primary else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 8.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = null,
-                                    tint = if (timeMode == PurchaseTimeMode.MANUAL) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Spacer(modifier = Modifier.width(5.dp))
-                                Text(
-                                    text = "من + عدد الساعات",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (timeMode == PurchaseTimeMode.MANUAL) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    if (timeMode == PurchaseTimeMode.PICKER) {
-                        // ─── النمط الأول: اختيار وقت البدء والانتهاء ───
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // بطاقة وقت وتاريخ البدء
-                            Surface(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp)),
-                                color = MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Text(
-                                        text = "بدء الشراء (من)",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
-                                            .clickable { showStartTimePicker = true }
-                                            .padding(vertical = 6.dp, horizontal = 4.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = Formatters.formatClockTimeArabic(startHour, startMinute),
-                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .clickable { showStartDatePicker = true }
-                                            .padding(vertical = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Icon(
-                                            Icons.Default.CalendarToday,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(11.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(3.dp))
-                                        Text(
-                                            text = Formatters.formatDate(startDateMillis),
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        )
-                                    }
-                                }
-                            }
-
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                modifier = Modifier.size(18.dp)
-                            )
-
-                            // بطاقة وقت وتاريخ الانتهاء
-                            Surface(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp)),
-                                color = MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Text(
-                                        text = "نهاية الشراء (إلى)",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = AccentEmerald,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(AccentEmerald.copy(alpha = 0.08f))
-                                            .clickable { showEndTimePicker = true }
-                                            .padding(vertical = 6.dp, horizontal = 4.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = Formatters.formatClockTimeArabic(endHour, endMinute),
-                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .clickable { showEndDatePicker = true }
-                                            .padding(vertical = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Icon(
-                                            Icons.Default.CalendarToday,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(11.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(3.dp))
-                                        Text(
-                                            text = Formatters.formatDate(endDateMillis),
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        // ─── النمط الثاني: وقت البدء + عدد الساعات والدقائق ───
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            // بطاقة وقت البدء
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp)),
-                                color = MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(10.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column {
-                                        Text(
-                                            text = "وقت بدء الضخ (من):",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = MaterialTheme.colorScheme.primary,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        )
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(
-                                                text = Formatters.formatClockTimeArabic(startHour, startMinute),
-                                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = "• ${Formatters.formatDate(startDateMillis)}",
-                                                style = MaterialTheme.typography.bodySmall.copy(
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            )
-                                        }
-                                    }
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        MosaribButton(
-                                            text = "الوقت",
-                                            onClick = { showStartTimePicker = true },
-                                            modifier = Modifier.height(36.dp)
-                                        )
-                                        MosaribButton(
-                                            text = "التاريخ",
-                                            onClick = { showStartDatePicker = true },
-                                            modifier = Modifier.height(36.dp)
-                                        )
-                                    }
-                                }
-                            }
-
-                            // إدخال الساعات والدقائق
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                MosaribTextField(
-                                    value = hoursText,
-                                    onValueChange = { hoursText = it.filter(Char::isDigit).take(4) },
-                                    label = "عدد الساعات *",
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier.weight(1f),
-                                    singleLine = true
-                                )
-                                MosaribTextField(
-                                    value = minutesText,
-                                    onValueChange = { minutesText = it.filter(Char::isDigit).take(2) },
-                                    label = "الدقائق الإضافية",
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier.weight(1f),
-                                    singleLine = true
-                                )
-                            }
-                        }
-                    }
-
-                    // تنبيه السقي الليلي / اليوم التالي
-                    if (isOvernight) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.mosarib.info.copy(alpha = 0.12f))
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.DarkMode,
-                                contentDescription = null,
-                                tint = MaterialTheme.mosarib.info,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "ينتهي الضخ في اليوم التالي (${Formatters.formatDate(computedEndTime)})",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = MaterialTheme.mosarib.info,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // شريحة ملخص المدة المحتسبة
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "المدة الإجمالية:",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        )
-                        Text(
-                            text = Formatters.formatDurationArabic(durationMinutes),
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        )
-                    }
-                }
-            }
-
-            // حقول وقت الهدر (التوقفات على صاحب البئر)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MosaribTextField(
-                    value = wastedHoursText,
-                    onValueChange = { wastedHoursText = it.filter(Char::isDigit).take(4) },
-                    label = "ساعات الهدر",
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f),
-                    singleLine = true
+                PurchaseTimeBox(
+                    label = "من",
+                    accent = MaterialTheme.colorScheme.primary,
+                    timeText = Formatters.formatClockTimeArabic(startHour, startMinute),
+                    dateText = Formatters.formatDate(startDateMillis),
+                    onTime = { showStartTimePicker = true },
+                    onDate = { showStartDatePicker = true },
+                    modifier = Modifier.weight(1f)
                 )
-                MosaribTextField(
-                    value = wastedMinutesText,
-                    onValueChange = { wastedMinutesText = it.filter(Char::isDigit).take(2) },
-                    label = "دقائق الهدر",
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f),
-                    singleLine = true
-                )
-            }
-
-            if (isWasteExceeded) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.mosarib.debt.copy(alpha = 0.12f)
+                PurchaseTimeBox(
+                    label = "إلى",
+                    accent = AccentEmerald,
+                    timeText = Formatters.formatClockTimeArabic(
+                        shownEndCal.get(Calendar.HOUR_OF_DAY), shownEndCal.get(Calendar.MINUTE)
                     ),
-                    border = BorderStroke(1.dp, MaterialTheme.mosarib.debt.copy(alpha = 0.4f)),
-                    shape = RoundedCornerShape(10.dp)
+                    dateText = Formatters.formatDate(computedEndTime),
+                    onTime = { showEndTimePicker = true },
+                    onDate = { showEndDatePicker = true },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("المدة:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                CompactDurationField(
+                    value = (durationMinutes / 60).toString().let { if (it == "0") "" else it },
+                    unit = "ساعات",
+                    onValueChange = {
+                        val h = it.filter(Char::isDigit).trimStart('0').take(3)
+                        timeMode = PurchaseTimeMode.MANUAL
+                        hoursText = h
+                        minutesText = if (durationMinutes % 60 > 0) (durationMinutes % 60).toString() else ""
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                CompactDurationField(
+                    value = if (durationMinutes % 60 > 0) (durationMinutes % 60).toString() else "",
+                    unit = "دقائق",
+                    onValueChange = {
+                        val m = it.filter(Char::isDigit).trimStart('0')
+                        if ((m.toIntOrNull() ?: 0) < 60) {
+                            timeMode = PurchaseTimeMode.MANUAL
+                            hoursText = (durationMinutes / 60).toString()
+                            minutesText = m
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            if (isOvernight) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.mosarib.info.copy(alpha = 0.12f))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Icon(Icons.Default.DarkMode, contentDescription = null, tint = MaterialTheme.mosarib.info, modifier = Modifier.size(13.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "لا يمكن أن يكون وقت الهدر ($wastedMinutes د) أكبر من مدة الشراء ($durationMinutes د)",
-                        color = MaterialTheme.mosarib.debt,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(10.dp)
+                        text = "ينتهي الضخ في اليوم التالي (${Formatters.formatDate(computedEndTime)})",
+                        style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.info, fontWeight = FontWeight.Medium)
                     )
                 }
             }
 
-            MosaribTextField(
-                value = rateText,
-                onValueChange = { rateText = Formatters.formatAmountInput(it) },
-                label = "سعر الساعة ($currencySymbol) *",
-                trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("rate") }) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth().guideTarget("purchase_price"),
-                singleLine = true
-            )
+            // 3) سعر الساعة | الواصل
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f).guideTarget("purchase_price")) {
+                    MosaribTextField(
+                        value = rateText,
+                        onValueChange = { rateText = Formatters.formatAmountInput(it) },
+                        label = "سعر الساعة *",
+                        trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("rate") }) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isDense = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (rate > 0) PurchaseWords(Formatters.amountToArabicWords(rate, currencySymbol))
+                }
+                Column(modifier = Modifier.weight(1f).guideTarget("purchase_paid")) {
+                    MosaribTextField(
+                        value = amountPaidText,
+                        onValueChange = { amountPaidText = Formatters.formatAmountInput(it) },
+                        label = "الواصل (المدفوع الآن)",
+                        trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("paid") }) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isDense = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (amountPaid > 0) PurchaseWords(Formatters.amountToArabicWords(amountPaid, currencySymbol))
+                }
+            }
 
-            MosaribTextField(
-                value = amountPaidText,
-                onValueChange = { amountPaidText = Formatters.formatAmountInput(it) },
-                label = "المدفوع نقداً (اختياري)",
-                leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null, tint = AccentEmerald) },
-                trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("paid") }) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth().guideTarget("purchase_paid"),
-                singleLine = true
-            )
-
-            // بطاقة الملخص المالي لعملية الشراء
+            // 4) المستحق له | المتبقي بذمتك
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("المدة الصافية بعد الهدر")
-                        Text(Formatters.formatDurationArabic(chargeableMinutes), fontWeight = FontWeight.Bold)
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("إجمالي قيمة الضخ")
-                        Text(Formatters.formatCurrency(Formatters.calculateWaterCost(durationMinutes, rate), currencySymbol))
-                    }
-                    if (wasteCredit > 0) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("خصم الهدر")
-                            Text(
-                                Formatters.formatCurrency(wasteCredit, currencySymbol),
-                                color = MaterialTheme.mosarib.debt
-                            )
-                        }
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("المستحق لصاحب البئر", fontWeight = FontWeight.Bold)
+                Row(modifier = Modifier.padding(10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("المستحق له", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
                             Formatters.formatCurrency(payableAmount, currencySymbol),
                             color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    if (amountPaid > 0) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(
-                                "المدفوع نقداً فوراً",
-                                color = MaterialTheme.mosarib.credit,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                Formatters.formatCurrency(amountPaid, currencySymbol),
-                                color = MaterialTheme.mosarib.credit,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 2.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("المتبقي بذمتك له", fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            Formatters.formatCurrency(remainingDueToOwner, currencySymbol),
-                            color = if (remainingDueToOwner > 0) MaterialTheme.mosarib.debt else MaterialTheme.mosarib.credit,
                             fontWeight = FontWeight.ExtraBold
                         )
+                        if (payableAmount > 0) PurchaseWords(Formatters.amountToArabicWords(payableAmount, currencySymbol))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("المتبقي بذمتك", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (remainingDueToOwner > 0) {
+                            Text(
+                                Formatters.formatCurrency(remainingDueToOwner, currencySymbol),
+                                color = MaterialTheme.mosarib.debt,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            PurchaseWords(Formatters.amountToArabicWords(remainingDueToOwner, currencySymbol))
+                        } else {
+                            Text("خالص", color = MaterialTheme.mosarib.credit, fontWeight = FontWeight.ExtraBold)
+                        }
                     }
                 }
             }
 
-            MosaribTextField(
-                value = notes,
-                onValueChange = { notes = it },
-                label = "ملاحظات / البيان (اختياري)",
-                leadingIcon = { Icon(Icons.Default.WaterDrop, contentDescription = null, tint = PrimaryTeal) },
-                trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("notes") }) },
-                modifier = Modifier.fillMaxWidth().guideTarget("purchase_notes")
-            )
+            // 5) خيارات إضافية: الهدر والملاحظات
+            var showExtras by remember { mutableStateOf(wastedMinutes > 0 || notes.isNotBlank()) }
+            Surface(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { showExtras = !showExtras },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("خيارات إضافية", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                        Icon(
+                            if (showExtras) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (showExtras) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("الهدر:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                            CompactDurationField(
+                                value = wastedHoursText,
+                                unit = "ساعات",
+                                onValueChange = { wastedHoursText = it.filter(Char::isDigit).trimStart('0').take(4) },
+                                modifier = Modifier.weight(1f)
+                            )
+                            CompactDurationField(
+                                value = wastedMinutesText,
+                                unit = "دقائق",
+                                onValueChange = { wastedMinutesText = it.filter(Char::isDigit).trimStart('0').take(2) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (isWasteExceeded) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "لا يمكن أن يكون وقت الهدر ($wastedMinutes د) أكبر من مدة الشراء ($durationMinutes د)",
+                                color = MaterialTheme.mosarib.debt,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else if (wastedMinutes > 0) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "المدة الصافية: ${Formatters.formatDurationArabic(chargeableMinutes)}" +
+                                    if (wasteCredit > 0) " • خصم الهدر ${Formatters.formatCurrency(wasteCredit, currencySymbol)}" else "",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        MosaribTextField(
+                            value = notes,
+                            onValueChange = { notes = it },
+                            label = "ملاحظات / البيان (اختياري)",
+                            trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("notes") }) },
+                            modifier = Modifier.fillMaxWidth().guideTarget("purchase_notes")
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -1061,12 +738,21 @@ fun WellOwnerPurchaseBottomSheet(
         )
     }
 
+    // Moves the end-picker state to the shown end so editing «إلى» works after a duration edit.
+    fun adoptShownEnd() {
+        endDateMillis = computedEndTime
+        endHour = shownEndCal.get(Calendar.HOUR_OF_DAY)
+        endMinute = shownEndCal.get(Calendar.MINUTE)
+        timeMode = PurchaseTimeMode.PICKER
+    }
+
     if (showEndDatePicker) {
         MosaribDatePickerDialog(
-            initialTimestamp = endDateMillis,
+            initialTimestamp = computedEndTime,
             minTimestamp = startDateMillis,
             onDismiss = { showEndDatePicker = false },
             onDateSelected = { ts ->
+                adoptShownEnd()
                 endDateMillis = ts
                 showEndDatePicker = false
             }
@@ -1075,11 +761,12 @@ fun WellOwnerPurchaseBottomSheet(
 
     if (showEndTimePicker) {
         MosaribTimePickerDialog(
-            initialHour24 = endHour,
-            initialMinute = endMinute,
+            initialHour24 = shownEndCal.get(Calendar.HOUR_OF_DAY),
+            initialMinute = shownEndCal.get(Calendar.MINUTE),
             title = "وقت نهاية الضخ",
             onDismiss = { showEndTimePicker = false },
             onTimeSelected = { h, m ->
+                adoptShownEnd()
                 endHour = h
                 endMinute = m
                 showEndTimePicker = false
@@ -1119,4 +806,60 @@ fun WellOwnerPurchaseBottomSheet(
         onDismiss = { voiceDialogType = VoiceDialogType.NONE }
     )
 
+}
+
+@Composable
+private fun PurchaseWords(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall.copy(
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium
+        ),
+        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+    )
+}
+
+/** Compact «من» / «إلى» box: label, tappable time, tappable date. */
+@Composable
+private fun PurchaseTimeBox(
+    label: String,
+    accent: Color,
+    timeText: String,
+    dateText: String,
+    onTime: () -> Unit,
+    onDate: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.clip(RoundedCornerShape(12.dp)),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            Text(label, style = MaterialTheme.typography.labelSmall.copy(color = accent, fontWeight = FontWeight.Bold))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(accent.copy(alpha = 0.08f))
+                    .clickable(onClick = onTime)
+                    .padding(vertical = 2.dp, horizontal = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(timeText, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold))
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).clickable(onClick = onDate).padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(Icons.Default.CalendarToday, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(11.dp))
+                Spacer(modifier = Modifier.width(3.dp))
+                Text(dateText, style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+            }
+        }
+    }
 }
