@@ -1,6 +1,5 @@
 package com.example.core.ui
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -46,13 +45,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.ui.theme.mosarib
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import java.util.Calendar
 import java.util.Locale
 
@@ -72,11 +80,7 @@ fun MosaribTimePickerDialog(
 ) {
     // تحويل الوقت الأولي إلى نظام 12 ساعة
     val initIsPm = initialHour24 >= 12
-    val initHour12 = when {
-        initialHour24 == 0 -> 12
-        initialHour24 > 12 -> initialHour24 - 12
-        else -> initialHour24
-    }
+    val initHour12 = hour24To12(initialHour24)
 
     var selectedHour12 by remember { mutableIntStateOf(initHour12) }
     var selectedMinute by remember { mutableIntStateOf(initialMinute.coerceIn(0, 59)) }
@@ -166,74 +170,17 @@ fun MosaribTimePickerDialog(
 
                     Spacer(modifier = Modifier.height(if (isSmallScreen) 12.dp else 18.dp))
 
-                    // عناصر اختيار الوقت التفاعلية مرتبة من اليمين للشمال:
-                    // (1) اختيار صباح أو مساء على اليمين، (2) الساعة في الوسط، (3) الدقائق على اليسار
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(if (isSmallScreen) 6.dp else 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // 1. اختيار صباح أو مساء (على اليمين في RTL)
-                        Column(
-                            modifier = Modifier.weight(1.1f),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(if (isSmallScreen) 4.dp else 6.dp)
+                    // ثلاث عجلات: الساعة، الدقيقة، الفترة (أرقام دائماً من اليسار لليمين)
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(if (isSmallScreen) 6.dp else 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "الفترة",
-                                fontSize = if (isSmallScreen) 11.sp else 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.mosarib.textMuted
-                            )
-                            AmPmToggleCard(
-                                text = "صباحاً (ص)",
-                                isSelected = !isPm,
-                                activeColor = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.fillMaxWidth().height(if (isSmallScreen) 44.dp else 56.dp),
-                                isSmall = isSmallScreen,
-                                onClick = { isPm = false }
-                            )
-                            AmPmToggleCard(
-                                text = "مساءً (م)",
-                                isSelected = isPm,
-                                activeColor = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.fillMaxWidth().height(if (isSmallScreen) 44.dp else 56.dp),
-                                isSmall = isSmallScreen,
-                                onClick = { isPm = true }
-                            )
+                            WheelColumn("الساعة", (1..12).map { it.toString() }, selectedHour12 - 1, true, Modifier.weight(1f)) { selectedHour12 = it + 1 }
+                            WheelColumn("الدقيقة", (0..59).map { String.format(Locale.US, "%02d", it) }, selectedMinute, true, Modifier.weight(1f)) { selectedMinute = it }
+                            WheelColumn("الفترة", listOf("ص", "م"), if (isPm) 1 else 0, false, Modifier.weight(1f)) { isPm = it == 1 }
                         }
-
-                        // 2. الساعة (في الوسط في RTL)
-                        TimeCounterColumn(
-                            modifier = Modifier.weight(1f),
-                            label = "الساعة",
-                            value = selectedHour12,
-                            minValue = 1,
-                            maxValue = 12,
-                            isSmall = isSmallScreen,
-                            onIncrement = {
-                                selectedHour12 = if (selectedHour12 >= 12) 1 else selectedHour12 + 1
-                            },
-                            onDecrement = {
-                                selectedHour12 = if (selectedHour12 <= 1) 12 else selectedHour12 - 1
-                            }
-                        )
-
-                        // 3. الدقيقة (على اليسار في RTL)
-                        TimeCounterColumn(
-                            modifier = Modifier.weight(1f),
-                            label = "الدقيقة",
-                            value = selectedMinute,
-                            minValue = 0,
-                            maxValue = 59,
-                            isSmall = isSmallScreen,
-                            onIncrement = {
-                                selectedMinute = if (selectedMinute >= 59) 0 else selectedMinute + 1
-                            },
-                            onDecrement = {
-                                selectedMinute = if (selectedMinute <= 0) 59 else selectedMinute - 1
-                            }
-                        )
                     }
 
                     Spacer(modifier = Modifier.height(if (isSmallScreen) 10.dp else 14.dp))
@@ -261,7 +208,7 @@ fun MosaribTimePickerDialog(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = ":${String.format(Locale.US, "%02d", min)}",
+                                    text = "‎:${String.format(Locale.US, "%02d", min)}",
                                     fontSize = if (isSmallScreen) 11.5.sp else 13.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                     color = chipText
@@ -286,12 +233,7 @@ fun MosaribTimePickerDialog(
                         MosaribButton(
                             text = "تأكيد الوقت",
                             onClick = {
-                                val hour24 = when {
-                                    isPm && selectedHour12 == 12 -> 12
-                                    isPm -> selectedHour12 + 12
-                                    !isPm && selectedHour12 == 12 -> 0
-                                    else -> selectedHour12
-                                }
+                                val hour24 = hour12To24(selectedHour12, isPm)
                                 onTimeSelected(hour24, selectedMinute)
                                 onDismiss()
                             },
@@ -305,41 +247,82 @@ fun MosaribTimePickerDialog(
     }
 }
 
-@Composable
-private fun AmPmToggleCard(
-    text: String,
-    isSelected: Boolean,
-    activeColor: Color,
-    modifier: Modifier = Modifier,
-    isSmall: Boolean = false,
-    onClick: () -> Unit
-) {
-    val bgColor by animateColorAsState(
-        targetValue = if (isSelected) activeColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
-        label = "ampm_bg"
-    )
-    val borderColor by animateColorAsState(
-        targetValue = if (isSelected) activeColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-        label = "ampm_border"
-    )
-    val textColor = if (isSelected) activeColor else MaterialTheme.mosarib.textMuted
+/** 12h -> 24h: 12 ص = 0, 12 م = 12. */
+internal fun hour12To24(hour12: Int, isPm: Boolean): Int = (hour12 % 12) + if (isPm) 12 else 0
 
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(bgColor)
-            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
-            .clickable { onClick() }
-            .padding(vertical = if (isSmall) 6.dp else 10.dp, horizontal = 2.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-            fontSize = if (isSmall) 11.5.sp else 13.5.sp,
-            color = textColor,
-            maxLines = 1
-        )
+/** 24h -> 1..12. */
+internal fun hour24To12(hour24: Int): Int = if (hour24 % 12 == 0) 12 else hour24 % 12
+
+private val WheelItemHeight = 40.dp
+private const val WheelRows = 5
+
+/** عجلة تمرير بحركة snap؛ [loop] للتكرار اللانهائي. selected/onSelected بفهرس القيمة. */
+@Composable
+private fun WheelColumn(
+    label: String,
+    items: List<String>,
+    selected: Int,
+    loop: Boolean,
+    modifier: Modifier = Modifier,
+    onSelected: (Int) -> Unit
+) {
+    val n = items.size
+    val count = if (loop) n * 400 else n
+    val base = if (loop) n * 200 else 0
+    val state = rememberLazyListState(initialFirstVisibleItemIndex = base + selected)
+    val fling = rememberSnapFlingBehavior(lazyListState = state)
+    val density = LocalDensity.current
+    val itemPx = with(density) { WheelItemHeight.toPx() }
+    val centre by remember {
+        derivedStateOf {
+            val info = state.layoutInfo
+            val mid = (info.viewportStartOffset + info.viewportEndOffset) / 2f
+            info.visibleItemsInfo.minByOrNull { kotlin.math.abs(it.offset + it.size / 2f - mid) }?.index ?: (base + selected)
+        }
+    }
+    val onSel by rememberUpdatedState(onSelected)
+    LaunchedEffect(Unit) { snapshotFlow { centre }.collect { onSel(it % n) } }
+    LaunchedEffect(selected) {
+        if (centre % n != selected) state.scrollToItem(centre - centre % n + selected)
+    }
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.mosarib.textMuted)
+        Spacer(Modifier.height(4.dp))
+        Box(Modifier.fillMaxWidth().height(WheelItemHeight * WheelRows), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier.fillMaxWidth().height(WheelItemHeight)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+            )
+            LazyColumn(
+                state = state,
+                flingBehavior = fling,
+                contentPadding = PaddingValues(vertical = WheelItemHeight * (WheelRows / 2)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(count) { i ->
+                    val isCentre = i == centre
+                    Box(
+                        Modifier.fillMaxWidth().height(WheelItemHeight).graphicsLayer {
+                            val info = state.layoutInfo
+                            val mid = (info.viewportStartOffset + info.viewportEndOffset) / 2f
+                            val row = info.visibleItemsInfo.firstOrNull { it.index == i }
+                            val d = if (row == null) 3f else kotlin.math.abs(row.offset + row.size / 2f - mid) / itemPx
+                            alpha = (1f - d * 0.32f).coerceIn(0.12f, 1f)
+                        },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            items[i % n],
+                            fontSize = if (isCentre) 24.sp else 18.sp,
+                            fontWeight = if (isCentre) FontWeight.ExtraBold else FontWeight.Medium,
+                            color = if (isCentre) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
