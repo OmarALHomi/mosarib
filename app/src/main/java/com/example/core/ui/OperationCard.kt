@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -96,6 +98,7 @@ fun OperationCard(
     amountText: String,               // signed and formatted: "+ 60 ر.ي", "- 1,000 ر.ي", "5,000 ر.ي"
     amountInWords: String,            // Formatters.amountToArabicWords(...) — ALWAYS shown
     chips: List<CardChip> = emptyList(),   // session: duration, rate, status
+    statStrip: (@Composable () -> Unit)? = null, // OperationStatStrip for session / purchase cards
     statement: String? = null,        // البيان; hidden when blank
     meta: String,                     // "4:01 م • نقداً • #EXP-2259"
     extraNote: String? = null,        // used by task 011: "الرصيد بعد العملية: X"
@@ -267,6 +270,8 @@ fun OperationCard(
                 }
             }
 
+            if (statStrip != null) statStrip()
+
             // 2. Chips row (duration, rate, status) - single row that never wraps
             if (chips.isNotEmpty()) {
                 Row(
@@ -421,6 +426,71 @@ fun OperationCard(
             // 6. Footer (e.g. expanded payment history)
             if (footer != null) {
                 footer()
+            }
+        }
+    }
+}
+
+/**
+ * Four equal blocks under the card header: hours | hour price | received | remaining.
+ * [remaining] <= 0 shows a green «خالص». Money values come from the caller's existing fields.
+ */
+@Composable
+fun OperationStatStrip(
+    durationMinutes: Int,
+    priceText: String,
+    receivedText: String,
+    remaining: Double,
+    remainingText: String,
+    modifier: Modifier = Modifier
+) {
+    val settled = remaining <= 0.001
+    val remainingColor = if (settled) MaterialTheme.mosarib.success else MaterialTheme.mosarib.warning
+    val cells = listOf(
+        Triple("الساعات", "${durationMinutes / 60}:${"%02d".format(durationMinutes % 60)}", MaterialTheme.colorScheme.onSurface),
+        Triple("سعر الساعة", priceText, MaterialTheme.colorScheme.onSurface),
+        Triple("الواصل", receivedText, MaterialTheme.colorScheme.onSurface),
+        Triple("الباقي", if (settled) "خالص" else remainingText, remainingColor)
+    )
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            cells.forEachIndexed { i, (label, value, color) ->
+                if (i > 0) {
+                    Box(
+                        Modifier
+                            .width(1.dp)
+                            .fillMaxHeight()
+                            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f).padding(horizontal = 2.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.mosarib.textMuted,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = value,
+                        // long amounts shrink so four blocks still fit 360dp
+                        fontSize = if (value.length > 8) 12.sp else if (value.length > 6) 14.sp else 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = color,
+                        maxLines = 1,
+                        softWrap = false,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
