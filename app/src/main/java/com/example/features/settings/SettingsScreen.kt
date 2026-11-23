@@ -305,7 +305,8 @@ fun SettingsScreen(
                             "${plan?.titleArabic ?: "اشتراك سارٍ"} · متبقي $remDays يوماً"
                         } else {
                             val remaining = LicenseManager.getRemainingOperations(context, operationsCount)
-                            "نسخة تجريبية · متبقي $remaining عملية"
+                            if (remaining > 99_999) "نسخة تجريبية · غير محدود"
+                            else "نسخة تجريبية · متبقي $remaining عملية"
                         }
                     }
                     SettingsRow(

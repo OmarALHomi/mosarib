@@ -562,7 +562,7 @@ fun MainApp(
                                                 .clip(CircleShape)
                                                 .clickable { showLicenseDialog = true }
                                                 .semantics {
-                                                    contentDescription = "العمليات المجانية المتبقية: $remaining"
+                                                    contentDescription = "العمليات المجانية المتبقية: ${com.example.core.util.Formatters.formatRemainingOps(remaining, true)}"
                                                     role = Role.Button
                                                 },
                                             contentAlignment = Alignment.Center
@@ -580,7 +580,7 @@ fun MainApp(
                                                 strokeWidth = 2.5.dp
                                             )
                                             Text(
-                                                text = "$remaining",
+                                                text = com.example.core.util.Formatters.formatRemainingOps(remaining),
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     fontWeight = FontWeight.ExtraBold,
                                                     color = indicatorColor

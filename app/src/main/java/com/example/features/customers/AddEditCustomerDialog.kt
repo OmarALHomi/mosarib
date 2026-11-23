@@ -112,6 +112,7 @@ data class CustomerFormSnapshot(
 @Composable
 fun AddEditCustomerBottomSheet(
     initialCustomer: Customer? = null,
+    initialName: String = "",
     existingGroups: List<String> = emptyList(),
     currencySymbol: String,
     onDismiss: () -> Unit,
@@ -130,7 +131,7 @@ fun AddEditCustomerBottomSheet(
 ) {
     val context = LocalContext.current
 
-    var name by remember { mutableStateOf(initialCustomer?.name ?: "") }
+    var name by remember { mutableStateOf(initialCustomer?.name ?: initialName) }
     var phone by remember { mutableStateOf(initialCustomer?.phone ?: "") }
     var farmName by remember { mutableStateOf(initialCustomer?.farmName ?: "") }
     var location by remember { mutableStateOf(initialCustomer?.location ?: "") }

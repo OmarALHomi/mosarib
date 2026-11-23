@@ -1140,7 +1140,7 @@ fun AddEditSessionBottomSheet(
                             if (dayDescription != null || overnightNotice != null) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Card(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier.align(Alignment.End),
                                     colors = CardDefaults.cardColors(
                                         containerColor = MaterialTheme.mosarib.info.copy(alpha = 0.12f)
                                     ),
@@ -1148,19 +1148,21 @@ fun AddEditSessionBottomSheet(
                                     shape = RoundedCornerShape(10.dp)
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
                                             imageVector = if (isEndNight) Icons.Default.DarkMode else Icons.Default.WbSunny,
                                             contentDescription = null,
                                             tint = if (isEndNight) (MaterialTheme.mosarib.info) else (if (isDark) MaterialTheme.mosarib.warning else MaterialTheme.mosarib.warning),
-                                            modifier = Modifier.size(18.dp)
+                                            modifier = Modifier.size(14.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
                                         Text(
                                             text = dayDescription ?: overnightNotice.orEmpty(),
-                                            style = MaterialTheme.typography.bodySmall.copy(
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                            style = MaterialTheme.typography.labelSmall.copy(
                                                 color = MaterialTheme.mosarib.info,
                                                 fontWeight = FontWeight.Medium
                                             )
@@ -1182,29 +1184,25 @@ fun AddEditSessionBottomSheet(
                             text = "المدة:",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                         )
-                        MosaribTextField(
+                        CompactDurationField(
                             value = manualHoursStr,
+                            unit = "ساعات",
                             onValueChange = {
-                                manualHoursStr = it.filter { c -> c.isDigit() }.take(3)
+                                manualHoursStr = it.filter { c -> c.isDigit() }.trimStart('0').take(3)
                                 applyManualDuration(manualHoursStr, manualMinutesStr)
                             },
-                            label = "ساعات",
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            isDense = true,
                             modifier = Modifier.weight(1f)
                         )
-                        MosaribTextField(
+                        CompactDurationField(
                             value = manualMinutesStr,
+                            unit = "دقائق",
                             onValueChange = {
-                                val filtered = it.filter { c -> c.isDigit() }
+                                val filtered = it.filter { c -> c.isDigit() }.trimStart('0')
                                 if ((filtered.toIntOrNull() ?: 0) < 60) {
                                     manualMinutesStr = filtered
                                     applyManualDuration(manualHoursStr, manualMinutesStr)
                                 }
                             },
-                            label = "دقائق",
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            isDense = true,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -1486,54 +1484,6 @@ fun AddEditSessionBottomSheet(
             }
 
             Column {
-                // تسوية وتصفير باقي الجلسة كخصم ومسامحة عند دفع مبلغ أقل من الإجمالي
-                val diffToSettle = Formatters.roundMoney(grossWaterAmount - amountPaid)
-                if (amountPaid > 0.0 && diffToSettle > 0.0 && discountAmount != diffToSettle) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                discountAmountStr = Formatters.formatAmountInput(diffToSettle.toString())
-                                showDiscountDetails = true
-                            }
-                            .background(
-                                color = MaterialTheme.mosarib.warning.copy(alpha = 0.12f),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .border(
-                                width = 1.dp,
-                                color = MaterialTheme.mosarib.warning.copy(alpha = 0.5f),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = null,
-                                tint = MaterialTheme.mosarib.warning,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = "تسوية وتصفير باقي الجلسة كخصم:",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.mosarib.warning
-                                )
-                            )
-                        }
-                        Text(
-                            text = Formatters.formatCurrency(diffToSettle, currencySymbol),
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.mosarib.warning
-                            )
-                        )
-                    }
-                }
 
                 // إشعار الفائض النقدي وسند القبض المباشر
                 if (excessAmount > 0) {
@@ -1925,6 +1875,54 @@ fun AddEditSessionBottomSheet(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
+                // تسوية وتصفير باقي الجلسة كخصم ومسامحة عند دفع مبلغ أقل من الإجمالي
+                val diffToSettle = Formatters.roundMoney(grossWaterAmount - amountPaid)
+                if (amountPaid > 0.0 && diffToSettle > 0.0 && discountAmount != diffToSettle) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                discountAmountStr = Formatters.formatAmountInput(diffToSettle.toString())
+                                showDiscountDetails = true
+                            }
+                            .background(
+                                color = MaterialTheme.mosarib.warning.copy(alpha = 0.12f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.mosarib.warning.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                tint = MaterialTheme.mosarib.warning,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "تسوية وتصفير باقي الجلسة كخصم:",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.mosarib.warning
+                                )
+                            )
+                        }
+                        Text(
+                            text = Formatters.formatCurrency(diffToSettle, currencySymbol),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.mosarib.warning
+                            )
+                        )
+                    }
+                }
                         if (discountAmount > 0) {
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
@@ -2031,6 +2029,7 @@ fun AddEditSessionBottomSheet(
     if (showAddCustomerSheet) {
         AddEditCustomerBottomSheet(
             initialCustomer = null,
+            initialName = if (selectedCustomerId > 0L) "" else customerInputText.trim(),
             currencySymbol = currencySymbol,
             onDismiss = { showAddCustomerSheet = false },
             onSave = { _, name, phone, farmName, location, customerNotes, customPrice, isBeneficiary, isWellOwner, customGroup ->
@@ -2318,3 +2317,37 @@ private fun formatClockTimeArabic(hour: Int, minute: Int): String {
     return String.format(Locale.US, "%02d:%02d %s", hour12, minute, amPmStr)
 }
 
+
+
+/** ~44dp numeric field for the duration row; empty shows «0». */
+@Composable
+private fun CompactDurationField(
+    value: String,
+    unit: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val textColor = MaterialTheme.colorScheme.onSurface
+    androidx.compose.foundation.text.BasicTextField(
+        value = value.ifEmpty { "0" },
+        onValueChange = onValueChange,
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold, color = textColor),
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+        modifier = modifier,
+        decorationBox = { inner ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(modifier = Modifier.weight(1f)) { inner() }
+                Text(unit, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    )
+}

@@ -345,4 +345,8 @@ object Formatters {
         val raw = (durationMinutes.toDouble() / 60.0) * pricePerHour
         return roundMoney(raw)
     }
+
+    /** Remaining free operations for display; huge values (big dashboard limits) read as unlimited. */
+    fun formatRemainingOps(remaining: Int, long: Boolean = false): String =
+        if (remaining > 99_999) (if (long) "غير محدود" else "∞") else remaining.toString()
 }

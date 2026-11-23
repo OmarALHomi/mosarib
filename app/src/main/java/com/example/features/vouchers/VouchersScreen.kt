@@ -2651,6 +2651,7 @@ fun AddVoucherBottomSheet(
     if (showAddCustomerSheet && onCreateCustomer != null) {
         AddEditCustomerBottomSheet(
             initialCustomer = null,
+            initialName = if (selectedCustomerId <= 0L) custSearchQuery.trim() else "",
             currencySymbol = currencySymbol,
             onDismiss = { showAddCustomerSheet = false },
             onSave = { _, name, phone, farmName, location, customerNotes, customPrice, isBeneficiary, isWellOwner, customGroup ->

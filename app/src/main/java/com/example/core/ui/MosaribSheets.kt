@@ -361,10 +361,10 @@ fun MosaribMenu(
         offset = offset,
         properties = androidx.compose.ui.window.PopupProperties(focusable = focusable),
         shape = RoundedCornerShape(16.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         shadowElevation = if (isDark) 0.dp else 6.dp,
-        border = if (isDark) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)) else null
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
             Column(modifier = Modifier.padding(vertical = 6.dp)) {
