@@ -518,7 +518,7 @@ fun HomeScreen(
                         title = "سقي",
                         icon = Icons.Default.WaterDrop,
                         bg = MaterialTheme.mosarib.infoContainer,
-                        tint = MaterialTheme.mosarib.info,
+                        tint = MaterialTheme.mosarib.onInfoContainer,
                         onClick = { checkOperationAllowed { showAddManualSheet = true } },
                         modifier = Modifier.weight(1f).guideTarget("home_session_new")
                     )
@@ -526,7 +526,7 @@ fun HomeScreen(
                         title = "قبض",
                         icon = Icons.Default.Payments,
                         bg = MaterialTheme.mosarib.successContainer,
-                        tint = MaterialTheme.mosarib.success,
+                        tint = MaterialTheme.mosarib.onSuccessContainer,
                         onClick = {
                             checkOperationAllowed {
                                 voucherInitialType = VoucherType.RECEIPT
@@ -538,8 +538,8 @@ fun HomeScreen(
                     HomeCompactActionButton(
                         title = "صرف",
                         icon = Icons.Default.Payments,
-                        bg = MaterialTheme.mosarib.debt.copy(alpha = 0.12f),
-                        tint = MaterialTheme.mosarib.debt,
+                        bg = MaterialTheme.colorScheme.errorContainer,
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
                         onClick = {
                             checkOperationAllowed {
                                 voucherInitialType = VoucherType.EXPENSE
@@ -549,10 +549,18 @@ fun HomeScreen(
                         modifier = Modifier.weight(1f)
                     )
                     HomeCompactActionButton(
+                        title = "شراء",
+                        icon = Icons.Default.AccessTime,
+                        bg = MaterialTheme.mosarib.infoContainer,
+                        tint = MaterialTheme.mosarib.onInfoContainer,
+                        onClick = { checkOperationAllowed { showAddPurchaseSheet = true } },
+                        modifier = Modifier.weight(1f)
+                    )
+                    HomeCompactActionButton(
                         title = "صوت",
                         icon = Icons.Default.Mic,
-                        bg = PrimaryTeal.copy(alpha = 0.15f),
-                        tint = PrimaryTeal,
+                        bg = MaterialTheme.colorScheme.primaryContainer,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         onClick = {
                             if (!VoiceRecognitionHelper.isRecognitionAvailable(context)) {
                                 voiceDialogType = VoiceDialogType.MISSING_ENGINE
@@ -603,7 +611,7 @@ fun HomeScreen(
                         title = "إدخال صوتي",
                         subtitle = "تسجيل دورة، سند، أو مصروف بالصوت",
                         icon = Icons.Default.Mic,
-                        iconBgColor = PrimaryTeal.copy(alpha = 0.15f),
+                        iconBgColor = MaterialTheme.colorScheme.primaryContainer,
                         iconTint = PrimaryTeal,
                         onClick = {
                             if (!VoiceRecognitionHelper.isRecognitionAvailable(context)) {
@@ -663,7 +671,7 @@ fun HomeScreen(
                             title = "صرف",
                             subtitle = "دفعت مبلغاً",
                             icon = Icons.Default.Payments,
-                            iconBgColor = MaterialTheme.mosarib.debt.copy(alpha = 0.12f),
+                            iconBgColor = MaterialTheme.colorScheme.errorContainer,
                             iconTint = MaterialTheme.mosarib.debt,
                             onClick = {
                                 checkOperationAllowed {
@@ -678,7 +686,7 @@ fun HomeScreen(
                             title = "حسابات العملاء",
                             subtitle = "الأرصدة وكشوف الحساب",
                             icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                            iconBgColor = MaterialTheme.mosarib.debt.copy(alpha = 0.12f),
+                            iconBgColor = MaterialTheme.colorScheme.errorContainer,
                             iconTint = MaterialTheme.mosarib.debt,
                             onClick = { onNavigateToTab(AppTab.CUSTOMERS) },
                             modifier = Modifier.weight(1f).guideTarget("home_accounts")
@@ -1175,5 +1183,26 @@ fun HomeScreen(
                 ambiguousVoiceCommand = null
             }
         )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(widthDp = 360, showBackground = true)
+@Composable
+private fun HomeCompactRowLightPreview() = HomeCompactRowPreview(false)
+
+@androidx.compose.ui.tooling.preview.Preview(widthDp = 360, showBackground = true, backgroundColor = 0xFF0A1014)
+@Composable
+private fun HomeCompactRowDarkPreview() = HomeCompactRowPreview(true)
+
+@Composable
+private fun HomeCompactRowPreview(dark: Boolean) {
+    com.example.ui.theme.MosaribTheme(darkTheme = dark) {
+        Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HomeCompactActionButton("سقي", Icons.Default.WaterDrop, MaterialTheme.mosarib.infoContainer, MaterialTheme.mosarib.onInfoContainer, {}, Modifier.weight(1f))
+            HomeCompactActionButton("قبض", Icons.Default.Payments, MaterialTheme.mosarib.successContainer, MaterialTheme.mosarib.onSuccessContainer, {}, Modifier.weight(1f))
+            HomeCompactActionButton("صرف", Icons.Default.Payments, MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, {}, Modifier.weight(1f))
+            HomeCompactActionButton("شراء", Icons.Default.AccessTime, MaterialTheme.mosarib.infoContainer, MaterialTheme.mosarib.onInfoContainer, {}, Modifier.weight(1f))
+            HomeCompactActionButton("صوت", Icons.Default.Mic, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, {}, Modifier.weight(1f))
+        }
     }
 }
