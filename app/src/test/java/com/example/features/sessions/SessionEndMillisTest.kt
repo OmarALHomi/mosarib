@@ -30,4 +30,15 @@ class SessionStartFromDurationTest {
         val want = Calendar.getInstance().apply { clear(); set(2026, Calendar.NOVEMBER, 2, 8, 30, 0) }.timeInMillis
         assertEquals(want, sessionStartFromDuration(now, 120))
     }
+
+    @Test
+    fun durationOnly_startIsRecordingTime_endMovesPastMidnight() {
+        val now = Calendar.getInstance().apply { clear(); set(2026, Calendar.NOVEMBER, 2, 22, 30, 45) }.timeInMillis
+        val start = sessionStartFromDuration(now, 0)
+        assertEquals(Calendar.getInstance().apply { clear(); set(2026, Calendar.NOVEMBER, 2, 22, 30, 0) }.timeInMillis, start)
+        val end = Calendar.getInstance().apply { timeInMillis = sessionEndMillis(start, 5 * 60) }
+        assertEquals(3, end.get(Calendar.DAY_OF_MONTH))
+        assertEquals(3, end.get(Calendar.HOUR_OF_DAY))
+        assertEquals(30, end.get(Calendar.MINUTE))
+    }
 }

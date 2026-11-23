@@ -589,9 +589,11 @@ fun AddEditSessionBottomSheet(
             val startExplicit = startPicked && !startAuto
             val endExplicit = endPicked && !endAuto
             var startMs = startCal.timeInMillis
-            if (!startExplicit) {
-                // only the end was chosen: start = end - duration; nothing chosen: the session ended just now
-                startMs = sessionStartFromDuration(if (endExplicit) endCal.timeInMillis else System.currentTimeMillis(), totalM)
+            // nothing chosen: start = recording time (kept while only the duration changes), end = start + duration
+            val keepAutoStart = startPicked && startAuto && endAuto
+            if (!startExplicit && !keepAutoStart) {
+                // only the end was chosen: start = end - duration
+                startMs = sessionStartFromDuration(if (endExplicit) endCal.timeInMillis else System.currentTimeMillis(), if (endExplicit) totalM else 0)
                 val sc = Calendar.getInstance().apply { timeInMillis = startMs }
                 startDateMillis = startMs
                 startHour = sc.get(Calendar.HOUR_OF_DAY)

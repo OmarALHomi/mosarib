@@ -478,8 +478,9 @@ fun WellOwnerPurchaseBottomSheet(
             if (startAuto) { startPicked = false; startAuto = false }
             return
         }
+        if (startPicked) return // auto start stays at the recording time; only the end moves
         val c = Calendar.getInstance().apply {
-            timeInMillis = sessionStartFromDuration(System.currentTimeMillis(), totalMinutes)
+            timeInMillis = sessionStartFromDuration(System.currentTimeMillis(), 0)
         }
         startDateMillis = c.timeInMillis
         startHour = c.get(Calendar.HOUR_OF_DAY)
