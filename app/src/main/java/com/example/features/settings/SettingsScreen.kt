@@ -149,7 +149,6 @@ fun SettingsScreen(
 
     var showPriceSheet by remember { mutableStateOf(false) }
     var showDistributorSheet by remember { mutableStateOf(false) }
-    var showCurrencySheet by remember { mutableStateOf(false) }
     var showThemeSheet by remember { mutableStateOf(false) }
     var currentSubPage by rememberSaveable { mutableStateOf<SettingsSubPage?>(null) }
     val openBackupPageRequest by viewModel.openBackupPageRequest.collectAsStateWithLifecycle()
@@ -257,7 +256,7 @@ fun SettingsScreen(
                 SettingsCard {
                     SettingsRow(
                         title = "طريقة الاستخدام",
-                        subtitle = "المبسّطة تُظهر الحقول الأساسية فقط، والباقي تحت «خيارات إضافية»",
+                        subtitle = "المبسّطة: الأساسيات فقط — الباقي في «خيارات إضافية»",
                         icon = Icons.Default.Palette,
                         showChevron = false
                     )
@@ -317,6 +316,7 @@ fun SettingsScreen(
                         onClick = { showLicenseDialog = true }
                     )
 
+                    if (!config.simpleMode) {
                     SettingsRowDivider()
 
                     // رمز الجهاز
@@ -349,6 +349,7 @@ fun SettingsScreen(
                         },
                         showChevron = false
                     )
+                    }
 
                     // قفل التطبيق بالبصمة (hide if biometrics unavailable)
                     if (isBiometricAvailable) {
@@ -380,7 +381,7 @@ fun SettingsScreen(
                 SettingsCard {
                     // سعر ساعة الماء
                     SettingsRow(
-                        title = "سعر ساعة الماء",
+                        title = "السعر والعملة",
                         subtitle = "${Formatters.formatNumber(config.defaultPricePerHour)} ${config.currencySymbol}",
                         icon = Icons.Default.AttachMoney,
                         iconTint = MaterialTheme.colorScheme.primary,
@@ -402,16 +403,6 @@ fun SettingsScreen(
                         onClick = { showDistributorSheet = true }
                     )
 
-                    SettingsRowDivider()
-
-                    // رمز العملة
-                    SettingsRow(
-                        title = "رمز العملة",
-                        subtitle = config.currencySymbol,
-                        icon = Icons.Default.MonetizationOn,
-                        iconTint = MaterialTheme.colorScheme.primary,
-                        onClick = { showCurrencySheet = true }
-                    )
                 }
             }
 
@@ -466,6 +457,7 @@ fun SettingsScreen(
                         onClick = { showManageGroupsDialog = true }
                     )
 
+                    if (!config.simpleMode) {
                     SettingsRowDivider()
 
                     // فحص العمليات المستوردة المكررة
@@ -476,6 +468,7 @@ fun SettingsScreen(
                         iconTint = MaterialTheme.colorScheme.primary,
                         onClick = { viewModel.scanImportDuplicates() }
                     )
+                    }
                 }
             }
 
@@ -807,7 +800,7 @@ fun SettingsScreen(
         if (showPriceSheet) {
             MosaribBottomSheet(
                 onDismissRequest = { showPriceSheet = false },
-                title = "سعر ساعة الماء الافتراضي",
+                title = "السعر والعملة",
                 subtitle = "يحدد السعر المبدئي عند فتح جلسات سقي جديدة"
             ) {
                 Column(
@@ -823,6 +816,15 @@ fun SettingsScreen(
                         },
                         label = { Text("السعر الافتراضي لكل ساعة (${config.currencySymbol})") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = currencySymbol,
+                        onValueChange = { currencySymbol = it },
+                        label = { Text("رمز العملة (مثال: ر.ي أو ر.س أو $)") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true
@@ -849,6 +851,9 @@ fun SettingsScreen(
                             val rawDigits = defaultPriceStr.replace(",", "").trim()
                             val p = rawDigits.toDoubleOrNull() ?: 5000.0
                             viewModel.updateDefaultPricePerHour(p)
+                            val sym = currencySymbol.trim().ifBlank { "ر.ي" }
+                            currencySymbol = sym
+                            viewModel.updateCurrencySymbol(sym)
                             showPriceSheet = false
                         },
                         modifier = Modifier
@@ -857,7 +862,7 @@ fun SettingsScreen(
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("حفظ السعر الجديد", fontWeight = FontWeight.Bold)
+                        Text("حفظ", fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
@@ -909,47 +914,6 @@ fun SettingsScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Text("حفظ البيانات", fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-            }
-        }
-
-        // 3. Currency Symbol Sheet
-        if (showCurrencySheet) {
-            MosaribBottomSheet(
-                onDismissRequest = { showCurrencySheet = false },
-                title = "رمز العملة",
-                subtitle = "العملة المستخدمة في عرض كافة المبالغ والفواتير"
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = currencySymbol,
-                        onValueChange = { currencySymbol = it },
-                        label = { Text("رمز العملة (مثال: ر.ي أو ر.س أو $)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        singleLine = true
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            val s = currencySymbol.trim().ifBlank { "ر.ي" }
-                            currencySymbol = s
-                            viewModel.updateCurrencySymbol(s)
-                            showCurrencySheet = false
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Text("حفظ رمز العملة", fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                 }

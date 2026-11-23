@@ -543,10 +543,9 @@ fun MainApp(
                                     }
 
                                     // أيقونة خط خارجي دائرية بعدد العمليات المتبقية يتغير لونها مع النفاذ
-                                    val customDevLimit = com.example.core.license.RemoteConfigManager.getCustomDeviceLimit(context)
-                                    if (!isActivated || customDevLimit > 0) {
+                                    val remaining = LicenseManager.getRemainingOperations(context, operationsCount)
+                                    if (!isActivated && remaining <= 20) {
                                         val freeLimit = LicenseManager.getFreeOperationsLimit(context)
-                                        val remaining = LicenseManager.getRemainingOperations(context, operationsCount)
                                         val progress = if (freeLimit > 0) (operationsCount.toFloat() / freeLimit).coerceIn(0f, 1f) else 1f
                                         val indicatorColor = when {
                                             remaining <= 10 -> Color(0xFFE53935)
