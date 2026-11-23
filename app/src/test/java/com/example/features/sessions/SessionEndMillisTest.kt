@@ -22,3 +22,12 @@ class SessionEndMillisTest {
         assertEquals(45, end.get(Calendar.MINUTE))
     }
 }
+
+class SessionStartFromDurationTest {
+    @Test
+    fun nowMinusDuration_dropsSeconds() {
+        val now = Calendar.getInstance().apply { clear(); set(2026, Calendar.NOVEMBER, 2, 10, 30, 45) }.timeInMillis
+        val want = Calendar.getInstance().apply { clear(); set(2026, Calendar.NOVEMBER, 2, 8, 30, 0) }.timeInMillis
+        assertEquals(want, sessionStartFromDuration(now, 120))
+    }
+}

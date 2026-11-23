@@ -29,7 +29,9 @@ import com.example.core.ui.MosaribMenuDivider
 import com.example.core.ui.MosaribPrimaryButton
 import com.example.core.ui.REQUIRED_FIELD_TEXT
 import com.example.core.ui.RequiredFieldText
+import com.example.core.ui.TIME_OR_DURATION_TEXT
 import com.example.core.ui.firstMissingField
+import com.example.core.ui.hasTimeInput
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -121,6 +123,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -169,6 +172,10 @@ import java.util.Locale
 
 /** End of a session that starts at [startMillis] and lasts [durationMinutes] (rolls over midnight naturally). */
 internal fun sessionEndMillis(startMillis: Long, durationMinutes: Int): Long = startMillis + durationMinutes * 60000L
+
+/** Start of a session that ended at [endMillis] and lasted [durationMinutes], seconds dropped (duration-only entry: end = now). */
+internal fun sessionStartFromDuration(endMillis: Long, durationMinutes: Int): Long =
+    (endMillis - durationMinutes * 60000L).let { it - it % 60000L }
 
 /**
  * مقارنة الأيام التقويمية لتحديد ما إذا كان وقت الانتهاء يقع في يوم بعد يوم البدء.
@@ -584,9 +591,8 @@ fun AddEditSessionBottomSheet(
             var startMs = startCal.timeInMillis
             if (!startExplicit) {
                 // only the end was chosen: start = end - duration; nothing chosen: the session ended just now
-                startMs = (if (endExplicit) endCal.timeInMillis else System.currentTimeMillis()) - totalM * 60000L
-                val sc = Calendar.getInstance().apply { timeInMillis = startMs; set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }
-                startMs = sc.timeInMillis
+                startMs = sessionStartFromDuration(if (endExplicit) endCal.timeInMillis else System.currentTimeMillis(), totalM)
+                val sc = Calendar.getInstance().apply { timeInMillis = startMs }
                 startDateMillis = startMs
                 startHour = sc.get(Calendar.HOUR_OF_DAY)
                 startMinute = sc.get(Calendar.MINUTE)
@@ -913,9 +919,7 @@ fun AddEditSessionBottomSheet(
     val priceErr = errorField == SessionField.PRICE && pricePerHour <= 0
     fun firstMissing(): SessionField? = firstMissingField(
         SessionField.CUSTOMER to (finalCustId > 0L),
-        SessionField.START to startPicked,
-        SessionField.END to endPicked,
-        SessionField.DURATION to (grossMinutes in 1..MAX_SESSION_MINUTES),
+        SessionField.DURATION to (hasTimeInput(startPicked, endPicked, grossMinutes) && grossMinutes <= MAX_SESSION_MINUTES),
         SessionField.PRICE to (pricePerHour > 0),
         SessionField.WASTE to (wastedTotalMinutes <= grossMinutes)
     )
@@ -1131,7 +1135,7 @@ fun AddEditSessionBottomSheet(
                                 ) {
                                     Column(modifier = Modifier.padding(8.dp)) {
                                         Text(
-                                            text = "من",
+                                            text = if (startPicked && startAuto) "من (تلقائي)" else "من",
                                             style = MaterialTheme.typography.labelSmall.copy(color = PrimaryTeal, fontWeight = FontWeight.Bold)
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
@@ -1146,7 +1150,7 @@ fun AddEditSessionBottomSheet(
                                         ) {
                                             Text(
                                                 text = if (startPicked) Formatters.formatClockTimeArabic(startHour, startMinute) else "اختر الوقت",
-                                                style = if (startPicked) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                                                style = if (startPicked) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = LocalContentColor.current.copy(alpha = if (startAuto) 0.55f else 1f))
                                                 else MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color.Gray)
                                             )
                                         }
@@ -1190,7 +1194,7 @@ fun AddEditSessionBottomSheet(
                                 ) {
                                     Column(modifier = Modifier.padding(8.dp)) {
                                         Text(
-                                            text = "إلى",
+                                            text = if (endPicked && endAuto) "إلى (تلقائي)" else "إلى",
                                             style = MaterialTheme.typography.labelSmall.copy(color = AccentEmerald, fontWeight = FontWeight.Bold)
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
@@ -1205,7 +1209,7 @@ fun AddEditSessionBottomSheet(
                                         ) {
                                             Text(
                                                 text = if (endPicked) Formatters.formatClockTimeArabic(endHour, endMinute) else "اختر الوقت",
-                                                style = if (endPicked) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                                                style = if (endPicked) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = LocalContentColor.current.copy(alpha = if (endAuto) 0.55f else 1f))
                                                 else MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color.Gray)
                                             )
                                         }
@@ -1308,6 +1312,9 @@ fun AddEditSessionBottomSheet(
                             },
                             modifier = Modifier.weight(1f)
                         )
+                    }
+                    if (errorField == SessionField.DURATION && !hasTimeInput(startPicked, endPicked, grossMinutes)) {
+                        Text(TIME_OR_DURATION_TEXT, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFE53935), fontWeight = FontWeight.Bold, fontSize = 11.5.sp), modifier = Modifier.padding(top = 4.dp, start = 4.dp))
                     }
                     if (isDurationExceeded) {
                         Spacer(modifier = Modifier.height(8.dp))
@@ -2431,7 +2438,7 @@ internal fun CompactDurationField(
 ) {
     val textColor = MaterialTheme.colorScheme.onSurface
     androidx.compose.foundation.text.BasicTextField(
-        value = value.ifEmpty { "0" },
+        value = value,
         onValueChange = onValueChange,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -2447,7 +2454,10 @@ internal fun CompactDurationField(
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(modifier = Modifier.weight(1f)) { inner() }
+                Box(modifier = Modifier.weight(1f)) {
+                    if (value.isEmpty()) Text("0", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                    inner()
+                }
                 Text(unit, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

@@ -47,6 +47,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.core.ui.CustomerPickerField
 import com.example.features.sessions.CompactDurationField
+import com.example.features.sessions.sessionStartFromDuration
 import com.example.core.ui.MosaribBottomSheet
 import com.example.core.ui.MosaribDatePickerDialog
 import com.example.core.ui.MosaribPrimaryButton
@@ -55,7 +56,9 @@ import com.example.core.ui.MosaribTextField
 import com.example.core.ui.MosaribTimePickerDialog
 import com.example.core.ui.REQUIRED_FIELD_TEXT
 import com.example.core.ui.RequiredFieldText
+import com.example.core.ui.TIME_OR_DURATION_TEXT
 import com.example.core.ui.firstMissingField
+import com.example.core.ui.hasTimeInput
 import com.example.features.customers.AddEditCustomerBottomSheet
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -445,9 +448,7 @@ fun WellOwnerPurchaseBottomSheet(
     val rateErr = errorField == PurchaseField.RATE && rate <= 0
     fun firstMissing(): PurchaseField? = firstMissingField(
         PurchaseField.OWNER to (curOwner != null),
-        PurchaseField.START to startPicked,
-        PurchaseField.END to endShown,
-        PurchaseField.DURATION to (durationMinutes in 1..6000),
+        PurchaseField.DURATION to (hasTimeInput(startPicked, endPicked, durationMinutes) && durationMinutes <= 6000),
         PurchaseField.RATE to (rate > 0),
         PurchaseField.WASTE to (wastedMinutes in 0..durationMinutes)
     )
@@ -474,8 +475,7 @@ fun WellOwnerPurchaseBottomSheet(
     fun fillStartFromDuration(totalMinutes: Int) {
         if ((startPicked && !startAuto) || totalMinutes <= 0) return
         val c = Calendar.getInstance().apply {
-            timeInMillis = System.currentTimeMillis() - totalMinutes * 60000L
-            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            timeInMillis = sessionStartFromDuration(System.currentTimeMillis(), totalMinutes)
         }
         startDateMillis = c.timeInMillis
         startHour = c.get(Calendar.HOUR_OF_DAY)
@@ -592,7 +592,7 @@ fun WellOwnerPurchaseBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 PurchaseTimeBox(
-                    label = "من",
+                    label = if (startPicked && startAuto) "من (تلقائي)" else "من",
                     accent = MaterialTheme.colorScheme.primary,
                     timeText = if (startPicked) Formatters.formatClockTimeArabic(startHour, startMinute) else "اختر الوقت",
                     picked = startPicked,
@@ -603,7 +603,7 @@ fun WellOwnerPurchaseBottomSheet(
                     modifier = Modifier.weight(1f).bringIntoViewRequester(startReq)
                 )
                 PurchaseTimeBox(
-                    label = "إلى",
+                    label = if (startAuto && endShown && !endPicked) "إلى (تلقائي)" else "إلى",
                     accent = AccentEmerald,
                     timeText = if (endShown) Formatters.formatClockTimeArabic(
                         shownEndCal.get(Calendar.HOUR_OF_DAY), shownEndCal.get(Calendar.MINUTE)
@@ -648,6 +648,9 @@ fun WellOwnerPurchaseBottomSheet(
                     },
                     modifier = Modifier.weight(1f)
                 )
+            }
+            if (errorField == PurchaseField.DURATION && !hasTimeInput(startPicked, endPicked, durationMinutes)) {
+                Text(TIME_OR_DURATION_TEXT, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFE53935), fontWeight = FontWeight.Bold))
             }
             if (isOvernight) {
                 Row(

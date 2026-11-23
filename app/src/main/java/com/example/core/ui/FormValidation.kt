@@ -15,6 +15,12 @@ const val REQUIRED_FIELD_TEXT = "هذا الحقل مطلوب"
 /** The first field (in screen order) whose check is false, or null when every field is filled. */
 fun <T> firstMissingField(vararg fields: Pair<T, Boolean>): T? = fields.firstOrNull { !it.second }?.first
 
+const val TIME_OR_DURATION_TEXT = "أدخل المدة أو اختر وقت البدء والانتهاء"
+
+/** Time is given either by a duration > 0 or by both من and إلى. */
+fun hasTimeInput(startPicked: Boolean, endPicked: Boolean, durationMinutes: Int): Boolean =
+    durationMinutes > 0 || (startPicked && endPicked)
+
 /** Small red line shown under a required field that is empty after pressing save. */
 @Composable
 fun RequiredFieldText(visible: Boolean, modifier: Modifier = Modifier) {

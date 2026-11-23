@@ -30,7 +30,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,6 +83,9 @@ fun MosaribTextField(
 ) {
     val isDark = isAppDark()
     val isError = !errorText.isNullOrBlank()
+    // A field holding 0 is cleared on focus so the first digit replaces it («4» must not become «40»)
+    val focused by interactionSource.collectIsFocusedAsState()
+    LaunchedEffect(focused) { if (focused && value == "0" && !readOnly) onValueChange("") }
 
     val labelColor = when {
         isError -> Color(0xFFE53935)

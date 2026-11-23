@@ -22,4 +22,18 @@ class FormValidationTest {
     fun nullWhenAllFilled() {
         assertNull(firstMissingField(F.CUSTOMER to true, F.PRICE to true))
     }
+
+    @Test
+    fun durationAloneIsEnoughForTime() {
+        assertEquals(true, hasTimeInput(false, false, 120))
+        assertEquals(true, hasTimeInput(true, true, 0))
+        assertEquals(false, hasTimeInput(true, false, 0))
+    }
+
+    @Test
+    fun nothingGivenPointsToDuration() {
+        val r = firstMissingField(F.CUSTOMER to true, F.END to hasTimeInput(false, false, 0), F.PRICE to false)
+        assertEquals(F.END, r)
+        assertNull(firstMissingField(F.END to hasTimeInput(false, false, 120)))
+    }
 }
