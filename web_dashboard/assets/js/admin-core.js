@@ -1455,9 +1455,11 @@
           <td>${statusBadge}</td>
           <td>
             <div style="display: flex; gap: 6px; align-items: center;">
-              ${!isCompleted 
-                ? `<button class="btn-sm btn-unblock btn-act-req" data-code="${escapeHtml(devCode)}" data-name="${escapeHtml(r.subscriberName || '')}" data-plan="${escapeHtml(r.plan || 'YEARLY')}" data-id="${escapeHtml(reqId)}" title="تفعيل الاشتراك وتوليد الرمز">تفعيل</button>`
-                : `<span style="font-size: 11.5px; color: var(--success); font-weight: bold; padding: 2px 6px;">منفّذ</span>`
+              ${!isCompleted
+                ? (cleanPhone
+                    ? `<button class="btn-sm btn-unblock btn-act-req" data-wa="1" data-phone="${cleanPhone}" data-code="${escapeHtml(devCode)}" data-name="${escapeHtml(r.subscriberName || '')}" data-plan="${escapeHtml(r.plan || 'YEARLY')}" data-id="${escapeHtml(reqId)}" title="تفعيل الاشتراك وإرسال الرمز عبر واتساب">تفعيل وإرسال واتساب</button><button class="btn-sm btn-outline btn-act-req" data-code="${escapeHtml(devCode)}" data-name="${escapeHtml(r.subscriberName || '')}" data-plan="${escapeHtml(r.plan || 'YEARLY')}" data-id="${escapeHtml(reqId)}" title="تفعيل بدون إرسال">تفعيل فقط</button>`
+                    : `<button class="btn-sm btn-unblock btn-act-req" data-code="${escapeHtml(devCode)}" data-name="${escapeHtml(r.subscriberName || '')}" data-plan="${escapeHtml(r.plan || 'YEARLY')}" data-id="${escapeHtml(reqId)}" title="تفعيل الاشتراك وتوليد الرمز">تفعيل</button>`)
+                :`<span style="font-size: 11.5px; color: var(--success); font-weight: bold; padding: 2px 6px;">منفّذ</span>`
               }
               ${cleanPhone ? `<button class="btn-sm btn-outline btn-wa-notify" data-phone="${cleanPhone}" data-name="${escapeHtml(r.subscriberName || '')}" data-receipt="${escapeHtml(receiptText)}" title="تأكيد استلام السند عبر واتساب">واتساب</button>` : ''}
               <button class="btn-sm btn-del-req" style="background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.35); padding: 4px 8px; font-size: 12px;" data-id="${escapeHtml(reqId)}" title="حذف هذا الطلب">حذف</button>
@@ -1469,7 +1471,9 @@
 
     tbody.querySelectorAll('.btn-act-req').forEach(btn => {
       btn.addEventListener('click', function() {
-        quickActivateRequest(this.getAttribute('data-code'), this.getAttribute('data-name'), this.getAttribute('data-plan'), this.getAttribute('data-id'));
+        const a = n => this.getAttribute(n);
+        if (a('data-wa')) activateRequestAndSend(a('data-code'), a('data-name'), a('data-plan'), a('data-id'), a('data-phone'));
+        else quickActivateRequest(a('data-code'), a('data-name'), a('data-plan'), a('data-id'));
       });
     });
 
@@ -1604,6 +1608,13 @@
     document.getElementById('planSelect').value = plan || 'MONTHLY';
     pendingRequestId = reqId || null;
     generateAndSaveKey();
+  }
+
+  async function activateRequestAndSend(code, name, plan, reqId, phone) {
+    const r = await activateDevice(code, name, plan, reqId);
+    if (!r.ok) return alert(r.error);
+    openWhatsAppMessage(phone, activationMessage(name, plan, r.key), `تم التفعيل: ${r.key}`);
+    loadFirebaseData();
   }
 
   function setRequestFilter(filter) {
@@ -1890,6 +1901,10 @@
       const customLimitBtn = `<button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" onclick="promptSetCustomLimit('${devKey}', ${limit})">تعديل الحد </button>`;
       const warnBtn = `<button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" onclick="promptSendDeviceWarning('${devKey}')">رسالة ⚠️</button>`;
 
+      const subBtns = isAct
+        ? `<button class="btn-sm btn-unblock" onclick="openExtendModal('${devKey}')">تمديد</button><button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px; color:var(--danger); border-color:var(--danger);" onclick="revokeSubscription('${devKey}')">إلغاء التفعيل</button>`
+        : `<button class="btn-sm btn-unblock" onclick="openActivateModal('${devKey}')">تفعيل</button>`;
+
       const warningBadge = override.specialWarningMessage ? `<div style="margin-top:4px;"><small style="color:var(--accent); font-size:10px;">رسالة موجهة: ${override.specialWarningMessage}</small></div>` : '';
 
       const priceTag = (u.pricePerHour || u.hourlyRate) 
@@ -1910,6 +1925,7 @@
           <td>
             <div class="btn-action-group" onclick="event.stopPropagation()">
               <button class="btn-sm btn-outline" style="padding:4px 8px; font-size:11px; background: rgba(0, 131, 143, 0.12); color: var(--primary);" onclick="event.stopPropagation(); openUserDetailModal('${devKey}')">تفاصيل 👤</button>
+              ${subBtns}
               ${blockBtn}
               ${bkLockBtn}
               ${customLimitBtn}
@@ -2113,95 +2129,212 @@
     return null;
   }
 
+  /** Dashed device code the app reads (MSRB-XXXX-XXXX) from a dashed or cleaned code, or null if invalid. */
+  function toDashedDeviceCode(code) {
+    const m = /^MSRB([A-Z0-9]{4})([A-Z0-9]{4})$/.exec(String(code || '').replace(/-/g, '').trim().toUpperCase());
+    return m ? `MSRB-${m[1]}-${m[2]}` : null;
+  }
+
+  /** The one place that issues a key: writes licenses/{key} and devices/{code}, completes the request. */
+  async function activateDevice(devCodeRaw, subName, plan, reqId) {
+    const devCode = toDashedDeviceCode(devCodeRaw);
+    if (!devCode) return { ok: false, error: 'كود الجهاز غير صالح (الصيغة MSRB-XXXX-XXXX)' };
+    if (plan !== 'MONTHLY' && plan !== 'YEARLY') return { ok: false, error: 'الباقة غير صالحة' };
+    const prefix = plan === 'MONTHLY' ? 'M' : 'Y';
+    const durationDays = plan === 'MONTHLY' ? 30 : 365;
+
+    // Random key: it is not derived from the device code, so it cannot be computed outside the
+    // dashboard. The app only accepts a key whose record exists here and is bound to its device.
+    const key = await generateUniqueActivationKey(prefix);
+    if (!key) return { ok: false, error: 'تعذر توليد رمز فريد، تحقق من الاتصال بالخادم ثم أعد المحاولة' };
+    const cleanKey = key.replace(/-/g, '');
+
+    const now = Date.now();
+    const payload = {
+      key: cleanKey,
+      displayKey: key,
+      deviceCode: devCode,
+      subscriberName: subName || 'مشترك',
+      plan: plan,
+      activatedAt: now,
+      expiresAt: now + durationDays * DAY_MS,
+      isRevoked: false,
+      lastCheckedAt: now
+    };
+    const put = (path, body) => firebaseFetch(path, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    let error = null;
+    try {
+      const res = await put(`licenses/${cleanKey}.json`, payload);
+      if (!res || !res.ok) error = `HTTP ${res ? res.status : 'تعذر الاتصال'} (${(res && res.statusText) || 'رفض الخادم'})`;
+      else {
+        const dev = await put(`devices/${devCode}.json`, payload);
+        if (!dev || !dev.ok) error = 'حُفظ الترخيص لكن فشل تحديث سجل الجهاز';
+      }
+      if (!error && reqId) {
+        await put(`subscription_requests/${reqId}/status.json`, 'COMPLETED').catch(() => {});
+        await put(`subscription_requests/${reqId}/activationKey.json`, key).catch(() => {});
+      }
+    } catch (e) {
+      error = e.message;
+    }
+    return error ? { ok: false, key, devCode, error } : { ok: true, key, devCode, plan, expiresAt: payload.expiresAt };
+  }
+
   async function generateAndSaveKey() {
     const devCode = document.getElementById("deviceCode").value.trim().toUpperCase();
     const subName = document.getElementById("subscriberName").value.trim();
     const plan = document.getElementById("planSelect").value;
-    const prefix = plan === "MONTHLY" ? "M" : "Y";
-    const durationDays = plan === "MONTHLY" ? 30 : 365;
 
     if (!devCode) {
       alert("يرجى كتابة كود جهاز العميل أولاً");
       return;
     }
 
-    // Random key: it is not derived from the device code, so it cannot be computed outside the
-    // dashboard. The app only accepts a key whose record exists here and is bound to its device.
-    const key = await generateUniqueActivationKey(prefix);
-    if (!key) {
-      alert("تعذر توليد رمز فريد، تحقق من الاتصال بالخادم ثم أعد المحاولة");
-      return;
-    }
-    const cleanKey = key.replace(/-/g, "");
+    const reqId = pendingRequestId;
+    pendingRequestId = null;
+    const r = await activateDevice(devCode, subName, plan, reqId);
 
-    const now = Date.now();
-    const expiresAt = now + (durationDays * 24 * 3600 * 1000);
-
-    const payload = {
-      key: cleanKey,
-      displayKey: key,
-      deviceCode: devCode,
-      subscriberName: subName || "مشترك",
-      plan: plan,
-      activatedAt: now,
-      expiresAt: expiresAt,
-      isRevoked: false,
-      lastCheckedAt: now
-    };
-
-    let pushSuccess = false;
-    let pushError = null;
-
-    try {
-      // 1. Save License to RTDB
-      const res = await firebaseFetch(`licenses/${cleanKey}.json`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        pushSuccess = true;
-      } else {
-        pushError = `HTTP ${res.status} (${res.statusText || 'رفض الخادم'})`;
-      }
-
-      // 2. Also save to devices for fast device lookup
-      await firebaseFetch(`devices/${devCode}.json`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      }).catch(() => {});
-
-      // 3. Mark subscription request as completed if applicable
-      if (pendingRequestId) {
-        await firebaseFetch(`subscription_requests/${pendingRequestId}/status.json`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify("COMPLETED")
-        }).catch(() => {});
-
-        await firebaseFetch(`subscription_requests/${pendingRequestId}/activationKey.json`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(key)
-        }).catch(() => {});
-
-        pendingRequestId = null;
-      }
-    } catch (e) {
-      pushError = e.message;
+    if (r.key) {
+      document.getElementById("keyText").innerText = r.key;
+      document.getElementById("keyBox").style.display = "block";
     }
 
-    document.getElementById("keyText").innerText = key;
-    document.getElementById("keyBox").style.display = "block";
-
-    if (pushSuccess) {
-      alert(`تم توليد وتفعيل الرمز بنجاح: ${key}\nتم رفعه وحفظه في سحابة فايربيس بنجاح وربطه بالجهاز (${devCode}).`);
+    if (r.ok) {
+      alert(`تم توليد وتفعيل الرمز بنجاح: ${r.key}\nتم رفعه وحفظه في سحابة فايربيس بنجاح وربطه بالجهاز (${r.devCode}).`);
+    } else if (r.key) {
+      alert(`تم توليد الرمز محلياً: ${r.key}\nولكن حدث خطأ أثناء رفعه إلى فايربيس: (${r.error || 'تعذر الاتصال'}).\nيمكنك النقر على زر سحابة فايربيس بأعلى الصفحة للتأكد من الرابط وقواعد الأمان.`);
     } else {
-      alert(`تم توليد الرمز محلياً: ${key}\nولكن حدث خطأ أثناء رفعه إلى فايربيس: (${pushError || 'تعذر الاتصال'}).\nيمكنك النقر على زر سحابة فايربيس بأعلى الصفحة للتأكد من الرابط وقواعد الأمان.`);
+      alert(r.error);
     }
 
     loadFirebaseData();
+  }
+
+  // ===== Task 065: activate / extend / revoke from the lists =====
+
+  function activationMessage(name, plan, key) {
+    const planText = plan === "MONTHLY" ? "اشتراك شهري (30 يوماً)" : "اشتراك سنوي (365 يوماً)";
+    return `السلام عليكم ورحمة الله أخي ${name || "عزيزنا المشترك"}،\nتم تفعيل اشتراكك في تطبيق المُسَرِّب (${planText}).\n\nرمز التفعيل لجهازك هو:\n${key}\n\nيرجى نسخه ولصقه في نافذة التفعيل بالتطبيق أثناء الاتصال بالإنترنت.`;
+  }
+
+  function showToast(msg, actionLabel, onAction) {
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:10001; background:var(--card-bg); color:var(--text); border:1px solid var(--card-border); box-shadow:var(--card-shadow); border-radius:12px; padding:12px 16px; display:flex; gap:12px; align-items:center; max-width:90vw;';
+    t.innerHTML = `<span>${escapeHtml(msg)}</span>`;
+    if (actionLabel) {
+      const b = document.createElement('button');
+      b.className = 'btn-sm btn-unblock';
+      b.textContent = actionLabel;
+      b.onclick = () => { onAction(); t.remove(); };
+      t.appendChild(b);
+    }
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), actionLabel ? 15000 : 4000);
+  }
+
+  /** Opens WhatsApp at once; if the browser blocks the popup, offers a button (a real click is allowed). */
+  function openWhatsAppMessage(phone, text, doneMsg) {
+    const num = whatsappNumber(phone);
+    if (!num) return showToast(doneMsg);
+    const url = `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
+    if (!window.open(url, '_blank')) showToast(doneMsg, 'إرسال واتساب', () => window.open(url, '_blank'));
+  }
+
+  /** Plan picker modal. onConfirm(plan, name) returns a promise; the dialog closes when it finishes. */
+  function showPlanModal(title, name, withName, confirmLabel, onConfirm) {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; padding:16px;';
+    ov.innerHTML = `<div style="background:var(--card-bg); color:var(--text); border:1px solid var(--card-border); border-radius:16px; padding:20px; width:100%; max-width:360px; box-shadow:var(--card-shadow);">
+      <h3 style="margin:0 0 14px;">${escapeHtml(title)}</h3>
+      ${withName ? `<label style="font-size:12px; color:var(--text-muted);">اسم المشترك</label><input id="planModalName" type="text" value="${escapeHtml(name || '')}" style="margin-bottom:10px;">` : ''}
+      <label style="font-size:12px; color:var(--text-muted);">الباقة</label>
+      <select id="planModalPlan" style="margin-bottom:16px;"><option value="MONTHLY">شهري (30 يوماً)</option><option value="YEARLY">سنوي (365 يوماً)</option></select>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button type="button" class="btn-sm btn-outline" id="planModalCancel">إلغاء</button>
+        <button type="button" class="btn-sm btn-unblock" id="planModalOk">${escapeHtml(confirmLabel)}</button>
+      </div></div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#planModalCancel').onclick = () => ov.remove();
+    const ok = ov.querySelector('#planModalOk');
+    ok.onclick = async () => {
+      ok.disabled = true;
+      const nm = ov.querySelector('#planModalName');
+      try { await onConfirm(ov.querySelector('#planModalPlan').value, nm ? nm.value.trim() : ''); }
+      finally { ov.remove(); }
+    };
+  }
+
+  /** Reflects a change in the local lists, then redraws the users table and counters (no reload). */
+  function applyLocalSubscription(devKey, patch) {
+    const k = String(devKey).toUpperCase();
+    subscriptionByDevice[k] = { ...(subscriptionByDevice[k] || { activatedAt: Date.now() }), ...patch };
+    const u = userByKey(k);
+    if (u) {
+      if (patch.isRevoked === true) u.isActivated = false;
+      else { u.isActivated = true; if (patch.plan) u.plan = patch.plan; }
+    }
+    renderUsersTable(allUsers);
+    updateStats();
+    if (typeof refreshTask036Panels === 'function') refreshTask036Panels();
+  }
+
+  function openActivateModal(devKey) {
+    const u = userByKey(devKey);
+    if (!u) return alert('تعذر العثور على المستخدم');
+    const code = toDashedDeviceCode(u.deviceCode || devKey);
+    if (!code) return alert('كود الجهاز غير صالح (الصيغة MSRB-XXXX-XXXX)');
+    const name = u.subscriberName || u.googleDisplayName || '';
+    showPlanModal('تفعيل اشتراك', name, true, 'تفعيل', async (plan, nm) => {
+      const r = await activateDevice(code, nm, plan, null);
+      if (!r.ok) return alert(r.error);
+      applyLocalSubscription(devKey, { key: r.key.replace(/-/g, ''), plan, activatedAt: Date.now(), expiresAt: r.expiresAt, isRevoked: false });
+      if (u.phone) openWhatsAppMessage(u.phone, activationMessage(nm, plan, r.key), `تم التفعيل: ${r.key}`);
+      else showToast(`تم التفعيل: ${r.key}`);
+    });
+  }
+
+  function openExtendModal(devKey) {
+    const sub = subscriptionByDevice[String(devKey).toUpperCase()];
+    const code = toDashedDeviceCode(devKey);
+    if (!sub || !code) return alert('تعذر العثور على بيانات الاشتراك لهذا الجهاز');
+    showPlanModal('تمديد الاشتراك', '', false, 'تمديد', async (plan) => {
+      const expiresAt = Math.max(Date.now(), sub.expiresAt) + (plan === 'MONTHLY' ? 30 : 365) * DAY_MS;
+      const r = await writeSubscriptionPatch(sub.key, code, { expiresAt, plan, lastCheckedAt: Date.now() });
+      if (!r.ok) return alert(r.error);
+      applyLocalSubscription(devKey, { expiresAt, plan });
+      showToast(`تم التمديد حتى ${formatDateDMY(expiresAt)}`);
+    });
+  }
+
+  async function revokeSubscription(devKey) {
+    const sub = subscriptionByDevice[String(devKey).toUpperCase()];
+    const code = toDashedDeviceCode(devKey);
+    if (!sub || !code) return alert('تعذر العثور على بيانات الاشتراك لهذا الجهاز');
+    if (!confirm('إلغاء تفعيل اشتراك هذا الجهاز؟ سيعود إلى النسخة التجريبية.')) return;
+    const r = await writeSubscriptionPatch(sub.key, code, { isRevoked: true, lastCheckedAt: Date.now() });
+    if (!r.ok) return alert(r.error);
+    applyLocalSubscription(devKey, { isRevoked: true });
+    showToast('تم إلغاء التفعيل');
+  }
+
+  /** PATCHes the same fields on licenses/{key} (when known) and devices/{code}. */
+  async function writeSubscriptionPatch(cleanKey, devCode, fields) {
+    const paths = [`devices/${devCode}.json`];
+    if (cleanKey) paths.unshift(`licenses/${cleanKey}.json`);
+    for (const path of paths) {
+      const res = await firebaseFetch(path, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fields)
+      });
+      if (!res || !res.ok) return { ok: false, error: `فشل الحفظ في ${path.split('/')[0]}: HTTP ${res ? res.status : 'تعذر الاتصال'}` };
+    }
+    return { ok: true };
   }
 
   function copyKey() {
@@ -2211,9 +2344,7 @@
 
   function sendToWhatsApp() {
     const key = document.getElementById("keyText").innerText;
-    const name = document.getElementById("subscriberName").value.trim() || "عزيزنا المشترك";
-    const plan = document.getElementById("planSelect").value === "MONTHLY" ? "اشتراك شهري (30 يوماً)" : "اشتراك سنوي (365 يوماً)";
-    const text = `السلام عليكم ورحمة الله أخي ${name}،\nتم تفعيل اشتراكك في تطبيق المُسَرِّب (${plan}).\n\nرمز التفعيل لجهازك هو:\n${key}\n\nيرجى نسخه ولصقه في نافذة التفعيل بالتطبيق أثناء الاتصال بالإنترنت.`;
+    const text = activationMessage(document.getElementById("subscriberName").value.trim(), document.getElementById("planSelect").value, key);
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   }
 
@@ -3075,7 +3206,8 @@
         activatedAt: Number(lic.activatedAt) || 0,
         expiresAt: expiresAt,
         plan: lic.plan || '',
-        isRevoked: lic.isRevoked === true
+        isRevoked: lic.isRevoked === true,
+        key: String(lic.key || '').replace(/-/g, '')
       };
     }
   }
