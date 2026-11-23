@@ -230,6 +230,9 @@ object LicenseManager {
         return if (res is ActivationResult.Success) res.plan else null
     }
 
+    /** What a remote sync changed locally; only ever set after the unchanged validity checks pass. */
+    enum class SyncChange { NONE, ACTIVATED, EXTENDED }
+
     /** Revokes license locally and blocks further usage. */
     fun revokeLicenseLocally(context: Context) {
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
@@ -247,11 +250,11 @@ object LicenseManager {
      * - Auto-activates or extends subscription if approved / renewed remotely via the admin
      * dashboard.
      */
-    suspend fun syncRemoteSubscriptionStatus(context: Context) {
-        if (!isInternetAvailable(context)) return
+    suspend fun syncRemoteSubscriptionStatus(context: Context): SyncChange {
+        if (!isInternetAvailable(context)) return SyncChange.NONE
         if (UserDeviceTracker.isDeviceBlockedLocally(context)) {
             revokeLicenseLocally(context)
-            return
+            return SyncChange.NONE
         }
         val deviceCode = getDeviceCode(context)
         val license = FirebaseLicenseService.getDeviceRemoteLicense(deviceCode)
@@ -261,13 +264,14 @@ object LicenseManager {
             FirebaseLicenseService.getPaymentMethods(context)
         }
 
-        if (!license.isFound) return
+        if (!license.isFound) return SyncChange.NONE
 
         if (license.isRevoked) {
             revokeLicenseLocally(context)
-            return
+            return SyncChange.NONE
         }
 
+        var result = SyncChange.NONE
         val now = System.currentTimeMillis()
         if (license.expiresAt > now) {
             val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
@@ -276,6 +280,7 @@ object LicenseManager {
 
             // If not active locally, or admin extended the subscription expiration
             if (!isLocallyActive || license.expiresAt > currentExpiresAt) {
+                result = if (isLocallyActive) SyncChange.EXTENDED else SyncChange.ACTIVATED
                 val plan =
                         runCatching { SubscriptionPlan.valueOf(license.plan) }
                                 .getOrDefault(SubscriptionPlan.MONTHLY)
@@ -302,6 +307,7 @@ object LicenseManager {
                         .apply()
             }
         }
+        return result
     }
 
     fun checkRemoteRevocationInBackground(context: Context) {

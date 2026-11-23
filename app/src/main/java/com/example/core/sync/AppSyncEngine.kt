@@ -42,8 +42,28 @@ data class StartupDecision(
     val blockReason: String = ""
 )
 
+const val RESYNC_MIN_INTERVAL_MS = 10 * 60 * 1000L
+
+/** True when at least 10 minutes passed since the last licence sync. */
+fun shouldResync(lastSyncAt: Long, now: Long): Boolean = now - lastSyncAt >= RESYNC_MIN_INTERVAL_MS
+
 object AppSyncEngine {
     private const val TAG = "AppSyncEngine"
+
+    @Volatile private var lastLicenseSyncAt = 0L
+
+    /** Emits when a foreground re-sync activated or extended the subscription. */
+    val licenseChanged = kotlinx.coroutines.flow.MutableSharedFlow<LicenseManager.SyncChange>(extraBufferCapacity = 1)
+
+    /** Re-runs the existing licence sync when the app returns to the foreground (throttled, needs network). */
+    suspend fun resyncOnResume(context: Context) = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        if (!shouldResync(lastLicenseSyncAt, now)) return@withContext
+        lastLicenseSyncAt = now
+        val change = runCatching { LicenseManager.syncRemoteSubscriptionStatus(context) }
+            .getOrDefault(LicenseManager.SyncChange.NONE)
+        if (change != LicenseManager.SyncChange.NONE) licenseChanged.emit(change)
+    }
 
     /**
      * Executes consolidated background synchronization in a single well-managed coroutine pass.
@@ -91,6 +111,7 @@ object AppSyncEngine {
             }
 
             // 2. Check remote license revocation, auto-activation, and extension
+            lastLicenseSyncAt = System.currentTimeMillis()
             LicenseManager.syncRemoteSubscriptionStatus(context)
 
             // 3. Fetch broadcasts, announcements, and force-update rules

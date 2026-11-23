@@ -248,6 +248,17 @@ fun MainApp(
 
             val isActivated by settingsViewModel.isActivated.collectAsStateWithLifecycle()
 
+            LaunchedEffect(Unit) {
+                AppSyncEngine.licenseChanged.collect { change ->
+                    settingsViewModel.refreshActivationStatus()
+                    val msg = if (change == LicenseManager.SyncChange.ACTIVATED) "تم تفعيل اشتراكك 🎉" else {
+                        val exp = LicenseManager.getActivationRecord(context)?.expiresAt ?: 0L
+                        "تم تمديد اشتراكك حتى " + java.text.SimpleDateFormat("yyyy/MM/dd", java.util.Locale.US).format(java.util.Date(exp))
+                    }
+                    settingsViewModel.showToast(msg)
+                }
+            }
+
             var isDeviceBlocked by remember { mutableStateOf(UserDeviceTracker.isDeviceBlockedLocally(context)) }
             var blockReason by remember { mutableStateOf(UserDeviceTracker.getBlockReason(context)) }
 
