@@ -1,3 +1,30 @@
+  <div id="homeTop">
+    <!-- Home KPI cards: each opens the matching list, already filtered -->
+    <div class="home-kpis">
+      <button type="button" class="home-kpi tone-amber" onclick="switchTab('requests'); setRequestFilter('PENDING')">
+        <span class="hk-label">طلبات تنتظر التفعيل</span>
+        <span class="hk-num" id="kpiHomePending">0</span>
+        <span class="hk-hint">افتح الطلبات الجديدة</span>
+      </button>
+      <button type="button" class="home-kpi tone-green" onclick="switchTab('users'); setUserFilter('ACTIVE')">
+        <span class="hk-label">مشتركون فعّالون</span>
+        <span class="hk-num" id="kpiHomeActive">0</span>
+        <span class="hk-hint">اشتراك ساري الآن</span>
+      </button>
+      <button type="button" class="home-kpi tone-red" onclick="switchTab('subs'); setSubsFilter('soon')">
+        <span class="hk-label">تنتهي خلال 7 أيام</span>
+        <span class="hk-num" id="kpiHomeExpiring">0</span>
+        <span class="hk-hint">تحتاج تجديداً قريباً</span>
+      </button>
+      <button type="button" class="home-kpi tone-cyan" onclick="switchTab('users'); setUserFilter('TODAY')">
+        <span class="hk-label">نشطون اليوم</span>
+        <span class="hk-num" id="kpiHomeToday">0</span>
+        <span class="hk-hint">فتحوا التطبيق اليوم</span>
+      </button>
+    </div>
+
+    <details class="more-stats">
+      <summary>كل المؤشرات</summary>
   <!-- Stats Grid Widget -->
   <div class="stats-grid">
     <div class="stat-card">
@@ -50,7 +77,7 @@
         </svg>
       </div>
     </div>
-    <div class="stat-card" style="border: 1px solid rgba(239, 68, 68, 0.35); cursor: pointer;" onclick="switchTab('users'); document.getElementById('expiringCard')?.scrollIntoView({behavior:'smooth'})">
+    <div class="stat-card" style="border: 1px solid rgba(239, 68, 68, 0.35); cursor: pointer;" onclick="switchTab('subs'); setSubsFilter('soon')">
       <div class="stat-info">
         <h3>اشتراكات تنتهي خلال 7 أيام</h3>
         <div class="num" id="statExpiringSoon" style="color: var(--danger);">0</div>
@@ -101,4 +128,6 @@
         </svg>
       </div>
     </div>
+  </div>
+    </details>
   </div>
