@@ -2,6 +2,8 @@ package com.example.features.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.core.ui.AmountWithWords
 import com.example.core.util.FileSharingHelper
+import com.example.features.customers.AccountFilter
 import com.example.features.customers.AddEditCustomerBottomSheet
 import com.example.features.customers.ArchiveCustomerDialog
 import com.example.features.customers.Customer
@@ -81,6 +84,7 @@ fun HomeCustomerList(
     val config by customersViewModel.appConfig.collectAsStateWithLifecycle()
     val customers by customersViewModel.customersWithBalance.collectAsStateWithLifecycle()
     val balanceFilter by customersViewModel.balanceFilter.collectAsStateWithLifecycle()
+    val accountFilter by customersViewModel.accountFilter.collectAsStateWithLifecycle()
     val selectedGroup by customersViewModel.selectedGroup.collectAsStateWithLifecycle()
     val groups by customersViewModel.customGroups.collectAsStateWithLifecycle()
     val query by customersViewModel.searchQuery.collectAsStateWithLifecycle()
@@ -111,9 +115,13 @@ fun HomeCustomerList(
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+              Row(
+                modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
                 listOf(
                     "الكل" to CustomerBalanceFilter.ALL,
                     "لك" to CustomerBalanceFilter.DEBTOR,
@@ -154,7 +162,19 @@ fun HomeCustomerList(
                         )
                     }
                 }
-                Box(modifier = Modifier.weight(1f))
+                listOf(
+                    "مزارع" to AccountFilter.FARMERS,
+                    "صاحب بئر" to AccountFilter.WELL_OWNERS
+                ).forEach { (label, filter) ->
+                    FilterChip(
+                        selected = accountFilter == filter,
+                        onClick = {
+                            customersViewModel.setAccountFilter(if (accountFilter == filter) AccountFilter.ALL else filter)
+                        },
+                        label = { Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1) }
+                    )
+                }
+              }
                 IconButton(
                     onClick = {
                         if (searchOpen) customersViewModel.setSearchQuery("")

@@ -188,8 +188,8 @@ import com.example.core.util.DayGrouping
 import androidx.compose.material.icons.filled.NorthEast
 import androidx.compose.material.icons.filled.SouthWest
 import com.example.core.ui.OperationCard
+import com.example.core.ui.OperationStatStrip
 import com.example.core.ui.CardBadge
-import com.example.core.ui.CardChip
 import com.example.features.sessions.SessionPaymentHistoryExpander
 import com.example.core.ui.OperationRow
 import com.example.ui.theme.mosarib
@@ -278,6 +278,7 @@ fun VouchersScreen(
         }
     }
     var showAddSheet by remember { mutableStateOf(false) }
+    var addSheetType by remember { mutableStateOf(VoucherType.RECEIPT) }
     var showAddManualSheet by remember { mutableStateOf(false) }
     var showAddPurchaseSheet by remember { mutableStateOf(false) }
     var speedDialOpen by remember { mutableStateOf(false) }
@@ -506,13 +507,22 @@ fun VouchersScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         val currencySymbol = config.currencySymbol
+                        // Same numbers as the Home totals box: ledgerTotalsFor over all customers.
+                        val (owedByUs, owedToUs) = remember(allBalances) { ledgerTotalsFor(allBalances) }
                         Row(
                             modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            SummaryTile("دخل (قبض)", totalReceipts, currencySymbol, AccentEmerald, Modifier.weight(1f).fillMaxHeight())
-                            SummaryTile("خرج (صرف)", totalExpenses, currencySymbol, MaterialTheme.mosarib.debt, Modifier.weight(1f).fillMaxHeight())
-                            SummaryTile("الباقي في الصندوق", netProfit, currencySymbol, PrimaryTeal, Modifier.weight(1f).fillMaxHeight())
+                            SummaryTile("دخل", totalReceipts, currencySymbol, AccentEmerald, Modifier.weight(1f).fillMaxHeight())
+                            SummaryTile("خرج", totalExpenses, currencySymbol, MaterialTheme.mosarib.debt, Modifier.weight(1f).fillMaxHeight())
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            SummaryTile("لك", owedToUs, currencySymbol, MaterialTheme.mosarib.credit, Modifier.weight(1f).fillMaxHeight(), "أرصدة حالية")
+                            SummaryTile("عليك", owedByUs, currencySymbol, MaterialTheme.mosarib.debt, Modifier.weight(1f).fillMaxHeight(), "أرصدة حالية")
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
@@ -520,34 +530,9 @@ fun VouchersScreen(
                             text = "ساعات السقي: " + SpeechTextBuilder.formatDurationWords(totalSoldWaterMinutes),
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal)
                         )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-                        // Same numbers as the Home totals box: ledgerTotalsFor over all customers.
-                        val (owedByUs, owedToUs) = remember(allBalances) { ledgerTotalsFor(allBalances) }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            AmountWithWords(
-                                amount = owedToUs,
-                                currency = currencySymbol,
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.mosarib.credit,
-                                modifier = Modifier.weight(1f),
-                                prefix = "لك عند العملاء: "
-                            )
-                            AmountWithWords(
-                                amount = owedByUs,
-                                currency = currencySymbol,
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.mosarib.debt,
-                                modifier = Modifier.weight(1f),
-                                prefix = "عليك: "
-                            )
-                        }
                         Text(
-                            text = "أرصدة حالية لا تتأثر بالفترة",
-                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted)
+                            text = "الباقي في الصندوق: " + Formatters.formatCurrency(netProfit, currencySymbol),
+                            style = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.mosarib.textMuted)
                         )
                     }
                 }
@@ -626,54 +611,6 @@ fun VouchersScreen(
                                 val amountText = Formatters.formatCurrency(session.totalAmount, config.currencySymbol)
                                 val amountInWords = Formatters.amountToArabicWords(session.totalAmount, config.currencySymbol)
 
-                                val chips = buildList {
-                                    if (session.durationMinutes > 0) {
-                                        add(
-                                            CardChip(
-                                                text = Formatters.formatDurationCompact(session.durationMinutes),
-                                                container = MaterialTheme.mosarib.info.copy(alpha = 0.12f),
-                                                content = MaterialTheme.mosarib.info,
-                                                icon = Icons.Default.Schedule
-                                            )
-                                        )
-                                    }
-                                    if (session.pricePerHour > 0.0) {
-                                        add(
-                                            CardChip(
-                                                text = "${Formatters.formatNumber(session.pricePerHour)}/س",
-                                                container = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                                content = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        )
-                                    }
-                                    when {
-                                        session.remainingDebt <= 0.001 -> add(
-                                            CardChip(
-                                                text = "مسدد",
-                                                container = MaterialTheme.mosarib.successContainer,
-                                                content = MaterialTheme.mosarib.success,
-                                                isEndAligned = true
-                                            )
-                                        )
-                                        session.amountPaid <= 0.001 -> add(
-                                            CardChip(
-                                                text = "غير مسدد",
-                                                container = MaterialTheme.mosarib.debt.copy(alpha = 0.12f),
-                                                content = MaterialTheme.mosarib.debt,
-                                                isEndAligned = true
-                                            )
-                                        )
-                                        else -> add(
-                                            CardChip(
-                                                text = "باقي ${Formatters.formatNumber(session.remainingDebt)}",
-                                                container = MaterialTheme.mosarib.warningContainer,
-                                                content = MaterialTheme.mosarib.warning,
-                                                isEndAligned = true
-                                            )
-                                        )
-                                    }
-                                }
-
                                 val statement = session.notes.trim().takeIf { it.isNotBlank() && it != "عام" }
                                 val pumpPart = session.pumpName.trim().takeIf { it.isNotBlank() } ?: "مضخة"
                                 val meta = listOfNotNull(Formatters.formatTime(session.startTime), pumpPart, "#SES-${session.id}").joinToString(" • ")
@@ -690,7 +627,15 @@ fun VouchersScreen(
                                     badges = badges,
                                     amountText = amountText,
                                     amountInWords = amountInWords,
-                                    chips = chips,
+                                    statStrip = {
+                                        OperationStatStrip(
+                                            durationMinutes = session.durationMinutes,
+                                            priceText = Formatters.formatNumber(session.pricePerHour),
+                                            receivedText = Formatters.formatNumber(session.amountPaid),
+                                            remaining = session.remainingDebt,
+                                            remainingText = Formatters.formatNumber(session.remainingDebt)
+                                        )
+                                    },
                                     statement = statement,
                                     meta = meta,
                                     speakText = {
@@ -1054,21 +999,6 @@ fun VouchersScreen(
                                 val amountText = Formatters.formatCurrency(totalAmount, config.currencySymbol)
                                 val amountInWords = Formatters.amountToArabicWords(totalAmount, config.currencySymbol)
 
-                                val chips = buildList {
-                                    val duration = WellOwnerPurchaseMath.chargeableMinutes(purchase)
-                                    if (duration > 0) {
-                                        add(
-                                            CardChip(
-                                                text = Formatters.formatDurationCompact(duration),
-                                                container = MaterialTheme.mosarib.warning.copy(alpha = 0.12f),
-                                                content = MaterialTheme.mosarib.warning,
-                                                isEndAligned = true,
-                                                icon = Icons.Default.AccessTime
-                                            )
-                                        )
-                                    }
-                                }
-
                                 val statement = purchase.notes.trim().takeIf { it.isNotBlank() }
                                 val meta = listOfNotNull(Formatters.formatTime(purchase.date), "#PUR-${purchase.id}").joinToString(" • ")
 
@@ -1082,7 +1012,16 @@ fun VouchersScreen(
                                     badges = listOf(CardBadge("شراء ساعات", MaterialTheme.mosarib.warning)),
                                     amountText = amountText,
                                     amountInWords = amountInWords,
-                                    chips = chips,
+                                    statStrip = {
+                                        val payable = WellOwnerPurchaseMath.payableAmount(purchase)
+                                        OperationStatStrip(
+                                            durationMinutes = WellOwnerPurchaseMath.chargeableMinutes(purchase),
+                                            priceText = Formatters.formatNumber(purchase.purchaseRatePerHour),
+                                            receivedText = Formatters.formatNumber(purchase.amountPaid),
+                                            remaining = payable - purchase.amountPaid,
+                                            remainingText = Formatters.formatNumber(payable - purchase.amountPaid)
+                                        )
+                                    },
                                     statement = statement,
                                     meta = meta,
                                     speakText = {
@@ -1228,11 +1167,19 @@ fun VouchersScreen(
                     }
                 )
                 MosaribMenuItem(
-                    text = "سند (قبض / صرف)",
+                    text = "قبض",
                     icon = Icons.AutoMirrored.Filled.ReceiptLong,
                     onClick = {
                         speedDialOpen = false
-                        gate { showAddSheet = true }
+                        gate { addSheetType = VoucherType.RECEIPT; showAddSheet = true }
+                    }
+                )
+                MosaribMenuItem(
+                    text = "صرف",
+                    icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                    onClick = {
+                        speedDialOpen = false
+                        gate { addSheetType = VoucherType.EXPENSE; showAddSheet = true }
                     }
                 )
                 MosaribMenuItem(
@@ -1421,6 +1368,7 @@ fun VouchersScreen(
 
     if (showAddSheet) {
         AddVoucherBottomSheet(
+            initialType = addSheetType,
             customers = customers,
             allSessions = allSessions,
             frequentDescriptions = frequentDescriptions,
@@ -2938,7 +2886,7 @@ private fun LockedVoucherCustomer(name: String, label: String) {
 }
 
 @Composable
-private fun SummaryTile(label: String, amount: Double, currency: String, color: Color, modifier: Modifier) {
+private fun SummaryTile(label: String, amount: Double, currency: String, color: Color, modifier: Modifier, caption: String? = null) {
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.10f)),
@@ -2955,6 +2903,9 @@ private fun SummaryTile(label: String, amount: Double, currency: String, color: 
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
                 color = color
             )
+            if (caption != null) {
+                Text(caption, style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.mosarib.textMuted))
+            }
         }
     }
 }

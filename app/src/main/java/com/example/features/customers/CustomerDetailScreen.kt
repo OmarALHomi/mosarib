@@ -149,6 +149,7 @@ import androidx.compose.material3.FilledTonalButton
 import com.example.core.ui.CardBadge
 import com.example.core.ui.CardChip
 import com.example.core.ui.OperationCard
+import com.example.core.ui.OperationStatStrip
 import com.example.core.ui.AnimatedAmount
 import com.example.core.ui.pressScale
 import com.example.core.ui.ToastType
@@ -1272,25 +1273,6 @@ fun CustomerDetailScreen(
                                     val meta = listOfNotNull(Formatters.formatTime(purchase.date), "#PUR-${purchase.id}").joinToString(" • ")
 
                                     val chips = buildList {
-                                        if (purchase.durationMinutes > 0) {
-                                            add(
-                                                CardChip(
-                                                    text = Formatters.formatDurationCompact(purchase.durationMinutes),
-                                                    container = MaterialTheme.mosarib.warning.copy(alpha = 0.12f),
-                                                    content = MaterialTheme.mosarib.warning,
-                                                    icon = Icons.Default.AccessTime
-                                                )
-                                            )
-                                        }
-                                        if (purchase.purchaseRatePerHour > 0) {
-                                            add(
-                                                CardChip(
-                                                    text = "${Formatters.formatNumber(purchase.purchaseRatePerHour)} ${config.currencySymbol}/س",
-                                                    container = MaterialTheme.colorScheme.surfaceVariant,
-                                                    content = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            )
-                                        }
                                         if (purchase.wastedMinutesOnOwner > 0) {
                                             add(
                                                 CardChip(
@@ -1313,6 +1295,15 @@ fun CustomerDetailScreen(
                                         amountText = "+ " + Formatters.formatCurrency(payableAmount, config.currencySymbol),
                                         amountInWords = Formatters.amountToArabicWords(payableAmount, config.currencySymbol),
                                         chips = chips,
+                                        statStrip = {
+                                            OperationStatStrip(
+                                                durationMinutes = WellOwnerPurchaseMath.chargeableMinutes(purchase),
+                                                priceText = Formatters.formatNumber(purchase.purchaseRatePerHour),
+                                                receivedText = Formatters.formatNumber(purchase.amountPaid),
+                                                remaining = payableAmount - purchase.amountPaid,
+                                                remainingText = Formatters.formatNumber(payableAmount - purchase.amountPaid)
+                                            )
+                                        },
                                         statement = statement,
                                         meta = meta,
                                         extraNote = extraNote,
@@ -1423,46 +1414,6 @@ fun CustomerDetailScreen(
                                         }
                                     }
 
-                                    val chips = buildList {
-                                        if (session.durationMinutes > 0) {
-                                            add(
-                                                CardChip(
-                                                    text = Formatters.formatDurationCompact(session.durationMinutes),
-                                                    container = MaterialTheme.mosarib.info.copy(alpha = 0.12f),
-                                                    content = MaterialTheme.mosarib.info,
-                                                    icon = Icons.Default.AccessTime
-                                                )
-                                            )
-                                        }
-                                        if (session.pricePerHour > 0) {
-                                            add(
-                                                CardChip(
-                                                    text = "${Formatters.formatNumber(session.pricePerHour)} ${config.currencySymbol}/س",
-                                                    container = MaterialTheme.colorScheme.surfaceVariant,
-                                                    content = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            )
-                                        }
-                                        if (sessionDebt <= 0.001) {
-                                            add(
-                                                CardChip(
-                                                    text = "مسدد",
-                                                    container = MaterialTheme.mosarib.successContainer,
-                                                    content = MaterialTheme.mosarib.success,
-                                                    icon = Icons.Default.Check
-                                                )
-                                            )
-                                        } else {
-                                            add(
-                                                CardChip(
-                                                    text = "متبقي ${Formatters.formatCurrency(sessionDebt, config.currencySymbol)}",
-                                                    container = MaterialTheme.mosarib.debt.copy(alpha = 0.12f),
-                                                    content = MaterialTheme.mosarib.debt
-                                                )
-                                            )
-                                        }
-                                    }
-
                                     var sessionMenuExpanded by remember(session.id) { mutableStateOf(false) }
 
                                     OperationCard(
@@ -1473,7 +1424,15 @@ fun CustomerDetailScreen(
                                         badges = badges,
                                         amountText = "− " + Formatters.formatCurrency(session.totalAmount, config.currencySymbol),
                                         amountInWords = Formatters.amountToArabicWords(session.totalAmount, config.currencySymbol),
-                                        chips = chips,
+                                        statStrip = {
+                                            OperationStatStrip(
+                                                durationMinutes = session.durationMinutes,
+                                                priceText = Formatters.formatNumber(session.pricePerHour),
+                                                receivedText = Formatters.formatNumber(session.amountPaid),
+                                                remaining = sessionDebt,
+                                                remainingText = Formatters.formatNumber(sessionDebt)
+                                            )
+                                        },
                                         statement = statement,
                                         meta = meta,
                                         extraNote = extraNote,
