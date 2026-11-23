@@ -50,6 +50,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.core.ui.AmountWithWords
+import com.example.ui.theme.mosarib
+import kotlinx.coroutines.launch
 import com.example.core.util.FileSharingHelper
 import com.example.features.customers.AccountFilter
 import com.example.features.customers.AddEditCustomerBottomSheet
@@ -65,7 +67,6 @@ import com.example.features.customers.CustomerGroupEditorDialog
 import com.example.features.customers.CustomersViewModel
 import com.example.features.customers.ManageGroupsDialog
 import com.example.features.customers.ledgerTotalsFor
-import com.example.ui.theme.mosarib
 
 /**
  * Simple-mode home body under the action buttons: filter chips, search, customers sorted by last
@@ -332,5 +333,78 @@ fun HomeCompactActionButton(
             textAlign = TextAlign.Center,
             maxLines = 1
         )
+    }
+}
+
+/** Thin amber reminder when the last backup is older than 7 days; tap = silent «انسخ الآن». */
+@Composable
+fun BackupReminderBanner(
+    settingsViewModel: com.example.features.settings.SettingsViewModel,
+    hasOperations: Boolean,
+    onLocked: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val saved by settingsViewModel.savedBackups.collectAsStateWithLifecycle()
+    val auto by settingsViewModel.autoBackups.collectAsStateWithLifecycle()
+    val account by settingsViewModel.googleAccount.collectAsStateWithLifecycle()
+    val prefs = remember { context.getSharedPreferences("backup_reminder", android.content.Context.MODE_PRIVATE) }
+    var hiddenUntil by remember { mutableStateOf(prefs.getLong("hidden_until", 0L)) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { settingsViewModel.loadBackups() }
+
+    val now = System.currentTimeMillis()
+    val driveMs = if (account != null) com.example.core.backup.DriveBackupPreferences.getLastBackupTime(context) else 0L
+    val last = maxOf(
+        saved.maxOfOrNull { it.file.lastModified() } ?: 0L,
+        auto.maxOfOrNull { it.file.lastModified() } ?: 0L,
+        driveMs
+    )
+    val days = com.example.core.util.BackupReminder.daysToShow(last, now, hasOperations) ?: return
+    if (com.example.core.util.BackupReminder.isHidden(hiddenUntil, now)) return
+
+    val text = if (days == com.example.core.util.BackupReminder.NO_BACKUP) "لا توجد نسخة احتياطية بعد — انسخ الآن"
+    else "آخر نسخة احتياطية قبل $days يوماً — انسخ الآن"
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 2.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.mosarib.warningContainer)
+            .clickable {
+                if (!com.example.core.license.RemoteConfigManager.isBackupAllowed(context)) {
+                    onLocked()
+                } else scope.launch {
+                    val file = com.example.core.util.AutoBackupEngine.createSafetyCheckpoint(
+                        context, com.example.core.database.AppDatabase.getDatabase(context), "manual"
+                    )
+                    settingsViewModel.loadBackups()
+                    if (file == null) {
+                        android.widget.Toast.makeText(context, "تعذّر حفظ النسخة", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        if (account != null && com.example.core.license.RemoteConfigManager.isCloudBackupAllowed(context)) {
+                            com.example.core.backup.DriveBackupScheduler.enqueueImmediateBackup(context)
+                        }
+                        android.widget.Toast.makeText(context, "تم حفظ النسخة", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .padding(start = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.mosarib.onWarningContainer
+            )
+        )
+        IconButton(onClick = {
+            hiddenUntil = com.example.core.util.BackupReminder.hideUntil(System.currentTimeMillis())
+            prefs.edit().putLong("hidden_until", hiddenUntil).apply()
+        }, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Default.Close, contentDescription = "إخفاء", modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.mosarib.onWarningContainer)
+        }
     }
 }

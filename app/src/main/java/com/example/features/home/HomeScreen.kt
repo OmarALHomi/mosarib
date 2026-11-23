@@ -571,6 +571,11 @@ fun HomeScreen(
                         modifier = Modifier.weight(1f).guideTarget("home_voice")
                     )
                 }
+                BackupReminderBanner(
+                    settingsViewModel = settingsViewModel,
+                    hasOperations = operationsCount >= 1,
+                    onLocked = openSubscription
+                )
                 HomeCustomerList(
                     customersViewModel = customersViewModel,
                     onNavigateToCustomer = onNavigateToCustomer,

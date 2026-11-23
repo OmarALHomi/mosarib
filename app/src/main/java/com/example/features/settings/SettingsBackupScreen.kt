@@ -144,6 +144,34 @@ internal fun SettingsBackupScreen(
             )
         }
     ) { innerPadding ->
+        if (!isBackupAllowed && !isDeviceBackupLocked) {
+            val openSubscription = com.example.core.ui.LocalOpenSubscription.current
+            Column(
+                modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                SettingsCard {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Text(
+                            text = "النسخ الاحتياطي متاح للمشتركين — بياناتك محفوظة على هذا الهاتف",
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Button(
+                            onClick = openSubscription,
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(52.dp)
+                        ) { Text("اشترك", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+                    }
+                }
+            }
+            return@Scaffold
+        }
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
