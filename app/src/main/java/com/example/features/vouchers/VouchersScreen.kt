@@ -37,6 +37,12 @@ import com.example.core.ui.MosaribMenu
 import com.example.core.speech.*
 import com.example.core.ui.MosaribMenuDivider
 import com.example.core.ui.MosaribPrimaryButton
+import com.example.core.ui.REQUIRED_FIELD_TEXT
+import com.example.core.ui.firstMissingField
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.focus.FocusRequester
 import com.example.core.ui.MosaribSecondaryButton
 import com.example.core.ui.DialogTone
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -469,7 +475,9 @@ fun VouchersScreen(
                         val v = voucherOp.voucherWithCustomer.voucher
                         v.type == VoucherType.EXPENSE && (v.customerId == null || wellOwnerIds.contains(v.customerId))
                     }.sumOf { it.voucherWithCustomer.voucher.amount }
-                val netProfit = totalReceipts - totalExpenses
+                // «شراء»: what we owe well owners for the hours bought in the period (net of owner waste)
+                val totalPurchases = summaryOps.filterIsInstance<UnifiedOperation.PurchaseOp>()
+                    .sumOf { WellOwnerPurchaseMath.payableAmount(it.purchase) }
                 val totalSoldWaterMinutes = summaryOps.filterIsInstance<UnifiedOperation.SessionOp>()
                     .sumOf {
                         val s = it.sessionWithCustomer.session
@@ -513,26 +521,27 @@ fun VouchersScreen(
                             modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            SummaryTile("دخل", totalReceipts, currencySymbol, AccentEmerald, Modifier.weight(1f).fillMaxHeight())
-                            SummaryTile("خرج", totalExpenses, currencySymbol, MaterialTheme.mosarib.debt, Modifier.weight(1f).fillMaxHeight())
+                            SummaryTile("مقبوض", totalReceipts, currencySymbol, AccentEmerald, Modifier.weight(1f).fillMaxHeight())
+                            SummaryTile("صرف", totalExpenses, currencySymbol, MaterialTheme.mosarib.debt, Modifier.weight(1f).fillMaxHeight())
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            SummaryTile("لك", owedToUs, currencySymbol, MaterialTheme.mosarib.credit, Modifier.weight(1f).fillMaxHeight(), "أرصدة حالية")
-                            SummaryTile("عليك", owedByUs, currencySymbol, MaterialTheme.mosarib.debt, Modifier.weight(1f).fillMaxHeight(), "أرصدة حالية")
+                            SummaryTile("شراء", totalPurchases, currencySymbol, MaterialTheme.mosarib.info, Modifier.weight(1f).fillMaxHeight())
+                            SummaryTile("متبقي", owedToUs, currencySymbol, MaterialTheme.mosarib.credit, Modifier.weight(1f).fillMaxHeight(), "عند الناس الآن")
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "ساعات السقي: " + SpeechTextBuilder.formatDurationWords(totalSoldWaterMinutes),
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal)
+                            text = "عليك للآخرين: " + Formatters.formatCurrency(owedByUs, currencySymbol),
+                            style = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.mosarib.debt, fontWeight = FontWeight.Bold)
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "الباقي في الصندوق: " + Formatters.formatCurrency(netProfit, currencySymbol),
-                            style = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.mosarib.textMuted)
+                            text = "ساعات السقي: " + hoursAsNumbers(totalSoldWaterMinutes),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryTeal)
                         )
                     }
                 }
@@ -1618,6 +1627,7 @@ fun VouchersScreen(
             owner = null,
             availableOwners = wellOwners,
             currencySymbol = config.currencySymbol,
+            onCreateCustomer = { customer -> sessionsViewModel?.createCustomer(customer) ?: 0L },
             onDismiss = { showAddPurchaseSheet = false },
             onSaveWithOwner = { ownerId, date, duration, wasted, rate, paid, notes, startTime, endTime ->
                 viewModel.addOwnerPurchase(
@@ -1868,7 +1878,9 @@ data class VoucherFormSnapshot(
 
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+private enum class VoucherField { CUSTOMER, AMOUNT }
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun AddVoucherBottomSheet(
     initialVoucher: Voucher? = null,
@@ -2116,7 +2128,27 @@ fun AddVoucherBottomSheet(
 
     val parsedAmt = remember(amountStr) { Formatters.parseAmountInput(amountStr) }
     val parsedDisc = remember(discountAmountStr) { Formatters.parseAmountInput(discountAmountStr) }
-    val canSave = parsedAmt > 0 || (type == VoucherType.RECEIPT && parsedDisc > 0)
+    // Save is always enabled: the first missing field is scrolled to, shown in red and focused.
+    var errorField by remember { mutableStateOf<VoucherField?>(null) }
+    var errorTick by remember { mutableIntStateOf(0) }
+    var customerOpenSignal by remember { mutableIntStateOf(0) }
+    val customerReq = remember { BringIntoViewRequester() }
+    val amountReq = remember { BringIntoViewRequester() }
+    val amountFocus = remember { FocusRequester() }
+    val customerErr = errorField == VoucherField.CUSTOMER && type == VoucherType.RECEIPT && selectedCustomerId <= 0L
+    val amountErr = errorField == VoucherField.AMOUNT && !(parsedAmt > 0 || (type == VoucherType.RECEIPT && parsedDisc > 0))
+    fun firstMissing(): VoucherField? = firstMissingField(
+        VoucherField.CUSTOMER to (type != VoucherType.RECEIPT || selectedCustomerId > 0L),
+        VoucherField.AMOUNT to (parsedAmt > 0 || (type == VoucherType.RECEIPT && parsedDisc > 0))
+    )
+    LaunchedEffect(errorTick) {
+        if (errorTick == 0) return@LaunchedEffect
+        when (errorField) {
+            VoucherField.CUSTOMER -> { customerReq.bringIntoView(); customerOpenSignal++ }
+            VoucherField.AMOUNT -> { amountReq.bringIntoView(); amountFocus.requestFocus() }
+            null -> Unit
+        }
+    }
 
     val currentSnapshot = VoucherFormSnapshot.from(
         type = type,
@@ -2194,20 +2226,23 @@ fun AddVoucherBottomSheet(
             MosaribPrimaryButton(
                 text = if (initialVoucher != null) "حفظ التعديلات" else "حفظ",
                 onClick = {
+                    val missing = firstMissing()
+                    if (missing != null) {
+                        errorField = missing
+                        errorTick++
+                        return@MosaribPrimaryButton
+                    }
                     val amt = Formatters.parseAmountInput(amountStr)
                     val disc = Formatters.parseAmountInput(discountAmountStr)
-                    if (amt > 0 || (type == VoucherType.RECEIPT && disc > 0)) {
-                        val custId = if (type == VoucherType.RECEIPT) selectedCustomerId else selectedBeneficiaryId
-                        val cat = if (type == VoucherType.RECEIPT) "سداد حساب" else notes.ifBlank { "مصروف" }
-                        val selList = if (type == VoucherType.RECEIPT) selectedSessionIds.toList() else emptyList()
-                        val performSave: () -> Unit = {
-                            onSave(type, custId, amt, cat, paymentMethod, notes, null, selList, disc)
-                            onDismiss()
-                        }
-                        if ((initialVoucher?.id ?: 0L) == 0L) pendingSave = performSave else performSave()
+                    val custId = if (type == VoucherType.RECEIPT) selectedCustomerId else selectedBeneficiaryId
+                    val cat = if (type == VoucherType.RECEIPT) "سداد حساب" else notes.ifBlank { "مصروف" }
+                    val selList = if (type == VoucherType.RECEIPT) selectedSessionIds.toList() else emptyList()
+                    val performSave: () -> Unit = {
+                        onSave(type, custId, amt, cat, paymentMethod, notes, null, selList, disc)
+                        onDismiss()
                     }
+                    if ((initialVoucher?.id ?: 0L) == 0L) pendingSave = performSave else performSave()
                 },
-                enabled = canSave,
                 modifier = Modifier.weight(1f).guideTarget("voucher_save")
             )
             MosaribSecondaryButton(
@@ -2278,7 +2313,9 @@ fun AddVoucherBottomSheet(
                             amountStr = ""
                         },
                         onAddNew = onCreateCustomer?.let { { showAddCustomerSheet = true } },
-                        modifier = Modifier.fillMaxWidth().guideTarget("voucher_customer")
+                        errorText = if (customerErr) REQUIRED_FIELD_TEXT else null,
+                        openSignal = customerOpenSignal,
+                        modifier = Modifier.fillMaxWidth().bringIntoViewRequester(customerReq).guideTarget("voucher_customer")
                     )
                     if (selectedCustomerId <= 0L && custSearchQuery.isNotBlank()) {
                         Text(
@@ -2425,10 +2462,13 @@ fun AddVoucherBottomSheet(
                 value = amountStr,
                 onValueChange = { amountStr = Formatters.formatAmountInput(it) },
                 label = "المبلغ ($currencySymbol) *",
+                errorText = if (amountErr) REQUIRED_FIELD_TEXT else null,
+                focusRequester = amountFocus,
                 trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("amount") }) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .bringIntoViewRequester(amountReq)
                     .testTag("voucher_amount_input")
                     .guideTarget("voucher_amount")
             )
@@ -2883,6 +2923,21 @@ private fun LockedVoucherCustomer(name: String, label: String) {
             Text(name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold))
         }
     }
+}
+
+/** Total hours as numbers («1,570 ساعة و5 دقائق»): the words formatter loses big totals. */
+private fun hoursAsNumbers(totalMinutes: Int): String {
+    val h = totalMinutes.coerceAtLeast(0) / 60
+    val m = totalMinutes.coerceAtLeast(0) % 60
+    val hoursText = String.format(java.util.Locale.US, "%,d", h) + " ساعة"
+    val minutesText = when (m) {
+        0 -> ""
+        1 -> " و1 دقيقة"
+        2 -> " ودقيقتان"
+        in 3..10 -> " و$m دقائق"
+        else -> " و$m دقيقة"
+    }
+    return hoursText + minutesText
 }
 
 @Composable

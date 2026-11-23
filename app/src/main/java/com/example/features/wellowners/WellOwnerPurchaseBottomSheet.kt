@@ -53,6 +53,15 @@ import com.example.core.ui.MosaribPrimaryButton
 import com.example.core.ui.MosaribSecondaryButton
 import com.example.core.ui.MosaribTextField
 import com.example.core.ui.MosaribTimePickerDialog
+import com.example.core.ui.REQUIRED_FIELD_TEXT
+import com.example.core.ui.RequiredFieldText
+import com.example.core.ui.firstMissingField
+import com.example.features.customers.AddEditCustomerBottomSheet
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.focus.FocusRequester
+import kotlinx.coroutines.launch
 import com.example.core.ui.isAppDark
 import com.example.core.util.Formatters
 import com.example.features.customers.Customer
@@ -101,7 +110,9 @@ data class PurchaseFormSnapshot(
  * صفيحة سفلية عائمة لتسجيل أو تعديل شراء ساعات ري من صاحب بئر.
  * تدعم حماية الإغلاق العرضي وتأكيد التغييرات غير المحفوظة عبر [MosaribBottomSheet].
  */
-@OptIn(ExperimentalMaterial3Api::class)
+private enum class PurchaseField { OWNER, START, END, DURATION, RATE, WASTE }
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun WellOwnerPurchaseBottomSheet(
     owner: Customer? = null,
@@ -111,6 +122,8 @@ fun WellOwnerPurchaseBottomSheet(
     onDismiss: () -> Unit,
     voiceCommand: VoiceCommand? = null,
     onReSpeak: (() -> Unit)? = null,
+    // when set, the owner picker offers «+ عميل جديد»; the new customer is created as a well owner and selected
+    onCreateCustomer: (suspend (Customer) -> Long)? = null,
     onSaveWithOwner: ((
         ownerId: Long,
         date: Long,
@@ -176,6 +189,12 @@ fun WellOwnerPurchaseBottomSheet(
     var endMinute by remember(initialPurchase) { mutableIntStateOf((defaultEndCal.get(Calendar.MINUTE) / 5) * 5) }
 
     val initialVoiceDuration = voiceCommand?.durationMinutes
+    // A brand-new form (no edit, no voice prefill) opens with من / إلى and the duration empty.
+    val isNewEmpty = initialPurchase == null && voiceCommand == null
+    var startPicked by remember(initialPurchase, voiceCommand) { mutableStateOf(!isNewEmpty) }
+    var endPicked by remember(initialPurchase, voiceCommand) { mutableStateOf(!isNewEmpty) }
+    // set from the duration fields, not by the user: the next duration edit may move it again
+    var startAuto by remember { mutableStateOf(false) }
     var timeMode by remember(initialPurchase, voiceCommand) {
         mutableStateOf(if (initialVoiceDuration != null) PurchaseTimeMode.MANUAL else PurchaseTimeMode.PICKER)
     }
@@ -190,6 +209,7 @@ fun WellOwnerPurchaseBottomSheet(
     var hoursText by remember(initialPurchase, voiceCommand) {
         mutableStateOf(
             if (initialVoiceDuration != null) (initialVoiceDuration / 60).toString()
+            else if (isNewEmpty) ""
             else (initialDurationMins / 60).toString()
         )
     }
@@ -197,6 +217,8 @@ fun WellOwnerPurchaseBottomSheet(
         mutableStateOf(
             if (initialVoiceDuration != null) {
                 (initialVoiceDuration % 60).let { if (it > 0) it.toString() else "" }
+            } else if (isNewEmpty) {
+                ""
             } else {
                 if (initialDurationMins % 60 > 0) (initialDurationMins % 60).toString() else ""
             }
@@ -239,11 +261,11 @@ fun WellOwnerPurchaseBottomSheet(
 
     val shownEndCal = remember(computedEndTime) { Calendar.getInstance().apply { timeInMillis = computedEndTime } }
 
-    val durationMinutes by remember(timeMode, computedStartTime, computedEndTime, hoursText, minutesText) {
+    val durationMinutes by remember(timeMode, computedStartTime, computedEndTime, hoursText, minutesText, startPicked, endPicked) {
         derivedStateOf {
             if (timeMode == PurchaseTimeMode.PICKER) {
-                val diff = (computedEndTime - computedStartTime) / 60000L
-                diff.toInt().coerceAtLeast(0)
+                if (!startPicked || !endPicked) 0
+                else ((computedEndTime - computedStartTime) / 60000L).toInt().coerceAtLeast(0)
             } else {
                 val h = hoursText.toIntOrNull()?.coerceAtLeast(0) ?: 0
                 val m = minutesText.toIntOrNull()?.coerceIn(0, 59) ?: 0
@@ -252,8 +274,11 @@ fun WellOwnerPurchaseBottomSheet(
         }
     }
 
-    val isOvernight by remember(computedStartTime, computedEndTime) {
+    // «إلى» is known when picked, or when a duration gives it
+    val endShown = endPicked || (timeMode == PurchaseTimeMode.MANUAL && durationMinutes > 0)
+    val isOvernight by remember(computedStartTime, computedEndTime, startPicked, endShown) {
         derivedStateOf {
+            if (!startPicked || !endShown) return@derivedStateOf false
             val startDay = Calendar.getInstance().apply { timeInMillis = computedStartTime; set(Calendar.HOUR_OF_DAY, 0) }.timeInMillis
             val endDay = Calendar.getInstance().apply { timeInMillis = computedEndTime; set(Calendar.HOUR_OF_DAY, 0) }.timeInMillis
             endDay > startDay
@@ -386,7 +411,6 @@ fun WellOwnerPurchaseBottomSheet(
     val isWasteExceeded by remember(durationMinutes, wastedMinutes) {
         derivedStateOf { wastedMinutes > durationMinutes && durationMinutes > 0 }
     }
-    val valid = durationMinutes in 1..6000 && wastedMinutes in 0..durationMinutes && rate > 0
 
     val currentSnapshot = PurchaseFormSnapshot.from(
         ownerId = selectedOwner?.id,
@@ -402,7 +426,63 @@ fun WellOwnerPurchaseBottomSheet(
     }
 
     val curOwner = selectedOwner
-    val canSave = valid && curOwner != null
+
+    // Save is always enabled: the first missing field (screen order) is scrolled to, shown in red and focused.
+    var errorField by remember { mutableStateOf<PurchaseField?>(null) }
+    var errorTick by remember { mutableIntStateOf(0) }
+    var ownerOpenSignal by remember { mutableIntStateOf(0) }
+    val ownerReq = remember { BringIntoViewRequester() }
+    val startReq = remember { BringIntoViewRequester() }
+    val endReq = remember { BringIntoViewRequester() }
+    val durationReq = remember { BringIntoViewRequester() }
+    val rateReq = remember { BringIntoViewRequester() }
+    val wasteReq = remember { BringIntoViewRequester() }
+    val rateFocus = remember { FocusRequester() }
+    var showExtras by remember { mutableStateOf(wastedMinutes > 0 || notes.isNotBlank()) }
+    val ownerErr = errorField == PurchaseField.OWNER && curOwner == null
+    val startErr = errorField == PurchaseField.START && !startPicked
+    val endErr = errorField == PurchaseField.END && !endShown
+    val rateErr = errorField == PurchaseField.RATE && rate <= 0
+    fun firstMissing(): PurchaseField? = firstMissingField(
+        PurchaseField.OWNER to (curOwner != null),
+        PurchaseField.START to startPicked,
+        PurchaseField.END to endShown,
+        PurchaseField.DURATION to (durationMinutes in 1..6000),
+        PurchaseField.RATE to (rate > 0),
+        PurchaseField.WASTE to (wastedMinutes in 0..durationMinutes)
+    )
+    LaunchedEffect(errorTick) {
+        if (errorTick == 0) return@LaunchedEffect
+        when (errorField) {
+            PurchaseField.OWNER -> { ownerReq.bringIntoView(); ownerOpenSignal++ }
+            PurchaseField.START -> { startReq.bringIntoView(); showStartTimePicker = true }
+            PurchaseField.END -> { endReq.bringIntoView(); showEndTimePicker = true }
+            PurchaseField.DURATION -> durationReq.bringIntoView()
+            PurchaseField.RATE -> { rateReq.bringIntoView(); rateFocus.requestFocus() }
+            PurchaseField.WASTE -> { showExtras = true; delay(150); wasteReq.bringIntoView() }
+            null -> Unit
+        }
+    }
+
+    // New well owner made from the picker: select it once it shows up in the owners list.
+    var showAddOwnerSheet by remember { mutableStateOf(false) }
+    var createdOwnerId by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(ownersList, createdOwnerId) {
+        if (createdOwnerId > 0L) ownersList.find { it.id == createdOwnerId }?.let { selectedOwner = it }
+    }
+    val scope = rememberCoroutineScope()
+    fun fillStartFromDuration(totalMinutes: Int) {
+        if ((startPicked && !startAuto) || totalMinutes <= 0) return
+        val c = Calendar.getInstance().apply {
+            timeInMillis = System.currentTimeMillis() - totalMinutes * 60000L
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }
+        startDateMillis = c.timeInMillis
+        startHour = c.get(Calendar.HOUR_OF_DAY)
+        startMinute = c.get(Calendar.MINUTE)
+        startPicked = true
+        startAuto = true
+    }
 
     var pendingSave by remember { mutableStateOf<(() -> Unit)?>(null) }
     pendingSave?.let { save ->
@@ -456,19 +536,22 @@ fun WellOwnerPurchaseBottomSheet(
             MosaribPrimaryButton(
                 text = if (initialPurchase != null) "حفظ التعديل" else "حفظ الشراء",
                 onClick = {
-                    if (canSave) {
-                        val purchaseDate = computedStartTime
-                        val performSave: () -> Unit = {
-                            if (onSaveWithOwner != null) {
-                                onSaveWithOwner.invoke(curOwner!!.id, purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
-                            } else {
-                                onSave?.invoke(purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
-                            }
-                        }
-                        if ((initialPurchase?.id ?: 0L) == 0L) pendingSave = performSave else performSave()
+                    val missing = firstMissing()
+                    if (missing != null) {
+                        errorField = missing
+                        errorTick++
+                        return@MosaribPrimaryButton
                     }
+                    val purchaseDate = computedStartTime
+                    val performSave: () -> Unit = {
+                        if (onSaveWithOwner != null) {
+                            onSaveWithOwner.invoke(curOwner!!.id, purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
+                        } else {
+                            onSave?.invoke(purchaseDate, durationMinutes, wastedMinutes, rate, amountPaid, notes, computedStartTime, computedEndTime)
+                        }
+                    }
+                    if ((initialPurchase?.id ?: 0L) == 0L) pendingSave = performSave else performSave()
                 },
-                enabled = canSave,
                 modifier = Modifier.weight(1f).guideTarget("purchase_save")
             )
             MosaribSecondaryButton(
@@ -495,9 +578,11 @@ fun WellOwnerPurchaseBottomSheet(
                 customers = ownersList,
                 selected = selectedOwner,
                 onSelect = { selectedOwner = it },
-                onAddNew = null, // shortcut: this sheet has no add-owner callback; add one in the caller to enable the new-customer entry
+                onAddNew = onCreateCustomer?.let { { showAddOwnerSheet = true } },
                 label = "صاحب البئر",
-                modifier = Modifier.fillMaxWidth().guideTarget("purchase_owner")
+                errorText = if (ownerErr) REQUIRED_FIELD_TEXT else null,
+                openSignal = ownerOpenSignal,
+                modifier = Modifier.fillMaxWidth().bringIntoViewRequester(ownerReq).guideTarget("purchase_owner")
             )
 
             // 2) الوقت: من / إلى + المدة (تغيير المدة يحرّك «إلى»)
@@ -509,26 +594,30 @@ fun WellOwnerPurchaseBottomSheet(
                 PurchaseTimeBox(
                     label = "من",
                     accent = MaterialTheme.colorScheme.primary,
-                    timeText = Formatters.formatClockTimeArabic(startHour, startMinute),
+                    timeText = if (startPicked) Formatters.formatClockTimeArabic(startHour, startMinute) else "اختر الوقت",
+                    picked = startPicked,
+                    isError = startErr,
                     dateText = Formatters.formatDate(startDateMillis),
                     onTime = { showStartTimePicker = true },
                     onDate = { showStartDatePicker = true },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).bringIntoViewRequester(startReq)
                 )
                 PurchaseTimeBox(
                     label = "إلى",
                     accent = AccentEmerald,
-                    timeText = Formatters.formatClockTimeArabic(
+                    timeText = if (endShown) Formatters.formatClockTimeArabic(
                         shownEndCal.get(Calendar.HOUR_OF_DAY), shownEndCal.get(Calendar.MINUTE)
-                    ),
+                    ) else "اختر الوقت",
+                    picked = endShown,
+                    isError = endErr,
                     dateText = Formatters.formatDate(computedEndTime),
                     onTime = { showEndTimePicker = true },
                     onDate = { showEndDatePicker = true },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).bringIntoViewRequester(endReq)
                 )
             }
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().bringIntoViewRequester(durationReq),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -541,6 +630,7 @@ fun WellOwnerPurchaseBottomSheet(
                         timeMode = PurchaseTimeMode.MANUAL
                         hoursText = h
                         minutesText = if (durationMinutes % 60 > 0) (durationMinutes % 60).toString() else ""
+                        fillStartFromDuration((h.toIntOrNull() ?: 0) * 60 + (minutesText.toIntOrNull() ?: 0))
                     },
                     modifier = Modifier.weight(1f)
                 )
@@ -553,6 +643,7 @@ fun WellOwnerPurchaseBottomSheet(
                             timeMode = PurchaseTimeMode.MANUAL
                             hoursText = (durationMinutes / 60).toString()
                             minutesText = m
+                            fillStartFromDuration((hoursText.toIntOrNull() ?: 0) * 60 + (m.toIntOrNull() ?: 0))
                         }
                     },
                     modifier = Modifier.weight(1f)
@@ -582,11 +673,14 @@ fun WellOwnerPurchaseBottomSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f).guideTarget("purchase_price")) {
+                Column(modifier = Modifier.weight(1f).bringIntoViewRequester(rateReq).guideTarget("purchase_price")) {
                     MosaribTextField(
                         value = rateText,
                         onValueChange = { rateText = Formatters.formatAmountInput(it) },
                         label = "سعر الساعة *",
+                        placeholder = "مثلاً 5,000",
+                        errorText = if (rateErr) REQUIRED_FIELD_TEXT else null,
+                        focusRequester = rateFocus,
                         trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("rate") }) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         isDense = true,
@@ -609,6 +703,7 @@ fun WellOwnerPurchaseBottomSheet(
             }
 
             // 4) المستحق له | المتبقي بذمتك
+            val summaryReady = durationMinutes > 0 && rate > 0
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
@@ -618,7 +713,7 @@ fun WellOwnerPurchaseBottomSheet(
                     Column(modifier = Modifier.weight(1f)) {
                         Text("المستحق له", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
-                            Formatters.formatCurrency(payableAmount, currencySymbol),
+                            if (summaryReady) Formatters.formatCurrency(payableAmount, currencySymbol) else "—",
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.ExtraBold
                         )
@@ -626,7 +721,9 @@ fun WellOwnerPurchaseBottomSheet(
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text("المتبقي بذمتك", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (remainingDueToOwner > 0) {
+                        if (!summaryReady) {
+                            Text("—", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.ExtraBold)
+                        } else if (remainingDueToOwner > 0) {
                             Text(
                                 Formatters.formatCurrency(remainingDueToOwner, currencySymbol),
                                 color = MaterialTheme.mosarib.debt,
@@ -641,7 +738,6 @@ fun WellOwnerPurchaseBottomSheet(
             }
 
             // 5) خيارات إضافية: الهدر والملاحظات
-            var showExtras by remember { mutableStateOf(wastedMinutes > 0 || notes.isNotBlank()) }
             Surface(
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
@@ -686,7 +782,8 @@ fun WellOwnerPurchaseBottomSheet(
                             Text(
                                 text = "لا يمكن أن يكون وقت الهدر ($wastedMinutes د) أكبر من مدة الشراء ($durationMinutes د)",
                                 color = MaterialTheme.mosarib.debt,
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.bringIntoViewRequester(wasteReq)
                             )
                         } else if (wastedMinutes > 0) {
                             Spacer(modifier = Modifier.height(6.dp))
@@ -733,6 +830,8 @@ fun WellOwnerPurchaseBottomSheet(
             onTimeSelected = { h, m ->
                 startHour = h
                 startMinute = m
+                startPicked = true
+                startAuto = false
                 showStartTimePicker = false
             }
         )
@@ -740,6 +839,7 @@ fun WellOwnerPurchaseBottomSheet(
 
     // Moves the end-picker state to the shown end so editing «إلى» works after a duration edit.
     fun adoptShownEnd() {
+        if (endShown) endPicked = true
         endDateMillis = computedEndTime
         endHour = shownEndCal.get(Calendar.HOUR_OF_DAY)
         endMinute = shownEndCal.get(Calendar.MINUTE)
@@ -769,7 +869,36 @@ fun WellOwnerPurchaseBottomSheet(
                 adoptShownEnd()
                 endHour = h
                 endMinute = m
+                endPicked = true
                 showEndTimePicker = false
+            }
+        )
+    }
+
+    if (showAddOwnerSheet && onCreateCustomer != null) {
+        AddEditCustomerBottomSheet(
+            initialCustomer = null,
+            currencySymbol = currencySymbol,
+            onDismiss = { showAddOwnerSheet = false },
+            onSave = { _, name, phone, farmName, location, customerNotes, customPrice, isBeneficiary, _, customGroup ->
+                scope.launch {
+                    runCatching {
+                        onCreateCustomer(
+                            Customer(
+                                name = name.trim(),
+                                phone = phone.trim(),
+                                farmName = farmName.trim(),
+                                location = location.trim(),
+                                notes = customerNotes.trim(),
+                                customPricePerHour = customPrice,
+                                isBeneficiary = isBeneficiary,
+                                isWellOwner = true,
+                                customGroup = customGroup.trim()
+                            )
+                        )
+                    }.onSuccess { createdOwnerId = it }
+                        .onFailure { Toast.makeText(context, it.localizedMessage ?: "تعذرت إضافة العميل", Toast.LENGTH_SHORT).show() }
+                }
             }
         )
     }
@@ -829,12 +958,14 @@ private fun PurchaseTimeBox(
     dateText: String,
     onTime: () -> Unit,
     onDate: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    picked: Boolean = true,
+    isError: Boolean = false
 ) {
     Surface(
         modifier = modifier.clip(RoundedCornerShape(12.dp)),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        border = if (isError) BorderStroke(1.5.dp, Color(0xFFE53935)) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
@@ -849,7 +980,11 @@ private fun PurchaseTimeBox(
                     .padding(vertical = 2.dp, horizontal = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(timeText, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold))
+                Text(
+                    timeText,
+                    style = if (picked) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                    else MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                )
             }
             Row(
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).clickable(onClick = onDate).padding(vertical = 2.dp),
@@ -860,6 +995,7 @@ private fun PurchaseTimeBox(
                 Spacer(modifier = Modifier.width(3.dp))
                 Text(dateText, style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
             }
+            RequiredFieldText(isError)
         }
     }
 }

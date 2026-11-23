@@ -17,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,16 +36,21 @@ fun CustomerPickerField(
     onAddNew: (() -> Unit)?,
     modifier: Modifier = Modifier,
     label: String? = null,
-    trailingIcon: @Composable (() -> Unit)? = null
+    trailingIcon: @Composable (() -> Unit)? = null,
+    errorText: String? = null,
+    // each increase opens the list (used to jump to this field when it is required)
+    openSignal: Int = 0
 ) {
     var expanded by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    LaunchedEffect(openSignal) { if (openSignal > 0) { query = ""; expanded = true } }
     Box(modifier = modifier) {
         MosaribTextField(
             value = selected?.name ?: "اختر العميل...",
             onValueChange = {},
             readOnly = true,
             label = label,
+            errorText = errorText,
             leadingIcon = {
                 Icon(
                     imageVector = if (selected?.isWellOwner == true) Icons.Default.WaterDrop else Icons.Default.Park,

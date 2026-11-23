@@ -2440,6 +2440,7 @@ fun CustomerDetailScreen(
             owner = customer,
             currencySymbol = config.currencySymbol,
             initialPurchase = editing,
+            onCreateCustomer = { viewModel.insertCustomerDirect(it) },
             onDismiss = {
                 showOwnerPurchaseSheet = false
                 purchaseToEdit = null
