@@ -13,6 +13,12 @@ interface PumpSourceDao {
     @Query("SELECT * FROM pump_sources WHERE isActive = 1 ORDER BY isPrimary DESC, name ASC")
     fun getAllPumps(): Flow<List<PumpSource>>
 
+    @Query("SELECT * FROM pump_sources ORDER BY isPrimary DESC, name ASC")
+    fun getAllPumpsIncludingInactive(): Flow<List<PumpSource>>
+
+    @Query("DELETE FROM pump_sources")
+    suspend fun clearAllPumps()
+
     @Query("SELECT * FROM pump_sources WHERE id = :id")
     suspend fun getPumpById(id: Long): PumpSource?
 

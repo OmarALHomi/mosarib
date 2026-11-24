@@ -305,7 +305,9 @@ fun WellOwnerPurchaseBottomSheet(
 
     var amountPaidText by remember(initialPurchase, voiceCommand) {
         mutableStateOf(
-            voiceCommand?.paid?.let { Formatters.formatAmountInput(it.toString()) } ?: ""
+            voiceCommand?.paid?.let { Formatters.formatAmountInput(it.toString()) }
+                ?: initialPurchase?.amountPaid?.takeIf { it > 0.0 }?.let { Formatters.formatAmountInput(it.toString()) }
+                ?: ""
         )
     }
     var rateText by remember(initialPurchase, selectedOwner?.id, selectedOwner?.customPricePerHour, voiceCommand) {
@@ -448,7 +450,7 @@ fun WellOwnerPurchaseBottomSheet(
     val rateErr = errorField == PurchaseField.RATE && rate <= 0
     fun firstMissing(): PurchaseField? = firstMissingField(
         PurchaseField.OWNER to (curOwner != null),
-        PurchaseField.DURATION to (hasTimeInput(startPicked, endPicked, durationMinutes) && durationMinutes <= 6000),
+        PurchaseField.DURATION to (durationMinutes > 0 && hasTimeInput(startPicked, endPicked, durationMinutes) && durationMinutes <= 6000),
         PurchaseField.RATE to (rate > 0),
         PurchaseField.WASTE to (wastedMinutes in 0..durationMinutes)
     )
@@ -846,9 +848,11 @@ fun WellOwnerPurchaseBottomSheet(
     }
 
     // Moves the end-picker state to the shown end so editing «إلى» works after a duration edit.
-    fun adoptShownEnd() {
+    fun adoptShownEnd(updateDateFromComputed: Boolean = timeMode == PurchaseTimeMode.MANUAL) {
         if (endShown) endPicked = true
-        endDateMillis = computedEndTime
+        if (updateDateFromComputed) {
+            endDateMillis = computedEndTime
+        }
         endHour = shownEndCal.get(Calendar.HOUR_OF_DAY)
         endMinute = shownEndCal.get(Calendar.MINUTE)
         timeMode = PurchaseTimeMode.PICKER

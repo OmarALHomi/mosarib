@@ -467,8 +467,14 @@ fun VouchersScreen(
             // Merged Integrated Financial Summary Card (يتلاشى بسلاسة تامة مع التمرير دون قفز)
             item {
                 val wellOwnerIds = remember(customers) { customers.filter { it.isWellOwner }.map { it.id }.toSet() }
+                val visibleSessionIds = remember(summaryOps) {
+                    summaryOps.filterIsInstance<UnifiedOperation.SessionOp>().map { it.sessionWithCustomer.session.id }.toSet()
+                }
                 val totalReceipts = summaryOps.filterIsInstance<UnifiedOperation.VoucherOp>()
-                    .filter { it.voucherWithCustomer.voucher.type == VoucherType.RECEIPT }.sumOf { it.voucherWithCustomer.voucher.amount } +
+                    .filter {
+                        val v = it.voucherWithCustomer.voucher
+                        v.type == VoucherType.RECEIPT && (v.sessionId == null || v.sessionId !in visibleSessionIds)
+                    }.sumOf { it.voucherWithCustomer.voucher.amount } +
                     summaryOps.filterIsInstance<UnifiedOperation.SessionOp>().sumOf { it.sessionWithCustomer.session.amountPaid }
                 val totalExpenses = summaryOps.filterIsInstance<UnifiedOperation.VoucherOp>()
                     .filter { voucherOp ->
@@ -729,14 +735,24 @@ fun VouchersScreen(
                                                     icon = Icons.Default.PictureAsPdf,
                                                     onClick = {
                                                         sessionMenuExpanded = false
-                                                        val file = PdfReportGenerator.generateSessionInvoicePdf(
-                                                            context = context,
-                                                            config = config,
-                                                            customer = customer ?: Customer(name = "عميل غير محدد"),
-                                                            session = session,
-                                                            sponsorCustomer = op.sessionWithCustomer.billedToCustomer
-                                                        )
-                                                        voucherPdfReady = Pair(file, "فاتورة ري #${session.id}")
+                                                        scope.launch {
+                                                            val res = runCatching {
+                                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                                    PdfReportGenerator.generateSessionInvoicePdf(
+                                                                        context = context,
+                                                                        config = config,
+                                                                        customer = customer ?: Customer(name = "عميل غير محدد"),
+                                                                        session = session,
+                                                                        sponsorCustomer = op.sessionWithCustomer.billedToCustomer
+                                                                    )
+                                                                }
+                                                            }
+                                                            res.onSuccess { file ->
+                                                                voucherPdfReady = Pair(file, "فاتورة ري #${session.id}")
+                                                            }.onFailure { e ->
+                                                                Toast.makeText(context, "فشل إنشاء ملف PDF: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        }
                                                     }
                                                 )
                                                 MosaribMenuItem(
@@ -788,8 +804,18 @@ fun VouchersScreen(
                                                 debtToShow = session.remainingDebt,
                                                 currencySymbol = config.currencySymbol,
                                                 onShareVoucher = { v ->
-                                                    val f = PdfReportGenerator.generateReceiptVoucherPdf(context, config, customer ?: Customer(name = "عميل نقدي"), v)
-                                                    voucherPdfReady = Pair(f, "سند قبض #${v.voucherNumber}")
+                                                    scope.launch {
+                                                        val res = runCatching {
+                                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                                PdfReportGenerator.generateReceiptVoucherPdf(context, config, customer ?: Customer(name = "عميل نقدي"), v)
+                                                            }
+                                                        }
+                                                        res.onSuccess { f ->
+                                                            voucherPdfReady = Pair(f, "سند قبض #${v.voucherNumber}")
+                                                        }.onFailure { e ->
+                                                            Toast.makeText(context, "فشل إنشاء ملف PDF: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    }
                                                 }
                                             )
                                         }
@@ -1241,14 +1267,24 @@ fun VouchersScreen(
             },
             onPdf = {
                 sessionForDetails = null
-                val file = PdfReportGenerator.generateSessionInvoicePdf(
-                    context = context,
-                    config = config,
-                    customer = c ?: Customer(name = "عميل غير محدد"),
-                    session = s,
-                    sponsorCustomer = item.billedToCustomer
-                )
-                voucherPdfReady = Pair(file, "فاتورة ري #${s.id}")
+                scope.launch {
+                    val res = runCatching {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            PdfReportGenerator.generateSessionInvoicePdf(
+                                context = context,
+                                config = config,
+                                customer = c ?: Customer(name = "عميل غير محدد"),
+                                session = s,
+                                sponsorCustomer = item.billedToCustomer
+                            )
+                        }
+                    }
+                    res.onSuccess { file ->
+                        voucherPdfReady = Pair(file, "فاتورة ري #${s.id}")
+                    }.onFailure { e ->
+                        Toast.makeText(context, "فشل إنشاء ملف PDF: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                    }
+                }
             },
             onMessage = {
                 sessionForDetails = null
@@ -1301,22 +1337,32 @@ fun VouchersScreen(
             },
             onPdf = {
                 voucherForDetails = null
-                val file = if (v.type == VoucherType.RECEIPT) {
-                    PdfReportGenerator.generateReceiptVoucherPdf(
-                        context = context,
-                        config = config,
-                        customer = c ?: Customer(name = "عميل نقدي"),
-                        voucher = v
-                    )
-                } else {
-                    PdfReportGenerator.generateExpenseVoucherPdf(
-                        context = context,
-                        config = config,
-                        customer = c ?: Customer(name = "مصروف عام"),
-                        voucher = v
-                    )
+                scope.launch {
+                    val res = runCatching {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            if (v.type == VoucherType.RECEIPT) {
+                                PdfReportGenerator.generateReceiptVoucherPdf(
+                                    context = context,
+                                    config = config,
+                                    customer = c ?: Customer(name = "عميل نقدي"),
+                                    voucher = v
+                                )
+                            } else {
+                                PdfReportGenerator.generateExpenseVoucherPdf(
+                                    context = context,
+                                    config = config,
+                                    customer = c ?: Customer(name = "مصروف عام"),
+                                    voucher = v
+                                )
+                            }
+                        }
+                    }
+                    res.onSuccess { file ->
+                        voucherPdfReady = Pair(file, "سند #${v.voucherNumber.ifEmpty { v.id.toString() }}")
+                    }.onFailure { e ->
+                        Toast.makeText(context, "فشل إنشاء ملف PDF: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                    }
                 }
-                voucherPdfReady = Pair(file, "سند #${v.voucherNumber.ifEmpty { v.id.toString() }}")
             },
             onShare = {
                 voucherForDetails = null
@@ -1971,10 +2017,10 @@ fun AddVoucherBottomSheet(
         )
     }
     var paymentMethod by remember { mutableStateOf(initialVoucher?.paymentMethod ?: "نقداً") }
-    var notes by remember {
+    var notes by remember(initialVoucher) {
         mutableStateOf(
             voiceCommand?.notes
-                ?: (if (voiceCommand?.type == VoiceCommandType.EXPENSE && voiceCommand.category != null) voiceCommand.category else "")
+                ?: (if (voiceCommand?.type == VoiceCommandType.EXPENSE && voiceCommand.category != null) voiceCommand.category else null)
                 ?: initialVoucher?.notes
                 ?: ""
         )
@@ -2072,13 +2118,14 @@ fun AddVoucherBottomSheet(
                                 custSearchQuery = cmd.customerQuery.trim()
                             }
                         }
-                        if (!cmd.notes.isNullOrBlank()) {
+                        if (!cmd.category.isNullOrBlank()) {
+                            notes = if (!cmd.notes.isNullOrBlank() && cmd.notes != cmd.category) {
+                                "${cmd.category} - ${cmd.notes}"
+                            } else {
+                                cmd.category
+                            }
+                        } else if (!cmd.notes.isNullOrBlank()) {
                             notes = cmd.notes
-                        } else if (!cmd.category.isNullOrBlank()) {
-                            notes = cmd.category
-                        }
-                        if (!cmd.notes.isNullOrBlank()) {
-                            notes = if (notes.isBlank()) cmd.notes else "$notes - ${cmd.notes}"
                         }
                     } else {
                         unrecognizedVoucherVoiceText = spoken

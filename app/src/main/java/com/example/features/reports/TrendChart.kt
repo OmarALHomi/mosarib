@@ -657,7 +657,7 @@ fun TrendChartCard(
                                 val currentStyle = if (selectedIndex == i) selectedLabelStyle else labelStyle
                                 val measured = textMeasurer.measure(b.label, style = currentStyle)
                                 val textW = measured.size.width
-                                val textX = (centerX - textW / 2f).coerceIn(0f, w - textW)
+                                val textX = (centerX - textW / 2f).coerceIn(0f, (w - textW).coerceAtLeast(0f))
                                 val textY = chartH + 6.dp.toPx()
                                 drawText(measured, topLeft = Offset(textX, textY))
                             }

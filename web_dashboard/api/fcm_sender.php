@@ -39,6 +39,11 @@ function getGoogleFcmAccessToken($saFile) {
         }
     }
 
+    $projId = $sa['project_id'] ?? FIREBASE_PROJECT_ID;
+    if (!preg_match('/^[a-z0-9-]+$/i', (string)$projId)) {
+        return null;
+    }
+
     $header = base64UrlEncode(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
     $now = time();
     $claims = [
@@ -77,7 +82,7 @@ function getGoogleFcmAccessToken($saFile) {
             @file_put_contents($accessTokenCacheFile, json_encode([
                 'token' => $data['access_token'],
                 'expires_at' => $now + ($data['expires_in'] ?? 3600)
-            ]));
+            ]), LOCK_EX);
             return [
                 'token' => $data['access_token'],
                 'project_id' => $sa['project_id'] ?? FIREBASE_PROJECT_ID
@@ -129,7 +134,11 @@ $rawInput = file_get_contents('php://input');
 $input = json_decode($rawInput, true) ?: $_POST;
 $action = $input['action'] ?? $_GET['action'] ?? 'send';
 
-// Every admin write carries the session CSRF token (header from adminApiFetch, or the body field)
+// Every admin write requires ADMIN/SUPER_ADMIN role + CSRF token
+$currentRole = $_SESSION['admin_user']['role'] ?? '';
+if ($currentRole !== 'ADMIN' && $currentRole !== 'SUPER_ADMIN') {
+    jsonResponse(false, 'غير مصرح: إرسال الإشعارات وإعدادات FCM مقتصرة على المدراء فقط', null, 403);
+}
 $csrfHeaders = function_exists('getallheaders') ? getallheaders() : [];
 $csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($csrfHeaders['X-CSRF-Token'] ?? ($csrfHeaders['x-csrf-token'] ?? ($input['csrf_token'] ?? '')));
 if (!verifyCsrfToken($csrfToken)) {
@@ -161,7 +170,12 @@ if ($action === 'upload_image') {
     if (!move_uploaded_file($img['tmp_name'], $dir . $name)) {
         jsonResponse(false, 'تعذر حفظ الصورة على الخادم');
     }
-    $base = 'https://' . $_SERVER['HTTP_HOST'] . rtrim(str_replace('\\', '/', dirname(dirname($_SERVER['PHP_SELF']))), '/');
+    $isHttpsReq = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+        || (!empty($_SERVER['HTTP_CF_VISITOR']) && strpos($_SERVER['HTTP_CF_VISITOR'], 'https') !== false);
+    $scheme = $isHttpsReq ? 'https' : 'http';
+    $host = preg_replace('/[^A-Za-z0-9.\-:]/', '', (string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    $base = $scheme . '://' . $host . rtrim(str_replace('\\', '/', dirname(dirname($_SERVER['PHP_SELF']))), '/');
     jsonResponse(true, 'تم رفع الصورة', ['url' => $base . '/uploads/notices/' . $name]);
 }
 
@@ -424,7 +438,7 @@ if ($auth) {
                 $errorDetails[] = $errCode;
                 // If token is unregistered or invalid, clean it up from RTDB
                 if (in_array($errCode, ['UNREGISTERED', 'INVALID_ARGUMENT']) && !empty($tItem['deviceCode'])) {
-                    $cleanKey = str_replace('-', '', trim($tItem['deviceCode']));
+                    $cleanKey = strtoupper(str_replace('-', '', trim($tItem['deviceCode'])));
                     firebaseRequest("fcm_tokens/$cleanKey.json", 'DELETE');
                 }
             }
@@ -462,7 +476,12 @@ elseif (!empty($serverKey)) {
 }
 
 // Sync delivery: the same message as an in-app announcement for ALL / BROADCAST / VERSION
+// Preserve any active Force Update already set in app_broadcast.json
 if ($target === 'ALL' || $target === 'BROADCAST' || $target === 'VERSION') {
+    $existingBc = firebaseRequest('app_broadcast.json')['data'] ?? null;
+    if (is_array($existingBc) && !empty($existingBc['isForceUpdate'])) {
+        // Do not overwrite an active force update with an INFO announcement
+    } else {
     $broadcastPayload = [
         'id' => 'PUSH_' . round(microtime(true) * 1000),
         'title' => $title,
@@ -478,6 +497,7 @@ if ($target === 'ALL' || $target === 'BROADCAST' || $target === 'VERSION') {
         if ($versionRange[1] > 0) $broadcastPayload['targetMaxVersionCode'] = $versionRange[1];
     }
     firebaseRequest('app_broadcast.json', 'PUT', $broadcastPayload);
+    }
 } elseif ($target === 'DEVICE' && !empty($targetDeviceCodeClean)) {
     // Targeted directly to this device: store in device_overrides & all_users so it shows in app
     $devMsgId = 'push_' . round(microtime(true) * 1000);

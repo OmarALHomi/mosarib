@@ -440,6 +440,16 @@ fun MosaribDatePickerDialog(
     var selectedYear by remember { mutableIntStateOf(cal.get(Calendar.YEAR)) }
     var selectedMonth by remember { mutableIntStateOf(cal.get(Calendar.MONTH)) } // 0..11
     var selectedDay by remember { mutableIntStateOf(cal.get(Calendar.DAY_OF_MONTH)) }
+    val maxDayInMonth = remember(selectedYear, selectedMonth) {
+        Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.YEAR, selectedYear)
+            set(Calendar.MONTH, selectedMonth)
+        }.getActualMaximum(Calendar.DAY_OF_MONTH)
+    }
+    LaunchedEffect(maxDayInMonth) {
+        if (selectedDay > maxDayInMonth) selectedDay = maxDayInMonth
+    }
 
     val arabicMonths = listOf(
         "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
@@ -530,15 +540,15 @@ fun MosaribDatePickerDialog(
                         TimeCounterColumn(
                             modifier = Modifier.weight(1f),
                             label = "اليوم",
-                            value = selectedDay,
+                            value = selectedDay.coerceIn(1, maxDayInMonth),
                             minValue = 1,
-                            maxValue = 31,
+                            maxValue = maxDayInMonth,
                             isSmall = isSmallScreen,
                             onIncrement = {
-                                selectedDay = if (selectedDay >= 31) 1 else selectedDay + 1
+                                selectedDay = if (selectedDay >= maxDayInMonth) 1 else selectedDay + 1
                             },
                             onDecrement = {
-                                selectedDay = if (selectedDay <= 1) 31 else selectedDay - 1
+                                selectedDay = if (selectedDay <= 1) maxDayInMonth else selectedDay - 1
                             }
                         )
 

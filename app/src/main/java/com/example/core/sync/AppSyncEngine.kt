@@ -69,12 +69,24 @@ object AppSyncEngine {
      * Executes consolidated background synchronization in a single well-managed coroutine pass.
      * Prevents network storms, coordinates state, and returns a single clean decision on what dialog/screen to display.
      */
+    private suspend fun resolveEffectiveOperationsCount(context: Context, hintCount: Int): Int {
+        if (hintCount > 0) return hintCount
+        return runCatching {
+            val db = com.example.core.database.AppDatabase.getDatabase(context)
+            db.waterSessionDao().getSessionsCountDirect() +
+                db.voucherDao().getVouchersCountDirect() +
+                db.wellOwnerPurchaseDao().getPurchasesCountDirect()
+        }.getOrDefault(0)
+    }
+
     suspend fun performConsolidatedStartupSync(
         context: Context,
         operationsCount: Int
     ): StartupDecision = withContext(Dispatchers.IO) {
+        val resolvedOpsCount = resolveEffectiveOperationsCount(context, operationsCount)
+
         // 0. Trigger daily silent rolling backup (keeps last 7 days)
-        AutoBackupEngine.performDailyAutoBackup(context, com.example.core.database.AppDatabase.getDatabase(context), operationsCount)
+        AutoBackupEngine.performDailyAutoBackup(context, com.example.core.database.AppDatabase.getDatabase(context), resolvedOpsCount)
 
         // 0b. Keep the periodic Drive backup scheduled and catch up when it is overdue (never blocks startup)
         try {
@@ -84,7 +96,7 @@ object AppSyncEngine {
         }
 
         // Register smart connectivity listener so offline launches get registered as soon as internet appears
-        registerNetworkListener(context, operationsCount)
+        registerNetworkListener(context, resolvedOpsCount)
 
         if (!LicenseManager.isInternetAvailable(context)) {
             // Offline fallback
@@ -94,7 +106,7 @@ object AppSyncEngine {
                     blockReason = UserDeviceTracker.getBlockReason(context)
                 )
             }
-            if (PeriodicBackupReminderManager.shouldShowBackupReminder(context, operationsCount)) {
+            if (PeriodicBackupReminderManager.shouldShowBackupReminder(context, resolvedOpsCount)) {
                 return@withContext StartupDecision(dialogToShow = StartupDialogType.BACKUP_REMINDER)
             }
             return@withContext StartupDecision(dialogToShow = StartupDialogType.NONE)
@@ -102,7 +114,7 @@ object AppSyncEngine {
 
         try {
             // 1. Sync device presence & Google Account & check if blocked
-            val presenceResult = UserDeviceTracker.syncPresence(context, operationsCount)
+            val presenceResult = UserDeviceTracker.syncPresence(context, resolvedOpsCount)
             if (presenceResult.isBlocked) {
                 return@withContext StartupDecision(
                     dialogToShow = StartupDialogType.DEVICE_BLOCKED,
@@ -130,7 +142,7 @@ object AppSyncEngine {
             FcmTokenHelper.syncCurrentToken(context)
 
             // 6. Check priority of gentle dialogs (Only ONE dialog per session!)
-            if (PeriodicBackupReminderManager.shouldShowBackupReminder(context, operationsCount)) {
+            if (PeriodicBackupReminderManager.shouldShowBackupReminder(context, resolvedOpsCount)) {
                 return@withContext StartupDecision(dialogToShow = StartupDialogType.BACKUP_REMINDER)
             }
 

@@ -518,7 +518,7 @@
     .slider:before {
       position: absolute; content: "";
       height: 20px; width: 20px;
-      left: 3px; bottom: 3px;
+      right: 3px; bottom: 3px;
       background-color: white;
       transition: .3s;
       border-radius: 50%;
@@ -1135,7 +1135,7 @@
     font-weight: 700;
     color: var(--text-muted);
   }
-  .rtable tbody td[data-label] > * { text-align: left; }
+  .rtable tbody td[data-label] > * { text-align: end; }
   .rtable tbody td.cell-select { position: absolute; top: 12px; inset-inline-start: 14px; padding: 0; }
   .rtable tbody td.col-actions { width: auto; text-align: right; padding-top: 10px; border-top: 1px solid var(--table-border); margin-top: 6px; }
   #usersTableBody td.col-actions { position: absolute; top: 8px; inset-inline-end: 8px; width: auto; padding: 0; border: 0; margin: 0; }

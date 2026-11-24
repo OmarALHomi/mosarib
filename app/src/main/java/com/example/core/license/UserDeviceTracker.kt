@@ -132,8 +132,10 @@ object UserDeviceTracker {
             var remoteFirstSeen = 0L
 
             // Admin policies can sit on the device's /all_users record or on /device_overrides.
-            val existing = FirebaseRest.get("all_users/$cleanDeviceKey.json", timeoutMs = 7000).jsonObject()
-            val overrides = FirebaseRest.get("device_overrides/$cleanDeviceKey.json", timeoutMs = 4000).jsonObject()
+            val existingResp = FirebaseRest.get("all_users/$cleanDeviceKey.json", timeoutMs = 7000)
+            val overridesResp = FirebaseRest.get("device_overrides/$cleanDeviceKey.json", timeoutMs = 4000)
+            val existing = existingResp.jsonObject()
+            val overrides = overridesResp.jsonObject()
             for (policy in listOfNotNull(existing, overrides)) {
                 if (policy.optBoolean("isBlocked", false)) {
                     isBlocked = true
@@ -151,7 +153,7 @@ object UserDeviceTracker {
 
             // Also check by Google Email if present
             if (!isBlocked && email.isNotBlank()) {
-                val safeEmailKey = email.replace(".", "_").replace("@", "_at_")
+                val safeEmailKey = email.trim().lowercase(java.util.Locale.US).replace(".", "_").replace("@", "_at_")
                 val emailRes = FirebaseRest.get("blocked_emails/$safeEmailKey.json", timeoutMs = 5000)
                 val emailBody = emailRes.body?.trim()
                 if (emailRes.isSuccess && !emailBody.isNullOrEmpty() && emailBody != "null") {
@@ -160,12 +162,14 @@ object UserDeviceTracker {
                 }
             }
 
-            // Save local block state
+            // Save local block state (only clear a cached block when both policy requests succeeded)
             val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
-            sp.edit()
-                .putBoolean(KEY_IS_BLOCKED_LOCALLY, isBlocked)
-                .putString(KEY_BLOCK_REASON, blockReason)
-                .apply()
+            if (isBlocked || (existingResp.isSuccess && overridesResp.isSuccess)) {
+                sp.edit()
+                    .putBoolean(KEY_IS_BLOCKED_LOCALLY, isBlocked)
+                    .putString(KEY_BLOCK_REASON, blockReason)
+                    .apply()
+            }
 
             if (isBlocked) {
                 LicenseManager.revokeLicenseLocally(context)

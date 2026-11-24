@@ -163,14 +163,17 @@ fun HomeScreen(
     val homeStats by sessionsViewModel.homeStats.collectAsStateWithLifecycle()
     val sessions by sessionsViewModel.filteredSessions.collectAsStateWithLifecycle()
     val customers by sessionsViewModel.customers.collectAsStateWithLifecycle()
-    val toast by sessionsViewModel.toast.collectAsStateWithLifecycle()
+    val sessionsToast by sessionsViewModel.toast.collectAsStateWithLifecycle()
+    val vouchersToast by vouchersViewModel.toast.collectAsStateWithLifecycle()
+    val customersToast by customersViewModel.toast.collectAsStateWithLifecycle()
+    val toast = sessionsToast ?: vouchersToast ?: customersToast
     val operationsCount by settingsViewModel.operationsCount.collectAsStateWithLifecycle()
     val isActivated by settingsViewModel.isActivated.collectAsStateWithLifecycle()
     val allSessions by vouchersViewModel.allSessions.collectAsStateWithLifecycle()
     val customGroups by customersViewModel.customGroups.collectAsStateWithLifecycle()
 
     val isSystemDark = isSystemInDarkTheme()
-    val isDarkTheme = when (config.themeMode) {
+    val isDarkTheme = when (config.themeMode.uppercase(java.util.Locale.US)) {
         "LIGHT" -> false
         "DARK" -> true
         else -> isSystemDark
@@ -876,7 +879,11 @@ fun HomeScreen(
         // Floating Toast Notification
         LuxuryToastNotification(
             toast = toast,
-            onDismiss = { sessionsViewModel.dismissToast() },
+            onDismiss = {
+                if (sessionsToast != null) sessionsViewModel.dismissToast()
+                if (vouchersToast != null) vouchersViewModel.dismissToast()
+                if (customersToast != null) customersViewModel.dismissToast()
+            },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 16.dp)

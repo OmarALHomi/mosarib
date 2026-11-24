@@ -84,6 +84,12 @@ interface CustomerDao {
     @Query("DELETE FROM water_sessions WHERE customerId IN (SELECT id FROM customers WHERE id = :customerId AND isArchived = 1)")
     suspend fun deleteSessionsForArchivedCustomer(customerId: Long): Int
 
+    @Query("UPDATE water_sessions SET billedToCustomerId = NULL WHERE billedToCustomerId IN (SELECT id FROM customers WHERE id = :customerId AND isArchived = 1)")
+    suspend fun clearBilledSponsorForArchivedCustomer(customerId: Long): Int
+
+    @Query("UPDATE water_sessions SET billedToCustomerId = NULL WHERE billedToCustomerId IN (SELECT id FROM customers WHERE isArchived = 1)")
+    suspend fun clearBilledSponsorForArchivedCustomers(): Int
+
     @Query("DELETE FROM customers WHERE id = :customerId AND isArchived = 1")
     suspend fun deleteArchivedCustomerOnly(customerId: Long): Int
 
@@ -91,6 +97,7 @@ interface CustomerDao {
     suspend fun permanentlyDeleteCustomer(id: Long) {
         deletePurchasesForArchivedCustomer(id)
         deleteVouchersForArchivedCustomer(id)
+        clearBilledSponsorForArchivedCustomer(id)
         deleteSessionsForArchivedCustomer(id)
         deleteArchivedCustomerOnly(id)
     }
@@ -111,6 +118,7 @@ interface CustomerDao {
     suspend fun emptyRecycleBin() {
         deletePurchasesForArchivedCustomers()
         deleteVouchersForArchivedCustomers()
+        clearBilledSponsorForArchivedCustomers()
         deleteSessionsForArchivedCustomers()
         deleteArchivedCustomersOnly()
     }

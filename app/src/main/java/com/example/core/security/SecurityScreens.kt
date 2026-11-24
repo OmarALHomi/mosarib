@@ -1,6 +1,8 @@
 package com.example.core.security
 
 import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,6 +58,16 @@ fun BiometricLockScreen(
     val context = LocalContext.current
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    val deviceCredentialLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            onUnlock()
+        } else {
+            errorMessage = "تم إلغاء المصادقة"
+        }
+    }
+
     fun triggerAuth() {
         errorMessage = null
         var ctx = context
@@ -68,11 +80,11 @@ fun BiometricLockScreen(
             BiometricHelper.authenticate(
                 activity = activity,
                 onSuccess = onUnlock,
-                onError = { err -> errorMessage = err }
+                onError = { err -> errorMessage = err },
+                onDeviceCredentialIntent = { intent -> deviceCredentialLauncher.launch(intent) }
             )
         } else {
-            // Fallback: unlock if no activity context can be found
-            onUnlock()
+            errorMessage = "تعذر الوصول إلى شاشة القفل"
         }
     }
 

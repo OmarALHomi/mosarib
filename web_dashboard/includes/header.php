@@ -14,7 +14,7 @@
     <div class="header-actions">
       <div id="loggedInUserBadge" style="display: flex; align-items: center; gap: 8px; background: rgba(0, 137, 123, 0.2); border: 1px solid rgba(0, 188, 212, 0.4); border-radius: 20px; padding: 5px 14px; font-size: 12.5px;">
         <span style="color: #4DB6AC;">المسؤول:</span>
-        <strong id="currentAdminName" style="color: #FFF;">-</strong>
+        <strong id="currentAdminName" style="color: var(--text-title);">-</strong>
         <span id="currentAdminRole" class="badge badge-yearly" style="font-size: 10px; padding: 2px 6px;">SUPER_ADMIN</span>
       </div>
       <button class="btn btn-outline" style="width: auto; padding: 6px 14px; font-size: 12px; border-color: rgba(229,57,53,0.4); color: #EF5350;" onclick="handleSecureLogout()">تسجيل الخروج</button>

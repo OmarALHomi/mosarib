@@ -66,6 +66,10 @@ function applyForceAudience(array $payload, $mode, array $codes) {
 
 // 2. POST: Upload new APK release or update cloud force-update
 if ($method === 'POST') {
+    if (empty($_POST) && empty($_FILES) && intval($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+        jsonResponse(false, 'حجم الملف المرفوع يتجاوز حد الخادم (post_max_size / upload_max_filesize)', null, 413);
+    }
+
     // CSRF verification on every admin write
     $headers = function_exists('getallheaders') ? getallheaders() : [];
     $csrf = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($headers['X-CSRF-Token'] ?? ($headers['x-csrf-token'] ?? ($_POST['csrf_token'] ?? '')));
@@ -126,7 +130,11 @@ if ($method === 'POST') {
         // Keep Mosarib_Latest.apk always pointing to the latest uploaded version
         @copy($destPath, UPLOAD_DIR . 'Mosarib_Latest.apk');
 
-        $serverUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'];
+        $isHttpsReq = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+            || (!empty($_SERVER['HTTP_CF_VISITOR']) && strpos($_SERVER['HTTP_CF_VISITOR'], 'https') !== false);
+        $host = preg_replace('/[^A-Za-z0-9.\-:]/', '', (string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+        $serverUrl = ($isHttpsReq ? 'https' : 'http') . '://' . $host;
         $downloadUrl = $serverUrl . dirname(dirname($_SERVER['PHP_SELF'])) . '/uploads/' . $fileName;
 
         $releases = file_exists($releasesFile) ? json_decode(file_get_contents($releasesFile), true) : [];
@@ -149,7 +157,7 @@ if ($method === 'POST') {
         ];
 
         array_unshift($releases, $newRelease);
-        file_put_contents($releasesFile, json_encode($releases, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        file_put_contents($releasesFile, json_encode($releases, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
 
         // Sync with Firebase app_broadcast if force update selected
         if ($isForceUpdate) {
@@ -160,6 +168,7 @@ if ($method === 'POST') {
                 'actionUrl' => $downloadUrl,
                 'actionText' => 'تحميل التحديث الآن (v' . $versionName . ')',
                 'minRequiredVersionCode' => $versionCode,
+                'requiredVersionName' => $versionName,
                 'isForceUpdate' => true,
                 'publishedAt' => round(microtime(true) * 1000)
             ];
@@ -193,6 +202,7 @@ if ($method === 'POST') {
             'actionUrl' => $customUrl,
             'actionText' => 'تحميل التحديث الجديد (v' . $versionName . ')',
             'minRequiredVersionCode' => $versionCode,
+            'requiredVersionName' => $versionName,
             'isForceUpdate' => $isForce,
             'publishedAt' => round(microtime(true) * 1000)
         ];
@@ -212,11 +222,13 @@ if ($method === 'POST') {
             'file_size_mb' => '0',
             'download_url' => $customUrl,
             'is_force_update' => $isForce,
+            'force_mode' => $forceMode,
+            'force_codes' => $forceCodes,
             'is_external' => true,
             'uploaded_at' => time() * 1000
         ];
         array_unshift($releases, $newExternalRelease);
-        file_put_contents($releasesFile, json_encode($releases, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        file_put_contents($releasesFile, json_encode($releases, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
 
         jsonResponse(true, 'تم ربط وبث رابط التحميل الخارجي لجميع المستخدمين والموقع العام بنجاح', [
             'broadcast' => $bcPayload,

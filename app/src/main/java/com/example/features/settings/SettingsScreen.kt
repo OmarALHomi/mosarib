@@ -480,9 +480,9 @@ fun SettingsScreen(
                 SettingsSectionHeader(title = "المظهر والصوت")
                 SettingsCard {
                     // المظهر
-                    val themeLabel = when (config.themeMode) {
-                        "light" -> "فاتح"
-                        "dark" -> "داكن"
+                    val themeLabel = when (config.themeMode.uppercase(java.util.Locale.US)) {
+                        "LIGHT" -> "فاتح"
+                        "DARK" -> "داكن"
                         else -> "حسب الجهاز"
                     }
                     SettingsRow(
@@ -706,7 +706,7 @@ fun SettingsScreen(
         // License Dialog
         val isTrialLimitExceeded = LicenseManager.isTrialLimitExceeded(context, operationsCount)
 
-        if (showLicenseDialog && !isTrialLimitExceeded) {
+        if (showLicenseDialog) {
             LicenseDialog(
                 onDismiss = { showLicenseDialog = false },
                 onActivated = {
@@ -934,12 +934,12 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val modes = listOf(
-                        Triple("light", "فاتح", Icons.Default.LightMode),
-                        Triple("dark", "داكن", Icons.Default.DarkMode),
-                        Triple("system", "حسب الجهاز", Icons.Default.Palette)
+                        Triple("LIGHT", "فاتح", Icons.Default.LightMode),
+                        Triple("DARK", "داكن", Icons.Default.DarkMode),
+                        Triple("SYSTEM", "حسب الجهاز", Icons.Default.Palette)
                     )
                     modes.forEach { (mode, label, icon) ->
-                        val isSelected = config.themeMode == mode
+                        val isSelected = config.themeMode.uppercase(java.util.Locale.US) == mode
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()

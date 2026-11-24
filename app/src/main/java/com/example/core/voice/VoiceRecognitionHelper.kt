@@ -103,9 +103,12 @@ object VoiceRecognitionHelper {
         }
 
         val handler = Handler(Looper.getMainLooper())
+        var recognizerRef: SpeechRecognizer? = null
         val timeoutRunnable = Runnable {
             if (!hasCalledBack) {
                 hasCalledBack = true
+                try { recognizerRef?.destroy() } catch (_: Exception) {}
+                recognizerRef = null
                 onResult(cachedSupportResult ?: fallback)
             }
         }
@@ -113,6 +116,7 @@ object VoiceRecognitionHelper {
 
         try {
             val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
+            recognizerRef = recognizer
             if (recognizer == null) {
                 handler.removeCallbacks(timeoutRunnable)
                 if (!hasCalledBack) {
@@ -200,6 +204,8 @@ object VoiceRecognitionHelper {
         } catch (e: Exception) {
             Log.w("VoiceSupport", "checkRecognitionSupport exception: ${e.message}")
             handler.removeCallbacks(timeoutRunnable)
+            try { recognizerRef?.destroy() } catch (_: Exception) {}
+            recognizerRef = null
             if (!hasCalledBack) {
                 hasCalledBack = true
                 onResult(fallback)

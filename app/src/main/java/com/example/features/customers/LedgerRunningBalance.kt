@@ -75,7 +75,8 @@ object LedgerRunningBalance {
                         running -= item.voucher.amount
                     }
                     is CustomerLedgerItem.SessionItem -> {
-                        val unvoucheredPaid = (item.session.amountPaid - item.linkedVouchers.sumOf { it.amount }).coerceAtLeast(0.0)
+                        val receiptTotal = item.linkedVouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount }
+                        val unvoucheredPaid = (item.session.amountPaid - receiptTotal).coerceAtLeast(0.0)
                         running -= (item.session.totalAmount - unvoucheredPaid)
                     }
                     is CustomerLedgerItem.DiscountItem -> {
@@ -85,7 +86,8 @@ object LedgerRunningBalance {
             } else {
                 when (item) {
                     is CustomerLedgerItem.SessionItem -> {
-                        val unvoucheredPaid = (item.session.amountPaid - item.linkedVouchers.sumOf { it.amount }).coerceAtLeast(0.0)
+                        val receiptTotal = item.linkedVouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount }
+                        val unvoucheredPaid = (item.session.amountPaid - receiptTotal).coerceAtLeast(0.0)
                         running += (item.session.totalAmount - unvoucheredPaid)
                     }
                     is CustomerLedgerItem.DisbursementItem -> {

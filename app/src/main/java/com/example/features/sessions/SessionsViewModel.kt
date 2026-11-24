@@ -3,6 +3,7 @@ package com.example.features.sessions
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.example.core.database.AppDatabase
 import com.example.core.ui.ToastMessage
 import com.example.core.ui.ToastType
@@ -139,13 +140,17 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                     calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
                     calendar.set(java.util.Calendar.MINUTE, 0)
                     calendar.set(java.util.Calendar.SECOND, 0)
+                    calendar.set(java.util.Calendar.MILLISECOND, 0)
                     val startOfDay = calendar.timeInMillis
                     list.filter { it.session.startTime >= startOfDay }
                 }
                 SessionFilter.THIS_WEEK -> {
-                    calendar.set(java.util.Calendar.DAY_OF_WEEK, calendar.firstDayOfWeek)
+                    val diff = (calendar.get(java.util.Calendar.DAY_OF_WEEK) - calendar.firstDayOfWeek + 7) % 7
+                    calendar.add(java.util.Calendar.DAY_OF_YEAR, -diff)
                     calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
                     calendar.set(java.util.Calendar.MINUTE, 0)
+                    calendar.set(java.util.Calendar.SECOND, 0)
+                    calendar.set(java.util.Calendar.MILLISECOND, 0)
                     val startOfWeek = calendar.timeInMillis
                     list.filter { it.session.startTime >= startOfWeek }
                 }
@@ -153,6 +158,8 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
                     calendar.set(java.util.Calendar.DAY_OF_MONTH, 1)
                     calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
                     calendar.set(java.util.Calendar.MINUTE, 0)
+                    calendar.set(java.util.Calendar.SECOND, 0)
+                    calendar.set(java.util.Calendar.MILLISECOND, 0)
                     val startOfMonth = calendar.timeInMillis
                     list.filter { it.session.startTime >= startOfMonth }
                 }
@@ -382,53 +389,52 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
 
             val roundedPayment = Formatters.roundMoney(amountToPay)
             val roundedDiscount = Formatters.roundMoney(discountAmount)
-            val newAmountPaid = Formatters.roundMoney(session.amountPaid + roundedPayment)
-            val newDiscount = Formatters.roundMoney(session.discountAmount + roundedDiscount)
-            val newRemainingDebt = Formatters.roundMoney(maxOf(0.0, session.remainingDebt - roundedPayment - roundedDiscount))
-            val updated = session.copy(
-                amountPaid = newAmountPaid,
-                discountAmount = newDiscount,
-                remainingDebt = newRemainingDebt
-            )
-            sessionRepo.updateSession(updated)
-
             val baseTime = System.currentTimeMillis()
             var opsAdded = 0
-
-            // توليد سند قبض رسمي مرتبط برقم الجلسة للمبلغ المدفوع
-            if (roundedPayment > 0.0) {
-                val vNumber = "REC-${baseTime.toString().takeLast(4)}"
-                val voucher = Voucher(
-                    voucherNumber = vNumber,
-                    type = VoucherType.RECEIPT,
-                    customerId = session.billedToCustomerId ?: session.customerId,
-                    sessionId = session.id,
-                    amount = roundedPayment,
-                    category = "سداد سقي",
-                    paymentMethod = paymentMethod,
-                    date = baseTime,
-                    notes = notes.ifBlank { "سداد دورة سقي #${session.id}" }
+            db.withTransaction {
+                val newAmountPaid = Formatters.roundMoney(session.amountPaid + roundedPayment)
+                val newDiscount = Formatters.roundMoney(session.discountAmount + roundedDiscount)
+                val newRemainingDebt = Formatters.roundMoney(maxOf(0.0, session.remainingDebt - roundedPayment - roundedDiscount))
+                val updated = session.copy(
+                    amountPaid = newAmountPaid,
+                    discountAmount = newDiscount,
+                    remainingDebt = newRemainingDebt
                 )
-                voucherRepo.insertVoucher(voucher)
-                opsAdded++
-            }
+                sessionRepo.updateSession(updated)
 
-            // توليد سند خصم ومسامحة للتسوية إن وجد
-            if (roundedDiscount > 0.0) {
-                val dNumber = "DSC-${baseTime.toString().takeLast(4)}"
-                val discVoucher = Voucher(
-                    voucherNumber = dNumber,
-                    type = VoucherType.DISCOUNT,
-                    customerId = session.billedToCustomerId ?: session.customerId,
-                    sessionId = session.id,
-                    amount = roundedDiscount,
-                    category = "خصم تسوية",
-                    paymentMethod = "تسوية ومسامحة",
-                    date = baseTime + 1,
-                    notes = "خصم ومسامحة تسوية دورة سقي #${session.id}"
-                )
-                voucherRepo.insertVoucher(discVoucher)
-                opsAdded++
+                if (roundedPayment > 0.0) {
+                    val vNumber = "REC-${baseTime.toString().takeLast(4)}"
+                    val voucher = Voucher(
+                        voucherNumber = vNumber,
+                        type = VoucherType.RECEIPT,
+                        customerId = session.billedToCustomerId ?: session.customerId,
+                        sessionId = session.id,
+                        amount = roundedPayment,
+                        category = "سداد سقي",
+                        paymentMethod = paymentMethod,
+                        date = baseTime,
+                        notes = notes.ifBlank { "سداد دورة سقي #${session.id}" }
+                    )
+                    voucherRepo.insertVoucher(voucher)
+                    opsAdded++
+                }
+
+                if (roundedDiscount > 0.0) {
+                    val dNumber = "DSC-${baseTime.toString().takeLast(4)}"
+                    val discVoucher = Voucher(
+                        voucherNumber = dNumber,
+                        type = VoucherType.DISCOUNT,
+                        customerId = session.billedToCustomerId ?: session.customerId,
+                        sessionId = session.id,
+                        amount = roundedDiscount,
+                        category = "خصم تسوية",
+                        paymentMethod = "تسوية ومسامحة",
+                        date = baseTime + 1,
+                        notes = "خصم ومسامحة تسوية دورة سقي #${session.id}"
+                    )
+                    voucherRepo.insertVoucher(discVoucher)
+                    opsAdded++
+                }
             }
 
             if (opsAdded > 0) {
@@ -462,13 +468,15 @@ class SessionsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             try {
                 val config = appConfig.value
-                val pdfFile: File = PdfReportGenerator.generateSessionInvoicePdf(
-                    context = getApplication(),
-                    config = config,
-                    customer = customer,
-                    session = session,
-                    sponsorCustomer = sponsorCustomer
-                )
+                val pdfFile: File = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    PdfReportGenerator.generateSessionInvoicePdf(
+                        context = getApplication(),
+                        config = config,
+                        customer = customer,
+                        session = session,
+                        sponsorCustomer = sponsorCustomer
+                    )
+                }
                 _pdfReadyFile.value = Pair(pdfFile, "فاتورة ري مياه - ${customer.name}")
             } catch (e: Exception) {
                 showToast("فشل في إنشاء ملف الفاتورة: ${e.localizedMessage}", ToastType.ERROR)

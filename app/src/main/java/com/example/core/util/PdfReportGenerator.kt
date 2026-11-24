@@ -445,10 +445,13 @@ object PdfReportGenerator {
 
         val safeCustomerName = customer.name.replace(" ", "_").filter { it.isLetterOrDigit() || it == '_' }
         val file = File(reportDir, "statement_${safeCustomerName}_${System.currentTimeMillis()}.pdf")
-        val fos = FileOutputStream(file)
-        document.writeTo(fos)
-        fos.close()
-        document.close()
+        try {
+            FileOutputStream(file).use { fos ->
+                document.writeTo(fos)
+            }
+        } finally {
+            runCatching { document.close() }
+        }
 
         return file
     }
@@ -797,10 +800,13 @@ object PdfReportGenerator {
         val reportDir = File(context.cacheDir, "reports")
         if (!reportDir.exists()) reportDir.mkdirs()
         val file = File(reportDir, "invoice_session_${session.id}_${System.currentTimeMillis()}.pdf")
-        val fos = FileOutputStream(file)
-        document.writeTo(fos)
-        fos.close()
-        document.close()
+        try {
+            FileOutputStream(file).use { fos ->
+                document.writeTo(fos)
+            }
+        } finally {
+            runCatching { document.close() }
+        }
 
         return file
     }
@@ -919,10 +925,13 @@ object PdfReportGenerator {
         val reportDir = File(context.cacheDir, "reports")
         if (!reportDir.exists()) reportDir.mkdirs()
         val file = File(reportDir, "voucher_${voucher.id}_${System.currentTimeMillis()}.pdf")
-        val fos = FileOutputStream(file)
-        document.writeTo(fos)
-        fos.close()
-        document.close()
+        try {
+            FileOutputStream(file).use { fos ->
+                document.writeTo(fos)
+            }
+        } finally {
+            runCatching { document.close() }
+        }
 
         return file
     }
@@ -1044,10 +1053,13 @@ object PdfReportGenerator {
         val reportDir = File(context.cacheDir, "reports")
         if (!reportDir.exists()) reportDir.mkdirs()
         val file = File(reportDir, "expense_voucher_${voucher.id}_${System.currentTimeMillis()}.pdf")
-        val fos = FileOutputStream(file)
-        document.writeTo(fos)
-        fos.close()
-        document.close()
+        try {
+            FileOutputStream(file).use { fos ->
+                document.writeTo(fos)
+            }
+        } finally {
+            runCatching { document.close() }
+        }
 
         return file
     }
@@ -1484,10 +1496,13 @@ object PdfReportGenerator {
         val reportDir = File(context.cacheDir, "reports")
         if (!reportDir.exists()) reportDir.mkdirs()
         val file = File(reportDir, "comprehensive_report_${System.currentTimeMillis()}.pdf")
-        val fos = FileOutputStream(file)
-        document.writeTo(fos)
-        fos.close()
-        document.close()
+        try {
+            FileOutputStream(file).use { fos ->
+                document.writeTo(fos)
+            }
+        } finally {
+            runCatching { document.close() }
+        }
 
         return file
     }
@@ -1704,10 +1719,13 @@ object PdfReportGenerator {
         val reportDir = File(context.cacheDir, "reports")
         if (!reportDir.exists()) reportDir.mkdirs()
         val file = File(reportDir, "customer_directory_${System.currentTimeMillis()}.pdf")
-        val fos = FileOutputStream(file)
-        document.writeTo(fos)
-        fos.close()
-        document.close()
+        try {
+            FileOutputStream(file).use { fos ->
+                document.writeTo(fos)
+            }
+        } finally {
+            runCatching { document.close() }
+        }
 
         return file
     }
@@ -1994,10 +2012,13 @@ object PdfReportGenerator {
         val reportDir = File(context.cacheDir, "reports")
         if (!reportDir.exists()) reportDir.mkdirs()
         val file = File(reportDir, "operations_log_${System.currentTimeMillis()}.pdf")
-        val fos = FileOutputStream(file)
-        document.writeTo(fos)
-        fos.close()
-        document.close()
+        try {
+            FileOutputStream(file).use { fos ->
+                document.writeTo(fos)
+            }
+        } finally {
+            runCatching { document.close() }
+        }
 
         return file
     }

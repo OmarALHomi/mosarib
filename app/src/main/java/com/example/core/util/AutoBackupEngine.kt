@@ -191,9 +191,20 @@ object AutoBackupEngine {
      */
     private suspend fun syncToGoogleDriveIfPossible(context: Context, backupFile: File) = withContext(Dispatchers.IO) {
         try {
+            val prefs = com.example.core.backup.DriveBackupPreferences
+            if (prefs.getFrequency(context) == com.example.core.backup.BackupFrequency.OFF) return@withContext
+            if (prefs.isWifiOnly(context)) {
+                val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+                val net = cm?.activeNetwork
+                val caps = net?.let { cm.getNetworkCapabilities(it) }
+                if (caps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) != true) return@withContext
+            }
             if (!com.example.core.license.LicenseManager.isInternetAvailable(context)) return@withContext
+            if (!com.example.core.license.RemoteConfigManager.isCloudBackupAllowed(context)) return@withContext
             val signedAccount = GoogleDriveBackupHelper.getSignedInAccount(context) ?: return@withContext
-            GoogleDriveBackupHelper.uploadBackupToAppData(context, signedAccount, backupFile)
+            GoogleDriveBackupHelper.uploadBackupToAppData(context, signedAccount, backupFile).onSuccess {
+                prefs.recordSuccess(context, backupFile.lastModified())
+            }
         } catch (_: Exception) {
             // صامت تماماً - لا يؤثر على سير عمل المستخدم
         }

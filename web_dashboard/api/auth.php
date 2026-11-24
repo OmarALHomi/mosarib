@@ -153,7 +153,18 @@ function clearRateLimit($ip, $email = '') {
 
 // Check if currently authenticated via HttpOnly PHP session
 function requireAuth() {
+    $now = time();
+    $maxSessionAge = 12 * 3600;
+    $maxIdleAge = 2 * 3600;
     if (!empty($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true && !empty($_SESSION['admin_user'])) {
+        $loginTime = intval($_SESSION['login_time'] ?? 0);
+        $lastAct = intval($_SESSION['last_activity'] ?? $loginTime);
+        if (($loginTime > 0 && ($now - $loginTime) > $maxSessionAge) || ($lastAct > 0 && ($now - $lastAct) > $maxIdleAge)) {
+            $_SESSION = [];
+            @session_destroy();
+            jsonResponse(false, 'انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً', null, 401);
+        }
+        $_SESSION['last_activity'] = $now;
         return;
     }
     jsonResponse(false, 'غير مصرح: يجب تسجيل الدخول بحساب مسؤول معتمد أولاً', null, 401);
@@ -197,7 +208,7 @@ if ($action === 'login') {
         jsonResponse(false, 'يرجى إدخال البريد الإلكتروني وكلمة المرور');
     }
 
-    $admins = json_decode(file_get_contents($adminsFile), true) ?: [];
+    $admins = file_exists($adminsFile) ? (json_decode(file_get_contents($adminsFile), true) ?: []) : [];
     $foundAdmin = null;
     $adminIndex = -1;
 
@@ -224,7 +235,7 @@ if ($action === 'login') {
 
     // Update last login
     $admins[$adminIndex]['last_login'] = time() * 1000;
-    file_put_contents($adminsFile, json_encode($admins, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    file_put_contents($adminsFile, json_encode($admins, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
 
     $userData = [
         'id' => $foundAdmin['id'],
@@ -236,6 +247,7 @@ if ($action === 'login') {
     $_SESSION['admin_logged_in'] = true;
     $_SESSION['admin_user'] = $userData;
     $_SESSION['login_time'] = time();
+    $_SESSION['last_activity'] = time();
 
     jsonResponse(true, 'تم تسجيل الدخول بنجاح وترقية الجلسة لأعلى درجات الأمان', [
         'admin' => $userData,
@@ -287,7 +299,7 @@ if ($action === 'create_admin') {
         jsonResponse(false, 'كلمة المرور يجب أن لا تقل عن 8 أحرف وأرقام معقدة لحماية الحساب');
     }
 
-    $admins = json_decode(file_get_contents($adminsFile), true) ?: [];
+    $admins = file_exists($adminsFile) ? (json_decode(file_get_contents($adminsFile), true) ?: []) : [];
     foreach ($admins as $a) {
         if (strtolower($a['email']) === $email) {
             jsonResponse(false, 'هذا البريد الإلكتروني مسجل مسبقاً لمسؤول آخر');
@@ -307,7 +319,7 @@ if ($action === 'create_admin') {
     ];
 
     $admins[] = $newAdmin;
-    file_put_contents($adminsFile, json_encode($admins, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    file_put_contents($adminsFile, json_encode($admins, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
 
     jsonResponse(true, "تم إنشاء حساب المسؤول ({$name}) بنجاح وتأمينه بأعلى معايير التشفير", [
         'id' => $newAdmin['id'],
@@ -320,7 +332,7 @@ if ($action === 'create_admin') {
 // List Admins
 if ($action === 'list_admins') {
     requireAuth();
-    $admins = json_decode(file_get_contents($adminsFile), true) ?: [];
+    $admins = file_exists($adminsFile) ? (json_decode(file_get_contents($adminsFile), true) ?: []) : [];
     $safeAdmins = array_map(function($a) {
         return [
             'id' => $a['id'],
@@ -335,4 +347,54 @@ if ($action === 'list_admins') {
     }, $admins);
 
     jsonResponse(true, 'تم جلب قائمة مسؤولي النظام بنجاح', $safeAdmins);
+}
+
+// Delete Admin (Restricted to logged-in SUPER_ADMIN via CSRF-protected POST)
+if ($action === 'delete_admin') {
+    requireAuth();
+    if (($_SESSION['admin_user']['role'] ?? '') !== 'SUPER_ADMIN') {
+        jsonResponse(false, 'عذراً، حذف حسابات المسؤولين مقتصر على المسؤول الرئيسي فقط (Super Admin)', null, 403);
+    }
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        jsonResponse(false, 'طريقة غير مدعومة', null, 405);
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+    $csrfHeaders = function_exists('getallheaders') ? getallheaders() : [];
+    $csrf = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($csrfHeaders['X-CSRF-Token'] ?? ($csrfHeaders['x-csrf-token'] ?? ($input['csrf_token'] ?? '')));
+    if (!verifyCsrfToken($csrf)) {
+        jsonResponse(false, 'رمز الحماية ضد التلاعب غير صالح', null, 403);
+    }
+
+    $targetId = trim((string)($input['id'] ?? ''));
+    if ($targetId === '') {
+        jsonResponse(false, 'معرف المسؤول مطلوب');
+    }
+    if ($targetId === ($_SESSION['admin_user']['id'] ?? '')) {
+        jsonResponse(false, 'لا يمكنك حذف حسابك الذي تستخدمه حالياً');
+    }
+
+    $admins = file_exists($adminsFile) ? (json_decode(file_get_contents($adminsFile), true) ?: []) : [];
+    $activeSupers = 0;
+    $targetAdmin = null;
+    foreach ($admins as $a) {
+        if (($a['role'] ?? '') === 'SUPER_ADMIN' && ($a['is_active'] ?? true) !== false) {
+            $activeSupers++;
+        }
+        if (($a['id'] ?? '') === $targetId) {
+            $targetAdmin = $a;
+        }
+    }
+    if ($targetAdmin === null) {
+        jsonResponse(false, 'حساب المسؤول غير موجود');
+    }
+    if (($targetAdmin['role'] ?? '') === 'SUPER_ADMIN' && $activeSupers <= 1) {
+        jsonResponse(false, 'لا يمكن حذف المسؤول الرئيسي الوحيد في النظام');
+    }
+
+    $remaining = array_values(array_filter($admins, function($a) use ($targetId) {
+        return ($a['id'] ?? '') !== $targetId;
+    }));
+    file_put_contents($adminsFile, json_encode($remaining, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+    jsonResponse(true, 'تم حذف حساب المسؤول بنجاح');
 }

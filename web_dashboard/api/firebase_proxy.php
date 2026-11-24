@@ -6,10 +6,6 @@
  * callers can treat it exactly like a direct REST response.
  */
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/auth.php';
 
@@ -55,8 +51,15 @@ if (!in_array($method, ['GET', 'PUT', 'PATCH', 'POST', 'DELETE'], true)) {
     jsonResponse(false, 'طريقة غير مدعومة', null, 405);
 }
 
-// Writes ride on the session cookie, so they must also carry the CSRF token.
+// Writes ride on the session cookie: enforce CSRF + ADMIN/SUPER_ADMIN role (MODERATOR is read-only)
 if ($method !== 'GET') {
+    $currentRole = $_SESSION['admin_user']['role'] ?? '';
+    if ($currentRole !== 'ADMIN' && $currentRole !== 'SUPER_ADMIN') {
+        jsonResponse(false, 'غير مصرح: التعديل مقتصر على المدراء فقط (ADMIN / SUPER_ADMIN)', null, 403);
+    }
+    if ($method === 'DELETE' && strpos($cleanPath, '/') === false) {
+        jsonResponse(false, 'ممنوع حذف العقد الرئيسية بالكامل', null, 403);
+    }
     $headers = function_exists('getallheaders') ? getallheaders() : [];
     $csrf = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($headers['X-CSRF-Token'] ?? ($headers['x-csrf-token'] ?? ''));
     if (!verifyCsrfToken($csrf)) {

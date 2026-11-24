@@ -225,14 +225,21 @@ if ($method === 'GET') {
     $finalDownloadUrl = '';
     if (!empty($fbBroadcast['actionUrl'])) {
         $finalDownloadUrl = $fbBroadcast['actionUrl'];
-    } elseif (!empty($latestRelease['download_url'])) {
+    } elseif (!empty($latestRelease['download_url']) && (preg_match('#^https?://#i', $latestRelease['download_url']) || file_exists(__DIR__ . '/../' . ltrim($latestRelease['download_url'], '/')))) {
         $finalDownloadUrl = $latestRelease['download_url'];
+    } elseif (!empty($latestRelease['file_name']) && file_exists(__DIR__ . '/../uploads/' . $latestRelease['file_name'])) {
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+        $host = preg_replace('/[^A-Za-z0-9.\-:]/', '', (string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+        $serverUrl = ($isHttps ? 'https' : 'http') . '://' . $host;
+        $finalDownloadUrl = $serverUrl . dirname(dirname($_SERVER['PHP_SELF'])) . '/uploads/' . rawurlencode($latestRelease['file_name']);
     } else {
         $apks = glob(__DIR__ . '/../uploads/*.apk');
         if (!empty($apks)) {
             usort($apks, function($a, $b) { return filemtime($b) - filemtime($a); });
-            $serverUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'];
-            $finalDownloadUrl = $serverUrl . dirname(dirname($_SERVER['PHP_SELF'])) . '/uploads/' . basename($apks[0]);
+            $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+            $host = preg_replace('/[^A-Za-z0-9.\-:]/', '', (string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+            $serverUrl = ($isHttps ? 'https' : 'http') . '://' . $host;
+            $finalDownloadUrl = $serverUrl . dirname(dirname($_SERVER['PHP_SELF'])) . '/uploads/' . rawurlencode(basename($apks[0]));
         }
     }
 
@@ -286,7 +293,11 @@ if ($method === 'GET') {
         'testimonials' => []
     ], $settings);
 
-    if (isset($settings['avg_hourly_price']) && floatval($settings['avg_hourly_price']) > 0) {
+    if (!empty($hasRealRates)) {
+        $portalSettings['avg_hourly_price'] = floatval($calculatedAvg);
+        $portalSettings['min_hourly_price'] = floatval($calculatedMin);
+        $portalSettings['max_hourly_price'] = floatval($calculatedMax);
+    } elseif (isset($settings['avg_hourly_price']) && floatval($settings['avg_hourly_price']) > 0) {
         $portalSettings['avg_hourly_price'] = floatval($settings['avg_hourly_price']);
     }
 
@@ -328,13 +339,16 @@ if ($method === 'GET') {
             'support_message' => $portalSettings['developer_message']
         ],
         'news' => $newsList,
-        'payment_methods' => file_exists($paymentMethodsFile) ? (json_decode(file_get_contents($paymentMethodsFile), true) ?: []) : [],
+        'payment_methods' => array_values(array_filter(
+            file_exists($paymentMethodsFile) ? (json_decode(file_get_contents($paymentMethodsFile), true) ?: []) : [],
+            function($m) { return !isset($m['is_active']) || filter_var($m['is_active'], FILTER_VALIDATE_BOOLEAN); }
+        )),
         'subscription_pricing' => file_exists($pricingFile) ? (json_decode(file_get_contents($pricingFile), true) ?: [
-            'monthly' => ['price' => '10', 'original_price' => '', 'discount_text' => '', 'currency' => '$'],
-            'yearly' => ['price' => '80', 'original_price' => '120', 'discount_text' => 'وفر 33% (خصم 40$)', 'currency' => '$']
+            'monthly' => ['price' => '8', 'original_price' => '', 'discount_text' => '', 'currency' => '$'],
+            'yearly' => ['price' => '75', 'original_price' => '96', 'discount_text' => 'وفر 21$', 'currency' => '$']
         ]) : [
-            'monthly' => ['price' => '10', 'original_price' => '', 'discount_text' => '', 'currency' => '$'],
-            'yearly' => ['price' => '80', 'original_price' => '120', 'discount_text' => 'وفر 33% (خصم 40$)', 'currency' => '$']
+            'monthly' => ['price' => '8', 'original_price' => '', 'discount_text' => '', 'currency' => '$'],
+            'yearly' => ['price' => '75', 'original_price' => '96', 'discount_text' => 'وفر 21$', 'currency' => '$']
         ],
         'app_release' => [
             'version_name' => $latestRelease['version_name'] ?? '1.4.0',
@@ -531,6 +545,10 @@ if ($method === 'POST') {
     // --- Strictly Protected Admin Actions Below ---
     require_once __DIR__ . '/auth.php';
     requireAuth();
+    $currentRole = $_SESSION['admin_user']['role'] ?? '';
+    if ($currentRole !== 'ADMIN' && $currentRole !== 'SUPER_ADMIN') {
+        jsonResponse(false, 'غير مصرح: تعديل إعدادات الموقع العام مقتصر على المدراء فقط', null, 403);
+    }
 
     // CSRF verification on every admin write (C2)
     $headers = function_exists('getallheaders') ? getallheaders() : [];
@@ -564,7 +582,7 @@ if ($method === 'POST') {
         }
 
         // Save locally
-        file_put_contents($paymentMethodsFile, json_encode($cleanMethods, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        file_put_contents($paymentMethodsFile, json_encode($cleanMethods, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
 
         // Push to Firebase Realtime Database
         firebaseRequest('payment_methods.json', 'PUT', $cleanMethods);
@@ -585,7 +603,13 @@ if ($method === 'POST') {
             'rates_note' => trim($input['rates_note'] ?? ($existingSettings['rates_note'] ?? 'الأسعار تختلف بحسب عمق البئر، حجم المضخة، ونوع الطاقة المستخدمة (شمسية / ديزل).')),
             
             'water_status' => $input['water_status'] ?? ($existingSettings['water_status'] ?? 'GOOD'),
-            'water_status_text' => trim($input['water_status_text'] ?? ($existingSettings['water_status_text'] ?? 'مستقر ومتاح في معظم المناطق الزراعية')),
+            'water_status_text' => trim($input['water_status_text'] ?? ([
+                'GOOD' => 'مستقر ومتاح في معظم المناطق الزراعية',
+                'MEDIUM' => 'متوسط ومتذبذب في بعض المناطق',
+                'LOW' => 'شحيح ويُنصح بجدولة الضخ مسبقاً',
+                'CRITICAL' => 'شح حرج في المنسوب حالياً',
+                'MAINTENANCE' => 'تحديثات وصيانة ميدانية'
+            ][$input['water_status'] ?? ''] ?? ($existingSettings['water_status_text'] ?? 'مستقر ومتاح في معظم المناطق الزراعية'))),
             'water_index_percent' => intval($input['water_index_percent'] ?? ($existingSettings['water_index_percent'] ?? 85)),
             'active_regions_count' => intval($input['active_regions_count'] ?? ($existingSettings['active_regions_count'] ?? 18)),
             'headline_alert' => trim($input['headline_alert'] ?? ($existingSettings['headline_alert'] ?? '')),
@@ -617,7 +641,8 @@ if ($method === 'POST') {
             'testimonials' => is_array($input['testimonials'] ?? null) ? $input['testimonials'] : ($existingSettings['testimonials'] ?? [])
         ]);
 
-        file_put_contents($settingsFile, json_encode($settings, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        unset($settings['csrf_token'], $settings['action']);
+        file_put_contents($settingsFile, json_encode($settings, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
         $cacheFile = __DIR__ . '/../data/market_cache.json';
         if (file_exists($cacheFile)) @unlink($cacheFile);
 
@@ -637,7 +662,7 @@ if ($method === 'POST') {
 
         $newsList = json_decode(file_get_contents($newsFile), true) ?: [];
         $newArticle = [
-            'id' => 'NEWS_' . time(),
+            'id' => 'NEWS_' . round(microtime(true) * 1000),
             'title' => $title,
             'summary' => $summary,
             'category' => $category,

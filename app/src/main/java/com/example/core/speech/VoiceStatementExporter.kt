@@ -59,41 +59,46 @@ object VoiceStatementExporter {
                 val wave = String(header, 8, 4)
                 if (riff != "RIFF" || wave != "WAVE") return null
 
-                var pos = 12
+                var pos = 12L
                 var sampleRate = 16000
                 var channels = 1
                 var bitsPerSample = 16
                 var dataOffset = 44L
                 var dataSize = file.length() - 44
 
-                while (pos + 8 <= file.length()) {
+                while (pos + 8L <= file.length()) {
                     val chunkHeader = ByteArray(8)
-                    val chunkFis = FileInputStream(file)
-                    chunkFis.channel.position(pos.toLong())
-                    val chunkRead = chunkFis.read(chunkHeader)
-                    chunkFis.close()
+                    val chunkRead = FileInputStream(file).use { chunkFis ->
+                        chunkFis.channel.position(pos)
+                        chunkFis.read(chunkHeader)
+                    }
                     if (chunkRead < 8) break
 
                     val chunkBuf = ByteBuffer.wrap(chunkHeader).order(ByteOrder.LITTLE_ENDIAN)
                     val chunkId = String(chunkHeader, 0, 4)
                     val chunkSize = chunkBuf.getInt(4).toLong() and 0xFFFFFFFFL
 
-                    if (chunkId == "fmt ") {
-                        val fmtData = ByteArray(chunkSize.toInt().coerceAtMost(40))
-                        val fmtFis = FileInputStream(file)
-                        fmtFis.channel.position((pos + 8).toLong())
-                        fmtFis.read(fmtData)
-                        fmtFis.close()
-                        val fmtBuf = ByteBuffer.wrap(fmtData).order(ByteOrder.LITTLE_ENDIAN)
-                        channels = fmtBuf.getShort(2).toInt()
-                        sampleRate = fmtBuf.getInt(4)
-                        bitsPerSample = fmtBuf.getShort(14).toInt()
+                    if (chunkId == "fmt " && chunkSize >= 16L) {
+                        val fmtLen = chunkSize.coerceAtMost(40L).toInt()
+                        val fmtData = ByteArray(fmtLen)
+                        val fmtRead = FileInputStream(file).use { fmtFis ->
+                            fmtFis.channel.position(pos + 8L)
+                            fmtFis.read(fmtData)
+                        }
+                        if (fmtRead >= 16) {
+                            val fmtBuf = ByteBuffer.wrap(fmtData).order(ByteOrder.LITTLE_ENDIAN)
+                            channels = fmtBuf.getShort(2).toInt()
+                            sampleRate = fmtBuf.getInt(4)
+                            bitsPerSample = fmtBuf.getShort(14).toInt()
+                        }
                     } else if (chunkId == "data") {
-                        dataOffset = (pos + 8).toLong()
+                        dataOffset = pos + 8L
                         dataSize = chunkSize
                         break
                     }
-                    pos += (8 + chunkSize).toInt()
+                    val step = 8L + chunkSize
+                    if (step <= 0L || pos + step > file.length()) break
+                    pos += step
                 }
 
                 WavInfo(sampleRate, channels, bitsPerSample, dataOffset, dataSize)

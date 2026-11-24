@@ -127,8 +127,8 @@ object BackupManager {
         }
         root.put("wellOwnerPurchases", ownerPurchasesArray)
 
-        // Pumps
-        val pumps = database.pumpSourceDao().getAllPumps().first()
+        // Pumps (include inactive pumps so historical sessions retain pump metadata)
+        val pumps = database.pumpSourceDao().getAllPumpsIncludingInactive().first()
         val pumpsArray = JSONArray()
         pumps.forEach { p ->
             val obj = JSONObject().apply {
@@ -226,21 +226,25 @@ object BackupManager {
 
     suspend fun restoreFromJson(context: Context, database: AppDatabase, uri: Uri): Result<RestoreResult> = withContext(Dispatchers.IO) {
         runCatching {
-            val stringBuilder = java.lang.StringBuilder()
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8)).use { reader ->
-                    var line: String? = reader.readLine()
-                    var totalBytes = 0L
-                    while (line != null) {
-                        totalBytes += line.length
-                        if (totalBytes > MAX_BACKUP_SIZE_BYTES) throw IllegalArgumentException("حجم ملف النسخة كبير جداً (أكثر من 50 ميجابايت)")
-                        stringBuilder.append(line)
-                        line = reader.readLine()
+            val inputStream = context.contentResolver.openInputStream(uri)
+                ?: throw IllegalStateException("تعذر فتح ملف النسخة الاحتياطية المختار")
+            val contentText = inputStream.use { stream ->
+                val out = java.io.ByteArrayOutputStream()
+                val buf = ByteArray(8192)
+                var totalBytes = 0L
+                while (true) {
+                    val n = stream.read(buf)
+                    if (n <= 0) break
+                    totalBytes += n
+                    if (totalBytes > MAX_BACKUP_SIZE_BYTES) {
+                        throw IllegalArgumentException("حجم ملف النسخة كبير جداً (أكثر من 50 ميجابايت)")
                     }
+                    out.write(buf, 0, n)
                 }
+                out.toString("UTF-8")
             }
 
-            val root = JSONObject(stringBuilder.toString())
+            val root = JSONObject(contentText)
             validateBackupJson(root)
             restoreFromJsonObject(database, root)
         }
@@ -254,6 +258,13 @@ object BackupManager {
     }
 
     private suspend fun restoreFromJsonObject(database: AppDatabase, root: JSONObject): RestoreResult = database.withTransaction {
+        // Clear existing data in dependency order for a clean, deterministic restore
+        database.voucherDao().clearAllVouchers()
+        database.waterSessionDao().clearAllSessions()
+        database.wellOwnerPurchaseDao().clearAllPurchases()
+        database.pumpSourceDao().clearAllPumps()
+        database.customerDao().clearAllCustomers()
+
         var customersCount = 0
         var pumpsCount = 0
         var sessionsCount = 0
@@ -272,7 +283,7 @@ object BackupManager {
                     farmName = obj.optString("farmName", ""),
                     location = obj.optString("location", ""),
                     notes = obj.optString("notes", ""),
-                    customPricePerHour = if (obj.has("customPricePerHour")) obj.getDouble("customPricePerHour") else null,
+                    customPricePerHour = if (obj.has("customPricePerHour") && !obj.isNull("customPricePerHour")) obj.getDouble("customPricePerHour") else null,
                     isBeneficiary = obj.optBoolean("isBeneficiary", false),
                     isWellOwner = obj.optBoolean("isWellOwner", false),
                     customGroup = obj.optString("customGroup", ""),

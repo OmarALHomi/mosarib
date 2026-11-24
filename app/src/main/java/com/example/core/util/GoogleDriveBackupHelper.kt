@@ -88,59 +88,66 @@ object GoogleDriveBackupHelper {
     ): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
             val androidAccount = account.account ?: throw IllegalStateException("حساب Google غير متوفر")
-            val token = getAccessToken(context, androidAccount)
-
-            val boundary = "=====MosaribDriveAppData${System.currentTimeMillis()}====="
-            val lineEnd = "\r\n"
-            val twoHyphens = "--"
-
-            val url = URL(DRIVE_UPLOAD_URL)
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                doOutput = true
-                doInput = true
-                useCaches = false
-                setRequestProperty("Authorization", "Bearer $token")
-                setRequestProperty("Content-Type", "multipart/related; boundary=$boundary")
-                connectTimeout = 30000
-                readTimeout = 30000
-            }
-
-            // Part 1: Metadata JSON
+            var token = getAccessToken(context, androidAccount)
             val metadataJson = JSONObject().apply {
                 put("name", backupFile.name)
                 val parentsArray = org.json.JSONArray().apply { put("appDataFolder") }
                 put("parents", parentsArray)
             }.toString()
 
-            val fileBytes = backupFile.readBytes()
-
-            DataOutputStream(conn.outputStream).use { dos ->
-                // Part 1
-                dos.writeBytes("$twoHyphens$boundary$lineEnd")
-                dos.writeBytes("Content-Type: application/json; charset=UTF-8$lineEnd$lineEnd")
-                dos.write(metadataJson.toByteArray(Charsets.UTF_8))
-                dos.writeBytes(lineEnd)
-
-                // Part 2: Media
-                dos.writeBytes("$twoHyphens$boundary$lineEnd")
-                dos.writeBytes("Content-Type: application/octet-stream$lineEnd$lineEnd")
-                dos.write(fileBytes)
-                dos.writeBytes(lineEnd)
-
-                // End of multipart
-                dos.writeBytes("$twoHyphens$boundary$twoHyphens$lineEnd")
-                dos.flush()
+            fun executeUpload(accessToken: String): Pair<Int, String> {
+                val boundary = "=====MosaribDriveAppData${System.currentTimeMillis()}====="
+                val lineEnd = "\r\n"
+                val twoHyphens = "--"
+                val part1 = ("$twoHyphens$boundary$lineEnd" +
+                    "Content-Type: application/json; charset=UTF-8$lineEnd$lineEnd" +
+                    metadataJson + lineEnd +
+                    "$twoHyphens$boundary$lineEnd" +
+                    "Content-Type: application/octet-stream$lineEnd$lineEnd").toByteArray(Charsets.UTF_8)
+                val part2End = ("$lineEnd$twoHyphens$boundary$twoHyphens$lineEnd").toByteArray(Charsets.UTF_8)
+                val contentLength = part1.size.toLong() + backupFile.length() + part2End.size.toLong()
+                val conn = (URL(DRIVE_UPLOAD_URL).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    doOutput = true
+                    doInput = true
+                    useCaches = false
+                    setFixedLengthStreamingMode(contentLength)
+                    setRequestProperty("Authorization", "Bearer $accessToken")
+                    setRequestProperty("Content-Type", "multipart/related; boundary=$boundary")
+                    connectTimeout = 30000
+                    readTimeout = 30000
+                }
+                return try {
+                    DataOutputStream(conn.outputStream).use { dos ->
+                        dos.write(part1)
+                        backupFile.inputStream().use { input -> input.copyTo(dos) }
+                        dos.write(part2End)
+                        dos.flush()
+                    }
+                    val code = conn.responseCode
+                    val body = if (code in 200..299) {
+                        conn.inputStream.bufferedReader().use { it.readText() }
+                    } else {
+                        conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $code"
+                    }
+                    code to body
+                } finally {
+                    conn.disconnect()
+                }
             }
 
-            val responseCode = conn.responseCode
+            var (responseCode, body) = executeUpload(token)
+            if (responseCode == 401) {
+                runCatching { GoogleAuthUtil.clearToken(context, token) }
+                token = getAccessToken(context, androidAccount)
+                val retry = executeUpload(token)
+                responseCode = retry.first
+                body = retry.second
+            }
             if (responseCode in 200..299) {
-                val responseStr = conn.inputStream.bufferedReader().use { it.readText() }
-                val respJson = JSONObject(responseStr)
-                respJson.getString("id")
+                JSONObject(body).getString("id")
             } else {
-                val errorStr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
-                throw Exception(extractErrorMessage(responseCode, errorStr))
+                throw Exception(extractErrorMessage(responseCode, body))
             }
         }
     }
@@ -241,19 +248,32 @@ object GoogleDriveBackupHelper {
                 connectTimeout = 30000
                 readTimeout = 30000
             }
-
-            val responseCode = conn.responseCode
-            if (responseCode in 200..299) {
-                if (destFile.parentFile?.exists() == false) destFile.parentFile?.mkdirs()
-                conn.inputStream.use { input ->
-                    FileOutputStream(destFile).use { output ->
-                        input.copyTo(output)
+            try {
+                val responseCode = conn.responseCode
+                if (responseCode in 200..299) {
+                    if (destFile.parentFile?.exists() == false) destFile.parentFile?.mkdirs()
+                    conn.inputStream.use { input ->
+                        FileOutputStream(destFile).use { output ->
+                            val buf = ByteArray(8192)
+                            var total = 0L
+                            val maxBytes = 50L * 1024L * 1024L
+                            while (true) {
+                                val n = input.read(buf)
+                                if (n <= 0) break
+                                total += n
+                                if (total > maxBytes) throw IllegalArgumentException("حجم النسخة السحابية يتجاوز 50 ميجابايت")
+                                output.write(buf, 0, n)
+                            }
+                        }
                     }
+                    destFile
+                } else {
+                    if (responseCode == 401) runCatching { GoogleAuthUtil.clearToken(context, token) }
+                    val errorStr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
+                    throw Exception(extractErrorMessage(responseCode, errorStr))
                 }
-                destFile
-            } else {
-                val errorStr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
-                throw Exception(extractErrorMessage(responseCode, errorStr))
+            } finally {
+                conn.disconnect()
             }
         }
     }
@@ -277,13 +297,18 @@ object GoogleDriveBackupHelper {
                 connectTimeout = 20000
                 readTimeout = 20000
             }
-
-            val responseCode = conn.responseCode
-            if (responseCode in 200..299 || responseCode == 204) {
-                true
-            } else {
-                val errorStr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
-                throw Exception(extractErrorMessage(responseCode, errorStr))
+            try {
+                val responseCode = conn.responseCode
+                if (responseCode in 200..299 || responseCode == 204) {
+                    conn.inputStream?.close()
+                    true
+                } else {
+                    if (responseCode == 401) runCatching { GoogleAuthUtil.clearToken(context, token) }
+                    val errorStr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
+                    throw Exception(extractErrorMessage(responseCode, errorStr))
+                }
+            } finally {
+                conn.disconnect()
             }
         }
     }

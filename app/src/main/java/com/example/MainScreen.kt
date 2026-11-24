@@ -180,7 +180,7 @@ fun MainApp(
 ) {
     val appConfig by settingsViewModel.appConfig.collectAsStateWithLifecycle()
     val isSystemDark = isSystemInDarkTheme()
-    val darkTheme = when (appConfig.themeMode) {
+    val darkTheme = when (appConfig.themeMode.uppercase(java.util.Locale.US)) {
         "LIGHT" -> false
         "DARK" -> true
         else -> isSystemDark
@@ -341,8 +341,11 @@ fun MainApp(
                 com.example.core.notifications.DeepLinks.consume()
             }
 
+            val isOverlayLockActive = showSplashScreen || isDeviceBlocked || activeBroadcast?.isForceUpdate == true ||
+                showOnboarding || (appConfig.biometricEnabled && !isBiometricUnlocked)
+
             // اعتراض زر التراجع: التبديل للرئيسية أولاً إن كان في شاشة فرعية، وتأكيد الخروج إن كان في الرئيسية
-            val shouldInterceptExit = !showSplashScreen && !showOnboarding && !showAboutScreen && !showHelpScreen && selectedCustomerId == 0L
+            val shouldInterceptExit = !isOverlayLockActive && !showAboutScreen && !showHelpScreen && selectedCustomerId == 0L
             BackHandler(enabled = shouldInterceptExit) {
                 if (currentTab != AppTab.HOME) {
                     selectedTab = 2
@@ -365,21 +368,23 @@ fun MainApp(
             } else if (appConfig.biometricEnabled && !isBiometricUnlocked) {
                 BiometricLockScreen(onUnlock = { isBiometricUnlocked = true })
             } else if (showAboutScreen) {
-                AboutScreen(onBack = { showAboutScreen = false })
+                AboutScreen(
+                    onBack = { showAboutScreen = false },
+                    onActivated = { settingsViewModel.refreshActivationStatus() }
+                )
             } else if (showHelpScreen) {
                 HelpScreen(
                     onBack = { showHelpScreen = false },
                     onNavigateToTour = { tourTarget ->
                         showHelpScreen = false
                         when (tourTarget) {
-                            GuidePreferences.TOUR_HOME -> {
+                            GuidePreferences.TOUR_HOME,
+                            GuidePreferences.TOUR_PURCHASE_FORM,
+                            GuidePreferences.TOUR_NAV -> {
                                 selectedTab = 2
                             }
                             GuidePreferences.TOUR_VOUCHER_FORM -> {
                                 selectedTab = 3
-                            }
-                            GuidePreferences.TOUR_NAV -> {
-                                selectedTab = 2
                             }
                             "customers" -> {
                                 selectedTab = 1
@@ -696,8 +701,8 @@ fun MainApp(
 
             val isTrialLimitExceeded = LicenseManager.isTrialLimitExceeded(context, operationsCount)
 
-            LaunchedEffect(isTrialLimitExceeded, showSplashScreen, showOnboarding) {
-                if (!showSplashScreen && !showOnboarding &&
+            LaunchedEffect(isTrialLimitExceeded, isOverlayLockActive) {
+                if (!isOverlayLockActive &&
                     shouldAutoShowLicenseSheet(isTrialLimitExceeded, licenseSheetShownOnStart)
                 ) {
                     licenseSheetShownOnStart = true
@@ -705,7 +710,7 @@ fun MainApp(
                 }
             }
 
-            if (showLicenseDialog) {
+            if (!isOverlayLockActive && showLicenseDialog) {
                 LicenseDialog(
                     onDismiss = { showLicenseDialog = false },
                     onActivated = {
@@ -719,7 +724,7 @@ fun MainApp(
                 )
             }
 
-            if (showExpiryWarningDialog) {
+            if (!isOverlayLockActive && showExpiryWarningDialog) {
                 MosaribDialog(
                     onDismissRequest = {
                         AppUpdateManager.dismissExpiryNoticeForToday(context)
@@ -749,7 +754,7 @@ fun MainApp(
             }
 
             // نافذة الإعلان / التحديث الاختياري
-            if (showAnnouncementDialog && activeBroadcast != null) {
+            if (!isOverlayLockActive && showAnnouncementDialog && activeBroadcast != null) {
                 BroadcastAnnouncementDialog(
                     broadcast = activeBroadcast!!,
                     onDismiss = {
@@ -759,12 +764,11 @@ fun MainApp(
             }
 
             // نافذة التذكير بالنسخ الاحتياطي
-            if (showBackupReminderDialog) {
+            if (!isOverlayLockActive && showBackupReminderDialog) {
                 BackupReminderDialog(
                     onBackupNow = {
                         showBackupReminderDialog = false
-                        PeriodicBackupReminderManager.recordBackupPerformed(context)
-                        // التنقل لتبويب الإعدادات لإجراء النسخ
+                        // التنقل لتبويب الإعدادات لإجراء النسخ (لا يُسجل النسخ إلا بعد إتمامه فعلياً)
                         selectedTab = 4
                     },
                     onRemindLater = {
@@ -774,7 +778,7 @@ fun MainApp(
                 )
             }
 
-            if (showSpecialWarningDialog && specialDeviceWarning != null) {
+            if (!isOverlayLockActive && showSpecialWarningDialog && specialDeviceWarning != null) {
                 BroadcastAnnouncementDialog(
                     broadcast = AppBroadcast(
                         id = "SPECIAL_DEVICE_WARN",
@@ -789,7 +793,7 @@ fun MainApp(
                 )
             }
 
-            if (showExitConfirmationDialog) {
+            if (!isOverlayLockActive && showExitConfirmationDialog) {
                 val context = LocalContext.current
                 val activity = context as? Activity
                 com.example.core.ui.MosaribExitConfirmDialog(

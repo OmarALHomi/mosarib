@@ -5,8 +5,8 @@
         
         <div class="form-group">
           <label for="policyFreeLimit">الحد الأقصى للعمليات المجانية لجميع النسخ غير المشتركة:</label>
-          <input type="number" id="policyFreeLimit" value="200" min="5" max="10000">
-          <small style="color: var(--text-muted); font-size: 11px;">العدد الذي إذا وصل إليه المستخدم غير المشترك، يُقفل عليه التطبيق ويطالبه بالاشتراك (افتراضياً 200).</small>
+          <input type="number" id="policyFreeLimit" value="50" min="5" max="10000">
+          <small style="color: var(--text-muted); font-size: 11px;">العدد الذي إذا وصل إليه المستخدم غير المشترك، يُقفل عليه التطبيق ويطالبه بالاشتراك (افتراضياً 50).</small>
         </div>
 
         <div class="policy-item">

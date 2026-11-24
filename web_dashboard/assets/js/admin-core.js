@@ -17,6 +17,14 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
   }
+  function escJsArg(str) {
+    return escapeHtml(String(str ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+  }
+  function csvCell(val) {
+    let s = String(val ?? '');
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
 
   let adminTestimonialsData = [];
   function ensurePortalStatsAndTestimonialsCard() {
@@ -121,7 +129,7 @@
 
   let allOverrides = {};
   let appConfig = {
-    freeOperationsLimit: 200,
+    freeOperationsLimit: 50,
     isBackupAllowedForTrial: true,
     isCloudBackupAllowed: true,
     isExcelExportAllowedForTrial: true,
@@ -230,12 +238,12 @@
         const ym = pricing.yearly || {};
         const mm = pricing.monthly || {};
         if (document.getElementById("pricingYearlyPrice")) {
-          document.getElementById("pricingYearlyPrice").value = ym.price || '80';
-          document.getElementById("pricingYearlyOriginal").value = ym.original_price || '120';
-          document.getElementById("pricingYearlyDiscount").value = ym.discount_text || 'وفر 33% (خصم 40$)';
+          document.getElementById("pricingYearlyPrice").value = ym.price || '75';
+          document.getElementById("pricingYearlyOriginal").value = ym.original_price || '96';
+          document.getElementById("pricingYearlyDiscount").value = ym.discount_text || 'وفر 21$';
           document.getElementById("pricingYearlyCurrency").value = ym.currency || '$';
 
-          document.getElementById("pricingMonthlyPrice").value = mm.price || '10';
+          document.getElementById("pricingMonthlyPrice").value = mm.price || '8';
           document.getElementById("pricingMonthlyOriginal").value = mm.original_price || '';
           document.getElementById("pricingMonthlyDiscount").value = mm.discount_text || '';
           document.getElementById("pricingMonthlyCurrency").value = mm.currency || '$';
@@ -288,7 +296,7 @@
     cont.innerHTML = news.map(item => `
       <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
         <div>
-          <b style="font-size: 13.5px; color: #FFF;">${escapeHtml(item.title)}</b>
+          <b style="font-size: 13.5px; color: var(--text-title);">${escapeHtml(item.title)}</b>
           <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(item.category)} • ${new Date(item.published_at).toLocaleDateString('en-US')}</div>
         </div>
         <button class="btn-sm btn-del-news" style="background: rgba(229,57,53,0.2); color: #EF5350; border: 1px solid #EF5350;" data-id="${escapeHtml(item.id)}">حذف</button>
@@ -339,19 +347,21 @@
       show_download_cta: document.getElementById("pShowDownloadCta") ? document.getElementById("pShowDownloadCta").checked : true,
       stats_wells: document.getElementById("pStatsWells") ? document.getElementById("pStatsWells").value.trim() : '',
       stats_vouchers: document.getElementById("pStatsVouchers") ? document.getElementById("pStatsVouchers").value.trim() : '',
-      testimonials: getAdminTestimonialsList(),
-      csrf_token: currentCsrfToken
+      testimonials: getAdminTestimonialsList()
     };
 
     let fbSuccess = false;
     let fbError = null;
 
-    // 1. Direct Save to Firebase Realtime Database
+    // 1. Direct Save to Firebase Realtime Database (never leak csrf_token/action to public Firebase node)
     try {
+      const fbPayload = Object.assign({}, payload);
+      delete fbPayload.action;
+      delete fbPayload.csrf_token;
       const fbRes = await firebaseFetch('portal_settings.json', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(fbPayload)
       });
       if (fbRes && fbRes.ok) fbSuccess = true;
       else fbError = fbRes ? `HTTP ${fbRes.status}` : 'تعذر الاتصال بفايربيس';
@@ -360,6 +370,7 @@
     }
 
     // 2. Also notify local API in background
+    payload.csrf_token = currentCsrfToken;
     try {
       await apiFetch('api/public_data.php', {
         method: 'POST',
@@ -443,7 +454,7 @@
         const d = data.data;
         if (d.is_fcm_v1_configured) {
           badge.innerHTML = '🟢 <span style="color:#10B981;">محرك Google FCM HTTP v1 نشط ومفعل</span>';
-          details.innerHTML = `المشروع: <b>${d.firebase_project}</b> • الحساب: <b>${d.service_account ? d.service_account.client_email : ''}</b> • الأجهزة المسجلة الجاهزة للاستقبال: <b>${d.registered_tokens_count} جهاز</b> (تصل والتطبيق مغلق ✅)`;
+          details.innerHTML = `المشروع: <b>${escapeHtml(d.firebase_project)}</b> • الحساب: <b>${escapeHtml(d.service_account ? d.service_account.client_email : '')}</b> • الأجهزة المسجلة الجاهزة للاستقبال: <b>${escapeHtml(d.registered_tokens_count)} جهاز</b> (تصل والتطبيق مغلق ✅)`;
         } else {
           badge.innerHTML = '🟡 <span style="color:var(--accent);">محرك Google FCM HTTP v1 بحاجة لربط مفتاح الخدمة</span>';
           details.innerHTML = `الأجهزة المسجلة في السحابة: <b>${d.registered_tokens_count} جهاز</b>. ليرن هاتف العميل والتطبيق مغلق تماماً، اضغط زر "إعداد / رفع مفتاح Google Service Account" أعلاه.`;
@@ -568,7 +579,7 @@
       const resData = (await safeJson(res)) || {};
       if (resData.success) {
         statusDiv.style.color = "var(--success)";
-        statusDiv.innerHTML = `${resData.message}`;
+        statusDiv.innerText = String(resData.message || '');
         loadFcmEngineStatus();
       } else {
         throw new Error(resData.message || 'حدث خطأ في الإرسال');
@@ -784,19 +795,19 @@
         return `
           <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <b style="font-size: 15px; color: #FFF;">نسخة: v${r.version_name} (Code: ${r.version_code})</b>
+              <b style="font-size: 15px; color: var(--text-title);">نسخة: v${escapeHtml(r.version_name)} (Code: ${escapeHtml(r.version_code)})</b>
               <span class="badge ${r.is_force_update ? 'badge-blocked' : 'badge-active'}">${r.is_force_update ? 'تحديث إجباري' : 'إصدار اختياري'}</span>
             </div>
             <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
-              الحجم: ${sizeStr} • تاريخ النشر: ${dateStr}
+              الحجم: ${escapeHtml(sizeStr)} • تاريخ النشر: ${escapeHtml(dateStr)}
             </div>
             <div style="font-size: 13px; line-height: 1.6; margin-bottom: 10px; color: var(--text);">
-              ${r.release_notes || 'بدون ملاحظات'}
+              ${escapeHtml(r.release_notes || 'بدون ملاحظات')}
             </div>
             <div style="display: flex; gap: 8px;">
-              <input type="text" value="${r.download_url}" readonly style="font-size: 12px; padding: 6px 10px; flex: 1;">
-              <button class="btn-sm btn-action" onclick="navigator.clipboard.writeText('${r.download_url}').then(()=>alert('تم نسخ رابط التحميل المباشر: ${r.download_url}'))"> نسخ الرابط</button>
-              <button class="btn-sm btn-action" onclick="window.open('${r.download_url}', '_blank')"> تنزيل</button>
+              <input type="text" value="${escapeHtml(r.download_url)}" readonly style="font-size: 12px; padding: 6px 10px; flex: 1;">
+              <button class="btn-sm btn-action" onclick="navigator.clipboard.writeText('${escJsArg(r.download_url)}').then(()=>alert('تم نسخ رابط التحميل المباشر'))"> نسخ الرابط</button>
+              <button class="btn-sm btn-action" onclick="window.open('${escJsArg(r.download_url)}', '_blank', 'noopener')"> تنزيل</button>
             </div>
           </div>
         `;
@@ -982,7 +993,7 @@
   }
 
   async function saveAppPolicies() {
-    const freeLimit = parseInt(document.getElementById("policyFreeLimit").value) || 200;
+    const freeLimit = parseInt(document.getElementById("policyFreeLimit").value) || 50;
     const backupAllowed = document.getElementById("policyBackupAllowed").checked;
     const driveBackupAllowed = document.getElementById("policyDriveBackupAllowed").checked;
     const excelExportAllowed = document.getElementById("policyExcelExportAllowed").checked;
@@ -1014,7 +1025,7 @@
 
   function renderAppPolicies() {
     if (document.getElementById("policyFreeLimit")) {
-      document.getElementById("policyFreeLimit").value = appConfig.freeOperationsLimit || 200;
+      document.getElementById("policyFreeLimit").value = appConfig.freeOperationsLimit || 50;
       document.getElementById("policyBackupAllowed").checked = appConfig.isBackupAllowedForTrial !== false;
       document.getElementById("policyDriveBackupAllowed").checked = appConfig.isCloudBackupAllowed !== false;
       document.getElementById("policyExcelExportAllowed").checked = appConfig.isExcelExportAllowedForTrial !== false;
@@ -1022,7 +1033,7 @@
 
       const updatedStr = appConfig.updatedAt ? new Date(appConfig.updatedAt).toLocaleString('ar-EG') : 'القيم الافتراضية';
       document.getElementById("policyCloudStatus").innerHTML = `
-        حد العمليات: <b>${appConfig.freeOperationsLimit || 200}</b> • النسخ المجاني: <b>${appConfig.isBackupAllowedForTrial !== false ? 'متاح ✅' : 'معطل ❌'}</b><br>
+        حد العمليات: <b>${escapeHtml(appConfig.freeOperationsLimit || 50)}</b> • النسخ المجاني: <b>${appConfig.isBackupAllowedForTrial !== false ? 'متاح ✅' : 'معطل ❌'}</b><br>
         <small style="color:var(--text-muted);">آخر تحديث للسياسات: ${updatedStr}</small>
       `;
     }
@@ -1231,7 +1242,15 @@
     const kpiOnlineEl = document.getElementById("kpiOnlineUsers");
     if (kpiOnlineEl) kpiOnlineEl.innerText = onlineCount;
 
-    const latestVer = Object.keys(versionsMap).sort().pop() || 'v1.0.0';
+    const latestVer = Object.keys(versionsMap).sort((a, b) => {
+      const pa = a.replace(/[^0-9.]/g, '').split('.').map(Number);
+      const pb = b.replace(/[^0-9.]/g, '').split('.').map(Number);
+      for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const diff = (pa[i] || 0) - (pb[i] || 0);
+        if (diff !== 0) return diff;
+      }
+      return 0;
+    }).pop() || 'v1.0.0';
     const kpiVerEl = document.getElementById("kpiLatestVersion");
     if (kpiVerEl) kpiVerEl.innerText = latestVer;
 
@@ -1452,7 +1471,11 @@
       const dateStr = r.timestamp ? new Date(r.timestamp).toLocaleString('en-US') : 'الآن';
       const cleanPhone = (r.phone || '').replace(/[^0-9]/g, '');
       const phoneLink = cleanPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" rel="noopener" style="color: var(--success); font-weight: bold;">${escapeHtml(r.phone)}</a>` : '-';
-      const planBadge = r.plan === 'YEARLY' ? `<span class="badge badge-yearly">سنوي 80$</span>` : `<span class="badge badge-monthly">شهري 10$</span>`;
+      const yPrice = (document.getElementById('pricingYearlyPrice')?.value || '75').trim();
+      const yCur = (document.getElementById('pricingYearlyCurrency')?.value || '$').trim();
+      const mPrice = (document.getElementById('pricingMonthlyPrice')?.value || '8').trim();
+      const mCur = (document.getElementById('pricingMonthlyCurrency')?.value || '$').trim();
+      const planBadge = r.plan === 'YEARLY' ? `<span class="badge badge-yearly">سنوي ${escapeHtml(yPrice)}${escapeHtml(yCur)}</span>` : `<span class="badge badge-monthly">شهري ${escapeHtml(mPrice)}${escapeHtml(mCur)}</span>`;
       const isCompleted = r.status === 'COMPLETED';
       const statusBadge = isCompleted ? `<span class="badge badge-active">تم التفعيل</span>` : `<span class="badge badge-trial">جديد</span>`;
       const devCode = r.deviceCode || '-';
@@ -1472,7 +1495,7 @@
           <td>${phoneLink}</td>
           <td>${planBadge}</td>
           <td>
-            <div style="font-weight: 700; font-size: 13px; color: #FFF;">${escapeHtml(regionText)}</div>
+            <div style="font-weight: 700; font-size: 13px; color: var(--text-title);">${escapeHtml(regionText)}</div>
             <div style="color: var(--accent); font-weight: 800; font-size: 11.5px; margin-top: 3px;">
               سند: <span style="background: rgba(0, 180, 216, 0.15); padding: 2px 6px; border-radius: 4px; border: 1px dashed var(--accent);">${escapeHtml(receiptText)}</span>
             </div>
@@ -1534,16 +1557,16 @@
     cont.innerHTML = adminPaymentMethods.map((pm, idx) => `
       <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; position: relative;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <b style="font-size: 14px; color: #FFF;">${pm.bank_name || 'بدون اسم'}</b>
-          <span class="badge ${pm.account_currency === 'USD' ? 'badge-yearly' : 'badge-active'}">${pm.account_currency || 'YER'}</span>
+          <b style="font-size: 14px; color: var(--text-title);">${escapeHtml(pm.bank_name || 'بدون اسم')}</b>
+          <span class="badge ${pm.account_currency === 'USD' ? 'badge-yearly' : 'badge-active'}">${escapeHtml(pm.account_currency || 'YER')}</span>
         </div>
         <div style="font-family: monospace; font-size: 15px; font-weight: 800; color: var(--accent); margin-bottom: 6px; letter-spacing: 0.5px;">
-          ${pm.account_number}
+          ${escapeHtml(pm.account_number)}
         </div>
         <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">
-          باسم: <b>${pm.account_holder || '-'}</b>
+          باسم: <b>${escapeHtml(pm.account_holder || '-')}</b>
         </div>
-        ${pm.notes ? `<div style="font-size: 11px; color: #80CBC4; margin-bottom: 8px;">${pm.notes}</div>` : ''}
+        ${pm.notes ? `<div style="font-size: 11px; color: var(--accent-text, #80CBC4); margin-bottom: 8px;">${escapeHtml(pm.notes)}</div>` : ''}
         <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
           <button type="button" class="btn-sm btn-delete" onclick="deleteAdminPaymentMethod(${idx})">حذف </button>
         </div>
@@ -1631,7 +1654,8 @@
 
   function quickActivateRequest(code, name, plan, reqId) {
     switchTab('generator');
-    document.getElementById('deviceCode').value = code;
+    const validCode = toDashedDeviceCode(code);
+    document.getElementById('deviceCode').value = validCode || '';
     document.getElementById('subscriberName').value = name;
     document.getElementById('planSelect').value = plan || 'MONTHLY';
     pendingRequestId = reqId || null;
@@ -1799,7 +1823,7 @@
       return;
     }
 
-    const globalLimit = appConfig.freeOperationsLimit || 200;
+    const globalLimit = appConfig.freeOperationsLimit || 50;
 
     // Counters for pill filters
     let countActive = 0, countTrial = 0, countLocked = 0, countBackupLocked = 0, countBlocked = 0, countExpired = 0, countToday = 0;
@@ -1892,7 +1916,7 @@
       const remaining = Math.max(0, limit - ops);
       const pct = Math.min(100, Math.round((ops / limit) * 100));
       const barColor = ops >= limit ? "var(--danger)" : (pct >= 75 ? "var(--accent)" : "var(--primary-light)");
-      const customLimitNote = override.customOperationsLimit ? `<small class="cell-sub" style="color:var(--accent-text);">حد خاص: ${override.customOperationsLimit}</small>` : '';
+      const customLimitNote = override.customOperationsLimit ? `<small class="cell-sub" style="color:var(--accent-text);">حد خاص: ${escapeHtml(override.customOperationsLimit)}</small>` : '';
       const opsHtml = isAct
         ? `<div><b>غير محدود</b><small class="cell-sub">${ops} عملية منفّذة</small></div>`
         : `<div><b style="color:${remaining === 0 ? 'var(--danger-text)' : 'inherit'};">${remaining === 0 ? 'مقفل' : remaining}</b> <small class="cell-sub" style="display:inline;">من ${limit}</small>
@@ -1909,29 +1933,31 @@
       const warningBadge = override.specialWarningMessage ? `<small class="cell-sub" style="color:var(--accent-text);">رسالة موجهة: ${escapeHtml(override.specialWarningMessage)}</small>` : '';
 
       // One menu: the existing row actions plus activate / extend / revoke (task 065)
+      const safeKeyArg = escJsArg(devKey);
+      const safeMailArg = escJsArg(u.googleEmail || '');
       const mi = (label, handler, danger) => `<button type="button" class="menu-item${danger ? ' danger' : ''}" role="menuitem" onclick="${handler}">${label}</button>`;
       const subItems = isAct
-        ? mi('تمديد الاشتراك', `openExtendModal('${devKey}')`) + mi('إلغاء التفعيل', `revokeSubscription('${devKey}')`, true)
-        : mi('تفعيل اشتراك', `openActivateModal('${devKey}')`);
+        ? mi('تمديد الاشتراك', `openExtendModal('${safeKeyArg}')`) + mi('إلغاء التفعيل', `revokeSubscription('${safeKeyArg}')`, true)
+        : mi('تفعيل اشتراك', `openActivateModal('${safeKeyArg}')`);
       const menuHtml = `
         <div class="kebab" onclick="event.stopPropagation()">
           <button type="button" class="kebab-btn" aria-label="إجراءات المستخدم" aria-haspopup="menu" onclick="toggleRowMenu(this)">&#8942;</button>
           <div class="kebab-menu" role="menu">
-            ${mi('تفاصيل المستخدم', `openUserDetailModal('${devKey}')`)}
+            ${mi('تفاصيل المستخدم', `openUserDetailModal('${safeKeyArg}')`)}
             ${subItems}
             <div class="menu-sep"></div>
-            ${isBlocked ? mi('فك الحظر', `toggleBlockUser('${devKey}', '${u.googleEmail || ''}', false)`) : mi('حظر', `toggleBlockUser('${devKey}', '${u.googleEmail || ''}', true)`, true)}
-            ${isDeviceBkLocked ? mi('فتح النسخ الاحتياطي', `toggleDeviceBackupLock('${devKey}', false)`) : mi('قفل النسخ الاحتياطي', `toggleDeviceBackupLock('${devKey}', true)`)}
-            ${mi('تعديل حد العمليات', `promptSetCustomLimit('${devKey}', ${limit})`)}
-            ${mi('إرسال رسالة للمستخدم', `promptSendDeviceWarning('${devKey}')`)}
+            ${isBlocked ? mi('فك الحظر', `toggleBlockUser('${safeKeyArg}', '${safeMailArg}', false)`) : mi('حظر', `toggleBlockUser('${safeKeyArg}', '${safeMailArg}', true)`, true)}
+            ${isDeviceBkLocked ? mi('فتح النسخ الاحتياطي', `toggleDeviceBackupLock('${safeKeyArg}', false)`) : mi('قفل النسخ الاحتياطي', `toggleDeviceBackupLock('${safeKeyArg}', true)`)}
+            ${mi('تعديل حد العمليات', `promptSetCustomLimit('${safeKeyArg}', ${Number(limit) || 50})`)}
+            ${mi('إرسال رسالة للمستخدم', `promptSendDeviceWarning('${safeKeyArg}')`)}
             <div class="menu-sep"></div>
-            ${mi('حذف من القائمة', `softDeleteUsers(['${devKey}'])`, true)}
+            ${mi('حذف من القائمة', `softDeleteUsers(['${safeKeyArg}'])`, true)}
           </div>
         </div>`;
 
       return `
-        <tr onclick="openUserDetailModal('${devKey}')" title="انقر لعرض الملف الشامل">
-          <td class="cell-select" onclick="event.stopPropagation()"><input type="checkbox" class="user-select" style="width:auto;" aria-label="تحديد" value="${escapeHtml(devKey)}" ${selectedUserKeys.has(devKey) ? 'checked' : ''} onchange="toggleUserSelection('${devKey}', this.checked)"></td>
+        <tr onclick="openUserDetailModal('${safeKeyArg}')" title="انقر لعرض الملف الشامل">
+          <td class="cell-select" onclick="event.stopPropagation()"><input type="checkbox" class="user-select" style="width:auto;" aria-label="تحديد" value="${escapeHtml(devKey)}" ${selectedUserKeys.has(devKey) ? 'checked' : ''} onchange="toggleUserSelection('${safeKeyArg}', this.checked)"></td>
           <td data-label="المستخدم">${googleInfo}</td>
           <td data-label="الجهاز"><code>${escapeHtml(u.deviceCode || devKey)}</code><small class="cell-sub">${escapeHtml(u.deviceModel || '-')}</small>${priceNote}${bkNote}</td>
           <td data-label="الحالة">${statusBadge}${warningBadge}</td>
@@ -2074,7 +2100,7 @@
       } catch (_) {}
 
       if (email && email.includes("@")) {
-        const safeEmailKey = email.replace(/\./g, "_").replace(/@/g, "_at_");
+        const safeEmailKey = email.trim().toLowerCase().replace(/\./g, "_").replace(/@/g, "_at_");
         if (block) {
           await firebaseFetch(`blocked_emails/${safeEmailKey}.json`, {
             method: "PUT",
@@ -2112,7 +2138,7 @@
     allUsers.forEach(u => {
       const lastSeen = u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleString('ar-EG') : '';
       const status = u.isBlocked ? "موقوف" : (u.isActivated ? "مشترك" : "تجريبي");
-      csv += `"${u.googleDisplayName || ''}","${u.googleEmail || ''}","${u.deviceCode || ''}","${u.deviceModel || ''}","${u.androidVersion || ''}","${status}","${u.plan || 'TRIAL'}","${u.operationsCount || 0}","${lastSeen}"\n`;
+      csv += [u.googleDisplayName || '', u.googleEmail || '', u.deviceCode || '', u.deviceModel || '', u.androidVersion || '', status, u.plan || 'TRIAL', u.operationsCount || 0, lastSeen].map(csvCell).join(',') + "\n";
     });
     downloadCSV(csv, "mosarib_all_users.csv");
   }
@@ -2179,6 +2205,14 @@
       else {
         const dev = await put(`devices/${devCode}.json`, payload);
         if (!dev || !dev.ok) error = 'حُفظ الترخيص لكن فشل تحديث سجل الجهاز';
+        else {
+          const devKeyClean = devCode.replace(/-/g, '');
+          await firebaseFetch(`all_users/${devKeyClean}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isActivated: true, plan: plan })
+          }).catch(() => {});
+        }
       }
       if (!error && reqId) {
         await put(`subscription_requests/${reqId}/status.json`, 'COMPLETED').catch(() => {});
@@ -2309,9 +2343,15 @@
     if (!sub || !code) return alert('تعذر العثور على بيانات الاشتراك لهذا الجهاز');
     showPlanModal('تمديد الاشتراك', '', false, 'تمديد', async (plan) => {
       const expiresAt = Math.max(Date.now(), sub.expiresAt) + (plan === 'MONTHLY' ? 30 : 365) * DAY_MS;
-      const r = await writeSubscriptionPatch(sub.key, code, { expiresAt, plan, lastCheckedAt: Date.now() });
+      const r = await writeSubscriptionPatch(sub.key, code, { expiresAt, plan, isRevoked: false, lastCheckedAt: Date.now() });
       if (!r.ok) return alert(r.error);
-      applyLocalSubscription(devKey, { expiresAt, plan });
+      const devKeyClean = code.replace(/-/g, '');
+      await firebaseFetch(`all_users/${devKeyClean}.json`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActivated: true, plan })
+      }).catch(() => {});
+      applyLocalSubscription(devKey, { expiresAt, plan, isRevoked: false });
       showToast(`تم التمديد حتى ${formatDateDMY(expiresAt)}`);
     });
   }
@@ -2323,6 +2363,12 @@
     if (!confirm('إلغاء تفعيل اشتراك هذا الجهاز؟ سيعود إلى النسخة التجريبية.')) return;
     const r = await writeSubscriptionPatch(sub.key, code, { isRevoked: true, lastCheckedAt: Date.now() });
     if (!r.ok) return alert(r.error);
+    const devKeyClean = code.replace(/-/g, '');
+    await firebaseFetch(`all_users/${devKeyClean}.json`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isActivated: false, plan: 'TRIAL' })
+    }).catch(() => {});
     applyLocalSubscription(devKey, { isRevoked: true });
     showToast('تم إلغاء التفعيل');
   }
@@ -2406,7 +2452,7 @@
     let csv = "\uFEFFالتاريخ,الاسم,الهاتف,الباقة,المنطقة,رقم السند,طريقة الدفع,كود الجهاز,المصدر,الحالة\n";
     allRequests.forEach(r => {
       const dateStr = r.timestamp ? new Date(r.timestamp).toLocaleString('ar-EG') : '';
-      csv += `"${dateStr}","${r.subscriberName || ''}","${r.phone || ''}","${r.plan || ''}","${r.region || ''}","${r.receiptNumber || ''}","${r.paymentMethod || ''}","${r.deviceCode || ''}","${r.requestType || ''}","${r.status || ''}"\n`;
+      csv += [dateStr, r.subscriberName || '', r.phone || '', r.plan || '', r.region || '', r.receiptNumber || '', r.paymentMethod || '', r.deviceCode || '', r.requestType || '', r.status || ''].map(csvCell).join(',') + "\n";
     });
     downloadCSV(csv, "mosarib_subscription_requests.csv");
   }
@@ -2416,7 +2462,7 @@
     let csv = "\uFEFFالتاريخ,الاسم,الهاتف,التقييم,النوع,الرسالة,الجهاز\n";
     allFeedbacks.forEach(f => {
       const dateStr = new Date(f.timestamp || Date.now()).toLocaleString('ar-EG');
-      csv += `"${dateStr}","${f.subscriberName || ''}","${f.phone || ''}","${f.rating || 5}","${f.category || ''}","${(f.message || '').replace(/"/g, '""')}","${f.deviceModel || ''}"\n`;
+      csv += [dateStr, f.subscriberName || '', f.phone || '', f.rating || 5, f.category || '', f.message || '', f.deviceModel || ''].map(csvCell).join(',') + "\n";
     });
     downloadCSV(csv, "mosarib_feedbacks.csv");
   }
@@ -2467,14 +2513,14 @@
     document.getElementById("modalUserStatusBadge").innerHTML = statusBadge;
 
     // Populate Info Pills
-    document.getElementById("modalDeviceCode").innerHTML = `<code>${u.deviceCode || cleanKey}</code>`;
+    document.getElementById("modalDeviceCode").innerHTML = `<code>${escapeHtml(u.deviceCode || cleanKey)}</code>`;
     document.getElementById("modalDeviceModel").innerText = u.deviceModel || 'غير محدد';
     document.getElementById("modalAndroidVersion").innerText = u.androidVersion || 'Android';
     document.getElementById("modalUserPhone").innerHTML = u.phone 
-      ? `<b style="color:#4ADE80;">${u.phone}</b>` 
+      ? `<b style="color:#4ADE80;">${escapeHtml(u.phone)}</b>` 
       : '<span style="color:var(--text-muted);">غير مسجل</span>';
     document.getElementById("modalUserEmail").innerHTML = u.googleEmail 
-      ? `<span style="color:#38BDF8;">${u.googleEmail}</span>` 
+      ? `<span style="color:#38BDF8;">${escapeHtml(u.googleEmail)}</span>` 
       : '<span style="color:var(--text-muted);">بدون بريد Google</span>';
     
     const price = (u.pricePerHour || u.hourlyRate);
@@ -2488,11 +2534,10 @@
 
     // Action buttons in modal
     const waBtn = document.getElementById("modalBtnWhatsApp");
-    if (u.phone && u.phone.trim().length > 5) {
+    const waLink = whatsappNumber(u.phone);
+    if (waLink) {
       waBtn.style.display = "inline-flex";
-      const cleanPhone = u.phone.replace(/[^0-9]/g, '');
-      const waLink = cleanPhone.startsWith('967') ? cleanPhone : '967' + cleanPhone.replace(/^0+/, '');
-      waBtn.onclick = () => window.open(`https://wa.me/${waLink}`, '_blank');
+      waBtn.onclick = () => window.open(`https://wa.me/${waLink}`, '_blank', 'noopener');
     } else {
       waBtn.style.display = "none";
     }
@@ -2553,16 +2598,6 @@
   }
 
   let currentUserLoadedMessages = {};
-
-  function escapeHtml(str) {
-    if (str === null || str === undefined) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
 
   function startEditUserMessage(cleanDeviceKey, msgId) {
     const m = currentUserLoadedMessages[msgId];
@@ -2727,13 +2762,15 @@
         : `<span class="badge badge-blocked">معطلة</span>`;
       const dateStr = m.createdAt ? new Date(m.createdAt).toLocaleDateString('ar-EG') : 'الآن';
 
+      const safeDevArg = escJsArg(cleanDeviceKey);
+      const safeMsgArg = escJsArg(m.id);
       const toggleAction = m.active !== false
-        ? `<button class="btn-sm btn-outline" style="padding:3px 8px; font-size:10.5px;" onclick="toggleUserMessageState('${cleanDeviceKey}', '${m.id}', false)">تعطيل</button>`
-        : `<button class="btn-sm btn-unblock" style="padding:3px 8px; font-size:10.5px;" onclick="toggleUserMessageState('${cleanDeviceKey}', '${m.id}', true)">تفعيل</button>`;
+        ? `<button class="btn-sm btn-outline" style="padding:3px 8px; font-size:10.5px;" onclick="toggleUserMessageState('${safeDevArg}', '${safeMsgArg}', false)">تعطيل</button>`
+        : `<button class="btn-sm btn-unblock" style="padding:3px 8px; font-size:10.5px;" onclick="toggleUserMessageState('${safeDevArg}', '${safeMsgArg}', true)">تفعيل</button>`;
 
-      const editBtn = `<button class="btn-sm btn-outline" style="padding:3px 8px; font-size:10.5px; color:var(--primary); border-color:var(--primary);" onclick="startEditUserMessage('${cleanDeviceKey}', '${m.id}')" title="تعديل نص وعنوان التنبيه">تعديل </button>`;
+      const editBtn = `<button class="btn-sm btn-outline" style="padding:3px 8px; font-size:10.5px; color:var(--primary); border-color:var(--primary);" onclick="startEditUserMessage('${safeDevArg}', '${safeMsgArg}')" title="تعديل نص وعنوان التنبيه">تعديل </button>`;
 
-      const deleteBtn = `<button class="btn-sm btn-block" style="padding:3px 8px; font-size:10.5px;" onclick="deleteUserMessage('${cleanDeviceKey}', '${m.id}')" title="حذف هذا التنبيه نهائياً">حذف </button>`;
+      const deleteBtn = `<button class="btn-sm btn-block" style="padding:3px 8px; font-size:10.5px;" onclick="deleteUserMessage('${safeDevArg}', '${safeMsgArg}')" title="حذف هذا التنبيه نهائياً">حذف </button>`;
 
       const safeText = m.text ? escapeHtml(m.text) : '<span style="color:var(--text-muted); font-style:italic;">(لا يوجد نص)</span>';
       const safeTitle = escapeHtml(m.title || 'تنبيه موجه');
@@ -2830,10 +2867,19 @@
         });
       }
 
+      if (allOverrides[cleanDeviceKey] && allOverrides[cleanDeviceKey].messages && allOverrides[cleanDeviceKey].messages[msgId]) {
+        allOverrides[cleanDeviceKey].messages[msgId].active = newState;
+      }
       if (!newState) {
-        await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" }).catch(() => {});
-        await firebaseFetch(`all_users/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" }).catch(() => {});
-        if (allOverrides[cleanDeviceKey]) delete allOverrides[cleanDeviceKey].specialWarningMessage;
+        const remainingActive = Object.values((allOverrides[cleanDeviceKey] && allOverrides[cleanDeviceKey].messages) || {}).find(x => x && x.active !== false && x.text);
+        if (remainingActive) {
+          await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(remainingActive.text) }).catch(() => {});
+          if (allOverrides[cleanDeviceKey]) allOverrides[cleanDeviceKey].specialWarningMessage = remainingActive.text;
+        } else {
+          await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" }).catch(() => {});
+          await firebaseFetch(`all_users/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" }).catch(() => {});
+          if (allOverrides[cleanDeviceKey]) delete allOverrides[cleanDeviceKey].specialWarningMessage;
+        }
       } else {
         const m = currentUserLoadedMessages[msgId];
         if (m && m.text) {
@@ -2868,19 +2914,21 @@
         }).catch(() => {});
         await firebaseFetch(`device_overrides/${cleanDeviceKey}/messages/${msgId}.json`, { method: "DELETE" }).catch(() => {});
       }
-      await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(null)
-      }).catch(() => {});
-      await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" }).catch(() => {});
-      await firebaseFetch(`all_users/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" }).catch(() => {});
-      
-      if (allOverrides[cleanDeviceKey]) {
-        delete allOverrides[cleanDeviceKey].specialWarningMessage;
-        if (allOverrides[cleanDeviceKey].messages && allOverrides[cleanDeviceKey].messages[msgId]) {
-          delete allOverrides[cleanDeviceKey].messages[msgId];
-        }
+      if (allOverrides[cleanDeviceKey]?.messages && allOverrides[cleanDeviceKey].messages[msgId]) {
+        delete allOverrides[cleanDeviceKey].messages[msgId];
+      }
+      const remainingActive = Object.values((allOverrides[cleanDeviceKey] && allOverrides[cleanDeviceKey].messages) || {}).find(x => x && x.active !== false && x.text);
+      if (remainingActive) {
+        await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(remainingActive.text)
+        }).catch(() => {});
+        if (allOverrides[cleanDeviceKey]) allOverrides[cleanDeviceKey].specialWarningMessage = remainingActive.text;
+      } else {
+        await firebaseFetch(`device_overrides/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" }).catch(() => {});
+        await firebaseFetch(`all_users/${cleanDeviceKey}/specialWarningMessage.json`, { method: "DELETE" }).catch(() => {});
+        if (allOverrides[cleanDeviceKey]) delete allOverrides[cleanDeviceKey].specialWarningMessage;
       }
 
       const editIdEl = document.getElementById("editingMsgId");

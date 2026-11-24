@@ -171,7 +171,7 @@
           </div>
           <div class="form-group">
             <label for="userPushUrl">رابط يفتح عند النقر (اختياري):</label>
-            <input type="url" id="userPushUrl" placeholder="مثال: https://mosarib.com أو رابط واتساب">
+            <input type="text" id="userPushUrl" placeholder="مثال: https://mosarib.com أو mosarib://settings">
           </div>
           <button class="btn" id="btnSendDirectPush" style="width: auto; padding: 9px 24px; font-weight: 700;" onclick="sendDirectUserPushNotification()">
             🚀 إرسال الإشعار فوراً للهاتف

@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -286,7 +287,7 @@ private fun SpotlightTourContent(
 
             Box(
                 modifier = Modifier
-                    .offset { IntOffset(placement.x.roundToInt(), placement.y.roundToInt()) }
+                    .absoluteOffset { IntOffset(placement.x.roundToInt(), placement.y.roundToInt()) }
                     .widthIn(min = 280.dp, max = 340.dp)
                     .onGloballyPositioned { coords ->
                         bubbleMeasuredWidth = coords.size.width.toFloat()

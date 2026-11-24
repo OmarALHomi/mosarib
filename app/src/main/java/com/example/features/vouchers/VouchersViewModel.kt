@@ -3,6 +3,7 @@ package com.example.features.vouchers
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.example.core.database.AppDatabase
 import com.example.core.ui.ToastMessage
 import com.example.core.ui.ToastType
@@ -273,12 +274,14 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                 } else {
                     typeName
                 }
-                val file = PdfReportGenerator.generateOperationsLogPdf(
-                    context = context,
-                    config = config,
-                    filterTitle = fullTitle,
-                    operations = list
-                )
+                val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    PdfReportGenerator.generateOperationsLogPdf(
+                        context = context,
+                        config = config,
+                        filterTitle = fullTitle,
+                        operations = list
+                    )
+                }
                 _pdfReadyFile.value = Pair(file, fullTitle)
             } catch (e: Exception) {
                 showToast("فشل في إنشاء تقرير سجل العمليات: ${e.localizedMessage}", ToastType.ERROR)
@@ -489,33 +492,35 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
 
     fun deleteVoucher(voucher: Voucher) {
         viewModelScope.launch {
-            if (voucher.sessionId != null) {
-                val session = sessionRepo.getSessionById(voucher.sessionId)
-                if (session != null) {
-                    val targetCustId = session.billedToCustomerId ?: session.customerId
-                    val isWellOwner = customerRepo.getCustomerByIdDirect(targetCustId)?.isWellOwner == true
-                    val newPaid = if (voucher.type == VoucherType.RECEIPT) {
-                        (session.amountPaid - voucher.amount).coerceAtLeast(0.0)
-                    } else session.amountPaid
+            db.withTransaction {
+                if (voucher.sessionId != null && (voucher.type == VoucherType.RECEIPT || voucher.type == VoucherType.DISCOUNT)) {
+                    val session = sessionRepo.getSessionById(voucher.sessionId)
+                    if (session != null) {
+                        val targetCustId = session.billedToCustomerId ?: session.customerId
+                        val isWellOwner = customerRepo.getCustomerByIdDirect(targetCustId)?.isWellOwner == true
+                        val newPaid = if (voucher.type == VoucherType.RECEIPT) {
+                            (session.amountPaid - voucher.amount).coerceAtLeast(0.0)
+                        } else session.amountPaid
 
-                    val newDiscount = if (voucher.type == VoucherType.DISCOUNT) {
-                        (session.discountAmount - voucher.amount).coerceAtLeast(0.0)
-                    } else session.discountAmount
+                        val newDiscount = if (voucher.type == VoucherType.DISCOUNT) {
+                            (session.discountAmount - voucher.amount).coerceAtLeast(0.0)
+                        } else session.discountAmount
 
-                    val newDebt = if (isWellOwner) 0.0 else {
-                        Formatters.roundMoney(minOf(session.remainingDebt + voucher.amount, (session.totalAmount - newPaid).coerceAtLeast(0.0)))
-                    }
+                        val newDebt = if (isWellOwner) 0.0 else {
+                            Formatters.roundMoney((session.remainingDebt + voucher.amount).coerceIn(0.0, (session.totalAmount - newPaid).coerceAtLeast(0.0)))
+                        }
 
-                    sessionRepo.updateSession(
-                        session.copy(
-                            amountPaid = Formatters.roundMoney(newPaid),
-                            discountAmount = Formatters.roundMoney(newDiscount),
-                            remainingDebt = Formatters.roundMoney(newDebt)
+                        sessionRepo.updateSession(
+                            session.copy(
+                                amountPaid = Formatters.roundMoney(newPaid),
+                                discountAmount = Formatters.roundMoney(newDiscount),
+                                remainingDebt = Formatters.roundMoney(newDebt)
+                            )
                         )
-                    )
+                    }
                 }
+                voucherRepo.deleteVoucher(voucher)
             }
-            voucherRepo.deleteVoucher(voucher)
             showToast("تم حذف السند وتحديث الرصيد بنجاح", ToastType.INFO)
         }
     }
@@ -536,45 +541,50 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
                 showToast("يرجى إدخال مبلغ صالح أكبر من صفر", ToastType.ERROR)
                 return@launch
             }
-            if (voucher.sessionId != null) {
-                val session = sessionRepo.getSessionById(voucher.sessionId)
-                if (session != null) {
-                    val targetCustId = session.billedToCustomerId ?: session.customerId
-                    val isWellOwner = customerRepo.getCustomerByIdDirect(targetCustId)?.isWellOwner == true
-                    val amountDiff = roundedAmount - voucher.amount
+            val effectiveType = if (voucher.sessionId != null && type == VoucherType.EXPENSE) voucher.type else type
+            db.withTransaction {
+                if (voucher.sessionId != null &&
+                    (voucher.type == VoucherType.RECEIPT || voucher.type == VoucherType.DISCOUNT ||
+                        effectiveType == VoucherType.RECEIPT || effectiveType == VoucherType.DISCOUNT)
+                ) {
+                    val session = sessionRepo.getSessionById(voucher.sessionId)
+                    if (session != null) {
+                        val targetCustId = session.billedToCustomerId ?: session.customerId
+                        val isWellOwner = customerRepo.getCustomerByIdDirect(targetCustId)?.isWellOwner == true
+                        val paidWithoutOld = if (voucher.type == VoucherType.RECEIPT) (session.amountPaid - voucher.amount).coerceAtLeast(0.0) else session.amountPaid
+                        val discWithoutOld = if (voucher.type == VoucherType.DISCOUNT) (session.discountAmount - voucher.amount).coerceAtLeast(0.0) else session.discountAmount
+                        val oldCredit = if (voucher.type == VoucherType.RECEIPT || voucher.type == VoucherType.DISCOUNT) voucher.amount else 0.0
 
-                    val newPaid = if (voucher.type == VoucherType.RECEIPT) {
-                        (session.amountPaid + amountDiff).coerceAtLeast(0.0)
-                    } else session.amountPaid
+                        val newPaid = if (effectiveType == VoucherType.RECEIPT) (paidWithoutOld + roundedAmount).coerceAtLeast(0.0) else paidWithoutOld
+                        val newDiscount = if (effectiveType == VoucherType.DISCOUNT) (discWithoutOld + roundedAmount).coerceAtLeast(0.0) else discWithoutOld
+                        val newCredit = if (effectiveType == VoucherType.RECEIPT || effectiveType == VoucherType.DISCOUNT) roundedAmount else 0.0
+                        val deltaCredit = newCredit - oldCredit
 
-                    val newDiscount = if (voucher.type == VoucherType.DISCOUNT) {
-                        (session.discountAmount + amountDiff).coerceAtLeast(0.0)
-                    } else session.discountAmount
+                        val newDebt = if (isWellOwner) 0.0 else {
+                            Formatters.roundMoney((session.remainingDebt - deltaCredit).coerceIn(0.0, (session.totalAmount - newPaid).coerceAtLeast(0.0)))
+                        }
 
-                    val newDebt = if (isWellOwner) 0.0 else {
-                        Formatters.roundMoney((session.remainingDebt - amountDiff).coerceIn(0.0, (session.totalAmount - newPaid).coerceAtLeast(0.0)))
-                    }
-
-                    sessionRepo.updateSession(
-                        session.copy(
-                            amountPaid = Formatters.roundMoney(newPaid),
-                            discountAmount = Formatters.roundMoney(newDiscount),
-                            remainingDebt = Formatters.roundMoney(newDebt)
+                        sessionRepo.updateSession(
+                            session.copy(
+                                amountPaid = Formatters.roundMoney(newPaid),
+                                discountAmount = Formatters.roundMoney(newDiscount),
+                                remainingDebt = Formatters.roundMoney(newDebt)
+                            )
                         )
-                    )
+                    }
                 }
-            }
-            voucherRepo.updateVoucher(
-                voucher.copy(
-                    type = type,
-                    amount = roundedAmount,
-                    paymentMethod = paymentMethod,
-                    notes = notes.trim(),
-                    category = category.trim(),
-                    customerId = customerId,
-                    date = date
+                voucherRepo.updateVoucher(
+                    voucher.copy(
+                        type = effectiveType,
+                        amount = roundedAmount,
+                        paymentMethod = paymentMethod,
+                        notes = notes.trim(),
+                        category = category.trim(),
+                        customerId = customerId,
+                        date = date
+                    )
                 )
-            )
+            }
             showToast("تم تعديل السند بنجاح", ToastType.SUCCESS)
         }
     }
@@ -614,12 +624,24 @@ class VouchersViewModel(application: Application) : AndroidViewModel(application
         pumpSourceId: Long? = null
     ) {
         viewModelScope.launch {
+            if (durationMinutes <= 0 || durationMinutes > 10 * 24 * 60) {
+                showToast("يرجى تحديد مدة سقي صالحة", ToastType.ERROR)
+                return@launch
+            }
+            if (wastedMinutes < 0 || wastedMinutes > durationMinutes) {
+                showToast("لا يمكن أن يكون الهدر أكبر من مدة السقي", ToastType.ERROR)
+                return@launch
+            }
+            if (pricePerHour < 0.0 || amountPaid < 0.0 || discountAmount < 0.0) {
+                showToast("يرجى إدخال مبالغ صالحة غير سالبة", ToastType.ERROR)
+                return@launch
+            }
             val targetCust = customerRepo.getCustomerByIdDirect(customerId)
             val isWellOwnerAccount = billedToCustomerId != null || targetCust?.isWellOwner == true
             val chargeableMinutes = (durationMinutes - wastedMinutes).coerceAtLeast(0)
             val baseAmount = (chargeableMinutes / 60.0) * pricePerHour
             val totalAmount = Formatters.roundMoney((baseAmount - discountAmount).coerceAtLeast(0.0))
-            val roundedPaid = Formatters.roundMoney(amountPaid)
+            val roundedPaid = Formatters.roundMoney(amountPaid).coerceAtMost(totalAmount)
             val remainingDebt = if (isWellOwnerAccount) 0.0 else Formatters.roundMoney((totalAmount - roundedPaid).coerceAtLeast(0.0))
 
             val session = WaterSession(

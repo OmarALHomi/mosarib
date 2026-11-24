@@ -34,7 +34,7 @@ import com.example.ui.theme.mosarib
  * حساب إجمالي عدد الدفعات المرتبطة بدورة السقي (السداد النقدي الفوري + السندات اللاحقة)
  */
 fun computeSessionPaymentsCount(session: WaterSession, linkedVouchers: List<Voucher>): Int {
-    val vouchersTotal = linkedVouchers.sumOf { it.amount }
+    val vouchersTotal = linkedVouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount }
     val initialPaid = (session.amountPaid - vouchersTotal).coerceAtLeast(0.0)
     return (if (initialPaid > 0.01) 1 else 0) + linkedVouchers.size
 }

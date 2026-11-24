@@ -262,7 +262,7 @@ internal fun ThemeModeSection(
                 Triple("DARK", "ليلي", Icons.Default.DarkMode),
                 Triple("SYSTEM", "تلقائي", Icons.Default.Settings)
             ).forEach { (mode, label, icon) ->
-                val isSelected = themeMode == mode
+                val isSelected = themeMode.uppercase(java.util.Locale.US) == mode
                 Surface(
                     modifier = Modifier
                         .weight(1f)

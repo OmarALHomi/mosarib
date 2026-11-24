@@ -450,7 +450,7 @@ section[id] { scroll-margin-top: calc(var(--nav-h) + 16px); }
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 32px;
   padding-block: 44px;
   border-top: 1px solid var(--line);

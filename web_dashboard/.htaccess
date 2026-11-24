@@ -10,10 +10,11 @@ SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
     Header set X-Content-Type-Options "nosniff"
     Header set X-Frame-Options "SAMEORIGIN"
     Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
 </IfModule>
 
 # Protect sensitive files (Compatible with Apache 2.4 and LiteSpeed)
-<FilesMatch "(config\.json|service_account\.json|\.env|\.git)">
+<FilesMatch "(config\.json|config\.local(\.example)?\.php|service_account\.json|README_.*\.md|\.env|\.git)">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>

@@ -291,7 +291,7 @@ fun ForceUpdateScreen(
                                 Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color.White)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "تحميل التحديث",
+                                    text = broadcast.actionText.ifBlank { "تحميل التحديث" },
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
                                     fontSize = 14.5.sp

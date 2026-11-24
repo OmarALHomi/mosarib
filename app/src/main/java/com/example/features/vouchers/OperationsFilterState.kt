@@ -98,7 +98,8 @@ object OperationsFilterEngine {
             AccountTypeFilter.FARMER -> byType.filter { op ->
                 when (op) {
                     is UnifiedOperation.SessionOp -> {
-                        val c = op.sessionWithCustomer.customer ?: customers[op.sessionWithCustomer.session.customerId]
+                        val effId = op.sessionWithCustomer.session.billedToCustomerId ?: op.sessionWithCustomer.session.customerId
+                        val c = op.sessionWithCustomer.billedToCustomer ?: customers[effId] ?: op.sessionWithCustomer.customer
                         c?.isWellOwner == false
                     }
                     is UnifiedOperation.VoucherOp -> {
@@ -111,7 +112,8 @@ object OperationsFilterEngine {
             AccountTypeFilter.WELL_OWNER -> byType.filter { op ->
                 when (op) {
                     is UnifiedOperation.SessionOp -> {
-                        val c = op.sessionWithCustomer.customer ?: customers[op.sessionWithCustomer.session.customerId]
+                        val effId = op.sessionWithCustomer.session.billedToCustomerId ?: op.sessionWithCustomer.session.customerId
+                        val c = op.sessionWithCustomer.billedToCustomer ?: customers[effId] ?: op.sessionWithCustomer.customer
                         c?.isWellOwner == true
                     }
                     is UnifiedOperation.VoucherOp -> {
@@ -140,7 +142,7 @@ object OperationsFilterEngine {
         } else {
             byPeriod.filter { op ->
                 val custId = when (op) {
-                    is UnifiedOperation.SessionOp -> op.sessionWithCustomer.customer?.id ?: op.sessionWithCustomer.session.customerId
+                    is UnifiedOperation.SessionOp -> op.sessionWithCustomer.billedToCustomer?.id ?: op.sessionWithCustomer.session.billedToCustomerId ?: op.sessionWithCustomer.customer?.id ?: op.sessionWithCustomer.session.customerId
                     is UnifiedOperation.VoucherOp -> op.voucherWithCustomer.customer?.id ?: op.voucherWithCustomer.voucher.customerId
                     is UnifiedOperation.PurchaseOp -> op.owner?.id ?: op.purchase.ownerCustomerId
                 }
@@ -159,7 +161,7 @@ object OperationsFilterEngine {
         } else {
             byGroup.filter { op ->
                 when (op) {
-                    is UnifiedOperation.SessionOp -> (op.sessionWithCustomer.customer?.id ?: op.sessionWithCustomer.session.customerId) == state.customerId
+                    is UnifiedOperation.SessionOp -> (op.sessionWithCustomer.billedToCustomer?.id ?: op.sessionWithCustomer.session.billedToCustomerId ?: op.sessionWithCustomer.customer?.id ?: op.sessionWithCustomer.session.customerId) == state.customerId
                     is UnifiedOperation.VoucherOp -> (op.voucherWithCustomer.customer?.id ?: op.voucherWithCustomer.voucher.customerId) == state.customerId
                     is UnifiedOperation.PurchaseOp -> (op.owner?.id ?: op.purchase.ownerCustomerId) == state.customerId
                 }

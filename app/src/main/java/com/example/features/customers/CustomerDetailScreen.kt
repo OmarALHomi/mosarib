@@ -232,7 +232,9 @@ fun CustomerDetailScreen(
     val purchases by remember(customerId) { viewModel.getCustomerPurchases(customerId) }.collectAsStateWithLifecycle(initialValue = emptyList())
     val vouchers by remember(customerId) { viewModel.getCustomerVouchers(customerId) }.collectAsStateWithLifecycle(initialValue = emptyList())
     val customGroups by viewModel.customGroups.collectAsStateWithLifecycle()
-    val toast by viewModel.toast.collectAsStateWithLifecycle()
+    val customersToast by viewModel.toast.collectAsStateWithLifecycle()
+    val vouchersToast by vouchersViewModel.toast.collectAsStateWithLifecycle()
+    val toast = customersToast ?: vouchersToast
     val context = LocalContext.current
     val gate = LocalOperationGate.current
     val scope = rememberCoroutineScope()
@@ -1500,14 +1502,18 @@ fun CustomerDetailScreen(
                                                         tint = MaterialTheme.mosarib.warning,
                                                         onClick = {
                                                             sessionMenuExpanded = false
-                                                            val file = PdfReportGenerator.generateSessionInvoicePdf(
-                                                                context = context,
-                                                                config = config,
-                                                                customer = invoiceCustomer,
-                                                                session = session,
-                                                                sponsorCustomer = invoiceSponsor
-                                                            )
-                                                            localPdfReady = Pair(file, "فاتورة ري #${session.id}")
+                                                            scope.launch {
+                                                                val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                                    PdfReportGenerator.generateSessionInvoicePdf(
+                                                                        context = context,
+                                                                        config = config,
+                                                                        customer = invoiceCustomer,
+                                                                        session = session,
+                                                                        sponsorCustomer = invoiceSponsor
+                                                                    )
+                                                                }
+                                                                localPdfReady = Pair(file, "فاتورة ري #${session.id}")
+                                                            }
                                                         }
                                                     )
                                                     MosaribMenuItem(
@@ -1687,13 +1693,17 @@ fun CustomerDetailScreen(
                                                         tint = MaterialTheme.mosarib.warning,
                                                         onClick = {
                                                             voucherMenuExpanded = false
-                                                            val file = PdfReportGenerator.generateReceiptVoucherPdf(
-                                                                context = context,
-                                                                config = config,
-                                                                customer = customer,
-                                                                voucher = voucher
-                                                            )
-                                                            localPdfReady = Pair(file, "سند قبض #${voucher.voucherNumber}")
+                                                            scope.launch {
+                                                                val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                                    PdfReportGenerator.generateReceiptVoucherPdf(
+                                                                        context = context,
+                                                                        config = config,
+                                                                        customer = customer,
+                                                                        voucher = voucher
+                                                                    )
+                                                                }
+                                                                localPdfReady = Pair(file, "سند قبض #${voucher.voucherNumber}")
+                                                            }
                                                         }
                                                     )
                                                     MosaribMenuItem(
@@ -1805,13 +1815,17 @@ fun CustomerDetailScreen(
                                                         tint = MaterialTheme.mosarib.warning,
                                                         onClick = {
                                                             voucherMenuExpanded = false
-                                                            val file = PdfReportGenerator.generateExpenseVoucherPdf(
-                                                                context = context,
-                                                                config = config,
-                                                                customer = customer,
-                                                                voucher = voucher
-                                                            )
-                                                            localPdfReady = Pair(file, "سند صرف #${voucher.voucherNumber}")
+                                                            scope.launch {
+                                                                val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                                    PdfReportGenerator.generateExpenseVoucherPdf(
+                                                                        context = context,
+                                                                        config = config,
+                                                                        customer = customer,
+                                                                        voucher = voucher
+                                                                    )
+                                                                }
+                                                                localPdfReady = Pair(file, "سند صرف #${voucher.voucherNumber}")
+                                                            }
                                                         }
                                                     )
                                                     MosaribMenuItem(
@@ -2132,7 +2146,10 @@ fun CustomerDetailScreen(
 
             LuxuryToastNotification(
                 toast = toast,
-                onDismiss = { viewModel.dismissToast() },
+                onDismiss = {
+                    if (customersToast != null) viewModel.dismissToast()
+                    if (vouchersToast != null) vouchersViewModel.dismissToast()
+                },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 85.dp)
@@ -2163,14 +2180,18 @@ fun CustomerDetailScreen(
             },
             onPdf = {
                 sessionForDetails = null
-                val file = PdfReportGenerator.generateSessionInvoicePdf(
-                    context = context,
-                    config = config,
-                    customer = origCust,
-                    session = s,
-                    sponsorCustomer = sponsorCust
-                )
-                localPdfReady = Pair(file, "فاتورة ري #${s.id}")
+                scope.launch {
+                    val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        PdfReportGenerator.generateSessionInvoicePdf(
+                            context = context,
+                            config = config,
+                            customer = origCust,
+                            session = s,
+                            sponsorCustomer = sponsorCust
+                        )
+                    }
+                    localPdfReady = Pair(file, "فاتورة ري #${s.id}")
+                }
             },
             onMessage = {
                 sessionForDetails = null
@@ -2199,22 +2220,26 @@ fun CustomerDetailScreen(
             },
             onPdf = {
                 voucherForDetails = null
-                val file = if (v.type == VoucherType.RECEIPT) {
-                    PdfReportGenerator.generateReceiptVoucherPdf(
-                        context = context,
-                        config = config,
-                        customer = customer,
-                        voucher = v
-                    )
-                } else {
-                    PdfReportGenerator.generateExpenseVoucherPdf(
-                        context = context,
-                        config = config,
-                        customer = customer,
-                        voucher = v
-                    )
+                scope.launch {
+                    val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        if (v.type == VoucherType.RECEIPT) {
+                            PdfReportGenerator.generateReceiptVoucherPdf(
+                                context = context,
+                                config = config,
+                                customer = customer,
+                                voucher = v
+                            )
+                        } else {
+                            PdfReportGenerator.generateExpenseVoucherPdf(
+                                context = context,
+                                config = config,
+                                customer = customer,
+                                voucher = v
+                            )
+                        }
+                    }
+                    localPdfReady = Pair(file, "سند #${v.voucherNumber.ifEmpty { v.id.toString() }}")
                 }
-                localPdfReady = Pair(file, "سند #${v.voucherNumber.ifEmpty { v.id.toString() }}")
             },
             onShare = {
                 voucherForDetails = null

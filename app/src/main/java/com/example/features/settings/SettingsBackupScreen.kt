@@ -219,6 +219,7 @@ internal fun SettingsBackupScreen(
                                     if (file == null) {
                                         Toast.makeText(context, "تعذّر حفظ النسخة", Toast.LENGTH_SHORT).show()
                                     } else {
+                                        com.example.core.util.PeriodicBackupReminderManager.recordBackupPerformed(context)
                                         if (googleAccount != null && isCloudBackupAllowed) {
                                             DriveBackupScheduler.enqueueImmediateBackup(context)
                                         }

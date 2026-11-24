@@ -275,9 +275,9 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         val totalCollected = sessions.sumOf(::initialPayment) +
             vouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount.coerceAtLeast(0.0) }
 
-        val customerRows = filteredCustomers.map { customer ->
+        val pairedRows = filteredCustomers.map { customer ->
             val cwb = calculateCustomerBalance(customer, sessions, vouchers, purchases = purchases)
-            ComprehensiveCustomerRow(
+            customer to ComprehensiveCustomerRow(
                 customerName = customer.name,
                 phone = customer.phone,
                 farmName = customer.farmName.ifEmpty { customer.location },
@@ -296,17 +296,18 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 payableBalance = cwb.payableBalance,
                 receivableBalance = cwb.receivableBalance
             )
-        }.sortedWith(compareByDescending<ComprehensiveCustomerRow> { it.balance }.thenBy { it.customerName })
+        }.sortedWith(compareByDescending<Pair<Customer, ComprehensiveCustomerRow>> { it.second.balance }.thenBy { it.second.customerName })
+        val customerRows = pairedRows.map { it.second }
+        val receivableByCustomerId = pairedRows.associate { it.first.id to it.second.receivableBalance }
 
         val totalOutstandingDebt = customerRows.sumOf { it.receivableBalance }
         val debtorsCount = customerRows.count { it.receivableBalance > 0.001 }
 
-        val topDebtors = customerRows
-            .filter { it.receivableBalance > 0.001 }
-            .sortedByDescending { it.receivableBalance }
+        val topDebtors = pairedRows
+            .filter { it.second.receivableBalance > 0.001 }
+            .sortedByDescending { it.second.receivableBalance }
             .take(5)
-            .mapNotNull { row ->
-                val cust = filteredCustomers.find { it.name == row.customerName } ?: return@mapNotNull null
+            .map { (cust, row) ->
                 TopDebtorStat(
                     customerId = cust.id,
                     customerName = cust.name,
@@ -371,8 +372,8 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             .sortedByDescending { it.totalMinutes }
             .take(5)
 
-        // Group breakdown (revenue, collected, remaining)
-        val groupStats = allCustomers
+        // Group breakdown (revenue, collected, remaining) using filtered customers & IDs
+        val groupStats = filteredCustomers
             .groupBy { it.customGroup.trim().ifEmpty { "بدون مجموعة" } }
             .map { (groupName, groupMembers) ->
                 val gCustIds = groupMembers.map { it.id }.toSet()
@@ -382,9 +383,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 val gRevenue = gSessions.sumOf { it.totalAmount.coerceAtLeast(0.0) }
                 val gCollected = gSessions.sumOf(::initialPayment) +
                     gVouchers.filter { it.type == VoucherType.RECEIPT }.sumOf { it.amount.coerceAtLeast(0.0) }
-                val gRemaining = customerRows
-                    .filter { row -> groupMembers.any { it.name == row.customerName } }
-                    .sumOf { it.receivableBalance }
+                val gRemaining = gCustIds.sumOf { receivableByCustomerId[it] ?: 0.0 }
 
                 GroupReportStat(
                     groupName = groupName,
@@ -517,13 +516,15 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                     return@launch
                 }
 
-                val file = PdfReportGenerator.generateComprehensiveReportPdf(
-                    context = getApplication(),
-                    config = config,
-                    periodTitle = periodTitle(selectedPeriod),
-                    totals = snapshot.totals,
-                    customerRows = snapshot.customerRows
-                )
+                val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    PdfReportGenerator.generateComprehensiveReportPdf(
+                        context = getApplication(),
+                        config = config,
+                        periodTitle = periodTitle(selectedPeriod),
+                        totals = snapshot.totals,
+                        customerRows = snapshot.customerRows
+                    )
+                }
                 _pdfReadyFile.value = Pair(file, "التقرير المحاسبي الشامل - ${periodTitle(selectedPeriod)}")
             } catch (e: Exception) {
                 showToast("فشل في إنشاء التقرير: ${e.localizedMessage}", ToastType.ERROR)

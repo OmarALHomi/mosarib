@@ -476,7 +476,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             _isDriveLoading.value = true
             try {
-                val tempFile = File(getApplication<Application>().cacheDir, driveFile.name)
+                val safeName = File(driveFile.name).name.ifBlank { "drive_backup_${System.currentTimeMillis()}.back" }
+                val tempFile = File(getApplication<Application>().cacheDir, safeName)
                 val dlResult = GoogleDriveBackupHelper.downloadAppDataBackup(getApplication(), account, driveFile.id, tempFile)
                 dlResult.onSuccess { file ->
                     // Safety checkpoint before applying restored cloud backup

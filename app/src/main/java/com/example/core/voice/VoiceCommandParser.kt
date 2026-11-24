@@ -218,37 +218,38 @@ object VoiceCommandParser {
         )
         working = cleanAfterAmounts
 
-        // 7a. A paid marker with no amount after it means paid in full («… من 4000 مسلم»)
-        if (paidRaw == null && !isPaidFull &&
-            (durationMinutes != null || explicitType == VoiceCommandType.SESSION || explicitType == VoiceCommandType.PURCHASE)
-        ) {
-            val barePaidMarker = Regex("(?:^|\\s)(مسلم|وسلم|سلم|سلمه|مدفوع|واصل|دفع|ودفع|دفعه)(?=\\s|$)")
-            if (barePaidMarker.containsMatchIn(working)) {
-                isPaidFull = true
-                working = working.replace(barePaidMarker, " ").replace(Regex("\\s+"), " ").trim()
-            }
-        }
-
         val (amount, paid) = if (amountRaw == null && paidRaw != null && (explicitType == VoiceCommandType.RECEIPT || explicitType == VoiceCommandType.EXPENSE || (durationMinutes == null && explicitType != VoiceCommandType.SESSION))) {
             Pair(paidRaw, null)
         } else {
             Pair(amountRaw, paidRaw)
         }
 
-        // 7b. Explicit debt markers (only when no paid amount was explicitly spoken)
+        // 7a. Explicit debt markers BEFORE barePaidMarker so "ما دفع" / "بدون دفع" isn't treated as "دفع"
         var isExplicitDebt = false
-        if (paid == null) {
-            for (ed in VoicePhraseRules.EXPLICIT_DEBT_WORDS) {
+        if (paid == null && !isPaidFull) {
+            val sortedDebtWords = VoicePhraseRules.EXPLICIT_DEBT_WORDS.sortedByDescending { it.length }
+            for (ed in sortedDebtWords) {
                 val normEd = SpokenNumberParser.normalizeToken(ed)
                 if (normEd == "عليه" && (working.contains("باقي عليه") || working.contains("و باقي عليه") || working.contains("وباقي عليه"))) {
                     continue
                 }
-                val p = Regex("\\b$normEd\\b")
+                val p = Regex("(?:^|\\s)${Regex.escape(normEd)}(?=\\s|$)")
                 if (p.containsMatchIn(working)) {
                     isExplicitDebt = true
-                    working = working.replace(p, " ").trim()
+                    working = working.replace(p, " ").replace(Regex("\\s+"), " ").trim()
                     break
                 }
+            }
+        }
+
+        // 7b. A paid marker with no amount after it means paid in full («… من 4000 مسلم»)
+        if (paidRaw == null && !isPaidFull && !isExplicitDebt &&
+            (durationMinutes != null || explicitType == VoiceCommandType.SESSION || explicitType == VoiceCommandType.PURCHASE)
+        ) {
+            val barePaidMarker = Regex("(?:^|\\s)(مسلم|وسلم|سلم|سلمه|مدفوع|واصل|دفع|ودفع|دفعه)(?=\\s|$)")
+            if (barePaidMarker.containsMatchIn(working)) {
+                isPaidFull = true
+                working = working.replace(barePaidMarker, " ").replace(Regex("\\s+"), " ").trim()
             }
         }
 

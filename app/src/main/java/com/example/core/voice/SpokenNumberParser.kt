@@ -37,7 +37,8 @@ object SpokenNumberParser {
         s = s.replace(Regex("(?<=\\d)\\.(?=\\d{3}(?:\\D|$))"), "")
         // Arabic thousands separator (٬), comma (,), Arabic comma (،)
         s = s.replace(Regex("(?<=\\d)[,،٬](?=\\d{3}(?:\\D|$))"), "")
-        s = s.replace(Regex("(?<=\\d)[,٬٫](?=\\d)"), "")
+        s = s.replace(Regex("(?<=\\d)٫(?=\\d)"), ".")
+        s = s.replace(Regex("(?<=\\d)[,٬](?=\\d)"), "")
         // Space as thousands separator between digits
         s = s.replace(Regex("(?<=\\d)\\s+(?=\\d{3}(?:\\D|$))"), "")
         return s
@@ -81,7 +82,7 @@ object SpokenNumberParser {
         val sb = StringBuilder()
         for ((idx, w) in words.withIndex()) {
             if (idx > 0) sb.append(" ")
-            if (w.startsWith("و") && w.length > 2 && !w.startsWith("واحد") && !w.startsWith("واحده") && !w.startsWith("وحده")) {
+            if (w.startsWith("و") && (w.length > 2 || (w.length == 2 && w[1].isDigit())) && !w.startsWith("واحد") && !w.startsWith("واحده") && !w.startsWith("وحده")) {
                 val rem = w.substring(1)
                 val isKnown = rem in listOf(
                     "مسلم", "سلم", "سلمه", "سلمت", "سلمنا", "دفع", "دفعه", "دفعت", "دفعنا",
@@ -99,14 +100,14 @@ object SpokenNumberParser {
     }
 
     private fun stripConjunctionWaw(token: String): String {
-        if (token in listOf("واحد", "واحده", "وحدة", "وحدي")) return token
+        if (token in listOf("واحد", "واحده", "وحدة", "وحده", "وحدي")) return token
         if (token == "و") return ""
-        return if (token.startsWith("و") && token.length > 2) token.drop(1) else token
+        return if (token.startsWith("و") && (token.length > 2 || (token.length == 2 && token[1].isDigit()))) token.drop(1) else token
     }
 
     private val UNIT_WORDS = mapOf(
         "صفر" to 0.0,
-        "واحد" to 1.0, "واحده" to 1.0, "وحدة" to 1.0,
+        "واحد" to 1.0, "واحده" to 1.0, "وحدة" to 1.0, "وحده" to 1.0,
         "اثنين" to 2.0, "اثنان" to 2.0, "اتنين" to 2.0, "ثنتين" to 2.0, "اثنتين" to 2.0,
         "ثلاثه" to 3.0, "تلاته" to 3.0, "ثلاث" to 3.0, "تلات" to 3.0,
         "اربعه" to 4.0, "اربع" to 4.0,

@@ -32,7 +32,7 @@ if ($adminRole !== 'ADMIN' && $adminRole !== 'SUPER_ADMIN') {
     jsonResponse(false, 'غير مصرح: إدارة المستخدمين مقتصرة على المدراء', null, 403);
 }
 
-const DELETED_KEEP_MS = 30 * 24 * 3600 * 1000;
+define('DELETED_KEEP_MS', 2592000000);
 $auditFile = __DIR__ . '/../data/admin_audit.json';
 
 function cleanUserKey($key) {
@@ -164,7 +164,10 @@ if ($action === 'restore') {
     // If the device registered again meanwhile, keep its newer record
     $cur = firebaseRequest("all_users/$key.json");
     if (!($cur['error'] === false && is_array($cur['data']))) {
-        firebaseRequest("all_users/$key.json", 'PUT', $rec['user']);
+        $putUser = firebaseRequest("all_users/$key.json", 'PUT', $rec['user']);
+        if ($putUser['error'] !== false || ($putUser['code'] ?? 500) >= 400) {
+            jsonResponse(false, 'تعذر استرجاع بيانات المستخدم إلى السحابة', null, 502);
+        }
     }
     if (!empty($rec['emailKey']) && is_array($rec['emailIndex'] ?? null)) {
         firebaseRequest("email_index/{$rec['emailKey']}.json", 'PUT', $rec['emailIndex']);
@@ -172,7 +175,10 @@ if ($action === 'restore') {
     if (is_array($rec['fcmToken'] ?? null)) {
         firebaseRequest("fcm_tokens/$key.json", 'PUT', $rec['fcmToken']);
     }
-    firebaseRequest("deleted_users/$key.json", 'DELETE');
+    $delRes = firebaseRequest("deleted_users/$key.json", 'DELETE');
+    if ($delRes['error'] !== false || ($delRes['code'] ?? 500) >= 400) {
+        jsonResponse(false, 'تم استرجاع المستخدم لكن تعذر مسح السجل من قائمة المحذوفين', null, 502);
+    }
     auditLog($auditFile, ['action' => 'restore', 'user' => $key, 'name' => $rec['user']['subscriberName'] ?? '', 'by' => $adminEmail, 'at' => nowMs()]);
     jsonResponse(true, 'تم استرجاع المستخدم');
 }
@@ -198,7 +204,10 @@ if ($action === 'hard_delete') {
     if (!$matches) {
         jsonResponse(false, 'اكتب اسم المستخدم أو بريده كما هو لتأكيد الحذف النهائي');
     }
-    firebaseRequest("deleted_users/$key.json", 'DELETE');
+    $hardDel = firebaseRequest("deleted_users/$key.json", 'DELETE');
+    if ($hardDel['error'] !== false || ($hardDel['code'] ?? 500) >= 400) {
+        jsonResponse(false, 'تعذر الحذف النهائي من فايربيس', null, 502);
+    }
     auditLog($auditFile, ['action' => 'hard_delete', 'user' => $key, 'name' => $u['subscriberName'] ?? '', 'by' => $adminEmail, 'at' => nowMs()]);
     jsonResponse(true, 'تم الحذف النهائي. سجلات الترخيص لم تُمس.');
 }

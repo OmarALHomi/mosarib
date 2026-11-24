@@ -23,7 +23,7 @@ class SettingsRepository(
             distributorPhone = map["distributor_phone"] ?: "777000000",
             defaultPricePerHour = map["default_price_per_hour"]?.toDoubleOrNull() ?: 5000.0,
             currencySymbol = map["currency_symbol"] ?: "ر.ي",
-            themeMode = map["theme_mode"] ?: "SYSTEM",
+            themeMode = (map["theme_mode"] ?: "SYSTEM").uppercase(java.util.Locale.US),
             biometricEnabled = map["biometric_enabled"]?.toBooleanStrictOrNull() ?: false,
             simpleMode = map["ui_simple_mode"]?.toBooleanStrictOrNull() ?: false
         )
@@ -46,7 +46,7 @@ class SettingsRepository(
     }
 
     suspend fun updateThemeMode(mode: String) {
-        settingDao.saveSetting(AppSetting("theme_mode", mode))
+        settingDao.saveSetting(AppSetting("theme_mode", mode.uppercase(java.util.Locale.US)))
     }
 
     suspend fun updateSimpleMode(enabled: Boolean) {

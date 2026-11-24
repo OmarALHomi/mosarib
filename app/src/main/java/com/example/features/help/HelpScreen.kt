@@ -3,6 +3,7 @@ package com.example.features.help
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -91,6 +92,7 @@ fun HelpScreen(
     onNavigateToTour: (screenId: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    BackHandler { onBack() }
     val context = LocalContext.current
     var expandedIndex by remember { mutableIntStateOf(-1) }
 

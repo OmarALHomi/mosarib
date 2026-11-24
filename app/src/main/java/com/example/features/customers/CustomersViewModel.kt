@@ -273,21 +273,22 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
             if (name.isBlank()) return@launch
 
             val old = oldGroupName?.trim()
-            // 1. إذا كان تعديل لاسم المجموعة القديمة
-            if (!old.isNullOrBlank() && !old.equals(name, ignoreCase = true)) {
-                customerRepo.renameCustomGroup(old, name)
-            }
+            val storedGroupsRaw = db.appSettingDao().getSettingValue("custom_groups_registry").orEmpty()
+            val currentList = storedGroupsRaw.split(",")
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .ifEmpty { customGroups.value }
+                .toMutableList()
 
-            // 2. تحديث الأعضاء: فك ارتباط الأعضاء السابقين إذا كان تعديل، ثم تعيين المجموعة للأعضاء المحددين
-            if (!old.isNullOrBlank()) {
-                customerRepo.clearCustomGroup(old)
+            // Clear old members FIRST before re-assigning checked members so unchecked members are removed on rename
+            db.withTransaction {
+                if (!old.isNullOrBlank()) {
+                    customerRepo.clearCustomGroup(old)
+                }
+                if (selectedMemberIds.isNotEmpty()) {
+                    customerRepo.assignCustomGroup(selectedMemberIds.toList(), name)
+                }
             }
-            if (selectedMemberIds.isNotEmpty()) {
-                customerRepo.assignCustomGroup(selectedMemberIds.toList(), name)
-            }
-
-            // 3. تحديث سجل المجموعات في الإعدادات لضمان بقائها حتى لو كانت بلا أعضاء
-            val currentList = customGroups.value.toMutableList()
             if (!old.isNullOrBlank()) {
                 currentList.removeAll { it.trim().equals(old, ignoreCase = true) }
             }
@@ -1117,39 +1118,41 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 amountPaid = roundedPaid,
                 notes = notes.trim()
             )
-            ownerPurchaseRepo.update(purchase)
+            db.withTransaction {
+                ownerPurchaseRepo.update(purchase)
 
-            // مزامنة سند الصرف المرتبط بعملية الشراء
-            val existingVouchers = voucherRepo.getVouchersForCustomerDirect(ownerCustomerId)
-            val linkedExpenseVoucher = existingVouchers.find {
-                it.type == VoucherType.EXPENSE && it.notes.contains("[شراء #$purchaseId]")
-            }
-            if (roundedPaid > 0.0) {
-                if (linkedExpenseVoucher != null) {
-                    voucherRepo.updateVoucher(
-                        linkedExpenseVoucher.copy(
-                            amount = roundedPaid,
-                            date = date
-                        )
-                    )
-                } else {
-                    val vNumber = "EXP-${System.currentTimeMillis().toString().takeLast(8)}"
-                    voucherRepo.insertVoucher(
-                        Voucher(
-                            voucherNumber = vNumber,
-                            type = VoucherType.EXPENSE,
-                            customerId = ownerCustomerId,
-                            amount = roundedPaid,
-                            category = "تسديد نقدي لشراء ساعات",
-                            paymentMethod = "نقداً",
-                            date = date,
-                            notes = "دفعة مسلّمة فوراً لصاحب البئر عند شراء ساعات [شراء #$purchaseId]"
-                        )
-                    )
+                // مزامنة سند الصرف المرتبط بعملية الشراء
+                val existingVouchers = voucherRepo.getVouchersForCustomerDirect(ownerCustomerId)
+                val linkedExpenseVoucher = existingVouchers.find {
+                    it.type == VoucherType.EXPENSE && it.notes.contains("[شراء #$purchaseId]")
                 }
-            } else {
-                if (linkedExpenseVoucher != null) {
-                    voucherRepo.deleteVoucher(linkedExpenseVoucher)
+                if (roundedPaid > 0.0) {
+                    if (linkedExpenseVoucher != null) {
+                        voucherRepo.updateVoucher(
+                            linkedExpenseVoucher.copy(
+                                amount = roundedPaid,
+                                date = date
+                            )
+                        )
+                    } else {
+                        val vNumber = "EXP-${System.currentTimeMillis().toString().takeLast(8)}"
+                        voucherRepo.insertVoucher(
+                            Voucher(
+                                voucherNumber = vNumber,
+                                type = VoucherType.EXPENSE,
+                                customerId = ownerCustomerId,
+                                amount = roundedPaid,
+                                category = "تسديد نقدي لشراء ساعات",
+                                paymentMethod = "نقداً",
+                                date = date,
+                                notes = "دفعة مسلّمة فوراً لصاحب البئر عند شراء ساعات [شراء #$purchaseId]"
+                            )
+                        )
+                    }
+                } else {
+                    if (linkedExpenseVoucher != null) {
+                        voucherRepo.deleteVoucher(linkedExpenseVoucher)
+                    }
                 }
             }
             showToast("تم تعديل عملية شراء الساعات بنجاح", ToastType.SUCCESS)
@@ -1158,14 +1161,16 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun deleteOwnerPurchase(purchase: WellOwnerPurchase) {
         viewModelScope.launch {
-            val existingVouchers = voucherRepo.getVouchersForCustomerDirect(purchase.ownerCustomerId)
-            val linkedExpenseVoucher = existingVouchers.find {
-                it.type == VoucherType.EXPENSE && it.notes.contains("[شراء #${purchase.id}]")
+            db.withTransaction {
+                val existingVouchers = voucherRepo.getVouchersForCustomerDirect(purchase.ownerCustomerId)
+                val linkedExpenseVoucher = existingVouchers.find {
+                    it.type == VoucherType.EXPENSE && it.notes.contains("[شراء #${purchase.id}]")
+                }
+                if (linkedExpenseVoucher != null) {
+                    voucherRepo.deleteVoucher(linkedExpenseVoucher)
+                }
+                ownerPurchaseRepo.delete(purchase)
             }
-            if (linkedExpenseVoucher != null) {
-                voucherRepo.deleteVoucher(linkedExpenseVoucher)
-            }
-            ownerPurchaseRepo.delete(purchase)
             showToast("تم حذف حركة الشراء وتحديث كشف صاحب البئر", ToastType.INFO)
         }
     }
@@ -1252,33 +1257,59 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
 
             val roundedPayment = Formatters.roundMoney(amount)
             val roundedDiscount = Formatters.roundMoney(discountAmount)
-            val newAmountPaid = (session.amountPaid + roundedPayment).coerceAtMost(session.totalAmount)
-            val newDiscount = session.discountAmount + roundedDiscount
-            val newDebt = Formatters.roundMoney(maxOf(0.0, session.remainingDebt - roundedPayment - roundedDiscount))
-            val updatedSession = session.copy(
-                amountPaid = newAmountPaid,
-                discountAmount = newDiscount,
-                remainingDebt = newDebt
-            )
-            sessionRepo.updateSession(updatedSession)
-
+            val maxSessionPayable = Formatters.roundMoney((session.totalAmount - session.amountPaid).coerceAtLeast(0.0))
+            val appliedToSession = minOf(roundedPayment, maxSessionPayable)
+            val surplusPayment = Formatters.roundMoney((roundedPayment - appliedToSession).coerceAtLeast(0.0))
+            val newAmountPaid = Formatters.roundMoney(session.amountPaid + appliedToSession)
+            val newDiscount = Formatters.roundMoney(session.discountAmount + roundedDiscount)
+            val newDebt = Formatters.roundMoney(maxOf(0.0, session.remainingDebt - appliedToSession - roundedDiscount))
+            val targetCustomerId = session.billedToCustomerId ?: session.customerId
             val baseTime = System.currentTimeMillis()
             var opsAdded = 0
-            if (roundedPayment > 0.0) {
-                val vNumber = "REC-${baseTime.toString().takeLast(8)}"
-                val voucher = Voucher(
-                    voucherNumber = vNumber,
-                    type = VoucherType.RECEIPT,
-                    customerId = session.billedToCustomerId ?: session.customerId,
-                    sessionId = session.id,
-                    amount = roundedPayment,
-                    category = "سداد دورة سقي #${session.id}",
-                    paymentMethod = paymentMethod,
-                    date = baseTime,
-                    notes = notes.ifBlank { "سداد دورة ماء #${session.id}" }
+
+            db.withTransaction {
+                sessionRepo.updateSession(
+                    session.copy(
+                        amountPaid = newAmountPaid,
+                        discountAmount = newDiscount,
+                        remainingDebt = newDebt
+                    )
                 )
-                voucherRepo.insertVoucher(voucher)
-                opsAdded++
+
+                if (appliedToSession > 0.0) {
+                    val vNumber = "REC-${baseTime.toString().takeLast(8)}"
+                    voucherRepo.insertVoucher(
+                        Voucher(
+                            voucherNumber = vNumber,
+                            type = VoucherType.RECEIPT,
+                            customerId = targetCustomerId,
+                            sessionId = session.id,
+                            amount = appliedToSession,
+                            category = "سداد دورة سقي #${session.id}",
+                            paymentMethod = paymentMethod,
+                            date = baseTime,
+                            notes = notes.ifBlank { "سداد دورة ماء #${session.id}" }
+                        )
+                    )
+                    opsAdded++
+                }
+
+                if (surplusPayment > 0.0) {
+                    voucherRepo.insertVoucher(
+                        Voucher(
+                            voucherNumber = "REC-${(baseTime + 2).toString().takeLast(8)}",
+                            type = VoucherType.RECEIPT,
+                            customerId = targetCustomerId,
+                            sessionId = null,
+                            amount = surplusPayment,
+                            category = "دفعة على الحساب",
+                            paymentMethod = paymentMethod,
+                            date = baseTime + 2,
+                            notes = notes.ifBlank { "فائض سداد دورة #${session.id} مقيد على الحساب" }
+                        )
+                    )
+                    opsAdded++
+                }
             }
 
             if (roundedDiscount > 0.0) {
@@ -1365,15 +1396,17 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                 val vouchers = voucherRepo.getVouchersForCustomer(customer.id).first()
                 val config = appConfig.value
                 val allCustomers = db.customerDao().getAllCustomersIncludingArchivedDirect()
-                val file: File = PdfReportGenerator.generateCustomerStatementPdf(
-                    context = getApplication(),
-                    config = config,
-                    customer = customer,
-                    sessions = sessions,
-                    vouchers = vouchers,
-                    purchases = purchases,
-                    allCustomers = allCustomers
-                )
+                val file: File = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    PdfReportGenerator.generateCustomerStatementPdf(
+                        context = getApplication(),
+                        config = config,
+                        customer = customer,
+                        sessions = sessions,
+                        vouchers = vouchers,
+                        purchases = purchases,
+                        allCustomers = allCustomers
+                    )
+                }
                 _pdfReadyFile.value = Pair(file, "كشف حساب ${customer.name}")
             } catch (e: Exception) {
                 showToast("فشل في إنشاء كشف الحساب: ${e.localizedMessage}", ToastType.ERROR)
@@ -1409,11 +1442,13 @@ class CustomersViewModel(application: Application) : AndroidViewModel(applicatio
                         receivableBalance = item.receivableBalance
                     )
                 }
-                val file = PdfReportGenerator.generateCustomerDirectoryPdf(
-                    context = getApplication(),
-                    config = config,
-                    customerRows = rows
-                )
+                val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    PdfReportGenerator.generateCustomerDirectoryPdf(
+                        context = getApplication(),
+                        config = config,
+                        customerRows = rows
+                    )
+                }
                 _pdfReadyFile.value = Pair(file, "كشف وحسابات دليل العملاء")
             } catch (e: Exception) {
                 showToast("فشل في إنشاء التقرير: ${e.localizedMessage}", ToastType.ERROR)

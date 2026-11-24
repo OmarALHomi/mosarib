@@ -1,7 +1,7 @@
 Options -Indexes
 
-# Disable script execution in uploads directory
-<FilesMatch "\.(php|php[0-9]|phtml|phar|pl|py|cgi|asp|sh)$">
+# Disable script execution & private index JSON access in uploads directory
+<FilesMatch "(releases_index\.json|\.(php|php[0-9]|phtml|phar|pl|py|cgi|asp|sh))$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>

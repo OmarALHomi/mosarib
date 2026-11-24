@@ -58,7 +58,7 @@
         </div>
         <div class="form-group">
           <label for="bcUrl">رابط التحديث أو التحميل (اختياري):</label>
-          <input type="url" id="bcUrl" placeholder="مثال: https://mosarib.com/download أو رابط واتساب">
+          <input type="text" id="bcUrl" placeholder="مثال: https://mosarib.com/download أو mosarib://settings">
         </div>
         <div class="form-group">
           <label for="bcImageUrl">صورة مع الإعلان (اختياري):</label>

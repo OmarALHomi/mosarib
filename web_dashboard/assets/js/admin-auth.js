@@ -207,21 +207,24 @@ async function loadAdminsList() {
     currentAdminsList = admins;
     const isSuperAdmin = currentAdminSession && currentAdminSession.role === 'SUPER_ADMIN';
 
+    const esc = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
     container.innerHTML = admins.map(a => {
       const lastLoginStr = a.last_login ? new Date(a.last_login).toLocaleString('en-US') : 'لم يدخل بعد';
-      const safeName = (a.name || '').replace(/"/g, '&quot;');
-      const safeEmail = (a.email || '').replace(/"/g, '&quot;');
+      const safeName = esc(a.name || '');
+      const safeEmail = esc(a.email || '');
+      const safeCreatedBy = esc(a.created_by || '');
+      const safeRole = esc(a.role || '');
       return `
-        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--table-border); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px;">
+        <div style="background: var(--input-bg); border: 1px solid var(--table-border); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <strong style="color: #FFF; font-size: 14px;">${safeName}</strong>
-            <span class="badge ${a.role === 'SUPER_ADMIN' ? 'badge-yearly' : 'badge-trial'}">${a.role}</span>
+            <strong style="color: var(--text-title); font-size: 14px;">${safeName}</strong>
+            <span class="badge ${a.role === 'SUPER_ADMIN' ? 'badge-yearly' : 'badge-trial'}">${safeRole}</span>
           </div>
-          <div style="font-size: 12px; color: #80CBC4; margin-bottom: 6px;">${safeEmail}</div>
+          <div style="font-size: 12px; color: var(--accent-text, #80CBC4); margin-bottom: 6px;">${safeEmail}</div>
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div style="font-size: 11px; color: var(--text-muted);">آخر دخول: ${lastLoginStr} • أضيف بواسطة: ${(a.created_by || '').replace(/"/g, '&quot;')}</div>
-            ${isSuperAdmin ? `
-              <button type="button" class="btn-sm btn-delete-admin" data-id="${a.id}" data-name="${safeName}" data-role="${a.role}" style="background:rgba(239,68,68,0.15); color:#EF4444; border:1px solid rgba(239,68,68,0.35); font-size:11px; padding:3px 8px;">حذف</button>
+            <div style="font-size: 11px; color: var(--text-muted);">آخر دخول: ${lastLoginStr} • أضيف بواسطة: ${safeCreatedBy}</div>
+            ${isSuperAdmin && (!currentAdminSession || currentAdminSession.id !== a.id) ? `
+              <button type="button" class="btn-sm btn-delete-admin" data-id="${esc(a.id)}" data-name="${safeName}" data-role="${safeRole}" style="background:rgba(239,68,68,0.15); color:#EF4444; border:1px solid rgba(239,68,68,0.35); font-size:11px; padding:3px 8px;">حذف</button>
             ` : ''}
           </div>
         </div>
@@ -230,7 +233,7 @@ async function loadAdminsList() {
 
     // Attach click handlers with F1 protections
     container.querySelectorAll('.btn-delete-admin').forEach(btn => {
-      btn.addEventListener('click', function(e) {
+      btn.addEventListener('click', async function(e) {
         e.preventDefault();
         const aId = this.getAttribute('data-id');
         const aName = this.getAttribute('data-name');
@@ -246,7 +249,22 @@ async function loadAdminsList() {
           return;
         }
 
-        alert(`تم طلب حذف حساب المسؤول: ${aName}`);
+        try {
+          const delRes = await adminApiFetch('api/auth.php?action=delete_admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: aId, csrf_token: currentCsrfToken })
+          });
+          const delData = (await safeJson(delRes)) || {};
+          if (delData.success) {
+            alert(delData.message || 'تم حذف المسؤول');
+            loadAdminsList();
+          } else {
+            alert('خطأ: ' + (delData.message || 'تعذر حذف المسؤول'));
+          }
+        } catch (err) {
+          alert('فشل الحذف: ' + err.message);
+        }
       });
     });
   } catch (e) {

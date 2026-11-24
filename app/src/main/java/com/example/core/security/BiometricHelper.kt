@@ -68,7 +68,8 @@ object BiometricHelper {
     fun authenticate(
         activity: Activity,
         onSuccess: () -> Unit,
-        onError: (String) -> Unit
+        onError: (String) -> Unit,
+        onDeviceCredentialIntent: ((android.content.Intent) -> Unit)? = null
     ) {
         if (!isAvailable(activity)) {
             // If device has neither biometric nor device credential configured, bypass safely
@@ -135,8 +136,19 @@ object BiometricHelper {
                 onError(e.message ?: "تعذر بدء التحقق من الهوية")
             }
         } else {
-            // Older than Android 9
-            onSuccess()
+            // Android 7.0 - 8.1 (API 24..27): use native device-credential confirmation instead of bypassing lock
+            try {
+                val km = activity.getSystemService(android.app.KeyguardManager::class.java)
+                @Suppress("DEPRECATION")
+                val credIntent = km?.createConfirmDeviceCredentialIntent("المُسَرِّب", "تأكيد الهوية للمتابعة")
+                if (credIntent != null && onDeviceCredentialIntent != null) {
+                    onDeviceCredentialIntent(credIntent)
+                } else {
+                    onError("يتطلب قفل التطبيق ضبط رمز حماية لشاشة الهاتف")
+                }
+            } catch (e: Exception) {
+                onError(e.message ?: "تعذر بدء التحقق من الهوية")
+            }
         }
     }
 }

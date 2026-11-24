@@ -75,7 +75,7 @@ import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AboutScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun AboutScreen(onBack: () -> Unit, onActivated: () -> Unit = {}, modifier: Modifier = Modifier) {
     BackHandler { onBack() }
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -84,21 +84,36 @@ fun AboutScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 
     val deviceCode = remember { LicenseManager.getDeviceCode(context) }
     val currentYear = remember { Calendar.getInstance().get(Calendar.YEAR) }
+    var dbOpsCount by remember { mutableStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        dbOpsCount = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                val db = com.example.core.database.AppDatabase.getDatabase(context)
+                db.waterSessionDao().getSessionsCountDirect() +
+                    db.voucherDao().getVouchersCountDirect() +
+                    db.wellOwnerPurchaseDao().getPurchasesCountDirect()
+            }.getOrDefault(0)
+        }
+    }
     val freeLimit = remember { LicenseManager.getFreeOperationsLimit(context) }
-    val remainingOps = remember(isActivated) { LicenseManager.getRemainingOperations(context, 0) }
+    val remainingOps = remember(isActivated, dbOpsCount) { LicenseManager.getRemainingOperations(context, dbOpsCount) }
 
     fun openUrl(url: String) {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        runCatching { context.startActivity(intent) }
+        if (runCatching { context.startActivity(intent) }.isFailure) {
+            android.widget.Toast.makeText(context, "لا يوجد تطبيق متاح لفتح الرابط", android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 
     fun makeCall(phone: String) {
         val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        runCatching { context.startActivity(intent) }
+        if (runCatching { context.startActivity(intent) }.isFailure) {
+            android.widget.Toast.makeText(context, "لا يوجد تطبيق اتصال متاح", android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 
     Scaffold(
@@ -215,7 +230,7 @@ fun AboutScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                                 color = chipContainer
                             ) {
                                 Text(
-                                    text = if (isActivated) "مفعّلة" else "تجريبية · $remainingOps عملية متبقية",
+                                    text = if (isActivated) "مفعّلة" else if (remainingOps > 99_999) "تجريبية · غير محدود" else "تجريبية · $remainingOps عملية متبقية",
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = chipColor,
@@ -447,7 +462,7 @@ fun AboutScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             }
 
                             Button(
-                                onClick = { makeCall(LicenseManager.DEVELOPER_PHONE.removePrefix("967")) },
+                                onClick = { makeCall("+${LicenseManager.DEVELOPER_PHONE}") },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
@@ -561,6 +576,7 @@ fun AboutScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             onDismiss = { showActivationDialog = false },
             onActivated = {
                 isActivated = true
+                onActivated()
                 showActivationDialog = false
             }
         )

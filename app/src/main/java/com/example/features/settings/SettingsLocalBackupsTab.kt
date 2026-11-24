@@ -247,7 +247,7 @@ private fun AutoBackupPanel(
                     }
                 } else {
                     Text(
-                        text = "جاهز: سيتم أخذ نسخة احتياطية مشفرة تلقائياً كل يوم عند فتح التطبيق ونقاط أمان وقائية قبل العمليات.",
+                        text = "جاهز: سيتم أخذ نسخة احتياطية كاملة تلقائياً كل يوم عند فتح التطبيق ونقاط أمان وقائية قبل العمليات.",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 10.5.sp

@@ -144,8 +144,9 @@ object CustomerExcelHelper {
     ): CustomerParseResult {
         val inputStream = context.contentResolver.openInputStream(uri)
             ?: return CustomerParseResult(emptyList(), ImportSource.EXTERNAL_LEDGER)
-        val buffered = BufferedInputStream(inputStream)
-        return parseCustomerStream(buffered, existingCustomers)
+        return BufferedInputStream(inputStream).use { buffered ->
+            parseCustomerStream(buffered, existingCustomers)
+        }
     }
 
     fun parseCustomerStream(
@@ -634,8 +635,8 @@ object CustomerExcelHelper {
                 val typeStr = if (balanceTypeCol >= 0) row.getOrNull(balanceTypeCol).orEmpty().trim() else ""
                 val cleanType = normalizeArabicText(typeStr)
                 val isCredit = matchesKeywordWordOrPhrase(cleanType, CREDIT_KEYWORDS) || rawBalStr.startsWith("-")
-                if (parsedBal > 0.0) {
-                    computedBalance = parsedBal
+                if (parsedBal != 0.0) {
+                    computedBalance = kotlin.math.abs(parsedBal)
                     computedIsDebit = !isCredit
                 }
             }

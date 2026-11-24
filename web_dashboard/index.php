@@ -178,7 +178,11 @@ if ($latestRelease) {
     }
 }
 
-$canonicalUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . strtok($_SERVER['REQUEST_URI'] ?? '/', '?');
+$isHttpsPage = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+$safeHost = preg_replace('/[^A-Za-z0-9.\-:]/', '', (string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+$baseOrigin = ($isHttpsPage ? 'https' : 'http') . '://' . $safeHost;
+$canonicalUrl = $baseOrigin . strtok($_SERVER['REQUEST_URI'] ?? '/', '?');
+$ogImageUrl = $baseOrigin . rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_SELF'] ?? '/')), '/') . '/assets/images/og_share.png?v=145';
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" data-theme="light">
@@ -195,14 +199,14 @@ $canonicalUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https
   <meta property="og:locale" content="ar_AR">
   <meta property="og:title" content="<?= htmlspecialchars($ps['hero_title']) ?> • البوابة الرسمية">
   <meta property="og:description" content="<?= htmlspecialchars($ps['hero_subtitle']) ?>">
-  <meta property="og:image" content="https://mosarib.tubbasoft.com/assets/images/og_share.png?v=142">
+  <meta property="og:image" content="<?= htmlspecialchars($ogImageUrl) ?>">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
 
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="<?= htmlspecialchars($ps['hero_title']) ?> • البوابة الرسمية">
   <meta name="twitter:description" content="<?= htmlspecialchars($ps['hero_subtitle']) ?>">
-  <meta name="twitter:image" content="https://mosarib.tubbasoft.com/assets/images/og_share.png?v=142">
+  <meta name="twitter:image" content="<?= htmlspecialchars($ogImageUrl) ?>">
 
   <link rel="icon" type="image/png" href="assets/images/app_icon.png?v=142">
   <link rel="apple-touch-icon" href="assets/images/app_icon.png?v=142">
@@ -344,8 +348,12 @@ $canonicalUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https
       <div class="hero__copy reveal">
         <p class="eyebrow" id="heroBadgeEl"><span class="eyebrow__dot"></span><span id="heroBadgeText"><?= htmlspecialchars($ps['hero_badge']) ?></span></p>
         <h1 class="display" id="heroTitleText">
-          كل قطرة محسوبة<br>
-          وكل حقّ <em>محفوظ</em>
+          <?php if (!empty($ps['hero_title']) && $ps['hero_title'] !== 'إدارة جلسات السقي وحسابات مياه الآبار بدقة واحترافية'): ?>
+            <?= nl2br(htmlspecialchars($ps['hero_title'])) ?>
+          <?php else: ?>
+            كل قطرة محسوبة<br>
+            وكل حقّ <em>محفوظ</em>
+          <?php endif; ?>
         </h1>
         <p class="lead" id="heroSubtitleText">
           <?= htmlspecialchars($ps['hero_subtitle']) ?>
@@ -794,7 +802,7 @@ $canonicalUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https
           ?>
           <div class="news-cover-wrap" style="margin-bottom:12px; border-radius:10px; overflow:hidden;">
             <picture>
-              <?php if (file_exists(__DIR__ . '/' . $webpSrc)): ?>
+              <?php if (!preg_match('#^https?://#i', $webpSrc) && file_exists(__DIR__ . '/' . ltrim($webpSrc, '/'))): ?>
               <source srcset="<?= htmlspecialchars($webpSrc) ?>" type="image/webp">
               <?php endif; ?>
               <img src="<?= htmlspecialchars($imgSrc) ?>" alt="<?= htmlspecialchars($nw['title']) ?>" loading="lazy" width="400" height="225" style="width:100%; height:auto; display:block; object-fit:cover;">
@@ -911,11 +919,13 @@ $canonicalUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https
         <a href="tel:<?= htmlspecialchars($ps['contact_phone']) ?>">اتصال مباشر: <?= htmlspecialchars($ps['contact_phone']) ?></a>
         <?php endif; ?>
       </div>
+      <?php if (!isset($ps['show_developer_section']) || !empty($ps['show_developer_section'])): ?>
       <div class="footer__col">
         <h4>المطور</h4>
         <div style="color:var(--ink); font-weight:700; font-size:var(--step--1); margin-bottom:4px;"><?= htmlspecialchars($ps['developer_name']) ?></div>
         <div style="color:var(--muted); font-size:var(--step--2);"><?= htmlspecialchars($ps['developer_company']) ?></div>
       </div>
+      <?php endif; ?>
     </div>
     <div class="footer__bottom">
       <span>© <?= date('Y') ?> مُسَرِّب • جميع الحقوق محفوظة.</span>
@@ -1231,7 +1241,8 @@ $canonicalUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https
         if (s.active_region_name && document.getElementById('regionNameEl')) document.getElementById('regionNameEl').textContent = s.active_region_name;
         if (s.avg_hourly_price && document.getElementById('avgPriceEl')) document.getElementById('avgPriceEl').textContent = Number(s.avg_hourly_price).toLocaleString('en-US');
         if (s.min_hourly_price && s.max_hourly_price && document.getElementById('minPriceEl')) {
-          document.getElementById('minPriceEl').textContent = 'أعلى: ' + Number(s.max_hourly_price).toLocaleString('en-US') + ' • أقل: ' + Number(s.min_hourly_price).toLocaleString('en-US') + ' ريال';
+          const curr = s.currency_symbol || 'ريال';
+          document.getElementById('minPriceEl').textContent = 'أعلى: ' + Number(s.max_hourly_price).toLocaleString('en-US') + ' • أقل: ' + Number(s.min_hourly_price).toLocaleString('en-US') + ' ' + curr;
         }
         if (s.hero_badge && document.getElementById('heroBadgeText')) document.getElementById('heroBadgeText').textContent = s.hero_badge;
         if (s.headline_alert && document.getElementById('topTickerText')) document.getElementById('topTickerText').textContent = s.headline_alert;

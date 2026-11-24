@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.util.Locale
 import java.util.UUID
@@ -193,10 +195,12 @@ object MosaribSpeaker {
         }
 
         val result = try {
-            initDeferred.await()
-        } catch (_: Exception) {
+            withTimeoutOrNull(4000L) { initDeferred.await() }
+        } catch (e: CancellationException) {
             try { candidate.shutdown() } catch (_: Exception) {}
-            return Triple(null, SpeechStatus.NoEngine, null)
+            throw e
+        } catch (_: Exception) {
+            null
         }
 
         if (result != TextToSpeech.SUCCESS) {
@@ -276,8 +280,8 @@ object MosaribSpeaker {
 
             override fun onDone(utteranceId: String?) {
                 if (utteranceId == null || !utteranceId.startsWith("synth_")) {
-                    _isSpeaking.value = false
-                    if (_activeUtteranceId.value == utteranceId) {
+                    if (_activeUtteranceId.value == utteranceId || _activeUtteranceId.value == null) {
+                        _isSpeaking.value = false
                         _activeUtteranceId.value = null
                     }
                 }
@@ -289,8 +293,8 @@ object MosaribSpeaker {
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) {
                 if (utteranceId == null || !utteranceId.startsWith("synth_")) {
-                    _isSpeaking.value = false
-                    if (_activeUtteranceId.value == utteranceId) {
+                    if (_activeUtteranceId.value == utteranceId || _activeUtteranceId.value == null) {
+                        _isSpeaking.value = false
                         _activeUtteranceId.value = null
                     }
                     _errors.tryEmit(SpeechError(utteranceId = utteranceId, message = "تعذّر تشغيل الصوت"))
@@ -304,8 +308,8 @@ object MosaribSpeaker {
 
             override fun onError(utteranceId: String?, errorCode: Int) {
                 if (utteranceId == null || !utteranceId.startsWith("synth_")) {
-                    _isSpeaking.value = false
-                    if (_activeUtteranceId.value == utteranceId) {
+                    if (_activeUtteranceId.value == utteranceId || _activeUtteranceId.value == null) {
+                        _isSpeaking.value = false
                         _activeUtteranceId.value = null
                     }
                     _errors.tryEmit(SpeechError(utteranceId = utteranceId, errorCode = errorCode, message = "تعذّر تشغيل الصوت (رمز الخطأ: $errorCode)"))
@@ -319,8 +323,8 @@ object MosaribSpeaker {
 
             override fun onStop(utteranceId: String?, interrupted: Boolean) {
                 if (utteranceId == null || !utteranceId.startsWith("synth_")) {
-                    _isSpeaking.value = false
-                    if (_activeUtteranceId.value == utteranceId) {
+                    if (_activeUtteranceId.value == utteranceId || _activeUtteranceId.value == null) {
+                        _isSpeaking.value = false
                         _activeUtteranceId.value = null
                     }
                 }
@@ -518,6 +522,10 @@ object MosaribSpeaker {
                 if (file.exists() && file.length() == 0L) file.delete()
                 Result.failure(RuntimeException("Synthesized file is empty or missing"))
             }
+        } catch (e: CancellationException) {
+            fileUtteranceCallbacks.remove(utteranceId)
+            if (file.exists() && file.length() == 0L) file.delete()
+            throw e
         } catch (e: Exception) {
             fileUtteranceCallbacks.remove(utteranceId)
             if (file.exists() && file.length() == 0L) file.delete()

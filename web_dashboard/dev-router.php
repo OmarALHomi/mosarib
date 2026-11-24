@@ -2,6 +2,10 @@
 // Local Development Router for Mosarib Web Dashboard
 // Allows running: php -S 127.0.0.1:8080 dev-router.php
 $uri = urldecode(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
+if (preg_match('#^/(data/|api/config(\.local(\.example)?)?\.php|uploads/releases_index\.json|\.htaccess|README_.*\.md)#i', $uri)) {
+    http_response_code(403);
+    exit('Forbidden');
+}
 $file = __DIR__ . $uri;
 
 if ($uri !== '/' && file_exists($file) && !is_dir($file)) {

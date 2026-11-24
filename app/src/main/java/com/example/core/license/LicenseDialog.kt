@@ -156,6 +156,7 @@ fun LicenseDialog(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var requestSuccessMessage by remember { mutableStateOf<String?>(null) }
     var isRequestingOnline by remember { mutableStateOf(false) }
+    var isActivating by remember { mutableStateOf(false) }
     var isCheckingGoogleLogin by remember { mutableStateOf(false) }
     var showNotRegisteredDialog by remember { mutableStateOf(false) }
     var unregisteredEmailAttempt by remember { mutableStateOf("") }
@@ -235,7 +236,7 @@ fun LicenseDialog(
 
     val isKeyFormatValid = remember(enteredKey) {
         val clean = enteredKey.trim().uppercase()
-        clean.matches(Regex("""^ACTV(-[MY])?-[A-Z0-9]{4}-[A-Z0-9]{4}$"""))
+        clean.matches(Regex("""^ACTV(-[MY])?-[A-Z0-9]{4}-[A-Z0-9]{4}(-[A-Z0-9]{4})?$"""))
     }
 
     val textFieldColors = OutlinedTextFieldDefaults.colors(
@@ -383,6 +384,7 @@ fun LicenseDialog(
     }
 
     fun submitActivation() {
+        if (isActivating) return
         errorMessage = null
         if (!isOnline) {
             errorMessage = "يلزم الاتصال بالإنترنت للتحقق من رمز التفعيل عبر السيرفر."
@@ -399,8 +401,13 @@ fun LicenseDialog(
             return
         }
 
-        val result = LicenseManager.verifyAndActivate(context, enteredKey, subscriberName)
-        when (result) {
+        coroutineScope.launch {
+            isActivating = true
+            try {
+                val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    LicenseManager.verifyAndActivateOnline(context, enteredKey, subscriberName)
+                }
+                when (result) {
             is LicenseManager.ActivationResult.NoInternet -> {
                 errorMessage = "تعذر الاتصال بالإنترنت! يلزم توفر اتصال نشط بالإنترنت لتوثيق وتفعيل التطبيق."
             }
@@ -423,6 +430,10 @@ fun LicenseDialog(
                     Toast.LENGTH_LONG
                 ).show()
                 onActivated()
+            }
+        }
+            } finally {
+                isActivating = false
             }
         }
     }
@@ -860,7 +871,7 @@ fun LicenseDialog(
 
                         Button(
                             onClick = { submitActivation() },
-                            enabled = isKeyFormatValid,
+                            enabled = isKeyFormatValid && !isActivating,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(46.dp),
@@ -1515,10 +1526,10 @@ fun LicenseDialog(
                 ) {
                     MosaribSecondaryButton(text = "السابق", onClick = { step-- }, modifier = Modifier.weight(1f))
                     MosaribPrimaryButton(
-                        text = if (step == 4) "تفعيل" else "التالي",
+                        text = if (step == 4) (if (isActivating) "جاري التفعيل..." else "تفعيل") else "التالي",
                         onClick = { if (step == 4) submitActivation() else step++ },
                         modifier = Modifier.weight(1f),
-                        enabled = step != 4 || isKeyFormatValid
+                        enabled = step != 4 || (isKeyFormatValid && !isActivating)
                     )
                 }
             }
