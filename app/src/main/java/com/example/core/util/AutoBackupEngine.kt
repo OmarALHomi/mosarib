@@ -11,7 +11,7 @@ import java.util.Locale
 
 /**
  * محرك النسخ الاحتياطي التلقائي اليومي ونقاط الأمان الوقائية.
- * يضمن بقاء بيانات المستخدم بأمان تام بدون استهلاك مساحة التخزين عبر نظام التدوير لـ 7 أيام.
+ * يضمن بقاء بيانات المستخدم بأمان تام بدون استهلاك مساحة التخزين عبر نظام التدوير لـ 10 أيام.
  */
 object AutoBackupEngine {
 
@@ -19,7 +19,7 @@ object AutoBackupEngine {
     private const val KEY_LAST_DAILY_BACKUP_DATE = "last_daily_backup_date"
     private const val KEY_AUTO_BACKUP_ENABLED = "auto_backup_enabled"
     private const val AUTO_BACKUP_DIR_NAME = "auto_backups"
-    private const val MAX_DAILY_BACKUPS = 7
+    private const val MAX_DAILY_BACKUPS = 10
     private const val MAX_SAFETY_CHECKPOINTS = 3
 
     fun isAutoBackupEnabled(context: Context): Boolean {
@@ -77,7 +77,7 @@ object AutoBackupEngine {
             sp.edit().putString(KEY_LAST_DAILY_BACKUP_DATE, todayDateStr).apply()
             PeriodicBackupReminderManager.recordBackupPerformed(context)
 
-            // تنظيف النسخ القديمة للاحتفاظ بآخر 7 أيام فقط
+            // تنظيف النسخ القديمة للاحتفاظ بآخر 10 أيام فقط
             pruneOldDailyBackups(context)
 
             // محاولة المزامنة الصامتة مع Google Drive إذا كان الحساب مربوطاً وتوفر الإنترنت
@@ -159,7 +159,7 @@ object AutoBackupEngine {
     }
 
     /**
-     * الاحتفاظ بآخر 7 أيام فقط من النسخ اليومية وحذف الأقدم تلقائياً.
+     * الاحتفاظ بآخر 10 أيام فقط من النسخ اليومية وحذف الأقدم تلقائياً.
      */
     private fun pruneOldDailyBackups(context: Context) {
         val dir = getAutoBackupDir(context)

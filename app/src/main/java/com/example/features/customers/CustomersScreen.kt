@@ -147,6 +147,7 @@ fun CustomersScreen(
     if (showAddSheet || customerToEdit != null) {
         AddEditCustomerBottomSheet(
             initialCustomer = customerToEdit,
+            initialIsWellOwner = accountFilter == AccountFilter.WELL_OWNERS,
             existingGroups = customGroups,
             currencySymbol = config.currencySymbol,
             onDismiss = {

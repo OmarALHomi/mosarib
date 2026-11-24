@@ -352,62 +352,6 @@ fun AddEditSessionBottomSheet(
         mutableLongStateOf(initialSession?.customerId ?: initialCustomerFromVoice?.id ?: (if (voiceCommand?.customerQuery != null) 0L else defaultCustomerId ?: 0L))
     }
 
-    var quickName by remember { mutableStateOf("") }
-    var quickPhone by remember { mutableStateOf("") }
-    var quickIsWellOwner by remember { mutableStateOf(false) }
-
-    val contactPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            val contactUri = result.data?.data
-            if (contactUri != null) {
-                try {
-                    val phoneUri = if (contactUri.toString().startsWith(ContactsContract.Contacts.CONTENT_URI.toString())) {
-                        val contactId = contactUri.lastPathSegment
-                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI.buildUpon()
-                            .appendQueryParameter(ContactsContract.CommonDataKinds.Phone.CONTACT_ID, contactId)
-                            .build()
-                    } else {
-                        contactUri
-                    }
-
-                    var cName: String? = null
-                    var cNum: String? = null
-
-                    context.contentResolver.query(
-                        phoneUri,
-                        arrayOf(
-                            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                            ContactsContract.CommonDataKinds.Phone.NUMBER
-                        ),
-                        null,
-                        null,
-                        null
-                    )?.use { cursor ->
-                        if (cursor.moveToFirst()) {
-                            val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                            val numIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                            if (nameIdx >= 0) cName = cursor.getString(nameIdx)
-                            if (numIdx >= 0) cNum = cursor.getString(numIdx)
-                        }
-                    }
-
-                    if (!cName.isNullOrBlank()) {
-                        quickName = cName.orEmpty().trim()
-                    }
-                    if (!cNum.isNullOrBlank()) {
-                        val clean = com.example.core.util.FileSharingHelper.convertArabicDigitsToAscii(cNum.orEmpty())
-                            .replace(Regex("[^0-9+]"), "").trim()
-                        quickPhone = clean
-                    }
-                } catch (_: Exception) {
-                    Toast.makeText(context, "تعذر قراءة جهة الاتصال", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
-
     val legacyPumpName = initialSession?.pumpName.orEmpty()
 
     val selectedCustomer = customers.find { it.id == selectedCustomerId }
@@ -778,7 +722,7 @@ fun AddEditSessionBottomSheet(
     var isVoiceCompact by remember { mutableStateOf(false) }
     var voiceRecordPrompt by remember { mutableStateOf("تحدث بالعملية...") }
     var unrecognizedSessionVoiceText by remember { mutableStateOf<String?>(null) }
-    var showQuickCustomerDialog by remember { mutableStateOf(false) }
+    var showAddCustomerSheet by remember { mutableStateOf(false) }
 
     fun launchVoiceFor(target: String) {
         pendingVoiceTarget = target
@@ -825,7 +769,7 @@ fun AddEditSessionBottomSheet(
                         }
                     } else {
                         customerInputText = spoken
-                        showQuickCustomerDialog = true
+                        showAddCustomerSheet = true
                     }
                 }
                 "form_command" -> {
@@ -863,7 +807,7 @@ fun AddEditSessionBottomSheet(
                                 customerInputText = cust.name
                             } else {
                                 customerInputText = cmd.customerQuery.trim()
-                                showQuickCustomerDialog = true
+                                showAddCustomerSheet = true
                             }
                         }
                         if (!cmd.notes.isNullOrBlank()) {
@@ -879,7 +823,6 @@ fun AddEditSessionBottomSheet(
     }
 
     var voiceDialogType by remember { mutableStateOf(VoiceDialogType.NONE) }
-    var showAddCustomerSheet by remember { mutableStateOf(false) }
     var customerSaveError by remember { mutableStateOf<String?>(null) }
     var showWastedDetails by remember { mutableStateOf(wastedTotalMinutes > 0) }
     var showExtraOptions by remember {
@@ -899,9 +842,9 @@ fun AddEditSessionBottomSheet(
         notes = notes,
         pricePerHourStr = pricePerHourStr,
         startTimeMillis = startCal.timeInMillis,
-        quickName = quickName,
-        quickPhone = quickPhone,
-        quickIsWellOwner = quickIsWellOwner
+        quickName = "",
+        quickPhone = "",
+        quickIsWellOwner = false
     )
     val initialSnapshot = remember { currentSnapshot }
     val hasUnsavedChanges by remember(currentSnapshot, initialSnapshot) {
@@ -1021,7 +964,7 @@ fun AddEditSessionBottomSheet(
                 text = if (initialSession == null) "حفظ السقي" else "حفظ التعديل",
                 onClick = {
                     if (finalCustId == 0L && trimmedInput.isNotBlank()) {
-                        showQuickCustomerDialog = true
+                        showAddCustomerSheet = true
                         return@MosaribPrimaryButton
                     }
 
@@ -1085,8 +1028,7 @@ fun AddEditSessionBottomSheet(
                     },
                     onAddNew = {
                         customerSaveError = null
-                        quickName = if (selectedCustomerId > 0L) "" else customerInputText.trim()
-                        showQuickCustomerDialog = true
+                        showAddCustomerSheet = true
                     },
                     trailingIcon = { VoiceFieldMic(onClick = { launchVoiceFor("customer") }, modifier = Modifier.guideTarget("session_mic")) },
                     errorText = if (customerErr) REQUIRED_FIELD_TEXT else null,
@@ -2171,6 +2113,8 @@ fun AddEditSessionBottomSheet(
                         )
                     }.onSuccess { customerId ->
                         selectedCustomerId = customerId
+                        customerInputText = name.trim()
+                        Toast.makeText(context, "تم حفظ وتحديد: ${name.trim()}", Toast.LENGTH_SHORT).show()
                         val salePrice = if (isWellOwner) null else customPrice
                         pricePerHourStr = priceTextFor(salePrice)
                         customerSaveError = null
@@ -2180,149 +2124,6 @@ fun AddEditSessionBottomSheet(
                 }
             }
         )
-    }
-
-    if (showQuickCustomerDialog) {
-        var isQuickSubmitting by remember { mutableStateOf(false) }
-
-        Dialog(onDismissRequest = { if (!isQuickSubmitting) showQuickCustomerDialog = false }) {
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = PrimaryTeal.copy(alpha = 0.15f),
-                            modifier = Modifier.size(42.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.PersonAdd, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(22.dp))
-                            }
-                        }
-                        Column {
-                            Text(
-                                text = "تسجيل عميل جديد",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            )
-                            Text(
-                                text = "تسجيل العميل واختياره فوراً لمتابعة السقي",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    MosaribTextField(
-                        value = quickName,
-                        onValueChange = { quickName = it },
-                        label = "اسم العميل *",
-                        placeholder = "اكتب اسم العميل...",
-                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryTeal) },
-                        modifier = Modifier.fillMaxWidth(),
-                        isDense = true
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    MosaribTextField(
-                        value = quickPhone,
-                        onValueChange = { quickPhone = it },
-                        label = "رقم الهاتف (اختياري)",
-                        placeholder = "777xxxxxx",
-                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = Color.Gray) },
-                        trailingIcon = {
-                            IconButton(onClick = {
-                                val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
-                                contactPickerLauncher.launch(intent)
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Default.Contacts,
-                                    contentDescription = "جهات الاتصال",
-                                    tint = PrimaryTeal,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        modifier = Modifier.fillMaxWidth(),
-                        isDense = true
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "هل هذا مورد (صاحب بئر)؟",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Switch(checked = quickIsWellOwner, onCheckedChange = { quickIsWellOwner = it })
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        MosaribOutlinedButton(
-                            text = "إلغاء",
-                            onClick = { showQuickCustomerDialog = false },
-                            modifier = Modifier.weight(1f),
-                            height = 46.dp
-                        )
-                        MosaribButton(
-                            text = "حفظ وتحديد العميل",
-                            isLoading = isQuickSubmitting,
-                            enabled = quickName.isNotBlank() && !isQuickSubmitting,
-                            onClick = {
-                                if (quickName.isBlank() || isQuickSubmitting) return@MosaribButton
-                                isQuickSubmitting = true
-                                coroutineScope.launch {
-                                    try {
-                                        val newCustomer = Customer(
-                                            name = quickName.trim(),
-                                            phone = quickPhone.trim(),
-                                            isWellOwner = quickIsWellOwner
-                                        )
-                                        val newId = onCreateCustomer(newCustomer)
-                                        selectedCustomerId = newId
-                                        customerInputText = quickName.trim()
-                                        val customerPrice = if (quickIsWellOwner) null else newCustomer.customPricePerHour
-                                        pricePerHourStr = priceTextFor(customerPrice)
-                                        showQuickCustomerDialog = false
-                                        Toast.makeText(context, "تم حفظ وتحديد: ${quickName.trim()}", Toast.LENGTH_SHORT).show()
-                                    } catch (e: Exception) {
-                                        isQuickSubmitting = false
-                                        Toast.makeText(context, "فشل حفظ العميل: ${e.message}", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            },
-                            modifier = Modifier.weight(1.8f),
-                            height = 46.dp
-                        )
-                    }
-                }
-            }
-        }
     }
 
     if (showVoiceRecordSheet) {
