@@ -22,6 +22,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalContext
+import com.example.core.license.LicenseManager
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.CleaningServices
@@ -445,14 +450,20 @@ internal class BackupListEntry(
     val onDelete: () -> Unit
 )
 
-// One list for phone + Drive copies: tap restores (restore mode) or share/delete icons (manage mode)
+// Two tabs (Drive / phone): tap restores (restore mode) or share/delete icons (manage mode)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 internal fun BackupListDialog(
     manage: Boolean,
     entries: List<BackupListEntry>,
     isLoading: Boolean,
+    hasAccount: Boolean,
+    onRetryDrive: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    var driveTab by remember { mutableStateOf(hasAccount) }
+    var online by remember { mutableStateOf(LicenseManager.isInternetAvailable(context)) }
     MosaribDialog(
         onDismissRequest = onDismiss,
         title = if (manage) "حذف نسخ" else "استعادة نسخة",
@@ -460,9 +471,38 @@ internal fun BackupListDialog(
         onConfirm = onDismiss,
         dismissText = null
     ) {
-        if (entries.isEmpty()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            FilterChip(selected = driveTab, onClick = { driveTab = true; online = LicenseManager.isInternetAvailable(context) }, label = { Text("Drive") })
+            FilterChip(selected = !driveTab, onClick = { driveTab = false }, label = { Text("الهاتف") })
+        }
+        val shown = entries.filter { it.isDrive == driveTab }.sortedByDescending { it.time }
+        if (driveTab && (!hasAccount || !online || shown.isEmpty())) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (!online && hasAccount) {
+                    Icon(Icons.Default.CloudOff, contentDescription = null, modifier = Modifier.size(28.dp))
+                }
+                Text(
+                    text = when {
+                        !hasAccount -> "لم يتم ربط حساب Google. اربطه من «النسخ التلقائي» أعلاه."
+                        !online -> "لا يوجد اتصال بالإنترنت — لا يمكن عرض نسخ Drive الآن."
+                        isLoading -> "جارٍ تحميل نسخ Drive..."
+                        else -> "لا توجد نسخ على Drive"
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (!online && hasAccount) {
+                    TextButton(onClick = {
+                        online = LicenseManager.isInternetAvailable(context)
+                        if (online) onRetryDrive()
+                    }) { Text("إعادة المحاولة") }
+                }
+            }
+        } else if (shown.isEmpty()) {
             Text(
-                text = if (isLoading) "جارٍ التحميل..." else "لا توجد نسخ احتياطية",
+                text = "لا توجد نسخ على الهاتف",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(vertical = 12.dp)
             )
@@ -471,7 +511,7 @@ internal fun BackupListDialog(
                 modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                items(entries) { e ->
+                items(shown) { e ->
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),

@@ -338,7 +338,7 @@ internal fun SettingsBackupScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(it, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFDC2626)))
+                                    Text(if (it.contains("NetworkError", true)) "تعذر الاتصال بالإنترنت" else it, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFDC2626)))
                                 }
                             }
                         }
@@ -407,6 +407,8 @@ internal fun SettingsBackupScreen(
             manage = mode == BackupListMode.MANAGE,
             entries = buildBackupEntries(state, autoBackups, savedBackups, driveBackups, onShareBackupFile),
             isLoading = isDriveLoading,
+            hasAccount = googleAccount != null,
+            onRetryDrive = onRefreshDriveBackups,
             onDismiss = { showList = null }
         )
     }
