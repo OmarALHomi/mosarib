@@ -119,6 +119,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun chooseUsageMode(simple: Boolean) {
+        viewModelScope.launch { settingsRepo.chooseUsageMode(simple) }
+    }
+
     fun updateSimpleMode(enabled: Boolean) {
         viewModelScope.launch { settingsRepo.updateSimpleMode(enabled) }
     }

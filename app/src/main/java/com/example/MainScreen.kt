@@ -363,6 +363,13 @@ fun MainApp(
                 }
             }
 
+            if (!isOverlayLockActive && appConfig.loaded && !appConfig.usageModeChosen) {
+                com.example.core.ui.UsageModeChooserDialog(
+                    currentSimple = appConfig.simpleMode,
+                    onChoose = { settingsViewModel.chooseUsageMode(it) }
+                )
+            }
+
             if (showSplashScreen) {
                 SplashScreen(onTimeout = { showSplashScreen = false })
             } else if (isDeviceBlocked) {
@@ -371,7 +378,6 @@ fun MainApp(
                 ForceUpdateScreen(broadcast = activeBroadcast!!)
             } else if (showOnboarding) {
                 OnboardingScreen(onFinish = {
-                    settingsViewModel.updateSimpleMode(true)
                     showOnboarding = false
                 })
             } else if (appConfig.biometricEnabled && !isBiometricUnlocked) {

@@ -10,7 +10,9 @@ data class AppConfig(
     val currencySymbol: String = "ر.ي",
     val themeMode: String = "SYSTEM", // LIGHT, DARK, SYSTEM
     val biometricEnabled: Boolean = false,
-    val simpleMode: Boolean = false
+    val simpleMode: Boolean = false,
+    val usageModeChosen: Boolean = false,
+    val loaded: Boolean = false // false only for the initial default before the DB emits
 )
 
 class SettingsRepository(
@@ -25,7 +27,9 @@ class SettingsRepository(
             currencySymbol = map["currency_symbol"] ?: "ر.ي",
             themeMode = (map["theme_mode"] ?: "SYSTEM").uppercase(java.util.Locale.US),
             biometricEnabled = map["biometric_enabled"]?.toBooleanStrictOrNull() ?: false,
-            simpleMode = map["ui_simple_mode"]?.toBooleanStrictOrNull() ?: false
+            simpleMode = map["ui_simple_mode"]?.toBooleanStrictOrNull() ?: false,
+            usageModeChosen = map["ui_mode_chosen"]?.toBooleanStrictOrNull() ?: false,
+            loaded = true
         )
     }
 
@@ -51,6 +55,11 @@ class SettingsRepository(
 
     suspend fun updateSimpleMode(enabled: Boolean) {
         settingDao.saveSetting(AppSetting("ui_simple_mode", enabled.toString()))
+    }
+
+    suspend fun chooseUsageMode(simple: Boolean) {
+        settingDao.saveSetting(AppSetting("ui_simple_mode", simple.toString()))
+        settingDao.saveSetting(AppSetting("ui_mode_chosen", "true"))
     }
 
     suspend fun updateBiometricEnabled(enabled: Boolean) {
