@@ -2374,7 +2374,7 @@ fun AddVoucherBottomSheet(
                 }
 
                 // الجلسات غير المسددة تُسدد تلقائياً بالأقدمية عند الحفظ؛ هنا تنبيه فقط
-                if (unsettledSessions.isEmpty()) {
+                if (selectedCustomerId > 0L && unsettledSessions.isEmpty()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Box(
                         modifier = Modifier
