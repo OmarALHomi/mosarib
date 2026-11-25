@@ -50,6 +50,27 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".core.widget.QuickRecordActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Mosarib.QuickOverlay"
+            android:windowSoftInputMode="adjustResize" />
+
+        <receiver
+            android:name=".core.widget.MosaribQuickWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/mosarib_quick_widget_info" />
+        </receiver>
+
         <service
             android:name=".core.notifications.MosaribFirebaseMessagingService"
             android:exported="false">

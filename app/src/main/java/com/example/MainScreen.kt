@@ -277,6 +277,15 @@ fun MainApp(
                 }
             }
 
+            // تحديث عدد العمليات في لوحة الإدارة فور تسجيل عمليات جديدة خلال الجلسة
+            LaunchedEffect(operationsCount) {
+                com.example.core.widget.MosaribQuickWidgetProvider.requestWidgetRefresh(context)
+                if (operationsCount > 0 && operationsCount != UserDeviceTracker.getLastSyncedOperations(context)) {
+                    kotlinx.coroutines.delay(1500L)
+                    UserDeviceTracker.syncOperationsSnapshot(context, operationsCount)
+                }
+            }
+
             // مزامنة موحدة ومنظمة مع السحابة بدون ضغط على الشبكة وطابور أولويات للنوافذ
             LaunchedEffect(Unit) {
                 val decision = AppSyncEngine.performConsolidatedStartupSync(context, operationsCount)

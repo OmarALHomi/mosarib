@@ -133,4 +133,84 @@ class RegressionFixesTest {
         assertTrue("ACTV-ABCD-EF12".matches(pattern))
         assertFalse("ACTV-BAD".matches(pattern))
     }
+
+    @Test
+    fun widgetTodaySummary_avoidsDoubleCountingSettledSessionsAndCountsOlderSettlements() {
+        val now = 1_700_050_000_000L
+        val (startOfDay, _) = com.example.core.widget.MosaribWidgetSummary.dayRange(now)
+        val todaySession = WaterSession(
+            id = 10L,
+            customerId = 1L,
+            startTime = startOfDay + 3_600_000L,
+            durationMinutes = 120,
+            wastedMinutes = 15,
+            totalAmount = 10_000.0,
+            amountPaid = 7_000.0,
+            remainingDebt = 3_000.0
+        )
+        val yesterdaySession = WaterSession(
+            id = 9L,
+            customerId = 1L,
+            startTime = startOfDay - 86_400_000L,
+            durationMinutes = 60,
+            totalAmount = 5_000.0,
+            amountPaid = 5_000.0
+        )
+        val linkedReceiptForTodaySession = Voucher(
+            id = 101L,
+            customerId = 1L,
+            sessionId = 10L,
+            date = startOfDay + 7_200_000L,
+            type = VoucherType.RECEIPT,
+            amount = 3_000.0
+        )
+        val settlementForOldSessionToday = Voucher(
+            id = 102L,
+            customerId = 1L,
+            sessionId = 9L,
+            date = startOfDay + 8_000_000L,
+            type = VoucherType.RECEIPT,
+            amount = 2_000.0
+        )
+
+        val summary = com.example.core.widget.MosaribWidgetSummary.computeToday(
+            sessions = listOf(todaySession, yesterdaySession),
+            vouchers = listOf(linkedReceiptForTodaySession, settlementForOldSessionToday),
+            nowMillis = now
+        )
+        assertEquals(1, summary.sessionsCount)
+        assertEquals(105, summary.waterMinutes)
+        assertEquals(9_000.0, summary.receiptsTotal, 0.01)
+
+        val recent = com.example.core.widget.MosaribWidgetSummary.buildRecentOperationRows(
+            sessions = listOf(todaySession),
+            vouchers = listOf(linkedReceiptForTodaySession),
+            purchases = emptyList(),
+            customersById = mapOf(1L to Customer(id = 1L, name = "أحمد"))
+        )
+        assertEquals(2, recent.size)
+        assertEquals("قبض", recent[0].type)
+        assertEquals("سقي", recent[1].type)
+        assertEquals("أحمد", recent[1].name)
+
+        val sms = com.example.core.util.MessageFormatHelper.buildSessionBill(
+            session = todaySession,
+            customer = Customer(id = 1L, name = "أحمد"),
+            config = com.example.features.settings.AppConfig(),
+            isSms = true
+        )
+        assertTrue("SMS should stay compact (<= 2 segments), got len=${sms.length}", com.example.core.util.MessageFormatHelper.calculateSmsSegments(sms) <= 2)
+        assertEquals(
+            com.example.core.widget.WidgetSizeMode.COMPACT_ONE_ROW,
+            com.example.core.widget.MosaribWidgetSummary.sizeModeForHeightDp(64)
+        )
+        assertEquals(
+            com.example.core.widget.WidgetSizeMode.STANDARD_TWO_ROWS,
+            com.example.core.widget.MosaribWidgetSummary.sizeModeForHeightDp(140)
+        )
+        assertEquals(
+            com.example.core.widget.WidgetSizeMode.EXPANDED_THREE_PLUS_ROWS,
+            com.example.core.widget.MosaribWidgetSummary.sizeModeForHeightDp(230)
+        )
+    }
 }

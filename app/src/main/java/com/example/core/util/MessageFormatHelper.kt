@@ -12,7 +12,7 @@ import com.example.features.wellowners.WellOwnerPurchaseMath
 /**
  * منسق الرسائل الموحد لتطبيق المُسَرِّبْ.
  * يدعم صيغة واتساب الأصلية كاملة مع التذييل والإيموجيات،
- * وصيغة SMS المختصرة للبيانات مع الحفاظ على الإيموجيات والتذييل.
+ * وصيغة SMS خفيفة ومختصرة لتقليل عدد أجزاء الرسالة.
  */
 object MessageFormatHelper {
 
@@ -59,8 +59,6 @@ object MessageFormatHelper {
     /**
      * سطر التاريخ الموحد بدون أيقونة التقويم الثابتة (📅):
      * رقم اليوم في keycap digits + اسم يوم الأسبوع بالعربية + التاريخ بأرقام إنجليزية (dd/MM/yyyy).
-     * مثل: "5️⃣ الأربعاء · 05/11/2026" أو "2️⃣7️⃣ الثلاثاء · 27/10/2026".
-     * في حال تمرير تسمية مخصصة مثل "حتى": "5️⃣ حتى: الأربعاء · 05/11/2026".
      */
     fun dateLine(millis: Long, label: String = "التاريخ"): String {
         val cal = java.util.Calendar.getInstance()
@@ -77,6 +75,11 @@ object MessageFormatHelper {
         } else {
             "$keycaps $weekday · $dateStr"
         }
+    }
+
+    private fun smsDate(millis: Long): String {
+        val sdf = java.text.SimpleDateFormat("dd/MM/yy", java.util.Locale.US)
+        return sdf.format(java.util.Date(millis))
     }
 
     /**
@@ -101,16 +104,7 @@ object MessageFormatHelper {
             if (isSms) {
                 val duration = Formatters.formatDurationCompact(session.durationMinutes)
                 val total = Formatters.formatNumber(session.totalAmount)
-                val msg = """
-💧 فاتورة ري #${session.id}
-👤 المزارع: ${farmerName.take(16)}
-💳 على حساب: ${ownerName.take(16)}
-⏱️ المدة: $duration
-💵 المبلغ: $total
-✅ مسدد مقاصة مع المالك
-${dateLine(session.startTime)}
-                """.trimIndent()
-                FileSharingHelper.attachMessageFooter(msg)
+                "ري #${session.id} ${farmerName.take(16)} (على حساب: ${ownerName.take(16)})\n$duration | $total ${config.currencySymbol} | ${smsDate(session.startTime)}"
             } else {
                 val timeRange = "من ${Formatters.formatTime(session.startTime)} إلى ${Formatters.formatTime(session.endTime)}"
                 val appTitle = config.distributorName.ifEmpty { "المسرّب" }
@@ -135,18 +129,8 @@ ${dateLine(session.startTime)}
             val total = Formatters.formatNumber(session.totalAmount)
             val paid = Formatters.formatNumber(session.amountPaid)
             val rem = Formatters.formatNumber(session.remainingDebt)
-            val curr = config.currencySymbol
-            val statusEmoji = if (session.remainingDebt > 0) "⚠️ المتبقي: $rem $curr" else "✅ مسدد"
-            val msg = """
-💧 فاتورة ري #${session.id}
-👤 العميل: ${customer.name.take(18)}
-⏱️ المدة: $duration
-💵 المبلغ: $total
-💰 المسدد: $paid
-$statusEmoji
-${dateLine(session.startTime)}
-            """.trimIndent()
-            FileSharingHelper.attachMessageFooter(msg)
+            val statusPart = if (session.remainingDebt > 0) " الباقي: $rem" else " (مسدد)"
+            "ري #${session.id} - ${customer.name.take(15)}\n$duration | المبلغ: $total الواصل: $paid$statusPart | ${smsDate(session.startTime)}"
         } else {
             val timeRange = "من ${Formatters.formatTime(session.startTime)} إلى ${Formatters.formatTime(session.endTime)}"
             val debtStatus = if (session.remainingDebt > 0) {
@@ -183,14 +167,8 @@ ${dateLine(session.startTime)}
         val curr = config.currencySymbol
 
         return if (isSms) {
-            val sessionPart = if (sessionNumber != null && sessionNumber > 0) "سداد دورة: #$sessionNumber\n" else ""
-            val msg = """
-🧾 سند قبض #$vNum
-👤 استلمنا من: ${customer.name.take(18)}
-💵 مبلغ: $amountNum $curr
-${sessionPart}${dateLine(voucher.date)}
-            """.trimIndent()
-            FileSharingHelper.attachMessageFooter(msg)
+            val sessionPart = if (sessionNumber != null && sessionNumber > 0) " (ري #$sessionNumber)" else ""
+            "قبض #$vNum - ${customer.name.take(16)}$sessionPart\n$amountNum $curr | ${smsDate(voucher.date)}"
         } else {
             val sessionPart = if (sessionNumber != null && sessionNumber > 0) "سداد دورة سقي #$sessionNumber\n" else ""
             val msg = """
@@ -218,14 +196,8 @@ ${dateLine(voucher.date)}
         val curr = config.currencySymbol
 
         return if (isSms) {
-            val notePart = if (voucher.notes.isNotBlank()) "📝 البيان: ${voucher.notes.take(20)}\n" else ""
-            val msg = """
-💸 سند صرف #$vNum
-👤 المستلم: ${customer.name.take(18)}
-💵 مبلغ: $amountNum $curr
-${notePart}${dateLine(voucher.date)}
-            """.trimIndent()
-            FileSharingHelper.attachMessageFooter(msg)
+            val notePart = if (voucher.notes.isNotBlank()) " (${voucher.notes.take(14)})" else ""
+            "صرف #$vNum - ${customer.name.take(16)}\n$amountNum $curr$notePart | ${smsDate(voucher.date)}"
         } else {
             val reason = voucher.notes.ifEmpty { voucher.category }
             val msg = """
@@ -276,18 +248,8 @@ ${dateLine(voucher.date)}
         val curr = config.currencySymbol
 
         return if (isSms) {
-            val wastePart = if (wasteMinutes > 0) " (هدر ${Formatters.formatDurationCompact(wasteMinutes)})" else ""
-            val remText = if (remainingDebt > 0) "⚠️ المتبقي لكم: ${Formatters.formatNumber(remainingDebt)} $curr" else "✅ مسدد"
-            val msg = """
-💧 شراء ساعات #${purchase.id}
-👤 صاحب البئر: ${owner.name.take(18)}
-⏱️ الساعات: ${Formatters.formatDurationCompact(chargeableMinutes)}$wastePart
-💵 الإجمالي: ${Formatters.formatNumber(totalAmount)}
-💸 المسلم: ${Formatters.formatNumber(paidAmount)}
-$remText
-${dateLine(purchase.date)}
-            """.trimIndent()
-            FileSharingHelper.attachMessageFooter(msg)
+            val statusPart = if (remainingDebt > 0) " الباقي: ${Formatters.formatNumber(remainingDebt)}" else " (مسدد)"
+            "شراء #${purchase.id} - ${owner.name.take(15)}\n${Formatters.formatDurationCompact(chargeableMinutes)} | المبلغ: ${Formatters.formatNumber(totalAmount)} الواصل: ${Formatters.formatNumber(paidAmount)}$statusPart | ${smsDate(purchase.date)}"
         } else {
             val wastePart = if (wasteMinutes > 0) "\nهدر على صاحب البئر: ${Formatters.formatDurationArabic(wasteMinutes)}" else ""
             val msg = """
@@ -313,19 +275,10 @@ ${dateLine(purchase.date)}
     ): String {
         val curr = result.currencySymbol
         return if (isSms) {
-            val lines = result.items.take(3).joinToString("\n") { item ->
-                val status = if (item.isFullyPaid) "مسدد ✅" else "متبقي ${Formatters.formatNumber(item.remainingDebtAfter)}"
-                "• دورة #${item.sessionId}: ${Formatters.formatNumber(item.allocatedAmount)} ($status)"
-            }
-            val discSms = if (result.discountAmount > 0.0) " (خصم تسوية: ${Formatters.formatNumber(result.discountAmount)})" else ""
-            val msg = """
-🧾 تسوية سداد للأخ: ${result.customerName.take(18)}
-💵 المبلغ: ${Formatters.formatNumber(result.totalAmount)} $curr$discSms
-تم سداد:
-$lines
-${dateLine(System.currentTimeMillis())}
-            """.trimIndent()
-            FileSharingHelper.attachMessageFooter(msg)
+            val discPart = if (result.discountAmount > 0.0) " خصم: ${Formatters.formatNumber(result.discountAmount)}" else ""
+            val totalRem = result.items.sumOf { it.remainingDebtAfter }
+            val remPart = if (totalRem > 0.0) " الباقي: ${Formatters.formatNumber(totalRem)}" else " (مسدد)"
+            "تسوية ${result.customerName.take(15)}: ${Formatters.formatNumber(result.totalAmount)} $curr$discPart\n${result.items.size} جلسات$remPart | ${smsDate(System.currentTimeMillis())}"
         } else {
             val sb = StringBuilder()
             sb.append("السلام عليكم ورحمة الله وبركاته\n")
@@ -368,18 +321,11 @@ ${dateLine(System.currentTimeMillis())}
             if (isSms) {
                 val netDue = item.payableBalance - item.receivableBalance
                 val status = when {
-                    netDue > 0 -> "⚠️ المتبقي لكم: ${Formatters.formatNumber(netDue)} $curr"
-                    netDue < 0 -> "⚠️ المستحق عليكم: ${Formatters.formatNumber(-netDue)} $curr"
-                    else -> "✅ الحساب مسدد"
+                    netDue > 0 -> "لكم: ${Formatters.formatNumber(netDue)} $curr"
+                    netDue < 0 -> "عليكم: ${Formatters.formatNumber(-netDue)} $curr"
+                    else -> "مسدد"
                 }
-                val msg = """
-📊 كشف حساب بئر: ${customer.name.take(18)}
-🛒 قيمة الشراء: ${Formatters.formatNumber(item.totalPurchaseAmount)}
-💸 المسدد لكم: ${Formatters.formatNumber(item.totalDisbursedAmount)}
-$status
-${dateLine(System.currentTimeMillis(), label = "حتى")}
-                """.trimIndent()
-                FileSharingHelper.attachMessageFooter(msg)
+                "كشف بئر: ${customer.name.take(15)}\nشراء: ${Formatters.formatNumber(item.totalPurchaseAmount)} صرف: ${Formatters.formatNumber(item.totalDisbursedAmount)} | $status | ${smsDate(System.currentTimeMillis())}"
             } else {
                 val appTitle = config.distributorName.ifEmpty { "المسرّب" }
                 val netStatus = when {
@@ -409,19 +355,11 @@ ${dateLine(System.currentTimeMillis(), label = "حتى")}
         } else {
             if (isSms) {
                 val debtText = when {
-                    item.receivableBalance > 0 -> "⚠️ المطلوب: ${Formatters.formatNumber(item.receivableBalance)} $curr"
-                    item.receivableBalance < 0 -> "✅ لكم رصيد: ${Formatters.formatNumber(-item.receivableBalance)} $curr"
-                    else -> "✅ مسدد"
+                    item.receivableBalance > 0 -> "الباقي: ${Formatters.formatNumber(item.receivableBalance)} $curr"
+                    item.receivableBalance < 0 -> "رصيد: ${Formatters.formatNumber(-item.receivableBalance)} $curr"
+                    else -> "مسدد"
                 }
-                val msg = """
-📊 كشف حساب: ${customer.name.take(18)}
-⏱️ السقي: ${Formatters.formatDurationCompact(item.totalSoldMinutes)}
-💰 القيمة: ${Formatters.formatNumber(item.totalBilledAmount)}
-💵 المسدد: ${Formatters.formatNumber(item.totalPaidAmount)}
-$debtText
-${dateLine(System.currentTimeMillis(), label = "حتى")}
-                """.trimIndent()
-                FileSharingHelper.attachMessageFooter(msg)
+                "كشف: ${customer.name.take(15)}\n${Formatters.formatDurationCompact(item.totalSoldMinutes)} المبلغ: ${Formatters.formatNumber(item.totalBilledAmount)} الواصل: ${Formatters.formatNumber(item.totalPaidAmount)} | $debtText | ${smsDate(System.currentTimeMillis())}"
             } else {
                 val appTitle = config.distributorName.ifEmpty { "المسرّب" }
                 val debtStatus = if (item.receivableBalance > 0) {

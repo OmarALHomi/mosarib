@@ -1,0 +1,493 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:layoutDirection="rtl"
+    android:orientation="vertical"
+    android:paddingHorizontal="8dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
+
+    <!-- Header: Logo + Title + Refresh (hidden in 1-row compact mode) -->
+    <LinearLayout
+        android:id="@+id/widget_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/widget_logo"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/ic_logo_mark" />
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="5dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="مُسَرِّب — تسجيل سريع"
+            android:textColor="#FFF0F6F8"
+            android:textSize="11.5sp"
+            android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@+id/widget_btn_refresh"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="تحديث الملخص"
+            android:padding="2dp"
+            android:src="@drawable/ic_widget_refresh" />
+    </LinearLayout>
+
+    <!-- Previous 2-Column Summary Strip: سقي اليوم | مقبوض اليوم -->
+    <LinearLayout
+        android:id="@+id/widget_summary_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_stat_bg"
+            android:orientation="vertical"
+            android:paddingHorizontal="7dp"
+            android:paddingVertical="3dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="سقي اليوم"
+                android:textColor="#FFAABCC6"
+                android:textSize="9sp" />
+
+            <TextView
+                android:id="@+id/widget_today_sessions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="0 دقيقة • 0"
+                android:textColor="#FF90E0EF"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_stat_bg"
+            android:orientation="vertical"
+            android:paddingHorizontal="7dp"
+            android:paddingVertical="3dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="مقبوض اليوم"
+                android:textColor="#FFAABCC6"
+                android:textSize="9sp" />
+
+            <TextView
+                android:id="@+id/widget_today_receipts"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="0 ر.ي"
+                android:textColor="#FF00E676"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Compact 1-Row Mode ONLY: سقي | قبض | صرف | شراء | صوتي (icon + label underneath) -->
+    <LinearLayout
+        android:id="@+id/widget_compact_row"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/widget_compact_session"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_marginEnd="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_btn_primary"
+            android:clickable="true"
+            android:contentDescription="سقي"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_widget_water" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="سقي"
+                android:textColor="#FFFFFFFF"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_compact_receipt"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_marginHorizontal="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_btn_receipt"
+            android:clickable="true"
+            android:contentDescription="قبض"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_widget_receipt" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="قبض"
+                android:textColor="#FF6EE7B7"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_compact_expense"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_marginHorizontal="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_btn_expense"
+            android:clickable="true"
+            android:contentDescription="صرف"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_widget_expense" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="صرف"
+                android:textColor="#FFFF8A8A"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_compact_purchase"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_marginHorizontal="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_btn_purchase"
+            android:clickable="true"
+            android:contentDescription="شراء"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_widget_purchase" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="شراء"
+                android:textColor="#FFFFD54F"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_compact_voice"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_marginStart="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_btn_voice"
+            android:clickable="true"
+            android:contentDescription="صوتي"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_widget_mic" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="صوتي"
+                android:textColor="#FF90E0EF"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Standard & Expanded Actions Block -->
+    <LinearLayout
+        android:id="@+id/widget_actions_block"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:id="@+id/widget_action_session"
+            android:layout_width="match_parent"
+            android:layout_height="31dp"
+            android:background="@drawable/widget_btn_primary"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingHorizontal="10dp">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_widget_water" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="تسجيل سقي جديد"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:id="@+id/widget_action_voice"
+                android:layout_width="0dp"
+                android:layout_height="27dp"
+                android:layout_marginEnd="3dp"
+                android:layout_weight="1"
+                android:background="@drawable/widget_btn_voice"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingHorizontal="6dp">
+
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_widget_mic" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="صوتي"
+                    android:textColor="#FF90E0EF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/widget_action_receipt"
+                android:layout_width="0dp"
+                android:layout_height="27dp"
+                android:layout_marginHorizontal="3dp"
+                android:layout_weight="1"
+                android:background="@drawable/widget_btn_receipt"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingHorizontal="6dp">
+
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_widget_receipt" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="قبض"
+                    android:textColor="#FF6EE7B7"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/widget_action_expense"
+                android:layout_width="0dp"
+                android:layout_height="27dp"
+                android:layout_marginStart="3dp"
+                android:layout_weight="1"
+                android:background="@drawable/widget_btn_expense"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingHorizontal="6dp">
+
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_widget_expense" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="صرف"
+                    android:textColor="#FFFF8A8A"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Recent Operations List (visible ONLY in 3+ rows mode):
+         [النوع والاسم بخط واضح وعدد الساعات / وتحته القيمة الواصل الباقي] -->
+    <LinearLayout
+        android:id="@+id/widget_recent_section"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="5dp"
+        android:layout_weight="1"
+        android:background="@drawable/widget_stat_bg"
+        android:clickable="true"
+        android:focusable="true"
+        android:orientation="vertical"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="5dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingBottom="3dp"
+            android:text="آخر العمليات"
+            android:textColor="#FF90E0EF"
+            android:textSize="10.5sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_recent_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:paddingVertical="8dp"
+            android:text="لا توجد عمليات مسجلة بعد"
+            android:textColor="#FFAABCC6"
+            android:textSize="10.5sp"
+            android:visibility="gone" />
+
+        <LinearLayout android:id="@+id/widget_op_row_1" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingVertical="3dp" android:visibility="gone">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                <TextView android:id="@+id/widget_op1_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:ellipsize="end" android:maxLines="1" android:textColor="#FFF0F6F8" android:textSize="11sp" android:textStyle="bold" />
+                <TextView android:id="@+id/widget_op1_qty" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:maxLines="1" android:textColor="#FF90E0EF" android:textSize="10.5sp" android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:orientation="horizontal">
+                <TextView android:id="@+id/widget_op1_price" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:textColor="#FFAABCC6" android:textSize="9.5sp" />
+                <TextView android:id="@+id/widget_op1_paid" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:maxLines="1" android:textColor="#FF6EE7B7" android:textSize="9.5sp" />
+                <TextView android:id="@+id/widget_op1_rem" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="end" android:maxLines="1" android:textColor="#FFFF8A8A" android:textSize="9.5sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout android:id="@+id/widget_op_row_2" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingVertical="3dp" android:visibility="gone">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                <TextView android:id="@+id/widget_op2_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:ellipsize="end" android:maxLines="1" android:textColor="#FFF0F6F8" android:textSize="11sp" android:textStyle="bold" />
+                <TextView android:id="@+id/widget_op2_qty" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:maxLines="1" android:textColor="#FF90E0EF" android:textSize="10.5sp" android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:orientation="horizontal">
+                <TextView android:id="@+id/widget_op2_price" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:textColor="#FFAABCC6" android:textSize="9.5sp" />
+                <TextView android:id="@+id/widget_op2_paid" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:maxLines="1" android:textColor="#FF6EE7B7" android:textSize="9.5sp" />
+                <TextView android:id="@+id/widget_op2_rem" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="end" android:maxLines="1" android:textColor="#FFFF8A8A" android:textSize="9.5sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout android:id="@+id/widget_op_row_3" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingVertical="3dp" android:visibility="gone">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                <TextView android:id="@+id/widget_op3_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:ellipsize="end" android:maxLines="1" android:textColor="#FFF0F6F8" android:textSize="11sp" android:textStyle="bold" />
+                <TextView android:id="@+id/widget_op3_qty" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:maxLines="1" android:textColor="#FF90E0EF" android:textSize="10.5sp" android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:orientation="horizontal">
+                <TextView android:id="@+id/widget_op3_price" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:textColor="#FFAABCC6" android:textSize="9.5sp" />
+                <TextView android:id="@+id/widget_op3_paid" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:maxLines="1" android:textColor="#FF6EE7B7" android:textSize="9.5sp" />
+                <TextView android:id="@+id/widget_op3_rem" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="end" android:maxLines="1" android:textColor="#FFFF8A8A" android:textSize="9.5sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout android:id="@+id/widget_op_row_4" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingVertical="3dp" android:visibility="gone">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                <TextView android:id="@+id/widget_op4_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:ellipsize="end" android:maxLines="1" android:textColor="#FFF0F6F8" android:textSize="11sp" android:textStyle="bold" />
+                <TextView android:id="@+id/widget_op4_qty" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:maxLines="1" android:textColor="#FF90E0EF" android:textSize="10.5sp" android:textStyle="bold" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:orientation="horizontal">
+                <TextView android:id="@+id/widget_op4_price" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:textColor="#FFAABCC6" android:textSize="9.5sp" />
+                <TextView android:id="@+id/widget_op4_paid" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:maxLines="1" android:textColor="#FF6EE7B7" android:textSize="9.5sp" />
+                <TextView android:id="@+id/widget_op4_rem" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="end" android:maxLines="1" android:textColor="#FFFF8A8A" android:textSize="9.5sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

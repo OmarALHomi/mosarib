@@ -55,8 +55,14 @@ object AppSyncEngine {
     /** Emits when a foreground re-sync activated or extended the subscription. */
     val licenseChanged = kotlinx.coroutines.flow.MutableSharedFlow<LicenseManager.SyncChange>(extraBufferCapacity = 1)
 
-    /** Re-runs the existing licence sync when the app returns to the foreground (throttled, needs network). */
+    /** Re-runs licence sync and pushes any new operations when the app returns to the foreground. */
     suspend fun resyncOnResume(context: Context) = withContext(Dispatchers.IO) {
+        if (LicenseManager.isInternetAvailable(context)) {
+            runCatching {
+                val exactOps = com.example.core.util.AppOperationsCounter.getExactTotalOperations(context)
+                UserDeviceTracker.onNetworkAvailable(context, exactOps)
+            }
+        }
         val now = System.currentTimeMillis()
         if (!shouldResync(lastLicenseSyncAt, now)) return@withContext
         lastLicenseSyncAt = now

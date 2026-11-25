@@ -214,7 +214,7 @@ object UserDeviceTracker {
                 put("phone", regPhone)
                 put("isActivated", isActivated)
                 put("plan", activePlan)
-                put("operationsCount", highestOps)
+                put("operationsCount", maxOf(highestOps, cumulativeOps))
                 put("cumulativeOpsCount", cumulativeOps)
                 put("trialConsumed", isTrialConsumed)
                 put("firstSeen", if (remoteFirstSeen > 0L) remoteFirstSeen else now)
@@ -227,7 +227,7 @@ object UserDeviceTracker {
 
             // PATCH keeps the admin-owned fields (isBlocked, blockReason, ...) untouched.
             if (FirebaseRest.patch("all_users/$cleanDeviceKey.json", payload.toString(), timeoutMs = 7000).isSuccess) {
-                setRegistrationSuccess(context, highestOps)
+                setRegistrationSuccess(context, maxOf(highestOps, cumulativeOps))
                 if (email.isNotBlank()) writeEmailIndex(email, cleanDeviceKey, regName, regPhone, now)
             }
             DeviceStatusResult(isBlocked = false)
@@ -284,5 +284,44 @@ object UserDeviceTracker {
 
         val res = syncPresence(context, finalOps)
         !res.isBlocked
+    }
+
+    /**
+     * Pushes live operation counter updates to Firebase all_users/{key} when operations are added
+     * during an active session (so the dashboard does not stay stuck on the startup count).
+     */
+    suspend fun syncOperationsSnapshot(context: Context, hintedOperationsCount: Int): Boolean = withContext(Dispatchers.IO) {
+        if (!LicenseManager.isInternetAvailable(context)) return@withContext false
+
+        val exactCount = com.example.core.util.AppOperationsCounter.getExactTotalOperations(context)
+        val finalOps = maxOf(hintedOperationsCount, exactCount)
+        val cumulativeOps = maxOf(LicenseManager.getCumulativeOperations(context), finalOps)
+        val effectiveLimit = LicenseManager.getFreeOperationsLimit(context)
+        val isTrialConsumed = LicenseManager.isTrialConsumed(context) || cumulativeOps >= effectiveLimit
+        val reportedOps = maxOf(finalOps, cumulativeOps, getLastSyncedOperations(context))
+
+        if (!isDeviceRegisteredOnline(context)) {
+            val res = syncPresence(context, reportedOps)
+            return@withContext !res.isBlocked
+        }
+
+        if (reportedOps <= getLastSyncedOperations(context) && !isTrialConsumed) {
+            return@withContext true
+        }
+
+        val cleanDeviceKey = LicenseManager.getDeviceCode(context).replace("-", "").trim()
+        val now = System.currentTimeMillis()
+        val payload = JSONObject().apply {
+            put("operationsCount", reportedOps)
+            put("cumulativeOpsCount", cumulativeOps)
+            put("trialConsumed", isTrialConsumed)
+            put("lastActiveAt", now)
+        }
+        if (FirebaseRest.patch("all_users/$cleanDeviceKey.json", payload.toString(), timeoutMs = 7000).isSuccess) {
+            setRegistrationSuccess(context, reportedOps)
+            true
+        } else {
+            false
+        }
     }
 }

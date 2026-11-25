@@ -1206,8 +1206,9 @@
     let bucket151to200 = 0;
     let bucketOverLimit = 0;
 
+    const dashGlobalLimit = (appConfig && appConfig.freeOperationsLimit) ? appConfig.freeOperationsLimit : 50;
     allUsers.forEach(u => {
-      const ops = u.operationsCount || 0;
+      const ops = getUserEffectiveOps(u, dashGlobalLimit);
       totalOps += ops;
 
       const lastActive = u.lastActiveAt || u.lastSeen || 0;
@@ -1833,8 +1834,8 @@
       const devKey = u.cleanDeviceKey || (u.deviceCode ? u.deviceCode.replace(/-/g, "") : "");
       const override = allOverrides[devKey] || {};
       const limit = override.customOperationsLimit || globalLimit;
-      const ops = u.operationsCount || 0;
-      const isLocked = !isAct && (ops >= limit || u.isLocked);
+      const ops = getUserEffectiveOps(u, limit);
+      const isLocked = !isAct && (ops >= limit || u.isLocked || u.trialConsumed === true);
       const isBkLocked = override.isBackupLocked === true || (!isAct && appConfig.isBackupAllowedForTrial === false);
 
       const st = userStatus(u, devKey).kind;
@@ -1864,8 +1865,8 @@
       const devKey = u.cleanDeviceKey || (u.deviceCode ? u.deviceCode.replace(/-/g, "") : "");
       const override = allOverrides[devKey] || {};
       const limit = override.customOperationsLimit || globalLimit;
-      const ops = u.operationsCount || 0;
-      const isLocked = !isAct && (ops >= limit || u.isLocked);
+      const ops = getUserEffectiveOps(u, limit);
+      const isLocked = !isAct && (ops >= limit || u.isLocked || u.trialConsumed === true);
       const isBkLocked = override.isBackupLocked === true || (!isAct && appConfig.isBackupAllowedForTrial === false);
 
       const stKind = userStatus(u, devKey).kind;
@@ -1903,7 +1904,7 @@
       const devKey = u.cleanDeviceKey || (u.deviceCode ? u.deviceCode.replace(/-/g, "").trim() : "") || (u.id ? String(u.id).replace(/-/g, "").trim() : "") || (u.firebaseKey ? String(u.firebaseKey).replace(/-/g, "").trim() : "");
       const override = allOverrides[devKey] || {};
       const limit = override.customOperationsLimit || globalLimit;
-      const ops = u.operationsCount || 0;
+      const ops = getUserEffectiveOps(u, limit);
       const isBlocked = u.isBlocked === true;
       const isAct = u.isActivated === true && !isBlocked;
       const isOverLimit = !isAct && ops >= limit;
@@ -2138,7 +2139,7 @@
     allUsers.forEach(u => {
       const lastSeen = u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleString('ar-EG') : '';
       const status = u.isBlocked ? "موقوف" : (u.isActivated ? "مشترك" : "تجريبي");
-      csv += [u.googleDisplayName || '', u.googleEmail || '', u.deviceCode || '', u.deviceModel || '', u.androidVersion || '', status, u.plan || 'TRIAL', u.operationsCount || 0, lastSeen].map(csvCell).join(',') + "\n";
+      csv += [u.googleDisplayName || '', u.googleEmail || '', u.deviceCode || '', u.deviceModel || '', u.androidVersion || '', status, u.plan || 'TRIAL', getUserEffectiveOps(u), lastSeen].map(csvCell).join(',') + "\n";
     });
     downloadCSV(csv, "mosarib_all_users.csv");
   }
@@ -2495,9 +2496,9 @@
     }) || { cleanDeviceKey: cleanKey, deviceCode: cleanKey };
 
     const override = allOverrides[cleanKey] || {};
-    const globalOpsLimit = (appConfig && appConfig.freeOperationsLimit) ? appConfig.freeOperationsLimit : 200;
+    const globalOpsLimit = (appConfig && appConfig.freeOperationsLimit) ? appConfig.freeOperationsLimit : 50;
     const limit = override.customOperationsLimit || globalOpsLimit;
-    const ops = u.operationsCount || 0;
+    const ops = getUserEffectiveOps(u, limit);
     const isBlocked = u.isBlocked === true;
     const isAct = u.isActivated === true && !isBlocked;
     const isDeviceBkLocked = override.isBackupLocked === true;
@@ -3302,6 +3303,12 @@
   }
 
   /** One status per user: blocked / active (subscribed until date) / expired / trial. */
+  function getUserEffectiveOps(u, limit = 0) {
+    const raw = Math.max(Number(u.operationsCount || 0), Number(u.cumulativeOpsCount || 0));
+    if (u.trialConsumed === true && limit > 0) return Math.max(raw, limit);
+    return raw;
+  }
+
   function userStatus(u, devKey) {
     const sub = subscriptionByDevice[String(devKey || '').toUpperCase()];
     if (u.isBlocked === true) return { kind: 'blocked', label: 'محظور' };
