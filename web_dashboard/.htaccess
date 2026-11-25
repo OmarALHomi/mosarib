@@ -29,3 +29,6 @@ AddType application/vnd.android.package-archive .apk
 
 # Set directory index
 DirectoryIndex index.php index.html
+
+# Friendly download URL -> opens Visitors Portal and auto-starts APK download
+RewriteRule ^download/?$ index.php?download=1 [L,QSA]

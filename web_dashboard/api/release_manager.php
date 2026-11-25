@@ -21,11 +21,19 @@ if ($method === 'GET') {
     $releases = file_exists($releasesFile) ? json_decode(file_get_contents($releasesFile), true) : [];
     if (!is_array($releases)) $releases = [];
 
-    // Ensure file_size_mb is present on all releases for easy client display
+    $isHttpsReq = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+        || (!empty($_SERVER['HTTP_CF_VISITOR']) && strpos($_SERVER['HTTP_CF_VISITOR'], 'https') !== false);
+    $host = preg_replace('/[^A-Za-z0-9.\-:]/', '', (string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    $siteBase = ($isHttpsReq ? 'https' : 'http') . '://' . $host . rtrim(str_replace('\\', '/', dirname(dirname($_SERVER['PHP_SELF']))), '/');
+
+    // Ensure file_size_mb and portal_download_url are present on all releases for easy client display
     foreach ($releases as &$rel) {
         if (!isset($rel['file_size_mb']) && isset($rel['file_size'])) {
             $rel['file_size_mb'] = number_format($rel['file_size'] / (1024 * 1024), 2, '.', '');
         }
+        $relQuery = !empty($rel['id']) ? '&rel=' . rawurlencode($rel['id']) : '';
+        $rel['portal_download_url'] = $siteBase . '/?download=1' . $relQuery;
     }
     unset($rel);
 
@@ -35,7 +43,8 @@ if ($method === 'GET') {
     jsonResponse(true, 'تم جلب سجل الإصدارات بنجاح', [
         'releases' => $releases,
         'cloud_broadcast' => $fbBroadcast,
-        'base_download_url' => (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . dirname(dirname($_SERVER['PHP_SELF'])) . '/uploads/'
+        'portal_download_url' => $siteBase . '/?download=1',
+        'base_download_url' => $siteBase . '/uploads/'
     ]);
 }
 

@@ -256,7 +256,24 @@ if ($method === 'GET') {
     }
 
     $analyticsFile = __DIR__ . '/../data/portal_analytics.json';
-    $analytics = file_exists($analyticsFile) ? json_decode(file_get_contents($analyticsFile), true) : [];
+    $analytics = file_exists($analyticsFile) ? (json_decode(file_get_contents($analyticsFile), true) ?: []) : [];
+    $todayKey = date('Y-m-d');
+    $cleanDailyStats = [];
+    foreach (($analytics['daily_stats'] ?? []) as $dKey => $dVal) {
+        if (is_array($dVal)) {
+            $cleanDailyStats[$dKey] = [
+                'visitors' => intval($dVal['visitors'] ?? 0),
+                'downloads' => intval($dVal['downloads'] ?? 0),
+            ];
+        }
+    }
+    $todayStats = $cleanDailyStats[$todayKey] ?? [];
+    $realTodayVisitors = (($analytics['last_visit_date'] ?? '') === $todayKey)
+        ? intval($analytics['today_visitors'] ?? 0)
+        : intval($todayStats['visitors'] ?? 0);
+    $realTodayDownloads = (($analytics['last_download_date'] ?? '') === $todayKey)
+        ? intval($analytics['today_downloads'] ?? 0)
+        : intval($todayStats['downloads'] ?? 0);
 
     $portalSettings = array_merge([
         'active_region_name' => 'الجمهورية اليمنية (صنعاء، مأرب، الجوف، عمران، ذمار)',
@@ -320,13 +337,13 @@ if ($method === 'GET') {
         ],
         'analytics' => [
             'total_visitors' => intval($analytics['total_visitors'] ?? 0),
-            'today_visitors' => intval($analytics['today_visitors'] ?? 0),
+            'today_visitors' => $realTodayVisitors,
             'unique_visitors' => intval($analytics['unique_visitors'] ?? 0),
             'total_downloads' => intval($analytics['total_downloads'] ?? 0),
-            'today_downloads' => intval($analytics['today_downloads'] ?? 0),
+            'today_downloads' => $realTodayDownloads,
             'last_visit_at' => intval($analytics['last_visit_at'] ?? 0),
             'last_download_at' => intval($analytics['last_download_at'] ?? 0),
-            'daily_stats' => $analytics['daily_stats'] ?? []
+            'daily_stats' => $cleanDailyStats
         ],
         'developer_info' => [
             'name' => $portalSettings['developer_name'],
@@ -373,6 +390,12 @@ if ($method === 'POST') {
         $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
         checkPublicRateLimit('dl_' . $ip, 20, 3600);
 
+        $coolCookie = 'msrb_dl_cool';
+        $isDuplicateClick = !empty($_COOKIE[$coolCookie]);
+        if (!$isDuplicateClick) {
+            @setcookie($coolCookie, '1', time() + 15, '/');
+        }
+
         $analyticsFile = __DIR__ . '/../data/portal_analytics.json';
         $today = date('Y-m-d');
         $fp = @fopen($analyticsFile, 'c+');
@@ -395,13 +418,15 @@ if ($method === 'POST') {
                 $analytics['last_download_date'] = $today;
                 $analytics['today_downloads'] = 0;
             }
-            $analytics['total_downloads']++;
-            $analytics['today_downloads']++;
-            $analytics['last_download_at'] = time();
             if (!isset($analytics['daily_stats'][$today])) {
                 $analytics['daily_stats'][$today] = ['visitors' => 0, 'downloads' => 0];
             }
-            $analytics['daily_stats'][$today]['downloads']++;
+            if (!$isDuplicateClick) {
+                $analytics['total_downloads']++;
+                $analytics['today_downloads']++;
+                $analytics['last_download_at'] = time();
+                $analytics['daily_stats'][$today]['downloads'] = ($analytics['daily_stats'][$today]['downloads'] ?? 0) + 1;
+            }
 
             ftruncate($fp, 0);
             rewind($fp);
@@ -409,7 +434,10 @@ if ($method === 'POST') {
             fflush($fp);
             flock($fp, LOCK_UN);
             fclose($fp);
-            jsonResponse(true, 'تم تسجيل تنزيل التطبيق بنجاح', ['total_downloads' => $analytics['total_downloads']]);
+            jsonResponse(true, 'تم تسجيل تنزيل التطبيق بنجاح', [
+                'total_downloads' => intval($analytics['total_downloads']),
+                'today_downloads' => intval($analytics['today_downloads'])
+            ]);
         }
         jsonResponse(false, 'تعذر تحديث إحصائيات التنزيل', null, 500);
     }
@@ -450,16 +478,34 @@ if ($method === 'POST') {
                 $analytics['last_visit_date'] = $today;
                 $analytics['today_visitors'] = 0;
             }
-            $analytics['total_visitors'] = ($analytics['total_visitors'] ?? 0) + 1;
-            $analytics['today_visitors'] = ($analytics['today_visitors'] ?? 0) + 1;
-            $analytics['last_visit_at'] = time();
-            if ($isNewVisitorToday) {
-                $analytics['unique_visitors'] = ($analytics['unique_visitors'] ?? 0) + 1;
-            }
             if (!isset($analytics['daily_stats'][$today])) {
                 $analytics['daily_stats'][$today] = ['visitors' => 0, 'downloads' => 0];
             }
-            $analytics['daily_stats'][$today]['visitors']++;
+            $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+            $visitorHash = substr(hash('sha256', $ip . '|' . $ua . '|' . $today), 0, 12);
+            $seenHashes = $analytics['daily_stats'][$today]['hashes'] ?? [];
+            $isReallyNewToday = $isNewVisitorToday && !in_array($visitorHash, $seenHashes, true);
+            if ($isReallyNewToday) {
+                $seenHashes[] = $visitorHash;
+                if (count($seenHashes) > 5000) {
+                    $seenHashes = array_slice($seenHashes, -5000);
+                }
+                $analytics['daily_stats'][$today]['hashes'] = $seenHashes;
+                $analytics['total_visitors'] = ($analytics['total_visitors'] ?? 0) + 1;
+                $analytics['today_visitors'] = ($analytics['today_visitors'] ?? 0) + 1;
+                $analytics['unique_visitors'] = ($analytics['unique_visitors'] ?? 0) + 1;
+                $analytics['daily_stats'][$today]['visitors'] = ($analytics['daily_stats'][$today]['visitors'] ?? 0) + 1;
+            }
+            $analytics['last_visit_at'] = time();
+
+            // Prune old daily hashes beyond 7 days to keep JSON compact
+            $cutoff = date('Y-m-d', strtotime('-7 days'));
+            foreach ($analytics['daily_stats'] as $dKey => &$dVal) {
+                if ($dKey < $cutoff && isset($dVal['hashes'])) {
+                    unset($dVal['hashes']);
+                }
+            }
+            unset($dVal);
 
             ftruncate($fp, 0);
             rewind($fp);
@@ -467,7 +513,10 @@ if ($method === 'POST') {
             fflush($fp);
             flock($fp, LOCK_UN);
             fclose($fp);
-            jsonResponse(true, 'تم تسجيل الزيارة بنجاح', ['total_visitors' => $analytics['total_visitors']]);
+            jsonResponse(true, 'تم تسجيل الزيارة بنجاح', [
+                'total_visitors' => intval($analytics['total_visitors']),
+                'today_visitors' => intval($analytics['today_visitors'])
+            ]);
         }
         jsonResponse(false, 'تعذر تحديث إحصائيات الزيارات', null, 500);
     }

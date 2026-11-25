@@ -13,21 +13,25 @@ header('Content-Type: text/html; charset=UTF-8');
 
 require_once __DIR__ . '/api/config.php';
 
-// Real Visitor Tracking (Daily unique visitor deduplication via cookie with flock & bot-skipping)
+// Real Visitor Tracking (Daily unique visitor deduplication via cookie + daily IP/UA hash, skipping bots & admin sessions)
 $today = date('Y-m-d');
 $analyticsFile = __DIR__ . '/data/portal_analytics.json';
 $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-$isBot = false;
-if (!empty($userAgent) && preg_match('/bot|crawl|spider|slurp|facebookexternalhit|whatsapp|preview/i', $userAgent)) {
-    $isBot = true;
+$isBot = empty($userAgent) || (bool)preg_match('/bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegrambot|preview|curl|wget|python/i', $userAgent);
+$isAdminCookie = !empty($_COOKIE['PHPSESSID']) && session_status() === PHP_SESSION_NONE && @session_start() && !empty($_SESSION['admin_user']);
+if (session_status() === PHP_SESSION_ACTIVE) {
+    @session_write_close();
 }
 
-if (!$isBot) {
+if (!$isBot && !$isAdminCookie) {
     $cookieName = 'msrb_v_visit_' . str_replace('-', '', $today);
     $isNewVisitorToday = empty($_COOKIE[$cookieName]);
     if ($isNewVisitorToday) {
         @setcookie($cookieName, '1', time() + 86400, '/');
     }
+
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    $visitorHash = substr(hash('sha256', $ip . '|' . $userAgent . '|' . $today), 0, 12);
 
     $fp = @fopen($analyticsFile, 'c+');
     if ($fp && flock($fp, LOCK_EX)) {
@@ -57,17 +61,31 @@ if (!$isBot) {
             $analytics['last_visit_date'] = $today;
             $analytics['today_visitors'] = 0;
         }
-        $analytics['total_visitors'] = ($analytics['total_visitors'] ?? 0) + 1;
-        $analytics['today_visitors'] = ($analytics['today_visitors'] ?? 0) + 1;
-        if ($isNewVisitorToday) {
-            $analytics['unique_visitors'] = ($analytics['unique_visitors'] ?? 0) + 1;
-        }
-        $analytics['last_visit_at'] = time();
-
         if (!isset($analytics['daily_stats'][$today])) {
             $analytics['daily_stats'][$today] = ['visitors' => 0, 'downloads' => 0];
         }
-        $analytics['daily_stats'][$today]['visitors']++;
+        $seenHashes = $analytics['daily_stats'][$today]['hashes'] ?? [];
+        $isReallyNewToday = $isNewVisitorToday && !in_array($visitorHash, $seenHashes, true);
+        if ($isReallyNewToday) {
+            $seenHashes[] = $visitorHash;
+            if (count($seenHashes) > 5000) {
+                $seenHashes = array_slice($seenHashes, -5000);
+            }
+            $analytics['daily_stats'][$today]['hashes'] = $seenHashes;
+            $analytics['total_visitors'] = ($analytics['total_visitors'] ?? 0) + 1;
+            $analytics['today_visitors'] = ($analytics['today_visitors'] ?? 0) + 1;
+            $analytics['unique_visitors'] = ($analytics['unique_visitors'] ?? 0) + 1;
+            $analytics['daily_stats'][$today]['visitors'] = ($analytics['daily_stats'][$today]['visitors'] ?? 0) + 1;
+        }
+        $analytics['last_visit_at'] = time();
+
+        $cutoff = date('Y-m-d', strtotime('-7 days'));
+        foreach ($analytics['daily_stats'] as $dKey => &$dVal) {
+            if ($dKey < $cutoff && isset($dVal['hashes'])) {
+                unset($dVal['hashes']);
+            }
+        }
+        unset($dVal);
 
         ftruncate($fp, 0);
         rewind($fp);
@@ -140,6 +158,16 @@ $portalNews = file_exists($newsFile) ? (json_decode(file_get_contents($newsFile)
 $releasesFile = __DIR__ . '/uploads/releases_index.json';
 $releases = file_exists($releasesFile) ? (json_decode(@file_get_contents($releasesFile), true) ?: []) : [];
 $latestRelease = !empty($releases[0]) ? $releases[0] : null;
+$isAutoDownload = (!empty($_GET['download']) && $_GET['download'] !== '0') || (!empty($_GET['dl']) && $_GET['dl'] !== '0');
+$requestedRelId = trim((string)($_GET['rel'] ?? ''));
+if (!empty($requestedRelId) && !empty($releases)) {
+    foreach ($releases as $relItem) {
+        if (($relItem['id'] ?? '') === $requestedRelId) {
+            $latestRelease = $relItem;
+            break;
+        }
+    }
+}
 
 $directDownloadUrl = '';
 if (!empty($latestRelease['download_url'])) {
@@ -342,6 +370,20 @@ $ogImageUrl = $baseOrigin . rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_S
 </nav>
 
 <main>
+  <?php if ($isAutoDownload && !empty($directDownloadUrl)): ?>
+  <div class="auto-dl-banner" id="autoDownloadBanner" role="status" aria-live="polite">
+    <div class="container auto-dl-banner__inner">
+      <div class="auto-dl-banner__info">
+        <span class="auto-dl-banner__pulse" aria-hidden="true"></span>
+        <div>
+          <strong>جاري بدء تحميل تطبيق مُسَرِّب<?= !empty($apkVersionName) ? ' (v' . htmlspecialchars($apkVersionName) . ')' : '' ?>...</strong>
+          <span>ابقَ في هذه الصفحة لتصفح المميزات أو <a href="<?= htmlspecialchars($directDownloadUrl) ?>" download onclick="trackDownload()" class="auto-dl-banner__link">اضغط هنا لإعادة التحميل يدوياً</a><?= !empty($apkSizeMb) ? ' • الحجم ' . htmlspecialchars($apkSizeMb) . ' MB' : '' ?></span>
+        </div>
+      </div>
+      <button type="button" class="auto-dl-banner__close" onclick="document.getElementById('autoDownloadBanner').style.display='none'" aria-label="إغلاق">×</button>
+    </div>
+  </div>
+  <?php endif; ?>
   <!-- Hero Section -->
   <section class="hero">
     <div class="container hero__grid">
@@ -375,6 +417,14 @@ $ogImageUrl = $baseOrigin . rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_S
             <span>واتساب</span>
           </a>
           <?php endif; ?>
+        </div>
+
+        <div class="hero__highlights">
+          <span class="hero__chip"><svg><use href="#i-check"/></svg> يعمل 100% بدون إنترنت</span>
+          <?php if (!empty($apkVersionName)): ?>
+          <span class="hero__chip"><svg><use href="#i-check"/></svg> آخر إصدار v<?= htmlspecialchars($apkVersionName) ?></span>
+          <?php endif; ?>
+          <span class="hero__chip"><svg><use href="#i-check"/></svg> تجربة مجانية بدون التزام</span>
         </div>
       </div>
 
@@ -1343,6 +1393,25 @@ ${device ? `• كود جهازي: ${device}` : ''}`;
       }
     } catch (_) {}
   };
+
+  <?php if ($isAutoDownload && !empty($directDownloadUrl)): ?>
+  // Trigger direct APK download automatically while keeping the Visitors Portal open & interactive
+  window.addEventListener('DOMContentLoaded', function () {
+    setTimeout(function () {
+      try {
+        window.trackDownload();
+        const dlUrl = <?= json_encode($directDownloadUrl, JSON_UNESCAPED_SLASHES) ?>;
+        const a = document.createElement('a');
+        a.href = dlUrl;
+        a.setAttribute('download', '');
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () { a.remove(); }, 2000);
+      } catch (_) {}
+    }, 600);
+  });
+  <?php endif; ?>
 })();
 </script>
 </body>

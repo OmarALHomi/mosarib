@@ -23,6 +23,48 @@
       </button>
     </div>
 
+    <!-- Real Visitors & Downloads Overview Strip (Always Visible) -->
+    <div class="portal-traffic-row">
+      <div class="traffic-card traffic-card--visitors" onclick="switchTab('publicPortal')" title="عرض إحصائيات زوار الموقع">
+        <div class="traffic-card__main">
+          <div class="traffic-card__icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </div>
+          <div>
+            <div class="traffic-card__label">إجمالي زوار الموقع</div>
+            <div class="traffic-card__num" id="kpiHomeVisitorsTotal">0</div>
+          </div>
+        </div>
+        <div class="traffic-today-pill">
+          <span>زوار اليوم</span>
+          <strong id="kpiHomeVisitorsToday">0</strong>
+        </div>
+      </div>
+
+      <div class="traffic-card traffic-card--downloads" onclick="switchTab('publicPortal')" title="عرض إحصائيات تنزيلات التطبيق">
+        <div class="traffic-card__main">
+          <div class="traffic-card__icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </div>
+          <div>
+            <div class="traffic-card__label">إجمالي تنزيلات التطبيق</div>
+            <div class="traffic-card__num" id="kpiHomeDownloadsTotal">0</div>
+          </div>
+        </div>
+        <div class="traffic-today-pill traffic-today-pill--green">
+          <span>تنزيلات اليوم</span>
+          <strong id="kpiHomeDownloadsToday">0</strong>
+        </div>
+      </div>
+    </div>
+
     <details class="more-stats">
       <summary>كل المؤشرات</summary>
   <!-- Stats Grid Widget -->

@@ -256,23 +256,21 @@
           const totDl = an.total_downloads || 0;
           const todDl = an.today_downloads || 0;
 
-          const elTotVis = document.getElementById("statTotalVisitors");
-          const elTodVis = document.getElementById("statTodayVisitorsBadge");
-          const elTotDl = document.getElementById("statTotalDownloads");
-          const elTodDl = document.getElementById("statTodayDownloadsBadge");
-          if (elTotVis) elTotVis.innerText = totVis.toLocaleString('ar-EG');
-          if (elTodVis) elTodVis.innerText = `اليوم: ${todVis.toLocaleString('ar-EG')}`;
-          if (elTotDl) elTotDl.innerText = totDl.toLocaleString('ar-EG');
-          if (elTodDl) elTodDl.innerText = `اليوم: ${todDl.toLocaleString('ar-EG')}`;
+          const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+          setTxt("kpiHomeVisitorsTotal", totVis.toLocaleString('ar-EG'));
+          setTxt("kpiHomeVisitorsToday", todVis.toLocaleString('ar-EG'));
+          setTxt("kpiHomeDownloadsTotal", totDl.toLocaleString('ar-EG'));
+          setTxt("kpiHomeDownloadsToday", todDl.toLocaleString('ar-EG'));
 
-          const pTotVis = document.getElementById("portalKpiTotalVisitors");
-          const pTodVis = document.getElementById("portalKpiTodayVisitors");
-          const pTotDl = document.getElementById("portalKpiTotalDownloads");
-          const pTodDl = document.getElementById("portalKpiTodayDownloads");
-          if (pTotVis) pTotVis.innerText = totVis.toLocaleString('ar-EG');
-          if (pTodVis) pTodVis.innerText = `زوار اليوم: ${todVis.toLocaleString('ar-EG')} زائر فريد`;
-          if (pTotDl) pTotDl.innerText = totDl.toLocaleString('ar-EG');
-          if (pTodDl) pTodDl.innerText = `تنزيلات اليوم: ${todDl.toLocaleString('ar-EG')} تحميل مباشر`;
+          setTxt("statTotalVisitors", totVis.toLocaleString('ar-EG'));
+          setTxt("statTodayVisitorsBadge", `اليوم: ${todVis.toLocaleString('ar-EG')}`);
+          setTxt("statTotalDownloads", totDl.toLocaleString('ar-EG'));
+          setTxt("statTodayDownloadsBadge", `اليوم: ${todDl.toLocaleString('ar-EG')}`);
+
+          setTxt("portalKpiTotalVisitors", totVis.toLocaleString('ar-EG'));
+          setTxt("portalKpiTodayVisitors", `زوار اليوم: ${todVis.toLocaleString('ar-EG')} زائر جديد`);
+          setTxt("portalKpiTotalDownloads", totDl.toLocaleString('ar-EG'));
+          setTxt("portalKpiTodayDownloads", `تنزيلات اليوم: ${todDl.toLocaleString('ar-EG')} عملية تنزيل`);
         }
 
         renderAdminPortalNews(json.data.news || []);
@@ -804,10 +802,10 @@
             <div style="font-size: 13px; line-height: 1.6; margin-bottom: 10px; color: var(--text);">
               ${escapeHtml(r.release_notes || 'بدون ملاحظات')}
             </div>
-            <div style="display: flex; gap: 8px;">
-              <input type="text" value="${escapeHtml(r.download_url)}" readonly style="font-size: 12px; padding: 6px 10px; flex: 1;">
-              <button class="btn-sm btn-action" onclick="navigator.clipboard.writeText('${escJsArg(r.download_url)}').then(()=>alert('تم نسخ رابط التحميل المباشر'))"> نسخ الرابط</button>
-              <button class="btn-sm btn-action" onclick="window.open('${escJsArg(r.download_url)}', '_blank', 'noopener')"> تنزيل</button>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <input type="text" value="${escapeHtml(r.portal_download_url || r.download_url)}" readonly style="font-size: 12px; padding: 6px 10px; flex: 1; min-width: 200px;">
+              <button class="btn-sm btn-action" onclick="navigator.clipboard.writeText('${escJsArg(r.portal_download_url || r.download_url)}').then(()=>alert('تم نسخ رابط التحميل (يفتح صفحة الموقع ويبدأ التحميل تلقائياً)'))">نسخ رابط التحميل</button>
+              <button class="btn-sm btn-action" onclick="window.open('${escJsArg(r.portal_download_url || r.download_url)}', '_blank', 'noopener')">فتح الرابط</button>
             </div>
           </div>
         `;
