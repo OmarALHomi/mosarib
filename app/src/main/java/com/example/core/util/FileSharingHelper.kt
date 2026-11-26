@@ -52,10 +52,18 @@ object FileSharingHelper {
     }
 
     fun sharePdf(context: Context, file: File, title: String = "مشاركة المستند") {
+        if (!com.example.core.license.RemoteConfigManager.isPdfExportAllowed(context)) {
+            Toast.makeText(context, com.example.core.license.RemoteConfigManager.FEATURE_DISABLED_MESSAGE, Toast.LENGTH_LONG).show()
+            return
+        }
         shareFile(context, file, "application/pdf", title)
     }
 
     fun openPdf(context: Context, file: File) {
+        if (!com.example.core.license.RemoteConfigManager.isPdfExportAllowed(context)) {
+            Toast.makeText(context, com.example.core.license.RemoteConfigManager.FEATURE_DISABLED_MESSAGE, Toast.LENGTH_LONG).show()
+            return
+        }
         openFile(context, file, "application/pdf", "فتح ملف PDF")
     }
 

@@ -853,6 +853,18 @@ fun VoiceRecordSheet(
     onResult: (candidates: List<String>) -> Unit
 ) {
     val context = LocalContext.current
+    if (!com.example.core.license.RemoteConfigManager.isVoiceInputAllowed(context)) {
+        MosaribDialog(
+            onDismissRequest = onDismiss,
+            title = "الميزة غير متاحة حالياً",
+            message = com.example.core.license.RemoteConfigManager.FEATURE_DISABLED_MESSAGE,
+            icon = Icons.Default.WarningAmber,
+            tone = DialogTone.Warning,
+            confirmText = "حسناً",
+            onConfirm = onDismiss
+        )
+        return
+    }
     val currentOnResult by rememberUpdatedState(onResult)
     val currentDescribe by rememberUpdatedState(describe)
     var pendingCandidates by remember { mutableStateOf<List<String>?>(null) }

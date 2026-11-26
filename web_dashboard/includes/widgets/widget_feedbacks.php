@@ -2,10 +2,10 @@
     <div class="card">
       <div class="toolbar">
         <div class="card-title" style="margin-bottom: 0;">آراء وملاحظات المستخدمين الواردة من التطبيق</div>
-        <div style="display: flex; gap: 10px;">
-          <input type="text" class="search-input" id="feedbackSearch" placeholder="بحث بالرسائل أو الأسماء..." oninput="filterFeedbacks()">
-          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="loadFirebaseData()">تحديث</button>
-          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="exportFeedbacksCSV()">تصدير CSV</button>
+        <div class="toolbar-actions">
+          <input type="search" class="search-input" id="feedbackSearch" placeholder="بحث بالرسائل أو الأسماء..." oninput="filterFeedbacks()">
+          <button class="btn btn-outline btn-compact" onclick="loadFirebaseData()">تحديث</button>
+          <button class="btn btn-outline btn-compact" onclick="exportFeedbacksCSV()">تصدير CSV</button>
         </div>
       </div>
 

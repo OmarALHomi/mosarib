@@ -253,7 +253,8 @@ class MosaribQuickWidgetProvider : AppWidgetProvider() {
 
                 val sessionsText = "${Formatters.formatDurationFriendly(summary.waterMinutes)} • ${MosaribWidgetSummary.formatOpsCount(summary.sessionsCount)}"
                 val receiptsText = Formatters.formatCurrency(summary.receiptsTotal, config.currencySymbol)
-                val locked = config.biometricEnabled
+                val widgetAllowed = com.example.core.license.RemoteConfigManager.isHomeWidgetAllowed(appContext)
+                val locked = config.biometricEnabled || !widgetAllowed
 
                 for (widgetId in appWidgetIds) {
                     val opts = appWidgetManager.getAppWidgetOptions(widgetId)
@@ -262,8 +263,16 @@ class MosaribQuickWidgetProvider : AppWidgetProvider() {
                         context = appContext,
                         widgetId = widgetId,
                         sizeMode = mode,
-                        sessionsText = if (locked) "🔒 مقفل" else sessionsText,
-                        receiptsText = if (locked) "🔒 مقفل" else receiptsText,
+                        sessionsText = when {
+                            !widgetAllowed -> "🔒 متوقف مؤقتاً"
+                            config.biometricEnabled -> "🔒 مقفل"
+                            else -> sessionsText
+                        },
+                        receiptsText = when {
+                            !widgetAllowed -> "من الإدارة"
+                            config.biometricEnabled -> "🔒 مقفل"
+                            else -> receiptsText
+                        },
                         locked = locked
                     )
                     appWidgetManager.updateAppWidget(widgetId, views)

@@ -120,11 +120,110 @@
   }
 
   function toggleUpdateInputs() {
-    const isUpdate = document.getElementById("bcType").value === "UPDATE";
-    document.getElementById("versionGroup").style.display = isUpdate ? "block" : "none";
-    if (isUpdate) {
-      document.getElementById("bcBtnText").value = "تحميل التحديث الجديد ";
+    const typeEl = document.getElementById("bcType");
+    if (!typeEl) return;
+    const type = typeEl.value || "INFO";
+    const isUpdate = type === "UPDATE";
+    const verGroup = document.getElementById("versionGroup");
+    if (verGroup) verGroup.style.display = isUpdate ? "block" : "none";
+
+    const btnInput = document.getElementById("bcBtnText");
+    if (btnInput) {
+      const cur = btnInput.value.trim();
+      const defaults = new Set(["", "تمام", "تحديث التطبيق الآن", "تحميل التحديث الجديد", "عرض التفاصيل"]);
+      if (btnInput.dataset.customized !== "1" || defaults.has(cur)) {
+        btnInput.value = isUpdate ? "تحديث التطبيق الآن" : "تمام";
+        delete btnInput.dataset.customized;
+      }
     }
+
+    const titleEl = document.getElementById("bcTitle");
+    const msgEl = document.getElementById("bcMessage");
+    const urlEl = document.getElementById("bcUrl");
+    if (type === "UPDATE") {
+      if (titleEl) titleEl.placeholder = "مثال: تحديث إجباري هام للإصدار الجديد";
+      if (msgEl) msgEl.placeholder = "اشرح للمستخدم ضرورة التحديث وما تم إصلاحه في النسخة الجديدة...";
+      if (urlEl) urlEl.placeholder = "رابط التحميل المباشر للنسخة الجديدة، مثل: https://mosarib.com/?download=1";
+    } else if (type === "WARNING") {
+      if (titleEl) titleEl.placeholder = "مثال: تنبيه فني هام بخصوص النسخ الاحتياطي";
+      if (msgEl) msgEl.placeholder = "اكتب تفاصيل التنبيه الفني أو الإجراء المطلوب من المستخدم...";
+      if (urlEl) urlEl.placeholder = "رابط توضيحي أو شاشة في التطبيق (اختياري): mosarib://settings/backup";
+    } else {
+      if (titleEl) titleEl.placeholder = "مثال: ميزة جديدة أو رسالة توجيهية للمستخدمين";
+      if (msgEl) msgEl.placeholder = "اكتب نص الإعلان أو التوجيه الذي سيظهر للمستخدمين عند فتح التطبيق...";
+      if (urlEl) urlEl.placeholder = "رابط اختياري (مثال: https://mosarib.com أو mosarib://settings)";
+    }
+
+    refreshBroadcastAudience();
+    renderBroadcastPreview();
+  }
+
+  function onBroadcastBtnTextInput() {
+    const btnInput = document.getElementById("bcBtnText");
+    if (btnInput) {
+      const cur = btnInput.value.trim();
+      const defaults = new Set(["", "تمام", "تحديث التطبيق الآن"]);
+      if (defaults.has(cur)) delete btnInput.dataset.customized;
+      else btnInput.dataset.customized = "1";
+    }
+    renderBroadcastPreview();
+  }
+
+  function renderBroadcastPreview() {
+    const box = document.getElementById("bcLivePreview");
+    if (!box) return;
+    const type = document.getElementById("bcType")?.value || "INFO";
+    const title = document.getElementById("bcTitle")?.value.trim() || "";
+    const msg = document.getElementById("bcMessage")?.value.trim() || "";
+    const url = document.getElementById("bcUrl")?.value.trim() || "";
+    const img = document.getElementById("bcImageUrl")?.value.trim() || "";
+    const btnRaw = document.getElementById("bcBtnText")?.value.trim() || "";
+    const btnText = btnRaw || (type === "UPDATE" ? "تحديث التطبيق الآن" : "تمام");
+
+    const meta = type === "UPDATE"
+      ? { badge: "تحديث إجباري", cls: "badge-blocked", border: "var(--danger)" }
+      : (type === "WARNING"
+        ? { badge: "تنبيه فني", cls: "badge-trial", border: "var(--accent)" }
+        : { badge: "إعلان جديد", cls: "badge-active", border: "var(--primary)" });
+
+    box.innerHTML = `
+      <div style="border: 1.5px solid ${meta.border}; border-radius: 14px; padding: 14px; background: var(--input-bg);">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <span class="badge ${meta.cls}">${meta.badge}</span>
+          <span style="font-size: 11px; color: var(--text-muted);">${type === "UPDATE" ? "يقفل النسخ المستهدفة" : "نافذة داخل التطبيق"}</span>
+        </div>
+        <div style="font-weight: 800; font-size: 14.5px; color: var(--text-title); margin-bottom: 6px;">
+          ${title ? escapeHtml(title) : '<span style="color:var(--text-muted);">عنوان الإعلان سيظهر هنا...</span>'}
+        </div>
+        ${img.startsWith("https://") ? `<img src="${escapeHtml(img)}" alt="" style="margin: 6px 0 8px; width: 100%; max-height: 130px; object-fit: cover; border-radius: 10px;">` : ""}
+        <div style="font-size: 13px; color: var(--text); line-height: 1.65; margin-bottom: 12px;">
+          ${msg ? escapeHtml(msg) : '<span style="color:var(--text-muted);">نص الرسالة أو التفاصيل سيظهر هنا...</span>'}
+        </div>
+        ${url ? `<div style="font-size: 11.5px; color: var(--primary-light); margin-bottom: 10px; word-break: break-all;">🔗 ${escapeHtml(url)}</div>` : ""}
+        <div style="display: flex; justify-content: flex-end;">
+          <span style="display: inline-block; padding: 7px 16px; border-radius: 9px; background: ${type === "UPDATE" ? "var(--danger)" : "var(--primary)"}; color: #fff; font-size: 12.5px; font-weight: 800;">
+            ${escapeHtml(btnText)}
+          </span>
+        </div>
+      </div>
+    `;
+  }
+
+  function focusNoticeChannel(mode) {
+    if (mode === "PUSH") {
+      const pushCard = document.getElementById("fcmPushFormCard");
+      if (pushCard) pushCard.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById("pushTitle")?.focus();
+      return;
+    }
+    const typeEl = document.getElementById("bcType");
+    if (typeEl) {
+      typeEl.value = mode === "UPDATE" ? "UPDATE" : "INFO";
+      toggleUpdateInputs();
+    }
+    const bcCard = document.getElementById("broadcastFormCard");
+    if (bcCard) bcCard.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("bcTitle")?.focus();
   }
 
   let allOverrides = {};
@@ -133,10 +232,12 @@
     isBackupAllowedForTrial: true,
     isCloudBackupAllowed: true,
     isExcelExportAllowedForTrial: true,
-    globalAnnouncementText: ""
+    globalAnnouncementText: "",
+    versionPolicies: {}
   };
   let currentBroadcast = null;
   let currentUserFilter = 'ALL';
+  let currentUserVersionFilter = 'ALL';
   let currentRequestFilter = 'PENDING';
 
   // Navigation: 5 sections. Every old tab id still works; tabs that are not Home/Requests/Users/Subs live under Settings.
@@ -187,6 +288,9 @@
       loadPortalSettingsForAdmin();
     } else if (tabId === 'push' || tabId === 'broadcast') {
       loadFcmEngineStatus();
+      toggleUpdateInputs();
+    } else if (tabId === 'policies') {
+      renderAppPolicies();
     } else if (tabId === 'subs') {
       renderSubscriptionsList();
     }
@@ -313,6 +417,14 @@
     const btn = document.getElementById("savePortalSettingsBtn");
     if (btn) btn.disabled = true;
 
+    const waterStatusVal = document.getElementById("pWaterStatus") ? document.getElementById("pWaterStatus").value : 'GOOD';
+    const waterStatusTextMap = {
+      ABUNDANT: 'وفيرة ومرتفعة المنسوب',
+      GOOD: 'متوفرة ومستقرة',
+      MODERATE: 'متوسطة وتستدعي الترشيد',
+      SCARCE: 'شحيحة وطلب متزايد'
+    };
+
     const payload = {
       action: 'update_settings',
       active_region_name: document.getElementById("pActiveRegionName") ? document.getElementById("pActiveRegionName").value.trim() : '',
@@ -320,7 +432,8 @@
       min_hourly_price: document.getElementById("pMinPrice") ? (parseFloat(document.getElementById("pMinPrice").value) || 0) : 0,
       max_hourly_price: document.getElementById("pMaxPrice") ? (parseFloat(document.getElementById("pMaxPrice").value) || 0) : 0,
       currency_symbol: document.getElementById("pCurrency") ? document.getElementById("pCurrency").value.trim() : 'ريال',
-      water_status: document.getElementById("pWaterStatus") ? document.getElementById("pWaterStatus").value : 'GOOD',
+      water_status: waterStatusVal,
+      water_status_text: waterStatusTextMap[waterStatusVal] || waterStatusTextMap.GOOD,
       rates_note: document.getElementById("pRatesNote") ? document.getElementById("pRatesNote").value.trim() : '',
       headline_alert: document.getElementById("pHeadlineAlert") ? document.getElementById("pHeadlineAlert").value.trim() : '',
 
@@ -874,10 +987,11 @@
   async function publishBroadcast() {
     const title = document.getElementById("bcTitle").value.trim();
     const type = document.getElementById("bcType").value;
+    const isUpdate = type === "UPDATE";
     const msg = document.getElementById("bcMessage").value.trim();
     const url = document.getElementById("bcUrl").value.trim();
     const btnText = document.getElementById("bcBtnText").value.trim();
-    const minVer = parseInt(document.getElementById("bcMinVersion").value) || 1;
+    const minVer = isUpdate ? (parseInt(document.getElementById("bcMinVersion").value, 10) || 1) : 1;
 
     if (!title) {
       alert("يرجى كتابة عنوان الإعلان أو التحديث أولاً");
@@ -890,9 +1004,9 @@
       type: type,
       message: msg,
       actionUrl: url,
-      actionText: btnText || "عرض التفاصيل",
-      minRequiredVersionCode: minVer,
-      isForceUpdate: type === "UPDATE",
+      actionText: btnText || (isUpdate ? "تحديث التطبيق الآن" : "تمام"),
+      minRequiredVersionCode: isUpdate ? minVer : 1,
+      isForceUpdate: isUpdate,
       publishedAt: Date.now()
     };
     const imageUrl = (document.getElementById("bcImageUrl")?.value || "").trim();
@@ -951,6 +1065,7 @@
       if (msgInput) msgInput.value = "";
       const urlInput = document.getElementById("bcUrl");
       if (urlInput) urlInput.value = "";
+      renderBroadcastPreview();
 
       // 3. Delete from Firebase via PUT null and DELETE methods (works regardless of proxy/WAF)
       try {
@@ -1007,18 +1122,49 @@
     };
 
     try {
+      // PATCH keeps /app_config/versionPolicies intact when saving global policies
       const res = await firebaseFetch('app_config.json', {
-        method: "PUT",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error("رفض السيرفر الحفظ (" + res.status + ")");
-      appConfig = payload;
+      appConfig = { ...appConfig, ...payload };
       alert(`تم حفظ السياسات بنجاح في السحابة!\n• الحد المجاني: ${freeLimit} عملية\n• النسخ للمجانيين: ${backupAllowed ? 'مسموح' : 'معطل'}\n• نسخ Drive: ${driveBackupAllowed ? 'مسموح' : 'معطل'}\nستطبق الهواتف هذه السياسات تلقائياً عند فتح التطبيق.`);
       loadFirebaseData();
     } catch (e) {
       alert("فشل حفظ السياسات: " + e.message);
     }
+  }
+
+  const VERSION_POLICY_FLAGS = [
+    { key: 'isBackupAllowedForTrial', label: 'النسخ الاحتياطي المحلي' },
+    { key: 'isCloudBackupAllowed', label: 'النسخ السحابي Google Drive' },
+    { key: 'isExcelExportAllowedForTrial', label: 'تصدير Excel' },
+    { key: 'allowVoiceInput', label: 'الإدخال الصوتي الذكي' },
+    { key: 'allowVoiceReadout', label: 'القراءة الصوتية للسندات والعمليات' },
+    { key: 'allowPdfExport', label: 'تصدير ومشاركة PDF' },
+    { key: 'allowHomeWidget', label: 'ويجت الشاشة الرئيسية' }
+  ];
+
+  function getVersionDistribution(includeUnknown = false) {
+    const counts = {};
+    const names = {};
+    (allUsers || []).forEach(u => {
+      const code = userVersionCode(u);
+      if (!code && !includeUnknown) return;
+      counts[code] = (counts[code] || 0) + 1;
+      const vName = u.appVersion || u.appVersionName || '';
+      if (code && vName && !names[code]) names[code] = vName;
+    });
+    return Object.keys(counts)
+      .map(Number)
+      .sort((a, b) => {
+        if (a === 0) return 1;
+        if (b === 0) return -1;
+        return b - a;
+      })
+      .map(code => ({ code, name: names[code] || '', count: counts[code] }));
   }
 
   function renderAppPolicies() {
@@ -1034,6 +1180,213 @@
         حد العمليات: <b>${escapeHtml(appConfig.freeOperationsLimit || 50)}</b> • النسخ المجاني: <b>${appConfig.isBackupAllowedForTrial !== false ? 'متاح ✅' : 'معطل ❌'}</b><br>
         <small style="color:var(--text-muted);">آخر تحديث للسياسات: ${updatedStr}</small>
       `;
+    }
+    renderVersionPoliciesSection();
+  }
+
+  function renderVersionPoliciesSection() {
+    const chipsEl = document.getElementById("vpActiveVersionChips");
+    const listEl = document.getElementById("versionPoliciesList");
+    if (!chipsEl || !listEl) return;
+
+    const dist = getVersionDistribution(false);
+    const policies = (appConfig && appConfig.versionPolicies && typeof appConfig.versionPolicies === 'object')
+      ? appConfig.versionPolicies
+      : {};
+    const selectedCode = parseInt(document.getElementById("vpVersionCode")?.value, 10) || 0;
+
+    if (dist.length === 0) {
+      chipsEl.innerHTML = '<span style="font-size: 12px; color: var(--text-muted);">لا توجد نسخ مبلّغ عنها من الأجهزة بعد — يمكنك كتابة رقم البناء يدوياً.</span>';
+    } else {
+      chipsEl.innerHTML = dist.map(v => {
+        const hasPolicy = !!policies[String(v.code)];
+        const isActive = selectedCode === v.code;
+        return `<button type="button" class="pill-filter-btn${isActive ? ' active' : ''}" onclick="selectVersionPolicyCode(${v.code})">
+          ${v.name ? escapeHtml(v.name) + ' ' : ''}(بناء ${v.code}) • ${v.count}${hasPolicy ? ' ⚙️' : ''}
+        </button>`;
+      }).join('');
+    }
+
+    onVersionPolicyCodeInput();
+
+    const entries = Object.entries(policies)
+      .filter(([code, val]) => parseInt(code, 10) > 0 && val && typeof val === 'object')
+      .sort((a, b) => Number(b[0]) - Number(a[0]));
+
+    if (entries.length === 0) {
+      listEl.innerHTML = `<div style="padding: 16px; border-radius: 12px; background: var(--input-bg); border: 1px dashed var(--card-border); color: var(--text-muted); font-size: 13px; text-align: center;">لا توجد سياسات مخصصة لأي إصدار حالياً — جميع النسخ تتبع السياسة العامة.</div>`;
+      return;
+    }
+
+    const countByCode = {};
+    const nameByCode = {};
+    dist.forEach(v => { countByCode[String(v.code)] = v.count; nameByCode[String(v.code)] = v.name; });
+
+    listEl.innerHTML = entries.map(([code, pol]) => {
+      const affected = countByCode[code] || 0;
+      const vName = nameByCode[code] ? ` (${escapeHtml(nameByCode[code])})` : '';
+      const badges = [];
+      if (Number(pol.freeOperationsLimit) > 0) {
+        badges.push(`<span class="badge badge-trial">حد العمليات: ${escapeHtml(pol.freeOperationsLimit)}</span>`);
+      }
+      VERSION_POLICY_FLAGS.forEach(f => {
+        if (typeof pol[f.key] === 'boolean') {
+          const ok = pol[f.key] === true;
+          badges.push(`<span class="badge ${ok ? 'badge-active' : 'badge-blocked'}">${ok ? '✅' : '🔒'} ${escapeHtml(f.label)}</span>`);
+        }
+      });
+      const updated = pol.updatedAt ? new Date(pol.updatedAt).toLocaleString('ar-EG') : '';
+      return `
+        <div style="padding: 12px 14px; border-radius: 12px; background: var(--input-bg); border: 1px solid var(--card-border);">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+            <div>
+              <b style="font-size: 14px; color: var(--text-title);">بناء ${escapeHtml(code)}${vName}</b>
+              <span style="font-size: 12px; color: var(--primary-light); margin-inline-start: 8px;">• ${affected} مستخدم متأثر</span>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="btn-sm btn-outline" onclick="selectVersionPolicyCode(${Number(code)})">✏️ تعديل</button>
+              <button type="button" class="btn-sm btn-block" onclick="deleteVersionPolicy(${Number(code)})">🗑️ حذف</button>
+            </div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+            ${badges.length ? badges.join('') : '<span style="font-size:12px; color:var(--text-muted);">بدون قيود إضافية</span>'}
+          </div>
+          ${updated ? `<small style="color: var(--text-muted); font-size: 11px;">آخر تحديث: ${escapeHtml(updated)}</small>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function onVersionPolicyCodeInput() {
+    const code = parseInt(document.getElementById("vpVersionCode")?.value, 10) || 0;
+    const hint = document.getElementById("vpTargetUsersHint");
+    if (hint) {
+      if (code > 0) {
+        const match = getVersionDistribution(false).find(v => v.code === code);
+        const count = match ? match.count : 0;
+        const namePart = match && match.name ? ` (${match.name})` : '';
+        hint.innerText = `الإصدار ${code}${namePart}: ${count} مستخدم مسجل`;
+      } else {
+        hint.innerText = '';
+      }
+    }
+    document.querySelectorAll('#vpActiveVersionChips .pill-filter-btn').forEach(btn => {
+      const m = /\(بناء\s+(\d+)\)/.exec(btn.textContent || '');
+      btn.classList.toggle('active', !!(m && Number(m[1]) === code));
+    });
+  }
+
+  function selectVersionPolicyCode(verCode) {
+    const code = parseInt(verCode, 10);
+    if (!code || code < 1) return;
+    const codeInput = document.getElementById("vpVersionCode");
+    if (codeInput) codeInput.value = String(code);
+
+    const pol = (appConfig && appConfig.versionPolicies && appConfig.versionPolicies[String(code)]) || {};
+    const limitEl = document.getElementById("vpFreeLimit");
+    if (limitEl) limitEl.value = Number(pol.freeOperationsLimit) > 0 ? String(pol.freeOperationsLimit) : "";
+
+    VERSION_POLICY_FLAGS.forEach(f => {
+      const sel = document.getElementById(`vpFlag_${f.key}`);
+      if (!sel) return;
+      sel.value = typeof pol[f.key] === 'boolean' ? String(pol[f.key]) : '';
+    });
+
+    const statusEl = document.getElementById("vpSaveStatus");
+    if (statusEl) statusEl.style.display = "none";
+    onVersionPolicyCodeInput();
+  }
+
+  function resetVersionPolicyForm() {
+    const codeInput = document.getElementById("vpVersionCode");
+    if (codeInput) codeInput.value = "";
+    const limitEl = document.getElementById("vpFreeLimit");
+    if (limitEl) limitEl.value = "";
+    VERSION_POLICY_FLAGS.forEach(f => {
+      const sel = document.getElementById(`vpFlag_${f.key}`);
+      if (sel) sel.value = "";
+    });
+    const statusEl = document.getElementById("vpSaveStatus");
+    if (statusEl) statusEl.style.display = "none";
+    onVersionPolicyCodeInput();
+  }
+
+  async function saveVersionPolicy() {
+    const verCode = parseInt(document.getElementById("vpVersionCode")?.value, 10) || 0;
+    const statusEl = document.getElementById("vpSaveStatus");
+    if (verCode < 1) {
+      alert("يرجى إدخال رقم بناء (VersionCode) صحيح أكبر من 0");
+      return;
+    }
+
+    const freeLimit = parseInt(document.getElementById("vpFreeLimit")?.value, 10) || 0;
+    const payload = { updatedAt: Date.now() };
+    let hasCustomField = false;
+
+    if (freeLimit > 0) {
+      payload.freeOperationsLimit = freeLimit;
+      hasCustomField = true;
+    }
+
+    VERSION_POLICY_FLAGS.forEach(f => {
+      const val = document.getElementById(`vpFlag_${f.key}`)?.value || "";
+      if (val === "true" || val === "false") {
+        payload[f.key] = (val === "true");
+        hasCustomField = true;
+      }
+    });
+
+    if (!hasCustomField) {
+      alert("حدد حد عمليات مخصص أو غيّر ميزة واحدة على الأقل (مفتوح/مغلق)، أو استخدم زر الحذف لإلغاء سياسة هذا الإصدار.");
+      return;
+    }
+
+    try {
+      const res = await firebaseFetch(`app_config/versionPolicies/${verCode}.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error("رفض السيرفر الحفظ (" + res.status + ")");
+
+      if (!appConfig.versionPolicies || typeof appConfig.versionPolicies !== "object") {
+        appConfig.versionPolicies = {};
+      }
+      appConfig.versionPolicies[String(verCode)] = payload;
+      renderVersionPoliciesSection();
+
+      if (statusEl) {
+        statusEl.style.display = "block";
+        statusEl.style.color = "var(--success)";
+        statusEl.innerText = `✅ تم حفظ سياسة الإصدار ${verCode} في السحابة بنجاح.`;
+      }
+    } catch (e) {
+      if (statusEl) {
+        statusEl.style.display = "block";
+        statusEl.style.color = "var(--danger)";
+        statusEl.innerText = "فشل حفظ سياسة الإصدار: " + e.message;
+      } else {
+        alert("فشل حفظ سياسة الإصدار: " + e.message);
+      }
+    }
+  }
+
+  async function deleteVersionPolicy(verCode) {
+    const code = parseInt(verCode, 10);
+    if (!code) return;
+    if (!confirm(`حذف السياسة المخصصة للإصدار (بناء ${code}) وإعادته للسياسة العامة؟`)) return;
+
+    try {
+      const res = await firebaseFetch(`app_config/versionPolicies/${code}.json`, { method: "DELETE" });
+      if (!res.ok) throw new Error("رفض السيرفر الحذف (" + res.status + ")");
+
+      if (appConfig.versionPolicies) delete appConfig.versionPolicies[String(code)];
+      if (parseInt(document.getElementById("vpVersionCode")?.value, 10) === code) {
+        resetVersionPolicyForm();
+      }
+      renderVersionPoliciesSection();
+    } catch (e) {
+      alert("فشل حذف سياسة الإصدار: " + e.message);
     }
   }
 
@@ -1134,7 +1487,13 @@
         if (cfgRes && cfgRes.ok) {
           const cfgData = await safeJson(cfgRes);
           const cfgObj = (cfgData && cfgData.data !== undefined) ? cfgData.data : cfgData;
-          if (cfgObj && typeof cfgObj === 'object') appConfig = { ...appConfig, ...cfgObj };
+          if (cfgObj && typeof cfgObj === 'object') {
+            appConfig = {
+              ...appConfig,
+              ...cfgObj,
+              versionPolicies: (cfgObj.versionPolicies && typeof cfgObj.versionPolicies === 'object') ? cfgObj.versionPolicies : {}
+            };
+          }
         }
       } catch (_) {}
 
@@ -1815,7 +2174,81 @@
     filterUsers();
   }
 
+  function setUserVersionFilter(verKey) {
+    currentUserVersionFilter = String(verKey || 'ALL');
+    if (currentUserFilter === 'DELETED') {
+      setUserFilter('ALL');
+      return;
+    }
+    renderUsersTable(allUsers);
+  }
+
+  function renderUserVersionDistribution() {
+    const chipsEl = document.getElementById("userVersionChips");
+    const quickBar = document.getElementById("userVersionQuickActions");
+    const selectedLabel = document.getElementById("userVersionSelectedLabel");
+    if (!chipsEl) return;
+
+    const dist = getVersionDistribution(true);
+    const total = (allUsers || []).length;
+    const pills = [
+      `<button type="button" class="pill-filter-btn${currentUserVersionFilter === 'ALL' ? ' active' : ''}" onclick="setUserVersionFilter('ALL')">كل النسخ (${total})</button>`
+    ];
+
+    dist.forEach(v => {
+      const key = String(v.code);
+      const isAct = currentUserVersionFilter === key;
+      const label = v.code > 0
+        ? `${v.name ? escapeHtml(v.name) + ' ' : ''}(بناء ${v.code}) — ${v.count}`
+        : `غير محدّد — ${v.count}`;
+      pills.push(`<button type="button" class="pill-filter-btn${isAct ? ' active' : ''}" onclick="setUserVersionFilter('${key}')">${label}</button>`);
+    });
+    chipsEl.innerHTML = pills.join('');
+
+    const selectedNum = parseInt(currentUserVersionFilter, 10) || 0;
+    if (quickBar && selectedLabel) {
+      if (currentUserVersionFilter !== 'ALL' && selectedNum > 0) {
+        const match = dist.find(v => v.code === selectedNum);
+        const vName = match && match.name ? `${match.name} ` : '';
+        const cnt = match ? match.count : 0;
+        selectedLabel.innerText = `النسخة المحددة: ${vName}(بناء ${selectedNum}) • ${cnt} مستخدم`;
+        quickBar.style.display = 'flex';
+      } else {
+        quickBar.style.display = 'none';
+      }
+    }
+  }
+
+  function jumpBroadcastForSelectedVersion() {
+    const verCode = parseInt(currentUserVersionFilter, 10) || 0;
+    if (!verCode) return;
+    switchTab('broadcast');
+    const typeEl = document.getElementById("bcType");
+    if (typeEl) {
+      if (typeEl.value === "UPDATE") typeEl.value = "INFO";
+      toggleUpdateInputs();
+    }
+    const modeEl = document.getElementById("bcAudienceMode");
+    const fromEl = document.getElementById("bcAudienceFrom");
+    const toEl = document.getElementById("bcAudienceTo");
+    if (modeEl) modeEl.value = "EQ";
+    if (fromEl) fromEl.value = String(verCode);
+    if (toEl) toEl.value = "";
+    refreshBroadcastAudience();
+    renderBroadcastPreview();
+    document.getElementById("broadcastFormCard")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function jumpPolicyForSelectedVersion() {
+    const verCode = parseInt(currentUserVersionFilter, 10) || 0;
+    if (!verCode) return;
+    switchTab('policies');
+    selectVersionPolicyCode(verCode);
+    document.getElementById("versionPoliciesCard")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function renderUsersTable(users) {
+    renderUserVersionDistribution();
     const tbody = document.getElementById("usersTableBody");
     if (!users || users.length === 0) {
       tbody.innerHTML = emptyRow(7, 'لا يوجد مستخدمون مسجلون بعد', 'سيظهر هنا كل من يفتح التطبيق تلقائياً');
@@ -1867,6 +2300,11 @@
       const isLocked = !isAct && (ops >= limit || u.isLocked || u.trialConsumed === true);
       const isBkLocked = override.isBackupLocked === true || (!isAct && appConfig.isBackupAllowedForTrial === false);
 
+      if (currentUserVersionFilter !== 'ALL') {
+        const uVer = userVersionCode(u);
+        if (String(uVer) !== currentUserVersionFilter) return false;
+      }
+
       const stKind = userStatus(u, devKey).kind;
       if (currentUserFilter === 'ACTIVE') return stKind === 'active';
       if (currentUserFilter === 'TRIAL') return stKind === 'trial';
@@ -1887,7 +2325,9 @@
         (u.subscriberName && u.subscriberName.toLowerCase().includes(q)) ||
         (u.phone && u.phone.includes(q)) ||
         (u.deviceCode && u.deviceCode.toLowerCase().includes(q)) ||
-        (u.deviceModel && u.deviceModel.toLowerCase().includes(q))
+        (u.deviceModel && u.deviceModel.toLowerCase().includes(q)) ||
+        (u.appVersion && u.appVersion.toLowerCase().includes(q)) ||
+        (userVersionCode(u) > 0 && String(userVersionCode(u)) === q)
       );
     }
 
@@ -1929,6 +2369,9 @@
       const googleInfo = `<div><b>${escapeHtml(userName)}</b>${userPhone}${userMail}</div>`;
       const bkNote = isDeviceBkLocked ? `<small class="cell-sub" style="color:var(--danger-text);" title="تم قفل النسخ لهذا الجهاز بالاسم">النسخ مقفول</small>` : '';
       const priceNote = (u.pricePerHour || u.hourlyRate) ? `<small class="cell-sub">${Number(u.pricePerHour || u.hourlyRate).toLocaleString('ar-EG')} ريال/س</small>` : '';
+      const vCode = userVersionCode(u);
+      const vName = u.appVersion || u.appVersionName || '';
+      const verNote = (vCode || vName) ? `<small class="cell-sub">${escapeHtml(vName || 'إصدار')}${vCode ? ` • بناء ${vCode}` : ''}</small>` : '';
       const warningBadge = override.specialWarningMessage ? `<small class="cell-sub" style="color:var(--accent-text);">رسالة موجهة: ${escapeHtml(override.specialWarningMessage)}</small>` : '';
 
       // One menu: the existing row actions plus activate / extend / revoke (task 065)
@@ -1958,7 +2401,7 @@
         <tr onclick="openUserDetailModal('${safeKeyArg}')" title="انقر لعرض الملف الشامل">
           <td class="cell-select" onclick="event.stopPropagation()"><input type="checkbox" class="user-select" style="width:auto;" aria-label="تحديد" value="${escapeHtml(devKey)}" ${selectedUserKeys.has(devKey) ? 'checked' : ''} onchange="toggleUserSelection('${safeKeyArg}', this.checked)"></td>
           <td data-label="المستخدم">${googleInfo}</td>
-          <td data-label="الجهاز"><code>${escapeHtml(u.deviceCode || devKey)}</code><small class="cell-sub">${escapeHtml(u.deviceModel || '-')}</small>${priceNote}${bkNote}</td>
+          <td data-label="الجهاز"><code>${escapeHtml(u.deviceCode || devKey)}</code><small class="cell-sub">${escapeHtml(u.deviceModel || '-')}</small>${verNote}${priceNote}${bkNote}</td>
           <td data-label="الحالة">${statusBadge}${warningBadge}</td>
           <td data-label="العمليات المتبقية">${opsHtml}</td>
           <td data-label="آخر ظهور"><small title="${escapeHtml(lastSeenFull)}">${lastSeen}</small></td>
@@ -2122,8 +2565,10 @@
     const showDeleted = currentUserFilter === 'DELETED';
     const panel = document.getElementById('deletedUsersPanel');
     const table = document.getElementById('usersTableContainer');
+    const verBar = document.getElementById('userVersionDistributionBar');
     if (panel) panel.style.display = showDeleted ? 'block' : 'none';
     if (table) table.style.display = showDeleted ? 'none' : '';
+    if (verBar) verBar.style.display = showDeleted ? 'none' : '';
     if (showDeleted) {
       loadDeletedUsers();
       return;
@@ -3048,7 +3493,7 @@
   }
 
   function userVersionCode(u) {
-    const n = parseInt(u && u.versionCode, 10);
+    const n = parseInt(u && (u.versionCode ?? u.appVersionCode), 10);
     return n > 0 ? n : 0;
   }
 
@@ -3067,7 +3512,7 @@
     const codes = Object.keys(map).map(Number).sort((a, b) => b - a);
     if (!codes.length) return '';
     const names = {};
-    (allUsers || []).forEach(u => { const c = userVersionCode(u); if (c && u.appVersion) names[c] = u.appVersion; });
+    (allUsers || []).forEach(u => { const c = userVersionCode(u); const vn = u.appVersion || u.appVersionName; if (c && vn) names[c] = vn; });
     return 'الإصدارات المستخدمة الآن: ' + codes.map(c =>
       c ? `<b>${c}</b>${names[c] ? ' (' + escapeHtml(names[c]) + ')' : ''}: ${map[c]}` : `غير معروف: ${map[c]}`
     ).join(' • ');
@@ -3200,6 +3645,7 @@
       else { img.removeAttribute('src'); img.style.display = 'none'; }
     }
     if (prefix === 'push') renderPushPreview();
+    if (prefix === 'bc') renderBroadcastPreview();
   }
 
   async function uploadNoticeImage(prefix) {
@@ -3230,6 +3676,7 @@
     ['pushTitle', 'pushBody'].forEach(id => document.getElementById(id)?.addEventListener('input', renderPushPreview));
     document.getElementById('bcType')?.addEventListener('change', refreshBroadcastAudience);
     document.getElementById('apkVersionCode')?.addEventListener('input', refreshApkForceImpact);
+    toggleUpdateInputs();
   })();
 
   function refreshTask036Panels() {

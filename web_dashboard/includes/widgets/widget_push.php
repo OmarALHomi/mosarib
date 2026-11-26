@@ -1,4 +1,32 @@
   <div id="tab-push" style="display: none;">
+    <!-- Clear 3-Channel Overview Switcher -->
+    <div class="card" style="margin-bottom: 20px; border: 1px solid var(--card-border);">
+      <div class="card-title" style="margin-bottom: 12px;">مركز الإشعارات والتحديثات — اختر القناة المناسبة</div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+        <div style="padding: 12px 14px; border-radius: 12px; background: var(--input-bg); border: 1px solid var(--card-border); display: flex; flex-direction: column; justify-content: space-between; gap: 10px;">
+          <div>
+            <div style="font-weight: 800; font-size: 14px; color: var(--text-title); margin-bottom: 4px;">📢 إعلان توجيهي / تنبيه داخل التطبيق</div>
+            <div style="font-size: 12px; color: var(--text-muted); line-height: 1.6;">رسالة أو تنبيه يظهر داخل التطبيق عند فتحه دون قفل العمل (INFO / WARNING).</div>
+          </div>
+          <button type="button" class="btn btn-outline btn-compact" onclick="focusNoticeChannel('INFO')">فتح نموذج الإعلان</button>
+        </div>
+        <div style="padding: 12px 14px; border-radius: 12px; background: var(--input-bg); border: 1px solid var(--card-border); display: flex; flex-direction: column; justify-content: space-between; gap: 10px;">
+          <div>
+            <div style="font-weight: 800; font-size: 14px; color: var(--danger); margin-bottom: 4px;">🔒 تحديث إجباري لقفل النسخ القديمة</div>
+            <div style="font-size: 12px; color: var(--text-muted); line-height: 1.6;">يقفل التطبيق على الإصدارات الأقدم أو المحددة ويجبر المستخدم على التحديث (UPDATE).</div>
+          </div>
+          <button type="button" class="btn btn-outline btn-compact" style="border-color: var(--danger); color: var(--danger);" onclick="focusNoticeChannel('UPDATE')">فتح التحديث الإجباري</button>
+        </div>
+        <div style="padding: 12px 14px; border-radius: 12px; background: var(--input-bg); border: 1px solid var(--card-border); display: flex; flex-direction: column; justify-content: space-between; gap: 10px;">
+          <div>
+            <div style="font-weight: 800; font-size: 14px; color: var(--primary-light); margin-bottom: 4px;">🔔 إشعار فوري للخلفية (Push / FCM)</div>
+            <div style="font-size: 12px; color: var(--text-muted); line-height: 1.6;">يصل لستارة الهاتف بالصوت والاهتزاز حتى لو كان التطبيق مغلقاً تماماً.</div>
+          </div>
+          <button type="button" class="btn btn-outline btn-compact" onclick="focusNoticeChannel('PUSH')">فتح إشعار الستارة</button>
+        </div>
+      </div>
+    </div>
+
     <!-- FCM v1 Engine Status Banner (Dual Theme Compatible) -->
     <div class="card" style="margin-bottom: 24px; border: 1px solid var(--card-border); background: var(--card-bg); box-shadow: var(--card-shadow); border-radius: var(--border-radius);">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
@@ -48,9 +76,9 @@
       </div>
     </div>
 
-    <div class="grid-2">
+    <div class="grid-2" id="fcmPushFormCard">
       <div class="card">
-        <div class="card-title">إرسال إشعار فوري لستارة الهاتف (FCM Push)</div>
+        <div class="card-title">🔔 إشعار فوري للخلفية (Push / FCM — ستارة الهاتف)</div>
         <div class="form-group">
           <label for="pushTarget">الجهة المستهدفة:</label>
           <select id="pushTarget">

@@ -1585,3 +1585,111 @@ section[id] { scroll-margin-top: calc(var(--nav-h) + 16px); }
   border-color: rgba(13, 148, 136, 0.35);
   box-shadow: var(--shadow-2);
 }
+
+
+/* === Continuous Glassmorphism & Passing Shimmer Effects (Text + Buttons) === */
+@keyframes btnGlassSheen {
+  0% { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
+  12% { opacity: 1; }
+  45%, 100% { transform: translateX(140%) skewX(-18deg); opacity: 0; }
+}
+
+@keyframes textGlassSweep {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Continuous glass light sweep across Primary & Gold Secondary buttons */
+  .btn-primary::after,
+  .btn-secondary::after {
+    background: linear-gradient(
+      110deg,
+      transparent 15%,
+      rgba(255, 255, 255, 0.36) 46%,
+      rgba(255, 255, 255, 0.14) 54%,
+      transparent 82%
+    );
+    animation: btnGlassSheen 3.6s ease-in-out infinite;
+  }
+  .btn-secondary::after {
+    animation-delay: 1.8s;
+  }
+
+  /* Continuous glass shimmer passing across top ticker & eyebrow badge */
+  .top-ticker::after,
+  .eyebrow::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      110deg,
+      transparent 20%,
+      rgba(255, 255, 255, 0.18) 50%,
+      transparent 80%
+    );
+    pointer-events: none;
+    animation: btnGlassSheen 4.5s ease-in-out infinite;
+  }
+
+  /* Frosted glass highlight sweep across Hero Title text & gold emphasis */
+  @supports (-webkit-background-clip: text) or (background-clip: text) {
+    .display {
+      background: linear-gradient(
+        110deg,
+        var(--ink) 0%,
+        var(--ink) 38%,
+        var(--teal-500) 48%,
+        rgba(255, 255, 255, 0.92) 51%,
+        var(--teal-500) 54%,
+        var(--ink) 64%,
+        var(--ink) 100%
+      );
+      background-size: 240% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: textGlassSweep 6s linear infinite;
+    }
+    .display em {
+      background: linear-gradient(
+        110deg,
+        var(--gold-deep) 0%,
+        var(--gold) 36%,
+        #FFF7D6 50%,
+        var(--gold) 64%,
+        var(--gold-deep) 100%
+      );
+      background-size: 220% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: textGlassSweep 4s linear infinite;
+    }
+  }
+}
+
+/* Frosted Glassmorphism Depth on Cards, Pills & Ghost Buttons */
+.eyebrow,
+.hero__chip,
+.btn-ghost {
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(13, 148, 136, 0.22);
+  box-shadow: 0 8px 24px -12px rgba(4, 47, 46, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+[data-theme="dark"] .eyebrow,
+[data-theme="dark"] .hero__chip,
+[data-theme="dark"] .btn-ghost {
+  background: rgba(10, 31, 29, 0.68);
+  border-color: rgba(45, 212, 191, 0.22);
+  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.feature,
+.plan {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}

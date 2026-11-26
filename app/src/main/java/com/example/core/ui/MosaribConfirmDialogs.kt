@@ -27,7 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import com.example.core.license.RemoteConfigManager
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.mosarib
 import java.io.File
@@ -45,6 +47,21 @@ fun MosaribFileActionDialog(
     onShare: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    val isPdfFile = file.name.endsWith(".pdf", true) ||
+        (!file.name.endsWith(".xlsx", true) && !file.name.endsWith(".xls", true) && !file.name.endsWith(".csv", true) && fileType.equals("PDF", true))
+    if (isPdfFile && !RemoteConfigManager.isPdfExportAllowed(context)) {
+        MosaribDialog(
+            onDismissRequest = onDismiss,
+            title = "الميزة غير متاحة حالياً",
+            message = RemoteConfigManager.FEATURE_DISABLED_MESSAGE,
+            icon = Icons.Default.Warning,
+            tone = DialogTone.Warning,
+            confirmText = "حسناً",
+            onConfirm = onDismiss
+        )
+        return
+    }
     val (typeIcon, typeColor, typeBadge) = when {
         file.name.endsWith(".xlsx", true) || file.name.endsWith(".xls", true) || fileType.contains("Excel", true) -> {
             Triple(Icons.Default.TableChart, MaterialTheme.mosarib.success, "جدول Excel")

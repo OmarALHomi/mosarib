@@ -507,6 +507,7 @@ fun SettingsScreen(
                             SpeechStatus.MissingVoiceData -> "بيانات ناقصة"
                             SpeechStatus.LanguageNotSupported -> "غير مدعوم"
                             SpeechStatus.NoEngine -> "لا يوجد محرك"
+                            SpeechStatus.DisabledByPolicy -> "مغلقة من الإدارة"
                             null -> "جاري الفحص"
                         }
                         val voices = MosaribSpeaker.getInstalledOfflineArabicVoices(context)

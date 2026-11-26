@@ -29,7 +29,8 @@ enum class SpeechStatus {
     Ready,
     MissingVoiceData,
     LanguageNotSupported,
-    NoEngine
+    NoEngine,
+    DisabledByPolicy
 }
 
 data class SpeechError(
@@ -340,6 +341,10 @@ object MosaribSpeaker {
      * Searches installed engines (preferring Google TTS) if default engine lacks Arabic.
      */
     suspend fun prepare(context: Context): SpeechStatus = withContext(Dispatchers.Main) {
+        if (!com.example.core.license.RemoteConfigManager.isVoiceReadoutAllowed(context)) {
+            _lastStatus.value = SpeechStatus.DisabledByPolicy
+            return@withContext SpeechStatus.DisabledByPolicy
+        }
         initMutex.withLock {
             initSettings(context)
             cleanupOldVoiceFiles(context)
@@ -447,6 +452,15 @@ object MosaribSpeaker {
      * Publishes SpeechError on failure.
      */
     fun speak(text: String, utteranceId: String = UUID.randomUUID().toString()): Boolean {
+        if (_lastStatus.value == SpeechStatus.DisabledByPolicy) {
+            _errors.tryEmit(
+                SpeechError(
+                    utteranceId = utteranceId,
+                    message = com.example.core.license.RemoteConfigManager.FEATURE_DISABLED_MESSAGE
+                )
+            )
+            return false
+        }
         val currentTts = tts
         if (currentTts == null || !isInitialized) {
             _errors.tryEmit(SpeechError(utteranceId = utteranceId, message = "محرك الصوت غير جاهز"))

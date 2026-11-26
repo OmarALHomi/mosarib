@@ -22,6 +22,21 @@
         <button class="pill-filter-btn" id="filterDeleted" onclick="setUserFilter('DELETED')">المحذوفون (<span id="countFilterDeleted">0</span>)</button>
       </div>
 
+      <!-- Installed App Versions Distribution & Quick Actions -->
+      <div id="userVersionDistributionBar" style="margin-bottom: 14px; padding: 12px 14px; border-radius: 12px; background: var(--input-bg); border: 1px solid var(--card-border);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+          <span style="font-size: 12.5px; font-weight: 800; color: var(--text-title);">📱 توزيع النسخ المثبّتة:</span>
+          <span id="userVersionSummaryHint" style="font-size: 11.5px; color: var(--text-muted);">اضغط على أي نسخة لفلترة الجدول أو استهدافها</span>
+        </div>
+        <div class="pill-filter" id="userVersionChips" style="margin-bottom: 0;"></div>
+        <div id="userVersionQuickActions" style="display: none; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--card-border);">
+          <span id="userVersionSelectedLabel" style="font-size: 12.5px; font-weight: 700; color: var(--primary-light);"></span>
+          <button type="button" class="btn-sm btn-unblock" onclick="jumpBroadcastForSelectedVersion()">📢 إرسال إعلان لهذه النسخة</button>
+          <button type="button" class="btn-sm" style="background: rgba(0, 150, 166, 0.16); color: var(--primary-light); border: 1px solid var(--primary);" onclick="jumpPolicyForSelectedVersion()">⚙️ ضبط ميزات هذه النسخة</button>
+          <button type="button" class="btn-sm btn-outline" onclick="setUserVersionFilter('ALL')">✕ إظهار كل النسخ</button>
+        </div>
+      </div>
+
       <div id="usersBulkBar" style="display:none; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 12px; margin-bottom:12px; border:1px solid var(--accent); border-radius:10px;">
         <b>المحدد: <span id="usersSelectedCount">0</span></b>
         <button class="btn-sm btn-block" onclick="bulkDisableUsers()">تعطيل المحدد ⛔</button>

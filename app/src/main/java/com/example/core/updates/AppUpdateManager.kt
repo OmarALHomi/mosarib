@@ -92,6 +92,17 @@ object AppUpdateManager {
     fun parseVersionCodes(raw: String): List<Int> =
         raw.split(Regex("[,\\s]+")).mapNotNull { it.trim().toIntOrNull() }.filter { it > 0 }.distinct()
 
+    /** Pure check: true only when broadcast is an update prompt or forced update. */
+    fun isUpdateBroadcast(type: String, isForceUpdate: Boolean): Boolean =
+        isForceUpdate || type.trim().equals("UPDATE", ignoreCase = true)
+
+    /** Non-update announcements never inherit stale minRequiredVersionCode > 1. */
+    internal fun resolveEffectiveMinVersion(
+        type: String,
+        isForceUpdate: Boolean,
+        rawMinVersion: Int
+    ): Int = if (isUpdateBroadcast(type, isForceUpdate)) rawMinVersion else 1
+
     /**
      * Pure decision function for force update.
      * Force when currentCode < minCode, or when currentCode is one of [forceVersionCodes].
@@ -158,20 +169,28 @@ object AppUpdateManager {
                 }
 
                 val id = obj.optString("id", "")
-                val minVersion = obj.optInt("minRequiredVersionCode", 1)
+                val rawType = obj.optString("type", "INFO").trim().uppercase()
+                val isForceUpdateFlag = obj.optBoolean("isForceUpdate", false)
+                val isUpdateType = isUpdateBroadcast(rawType, isForceUpdateFlag)
+                val minVersion = resolveEffectiveMinVersion(
+                    rawType,
+                    isForceUpdateFlag,
+                    obj.optInt("minRequiredVersionCode", 1)
+                )
                 val reqVersionName = obj.optString("requiredVersionName", obj.optString("versionName", ""))
                 val actionUrl = obj.optString("actionUrl", "")
                 val message = obj.optString("message", "")
-                val isForceUpdateFlag = obj.optBoolean("isForceUpdate", false)
                 val forceCodes = mutableListOf<Int>()
-                obj.optJSONArray("forceVersionCodes")?.let { arr ->
-                    for (i in 0 until arr.length()) arr.optInt(i, 0).takeIf { it > 0 }?.let { forceCodes.add(it) }
-                } ?: forceCodes.addAll(parseVersionCodes(obj.optString("forceVersionCodes", "")))
+                if (isUpdateType) {
+                    obj.optJSONArray("forceVersionCodes")?.let { arr ->
+                        for (i in 0 until arr.length()) arr.optInt(i, 0).takeIf { it > 0 }?.let { forceCodes.add(it) }
+                    } ?: forceCodes.addAll(parseVersionCodes(obj.optString("forceVersionCodes", "")))
+                }
                 val imageUrl = obj.optString("imageUrl", "").takeIf { it.startsWith("https://") }.orEmpty()
                 val targetMin = obj.optInt("targetMinVersionCode", 0).takeIf { it > 0 }
                 val targetMax = obj.optInt("targetMaxVersionCode", 0).takeIf { it > 0 }
 
-                // Write the value that was read every time a broadcast is fetched (including 1)
+                // Write the effective minVersion (1 for non-update announcements so stale values never lock offline)
                 updateCachedForceUpdate(context, minVersion, reqVersionName, actionUrl, message, forceCodes)
 
                 // Parse optional release notes
@@ -198,7 +217,9 @@ object AppUpdateManager {
                         message = message,
                         type = "UPDATE",
                         actionUrl = actionUrl,
-                        actionText = obj.optString("actionText", "تحميل التحديث"),
+                        actionText = obj.optString("actionText", "تحميل التحديث").let {
+                            if (it == "null" || it.isBlank()) "تحميل التحديث" else it
+                        },
                         minRequiredVersionCode = minVersion,
                         isForceUpdate = true,
                         publishedAt = obj.optLong("publishedAt", 0L),
@@ -227,7 +248,9 @@ object AppUpdateManager {
                     message = message,
                     type = obj.optString("type", "INFO"),
                     actionUrl = actionUrl,
-                    actionText = obj.optString("actionText", "عرض التفاصيل"),
+                    actionText = obj.optString("actionText", "").let {
+                        if (it == "null") "" else it.trim()
+                    },
                     minRequiredVersionCode = minVersion,
                     isForceUpdate = false,
                     publishedAt = obj.optLong("publishedAt", 0L),

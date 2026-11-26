@@ -44,8 +44,8 @@ fun BroadcastAnnouncementDialog(
 ) {
     val context = LocalContext.current
 
-    val isUpdate = broadcast.type.uppercase() == "UPDATE" || broadcast.actionText.contains("تحديث") || broadcast.minRequiredVersionCode > 1
-    val isMaintenance = when (broadcast.type.uppercase()) {
+    val isUpdate = AppUpdateManager.isUpdateBroadcast(broadcast.type, broadcast.isForceUpdate)
+    val isMaintenance = !isUpdate && when (broadcast.type.trim().uppercase()) {
         "WARNING", "MAINTENANCE", "TECHNICAL", "CRITICAL" -> true
         else -> false
     }
@@ -70,16 +70,9 @@ fun BroadcastAnnouncementDialog(
 
     val hasAction = broadcast.actionUrl.isNotBlank()
 
-    val confirmText = when {
-        isUpdate -> "تحديث"
-        hasAction -> broadcast.actionText.ifBlank { "عرض التفاصيل" }
-        else -> "حسناً"
-    }
+    val confirmText = broadcast.actionText.ifBlank { if (isUpdate) "تحديث" else "تمام" }
 
-    val dismissText = when {
-        isUpdate || hasAction -> "لاحقاً"
-        else -> null
-    }
+    val dismissText = if (isUpdate || hasAction) "لاحقاً" else null
 
     MosaribDialog(
         onDismissRequest = {

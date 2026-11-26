@@ -1,6 +1,6 @@
   <div id="tab-publicPortal" style="display: none;">
     <!-- Real Site Visitors & APK Downloads KPI Row -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 22px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 16px; margin-bottom: 22px;">
       <div class="stat-card" style="background: var(--card-bg); border: 1px solid var(--card-border); padding: 18px;">
         <div class="stat-info">
           <h3 style="color: var(--primary); font-size: 13.5px; font-weight: 700;">إجمالي زوار صفحة الزوار (بيانات حقيقية)</h3>
@@ -43,7 +43,7 @@
             <input type="text" id="pActiveRegionName" placeholder="مثال: الجمهورية اليمنية (صنعاء، مأرب، الجوف، عمران)" required>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+          <div class="form-grid-3">
             <div class="form-group">
               <label for="pAvgPrice">متوسط سعر الساعة:</label>
               <input type="number" id="pAvgPrice" placeholder="7500" required>
@@ -58,7 +58,7 @@
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-grid-2">
             <div class="form-group">
               <label for="pCurrency">العملة المعتمدة:</label>
               <input type="text" id="pCurrency" value="ريال" required>
@@ -104,7 +104,7 @@
             <textarea id="pHeroSubtitle" rows="3" placeholder="نظام ميداني متكامل يعمل بدون إنترنت لموزعي المياه وملاك الآبار الارتوازية..." required></textarea>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-grid-2">
             <div class="form-group">
               <label for="pContactWhatsapp">رقم الواتساب للتفعيل والتواصل:</label>
               <input type="text" id="pContactWhatsapp" placeholder="967773712030" required>
@@ -115,7 +115,7 @@
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-grid-2">
             <div class="form-group">
               <label for="pDeveloperName">اسم المطور / المالك:</label>
               <input type="text" id="pDeveloperName" value="المهندس عمر الحومي">
@@ -136,7 +136,7 @@
       <!-- 3. Section Visibility Switches -->
       <div class="card" style="margin-bottom: 24px; border: 1px solid rgba(0, 200, 83, 0.4);">
         <div class="card-title">👁️ التحكم بإظهار وإخفاء أقسام الموقع العام (تشغيل / إيقاف)</div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 10px 0;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 16px; padding: 10px 0;">
           <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-title); font-weight: 700;">
             <input type="checkbox" id="pShowTopTicker" style="width: 20px; height: 20px; accent-color: var(--primary);" checked>
             <span>الشريط الإخباري العلوي</span>
@@ -233,7 +233,7 @@
             <!-- Yearly Plan Pricing -->
             <div style="background: var(--surface-alt, rgba(0, 0, 0, 0.03)); border: 1px solid rgba(255, 179, 0, 0.3); border-radius: 10px; padding: 16px;">
               <h4 style="color: var(--accent); margin-bottom: 12px; font-size: 14px; font-weight: 800;">⭐ باقة الاشتراك السنوي الشامل:</h4>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div class="form-grid-2">
                 <div class="form-group">
                   <label for="pricingYearlyPrice">السعر الفعلي المطلوب (بعد الخصم):</label>
                   <input type="text" id="pricingYearlyPrice" placeholder="مثال: 80" required>
@@ -243,7 +243,7 @@
                   <input type="text" id="pricingYearlyOriginal" placeholder="مثال: 120">
                 </div>
               </div>
-              <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+              <div class="form-grid-2-1">
                 <div class="form-group">
                   <label for="pricingYearlyDiscount">نص شارة الخصم والتوفير:</label>
                   <input type="text" id="pricingYearlyDiscount" placeholder="مثال: وفر 33% (خصم 40$)">
@@ -258,7 +258,7 @@
             <!-- Monthly Plan Pricing -->
             <div style="background: var(--surface-alt, rgba(0, 0, 0, 0.03)); border: 1px solid rgba(0, 188, 212, 0.3); border-radius: 10px; padding: 16px;">
               <h4 style="color: var(--primary); margin-bottom: 12px; font-size: 14px; font-weight: 800;">📅 باقة الاشتراك الشهري:</h4>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div class="form-grid-2">
                 <div class="form-group">
                   <label for="pricingMonthlyPrice">السعر الفعلي المطلوب (شهرياً):</label>
                   <input type="text" id="pricingMonthlyPrice" placeholder="مثال: 10" required>
@@ -268,7 +268,7 @@
                   <input type="text" id="pricingMonthlyOriginal" placeholder="مثال: 15">
                 </div>
               </div>
-              <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+              <div class="form-grid-2-1">
                 <div class="form-group">
                   <label for="pricingMonthlyDiscount">نص شارة الخصم (إن وجد):</label>
                   <input type="text" id="pricingMonthlyDiscount" placeholder="مثال: عرض خاص">
@@ -299,7 +299,7 @@
 
         <!-- Existing Accounts List -->
         <div style="font-weight: 700; font-size: 14px; margin-bottom: 10px; color: var(--text-title);">الحسابات المتاحة حالياً:</div>
-        <div id="adminPaymentMethodsList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 20px;">
+        <div id="adminPaymentMethodsList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; margin-bottom: 20px;">
           <div style="text-align: center; color: var(--text-muted); padding: 14px; grid-column: 1 / -1;">جاري تحميل الحسابات...</div>
         </div>
 
@@ -307,7 +307,7 @@
 
         <!-- Form to Add New Account -->
         <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: var(--primary);">إضافة حساب جديد:</div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 12px; margin-bottom: 12px;">
           <div class="form-group" style="margin-bottom:0;">
             <label>اسم البنك أو المحفظة *</label>
             <input type="text" id="newPayBankName" placeholder="مثال: بنك الكريمي أو محفظة جوالي">

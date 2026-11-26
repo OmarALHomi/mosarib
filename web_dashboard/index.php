@@ -105,7 +105,7 @@ $ps = [
     'max_hourly_price' => 25000,
     'currency_symbol' => 'ريال',
     'water_status' => 'GOOD',
-    'water_status_text' => 'مستقر ومتاح في معظم المناطق الزراعية',
+    'water_status_text' => 'متوفرة ومستقرة',
     'rates_note' => 'الأسعار تختلف بحسب عمق البئر ونوع الطاقة المستخدمة',
     'hero_badge' => 'المنظومة الرقمية الأولى لإدارة مياه الآبار وحصص السقي',
     'hero_title' => 'كل قطرة محسوبة وكل حقّ محفوظ',
@@ -129,12 +129,56 @@ $ps = [
     'testimonials' => []
 ];
 
+function resolvePortalWaterStatus($status, $customText = '') {
+    $code = strtoupper(trim((string)$status));
+    $map = [
+        'ABUNDANT'    => ['code' => 'ABUNDANT',    'text' => 'وفيرة ومرتفعة المنسوب',  'class' => 'rates-status-pill--abundant'],
+        'GOOD'        => ['code' => 'GOOD',        'text' => 'متوفرة ومستقرة',         'class' => 'rates-status-pill--good'],
+        'MODERATE'    => ['code' => 'MODERATE',    'text' => 'متوسطة وتستدعي الترشيد', 'class' => 'rates-status-pill--moderate'],
+        'MEDIUM'      => ['code' => 'MODERATE',    'text' => 'متوسطة وتستدعي الترشيد', 'class' => 'rates-status-pill--moderate'],
+        'SCARCE'      => ['code' => 'SCARCE',      'text' => 'شحيحة وطلب متزايد',      'class' => 'rates-status-pill--scarce'],
+        'LOW'         => ['code' => 'SCARCE',      'text' => 'شحيحة وطلب متزايد',      'class' => 'rates-status-pill--scarce'],
+        'CRITICAL'    => ['code' => 'SCARCE',      'text' => 'شحيحة وطلب متزايد',      'class' => 'rates-status-pill--scarce'],
+        'MAINTENANCE' => ['code' => 'MAINTENANCE', 'text' => 'تحديثات وصيانة ميدانية', 'class' => 'rates-status-pill--maintenance'],
+    ];
+    $meta = $map[$code] ?? $map['GOOD'];
+    $knownDefaults = [
+        'وفيرة ومرتفعة المنسوب',
+        'متوفرة ومستقرة',
+        'متوسطة وتستدعي الترشيد',
+        'شحيحة وطلب متزايد',
+        'مستقر ومتاح في معظم المناطق الزراعية',
+        'مستقر وجيد في معظم المناطق الزراعية',
+        'متوسط ومتذبذب في بعض المناطق',
+        'شحيح ويُنصح بجدولة الضخ مسبقاً',
+        'شح حرج في المنسوب حالياً',
+        'تحديثات وصيانة ميدانية',
+    ];
+    $trimmed = trim((string)$customText);
+    if ($trimmed !== '' && !in_array($trimmed, $knownDefaults, true)) {
+        $meta['text'] = $trimmed;
+    }
+    return $meta;
+}
+
 if (file_exists($settingsFile)) {
     $savedSettings = json_decode(file_get_contents($settingsFile), true);
     if (is_array($savedSettings)) {
         $ps = array_merge($ps, $savedSettings);
     }
 }
+if (!file_exists($settingsFile) || (time() - @filemtime($settingsFile) > 180)) {
+    $fbPsRes = firebaseRequest('portal_settings.json');
+    if (empty($fbPsRes['error']) && !empty($fbPsRes['data']) && is_array($fbPsRes['data'])) {
+        $ps = array_merge($ps, $fbPsRes['data']);
+        @file_put_contents($settingsFile, json_encode($ps, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    } elseif (file_exists($settingsFile)) {
+        @touch($settingsFile); // Firebase failed: retry after 180s instead of on every visit
+    }
+}
+$waterStatusMeta = resolvePortalWaterStatus($ps['water_status'] ?? 'GOOD', $ps['water_status_text'] ?? '');
+$ps['water_status'] = $waterStatusMeta['code'];
+$ps['water_status_text'] = $waterStatusMeta['text'];
 
 // 2. Load Subscription Pricing
 $pricingFile = __DIR__ . '/data/subscription_pricing.json';
@@ -243,6 +287,26 @@ $ogImageUrl = $baseOrigin . rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_S
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@500;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/portal.css?v=<?= filemtime(__DIR__ . '/assets/css/portal.css') ?>">
+  <style>
+    .rates-status-pill::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+    .rates-status-pill--abundant { background: rgba(2, 132, 199, 0.12); color: #0284C7; }
+    .rates-status-pill--good { background: rgba(5, 150, 105, 0.12); color: #059669; }
+    .rates-status-pill--moderate { background: rgba(217, 119, 6, 0.14); color: #B45309; }
+    .rates-status-pill--scarce { background: rgba(220, 38, 38, 0.12); color: #DC2626; }
+    .rates-status-pill--maintenance { background: rgba(100, 116, 139, 0.14); color: #475569; }
+    [data-theme="dark"] .rates-status-pill--abundant { background: rgba(56, 189, 248, 0.15); color: #38BDF8; }
+    [data-theme="dark"] .rates-status-pill--good { background: rgba(52, 211, 153, 0.15); color: #34D399; }
+    [data-theme="dark"] .rates-status-pill--moderate { background: rgba(251, 191, 36, 0.15); color: #FBBF24; }
+    [data-theme="dark"] .rates-status-pill--scarce { background: rgba(248, 113, 113, 0.15); color: #F87171; }
+    [data-theme="dark"] .rates-status-pill--maintenance { background: rgba(148, 163, 184, 0.15); color: #CBD5E1; }
+  </style>
 
   <script>
     (function () {
@@ -391,7 +455,11 @@ $ogImageUrl = $baseOrigin . rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_S
         <p class="eyebrow" id="heroBadgeEl"><span class="eyebrow__dot"></span><span id="heroBadgeText"><?= htmlspecialchars($ps['hero_badge']) ?></span></p>
         <h1 class="display" id="heroTitleText">
           <?php if (!empty($ps['hero_title']) && $ps['hero_title'] !== 'إدارة جلسات السقي وحسابات مياه الآبار بدقة واحترافية'): ?>
-            <?= nl2br(htmlspecialchars($ps['hero_title'])) ?>
+            <?php
+              $safeTitle = htmlspecialchars(trim((string)$ps['hero_title']));
+              $safeTitle = preg_replace('/(\S+)\s*$/u', '<em>$1</em>', $safeTitle, 1);
+              echo nl2br($safeTitle);
+            ?>
           <?php else: ?>
             كل قطرة محسوبة<br>
             وكل حقّ <em>محفوظ</em>
@@ -655,14 +723,14 @@ $ogImageUrl = $baseOrigin . rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_S
             <span style="font-size: var(--step--1); font-weight: 600; color: var(--muted);"><?= htmlspecialchars($ps['currency_symbol']) ?></span>
           </div>
           <div style="font-size: var(--step--2); color: var(--muted); margin-top: 4px;" id="minPriceEl">
-            أعلى: <?= number_format($ps['max_hourly_price']) ?> • أقل: <?= number_format($ps['min_hourly_price']) ?> ريال
+            أعلى: <?= number_format($ps['max_hourly_price']) ?> • أقل: <?= number_format($ps['min_hourly_price']) ?> <?= htmlspecialchars($ps['currency_symbol']) ?>
           </div>
         </div>
 
         <div>
           <div style="font-size: var(--step--2); color: var(--muted); font-weight: 600; margin-bottom: 6px;">حالة منسوب المياه والضخ:</div>
-          <div class="rates-status-pill" id="waterStatusEl">
-            <?= htmlspecialchars($ps['water_status_text'] ?? 'مستقر ومتاح في معظم المناطق الزراعية') ?>
+          <div class="rates-status-pill <?= htmlspecialchars($waterStatusMeta['class']) ?>" id="waterStatusEl">
+            <?= htmlspecialchars($ps['water_status_text']) ?>
           </div>
         </div>
       </div>
@@ -1279,6 +1347,17 @@ $ogImageUrl = $baseOrigin . rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_S
     });
   }
 
+  const WATER_STATUS_MAP = {
+    ABUNDANT: { text: 'وفيرة ومرتفعة المنسوب', cls: 'rates-status-pill--abundant' },
+    GOOD: { text: 'متوفرة ومستقرة', cls: 'rates-status-pill--good' },
+    MODERATE: { text: 'متوسطة وتستدعي الترشيد', cls: 'rates-status-pill--moderate' },
+    MEDIUM: { text: 'متوسطة وتستدعي الترشيد', cls: 'rates-status-pill--moderate' },
+    SCARCE: { text: 'شحيحة وطلب متزايد', cls: 'rates-status-pill--scarce' },
+    LOW: { text: 'شحيحة وطلب متزايد', cls: 'rates-status-pill--scarce' },
+    CRITICAL: { text: 'شحيحة وطلب متزايد', cls: 'rates-status-pill--scarce' },
+    MAINTENANCE: { text: 'تحديثات وصيانة ميدانية', cls: 'rates-status-pill--maintenance' }
+  };
+
   /* Live Data Sync with Database upon page load */
   async function syncLiveData() {
     try {
@@ -1286,6 +1365,7 @@ $ogImageUrl = $baseOrigin . rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_S
       const json = await res.json();
       if (json && json.data) {
         const s = json.data.portal_settings || {};
+        const wm = json.data.water_metrics || {};
         const p = json.data.subscription_pricing || {};
 
         if (s.active_region_name && document.getElementById('regionNameEl')) document.getElementById('regionNameEl').textContent = s.active_region_name;
@@ -1296,7 +1376,20 @@ $ogImageUrl = $baseOrigin . rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_S
         }
         if (s.hero_badge && document.getElementById('heroBadgeText')) document.getElementById('heroBadgeText').textContent = s.hero_badge;
         if (s.headline_alert && document.getElementById('topTickerText')) document.getElementById('topTickerText').textContent = s.headline_alert;
-        if (s.water_status_text && document.getElementById('waterStatusEl')) document.getElementById('waterStatusEl').textContent = s.water_status_text;
+        const waterStatusEl = document.getElementById('waterStatusEl');
+        if (waterStatusEl) {
+          const statusKey = String(s.water_status || wm.status || 'GOOD').toUpperCase();
+          const meta = WATER_STATUS_MAP[statusKey] || WATER_STATUS_MAP.GOOD;
+          waterStatusEl.textContent = s.water_status_text || wm.status_text || meta.text;
+          waterStatusEl.classList.remove(
+            'rates-status-pill--abundant',
+            'rates-status-pill--good',
+            'rates-status-pill--moderate',
+            'rates-status-pill--scarce',
+            'rates-status-pill--maintenance'
+          );
+          waterStatusEl.classList.add(meta.cls);
+        }
         if (s.rates_note && document.getElementById('ratesNoteEl')) document.getElementById('ratesNoteEl').textContent = s.rates_note;
 
         if (p.yearly && p.yearly.price && document.getElementById('yearlyPriceEl')) {

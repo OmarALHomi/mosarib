@@ -88,6 +88,15 @@ class QuickRecordActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         requestedMode = intent?.getStringExtra(EXTRA_MODE) ?: MODE_SESSION
 
+        if (!com.example.core.license.RemoteConfigManager.isHomeWidgetAllowed(this)) {
+            android.widget.Toast.makeText(
+                this,
+                com.example.core.license.RemoteConfigManager.FEATURE_DISABLED_MESSAGE,
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            finish()
+            return
+        }
         if (!DeviceLockManager.verifyOrRegister(this)) {
             setContent { DeviceUnauthorizedScreen() }
             return
@@ -107,6 +116,15 @@ class QuickRecordActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (!com.example.core.license.RemoteConfigManager.isHomeWidgetAllowed(this)) {
+            android.widget.Toast.makeText(
+                this,
+                com.example.core.license.RemoteConfigManager.FEATURE_DISABLED_MESSAGE,
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            finish()
+            return
+        }
         requestedMode = intent.getStringExtra(EXTRA_MODE) ?: MODE_SESSION
     }
 

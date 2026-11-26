@@ -182,6 +182,16 @@ fun TtsMissingDataDialog(
                 onDismiss = onDismiss
             )
         }
+        SpeechStatus.DisabledByPolicy -> {
+            MosaribDialog(
+                onDismissRequest = onDismiss,
+                title = "الميزة غير متاحة حالياً",
+                message = com.example.core.license.RemoteConfigManager.FEATURE_DISABLED_MESSAGE,
+                tone = DialogTone.Warning,
+                confirmText = "حسناً",
+                onConfirm = onDismiss
+            )
+        }
         SpeechStatus.Ready -> {
             // No dialog needed
         }

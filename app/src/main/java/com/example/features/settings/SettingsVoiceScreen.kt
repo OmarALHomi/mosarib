@@ -439,6 +439,15 @@ internal fun SettingsVoiceScreen(
                                     }
                                 }
                             }
+                            SpeechStatus.DisabledByPolicy -> {
+                                Text(
+                                    text = com.example.core.license.RemoteConfigManager.FEATURE_DISABLED_MESSAGE,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.mosarib.warning,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            }
                             null -> {
                                 Text(
                                     text = "جاري فحص محرك الصوت...",

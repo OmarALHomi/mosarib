@@ -296,6 +296,10 @@ object VoiceRecognitionHelper {
         onShowDialog: (VoiceDialogType) -> Unit,
         prompt: String = "تحدث الآن..."
     ) {
+        if (!com.example.core.license.RemoteConfigManager.isVoiceInputAllowed(context)) {
+            Toast.makeText(context, com.example.core.license.RemoteConfigManager.FEATURE_DISABLED_MESSAGE, Toast.LENGTH_LONG).show()
+            return
+        }
         if (!isRecognitionAvailable(context)) {
             onShowDialog(VoiceDialogType.MISSING_ENGINE)
             return

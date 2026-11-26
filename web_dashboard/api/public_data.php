@@ -20,8 +20,8 @@ if (!file_exists(__DIR__ . '/../data')) {
 if (!file_exists($settingsFile)) {
     $defaultSettings = [
         'water_status' => 'GOOD',
-        'water_status_text' => 'مستقر وجيد في معظم المناطق الزراعية',
-        'water_index_percent' => 84,
+        'water_status_text' => 'متوفرة ومستقرة',
+        'water_index_percent' => 85,
         'avg_hourly_price' => 18000,
         'min_hourly_price' => 1500,
         'max_hourly_price' => 25000,
@@ -68,6 +68,53 @@ if (!file_exists($newsFile)) {
         ]
     ];
     file_put_contents($newsFile, json_encode($defaultNews, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+}
+
+// Helper: Canonical water status mapping shared across GET and POST
+function resolveWaterStatusMeta($status, $customText = null, $customIndex = null) {
+    $code = strtoupper(trim((string)$status));
+    $map = [
+        'ABUNDANT'    => ['status' => 'ABUNDANT',    'text' => 'وفيرة ومرتفعة المنسوب',  'index' => 95],
+        'GOOD'        => ['status' => 'GOOD',        'text' => 'متوفرة ومستقرة',         'index' => 85],
+        'MODERATE'    => ['status' => 'MODERATE',    'text' => 'متوسطة وتستدعي الترشيد', 'index' => 60],
+        'MEDIUM'      => ['status' => 'MODERATE',    'text' => 'متوسطة وتستدعي الترشيد', 'index' => 60],
+        'SCARCE'      => ['status' => 'SCARCE',      'text' => 'شحيحة وطلب متزايد',      'index' => 30],
+        'LOW'         => ['status' => 'SCARCE',      'text' => 'شحيحة وطلب متزايد',      'index' => 30],
+        'CRITICAL'    => ['status' => 'SCARCE',      'text' => 'شحيحة وطلب متزايد',      'index' => 20],
+        'MAINTENANCE' => ['status' => 'MAINTENANCE', 'text' => 'تحديثات وصيانة ميدانية', 'index' => 50],
+    ];
+    $meta = $map[$code] ?? $map['GOOD'];
+
+    $knownDefaultTexts = [
+        'وفيرة ومرتفعة المنسوب',
+        'متوفرة ومستقرة',
+        'متوسطة وتستدعي الترشيد',
+        'شحيحة وطلب متزايد',
+        'مستقر ومتاح في معظم المناطق الزراعية',
+        'مستقر وجيد في معظم المناطق الزراعية',
+        'متوسط ومتذبذب في بعض المناطق',
+        'شحيح ويُنصح بجدولة الضخ مسبقاً',
+        'شح حرج في المنسوب حالياً',
+        'تحديثات وصيانة ميدانية',
+    ];
+
+    $trimmedText = trim((string)($customText ?? ''));
+    $text = ($trimmedText === '' || in_array($trimmedText, $knownDefaultTexts, true))
+        ? $meta['text']
+        : $trimmedText;
+
+    $index = (is_numeric($customIndex) && intval($customIndex) > 0)
+        ? intval($customIndex)
+        : $meta['index'];
+    if ($meta['status'] === 'ABUNDANT' && $index < 92 && !is_numeric($customIndex)) {
+        $index = $meta['index'];
+    }
+
+    return [
+        'status' => $meta['status'],
+        'text' => $text,
+        'index' => $index,
+    ];
 }
 
 // Helper: Public rate limiting with flock (5 per hour per IP)
@@ -283,7 +330,7 @@ if ($method === 'GET') {
         'currency_symbol' => 'ريال',
         'rates_note' => 'الأسعار تختلف بحسب عمق البئر، حجم المضخة، ونوع الطاقة المستخدمة (شمسية / ديزل).',
         'water_status' => 'GOOD',
-        'water_status_text' => 'مستقر ومتاح في معظم المناطق الزراعية',
+        'water_status_text' => 'متوفرة ومستقرة',
         'water_index_percent' => 85,
         'headline_alert' => 'منظومة مُسَرِّب الميدانية: تحديث لحظي لأسعار ساعات الري والتحميل المباشر للنسخة الأحدث.',
         'hero_badge' => 'المنظومة الرقمية المعتمدة لملاك الآبار والموزعين',
@@ -309,6 +356,17 @@ if ($method === 'GET') {
         'stats_vouchers' => '',
         'testimonials' => []
     ], $settings);
+
+    $resolvedWater = resolveWaterStatusMeta(
+        $portalSettings['water_status'] ?? 'GOOD',
+        $portalSettings['water_status_text'] ?? '',
+        null
+    );
+    $portalSettings['water_status'] = $resolvedWater['status'];
+    $portalSettings['water_status_text'] = $resolvedWater['text'];
+    if (empty($portalSettings['water_index_percent']) || ($resolvedWater['status'] === 'ABUNDANT' && intval($portalSettings['water_index_percent']) < 92)) {
+        $portalSettings['water_index_percent'] = $resolvedWater['index'];
+    }
 
     if (!empty($hasRealRates)) {
         $portalSettings['avg_hourly_price'] = floatval($calculatedAvg);
@@ -651,15 +709,13 @@ if ($method === 'POST') {
             'currency_symbol' => trim($input['currency_symbol'] ?? ($existingSettings['currency_symbol'] ?? 'ريال')),
             'rates_note' => trim($input['rates_note'] ?? ($existingSettings['rates_note'] ?? 'الأسعار تختلف بحسب عمق البئر، حجم المضخة، ونوع الطاقة المستخدمة (شمسية / ديزل).')),
             
-            'water_status' => $input['water_status'] ?? ($existingSettings['water_status'] ?? 'GOOD'),
-            'water_status_text' => trim($input['water_status_text'] ?? ([
-                'GOOD' => 'مستقر ومتاح في معظم المناطق الزراعية',
-                'MEDIUM' => 'متوسط ومتذبذب في بعض المناطق',
-                'LOW' => 'شحيح ويُنصح بجدولة الضخ مسبقاً',
-                'CRITICAL' => 'شح حرج في المنسوب حالياً',
-                'MAINTENANCE' => 'تحديثات وصيانة ميدانية'
-            ][$input['water_status'] ?? ''] ?? ($existingSettings['water_status_text'] ?? 'مستقر ومتاح في معظم المناطق الزراعية'))),
-            'water_index_percent' => intval($input['water_index_percent'] ?? ($existingSettings['water_index_percent'] ?? 85)),
+            'water_status' => ($waterMeta = resolveWaterStatusMeta(
+                $input['water_status'] ?? ($existingSettings['water_status'] ?? 'GOOD'),
+                $input['water_status_text'] ?? '',
+                (isset($input['water_index_percent']) && is_numeric($input['water_index_percent'])) ? intval($input['water_index_percent']) : null
+            ))['status'],
+            'water_status_text' => $waterMeta['text'],
+            'water_index_percent' => $waterMeta['index'],
             'active_regions_count' => intval($input['active_regions_count'] ?? ($existingSettings['active_regions_count'] ?? 18)),
             'headline_alert' => trim($input['headline_alert'] ?? ($existingSettings['headline_alert'] ?? '')),
 
@@ -692,6 +748,7 @@ if ($method === 'POST') {
 
         unset($settings['csrf_token'], $settings['action']);
         file_put_contents($settingsFile, json_encode($settings, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+        firebaseRequest('portal_settings.json', 'PUT', $settings);
         $cacheFile = __DIR__ . '/../data/market_cache.json';
         if (file_exists($cacheFile)) @unlink($cacheFile);
 

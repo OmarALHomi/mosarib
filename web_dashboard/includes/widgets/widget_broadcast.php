@@ -8,19 +8,19 @@
       </div>
     </div>
 
-    <div class="grid-2">
+    <div class="grid-2" id="broadcastFormCard">
       <div class="card">
-        <div class="card-title">إرسال إعلان عام أو تفعيل التحديث الإجباري</div>
+        <div class="card-title">📢 إعلان داخل التطبيق أو تحديث إجباري (In-App Broadcast)</div>
         <div class="form-group">
           <label for="bcTitle">عنوان الإعلان / التنبيه:</label>
-          <input type="text" id="bcTitle" placeholder="مثال: تحديث إجباري هام للإصدار v1.1.0">
+          <input type="text" id="bcTitle" placeholder="مثال: ميزة جديدة أو رسالة توجيهية للمستخدمين" oninput="renderBroadcastPreview()">
         </div>
         <div class="form-group">
           <label for="bcType">نوع الإشعار:</label>
           <select id="bcType" onchange="toggleUpdateInputs()">
-            <option value="INFO">رسالة توجيهية / إعلان عام</option>
-            <option value="WARNING">تنبيه فني هام</option>
-            <option value="UPDATE">تحديث إجباري وقفل النسخ القديمة</option>
+            <option value="INFO">إعلان توجيهي / ميزة جديدة (INFO — لا يقفل التطبيق)</option>
+            <option value="WARNING">تنبيه فني هام (WARNING — لا يقفل التطبيق)</option>
+            <option value="UPDATE">تحديث إجباري وقفل النسخ القديمة (UPDATE)</option>
           </select>
         </div>
         <div class="form-group" id="versionGroup" style="display: none;">
@@ -54,11 +54,11 @@
         <div id="bcVersionUsage" style="font-size:12px; color:var(--text-muted); margin:-6px 0 14px; line-height:1.8;"></div>
         <div class="form-group">
           <label for="bcMessage">نص الإشعار / رسالة التحديث:</label>
-          <textarea id="bcMessage" rows="3" placeholder="اكتب التفاصيل والميزات الجديدة أو التوجيهات..."></textarea>
+          <textarea id="bcMessage" rows="3" placeholder="اكتب نص الإعلان أو التوجيه الذي سيظهر للمستخدمين عند فتح التطبيق..." oninput="renderBroadcastPreview()"></textarea>
         </div>
         <div class="form-group">
-          <label for="bcUrl">رابط التحديث أو التحميل (اختياري):</label>
-          <input type="text" id="bcUrl" placeholder="مثال: https://mosarib.com/download أو mosarib://settings">
+          <label for="bcUrl">رابط التوجيه أو التحميل (اختياري):</label>
+          <input type="text" id="bcUrl" placeholder="رابط اختياري (مثال: https://mosarib.com أو mosarib://settings)" oninput="renderBroadcastPreview()">
         </div>
         <div class="form-group">
           <label for="bcImageUrl">صورة مع الإعلان (اختياري):</label>
@@ -72,8 +72,8 @@
         </div>
 
         <div class="form-group">
-          <label for="bcBtnText">نص الزر:</label>
-          <input type="text" id="bcBtnText" value="تحديث التطبيق الآن">
+          <label for="bcBtnText">نص زر التأكيد:</label>
+          <input type="text" id="bcBtnText" value="تمام" oninput="onBroadcastBtnTextInput()">
         </div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
           <button class="btn" style="width: auto; padding: 10px 24px; font-weight: 700;" onclick="publishBroadcast()">📢 نشر</button>
@@ -82,11 +82,16 @@
       </div>
 
       <div class="card">
-        <div class="card-title">معلومات التحديث والإعلانات</div>
-        <ul style="padding-right: 20px; line-height: 2; font-size: 13.5px; color: var(--text-muted);">
-          <li><b>الإعلان العام (INFO/WARNING):</b> يظهر كنافذة للمستخدمين لمرة واحدة عند فتح التطبيق دون إيقاف العمل.</li>
-          <li><b>التحديث الإجباري (Force Update):</b> يقفل التطبيق على الإصدارات الأقدم ويلزم المستخدم بالتحديث عبر الرابط المحدد.</li>
-          <li><b>تطبيق فوري:</b> تسري التغييرات بمجرد اتصال الهاتف بالإنترنت.</li>
+        <div class="card-title">📱 معاينة فورية على هاتف المستخدم</div>
+        <div id="bcLivePreview" style="margin-bottom: 16px;"></div>
+
+        <hr style="border: 0; border-top: 1px solid var(--card-border); margin: 14px 0;">
+
+        <div class="card-title" style="font-size: 14.5px; margin-bottom: 10px;">الفرق بين قنوات البث</div>
+        <ul style="padding-right: 20px; line-height: 2; font-size: 13px; color: var(--text-muted);">
+          <li><b>إعلان توجيهي (INFO) أو تنبيه فني (WARNING):</b> يظهر كنافذة داخل التطبيق لمرة واحدة عند فتحه دون إيقاف العمل.</li>
+          <li><b>تحديث إجباري (UPDATE):</b> يقفل التطبيق على الإصدارات الأقدم أو المحددة ويلزم المستخدم بالتحديث عبر الرابط.</li>
+          <li><b>إشعار فوري للخلفية (Push / FCM):</b> يُرسل من القسم العلوي ليصل إلى ستارة الهاتف حتى لو كان التطبيق مغلقاً.</li>
         </ul>
       </div>
     </div>

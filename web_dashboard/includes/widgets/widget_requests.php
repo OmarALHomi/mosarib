@@ -2,10 +2,10 @@
     <div class="card">
       <div class="toolbar">
         <div class="card-title" style="margin-bottom: 0;">طلبات الاشتراك الواردة من هواتف العملاء</div>
-        <div style="display: flex; gap: 10px;">
-          <input type="text" class="search-input" id="requestSearch" placeholder="بحث باسم المشترك، الهاتف، الكود..." oninput="filterRequests()">
-          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="loadFirebaseData()">تحديث</button>
-          <button class="btn btn-outline" style="width: auto; padding: 8px 16px;" onclick="exportRequestsCSV()">تصدير CSV</button>
+        <div class="toolbar-actions">
+          <input type="search" class="search-input" id="requestSearch" placeholder="بحث باسم المشترك، الهاتف، الكود..." oninput="filterRequests()">
+          <button class="btn btn-outline btn-compact" onclick="loadFirebaseData()">تحديث</button>
+          <button class="btn btn-outline btn-compact" onclick="exportRequestsCSV()">تصدير CSV</button>
         </div>
       </div>
 
